@@ -50,3 +50,28 @@ An extra regression uses a high-weight chain followed by a source equation: cone
 Linux x86_64 local execution only. GitHub workflow additions are configured, not claimed as a new hosted CI result. The original model/run/check/result/state schemas remain byte-identical, and generated `analysis-v1` is byte-identical to the prior analysis schema. Current analysis is 0.2, export 0.1 and discovery 0.3.
 
 Cone completeness applies only to `exact` outcomes. Size, intermediate-ray, work and checked-i128 limits can prevent completion; no partial cone is emitted. Bounds concern nonnegative linear conservation laws in the initial class, not arbitrary evaluation states or complete dynamical reachability. Graph deficiency is structural. Reference export is restricted to elementary mass action and does not preserve target ODE semantics, live safety stops or all floating-point behavior. No CRN-craft stochastic solver or performance comparison is implemented.
+
+## Repository review, 1 November 2026
+
+The delivered mail patch `0001-m1b-cones-linkage-export.patch` (SHA-256 `936e3d7c…`) applied cleanly to `c167add` and produced tree `2f56d4f`. The delivery's gates reproduced on Linux x86_64 with Rust 1.97.0, Python 3.13.18 and the pinned GillesPy2 1.8.3 stack:
+
+- 97 release tests;
+- 58 contract, 218 network, 308 structure and 6 reference-export checks, with every report byte-identical to the delivered one and under `-O`;
+- the dependency gate;
+- 14 of 14 mutants caught.
+
+Independent checks run in review:
+
+| Check | Result |
+|---|---|
+| `analyze-v1` against the previous release | Byte-identical output to the `c167add` binary's `analyze` on all 1514 models: every shipped model and 1500 random networks with mass-action, Hill and Michaelis–Menten rates |
+| Effective bounds against a linear program | For each species of every random network, `initial_class_upper_bounds` equals ⌊min T·l subject to Nᵀl = 0, l ≥ 0, lᵢ = 1⌋ (HiGHS via SciPy), or null when infeasible: 6783 species, 0 mismatches. The cone bounds are therefore the best bounds that any non-negative linear conservation law gives |
+| GillesPy2 homodimer convention | GillesPy2 1.8.3 `Reaction._create_mass_action` builds `k * X * (X - 1) / vol` for 2X, confirming the exporter's halving |
+| Cone runtime | 40 random networks with 16–64 species and 8–256 reactions: all exact, at most 0.021 s per `analyze` |
+| Mutation probe of 20 cone, linkage, export and analysis rules | 17 caught by the delivered Rust tests. Survivors: combined rays not reduced to primitive form, the initial ray-cap check removed, linkage classes from outgoing edges only. The structure oracle caught only the third. Each now has a Rust test, and the first also an oracle model (`primitive_combination`) |
+
+After the review:
+
+- 100 release tests: 35 contracts, 33 network, 22 structure, 10 CLI;
+- the structure oracle passes 309 checks; the fixture stream SHA-256 is now `1373b12d6c9601fe27e3d5424ff0fce260c9708af5face695308366df9cefa98`, and 525 species are bounded by the cone against 511 by the basis;
+- the mutation gate catches 17 of 17 mutants after a passing baseline.

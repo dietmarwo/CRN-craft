@@ -43,7 +43,7 @@ cargo test --release --workspace --locked
 | Reference exporter | GillesPy2 1.8.3 elementary mass action, explicit homodimer conversion, fixed count convention and safe aliases |
 | Models | Immigration–death; explicit enzyme mechanism; reduced Michaelis–Menten; complete three-gene repressilator |
 | Run contracts | Direct SSA requests and bounded FSP requests; execution unavailable |
-| Evidence | Rust regression tests, 13 invalid fixtures, independent exact/Decimal oracle for 200 seeded networks, 300-network exact cone/graph oracle, 14 source mutations against a passing baseline and real GillesPy2 exporter checks, schema and dependency gates |
+| Evidence | Rust regression tests, 13 invalid fixtures, independent exact/Decimal oracle for 200 seeded networks, 300-network exact cone/graph oracle with five targeted models, 17 source mutations against a passing baseline and real GillesPy2 exporter checks, schema and dependency gates |
 | Documentation | Revised plan, diagnostics, rate conventions, statistical policy, extension/model-card templates and agent guide |
 
 Unknown fields and duplicate JSON keys are errors. Names are unique ASCII identifiers. Counts are checked i64 values. Rate parameters have finite domains. Custom rates are complete propensities, with separate reactant-availability gates. No extra mass-action factor is applied to a custom law.

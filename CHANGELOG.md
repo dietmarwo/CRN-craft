@@ -9,12 +9,13 @@
 - Reaction complexes, linkage/strong/terminal classes, weak reversibility and structural deficiency, with iterative graph walks.
 - GillesPy2 1.8.3 elementary mass-action Python export, explicit homodimer conversion, collision-free aliases and unsupported-feature diagnostics.
 - Independent support-enumeration/reachability oracle for 300 seeded networks, real target propensity/SSA-smoke checks and seven additional source mutants.
+- Tests and mutants for gcd reduction of combined cone rays, a caller ray cap below the number of initial orthant rays, and linkage classes joined only through converging edges, which three probe mutants had passed; the structure oracle gains the `primitive_combination` model.
 
 ### Changed
 
 - Analysis advances to 0.2; `analyze-v1` preserves 0.1. Discovery advances to 0.3; export starts at 0.1. Model/run/check/result/state schemas remain unchanged.
 - W001 suppression uses exact cone bounds when available and retains sound basis bounds on unavailable outcomes.
-- CI covers structure/oracle checks under normal Python and `-O`, 14 mutants after a passing baseline, and optional pinned reference validation.
+- CI covers structure/oracle checks under normal Python and `-O`, 17 mutants after a passing baseline, and optional pinned reference validation.
 
 ### Limits
 

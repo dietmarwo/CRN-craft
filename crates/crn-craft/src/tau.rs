@@ -57,8 +57,46 @@ fn error(s: impl Into<String>) -> Diagnostic {
         "Use epsilon in [0.001,0.2], finite budgets and non-negative checked populations; this method is approximate.",
     )
 }
+/// Largest Poisson mean a single leap may draw for one channel.
+const POISSON_MEAN_LIMIT: f64 = 1e7;
+pub const ALGORITHM: &str = "adaptive_explicit_poisson_cgp_reject_halve_direct_fallback/0.2";
+
+/// Cao, Gillespie and Petzold (2006), eq. 27: the factor g_i for a species
+/// whose highest-order reaction as a reactant has total `order` and needs
+/// `multiplicity` molecules of it. Orders above three use the order itself.
+pub(crate) fn cgp_g(order: i64, multiplicity: i64, count: i64) -> f64 {
+    let x = count as f64;
+    match (order, multiplicity) {
+        (..=1, _) => 1.0,
+        (2, 2) => 2.0 + 1.0 / (x - 1.0),
+        (2, _) => 2.0,
+        (3, 3) => 3.0 + 1.0 / (x - 1.0) + 2.0 / (x - 2.0),
+        (3, 2) => 1.5 * (2.0 + 1.0 / (x - 1.0)),
+        (3, _) => 3.0,
+        _ => order as f64,
+    }
+}
+
+/// Per species: the highest total reactant order of a reaction consuming it,
+/// and the largest multiplicity of the species among reactions of that order.
+fn highest_orders(network: &CompiledNetwork) -> Vec<(i64, i64)> {
+    let mut orders = vec![(0, 0); network.species().len()];
+    for reaction in network.reactions() {
+        let order: i64 = reaction.reactants.iter().map(|t| t.coefficient).sum();
+        for term in &reaction.reactants {
+            let entry = &mut orders[term.species];
+            if order > entry.0 {
+                *entry = (order, term.coefficient);
+            } else if order == entry.0 {
+                entry.1 = entry.1.max(term.coefficient);
+            }
+        }
+    }
+    orders
+}
+
 fn poisson(mean: f64, rng: &mut impl RngCore, poller: &mut Poller) -> Result<u64, Diagnostic> {
-    if !mean.is_finite() || !(0.0..=1e7).contains(&mean) {
+    if !mean.is_finite() || !(0.0..=POISSON_MEAN_LIMIT).contains(&mean) {
         return Err(error("Poisson mean exceeds supported work range"));
     }
     if mean == 0. {
@@ -97,7 +135,8 @@ fn path(
         saved_points: 0,
         diagnostic: None,
     };
-    let mut rng = sampling::stream(run.ensemble.as_ref().unwrap().root_seed, id);
+    let mut rng = sampling::tau_stream(run.ensemble.as_ref().unwrap().root_seed, id);
+    let orders = highest_orders(network);
     let mut state = network.initial_counts().to_vec();
     let mut counts = Vec::new();
     let mut time = 0.;
@@ -163,7 +202,10 @@ fn path(
                 }
                 let mut dt = target - time;
                 for i in 0..state.len() {
-                    let scale = (epsilon * state[i] as f64).max(1.);
+                    // No critical reactant here, so every reactant count exceeds ten.
+                    let (order, multiplicity) = orders[i];
+                    let g = cgp_g(order, multiplicity, state[i]);
+                    let scale = (epsilon * state[i] as f64 / g).max(1.);
                     if drift[i] != 0. {
                         dt = dt.min(scale / drift[i].abs());
                     }
@@ -171,6 +213,9 @@ fn path(
                         dt = dt.min(scale * scale / variance[i]);
                     }
                 }
+                // Keep every channel's leap mean within the sampler's range.
+                let largest = rates.iter().copied().fold(0.0, f64::max);
+                dt = dt.min(POISSON_MEAN_LIMIT / largest);
                 for attempt in 0..=20 {
                     if let Some(stop) = poller.poll() {
                         return Ok(stop);
@@ -352,7 +397,7 @@ pub fn solve(
         });
     let result = TauResult {
         schema: ResultVersion::V01,
-        algorithm: "adaptive_explicit_poisson_reject_halve_direct_fallback/0.1".into(),
+        algorithm: ALGORITHM.into(),
         assessment: if termination == Stop::Completed {
             "approximate_ensemble"
         } else {
@@ -418,4 +463,33 @@ pub fn solve_files(
         )]);
     }
     solve(&model, &bytes, control)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cgp_factors_follow_the_published_cases() {
+        assert_eq!(cgp_g(1, 1, 50), 1.0);
+        assert_eq!(cgp_g(2, 1, 50), 2.0);
+        assert_eq!(cgp_g(2, 2, 11), 2.0 + 1.0 / 10.0);
+        assert_eq!(cgp_g(3, 1, 50), 3.0);
+        assert_eq!(cgp_g(3, 2, 11), 1.5 * (2.0 + 1.0 / 10.0));
+        assert_eq!(cgp_g(3, 3, 12), 3.0 + 1.0 / 11.0 + 2.0 / 10.0);
+        assert_eq!(cgp_g(4, 1, 50), 4.0);
+        assert_eq!(cgp_g(0, 0, 50), 1.0);
+    }
+
+    #[test]
+    fn tau_keys_differ_from_direct_keys() {
+        for seed in [0, 1, 4242] {
+            for replicate in [0, 7] {
+                assert_ne!(
+                    sampling::tau_stream(seed, replicate).next_u64(),
+                    sampling::stream(seed, replicate).next_u64()
+                );
+            }
+        }
+    }
 }

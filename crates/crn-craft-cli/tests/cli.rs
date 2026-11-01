@@ -338,3 +338,35 @@ fn simulate_exits_zero_only_for_a_complete_ensemble_and_verify_for_valid_archive
     std::fs::remove_file(partial.join("COMPLETE")).unwrap();
     assert_eq!(invoke(&["verify", &paths(&partial)]).0, 1);
 }
+
+#[test]
+fn tau_accepts_a_cancel_file_and_stops_before_any_replicate() {
+    let dir = std::env::temp_dir().join(format!("crn-cli-tau-cancel-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir(&dir).unwrap();
+    let model = br#"{"schema":"crn-craft.model/0.1","name":"T","convention":"stochastic_counts","omega":1.0,"parameters":{},"species":[{"name":"X","initial_count":30}],"reactions":[{"name":"birth","reactants":{},"products":{"X":1},"rate":{"kind":"mass_action","coefficient":20.0}}]}"#;
+    std::fs::write(dir.join("model.json"), model).unwrap();
+    let run = serde_json::json!({"schema":"crn-craft.run/0.1","model":{"path":"model.json","sha256":crn_craft::sha256(model)},"method":{"kind":"ssa","aggregator":"direct"},"ensemble":{"replicates":4,"root_seed":1},"time":{"end":1.0,"save_times":[0.0,1.0]},"outputs":{"statistics":["mean"],"keep_trajectories":0},"budget":{"threads":1,"max_events_per_replicate":100000,"max_output_bytes":100000}});
+    let request = serde_json::json!({"schema":"crn-craft.tau-request/0.1","epsilon":0.05,"max_leaps_per_replicate":1000,"reference_run":run});
+    std::fs::write(dir.join("tau.json"), serde_json::to_vec(&request).unwrap()).unwrap();
+    std::fs::write(dir.join("cancel"), b"").unwrap();
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_crn-craft"))
+        .arg("tau")
+        .arg(dir.join("model.json"))
+        .arg(dir.join("tau.json"))
+        .arg("--cancel-file")
+        .arg(dir.join("cancel"))
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    let value: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(value["termination"], "cancelled");
+    assert!(
+        value["replicates"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|r| r["started"] == false)
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}

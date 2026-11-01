@@ -10,8 +10,18 @@ pub const UNIFORM_STEP: f64 = 1.0 / 9_007_199_254_740_992.0;
 /// SHA256(domain || root_seed little endian) is the key; replicate is the
 /// ChaCha 64-bit stream id. No hashing of thread count, model or save grid.
 pub fn stream(root_seed: u64, replicate: u64) -> ChaCha8Rng {
+    keyed_stream(b"crn-craft.chacha8/0.1\0", root_seed, replicate)
+}
+
+/// Tau leaping's own key: a tau ensemble and an exact ensemble with the same
+/// root seed do not share random words, so comparing them is not coupled.
+pub fn tau_stream(root_seed: u64, replicate: u64) -> ChaCha8Rng {
+    keyed_stream(b"crn-craft.chacha8-tau/0.1\0", root_seed, replicate)
+}
+
+fn keyed_stream(domain: &[u8], root_seed: u64, replicate: u64) -> ChaCha8Rng {
     let mut digest = Sha256::new();
-    digest.update(b"crn-craft.chacha8/0.1\0");
+    digest.update(domain);
     digest.update(root_seed.to_le_bytes());
     let mut rng = ChaCha8Rng::from_seed(digest.finalize().into());
     rng.set_stream(replicate);

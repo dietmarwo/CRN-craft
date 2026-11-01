@@ -266,7 +266,7 @@ def interval(ratios, resamples=20000, seed=20261101):
     return [medians[int(0.025 * resamples)], medians[int(0.975 * resamples) - 1]]
 
 
-def measure(name, before, after, command, pairs, exact):
+def measure(name, before, after, command, pairs, exact, metric="core"):
     workload, default_pairs = WORKLOADS[name]
     pairs = pairs or default_pairs
     rows = {"before": [], "after": []}
@@ -278,11 +278,19 @@ def measure(name, before, after, command, pairs, exact):
                     run_once(binary, command, workload, folder, f"{label}{pair}")
                 )
     digests = {r["numerical_sha256"] for r in rows["before"] + rows["after"]}
-    ratios = [
-        b["core_seconds"] / a["core_seconds"]
-        for b, a in zip(rows["before"], rows["after"], strict=True)
-    ]
+
+    def paired(field):
+        return [
+            b[field] / a[field]
+            for b, a in zip(rows["before"], rows["after"], strict=True)
+        ]
+
+    ratios = paired(metric + "_seconds")
+    process = paired("process_seconds")
     entry = {
+        "metric": metric,
+        "process_speedup_median": statistics.median(process),
+        "process_speedup_interval_95": interval(process),
         "pairs": pairs,
         "identical": len(digests) == 1,
         "events": rows["before"][0]["events"],
@@ -339,6 +347,12 @@ def main():
     ap.add_argument("--targets", nargs="+", required=True, choices=list(WORKLOADS))
     ap.add_argument("--pairs", type=int)
     ap.add_argument("--approximate", action="store_true")
+    ap.add_argument(
+        "--metric",
+        choices=["core", "process"],
+        default="core",
+        help="paired time for the decision (process only where declared, P20)",
+    )
     ap.add_argument("--output", type=Path, required=True)
     args = ap.parse_args()
     report = {
@@ -348,6 +362,7 @@ def main():
         "command": args.command,
         "seed": SEED,
         "exact": not args.approximate,
+        "metric": args.metric,
         "workloads": {},
     }
     for name in args.workloads:
@@ -358,6 +373,7 @@ def main():
             args.command,
             args.pairs,
             not args.approximate,
+            args.metric,
         )
         entry = report["workloads"][name]
         print(

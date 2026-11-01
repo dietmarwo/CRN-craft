@@ -1,0 +1,85 @@
+commit 177df5a541027cec2277606e619f9820e5a824a1
+Author: Claude <noreply@anthropic.com>
+Date:   Sun Nov 1 17:36:54 2026 -0500
+
+    P13 keep the running sums when recomputed rates are bitwise unchanged
+    
+    simulate-cached resumes its running sums at the first dependent rate whose
+    recomputed value differs bitwise, and keeps the previous total when none
+    does, for example for saturated, gated or catalyst-only dependencies.
+    Covered by the partial-resumption test against Direct.
+    
+    Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+    Claude-Session: https://claude.ai/code/session_01Sh6qGxYYnoycTZX4JQ64tG
+
+diff --git a/crates/crn-craft/src/simulation.rs b/crates/crn-craft/src/simulation.rs
+index 84a4069..4ee8a07 100644
+--- a/crates/crn-craft/src/simulation.rs
++++ b/crates/crn-craft/src/simulation.rs
+@@ -342,7 +342,7 @@ fn path_with_rng_mode(
+     let mut state = network.initial_counts().to_vec();
+     let mut time = 0.0;
+     let mut save = 0;
+-    let mut rates = Vec::with_capacity(network.reactions().len());
++    let mut rates: Vec<f64> = Vec::with_capacity(network.reactions().len());
+     let mut prefix = Vec::with_capacity(network.reactions().len());
+     let mut minima = Vec::with_capacity(network.reactions().len());
+     let mut total = 0.0;
+@@ -370,17 +370,23 @@ fn path_with_rng_mode(
+                 return Ok(Stop::EventLimit);
+             }
+             if let (true, Some(changed)) = (cached, previous) {
+-                let affected = &network.dependencies()[changed];
+-                for (i, &reaction) in affected.iter().enumerate() {
++                // Dependencies are sorted, so the first bitwise change is the
++                // lowest; running sums before it are unchanged. Without a
++                // change the previous total and running sums still hold.
++                let mut lowest = None;
++                for (i, &reaction) in network.dependencies()[changed].iter().enumerate() {
+                     if i % 64 == 0 {
+                         if let Some(stop) = poller.poll() {
+                             return Ok(stop);
+                         }
+                     }
+-                    rates[reaction] = network.propensity_in_valid_state(reaction, &state)?;
++                    let rate = network.propensity_in_valid_state(reaction, &state)?;
++                    if lowest.is_none() && rate.to_bits() != rates[reaction].to_bits() {
++                        lowest = Some(reaction);
++                    }
++                    rates[reaction] = rate;
+                 }
+-                // Dependencies are sorted: running sums before the first one are unchanged.
+-                if let Some(&lowest) = affected.first() {
++                if let Some(lowest) = lowest {
+                     total = sampling::resume_total(&rates, &mut prefix, &mut minima, lowest)?;
+                 }
+             } else {
+diff --git a/crates/crn-craft/tests/ssa.rs b/crates/crn-craft/tests/ssa.rs
+index df09a58..0525621 100644
+--- a/crates/crn-craft/tests/ssa.rs
++++ b/crates/crn-craft/tests/ssa.rs
+@@ -452,9 +452,7 @@ fn external_checkpoint_interrupts_active_cached_and_direct_work() {
+ #[test]
+ fn cached_direct_matches_direct_with_partial_resumption_and_failures() {
+     let mass = |c: f64| json!({"kind": "mass_action", "coefficient": c});
+-    let reaction = |name: &str, reactants: Value, products: Value, rate: Value| {
+-        json!({"name": name, "reactants": reactants, "products": products, "rate": rate})
+-    };
++    let reaction = |name: &str, reactants: Value, products: Value, rate: Value| json!({"name": name, "reactants": reactants, "products": products, "rate": rate});
+     let reactions = vec![
+         reaction("zero", json!({"A": 1}), json!({}), mass(0.0)),
+         reaction("make_a", json!({}), json!({"A": 1}), mass(5.0)),
+@@ -465,7 +463,12 @@ fn cached_direct_matches_direct_with_partial_resumption_and_failures() {
+             json!({"D": 1}),
+             json!({"kind": "hill_repression", "regulator": "C", "vmax": 4.0, "basal": 0.0, "k": 1.0, "n": 8.0}),
+         ),
+-        reaction("catalysed_b", json!({"A": 1, "E": 1}), json!({"A": 1, "E": 1, "B": 1}), mass(0.4)),
++        reaction(
++            "catalysed_b",
++            json!({"A": 1, "E": 1}),
++            json!({"A": 1, "E": 1, "B": 1}),
++            mass(0.4),
++        ),
+         reaction("lose_a", json!({"A": 1}), json!({}), mass(0.3)),
+         reaction("triple_c", json!({"C": 3}), json!({"C": 2}), mass(0.001)),
+         reaction("lose_d", json!({"D": 1}), json!({}), mass(0.5)),

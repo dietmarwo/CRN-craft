@@ -212,10 +212,12 @@ fn simulate_using(
         fs::create_dir(output).map_err(|e| vec![io_error(e)])?;
         write_new(&output.join("model.json"), &model).map_err(|e| vec![e])?;
         write_new(&output.join("run.json"), &run).map_err(|e| vec![e])?;
-        let simulation::Encoded {
-            mut simulation,
-            bytes,
-        } = simulation::execute_encoded(&prepared, control, cached).map_err(|e| vec![e])?;
+        let mut simulation = if cached {
+            simulation::execute_cached(&prepared, control)
+        } else {
+            simulation::execute(&prepared, control)
+        }
+        .map_err(|e| vec![e])?;
         simulation.provenance.executable_sha256 = executable_hash();
         let provenance = encoded(&simulation.provenance, 8192).map_err(|e| vec![e])?;
         let total_limit = prepared
@@ -225,10 +227,7 @@ fn simulate_using(
             .min(simulation::MAX_RESULT_BYTES);
         let result_limit = total_limit
             .saturating_sub(model.len() as u64 + run.len() as u64 + provenance.len() as u64 + 8192);
-        // The bytes that passed the output budget are the bytes `encoded`
-        // would produce; serialize again only when they exceed this limit.
-        let reused = bytes.filter(|bytes| bytes.len() as u64 <= result_limit);
-        let result = match reused.map_or_else(|| encoded(&simulation.result, result_limit), Ok) {
+        let result = match encoded(&simulation.result, result_limit) {
             Ok(bytes) => bytes,
             Err(_) => {
                 // Retain full accounting; never present truncated statistics as exact.

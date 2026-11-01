@@ -211,6 +211,31 @@ fn unknown_fields_rejected_in_every_run_object() {
 }
 
 #[test]
+fn unsupported_run_versions_methods_and_aggregators_rejected() {
+    type Edit = fn(&mut Value);
+    let original = serde_json::to_value(run()).unwrap();
+    let cases: [(Edit, &str); 4] = [
+        (|r| r["schema"] = json!("crn-craft.run/0.2"), "/schema"),
+        (|r| r["method"] = json!({"kind": "ode"}), "/method/kind"),
+        (
+            |r| r["method"] = json!({"kind": "tau_leap", "epsilon": 0.03}),
+            "/method/kind",
+        ),
+        // Tagged variants report an invalid field value at the variant object.
+        (|r| r["method"]["aggregator"] = json!("nrm"), "/method"),
+    ];
+    for (edit, path) in cases {
+        let mut value = original.clone();
+        edit(&mut value);
+        let error = parse_run(&serde_json::to_vec(&value).unwrap()).unwrap_err();
+        assert_eq!(
+            (error.code.as_str(), error.path.as_str()),
+            ("CRN-E003", path)
+        );
+    }
+}
+
+#[test]
 fn duplicate_keys_at_all_depths_and_escaped_spellings_rejected() {
     for (text, path) in [
         (r#"{"schema":0,"schema":1}"#, "/schema"),

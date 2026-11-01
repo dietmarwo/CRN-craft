@@ -1,6 +1,6 @@
 # Diagnostics
 
-Every diagnostic contains `severity`, `code`, `path`, `message`, `hint`. Paths use RFC 6901 (`~1` for slash, `~0` for tilde); the empty path denotes the root. Type errors may identify the containing object when the parser cannot name a missing/unknown child. Messages provide detail; code and relevant pointer are the machine contract.
+Every diagnostic contains `severity`, `code`, `path`, `message`, `hint`. Paths use RFC 6901 (`~1` for slash, `~0` for tilde); the empty path denotes the root. Type errors may identify the containing object when the parser cannot name a missing/unknown child. Inside the tagged `rate` and `method` variants, a missing field or an invalid field value (for example `"aggregator": "nrm"`) is reported at the variant object, such as `/method`; an unknown `kind` is reported at `.../kind`. Messages provide detail; code and relevant pointer are the machine contract.
 
 | Code | Meaning | Typical repair |
 |---|---|---|

@@ -1,0 +1,172 @@
+{
+  "allocation": 8,
+  "gate": {
+    "every_ode_solve_completed": true,
+    "full_allocation_for_every_topology": true,
+    "no_ode_rejection": true,
+    "ode_negative_topology_still_allocated": true,
+    "positive_control_ode_oscillatory": true
+  },
+  "gate_fails_on_perturbed_rows": {
+    "no_ode_negative_topology": true,
+    "ode_rejection": true,
+    "ode_solver_failure": true,
+    "one_path_missing": true,
+    "positive_control_not_oscillatory": true
+  },
+  "horizon": 400.0,
+  "passed": true,
+  "rows": [
+    {
+      "completed_paths": 8,
+      "events": 2649669,
+      "model": "repressilator",
+      "ode_diagnostic": {
+        "autocorrelation_peak": 0.7235748734605495,
+        "classification": "oscillatory",
+        "cycles": 5.0,
+        "peak_fraction": 0.6090697599075503,
+        "period": 40.1
+      },
+      "rejected_by_ode": false,
+      "role": "positive_control",
+      "scope": "measured controls, not population-wide detector sensitivity",
+      "species": "m1",
+      "stochastic_allocation": 8,
+      "stochastic_diagnostics": [
+        {
+          "autocorrelation_peak": 0.4763836816112827,
+          "classification": "oscillatory",
+          "cycles": 5.0,
+          "peak_fraction": 0.44927617647986245,
+          "period": 40.1
+        },
+        {
+          "autocorrelation_peak": 0.4271737554481437,
+          "classification": "oscillatory",
+          "cycles": 5.0,
+          "peak_fraction": 0.35522202728163305,
+          "period": 40.1
+        },
+        {
+          "autocorrelation_peak": 0.5327810947377065,
+          "classification": "oscillatory",
+          "cycles": 5.0,
+          "peak_fraction": 0.3894279936132024,
+          "period": 40.1
+        },
+        {
+          "autocorrelation_peak": 0.4699766976724238,
+          "classification": "oscillatory",
+          "cycles": 4.0,
+          "peak_fraction": 0.32794312679885584,
+          "period": 50.125
+        },
+        {
+          "autocorrelation_peak": 0.4921161227251028,
+          "classification": "oscillatory",
+          "cycles": 5.0,
+          "peak_fraction": 0.3669632214384822,
+          "period": 40.1
+        },
+        {
+          "autocorrelation_peak": 0.43379488907837843,
+          "classification": "oscillatory",
+          "cycles": 5.0,
+          "peak_fraction": 0.408382101286077,
+          "period": 40.1
+        },
+        {
+          "autocorrelation_peak": 0.4230786653950184,
+          "classification": "oscillatory",
+          "cycles": 5.0,
+          "peak_fraction": 0.4147069221483623,
+          "period": 40.1
+        },
+        {
+          "autocorrelation_peak": 0.5261566553403815,
+          "classification": "oscillatory",
+          "cycles": 4.0,
+          "peak_fraction": 0.4921023003806495,
+          "period": 50.125
+        }
+      ]
+    },
+    {
+      "completed_paths": 8,
+      "events": 5033931,
+      "model": "vilar-noise",
+      "ode_diagnostic": {
+        "autocorrelation_peak": 0.00141964664129589,
+        "classification": "nonoscillatory",
+        "cycles": 7.0,
+        "peak_fraction": 0.06879594136020398,
+        "period": 28.642857142857142
+      },
+      "rejected_by_ode": false,
+      "role": "noise_driven_control",
+      "scope": "measured controls, not population-wide detector sensitivity",
+      "species": "A",
+      "stochastic_allocation": 8,
+      "stochastic_diagnostics": [
+        {
+          "autocorrelation_peak": -0.055113909287401626,
+          "classification": "nonoscillatory",
+          "cycles": 7.0,
+          "peak_fraction": 0.08850082474605064,
+          "period": 28.642857142857142
+        },
+        {
+          "autocorrelation_peak": -0.03797133896064595,
+          "classification": "nonoscillatory",
+          "cycles": 5.0,
+          "peak_fraction": 0.10566804593693423,
+          "period": 40.1
+        },
+        {
+          "autocorrelation_peak": -0.058086174272470474,
+          "classification": "nonoscillatory",
+          "cycles": 8.0,
+          "peak_fraction": 0.10671902401463494,
+          "period": 25.0625
+        },
+        {
+          "autocorrelation_peak": 0.061940457233248196,
+          "classification": "nonoscillatory",
+          "cycles": 3.0,
+          "peak_fraction": 0.1402321355309556,
+          "period": 66.83333333333333
+        },
+        {
+          "autocorrelation_peak": -0.04712414535151076,
+          "classification": "nonoscillatory",
+          "cycles": 3.0,
+          "peak_fraction": 0.13486620796621498,
+          "period": 66.83333333333333
+        },
+        {
+          "autocorrelation_peak": 0.25712864206800534,
+          "classification": "nonoscillatory",
+          "cycles": 3.0,
+          "peak_fraction": 0.12178500901917366,
+          "period": 66.83333333333333
+        },
+        {
+          "autocorrelation_peak": -0.05828926930084373,
+          "classification": "nonoscillatory",
+          "cycles": 8.0,
+          "peak_fraction": 0.11575130060074275,
+          "period": 25.0625
+        },
+        {
+          "autocorrelation_peak": -0.06615183507847688,
+          "classification": "nonoscillatory",
+          "cycles": 5.0,
+          "peak_fraction": 0.09600116730786486,
+          "period": 40.1
+        }
+      ]
+    }
+  ],
+  "schema": "crn-craft.screen-study/0.2"
+}

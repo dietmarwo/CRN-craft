@@ -1,0 +1,16 @@
+{
+  "local": {
+    "report": {
+      "bfgs_seconds": 9.220999999999999e-06,
+      "callback_seconds": 0.11588278300000002,
+      "qp_check_seconds": 1.1139e-05,
+      "qp_conversion_seconds": 8.302e-06,
+      "qp_seconds": 5.851400000000001e-05,
+      "qp_setup_seconds": 1.4250000000000001e-06,
+      "qp_solve_seconds": 1.6791e-05,
+      "qp_update_seconds": 0.0,
+      "restoration_seconds": 0.0,
+      "total_seconds": 0.116050388
+    }
+  }
+}

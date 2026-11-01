@@ -1,0 +1,59 @@
+{
+  "F1_chain_rule_factor_dropped": {
+    "derivative_check_passed": false,
+    "error_tail": [
+      "RuntimeError: fit gate failed; retained report"
+    ],
+    "exit": 1,
+    "gradient_checks_passed": [
+      false,
+      false
+    ],
+    "killed": true,
+    "native_loss": 0.22162750072606496,
+    "old_gate_would_pass": false,
+    "report_passed": false
+  },
+  "F2_coordinate_order_swapped": {
+    "derivative_check_passed": null,
+    "error_tail": [
+      "RuntimeError: parameter order ['birth', 'death'] != ['death', 'birth']"
+    ],
+    "exit": 1,
+    "gradient_checks_passed": null,
+    "killed": true,
+    "native_loss": null,
+    "old_gate_would_pass": false,
+    "report_passed": null
+  },
+  "F3_sensitivity_columns_swapped": {
+    "derivative_check_passed": false,
+    "error_tail": [
+      "RuntimeError: fit gate failed; retained report"
+    ],
+    "exit": 1,
+    "gradient_checks_passed": [
+      false,
+      false
+    ],
+    "killed": true,
+    "native_loss": 0.5752271786604536,
+    "old_gate_would_pass": false,
+    "report_passed": false
+  },
+  "F4_gradient_scaled_1_5": {
+    "derivative_check_passed": false,
+    "error_tail": [
+      "RuntimeError: fit gate failed; retained report"
+    ],
+    "exit": 1,
+    "gradient_checks_passed": [
+      false,
+      false
+    ],
+    "killed": true,
+    "native_loss": 1.995533220533766e-18,
+    "old_gate_would_pass": true,
+    "report_passed": false
+  }
+}

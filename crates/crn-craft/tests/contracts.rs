@@ -348,6 +348,64 @@ fn population_limit_is_checked_separately() {
 }
 
 #[test]
+fn initial_state_must_lie_within_population_limits_and_fsp_bounds() {
+    let mut model = model();
+    model.species[0].initial_count = 10;
+    for (limit, rejected) in [(9, true), (10, false)] {
+        model.species[0].population_limit = Some(limit);
+        assert_eq!(
+            has(
+                &validate::validate_model(&model),
+                "CRN-E016",
+                "/species/0/population_limit"
+            ),
+            rejected,
+            "limit {limit}"
+        );
+    }
+    let bytes =
+        std::fs::read(root().join("models/examples/immigration-death.fsp.run.json")).unwrap();
+    let mut run = parse_run(&bytes).unwrap();
+    for (bound, rejected) in [(9, true), (10, false)] {
+        if let Method::Fsp { bounds, .. } = &mut run.method {
+            bounds.insert("A".into(), bound);
+        }
+        let diagnostics = validate::validate_run(&model, &run, &run.model.sha256);
+        assert_eq!(
+            has(&diagnostics, "CRN-E023", "/method/bounds/A"),
+            rejected,
+            "bound {bound}"
+        );
+    }
+}
+
+#[test]
+fn output_budget_minimum_matches_the_documented_formula() {
+    // docs/contracts.md: 8 * save_times * (1 + species * (statistics + kept_trajectories)).
+    let run = run();
+    let species = model().species.len() as u64;
+    let minimum = 8
+        * run.time.save_times.len() as u64
+        * (1 + species * (run.outputs.statistics.len() as u64 + run.outputs.keep_trajectories));
+    assert!(run.outputs.keep_trajectories > 0);
+    for (budget, rejected) in [(minimum - 1, true), (minimum, false)] {
+        mutated_run_status(
+            |r| r.budget.max_output_bytes = budget,
+            "CRN-E020",
+            "/budget/max_output_bytes",
+            rejected,
+        );
+    }
+}
+
+fn mutated_run_status(edit: impl FnOnce(&mut Run), code: &str, path: &str, expected: bool) {
+    let mut run = run();
+    edit(&mut run);
+    let diagnostics = validate::validate_run(&model(), &run, &sha256(&bytes()));
+    assert_eq!(has(&diagnostics, code, path), expected, "{diagnostics:?}");
+}
+
+#[test]
 fn finite_and_positive_domains_checked_for_typed_callers() {
     for value in [f64::NAN, f64::INFINITY, 0.0, -1.0] {
         let mut model = model();

@@ -1,0 +1,37 @@
+{
+  "schema": "crn-craft.model/0.1",
+  "name": "michaelis_menten_reduced",
+  "convention": "stochastic_counts",
+  "omega": 1.0,
+  "parameters": {
+    "vmax": 5.0,
+    "km": 20.0
+  },
+  "species": [
+    {
+      "name": "S",
+      "initial_count": 50
+    },
+    {
+      "name": "P",
+      "initial_count": 0
+    }
+  ],
+  "reactions": [
+    {
+      "name": "conversion",
+      "reactants": {
+        "S": 1
+      },
+      "products": {
+        "P": 1
+      },
+      "rate": {
+        "kind": "michaelis_menten",
+        "substrate": "S",
+        "vmax": "vmax",
+        "km": "km"
+      }
+    }
+  ]
+}

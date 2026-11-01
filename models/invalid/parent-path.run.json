@@ -1,0 +1,38 @@
+{
+  "schema": "crn-craft.run/0.1",
+  "model": {
+    "path": "../model.json",
+    "sha256": "3f647f5a88bfbaf5136ccbcb45b90ca8c16737a0ba88e157ef40f4a86810f1b4"
+  },
+  "method": {
+    "kind": "ssa",
+    "aggregator": "direct"
+  },
+  "time": {
+    "end": 10.0,
+    "save_times": [
+      0.0,
+      1.0,
+      2.0,
+      5.0,
+      10.0
+    ]
+  },
+  "ensemble": {
+    "replicates": 64,
+    "root_seed": 42
+  },
+  "outputs": {
+    "statistics": [
+      "mean",
+      "variance"
+    ],
+    "keep_trajectories": 2
+  },
+  "budget": {
+    "max_events_per_replicate": 1000000,
+    "wall_time_s": 60.0,
+    "threads": 1,
+    "max_output_bytes": 1048576
+  }
+}

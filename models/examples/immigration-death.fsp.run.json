@@ -1,0 +1,37 @@
+{
+  "schema": "crn-craft.run/0.1",
+  "model": {
+    "path": "immigration-death.model.json",
+    "sha256": "3f647f5a88bfbaf5136ccbcb45b90ca8c16737a0ba88e157ef40f4a86810f1b4"
+  },
+  "method": {
+    "kind": "fsp",
+    "bounds": {
+      "A": 100
+    },
+    "max_states": 102,
+    "tolerance": 1e-10
+  },
+  "time": {
+    "end": 10.0,
+    "save_times": [
+      0.0,
+      1.0,
+      2.0,
+      5.0,
+      10.0
+    ]
+  },
+  "outputs": {
+    "statistics": [
+      "mean",
+      "variance"
+    ],
+    "keep_trajectories": 0
+  },
+  "budget": {
+    "wall_time_s": 60.0,
+    "threads": 1,
+    "max_output_bytes": 1048576
+  }
+}

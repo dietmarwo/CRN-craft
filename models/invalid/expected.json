@@ -1,0 +1,93 @@
+[
+  {
+    "name": "unknown-species",
+    "model": "unknown-species.model.json",
+    "run": null,
+    "code": "CRN-E012",
+    "path": "/reactions/0/products/ghost"
+  },
+  {
+    "name": "negative-stoichiometry",
+    "model": "negative-stoichiometry.model.json",
+    "run": null,
+    "code": "CRN-E013",
+    "path": "/reactions/1/reactants/A"
+  },
+  {
+    "name": "duplicate-species",
+    "model": "duplicate-species.model.json",
+    "run": null,
+    "code": "CRN-E011",
+    "path": "/species/1/name"
+  },
+  {
+    "name": "missing-parameter",
+    "model": "missing-parameter.model.json",
+    "run": null,
+    "code": "CRN-E014",
+    "path": "/reactions/0/rate/coefficient"
+  },
+  {
+    "name": "nonfinite-number",
+    "model": "nonfinite-number.model.json",
+    "run": null,
+    "code": "CRN-E015",
+    "path": "/parameters/birth"
+  },
+  {
+    "name": "duplicate-key",
+    "model": "duplicate-key.model.json",
+    "run": null,
+    "code": "CRN-E002",
+    "path": "/parameters/birth"
+  },
+  {
+    "name": "negative-count",
+    "model": "negative-count.model.json",
+    "run": null,
+    "code": "CRN-E016",
+    "path": "/species/0/initial_count"
+  },
+  {
+    "name": "wrong-convention",
+    "model": "wrong-convention.model.json",
+    "run": null,
+    "code": "CRN-E003",
+    "path": "/convention"
+  },
+  {
+    "name": "unsupported-expression-reference",
+    "model": "unsupported-expression-reference.model.json",
+    "run": null,
+    "code": "CRN-E003",
+    "path": "/reactions/0/rate/kind"
+  },
+  {
+    "name": "hash-mismatch",
+    "model": "model.json",
+    "run": "hash-mismatch.run.json",
+    "code": "CRN-E021",
+    "path": "/model/sha256"
+  },
+  {
+    "name": "missing-fsp-bound",
+    "model": "model.json",
+    "run": "missing-fsp-bound.run.json",
+    "code": "CRN-E023",
+    "path": "/method/bounds/A"
+  },
+  {
+    "name": "duplicate-save-time",
+    "model": "model.json",
+    "run": "duplicate-save-time.run.json",
+    "code": "CRN-E020",
+    "path": "/time/save_times/2"
+  },
+  {
+    "name": "parent-path",
+    "model": "model.json",
+    "run": "parent-path.run.json",
+    "code": "CRN-E022",
+    "path": "/model/path"
+  }
+]

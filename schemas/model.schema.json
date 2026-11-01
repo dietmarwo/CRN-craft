@@ -1,0 +1,256 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "Convention": {
+      "enum": [
+        "stochastic_counts"
+      ],
+      "type": "string"
+    },
+    "ModelVersion": {
+      "enum": [
+        "crn-craft.model/0.1"
+      ],
+      "type": "string"
+    },
+    "Rate": {
+      "description": "Custom laws are complete propensities, not mass-action multipliers. All laws require sufficient reactants before firing (implemented in M1/M2).",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "coefficient": {
+              "$ref": "#/definitions/Scalar"
+            },
+            "kind": {
+              "enum": [
+                "mass_action"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "coefficient",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "basal": {
+              "$ref": "#/definitions/Scalar"
+            },
+            "k": {
+              "$ref": "#/definitions/Scalar"
+            },
+            "kind": {
+              "enum": [
+                "hill_activation"
+              ],
+              "type": "string"
+            },
+            "n": {
+              "$ref": "#/definitions/Scalar"
+            },
+            "regulator": {
+              "type": "string"
+            },
+            "vmax": {
+              "$ref": "#/definitions/Scalar"
+            }
+          },
+          "required": [
+            "basal",
+            "k",
+            "kind",
+            "n",
+            "regulator",
+            "vmax"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "basal": {
+              "$ref": "#/definitions/Scalar"
+            },
+            "k": {
+              "$ref": "#/definitions/Scalar"
+            },
+            "kind": {
+              "enum": [
+                "hill_repression"
+              ],
+              "type": "string"
+            },
+            "n": {
+              "$ref": "#/definitions/Scalar"
+            },
+            "regulator": {
+              "type": "string"
+            },
+            "vmax": {
+              "$ref": "#/definitions/Scalar"
+            }
+          },
+          "required": [
+            "basal",
+            "k",
+            "kind",
+            "n",
+            "regulator",
+            "vmax"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "michaelis_menten"
+              ],
+              "type": "string"
+            },
+            "km": {
+              "$ref": "#/definitions/Scalar"
+            },
+            "substrate": {
+              "type": "string"
+            },
+            "vmax": {
+              "$ref": "#/definitions/Scalar"
+            }
+          },
+          "required": [
+            "kind",
+            "km",
+            "substrate",
+            "vmax"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Reaction": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "products": {
+          "additionalProperties": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": "object"
+        },
+        "rate": {
+          "$ref": "#/definitions/Rate"
+        },
+        "reactants": {
+          "additionalProperties": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "name",
+        "products",
+        "rate",
+        "reactants"
+      ],
+      "type": "object"
+    },
+    "Scalar": {
+      "anyOf": [
+        {
+          "format": "double",
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "description": "A literal or the exact name of a model parameter; no string evaluation."
+    },
+    "Species": {
+      "additionalProperties": false,
+      "properties": {
+        "initial_count": {
+          "format": "int64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "name": {
+          "type": "string"
+        },
+        "population_limit": {
+          "description": "A safety stop, never a reflecting boundary or an FSP truncation bound.",
+          "format": "int64",
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "initial_count",
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "convention": {
+      "$ref": "#/definitions/Convention"
+    },
+    "name": {
+      "type": "string"
+    },
+    "omega": {
+      "description": "Counts per chosen concentration unit. Does not rescale SSA coefficients.",
+      "exclusiveMinimum": 0.0,
+      "format": "double",
+      "type": "number"
+    },
+    "parameters": {
+      "additionalProperties": {
+        "format": "double",
+        "type": "number"
+      },
+      "type": "object"
+    },
+    "reactions": {
+      "items": {
+        "$ref": "#/definitions/Reaction"
+      },
+      "type": "array"
+    },
+    "schema": {
+      "$ref": "#/definitions/ModelVersion"
+    },
+    "species": {
+      "items": {
+        "$ref": "#/definitions/Species"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "convention",
+    "name",
+    "omega",
+    "parameters",
+    "reactions",
+    "schema",
+    "species"
+  ],
+  "title": "Model",
+  "type": "object"
+}

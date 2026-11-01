@@ -1,0 +1,15 @@
+{
+  "os": "Linux-6.18.57-x86_64-with-glibc2.39",
+  "machine": "x86_64",
+  "python": "3.12.14",
+  "rust_stable_alias": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "rust_msrv": "rustc 1.85.0 (4d91de4e4 2025-02-17)",
+  "cargo": "cargo 1.88.0 (873a06493 2025-05-10)",
+  "python_packages": {
+    "jsonschema": "4.26.0",
+    "ruff": "0.11.13"
+  },
+  "scope": "Contract correctness only; no numerical or throughput benchmark.",
+  "rust_1_88": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "cargo_stable_alias": "cargo 1.99.1 (5f94df478 2026-08-27)"
+}

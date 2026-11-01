@@ -1,0 +1,196 @@
+{
+  "schema": "crn-craft.model/0.1",
+  "name": "repressilator_hill",
+  "convention": "stochastic_counts",
+  "omega": 1.0,
+  "parameters": {
+    "alpha": 216.0,
+    "alpha0": 0.216,
+    "K": 40.0,
+    "n": 2.0,
+    "beta": 5.0,
+    "gamma_m": 1.0,
+    "gamma_p": 0.2
+  },
+  "species": [
+    {
+      "name": "m1",
+      "initial_count": 0
+    },
+    {
+      "name": "p1",
+      "initial_count": 5
+    },
+    {
+      "name": "m2",
+      "initial_count": 0
+    },
+    {
+      "name": "p2",
+      "initial_count": 0
+    },
+    {
+      "name": "m3",
+      "initial_count": 0
+    },
+    {
+      "name": "p3",
+      "initial_count": 0
+    }
+  ],
+  "reactions": [
+    {
+      "name": "tx1",
+      "reactants": {},
+      "products": {
+        "m1": 1
+      },
+      "rate": {
+        "kind": "hill_repression",
+        "regulator": "p3",
+        "vmax": "alpha",
+        "basal": "alpha0",
+        "k": "K",
+        "n": "n"
+      }
+    },
+    {
+      "name": "tl1",
+      "reactants": {
+        "m1": 1
+      },
+      "products": {
+        "m1": 1,
+        "p1": 1
+      },
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "beta"
+      }
+    },
+    {
+      "name": "dm1",
+      "reactants": {
+        "m1": 1
+      },
+      "products": {},
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "gamma_m"
+      }
+    },
+    {
+      "name": "dp1",
+      "reactants": {
+        "p1": 1
+      },
+      "products": {},
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "gamma_p"
+      }
+    },
+    {
+      "name": "tx2",
+      "reactants": {},
+      "products": {
+        "m2": 1
+      },
+      "rate": {
+        "kind": "hill_repression",
+        "regulator": "p1",
+        "vmax": "alpha",
+        "basal": "alpha0",
+        "k": "K",
+        "n": "n"
+      }
+    },
+    {
+      "name": "tl2",
+      "reactants": {
+        "m2": 1
+      },
+      "products": {
+        "m2": 1,
+        "p2": 1
+      },
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "beta"
+      }
+    },
+    {
+      "name": "dm2",
+      "reactants": {
+        "m2": 1
+      },
+      "products": {},
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "gamma_m"
+      }
+    },
+    {
+      "name": "dp2",
+      "reactants": {
+        "p2": 1
+      },
+      "products": {},
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "gamma_p"
+      }
+    },
+    {
+      "name": "tx3",
+      "reactants": {},
+      "products": {
+        "m3": 1
+      },
+      "rate": {
+        "kind": "hill_repression",
+        "regulator": "p2",
+        "vmax": "alpha",
+        "basal": "alpha0",
+        "k": "K",
+        "n": "n"
+      }
+    },
+    {
+      "name": "tl3",
+      "reactants": {
+        "m3": 1
+      },
+      "products": {
+        "m3": 1,
+        "p3": 1
+      },
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "beta"
+      }
+    },
+    {
+      "name": "dm3",
+      "reactants": {
+        "m3": 1
+      },
+      "products": {},
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "gamma_m"
+      }
+    },
+    {
+      "name": "dp3",
+      "reactants": {
+        "p3": 1
+      },
+      "products": {},
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "gamma_p"
+      }
+    }
+  ]
+}

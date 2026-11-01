@@ -1,0 +1,19 @@
+[package]
+name = "crn-craft-cli"
+description = "Inspect and validate CRN-craft model and run documents"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "crn-craft"
+path = "src/main.rs"
+
+[dependencies]
+crn-craft.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

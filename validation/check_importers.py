@@ -3,6 +3,7 @@
 import argparse
 import json
 from pathlib import Path
+import time
 
 import crn_craft
 
@@ -114,12 +115,63 @@ def main():
             ("undefined_volume", SBML.replace(b' size="1"', b"")),
             ("undefined_reversibility", SBML.replace(b' reversible="false"', b"")),
             ("UTF16_XML", SBML.decode().encode("utf-16")),
+            # L3V2 has no defaults for these: an absent value is undefined.
+            (
+                "fast_attribute",
+                SBML.replace(b'reversible="false"', b'reversible="false" fast="false"'),
+            ),
+            ("missing_stoichiometry", SBML.replace(b' stoichiometry="2"', b"")),
+            (
+                "missing_reference_constant",
+                SBML.replace(
+                    b'stoichiometry="2" constant="true"', b'stoichiometry="2"'
+                ),
+            ),
+            ("missing_substance_units", SBML.replace(b' substanceUnits="item"', b"")),
+            ("missing_time_units", SBML.replace(b' timeUnits="second"', b"")),
+            (
+                "minute_time_units",
+                SBML.replace(b'timeUnits="second"', b'timeUnits="minute"'),
+            ),
+            ("fraction_literal", SBML.replace(b'value="0.1"', b'value="1/10"')),
+            ("underscore_literal", SBML.replace(b'value="0.1"', b'value="0_1"')),
+            (
+                "huge_exponent_literal",
+                SBML.replace(b'value="0.1"', b'value="1e-16000000"'),
+            ),
+            (
+                "reaction_id_collision",
+                SBML.replace(b'reaction id="dimer"', b'reaction id="A"'),
+            ),
+            (
+                "boundary_condition",
+                SBML.replace(
+                    b'boundaryCondition="false"', b'boundaryCondition="true"', 1
+                ),
+            ),
+            (
+                "duplicate_reference",
+                SBML.replace(
+                    b'<speciesReference species="B" stoichiometry="1" constant="true"/></listOfProducts>',
+                    b'<speciesReference species="B" stoichiometry="1" constant="true"/><speciesReference species="B" stoichiometry="1" constant="true"/></listOfProducts>',
+                ),
+            ),
+            (
+                "noninteger_stoichiometry",
+                SBML.replace(b'stoichiometry="2"', b'stoichiometry="1.5"'),
+            ),
+            ("unknown_encoding", b'<?xml version="1.0" encoding="x-unknown"?>' + SBML),
         ]
     )
     for name, raw in invalid_sbml:
+        started = time.perf_counter()
         try:
             import_sbml(raw, convention="stochastic_count_propensity")
         except ImportFailure:
+            # Rejection must be cheap: no unbounded literal or parser work.
+            elapsed = time.perf_counter() - started
+            if elapsed > 1.0:
+                raise RuntimeError(f"rejecting {name} took {elapsed:.1f} s") from None
             rows.append({"check": "reject_" + name, "passed": True})
         else:
             raise RuntimeError("accepted " + name)
@@ -135,8 +187,26 @@ def main():
         [
             ("coefficient_underflow", NET.replace(b"1 1,1 2 k", b"1 1,1 2 1e-400")),
             ("coefficient_overflow", NET.replace(b"1 1,1 2 k", b"1 1,1 2 1e400")),
+            ("fixed_species", NET.replace(b"1 A(a) 10", b"1 $A(a) 10")),
+            ("non_ascii_index", NET.replace(b"1 A(a) 10", "\u00b9 A(a) 10".encode())),
+            (
+                "long_expression",
+                NET.replace(b"2 twice 2*k", b"2 twice " + b"+".join([b"k"] * 10000)),
+            ),
+            (
+                "deep_expression",
+                NET.replace(b"2 twice 2*k", b"2 twice " + b"-" * 200000 + b"k"),
+            ),
         ]
     )
+    # The falling-factorial conversion multiplies by nu!, not nu: order three.
+    trimer = NET.replace(b"1 1,1 2 k", b"1 1,1,1 2 k")
+    converted = import_bng_net(trimer, rate_convention="falling_factorial")
+    require(
+        abs(converted["model"]["reactions"][0]["rate"]["coefficient"] - 0.6) < 1e-15,
+        "falling factorial order three",
+    )
+    rows.append({"check": "BNG_falling_factorial_order_three", "passed": True})
     for name, raw in invalid_net:
         try:
             import_bng_net(raw, rate_convention="binomial")

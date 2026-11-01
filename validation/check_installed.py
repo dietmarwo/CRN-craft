@@ -131,7 +131,7 @@ def main():
         )
     checks.append("importer")
     require(
-        sampled_first_passage([0, 1], [[0, 0]], 1)["censored"] == 1,
+        sampled_first_passage([0, 1], [[0, 0]], 1)["not_detected"] == 1,
         "installed observables",
     )
     checks.append("observables")

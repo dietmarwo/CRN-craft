@@ -171,7 +171,10 @@ def prepare(folder, workload):
             "schema": "crn-craft.run/0.1",
             "model": reference,
             "method": workload["method"],
-            "time": {"end": workload["horizon"], "save_times": [0.0, workload["horizon"]]},
+            "time": {
+                "end": workload["horizon"],
+                "save_times": [0.0, workload["horizon"]],
+            },
             "outputs": {"statistics": ["mean"], "keep_trajectories": 0},
             "budget": {"threads": 1, "max_output_bytes": 100000000},
         }
@@ -183,7 +186,10 @@ def prepare(folder, workload):
             "model": reference,
             "method": {"kind": "ssa", "aggregator": "direct"},
             "ensemble": {"replicates": 256, "root_seed": SEED},
-            "time": {"end": workload["horizon"], "save_times": [0.0, workload["horizon"]]},
+            "time": {
+                "end": workload["horizon"],
+                "save_times": [0.0, workload["horizon"]],
+            },
             "outputs": {"statistics": ["mean", "variance"], "keep_trajectories": 256},
             "budget": {
                 "threads": 1,

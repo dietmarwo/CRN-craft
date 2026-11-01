@@ -18,9 +18,17 @@ def fail(message):
     raise ImportFailure(message)
 
 
+# Plain decimal literals with at most a four-digit exponent: Fraction would
+# otherwise spend unbounded time on forms such as "1e-16000000", and accepts
+# "1/10" and "1_0", which are not SBML or BioNetGen numbers.
+_LITERAL = re.compile(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]{1,4})?")
+
+
 def _number(text):
+    if not isinstance(text, str) or not _LITERAL.fullmatch(text.strip()):
+        fail("finite decimal numeric literal required")
     try:
-        value = Fraction(text)
+        value = Fraction(text.strip())
     except (ValueError, ZeroDivisionError, OverflowError):
         fail("finite numeric literal required")
     try:
@@ -30,6 +38,9 @@ def _number(text):
     if not finite:
         fail("numeric literal exceeds f64")
     return value
+
+
+_INDEX = re.compile(r"[0-9]{1,9}")
 
 
 def _identifier(name):
@@ -109,8 +120,8 @@ def import_sbml(raw, *, convention):
     try:
         raw.decode("utf-8")
         root = ET.fromstring(raw)
-    except (ET.ParseError, UnicodeDecodeError) as e:
-        fail(str(e))
+    except (ET.ParseError, UnicodeDecodeError, LookupError, ValueError) as e:
+        fail(f"unreadable XML: {e}")
     sbml = "http://www.sbml.org/sbml/level3/version2/core"
     mathns = "http://www.w3.org/1998/Math/MathML"
     if (
@@ -155,13 +166,13 @@ def import_sbml(raw, *, convention):
         node,
         {"listOfCompartments", "listOfSpecies", "listOfParameters", "listOfReactions"},
     )
-    if (
-        node.get("substanceUnits", "item") != "item"
-        or node.get("extentUnits", "item") != "item"
-    ):
-        fail("only item substance/extent units supported")
-    if node.get("timeUnits", "second") != "second":
-        fail("only second time units supported")
+    # L3V2 has no unit defaults: missing units are undefined, not items/seconds.
+    if node.get("extentUnits", "item") != "item":
+        fail("only item extent units supported")
+    if node.get("substanceUnits") not in [None, "item"]:
+        fail("only item substance units supported")
+    if node.get("timeUnits") != "second":
+        fail("explicit second time units required")
     model = _model(node.get("id", "ImportedSBML"))
     groups = {}
     for child in node:
@@ -213,9 +224,9 @@ def import_sbml(raw, *, convention):
             or species.get("hasOnlySubstanceUnits") != "true"
             or species.get("boundaryCondition") != "false"
             or species.get("constant") != "false"
-            or species.get("substanceUnits", "item") != "item"
+            or species.get("substanceUnits", node.get("substanceUnits")) != "item"
         ):
-            fail("unsupported species semantics")
+            fail("unsupported species semantics or undefined substance units")
         model["species"].append({"name": name, "initial_count": int(count)})
     names = [s["name"] for s in model["species"]]
     if len(names) > 64:
@@ -308,11 +319,19 @@ def import_sbml(raw, *, convention):
     for rx in groups.get("listOfReactions", []):
         if tag(rx) != "reaction":
             fail("non-reaction in reaction list")
-        attrs(rx, ["id", "reversible", "fast"])
+        # L3V2 has no "fast" attribute; it is rejected as unsupported.
+        attrs(rx, ["id", "reversible"])
         children(rx, {"listOfReactants", "listOfProducts", "kineticLaw"})
-        if rx.get("reversible") != "false" or rx.get("fast", "false") != "false":
-            fail("reversible/fast reactions must be expanded explicitly")
-        reaction = {"name": _identifier(rx.get("id")), "reactants": {}, "products": {}}
+        if rx.get("reversible") != "false":
+            fail("reversible reactions must be expanded explicitly")
+        reaction_id = _identifier(rx.get("id"))
+        if (
+            reaction_id in symbols
+            or reaction_id in names
+            or any(r["name"] == reaction_id for r in model["reactions"])
+        ):
+            fail("duplicate SBML identifier")
+        reaction = {"name": reaction_id, "reactants": {}, "products": {}}
         law = None
         seen = set()
         for child in rx:
@@ -341,13 +360,16 @@ def import_sbml(raw, *, convention):
                     attrs(ref, ["species", "stoichiometry", "constant"])
                     children(ref, set())
                     name = ref.get("species")
-                    stoich = _number(ref.get("stoichiometry", "1"))
+                    # L3V2 requires both attributes; neither has a default.
+                    if ref.get("stoichiometry") is None or ref.get("constant") is None:
+                        fail("speciesReference stoichiometry and constant required")
+                    stoich = _number(ref.get("stoichiometry"))
                     if (
                         name not in names
                         or name in side
                         or stoich.denominator != 1
                         or not 1 <= stoich <= 8
-                        or ref.get("constant", "true") != "true"
+                        or ref.get("constant") != "true"
                     ):
                         fail("invalid species reference")
                     side[name] = int(stoich)
@@ -388,10 +410,13 @@ def import_sbml(raw, *, convention):
 
 
 def _expression(text, parameters):
+    # Bound parser work before ast.parse: deep or long inputs exhaust the stack.
+    if len(text) > 1024:
+        fail("expression length limit")
     expression_text = text.replace("^", "**")
     try:
         tree = ast.parse(expression_text, mode="eval")
-    except (SyntaxError, ValueError):
+    except (SyntaxError, ValueError, RecursionError, MemoryError):
         fail("invalid finite-network scalar expression")
     nodes = list(ast.walk(tree))
     if len(nodes) > 128:
@@ -485,7 +510,7 @@ def import_bng_net(raw, *, rate_convention):
     parameters = {}
     for line in blocks.get("parameters", []):
         parts = line.split(maxsplit=2)
-        if len(parts) != 3 or not parts[0].isdigit():
+        if len(parts) != 3 or not _INDEX.fullmatch(parts[0]):
             fail("parameter index/name/value required")
         name = _identifier(parts[1])
         if name in parameters:
@@ -496,8 +521,12 @@ def import_bng_net(raw, *, rate_convention):
     indices = set()
     for line in blocks["species"]:
         parts = line.split()
-        if len(parts) != 3 or not parts[0].isdigit():
+        if len(parts) != 3 or not _INDEX.fullmatch(parts[0]):
             fail("species index/pattern/initial count required")
+        if parts[1].startswith("$"):
+            # BioNetGen holds "$" species at a fixed amount; that is not a
+            # dynamic species and has no supported mapping here.
+            fail("fixed ($) species are unsupported")
         i = int(parts[0])
         count = _expression(parts[2], parameters)
         if (
@@ -516,17 +545,17 @@ def import_bng_net(raw, *, rate_convention):
     def side(text):
         if text == "0":
             return {}
-        try:
-            ids = [int(x) for x in text.split(",")]
-        except ValueError:
+        items = text.split(",")
+        if not all(_INDEX.fullmatch(x) for x in items):
             fail("numeric expanded species indices required")
+        ids = [int(x) for x in items]
         if any(i not in indices for i in ids):
             fail("unknown reaction species index")
         return dict(Counter(f"S_{i}" for i in ids))
 
     for line in blocks["reactions"]:
         parts = line.split(maxsplit=3)
-        if len(parts) != 4 or not parts[0].isdigit():
+        if len(parts) != 4 or not _INDEX.fullmatch(parts[0]):
             fail("reaction index/reactants/products/rate required")
         i = int(parts[0])
         if i <= 0 or i in reaction_ids:
@@ -588,8 +617,10 @@ def main():
         with args.destination.open("x") as file:
             json.dump(report, file, indent=2)
             file.write("\n")
-    except (OSError, ImportFailure) as error:
-        print(json.dumps({"success": False, "code": "CRN-E090", "message": str(error)}))
+    except (OSError, ValueError, LookupError, RecursionError, MemoryError) as error:
+        # ImportFailure is a ValueError; other parser failures get the same code.
+        message = str(error) or type(error).__name__
+        print(json.dumps({"success": False, "code": "CRN-E090", "message": message}))
         raise SystemExit(1) from error
 
 

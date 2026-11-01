@@ -20,9 +20,13 @@ def oscillation(times, values, *, burn_fraction=0.2):
     if not 0 <= burn_fraction < 0.8:
         raise ValueError("invalid burn fraction")
     x = x[int(len(x) * burn_fraction) :]
+    if len(x) < 16:
+        raise ValueError("at least 16 samples must remain after the burn-in")
+    scale = float(np.abs(x).max())
     x = x - x.mean()
     energy = float(x @ x)
-    if energy == 0:
+    # A constant series leaves only rounding residue after removing the mean.
+    if energy <= len(x) * (64 * np.finfo(float).eps * scale) ** 2:
         return {
             "classification": "nonoscillatory",
             "peak_fraction": 0.0,
@@ -34,6 +38,14 @@ def oscillation(times, values, *, burn_fraction=0.2):
     power = np.abs(fft) ** 2
     power[0] = 0
     index = int(power.argmax())
+    if index == 0:
+        return {
+            "classification": "nonoscillatory",
+            "peak_fraction": 0.0,
+            "autocorrelation_peak": 0.0,
+            "period": None,
+            "cycles": 0.0,
+        }
     fraction = float(power[index] / power.sum())
     period = len(x) * float(dt[0]) / index
     cycles = float(index)
@@ -54,7 +66,22 @@ def oscillation(times, values, *, burn_fraction=0.2):
 
 
 def sampled_first_passage(times, paths, threshold):
-    """Saved-grid hitting times: interval-censored, not exact event-time FPT."""
+    """First saved time at or above a threshold, with only the bounds it supports.
+
+    A path can cross the threshold and fall back between saved times, so the
+    saved grid can miss a passage and its earlier sample says nothing about
+    when the passage happened. What the grid does give:
+
+    - a detected path passed at or before its first saved hit, so that time is
+      an upper bound on its passage time;
+    - min(passage time, horizon) is at most that time, or the horizon when
+      nothing was detected, so ``restricted_mean_upper`` bounds the restricted
+      mean from above;
+    - ``detected_fraction`` is a lower bound on P(passage <= horizon) and
+      ``not_detected_fraction`` an upper bound on P(passage > horizon).
+
+    There is no lower bound on the passage time from saved samples alone.
+    """
     t = np.asarray(times, dtype=float)
     x = np.asarray(paths, dtype=float)
     if (
@@ -71,16 +98,15 @@ def sampled_first_passage(times, paths, threshold):
     ):
         raise ValueError("finite paths on an increasing grid starting at zero required")
     hit = x >= threshold
-    observed = hit.any(axis=1)
-    index = hit.argmax(axis=1)
-    upper = np.where(observed, t[index], t[-1])
-    lower = np.where(observed, t[np.maximum(index - 1, 0)], t[-1])
+    detected = hit.any(axis=1)
+    upper = np.where(detected, t[hit.argmax(axis=1)], t[-1])
     return {
         "samples": len(x),
-        "censored": int((~observed).sum()),
-        "censoring_probability": float((~observed).mean()),
-        "restricted_mean_lower": float(lower.mean()),
+        "detected": int(detected.sum()),
+        "not_detected": int((~detected).sum()),
+        "detected_fraction": float(detected.mean()),
+        "not_detected_fraction": float((~detected).mean()),
         "restricted_mean_upper": float(upper.mean()),
         "horizon": float(t[-1]),
-        "resolution": "interval_censored_saved_grid",
+        "resolution": "saved_grid_upper_bounds",
     }

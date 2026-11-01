@@ -90,12 +90,35 @@ def main():
         )
     first = sampled_first_passage([0, 1, 2], [[0, 2, 3], [0, 0, 0], [3, 3, 3]], 2)
     require(
-        first["censored"] == 1
-        and first["restricted_mean_lower"] == 2 / 3
-        and first["restricted_mean_upper"] == 1.0,
-        "censor accounting",
+        first["not_detected"] == 1
+        and first["detected_fraction"] == 2 / 3
+        and first["restricted_mean_upper"] == 1.0
+        and "restricted_mean_lower" not in first,
+        "saved-grid passage accounting",
     )
-    rows.append({"check": "interval_censoring", "passed": True})
+    # A crossing between saved times: the coarse grid misses it, so it must
+    # neither report a passage nor a lower bound; the finer grid sees it.
+    fine_t = [0.0, 0.5, 1.0, 1.5, 2.0]
+    fine_x = [[0, 3, 1, 1, 0]]
+    coarse = sampled_first_passage(fine_t[::2], [row[::2] for row in fine_x], 2)
+    fine = sampled_first_passage(fine_t, fine_x, 2)
+    require(
+        coarse["detected"] == 0
+        and fine["detected"] == 1
+        and fine["restricted_mean_upper"] <= coarse["restricted_mean_upper"],
+        "nested saved grids",
+    )
+    rows.append({"check": "saved_grid_first_passage", "passed": True})
+    # A constant non-integer series is nonoscillatory, not an error.
+    flat = oscillation(np.arange(100.0), np.full(100, 0.1))
+    require(flat["classification"] == "nonoscillatory", "constant series")
+    try:
+        oscillation(np.arange(20.0), np.sin(np.arange(20.0)), burn_fraction=0.79)
+    except ValueError:
+        pass
+    else:
+        raise RuntimeError("too few samples after the burn-in were accepted")
+    rows.append({"check": "oscillation_edge_cases", "passed": True})
     circuit = (root / "models/examples/repressilator.model.json").read_bytes()
     study = []
     for split, seeds in [("development", [3101, 3102]), ("held_out", [3201, 3202])]:

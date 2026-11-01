@@ -1,0 +1,35 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling version_check v0.9.5
+   Compiling serde_core v1.0.229
+   Compiling typenum v1.20.1
+   Compiling zmij v1.0.23
+   Compiling zerocopy v0.8.63
+   Compiling serde_json v1.0.154
+   Compiling serde v1.0.229
+   Compiling itoa v1.0.18
+   Compiling generic-array v0.14.7
+   Compiling memchr v2.8.3
+   Compiling schemars v0.8.22
+   Compiling libm v0.2.15
+   Compiling dyn-clone v1.0.20
+   Compiling rand_core v0.6.4
+   Compiling cpufeatures v0.2.17
+   Compiling crn-craft v0.1.0-dev.4 (/workspace/scratch/d05427e343fb/CRN-craft-iteration-04/crates/crn-craft)
+   Compiling cfg-if v1.0.5
+   Compiling syn v2.0.119
+   Compiling syn v3.0.9
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling serde_path_to_error v0.1.20
+   Compiling serde_derive_internals v0.29.1
+   Compiling serde_derive v1.0.229
+   Compiling schemars_derive v0.8.22
+   Compiling ppv-lite86 v0.2.21
+   Compiling rand_chacha v0.3.1
+error: failed to build archive at `/workspace/scratch/d05427e343fb/target-m2-stable/release/deps/libcrn_craft-9b8852dd902613c8.rlib`: failed to map object file: memory map must have a non-zero length
+
+error: could not compile `crn-craft` (lib) due to 1 previous error

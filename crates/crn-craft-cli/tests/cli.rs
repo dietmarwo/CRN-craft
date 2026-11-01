@@ -25,7 +25,7 @@ fn invoke(args: &[&str]) -> (i32, Value) {
 fn cli_description_and_example_check() {
     let (code, value) = invoke(&["describe"]);
     assert_eq!(code, 0);
-    assert_eq!(value["milestone"], "M1b");
+    assert_eq!(value["milestone"], "M2");
     let (code, value) = invoke(&[
         "check",
         "models/examples/immigration-death.model.json",
@@ -298,4 +298,43 @@ fn export_cli_is_json_and_rejects_unsupported_or_missing_inputs() {
                 .any(|d| d["code"] == expected)
         );
     }
+}
+
+#[test]
+fn simulate_exits_zero_only_for_a_complete_ensemble_and_verify_for_valid_archives() {
+    let temp = staged();
+    let model = temp.0.join("immigration-death.model.json");
+    let run = temp.0.join("immigration-death.run.json");
+    let out = temp.0.join("complete");
+    let paths = |p: &PathBuf| p.to_str().unwrap().to_owned();
+    let (code, report) = invoke(&["simulate", &paths(&model), &paths(&run), &paths(&out)]);
+    assert_eq!(code, 0, "{report}");
+    assert_eq!(report["simulation_complete"], true);
+    assert_eq!(invoke(&["verify", &paths(&out)]).0, 0);
+    // Existing output directories are never reused.
+    let (code, report) = invoke(&["simulate", &paths(&model), &paths(&run), &paths(&out)]);
+    assert_eq!((code, &report["valid"]), (1, &Value::Bool(false)));
+
+    let mut limited: Value = serde_json::from_slice(&std::fs::read(&run).unwrap()).unwrap();
+    limited["budget"]["max_events_per_replicate"] = 1.into();
+    let limited_run = temp.0.join("limited.run.json");
+    std::fs::write(&limited_run, serde_json::to_vec_pretty(&limited).unwrap()).unwrap();
+    let partial = temp.0.join("partial");
+    let (code, report) = invoke(&[
+        "simulate",
+        &paths(&model),
+        &paths(&limited_run),
+        &paths(&partial),
+    ]);
+    assert_eq!(code, 1, "{report}");
+    assert_eq!(report["valid"], true);
+    assert_eq!(report["simulation_complete"], false);
+    assert_eq!(report["termination"], "event_limit");
+    let (code, report) = invoke(&["verify", &paths(&partial)]);
+    assert_eq!(
+        (code, &report["simulation_complete"]),
+        (0, &Value::Bool(false))
+    );
+    std::fs::remove_file(partial.join("COMPLETE")).unwrap();
+    assert_eq!(invoke(&["verify", &paths(&partial)]).0, 1);
 }

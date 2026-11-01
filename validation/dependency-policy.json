@@ -12,8 +12,11 @@
     "libc",
     "libm",
     "memchr",
+    "ppv-lite86",
     "proc-macro2",
     "quote",
+    "rand_chacha",
+    "rand_core",
     "schemars",
     "schemars_derive",
     "serde",
@@ -27,6 +30,8 @@
     "typenum",
     "unicode-ident",
     "version_check",
+    "zerocopy",
+    "zerocopy-derive",
     "zmij"
   ],
   "allowed_workspace_packages": [

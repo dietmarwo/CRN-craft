@@ -1,0 +1,36 @@
+{
+  "base_commit": "bb2b9aed6129734bbe5856a709e0f2d1e32ca198",
+  "rust": {
+    "1.85.0": "rustc 1.85.0 (4d91de4e4 2025-02-17)",
+    "1.88.0": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+    "stable": "rustc 1.99.1 (58cf8f9c3 2026-10-13)"
+  },
+  "python": "3.12.14",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+  "cpu_count": 9,
+  "cpu_affinity_count": 9,
+  "cpu_quota": "800000 100000",
+  "ruff": "0.11.13",
+  "jsonschema": "4.26.0",
+  "sibling_source": {
+    "repository": "https://github.com/dietmarwo/optimization-jobs",
+    "commit": "cc6b03d594f73d1f3b38f088e7e3bd8663814d75",
+    "read": "crates/optimization-job-api/src/storage.rs",
+    "code_copied": false
+  },
+  "rng": {
+    "rand_chacha": "0.3.1",
+    "rand_core": "0.6.4",
+    "ppv-lite86": "0.2.21",
+    "zerocopy": "0.8.63",
+    "seed_domain": "crn-craft.chacha8/0.1 + NUL",
+    "root_encoding": "u64 little endian",
+    "stream": "replicate index",
+    "rand_chacha-0.3.1/src/chacha.rs_sha256": "dfd79ed4762e8267148d1776381c71b898808014a4069cfafbc78177247d5fe9",
+    "rand_core-0.6.4/src/block.rs_sha256": "c0b606dc404a1f4b25eebf388e9c0da583ee571214cdcb0bac1b592450d6b4fa"
+  },
+  "reference": {
+    "gillespy2": "1.8.3",
+    "numpy": "2.3.5"
+  }
+}

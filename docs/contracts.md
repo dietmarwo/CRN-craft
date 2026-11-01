@@ -53,3 +53,18 @@ Current `analyze` emits `crn-craft.analysis/0.2`. It keeps the original fields a
 `analyze-v1 MODEL [STATE]` and `analysis_v1::analyze_bytes` preserve the original analysis 0.1 shape and warning policy. Its generated schema is `describe analysis-v1` / `schemas/analysis-v1.schema.json`, byte-identical to the old analysis snapshot. Model/run/check/result/state 0.1 snapshots are unchanged. No model, run or state migration is needed.
 
 Discovery advances to `crn-craft.describe/0.3`, adding the legacy-analysis/export commands, exact-cone limits and the pinned export target. `crn-craft.export/0.1` reports raw model SHA-256, success, an optional Python artifact, target identity, aliases, limitations and diagnostics. An export failure has `artifact: null`; unsupported semantics are never silently removed. CLI output remains JSON and exits 0/1. See [reference export](reference-export.md).
+
+## M2 execution and result migration
+
+`simulate MODEL RUN NEW_DIRECTORY [--cancel-file PATH]` executes Direct SSA;
+`verify DIRECTORY` checks its archive. The original model/run shapes remain
+0.1. Result 0.2 replaces the never-emitted reserved result for actual execution;
+`describe result-v1` retains its old schema. Archive and archive-check begin at
+0.1; discovery is 0.4. FSP stays `contract_only`. Existing check/analysis/export
+reports remain unchanged; query discovery for current executable methods.
+
+New runtime limits supplement input-domain validation. Invalid/unsupported
+execution creates no archive. Incomplete trajectories cannot acquire an exact
+ensemble assessment or unconditional statistics. See [Direct SSA](direct-ssa.md)
+and the [result/archive contract](archive-contract.md) for numerical mappings,
+state/sample semantics, output accounting, completion markers and limitations.

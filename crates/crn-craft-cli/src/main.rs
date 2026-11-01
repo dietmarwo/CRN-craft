@@ -11,7 +11,7 @@ use std::{
     process::ExitCode,
 };
 
-const HELP: &str = "crn-craft — M1b network analysis and propensities\n\nUsage:\n  crn-craft describe [model|run|result|check|state|analysis|analysis-v1|export]\n  crn-craft check MODEL [RUN]\n  crn-craft analyze MODEL [STATE]\n  crn-craft analyze-v1 MODEL [STATE]\n  crn-craft export MODEL gillespy2\n  crn-craft --version\n\nAll data output is JSON. check/analyze exit 0 on success and 1 for errors.\nAnalysis reports conservation limits explicitly. No simulation is implemented.\n";
+const HELP: &str = "crn-craft — M2 Direct SSA and network analysis\n\nUsage:\n  crn-craft describe [model|run|result|result-v1|archive|archive-check|check|state|analysis|analysis-v1|export]\n  crn-craft check MODEL [RUN]\n  crn-craft analyze MODEL [STATE]\n  crn-craft analyze-v1 MODEL [STATE]\n  crn-craft export MODEL gillespy2\n  crn-craft simulate MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft verify DIRECTORY\n  crn-craft --version\n\nAll data output is JSON. simulate exits 0 only for a completed ensemble.\nverify exits 0 for a valid archive, including an incomplete simulation.\nOther errors and incomplete simulations exit 1. FSP is not implemented.\n";
 
 fn emit(value: &Value) -> io::Result<()> {
     let mut out = io::stdout().lock();
@@ -29,7 +29,7 @@ fn main() -> ExitCode {
     }
     if args.len() == 1 && args[0] == "--version" {
         return match emit(
-            &serde_json::json!({"version": env!("CARGO_PKG_VERSION"), "milestone": "M1b"}),
+            &serde_json::json!({"version": env!("CARGO_PKG_VERSION"), "milestone": "M2"}),
         ) {
             Ok(()) => ExitCode::SUCCESS,
             Err(_) => ExitCode::FAILURE,
@@ -73,6 +73,29 @@ fn main() -> ExitCode {
                 success,
             )
         }
+        Some("simulate") if args.len() == 4 || (args.len() == 6 && args[4] == "--cancel-file") => {
+            let mut control = crn_craft::simulation::Control::default();
+            control.cancel_file = args.get(5).map(std::path::PathBuf::from);
+            let report = crn_craft::archive::simulate_files(
+                Path::new(&args[1]),
+                Path::new(&args[2]),
+                Path::new(&args[3]),
+                &control,
+            );
+            let success = report.valid && report.simulation_complete;
+            (
+                serde_json::to_value(report).expect("finite archive report"),
+                success,
+            )
+        }
+        Some("verify") if args.len() == 2 => {
+            let report = crn_craft::archive::verify_archive(Path::new(&args[1]));
+            let success = report.valid;
+            (
+                serde_json::to_value(report).expect("finite archive report"),
+                success,
+            )
+        }
         _ => usage_error(),
     };
     match emit(&value) {
@@ -90,7 +113,7 @@ fn usage_error() -> (Value, bool) {
         "CRN-E031",
         "",
         "unknown command or wrong argument count",
-        "Use --help. M1b supports describe, check, analyze, analyze-v1 and export; simulation is not implemented.",
+        "Use --help. M2 supports describe, check, analyze, analyze-v1, export, simulate and verify; FSP is not implemented.",
     ));
     (
         serde_json::to_value(report).expect("finite usage report"),

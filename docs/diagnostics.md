@@ -41,3 +41,19 @@ Every diagnostic contains `severity`, `code`, `path`, `message`, `hint`. Paths u
 The 13 persisted negative fixtures in `models/invalid/expected.json` pin representative codes and paths. Rust tests cover additional boundary and parser cases. Parsing stops on the first syntax/type error per document; semantic validation accumulates errors after a successful parse. A failed stdout write can only report to stderr and exit 1; it cannot guarantee a JSON response on a broken stream.
 
 State paths such as `/counts/A` refer to the supplied state, while rate and reaction paths refer to the model. `check` retains structural CRN-W001 warnings. `analyze` suppresses one only when its species has a proven initial-class conservation bound. Conservation warnings appear both in the conservation report and the top-level diagnostic list for direct consumers.
+
+## M2 runtime and archive diagnostics
+
+| Code | Meaning | Response |
+|---|---|---|
+| CRN-E060 | Unsupported execution or resource/accounting reservation exceeded | Use Direct SSA; reduce workers, replicates or retained output; budget room for accounting |
+| CRN-E061 | Invalid/unresolved total or categorical probability | Rescale or revise dynamic range; no positive channel is silently dropped |
+| CRN-E062 | Invalid exponential wait or stagnant/nonfinite event time | Rescale rates/time; do not clip or force time forward |
+| CRN-E064 | Actual serialized output exceeds the cap | Increase max_output_bytes; optional numerical output is removed and accounting retained when it fits |
+| CRN-E065 | Archive I/O, integrity, size or relational failure | Preserve evidence; use a new output directory and verify the complete file set |
+
+CRN-E042 remains a numerical failure for positive-to-zero propensity underflow.
+CRN-E044 retains its checked update meaning: population-limit attempts stop
+without applying the event; integer overflow is a failed trajectory. Ordinary
+event, deadline and cancellation stops are typed termination states, not
+fabricated numerical errors. A valid incomplete archive remains incomplete.

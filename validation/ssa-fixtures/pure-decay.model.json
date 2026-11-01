@@ -1,0 +1,26 @@
+{
+  "schema": "crn-craft.model/0.1",
+  "name": "pure_decay",
+  "convention": "stochastic_counts",
+  "omega": 1.0,
+  "parameters": {},
+  "species": [
+    {
+      "name": "X",
+      "initial_count": 20
+    }
+  ],
+  "reactions": [
+    {
+      "name": "death",
+      "reactants": {
+        "X": 1
+      },
+      "products": {},
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": 0.7
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+   Compiling crn-craft v0.1.0-dev.4 (/workspace/scratch/d05427e343fb/CRN-craft-iteration-04/crates/crn-craft)
+    Finished `release` profile [optimized] target(s) in 5.65s
+     Running tests/ssa.rs (target/release/deps/ssa-d992a2aa51b18ca4)
+
+running 13 tests
+test absorption_zero_rates_and_single_replicate_se ... ok
+test chacha8_matches_independent_scalar_known_answers_across_blocks_and_streams ... ok
+test sampler_endpoints_waits_selection_and_precision_failures ... ok
+test null_reactions_count_as_events_and_respect_event_cap ... ok
+test event_cap_partial_paths_and_no_conditional_statistics ... ok
+test live_serialized_output_cap_keeps_ledger_and_discards_statistics ... ok
+test unreasonable_memory_work_and_fsp_requests_fail_before_execution ... ok
+test cancellation_and_wall_time_account_for_every_unstarted_replicate ... ok
+test statistics_match_retained_integer_paths_and_unbiased_variance ... ok
+test population_stop_and_integer_overflow_preserve_old_counts ... ok
+test underflow_and_dynamic_range_errors_are_not_disabled_channels ... ok
+test save_density_does_not_change_events_or_common_states ... ok
+test fixed_work_payload_is_identical_at_one_two_and_eight_threads ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s

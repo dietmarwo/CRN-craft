@@ -1,0 +1,37 @@
+{
+  "schema": "crn-craft.model/0.1",
+  "name": "immigration_nonzero",
+  "convention": "stochastic_counts",
+  "omega": 1.0,
+  "parameters": {},
+  "species": [
+    {
+      "name": "X",
+      "initial_count": 12
+    }
+  ],
+  "reactions": [
+    {
+      "name": "birth",
+      "reactants": {},
+      "products": {
+        "X": 1
+      },
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": 3.0
+      }
+    },
+    {
+      "name": "death",
+      "reactants": {
+        "X": 1
+      },
+      "products": {},
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": 0.8
+      }
+    }
+  ]
+}

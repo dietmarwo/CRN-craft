@@ -17,3 +17,11 @@ The planned archive preserves exact consumed input bytes, numerical payloads, wo
 ## M1b structural and export reports
 
 Current analysis is 0.2 and includes cone, graph and effective bounds. `analyze-v1` keeps 0.1 output. Export has a separate 0.1 report containing generated Python source and declared target limitations. Neither command executes CRN-craft trajectories or emits a simulator result envelope.
+
+## M2 execution supersedes the reserved envelope
+
+The sections above describe the historical M0/M1 reports. M2 now emits
+`crn-craft.result/0.2`; the never-emitted 0.1 schema remains `result-v1`.
+Direct SSA and archive verification are implemented. Read
+[archive-contract.md](archive-contract.md) for the current payload, accounting,
+completion/assessment relationships, verification and migration details.

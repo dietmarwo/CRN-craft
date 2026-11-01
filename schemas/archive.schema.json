@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "ArchiveFile": {
+      "additionalProperties": false,
+      "properties": {
+        "bytes": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "path": {
+          "type": "string"
+        },
+        "sha256": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "bytes",
+        "path",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "ArchiveVersion": {
+      "enum": [
+        "crn-craft.archive/0.1"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "files": {
+      "items": {
+        "$ref": "#/definitions/ArchiveFile"
+      },
+      "type": "array"
+    },
+    "schema": {
+      "$ref": "#/definitions/ArchiveVersion"
+    }
+  },
+  "required": [
+    "files",
+    "schema"
+  ],
+  "title": "Manifest",
+  "type": "object"
+}

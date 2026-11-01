@@ -1,6 +1,25 @@
 # Changelog
 
-## [Unreleased] — iteration 3 / M1b (`0.1.0-dev.3`)
+## [Unreleased] — iteration 4 / M2 (`0.1.0-dev.4`)
+
+### Added
+
+- Implement Direct SSA for existing count propensities, exact save-time boundaries and absorbing states.
+- Pin ChaCha8 streams and owned uniform/wait/channel mappings; reject unresolved dynamic ranges and clock stagnation.
+- Add bounded ordered parallel ensembles, reproducible mean/sample variance and mean SE.
+- Enforce event/population/deadline/output/workspace limits and cooperative API/file cancellation; retain every replicate's accounting and withhold partial-ensemble statistics.
+- Emit result 0.2 and checksummed archive 0.1; add `simulate`, `verify`, generated schemas and migration notes. Preserve result-v1 and existing inputs/analysis/export.
+- Add the predeclared 300,000-path analytic campaign, independent scalar RNG and trajectory oracles, archive-corruption tests and nine new source mutants.
+- Preserve all three iteration-3 review regressions and the 17-mutant baseline. No FSP or comparative performance claim.
+- Review tests for lost positive increments and underflowed waits at the sampler boundary, retained-trajectory IDs, existing and live cancel files, tampered partial-evidence archives and the archive byte budget, and CLI `simulate`/`verify` exit codes. Eight probe mutants had passed every delivered test.
+- `validation/check_cme.py`: four 100,000-path fixtures with second-order, Hill and Michaelis–Menten channels against exact master-equation laws (12 DKW tests, family alpha 0.001, declared in `docs/decisions/iteration-04-review-cme.md`). It runs in CI normally and under `-O`.
+- Nine review mutants in the mutation gate, now 35.
+
+### Fixed
+
+- `--cancel-file` no longer slows simulation about tenfold, and a wall-time limit no longer doubles the cost per event. Every poll used to stat the file, which costs about a microsecond against roughly 100 ns per event for small models, and read the clock. A per-worker poller now reads the cancellation flag at every poll and the wall clock and cancel file at every 64th poll, the file at most once per millisecond. A found file cancels all workers, and a worker keeps an observed stop. Numerical results are unchanged.
+
+## Iteration 3 / M1b (`0.1.0-dev.3`)
 
 ### Added
 

@@ -1,9 +1,25 @@
 # Direct SSA
 
-**Status:** run contract only; planned M2, not implemented.
+**Status:** implemented in M2 (`0.1.0-dev.4`).
 
-Reference: D. T. Gillespie, *Exact stochastic simulation of coupled chemical reactions* (1977), [DOI](https://doi.org/10.1021/j100540a008).
+Gillespie's Direct method for a time-homogeneous, well-mixed count process.
+Existing mass-action/Hill/MM propensities and availability gates are reused;
+count changes are checked and atomic. The solver recomputes ordered rates,
+uses a positive exponential wait and a separate categorical draw, and treats
+zero total propensity as absorption. It includes events exactly on save times.
 
-The future baseline sums finite non-negative propensities, draws a positive exponential wait and selects a reaction proportional to its propensity. Zero total propensity holds the state through the final save time. Count updates are checked. Inputs must define a time-homogeneous well-mixed count process; budgets prevent uncontrolled work but do not prove mathematical non-explosion.
+Random streams: pinned rand_chacha 0.3.1 / rand_core 0.6.4, root-seed key and
+replicate-index stream; owned 53-bit mappings and libm 0.2.15 inversion.
+No clipped rates, lost positive channels or last-channel selection fallback.
+CRN-E042 underflow and CRN-E061/E062 resolution/time errors remain explicit.
 
-Implementation must specify uniform endpoints, selection rounding, time-progress errors and stream mapping. Before any speed claim: sampler known-answer vectors, analytic marginal checks, save-time boundary tests, reactant/conservation checks, 1/2/8-thread numerical reproducibility and budget/cancellation failure tests. Record dynamic-range loss rather than silently assigning missing probability to the final channel.
+Completed fixed-work outputs use ordered reduction and are checked at 1/2/8
+threads. Incomplete ensembles have accounting and partial retained paths,
+but no unconditional mean/variance. Limits and cancellation do not prove
+non-explosion. Exact-method sampling still has Monte Carlo and floating-point
+limitations. Cross-platform numerical identity and comparative throughput
+are not established by this iteration.
+
+See [Direct SSA details](../direct-ssa.md), [archive contracts](../archive-contract.md)
+and [M2 acceptance targets](../decisions/iteration-04-validation.md).
+Reference: [Gillespie (1977)](https://doi.org/10.1021/j100540a008).

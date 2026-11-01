@@ -1,19 +1,44 @@
-# Agent context: CRN-craft M1b
+# Agent context: CRN-craft M2
 
-Current version: 0.1.0-dev.3. Capabilities: strict model/run validation; immutable compiled networks; all four propensity laws; exact bounded linear/cone analysis; reaction linkage graphs; elementary GillesPy2 reference export. No CRN-craft SSA, FSP, ODE or optimization execution exists.
+Version 0.1.0-dev.4. Start with `crn-craft describe` (discovery 0.4).
+Implemented: Direct SSA; pinned ChaCha8 sampling; ordered parallel ensembles;
+mean/sample variance/mean SE; event, population, wall-time, output and workspace
+limits; cooperative cancellation; checksummed result archives. Reviewed network,
+rate, linear/cone/linkage analysis and GillesPy2 elementary export remain.
+FSP, ODE, fitting, bindings and SBML import are later milestones.
 
-Start with `crn-craft describe` (discovery 0.3). `check MODEL [RUN]` keeps its structural/domain semantics. `analyze MODEL [STATE]` emits analysis 0.2; `analyze-v1` preserves 0.1. State, model, run, check and reserved-result contracts remain 0.1. Use `describe analysis`, `describe analysis-v1` and `describe export` for generated schemas.
+Read README.md, docs/direct-ssa.md, docs/archive-contract.md and
+validation/iteration-04/RESULTS.md. `simulate MODEL RUN NEW_DIRECTORY` executes
+Direct SSA. `--cancel-file PATH` enables cooperative external cancellation.
+`verify DIRECTORY` checks integrity and relational consistency, not biological
+validity or stochastic accuracy. A complete archive may record an incomplete
+simulation. `simulate` exits 0 only for full completion; `verify` exits 0 for
+valid incomplete evidence as well. Never overwrite an existing output folder.
 
-Current analysis has a linear-basis `conservation` block and an independent `nonnegative_conservation` cone. Prefer the effective `analysis.initial_class_upper_bounds`: complete cone bounds when exact, otherwise sound basis bounds. Always inspect cone status. Size/work/ray/overflow outcomes never imply no laws or unboundedness. Bounds refer to the initial class, not arbitrary evaluation states. Graphs retain catalysts, empty complexes and zero-rate channels; deficiency is structural and does not imply stability.
+Result is 0.2, archive/archive-check 0.1. Reserved result 0.1 remains result-v1.
+Model/run/check/state and current/legacy analysis/export contracts remain
+unchanged; historical operation flags do not replace the discovery catalog.
+Raw hashes identify consumed bytes. Preserve LF and exact model/run snapshots.
 
-Read `docs/network-api.md`, `docs/m1b-analysis.md`, `docs/model-cards/rate-laws.md` and `docs/reference-export.md`. Count updates remain exact i64 and atomic. Propensities use f64, gated before arithmetic. Mass-action coefficients include combinatorial factorials; custom laws are complete propensities. Omega does not automatically rescale coefficients. Dependencies invalidate propensities only; future schedulers must separately reschedule a fired channel. Positive-to-zero rate underflow remains CRN-E042.
+Mass action uses binomial count factors; custom Hill/MM laws are full gated
+propensities. Omega never silently rescales coefficients. Positive underflow
+stays CRN-E042. Unresolved selection ranges or non-advancing time fail explicitly.
+No last-channel fallback, reflective population boundary or hidden clipping.
 
-Model/run hashes identify exact bytes. Keep LF line endings, recompute run hashes only after intentional model edits, and keep model paths below the run directory. Never silently discard unknown fields, duplicate keys, safety limits or unsupported target features.
+Every replicate is accounted for. Statistics are withheld for any incomplete
+ensemble, because completion may be state-dependent. Mean/variance reduction is
+ordered by replicate ID, with one pinned stream per root-seed/replicate pair.
+Compare numerical payloads separately from run hashes and timing/build/thread
+provenance. Same-platform 1/2/8-thread identity does not prove cross-platform identity.
 
-Useful current prompt:
+Next prompt:
 
-> Analyze models/analysis/cone-gap.model.json and explain why exact cone rays find bounds missed by a mixed-sign nullspace basis. Compare analyze with analyze-v1. Export the elementary enzyme model to pinned GillesPy2 and verify its stochastic rate convention, keeping CRN-craft simulation marked unavailable.
+> Implement M3 FSP with reachable-state enumeration, an explicit escaping-mass
+> sink and stable sparse uniformization. Keep physical leakage, Poisson-series
+> truncation and numerical error separate. Predeclare analytic/DSMTS gates;
+> independently check them and retain failures. Preserve all M2 statistical,
+> sampler, archive, mutation and review regressions. Do not claim a rigorous
+> floating-point error bound or a speed comparison without the relevant evidence.
 
-Next implementation prompt:
-
-> Implement M2's first Direct SSA baseline with a predeclared numerical acceptance plan, pinned samplers, event/time/population/output budgets, deterministic ensembles and verifiable archives. Preserve current rate underflow errors in the initial strict solver. Test analytic marginals, save-time and absorption behavior, thread-count numerical identity and failed/interrupted archives. Retain all existing oracle/mutation/review regressions. Do not infer solver correctness or speed from the reference-export smoke test.
+M4a then measures pinned simulator quality/cost; M5 supplies bindings and the
+circuit application. Advanced SSA aggregators follow measured bottlenecks.

@@ -1,0 +1,5 @@
+     Locking 1 package to latest Rust 1.88 compatible version
+    Updating crn-craft v0.1.0-dev.4 (/workspace/scratch/d05427e343fb/CRN-craft-campaign/crates/crn-craft) -> v0.2.0-dev.1
+   Compiling crn-craft v0.2.0-dev.1 (/workspace/scratch/d05427e343fb/CRN-craft-campaign/crates/crn-craft)
+    Checking crn-job-worker v0.1.0 (/workspace/scratch/d05427e343fb/CRN-craft-campaign/integrations/jobs)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.33s

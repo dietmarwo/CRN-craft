@@ -1,0 +1,18 @@
+[
+  {
+    "check": "cached-ssa",
+    "exit_code": 0
+  },
+  {
+    "check": "cached-ssa-optimized",
+    "exit_code": 0
+  },
+  {
+    "check": "cached-cme",
+    "exit_code": 0
+  },
+  {
+    "check": "cached-cme-optimized",
+    "exit_code": 0
+  }
+]

@@ -1,0 +1,12 @@
+📦 Including license file `LICENSE`
+🍹 Building a mixed python/rust project
+🔗 Found pyo3 bindings
+🐍 Found CPython 3.12 at /opt/codex/runtimes/codex-primary-runtime/dependencies/python/bin/python3
+    Finished `release` profile [optimized] target(s) in 0.02s
+📦 Including files matching "Cargo.lock"
+📦 Including files matching "Cargo.toml"
+📦 Including files matching "crates/**"
+📦 Including files matching "schemas/**"
+📦 Including files matching "models/examples/**"
+📦 Including files matching "docs/campaign/**"
+📦 Built wheel for CPython 3.12 to /tmp/crn-campaign-wheels/crn_craft-0.1.0.dev5-cp312-cp312-manylinux_2_34_x86_64.whl

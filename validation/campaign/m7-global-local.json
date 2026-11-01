@@ -1,0 +1,120 @@
+{
+  "actual_native_solves_including_checks": 94,
+  "derivative_check": {
+    "checked": 2,
+    "counts": {
+      "derivatives": 1,
+      "functions": 13
+    },
+    "fixed": [],
+    "inconclusive": false,
+    "issues": [],
+    "passed": true,
+    "skipped": []
+  },
+  "fitted_rates": [
+    2.999999999866717,
+    0.7999999998418073
+  ],
+  "global": {
+    "evaluations": 64,
+    "loss": 0.5901069685405944,
+    "x": [
+      0.7167569064844392,
+      -0.8423765369181806
+    ]
+  },
+  "gradient_inf_norm": 1.6386912218378792e-09,
+  "independent_analytic_loss": 6.649478203059182e-19,
+  "local": {
+    "candidate": [
+      1.098612288623682,
+      -0.22314355151195073
+    ],
+    "complementarity": 0.0,
+    "counts": {
+      "derivatives": 10,
+      "functions": 18
+    },
+    "dual_sign": 0.0,
+    "evaluation": {
+      "constraints": [],
+      "feasible_candidate": true,
+      "gradient": [
+        1.6386912218378792e-09,
+        -1.040615754357911e-09
+      ],
+      "jacobian_values": [],
+      "objective": 4.970857230057521e-20,
+      "primal_violation": 0.0
+    },
+    "iterations": 9,
+    "message": "first-order KKT residuals within tolerance at the returned point",
+    "multipliers": {
+      "constraints": [],
+      "variables": [
+        0.0,
+        0.0
+      ]
+    },
+    "report": {
+      "bfgs_damped_updates": 0,
+      "bfgs_modified_updates": 0,
+      "bfgs_seconds": 6.111e-06,
+      "block_hessian_fallbacks": 0,
+      "bound_step_corrections": 0,
+      "callback_seconds": 0.03659275799999999,
+      "elastic_steps": 0,
+      "elastic_weight": null,
+      "elastic_weight_increases": 0,
+      "fixed_step_corrections": 0,
+      "hessian_resets": 0,
+      "history": [],
+      "linear_projection": false,
+      "method": "sqp",
+      "qp_backend": "goldfarb-idnani 0.17.0",
+      "qp_check_seconds": 8.622999999999999e-06,
+      "qp_cold_retries": 0,
+      "qp_conversion_seconds": 1.283e-05,
+      "qp_iterations": 3,
+      "qp_not_positive_definite": 0,
+      "qp_retry_reason": null,
+      "qp_seconds": 4.8922000000000004e-05,
+      "qp_setup_seconds": 1.351e-06,
+      "qp_setups": 10,
+      "qp_solve_seconds": 1.3009000000000004e-05,
+      "qp_solves": 10,
+      "qp_status": "optimal",
+      "qp_trace": [],
+      "qp_update_seconds": 0.0,
+      "qp_updates": 0,
+      "rejected_trials": 8,
+      "restoration_attempts": 0,
+      "restoration_history": [],
+      "restoration_seconds": 0.0,
+      "restoration_steps": 0,
+      "row_scales": [],
+      "second_order_corrections": 0,
+      "second_order_steps": 0,
+      "step_norm": 4.481442397730184e-08,
+      "total_seconds": 0.036725985,
+      "undefined_trials": 0,
+      "variable_scales": [],
+      "violation_limit_rejections": 0
+    },
+    "stationarity": 1.6386912218378792e-09,
+    "status": "converged"
+  },
+  "native_loss": 4.970857230057521e-20,
+  "passed": true,
+  "schema": "crn-craft.global-local-fit/0.1",
+  "synthetic_truth": [
+    3.0,
+    0.8
+  ],
+  "versions": {
+    "diffsol": "0.18.0",
+    "fcmaes-rust": "0.2.1",
+    "sqp-craft": "0.17.0"
+  }
+}

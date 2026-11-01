@@ -1,0 +1,7 @@
+{
+  "passed": true,
+  "generated_from_rust": true,
+  "schemas": 4,
+  "example_inputs_validated": 10,
+  "unsupported_data_version_rejected": true
+}

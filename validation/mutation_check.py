@@ -224,6 +224,59 @@ MUTATIONS = [
         "&& false",
     ),
 ]
+MUTATIONS.extend(
+    [
+        (
+            "cached_dependency_updates_removed",
+            "crates/crn-craft/src/simulation.rs",
+            "rates[reaction] = network.propensity_in_valid_state(reaction, &state)?;",
+            "let _ = network.propensity_in_valid_state(reaction, &state)?;",
+        ),
+        (
+            "minimum_resolution_check_removed",
+            "crates/crn-craft/src/sampling.rs",
+            "minimum.is_finite() && minimum / total < UNIFORM_STEP",
+            "false",
+        ),
+        (
+            "fsp_reflects_sink",
+            "crates/crn-craft/src/fsp.rs",
+            "let target = if escaped {\n                    usize::MAX",
+            "let target = if escaped {\n                    i",
+        ),
+        (
+            "fsp_wrong_sparse_orientation",
+            "crates/crn-craft/src/fsp.rs",
+            "next[if j == usize::MAX { n } else { j }] += term[i] * rate;",
+            "next[if j == usize::MAX { n } else { j }] += term[n] * rate;",
+        ),
+        (
+            "fsp_tail_bound_zeroed",
+            "crates/crn-craft/src/fsp.rs",
+            "tail_bound += next_weight / (1.0 - ratio);",
+            "tail_bound += 0.0;",
+        ),
+        (
+            "tau_claims_exact",
+            "crates/crn-craft/src/tau.rs",
+            '"approximate_ensemble"',
+            '"exact_ensemble"',
+        ),
+        (
+            "tau_proposal_event_cap_removed",
+            "crates/crn-craft/src/tau.rs",
+            "if events > run.budget.max_events_per_replicate.unwrap() - record.events {",
+            "if false {",
+        ),
+        (
+            "kinetics_parameter_derivative_zeroed",
+            "crates/crn-craft/src/kinetics.rs",
+            "dp[j] += product;",
+            "dp[j] += 0.0;",
+        ),
+    ]
+)
+
 TEST_COMMAND = [
     "test",
     "--release",
@@ -240,6 +293,12 @@ TEST_COMMAND = [
     "network",
     "--test",
     "structure",
+    "--test",
+    "fsp",
+    "--test",
+    "tau",
+    "--test",
+    "kinetics",
 ]
 
 
@@ -249,6 +308,9 @@ def main():
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     rows = []
+    for name, relative, old, _ in MUTATIONS:
+        if (ROOT / relative).read_text().count(old) != 1:
+            raise RuntimeError(f"{name}: mutation anchor not unique before compilation")
     with tempfile.TemporaryDirectory(prefix="crn-mutations-") as folder:
         clone = Path(folder) / "project"
         shutil.copytree(
@@ -303,6 +365,11 @@ def main():
                     result.returncode == 101
                     and bool(failed_tests)
                     and "could not compile" not in combined
+                )
+                print(
+                    f"{len(rows) + 1}/{len(MUTATIONS)} {name}: {caught}",
+                    file=__import__("sys").stderr,
+                    flush=True,
                 )
                 rows.append(
                     {

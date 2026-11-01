@@ -401,3 +401,46 @@ fn retained_trajectories_are_exactly_the_first_requested_ids() {
         [0, 1]
     );
 }
+
+#[test]
+fn cached_direct_matches_all_rate_laws_and_thread_counts() {
+    let models = [
+        include_bytes!("../../../models/examples/immigration-death.model.json").as_slice(),
+        include_bytes!("../../../models/examples/enzyme-mechanism.model.json").as_slice(),
+        include_bytes!("../../../models/examples/michaelis-menten.model.json").as_slice(),
+        include_bytes!("../../../models/examples/repressilator.model.json").as_slice(),
+    ];
+    for bytes in models {
+        for threads in [1, 2, 8] {
+            let mut request = run(bytes);
+            request["budget"]["threads"] = json!(threads);
+            let request = serde_json::to_vec(&request).unwrap();
+            let p = simulation::prepare(bytes, &request).unwrap();
+            let direct = simulation::execute(&p, &Control::default()).unwrap();
+            let cached = simulation::execute_cached(&p, &Control::default()).unwrap();
+            assert_eq!(
+                serde_json::to_value(&direct.result).unwrap(),
+                serde_json::to_value(&cached.result).unwrap()
+            );
+            assert_eq!(direct.result.termination, Stop::Completed);
+        }
+    }
+}
+#[test]
+fn external_checkpoint_interrupts_active_cached_and_direct_work() {
+    let m = serde_json::to_vec(&model()).unwrap();
+    let r = serde_json::to_vec(&run(&m)).unwrap();
+    let p = simulation::prepare(&m, &r).unwrap();
+    for cached in [false, true] {
+        let mut control = Control::default();
+        control.external_stop = Some(Box::new(|| true));
+        let result = if cached {
+            simulation::execute_cached(&p, &control)
+        } else {
+            simulation::execute(&p, &control)
+        }
+        .unwrap();
+        assert_eq!(result.result.termination, Stop::Cancelled);
+        assert!(result.result.statistics.is_none());
+    }
+}

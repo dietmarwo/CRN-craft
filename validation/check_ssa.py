@@ -209,6 +209,9 @@ def main():
         "--binary", type=Path, default=ROOT / "target/release/crn-craft"
     )
     parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--command", choices=["simulate", "simulate-cached"], default="simulate"
+    )
     parser.add_argument("--latency-output", type=Path)
     args = parser.parse_args()
     binary = str(args.binary.resolve())
@@ -228,7 +231,7 @@ def main():
 
     def execute(model_path, run_path, out, expected=0, extra=()):
         summary = invoke(
-            "simulate", model_path, run_path, out, *extra, expected=expected
+            args.command, model_path, run_path, out, *extra, expected=expected
         )
         require(
             summary["valid"] and summary["archive_complete"],
@@ -467,7 +470,7 @@ def main():
             process = subprocess.Popen(
                 [
                     binary,
-                    "simulate",
+                    args.command,
                     str(model_path),
                     str(run_path),
                     str(out),

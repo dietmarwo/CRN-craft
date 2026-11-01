@@ -93,3 +93,13 @@
 
 - No propensity evaluator, network analyzer, SSA, FSP, ODE, bindings, importers or ecosystem worker yet.
 - No simulator correctness, throughput or biological validation is claimed.
+
+## 0.2.0-dev.1 campaign
+
+- Sparse reachable FSP with escaping sink, stable split uniformization and separate error accounting.
+- Exact dependency-cached Direct with original ordered streams/results; external cancellation checkpoint.
+- Isolated Python ABI3 package, trajectory diagnostics and strict SBML/BioNetGen import subsets.
+- Native fcmaes job applications, fixed/disjoint seed accounting and actual shared SDK/runner acceptance.
+- Optional diffsol BDF, analytic Jacobians/forward sensitivities and global-to-SQP fitting.
+- Experimental non-negative Poisson leaping with explicit approximate request/result schemas.
+- Ten performance experiments and same-host reference/quality evidence; no package publishing.

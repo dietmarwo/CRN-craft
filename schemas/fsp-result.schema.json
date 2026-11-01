@@ -1,0 +1,142 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "FspSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "discarded_weight_estimate": {
+          "format": "double",
+          "type": "number"
+        },
+        "mass_defect": {
+          "format": "double",
+          "type": "number"
+        },
+        "physical_leakage_estimate": {
+          "format": "double",
+          "type": "number"
+        },
+        "probabilities": {
+          "description": "Index order matches states, excludes the absorbing escaping-mass sink.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "projected_first_moment": {
+          "description": "Unnormalized moments of the retained law, never of the full unbounded process.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "projected_second_raw_moment": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "roundoff_mass_residual": {
+          "description": "Mass-balance residual only; not a rigorous floating-point error bound.",
+          "format": "double",
+          "type": "number"
+        },
+        "series_tail_upper_bound": {
+          "description": "Cumulative discarded positive Poisson weight, excluding roundoff.",
+          "format": "double",
+          "type": "number"
+        },
+        "time": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "discarded_weight_estimate",
+        "mass_defect",
+        "physical_leakage_estimate",
+        "probabilities",
+        "projected_first_moment",
+        "projected_second_raw_moment",
+        "roundoff_mass_residual",
+        "series_tail_upper_bound",
+        "time"
+      ],
+      "type": "object"
+    },
+    "FspVersion": {
+      "enum": [
+        "crn-craft.fsp-result/0.1"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "model_sha256": {
+      "type": "string"
+    },
+    "numerical_error_certified": {
+      "type": "boolean"
+    },
+    "run_sha256": {
+      "type": "string"
+    },
+    "schema": {
+      "$ref": "#/definitions/FspVersion"
+    },
+    "snapshots": {
+      "items": {
+        "$ref": "#/definitions/FspSnapshot"
+      },
+      "type": "array"
+    },
+    "sparse_edges": {
+      "format": "uint",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "species": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "states": {
+      "items": {
+        "items": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "type": "array"
+    },
+    "uniformization_rate": {
+      "format": "double",
+      "type": "number"
+    },
+    "work": {
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "model_sha256",
+    "numerical_error_certified",
+    "run_sha256",
+    "schema",
+    "snapshots",
+    "sparse_edges",
+    "species",
+    "states",
+    "uniformization_rate",
+    "work"
+  ],
+  "title": "FspResult",
+  "type": "object"
+}

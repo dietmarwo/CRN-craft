@@ -1,0 +1,90 @@
+{
+  "passed": true,
+  "rows": [
+    {
+      "check": "SBML_dimer_binomial_semantics",
+      "passed": true
+    },
+    {
+      "check": "BNG_binomial",
+      "passed": true
+    },
+    {
+      "check": "BNG_falling_factorial",
+      "passed": true
+    },
+    {
+      "check": "reject_events",
+      "passed": true
+    },
+    {
+      "check": "reject_concentration",
+      "passed": true
+    },
+    {
+      "check": "reject_noninteger",
+      "passed": true
+    },
+    {
+      "check": "reject_variable_compartment",
+      "passed": true
+    },
+    {
+      "check": "reject_reversible",
+      "passed": true
+    },
+    {
+      "check": "reject_deterministic_homodimer",
+      "passed": true
+    },
+    {
+      "check": "reject_unsupported_symbol",
+      "passed": true
+    },
+    {
+      "check": "reject_foreign_attribute",
+      "passed": true
+    },
+    {
+      "check": "reject_species_concentration_semantics",
+      "passed": true
+    },
+    {
+      "check": "reject_units",
+      "passed": true
+    },
+    {
+      "check": "reject_DTD",
+      "passed": true
+    },
+    {
+      "check": "reject_local_parameters",
+      "passed": true
+    },
+    {
+      "check": "reject_unknown_block",
+      "passed": true
+    },
+    {
+      "check": "reject_species_reference",
+      "passed": true
+    },
+    {
+      "check": "reject_expression_call",
+      "passed": true
+    },
+    {
+      "check": "reject_negative_count",
+      "passed": true
+    },
+    {
+      "check": "reject_negative_rate",
+      "passed": true
+    },
+    {
+      "check": "reject_duplicate_reaction",
+      "passed": true
+    }
+  ],
+  "schema": "crn-craft.import-validation/0.1"
+}

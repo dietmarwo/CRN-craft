@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/workspace/scratch/d05427e343fb/CRN-craft-campaign/validation/check_installed.py", line 34, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/workspace/scratch/d05427e343fb/CRN-craft-campaign/validation/check_installed.py", line 27, in main
+    result=c.fsp(m,fsp);require(not result['numerical_error_certified'],'installed FSP semantics');checks.append('FSP')
+           ^^^^^^^^^^^^
+  File "/tmp/crn-campaign-installed/lib/python3.12/site-packages/crn_craft/__init__.py", line 34, in fsp
+    return json.loads(_native.fsp_json(model_bytes(model), model_bytes(run)))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: [{"severity":"error","code":"CRN-E012","path":"/method/bounds/X","message":"unknown species \"X\"","hint":"Declare the species or correct its name."},{"severity":"error","code":"CRN-E023","path":"/method/bounds/A","message":"missing FSP bound or initial state outside truncation","hint":"Give every species a finite integer truncation bound >= initial_count; escaping probability goes to a sink."}]

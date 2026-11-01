@@ -1,0 +1,13 @@
+diff --git a/crates/crn-craft/src/simulation.rs b/crates/crn-craft/src/simulation.rs
+index 7947080..262b7ee 100644
+--- a/crates/crn-craft/src/simulation.rs
++++ b/crates/crn-craft/src/simulation.rs
+@@ -322,7 +322,7 @@ fn path_with_rng_mode(
+         saved_points: 0,
+         diagnostic: None,
+     };
+-    let mut counts = Vec::new();
++    let mut counts = Vec::with_capacity(run.time.save_times.len());
+     let mut state = network.initial_counts().to_vec();
+     let mut time = 0.0;
+     let mut save = 0;

@@ -1,0 +1,2165 @@
+{
+  "schema": "crn-craft.structure-validation/0.1",
+  "seed": 20261103,
+  "random_networks": 300,
+  "fixture_stream_sha256": "1373b12d6c9601fe27e3d5424ff0fce260c9708af5face695308366df9cefa98",
+  "basis_bounded_species": 511,
+  "cone_bounded_species": 525,
+  "additional_bounded_species": 14,
+  "extreme_rays_checked": 373,
+  "passed": 309,
+  "failed": 0,
+  "checks": [
+    {
+      "case": "random_000",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_001",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_002",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 5,
+      "rays": 2
+    },
+    {
+      "case": "random_003",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_004",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_005",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_006",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 4
+    },
+    {
+      "case": "random_007",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_008",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 1
+    },
+    {
+      "case": "random_009",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_010",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_011",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 1
+    },
+    {
+      "case": "random_012",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_013",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_014",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 2
+    },
+    {
+      "case": "random_015",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_016",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_017",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 3
+    },
+    {
+      "case": "random_018",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_019",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_020",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_021",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_022",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_023",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_024",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 3
+    },
+    {
+      "case": "random_025",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_026",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_027",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 3
+    },
+    {
+      "case": "random_028",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_029",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_030",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_031",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_032",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 4
+    },
+    {
+      "case": "random_033",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_034",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 2
+    },
+    {
+      "case": "random_035",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_036",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 5
+    },
+    {
+      "case": "random_037",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_038",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_039",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 3
+    },
+    {
+      "case": "random_040",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_041",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_042",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_043",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_044",
+      "passed": true,
+      "basis_bounds": 4,
+      "cone_bounds": 4,
+      "rays": 3
+    },
+    {
+      "case": "random_045",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 5,
+      "rays": 5
+    },
+    {
+      "case": "random_046",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_047",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_048",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_049",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 5,
+      "rays": 5
+    },
+    {
+      "case": "random_050",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 3
+    },
+    {
+      "case": "random_051",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_052",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 2
+    },
+    {
+      "case": "random_053",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_054",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 6
+    },
+    {
+      "case": "random_055",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_056",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 6
+    },
+    {
+      "case": "random_057",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 5,
+      "rays": 4
+    },
+    {
+      "case": "random_058",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 7
+    },
+    {
+      "case": "random_059",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_060",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_061",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 7
+    },
+    {
+      "case": "random_062",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_063",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_064",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 2
+    },
+    {
+      "case": "random_065",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 6,
+      "rays": 2
+    },
+    {
+      "case": "random_066",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 5,
+      "rays": 5
+    },
+    {
+      "case": "random_067",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_068",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 1
+    },
+    {
+      "case": "random_069",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_070",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 5,
+      "rays": 2
+    },
+    {
+      "case": "random_071",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_072",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_073",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_074",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_075",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_076",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 3
+    },
+    {
+      "case": "random_077",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_078",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_079",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_080",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_081",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 2
+    },
+    {
+      "case": "random_082",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 3
+    },
+    {
+      "case": "random_083",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_084",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_085",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 6
+    },
+    {
+      "case": "random_086",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_087",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_088",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_089",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 3,
+      "rays": 1
+    },
+    {
+      "case": "random_090",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_091",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 1
+    },
+    {
+      "case": "random_092",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_093",
+      "passed": true,
+      "basis_bounds": 4,
+      "cone_bounds": 4,
+      "rays": 4
+    },
+    {
+      "case": "random_094",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_095",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_096",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_097",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_098",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_099",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 1
+    },
+    {
+      "case": "random_100",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 4
+    },
+    {
+      "case": "random_101",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 1
+    },
+    {
+      "case": "random_102",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 2
+    },
+    {
+      "case": "random_103",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 3
+    },
+    {
+      "case": "random_104",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_105",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_106",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_107",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_108",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_109",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_110",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 1
+    },
+    {
+      "case": "random_111",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_112",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 4
+    },
+    {
+      "case": "random_113",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_114",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_115",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_116",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_117",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 5,
+      "rays": 5
+    },
+    {
+      "case": "random_118",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_119",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 3
+    },
+    {
+      "case": "random_120",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 4
+    },
+    {
+      "case": "random_121",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_122",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 2
+    },
+    {
+      "case": "random_123",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_124",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 2
+    },
+    {
+      "case": "random_125",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_126",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_127",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_128",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_129",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_130",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 2
+    },
+    {
+      "case": "random_131",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_132",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_133",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 6,
+      "rays": 2
+    },
+    {
+      "case": "random_134",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 3
+    },
+    {
+      "case": "random_135",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 5,
+      "rays": 4
+    },
+    {
+      "case": "random_136",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 2
+    },
+    {
+      "case": "random_137",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 4,
+      "rays": 3
+    },
+    {
+      "case": "random_138",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 5,
+      "rays": 2
+    },
+    {
+      "case": "random_139",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_140",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_141",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_142",
+      "passed": true,
+      "basis_bounds": 4,
+      "cone_bounds": 4,
+      "rays": 4
+    },
+    {
+      "case": "random_143",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_144",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_145",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_146",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_147",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_148",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_149",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_150",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_151",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 3
+    },
+    {
+      "case": "random_152",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 6
+    },
+    {
+      "case": "random_153",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_154",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 2
+    },
+    {
+      "case": "random_155",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_156",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 2
+    },
+    {
+      "case": "random_157",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 6
+    },
+    {
+      "case": "random_158",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_159",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 2
+    },
+    {
+      "case": "random_160",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 2
+    },
+    {
+      "case": "random_161",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_162",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 6
+    },
+    {
+      "case": "random_163",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_164",
+      "passed": true,
+      "basis_bounds": 4,
+      "cone_bounds": 4,
+      "rays": 1
+    },
+    {
+      "case": "random_165",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 2
+    },
+    {
+      "case": "random_166",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 6
+    },
+    {
+      "case": "random_167",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_168",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_169",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 2
+    },
+    {
+      "case": "random_170",
+      "passed": true,
+      "basis_bounds": 4,
+      "cone_bounds": 4,
+      "rays": 4
+    },
+    {
+      "case": "random_171",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_172",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_173",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_174",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 5,
+      "rays": 5
+    },
+    {
+      "case": "random_175",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_176",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_177",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_178",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_179",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 3
+    },
+    {
+      "case": "random_180",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_181",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 3
+    },
+    {
+      "case": "random_182",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 1
+    },
+    {
+      "case": "random_183",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_184",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 1
+    },
+    {
+      "case": "random_185",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_186",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_187",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_188",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 2
+    },
+    {
+      "case": "random_189",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 5,
+      "rays": 5
+    },
+    {
+      "case": "random_190",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_191",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_192",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 4
+    },
+    {
+      "case": "random_193",
+      "passed": true,
+      "basis_bounds": 4,
+      "cone_bounds": 4,
+      "rays": 4
+    },
+    {
+      "case": "random_194",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_195",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_196",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_197",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 2
+    },
+    {
+      "case": "random_198",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_199",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_200",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_201",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_202",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_203",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_204",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 4
+    },
+    {
+      "case": "random_205",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 6
+    },
+    {
+      "case": "random_206",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 2
+    },
+    {
+      "case": "random_207",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_208",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_209",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_210",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_211",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 2
+    },
+    {
+      "case": "random_212",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 5,
+      "rays": 5
+    },
+    {
+      "case": "random_213",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_214",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_215",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 5
+    },
+    {
+      "case": "random_216",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_217",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_218",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 7
+    },
+    {
+      "case": "random_219",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 3
+    },
+    {
+      "case": "random_220",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 1
+    },
+    {
+      "case": "random_221",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_222",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_223",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_224",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_225",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_226",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 1
+    },
+    {
+      "case": "random_227",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_228",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_229",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_230",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_231",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_232",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 5,
+      "rays": 5
+    },
+    {
+      "case": "random_233",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 7,
+      "rays": 3
+    },
+    {
+      "case": "random_234",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_235",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_236",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 3
+    },
+    {
+      "case": "random_237",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_238",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_239",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 2
+    },
+    {
+      "case": "random_240",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_241",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_242",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_243",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_244",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 3
+    },
+    {
+      "case": "random_245",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_246",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_247",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_248",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_249",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_250",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 1
+    },
+    {
+      "case": "random_251",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_252",
+      "passed": true,
+      "basis_bounds": 3,
+      "cone_bounds": 3,
+      "rays": 1
+    },
+    {
+      "case": "random_253",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_254",
+      "passed": true,
+      "basis_bounds": 4,
+      "cone_bounds": 4,
+      "rays": 3
+    },
+    {
+      "case": "random_255",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_256",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 1
+    },
+    {
+      "case": "random_257",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_258",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 6
+    },
+    {
+      "case": "random_259",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_260",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_261",
+      "passed": true,
+      "basis_bounds": 4,
+      "cone_bounds": 5,
+      "rays": 4
+    },
+    {
+      "case": "random_262",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 7
+    },
+    {
+      "case": "random_263",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_264",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_265",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 1
+    },
+    {
+      "case": "random_266",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_267",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 2
+    },
+    {
+      "case": "random_268",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 5,
+      "rays": 2
+    },
+    {
+      "case": "random_269",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_270",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_271",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_272",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_273",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_274",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_275",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_276",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_277",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 2
+    },
+    {
+      "case": "random_278",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 3
+    },
+    {
+      "case": "random_279",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_280",
+      "passed": true,
+      "basis_bounds": 5,
+      "cone_bounds": 5,
+      "rays": 5
+    },
+    {
+      "case": "random_281",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 2
+    },
+    {
+      "case": "random_282",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_283",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_284",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_285",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_286",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_287",
+      "passed": true,
+      "basis_bounds": 1,
+      "cone_bounds": 1,
+      "rays": 1
+    },
+    {
+      "case": "random_288",
+      "passed": true,
+      "basis_bounds": 6,
+      "cone_bounds": 6,
+      "rays": 6
+    },
+    {
+      "case": "random_289",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_290",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_291",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_292",
+      "passed": true,
+      "basis_bounds": 7,
+      "cone_bounds": 7,
+      "rays": 6
+    },
+    {
+      "case": "random_293",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_294",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_295",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_296",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_297",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "random_298",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 1
+    },
+    {
+      "case": "random_299",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 0,
+      "rays": 0
+    },
+    {
+      "case": "review_counterexample",
+      "passed": true,
+      "basis_bounds": 0,
+      "cone_bounds": 4,
+      "rays": 2
+    },
+    {
+      "case": "adjacency",
+      "passed": true,
+      "basis_bounds": 4,
+      "cone_bounds": 4,
+      "rays": 2
+    },
+    {
+      "case": "weighted",
+      "passed": true,
+      "basis_bounds": 2,
+      "cone_bounds": 2,
+      "rays": 1
+    },
+    {
+      "case": "enzyme",
+      "passed": true,
+      "basis_bounds": 4,
+      "cone_bounds": 4,
+      "rays": 2
+    },
+    {
+      "case": "primitive_combination",
+      "passed": true,
+      "basis_bounds": 4,
+      "cone_bounds": 4,
+      "rays": 1
+    },
+    {
+      "case": "missing_ray",
+      "passed": true
+    },
+    {
+      "case": "wrong_bound",
+      "passed": true
+    },
+    {
+      "case": "reversed_edge",
+      "passed": true
+    },
+    {
+      "case": "wrong_scc",
+      "passed": true
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "RequestVersion": {
+      "enum": [
+        "crn-craft.ode-request/0.1"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "atol": {
+      "format": "double",
+      "type": "number"
+    },
+    "rtol": {
+      "format": "double",
+      "type": "number"
+    },
+    "schema": {
+      "$ref": "#/definitions/RequestVersion"
+    },
+    "times": {
+      "items": {
+        "format": "double",
+        "type": "number"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "atol",
+    "rtol",
+    "schema",
+    "times"
+  ],
+  "title": "Request",
+  "type": "object"
+}

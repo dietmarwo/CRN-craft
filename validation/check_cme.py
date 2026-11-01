@@ -227,7 +227,7 @@ def invoke(binary, *args, expected=0):
     return json.loads(p.stdout)
 
 
-def simulate(binary, name, fixture, folder):
+def simulate(binary, name, fixture, folder, command="simulate"):
     model = {
         "schema": "crn-craft.model/0.1",
         "name": name,
@@ -257,7 +257,7 @@ def simulate(binary, name, fixture, folder):
     }
     (folder / "run.json").write_text(json.dumps(run, indent=2) + "\n")
     out = folder / "archive"
-    report = invoke(binary, "simulate", folder / "model.json", folder / "run.json", out)
+    report = invoke(binary, command, folder / "model.json", folder / "run.json", out)
     require(report["valid"] and report["simulation_complete"], "simulation incomplete")
     require(invoke(binary, "verify", out)["valid"], "archive verification failed")
     result_bytes = (out / "result.json").read_bytes()
@@ -270,6 +270,9 @@ def main():
         "--binary", type=Path, default=ROOT / "target/release/crn-craft"
     )
     parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--command", choices=["simulate", "simulate-cached"], default="simulate"
+    )
     args = parser.parse_args()
     binary = str(args.binary.resolve())
     rows, power, fixtures = [], [], []
@@ -278,7 +281,9 @@ def main():
             for name, fixture in FIXTURES.items():
                 folder = Path(tmp) / name
                 folder.mkdir()
-                result, result_hash = simulate(binary, name, fixture, folder)
+                result, result_hash = simulate(
+                    binary, name, fixture, folder, args.command
+                )
                 names = [s for s, _ in fixture["species"]]
                 position = names.index(fixture["marginal"])
                 states, edges, exits = generator(fixture)

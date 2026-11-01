@@ -23,7 +23,7 @@ jobs:
       - run: cargo +${{ matrix.toolchain }} test --release --workspace --locked
   contracts:
     runs-on: ubuntu-latest
-    # 35 mutants took 16 minutes on a two-CPU host.
+    # Expanded mutation gate retains the reviewed 35 and adds 8 campaign mutants.
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -53,6 +53,10 @@ jobs:
       - run: python validation/check_cme.py --output cme.json
       - run: python -O validation/check_cme.py --output cme-optimized.json
       - run: diff cme.json cme-optimized.json
+      - run: python validation/check_ssa.py --command simulate-cached --output cached-ssa.json
+      - run: diff ssa.json cached-ssa.json
+      - run: python validation/check_cme.py --command simulate-cached --output cached-cme.json
+      - run: diff cme.json cached-cme.json
       - run: python validation/mutation_check.py --output mutations.json
   reference-export:
     runs-on: ubuntu-latest
@@ -67,6 +71,16 @@ jobs:
       - run: python validation/check_export.py --output export.json
       - run: python -O validation/check_export.py --output export-optimized.json
       - run: diff export.json export-optimized.json
+      - name: Pin external DSMTS validation inputs
+        run: |
+          git clone https://github.com/darrenjw/dsmts "$RUNNER_TEMP/dsmts"
+          git -C "$RUNNER_TEMP/dsmts" checkout --detach e79fd58e94757fb39926c6373297c1f2a1845894
+      - run: python validation/check_fsp.py --binary target/release/crn-craft --dsmts "$RUNNER_TEMP/dsmts" --output fsp.json
+      - run: python -O validation/check_fsp.py --binary target/release/crn-craft --dsmts "$RUNNER_TEMP/dsmts" --output fsp-optimized.json
+      - run: diff fsp.json fsp-optimized.json
+      - run: python validation/check_tau.py --binary target/release/crn-craft --output tau.json
+      - run: python -O validation/check_tau.py --binary target/release/crn-craft --output tau-optimized.json
+      - run: diff tau.json tau-optimized.json
   line-endings:
     # Model hashes cover exact bytes; a Windows-style checkout must keep them.
     runs-on: ubuntu-latest

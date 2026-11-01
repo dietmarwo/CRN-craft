@@ -274,7 +274,21 @@ impl CompiledNetwork {
                 "Select a channel with a positive propensity and sufficient reactants.",
             ));
         }
-        let changes = &self.reactions[reaction].net_changes;
+        self.fire_enabled_reaction(reaction, state)
+    }
+
+    /// Internal primitive: caller established a positive channel in a valid state.
+    /// Updates remain checked and transactional, including all population limits.
+    pub(crate) fn fire_enabled_reaction(
+        &self,
+        reaction: usize,
+        state: &mut [i64],
+    ) -> Result<(), Diagnostic> {
+        let changes = &self
+            .reactions
+            .get(reaction)
+            .ok_or_else(|| index_error(reaction))?
+            .net_changes;
         // Validate all updates first: an overflow/limit error cannot partially mutate state.
         for term in changes {
             let next = state[term.species]

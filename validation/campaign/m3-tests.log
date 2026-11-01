@@ -1,0 +1,103 @@
+   Compiling crn-craft v0.1.0-dev.4 (/workspace/scratch/d05427e343fb/CRN-craft-campaign/crates/crn-craft)
+    Finished `release` profile [optimized] target(s) in 0.57s
+     Running unittests src/lib.rs (/tmp/crn-campaign-target/release/deps/crn_craft-ad837d453171f6db)
+
+running 4 tests
+test simulation::tests::encoded_budget_checks_exact_boundary_without_allocating_payload ... ok
+test simulation::tests::open_uniform_rejects_zero_and_never_returns_one ... ok
+test simulation::tests::event_exactly_at_horizon_is_included_and_consumes_two_words ... ok
+test simulation::tests::cancel_file_checks_are_rate_limited ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/archives.rs (/tmp/crn-campaign-target/release/deps/archives-46e314326f3de3fd)
+
+running 10 tests
+test incorrect_path_or_output_reservation_leaves_no_archive ... ok
+test archive_symlinks_are_rejected ... ok
+test completed_archive_preserves_inputs_and_byte_budget_and_refuses_overwrite ... ok
+test oversized_archive_payload_is_rejected_before_reading ... ok
+test interrupted_or_tampered_archives_are_never_accepted ... ok
+test checksum_and_completion_hash_are_checked_independently_of_json_semantics ... ok
+test duplicate_keys_and_manifest_entries_fail_even_with_matching_marker ... ok
+test refreshed_hashes_do_not_hide_false_accounting_or_statistics ... ok
+test cancellation_and_event_limits_have_complete_archives_but_incomplete_ensembles ... ok
+test refreshed_hashes_do_not_hide_inconsistent_partial_evidence_or_budget ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/contracts.rs (/tmp/crn-campaign-target/release/deps/contracts-575171ede7fcb791)
+
+running 35 tests
+test absorbing_model_with_no_reactions_is_valid ... ok
+test byte_hash_known_answer ... ok
+test all_rate_law_domains_and_species_reads_checked ... ok
+test check_report_is_deterministic ... ok
+test duplicate_keys_at_all_depths_and_escaped_spellings_rejected ... ok
+test all_example_models_and_run_references_pass ... ok
+test duplicate_reaction_names_rejected ... ok
+test budget_and_replication_errors_are_pinned ... ok
+test excessive_depth_is_rejected_without_stack_overflow ... ok
+test formatting_changes_model_identity ... ok
+test fsp_options_initial_state_and_method_incompatibility ... ok
+test fsp_allows_physically_unbounded_model_with_finite_truncation ... ok
+test finite_and_positive_domains_checked_for_typed_callers ... ok
+test full_repressilator_has_three_modules ... ok
+test initial_state_must_lie_within_population_limits_and_fsp_bounds ... ok
+test malformed_trailing_non_json_and_non_utf8_rejected ... ok
+test invalid_identifier_and_namespace_collision ... ok
+test i64_overflow_and_fractional_counts_rejected ... ok
+test nesting_limit_boundary_matches_its_documentation ... ok
+test output_budget_minimum_matches_the_documented_formula ... ok
+test invalid_relative_paths_and_hashes_rejected ... ok
+test description_distinguishes_direct_ssa_from_unimplemented_fsp ... ok
+test negative_fixture_manifest_pins_codes_and_paths ... ok
+test output_selection_errors_are_pinned ... ok
+test population_limit_is_checked_separately ... ok
+test roundtrip_preserves_integer_counts_above_double_precision ... ok
+test time_grid_errors_are_pinned ... ok
+test unknown_fields_rejected_in_every_model_object ... ok
+test unsupported_run_versions_methods_and_aggregators_rejected ... ok
+test warnings_do_not_make_valid_models_invalid_or_prove_growth ... ok
+test unknown_fields_rejected_in_every_run_object ... ok
+test wrong_version_is_not_silently_upgraded ... ok
+test zero_and_oversized_stoichiometry_rejected ... ok
+test oversized_document_rejected_before_parsing ... ok
+test decimal_literals_parse_to_correctly_rounded_doubles ... ok
+
+test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/fsp.rs (/tmp/crn-campaign-target/release/deps/fsp-4bfcac17f72c1067)
+
+running 3 tests
+test capacity_cancellation_bounds_and_null_reaction ... FAILED
+test leakage_is_not_reflected_or_double_counted ... FAILED
+test binomial_decay_and_large_lambda_t ... FAILED
+
+failures:
+
+---- capacity_cancellation_bounds_and_null_reaction stdout ----
+
+thread 'capacity_cancellation_bounds_and_null_reaction' panicked at crates/crn-craft/tests/fsp.rs:49:5:
+assertion failed: fsp::solve(&m, &r, &control).unwrap_err()[0].message.contains("interrupted")
+
+---- leakage_is_not_reflected_or_double_counted stdout ----
+
+thread 'leakage_is_not_reflected_or_double_counted' panicked at crates/crn-craft/tests/fsp.rs:34:85:
+called `Result::unwrap()` on an `Err` value: [Diagnostic { severity: Warning, code: "CRN-W001", path: "/species/0", message: "species has a net-producing reaction and no net-consuming reaction", hint: "Review growth and budgets; this structural warning does not prove unboundedness." }, Diagnostic { severity: Error, code: "CRN-E020", path: "/outputs", message: "no output requested", hint: "Request statistics or retained trajectories." }]
+
+---- binomial_decay_and_large_lambda_t stdout ----
+
+thread 'binomial_decay_and_large_lambda_t' panicked at crates/crn-craft/tests/fsp.rs:12:57:
+called `Result::unwrap()` on an `Err` value: [Diagnostic { severity: Error, code: "CRN-E020", path: "/outputs", message: "no output requested", hint: "Request statistics or retained trajectories." }]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    binomial_decay_and_large_lambda_t
+    capacity_cancellation_bounds_and_null_reaction
+    leakage_is_not_reflected_or_double_counted
+
+test result: FAILED. 0 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p crn-craft --test fsp`

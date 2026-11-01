@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/workspace/scratch/d05427e343fb/CRN-craft-campaign/examples/circuit/fit_ode.py", line 49, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/workspace/scratch/d05427e343fb/CRN-craft-campaign/examples/circuit/fit_ode.py", line 36, in main
+    local=sqp_craft.solve(spec,objective,start,method='sqp',method_options=sqp_craft.SqpOptions(qp_solver='activeset',max_iterations=60,stationarity_tolerance=1e-7))
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/d05427e343fb/crn-campaign-env/lib/python3.12/site-packages/sqp_craft/__init__.py", line 379, in solve
+    raw = _solve_native(
+          ^^^^^^^^^^^^^^
+ValueError: qp_solver must be "clarabel" or "active-set", got "activeset"

@@ -1,0 +1,133 @@
+{
+  "end": 100.0,
+  "replicates": 64,
+  "schema": "crn-craft.performance/0.1",
+  "seed": 4242,
+  "threads": 1,
+  "workloads": {
+    "circuit_12": {
+      "before": {
+        "core_ns_per_event": 613.868007424898,
+        "core_range_seconds": [
+          1.9867667949999999,
+          2.25285718
+        ],
+        "median_core_seconds": 2.248813365,
+        "median_process_seconds": 2.276191523000307,
+        "rows": [
+          {
+            "core_seconds": 1.9867667949999999,
+            "events": 3663350,
+            "numerical_sha256": "9c4049da212fa2fb89f6f3a1b5953d38124c02c0640185d789fb5f2c19208a88",
+            "process_seconds": 1.9985096020009223
+          },
+          {
+            "core_seconds": 2.248813365,
+            "events": 3663350,
+            "numerical_sha256": "9c4049da212fa2fb89f6f3a1b5953d38124c02c0640185d789fb5f2c19208a88",
+            "process_seconds": 2.276191523000307
+          },
+          {
+            "core_seconds": 2.25285718,
+            "events": 3663350,
+            "numerical_sha256": "9c4049da212fa2fb89f6f3a1b5953d38124c02c0640185d789fb5f2c19208a88",
+            "process_seconds": 2.280745152998861
+          }
+        ]
+      }
+    },
+    "dense_66": {
+      "before": {
+        "core_ns_per_event": 1122.0963559701547,
+        "core_range_seconds": [
+          1.334570835,
+          1.428573728
+        ],
+        "median_core_seconds": 1.375603731,
+        "median_process_seconds": 1.3907333009992726,
+        "rows": [
+          {
+            "core_seconds": 1.375603731,
+            "events": 1225923,
+            "numerical_sha256": "24ef55a1050b47d3da2ff05914d54c1966327edd965845eef72d1a1dce258d0b",
+            "process_seconds": 1.3907333009992726
+          },
+          {
+            "core_seconds": 1.428573728,
+            "events": 1225923,
+            "numerical_sha256": "24ef55a1050b47d3da2ff05914d54c1966327edd965845eef72d1a1dce258d0b",
+            "process_seconds": 1.4465391539997654
+          },
+          {
+            "core_seconds": 1.334570835,
+            "events": 1225923,
+            "numerical_sha256": "24ef55a1050b47d3da2ff05914d54c1966327edd965845eef72d1a1dce258d0b",
+            "process_seconds": 1.3498634330007917
+          }
+        ]
+      }
+    },
+    "sparse_66": {
+      "before": {
+        "core_ns_per_event": 1267.8374130065708,
+        "core_range_seconds": [
+          1.3878699380000001,
+          1.661419856
+        ],
+        "median_core_seconds": 1.5652416420000002,
+        "median_process_seconds": 1.5764913780003553,
+        "rows": [
+          {
+            "core_seconds": 1.3878699380000001,
+            "events": 1234576,
+            "numerical_sha256": "78119942e16e3729d1661d998078d75690052fea1fbc2bcf728d82a5bcd609a9",
+            "process_seconds": 1.4001098900007491
+          },
+          {
+            "core_seconds": 1.661419856,
+            "events": 1234576,
+            "numerical_sha256": "78119942e16e3729d1661d998078d75690052fea1fbc2bcf728d82a5bcd609a9",
+            "process_seconds": 1.6737546580006892
+          },
+          {
+            "core_seconds": 1.5652416420000002,
+            "events": 1234576,
+            "numerical_sha256": "78119942e16e3729d1661d998078d75690052fea1fbc2bcf728d82a5bcd609a9",
+            "process_seconds": 1.5764913780003553
+          }
+        ]
+      }
+    },
+    "two_channel": {
+      "before": {
+        "core_ns_per_event": 122.20059929110171,
+        "core_range_seconds": [
+          0.145845057,
+          0.165148386
+        ],
+        "median_core_seconds": 0.154970523,
+        "median_process_seconds": 0.1713943049999216,
+        "rows": [
+          {
+            "core_seconds": 0.154970523,
+            "events": 1268165,
+            "numerical_sha256": "d53392e926da1ffcc48149f0cebd70daea01a293309242d66248a0be830cb3d2",
+            "process_seconds": 0.1713943049999216
+          },
+          {
+            "core_seconds": 0.145845057,
+            "events": 1268165,
+            "numerical_sha256": "d53392e926da1ffcc48149f0cebd70daea01a293309242d66248a0be830cb3d2",
+            "process_seconds": 0.15674128200043924
+          },
+          {
+            "core_seconds": 0.165148386,
+            "events": 1268165,
+            "numerical_sha256": "d53392e926da1ffcc48149f0cebd70daea01a293309242d66248a0be830cb3d2",
+            "process_seconds": 0.17433501300001808
+          }
+        ]
+      }
+    }
+  }
+}

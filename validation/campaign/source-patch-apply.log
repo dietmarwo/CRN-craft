@@ -1,0 +1,73 @@
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:750: new blank line at EOF.
++
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:1263: new blank line at EOF.
++
+warning: 2 lines add whitespace errors.
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:388: new blank line at EOF.
++
+warning: 1 line adds whitespace errors.
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:1001: new blank line at EOF.
++
+warning: 1 line adds whitespace errors.
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:1707: new blank line at EOF.
++
+warning: 1 line adds whitespace errors.
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:2753: new blank line at EOF.
++
+warning: 1 line adds whitespace errors.
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:973: new blank line at EOF.
++
+warning: 1 line adds whitespace errors.
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:326: new blank line at EOF.
++
+warning: 1 line adds whitespace errors.
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:986: new blank line at EOF.
++
+warning: 1 line adds whitespace errors.
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:335: new blank line at EOF.
++
+warning: 1 line adds whitespace errors.
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:345: new blank line at EOF.
++
+warning: 1 line adds whitespace errors.
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:310: new blank line at EOF.
++
+warning: 1 line adds whitespace errors.
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:738: new blank line at EOF.
++
+warning: 1 line adds whitespace errors.
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:595: new blank line at EOF.
++
+warning: 1 line adds whitespace errors.
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:319: new blank line at EOF.
++
+warning: 1 line adds whitespace errors.
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:595: trailing whitespace.
+ 
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:892: new blank line at EOF.
++
+warning: 2 lines add whitespace errors.
+/workspace/scratch/d05427e343fb/CRN-craft/.git/worktrees/crn-final-mail-check/rebase-apply/patch:682: new blank line at EOF.
++
+warning: 1 line adds whitespace errors.
+Applying: Declare remaining milestone and ten-iteration performance campaign
+Applying: Implement M3 sparse FSP with independent master-equation checks
+Applying: Measure M4a pinned dynamic reference and Direct baseline
+Applying: Add M5 isolated Python binding and held-out circuit diagnostics
+Applying: Implement M4b exact dependency-cached Direct and cancellation bridge
+Applying: Integrate M6 native CRN objectives with pinned fcmaes worker SDK
+Applying: Add M7 optional BDF sensitivities and global-to-SQP calibration
+Applying: Implement M8 explicit SBML and expanded BioNetGen import subsets
+Applying: Implement M9 explicitly approximate bounded Poisson leaping
+Applying: Complete M10 package acceptance and preserve original contracts
+Applying: P01 specialize elementary zero and first order propensities
+Applying: P02 specialize checked elementary second order propensities
+Applying: P03 avoid redundant full state validation in trusted firings
+Applying: P04 avoid reevaluating a selected enabled propensity
+Applying: P05 test and reject inconclusive trajectory preallocation
+Applying: P06 bypass thread and queue startup for one worker
+Applying: P07 increase bounded queue capacity with matching memory reservation
+Applying: P08 fuse strict propensity sum and selection resolution checks
+Applying: P09 test and reject inconclusive Hill constant caches
+Applying: P10 reuse normalized sparse FSP operators and work buffers
+Applying: Preserve legacy archive admission and finish strict integration schemas

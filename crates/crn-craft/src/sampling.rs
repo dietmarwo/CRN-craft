@@ -42,6 +42,7 @@ fn numeric(code: &str, message: &str) -> Diagnostic {
 
 pub fn total_propensity(rates: &[f64]) -> Result<f64, Diagnostic> {
     let mut total = 0.0;
+    let mut minimum = f64::INFINITY;
     for &rate in rates {
         if !rate.is_finite() || rate < 0.0 {
             return Err(numeric("CRN-E061", "invalid propensity in Direct sum"));
@@ -54,12 +55,12 @@ pub fn total_propensity(rates: &[f64]) -> Result<f64, Diagnostic> {
             ));
         }
         total = next;
+        if rate > 0.0 {
+            minimum = minimum.min(rate);
+        }
     }
     // A 53-bit categorical uniform cannot resolve arbitrarily small channels.
-    if rates
-        .iter()
-        .any(|&rate| rate > 0.0 && rate / total < UNIFORM_STEP)
-    {
+    if minimum.is_finite() && minimum / total < UNIFORM_STEP {
         return Err(numeric(
             "CRN-E061",
             "positive channel is below the 53-bit selection resolution",

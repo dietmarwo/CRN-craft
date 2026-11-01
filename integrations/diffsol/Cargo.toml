@@ -1,0 +1,14 @@
+[workspace]
+[package]
+name = "crn-diffsol"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+license = "MIT"
+publish = false
+[dependencies]
+crn-craft = { path = "../../crates/crn-craft" }
+diffsol = { version = "=0.18.0", default-features = false, features = ["nalgebra"] }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
+schemars = "=0.8.22"

@@ -25,7 +25,7 @@ fn invoke(args: &[&str]) -> (i32, Value) {
 fn cli_description_and_example_check() {
     let (code, value) = invoke(&["describe"]);
     assert_eq!(code, 0);
-    assert_eq!(value["milestone"], "M2");
+    assert_eq!(value["milestone"], "M10");
     let (code, value) = invoke(&[
         "check",
         "models/examples/immigration-death.model.json",

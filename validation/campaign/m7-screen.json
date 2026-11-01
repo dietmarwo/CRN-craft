@@ -1,0 +1,150 @@
+{
+  "passed": true,
+  "rows": [
+    {
+      "events": 1171724,
+      "model": "repressilator",
+      "ode_diagnostic": {
+        "autocorrelation_peak": -0.09977039635920865,
+        "classification": "ambiguous",
+        "cycles": 2.0,
+        "peak_fraction": 0.29275481958886396,
+        "period": 50.25
+      },
+      "rejected_by_ode": false,
+      "scope": "measured controls, not population-wide detector sensitivity",
+      "stochastic_allocation": 8,
+      "stochastic_diagnostics": [
+        {
+          "autocorrelation_peak": -0.07197330521872104,
+          "classification": "ambiguous",
+          "cycles": 2.0,
+          "peak_fraction": 0.2524970824778917,
+          "period": 50.25
+        },
+        {
+          "autocorrelation_peak": 0.3472986191231505,
+          "classification": "ambiguous",
+          "cycles": 2.0,
+          "peak_fraction": 0.5670870049647477,
+          "period": 50.25
+        },
+        {
+          "autocorrelation_peak": -0.07406437723846107,
+          "classification": "ambiguous",
+          "cycles": 2.0,
+          "peak_fraction": 0.3154886019884366,
+          "period": 50.25
+        },
+        {
+          "autocorrelation_peak": 0.06411759591671212,
+          "classification": "nonoscillatory",
+          "cycles": 3.0,
+          "peak_fraction": 0.28224713403220186,
+          "period": 33.5
+        },
+        {
+          "autocorrelation_peak": 0.2918247864888925,
+          "classification": "ambiguous",
+          "cycles": 2.0,
+          "peak_fraction": 0.6002473383573418,
+          "period": 50.25
+        },
+        {
+          "autocorrelation_peak": 0.07213241898654084,
+          "classification": "ambiguous",
+          "cycles": 2.0,
+          "peak_fraction": 0.41459902304092067,
+          "period": 50.25
+        },
+        {
+          "autocorrelation_peak": -0.07878734437615374,
+          "classification": "ambiguous",
+          "cycles": 2.0,
+          "peak_fraction": 0.3035791857794166,
+          "period": 50.25
+        },
+        {
+          "autocorrelation_peak": 0.2286957611158086,
+          "classification": "oscillatory",
+          "cycles": 3.0,
+          "peak_fraction": 0.4007075559577642,
+          "period": 33.5
+        }
+      ]
+    },
+    {
+      "events": 2681477,
+      "model": "vilar-noise",
+      "ode_diagnostic": {
+        "autocorrelation_peak": 0.0,
+        "classification": "ambiguous",
+        "cycles": 1.0,
+        "peak_fraction": 0.20921014559996426,
+        "period": 100.5
+      },
+      "rejected_by_ode": false,
+      "scope": "measured controls, not population-wide detector sensitivity",
+      "stochastic_allocation": 8,
+      "stochastic_diagnostics": [
+        {
+          "autocorrelation_peak": -0.06016072939884241,
+          "classification": "nonoscillatory",
+          "cycles": 5.0,
+          "peak_fraction": 0.1649637288419503,
+          "period": 20.1
+        },
+        {
+          "autocorrelation_peak": -0.04009773660325956,
+          "classification": "nonoscillatory",
+          "cycles": 3.0,
+          "peak_fraction": 0.18697828103607186,
+          "period": 33.5
+        },
+        {
+          "autocorrelation_peak": 0.0,
+          "classification": "ambiguous",
+          "cycles": 1.0,
+          "peak_fraction": 0.10915888850495098,
+          "period": 100.5
+        },
+        {
+          "autocorrelation_peak": 0.0,
+          "classification": "ambiguous",
+          "cycles": 1.0,
+          "peak_fraction": 0.09429895091998138,
+          "period": 100.5
+        },
+        {
+          "autocorrelation_peak": 0.0,
+          "classification": "ambiguous",
+          "cycles": 1.0,
+          "peak_fraction": 0.10505085623705666,
+          "period": 100.5
+        },
+        {
+          "autocorrelation_peak": -0.07728678881673964,
+          "classification": "nonoscillatory",
+          "cycles": 5.0,
+          "peak_fraction": 0.15899517758615625,
+          "period": 20.1
+        },
+        {
+          "autocorrelation_peak": 0.0,
+          "classification": "ambiguous",
+          "cycles": 1.0,
+          "peak_fraction": 0.09252867149853902,
+          "period": 100.5
+        },
+        {
+          "autocorrelation_peak": 0.013801503063910177,
+          "classification": "ambiguous",
+          "cycles": 2.0,
+          "peak_fraction": 0.17451868250833286,
+          "period": 50.25
+        }
+      ]
+    }
+  ],
+  "schema": "crn-craft.screen-study/0.1"
+}

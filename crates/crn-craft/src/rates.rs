@@ -129,6 +129,50 @@ fn mass_action(
     if coefficient == 0.0 {
         return Ok(0.0);
     }
+    // Common elementary rates: exact same rounded product when normal.
+    // Exceptional/subnormal ranges retain the original scaled implementation.
+    if reactants.is_empty() {
+        return Ok(coefficient);
+    }
+    if let [term] = reactants {
+        if term.coefficient == 1 && coefficient.is_normal() {
+            let value = coefficient * state[term.species] as f64;
+            if value.is_normal() {
+                return Ok(value);
+            }
+        }
+    }
+    if coefficient.is_normal() {
+        if let [term] = reactants {
+            if term.coefficient == 2 {
+                let count = state[term.species];
+                let first = if count == 2 {
+                    coefficient
+                } else if count == 3 {
+                    coefficient * 3.0
+                } else {
+                    coefficient * (count - 1) as f64
+                };
+                let value = if count <= 3 {
+                    first
+                } else {
+                    first * (count as f64 / 2.0)
+                };
+                if first.is_normal() && value.is_normal() {
+                    return Ok(value);
+                }
+            }
+        }
+        if let [first, second] = reactants {
+            if first.coefficient == 1 && second.coefficient == 1 {
+                let partial = coefficient * state[first.species] as f64;
+                let value = partial * state[second.species] as f64;
+                if partial.is_normal() && value.is_normal() {
+                    return Ok(value);
+                }
+            }
+        }
+    }
     // Keep the coefficient in the scaled product: binomial(n,k) may overflow
     // independently even when coefficient*binomial(n,k) is representable.
     let (mut mantissa, mut exponent) = libm::frexp(coefficient);

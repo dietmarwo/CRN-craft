@@ -1,0 +1,37 @@
+{
+  "identical": true,
+  "numerical_sha256": "4309fcbdaf15e1a63b4f6628c858e9959ce9bf2b0c41534e9698ebf74013a61a",
+  "paired_median_speedup": 1.1867275527402774,
+  "rows": [
+    {
+      "after": 0.12031589500111295,
+      "before": 0.14425291099905735
+    },
+    {
+      "after": 0.11703693900199141,
+      "before": 0.1304997290026222
+    },
+    {
+      "after": 0.11742712799969013,
+      "before": 0.130622114000289
+    },
+    {
+      "after": 0.1115044329999364,
+      "before": 0.13456657099959557
+    },
+    {
+      "after": 0.11235055400175042,
+      "before": 0.13332949799951166
+    },
+    {
+      "after": 0.11436504700031946,
+      "before": 0.13509430799967959
+    },
+    {
+      "after": 0.11020703699978185,
+      "before": 0.14029351299905102
+    }
+  ],
+  "schema": "crn-craft.fsp-performance/0.1",
+  "scope": "process timings, 401 reachable states, horizon 40, identical full FSP result including work/error fields"
+}

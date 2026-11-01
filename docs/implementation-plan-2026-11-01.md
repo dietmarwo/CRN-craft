@@ -1,5 +1,15 @@
 # CRN-craft: reviewed implementation plan, revision 2
 
+## Remaining-milestone campaign — 1 November 2026
+
+M3 through M10, including the measured M4b cached-Direct path and optional M7
+BDF/sensitivity integration, have been implemented and tested under the declared
+subsets in `docs/campaign/acceptance.md`. Ten subsequent performance experiments
+are complete: eight accepted, two rejected with evidence. The campaign guide and
+implementation log in `docs/campaign/` record executed checks, performance,
+importer/approximation scope and outstanding external validation. The earlier
+iteration progress below is retained as history; it does not describe current HEAD.
+
 **Date:** 1 November 2026  
 **Basis:** the attached 31 October CRN-craft plan, GillesPy2 alternatives note, and 29 October ecosystem review.  
 **Iteration 1:** M0, contracts and preflight validation. Numerical simulation is not part of this iteration.  

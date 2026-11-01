@@ -116,7 +116,9 @@ fn checksum_and_completion_hash_are_checked_independently_of_json_semantics() {
     assert!(!archive::verify_archive(&out).valid);
     fs::write(out.join("COMPLETE"), marker).unwrap();
     let provenance = fs::read_to_string(out.join("provenance.json")).unwrap();
-    let changed = provenance.replace("0.1.0-dev.4", "0.1.0-dev.9");
+    let mut edited: Value = serde_json::from_str(&provenance).unwrap();
+    edited["crate_version"] = json!("x".repeat(edited["crate_version"].as_str().unwrap().len()));
+    let changed = serde_json::to_string(&edited).unwrap() + "\n";
     assert_ne!(provenance, changed);
     assert_eq!(provenance.len(), changed.len());
     fs::write(out.join("provenance.json"), changed).unwrap();
@@ -318,4 +320,22 @@ fn refreshed_hashes_do_not_hide_inconsistent_partial_evidence_or_budget() {
     fs::write(out.join("result.json"), &original).unwrap();
     reseal(&out);
     assert!(archive::verify_archive(&out).valid);
+}
+
+#[test]
+fn legacy_memory_admission_uses_small_queue_fallback_and_remains_verifiable() {
+    let tmp = Temp::new();
+    inputs(&tmp.0, |run| {
+        run["time"] =
+            json!({"end":249999.0,"save_times":(0..250000).map(|i|i as f64).collect::<Vec<_>>()});
+        run["outputs"]["keep_trajectories"] = json!(0);
+        run["budget"]["threads"] = json!(8);
+        run["budget"]["max_output_bytes"] = json!(20000000);
+    });
+    let control = Control::default();
+    control.cancel();
+    let created = create(&tmp.0, &control);
+    assert!(created.valid, "{:?}", created.diagnostics);
+    assert!(!created.simulation_complete);
+    assert!(archive::verify_archive(&tmp.0.join("out")).valid);
 }

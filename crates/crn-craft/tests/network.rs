@@ -591,3 +591,67 @@ fn analysis_failure_and_state_identity_are_honest() {
     assert!(!bad.success);
     assert!(bad.analysis.is_none());
 }
+
+#[test]
+fn hill_near_threshold_uses_log1p_not_a_difference_of_logs() {
+    // ln(x) - ln(k) loses about 2e-7 relative accuracy here; with n = 1e8 that
+    // moves the fraction far beyond 2e-12. References: mpmath at 60 digits.
+    let (x, k, n) = (1_000_000_007_i64, 1_000_000_000.5, 1e8);
+    for (repression, expected) in [(false, 0.6570104621242138), (true, 0.3429895378757863)] {
+        let network = CompiledNetwork::compile(&make(
+            &[("X", 0)],
+            vec![reaction(
+                "r",
+                json!({}),
+                json!({}),
+                hill(repression, "X", 1.0, 0.0, k, n),
+            )],
+        ))
+        .unwrap();
+        close(network.propensity(0, &[x]).unwrap(), expected);
+    }
+}
+
+#[test]
+fn weighted_nonnegative_law_divides_its_bound_by_the_weight() {
+    // 2A <-> B conserves A + 2B = 7, so B <= floor(7 / 2).
+    let model = make(
+        &[("A", 5), ("B", 1)],
+        vec![
+            reaction("bind", json!({"A":2}), json!({"B":1}), ma(1.0)),
+            reaction("split", json!({"B":1}), json!({"A":2}), ma(1.0)),
+        ],
+    );
+    let c = analyze_conservation(&CompiledNetwork::compile(&model).unwrap());
+    assert_eq!(c.status, ConservationStatus::Exact);
+    assert_eq!(c.basis.len(), 1);
+    assert_eq!(c.basis[0].coefficients, ["1", "2"]);
+    assert_eq!(c.basis[0].initial_total, "7");
+    assert_eq!(
+        c.initial_class_upper_bounds,
+        [Some("7".into()), Some("3".into())]
+    );
+}
+
+#[test]
+fn high_order_reactant_uses_binomial_symmetry() {
+    // binomial(k + 1, k) = k + 1 must come from one exact factor. A product of
+    // k rounded ratios is inexact (relative error about 4e-13 for k = 10^7) and
+    // takes k steps; the first reaction fails fast if symmetry is lost.
+    let orders = [10_000_000_i64, i64::from(i32::MAX)];
+    let network = CompiledNetwork::compile(&make(
+        &[("A", 0), ("B", 0)],
+        vec![
+            reaction("r", json!({"A": orders[0]}), json!({}), ma(1.0)),
+            reaction("s", json!({"B": orders[1]}), json!({}), ma(1.0)),
+        ],
+    ))
+    .unwrap();
+    for (reaction, order) in orders.into_iter().enumerate() {
+        let state = |a: i64| if reaction == 0 { [a, 0] } else { [0, a] };
+        let rate = |a: i64| network.propensity(reaction, &state(a)).unwrap();
+        assert_eq!(rate(order + 1), (order + 1) as f64);
+        assert_eq!(rate(order), 1.0);
+        assert_eq!(rate(order - 1), 0.0);
+    }
+}

@@ -511,3 +511,32 @@ fn cached_direct_matches_direct_with_partial_resumption_and_failures() {
     // The long runs reach the tiny channel; the short run mostly does not.
     assert!(failed > 0, "no replicate reached the resolution failure");
 }
+
+/// Saved rows keep species order at every saved point, including after
+/// absorption, for one and several species.
+#[test]
+fn saved_rows_keep_species_order_on_dense_grids() {
+    let model = json!({"schema":"crn-craft.model/0.1","name":"rows","convention":"stochastic_counts","omega":1.0,"parameters":{},
+        "species":[{"name":"X","initial_count":0},{"name":"Y","initial_count":1},{"name":"Z","initial_count":7}],
+        "reactions":[{"name":"make","reactants":{"Z":1},"products":{"X":1,"Y":2},"rate":{"kind":"mass_action","coefficient":0.9}}]});
+    let saves: Vec<f64> = (0..=200).map(|i| i as f64 * 0.05).collect();
+    let result = simulate(&model, |run| {
+        run["time"] = json!({"end": 10.0, "save_times": saves});
+        run["ensemble"]["replicates"] = json!(12);
+        run["outputs"]["keep_trajectories"] = json!(12);
+    });
+    assert_eq!(result.trajectories.len(), 12);
+    for path in &result.trajectories {
+        assert_eq!(path.counts.len(), saves.len());
+        for row in &path.counts {
+            assert_eq!(row.len(), 3);
+            assert_eq!(row[1], 1 + 2 * row[0]);
+            assert_eq!(row[0] + row[2], 7);
+        }
+        // Z is exhausted long before t = 10, so the last rows are absorbed states.
+        assert_eq!(path.counts.last().unwrap(), &vec![7, 15, 0]);
+    }
+    let mean = &result.statistics.unwrap().mean.unwrap();
+    assert_eq!(mean.len(), saves.len());
+    assert_eq!(mean[0], vec![0.0, 1.0, 7.0]);
+}

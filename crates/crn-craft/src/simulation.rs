@@ -305,7 +305,8 @@ pub fn prepare(model_bytes: &[u8], run_bytes: &[u8]) -> Result<Prepared, Vec<Dia
 
 struct PathResult {
     record: Replicate,
-    counts: Vec<Vec<i64>>,
+    /// Saved states, one row of `species` counts per saved point.
+    counts: Vec<i64>,
 }
 
 fn trajectory(prepared: &Prepared, id: u64, poller: &mut Poller, cached: bool) -> PathResult {
@@ -342,8 +343,8 @@ fn path_with_rng_mode(
         saved_points: 0,
         diagnostic: None,
     };
-    let mut counts = Vec::new();
     let mut state = network.initial_counts().to_vec();
+    let mut counts = Vec::with_capacity(run.time.save_times.len() * state.len());
     let mut time = 0.0;
     let mut save = 0;
     let mut rates: Vec<f64> = Vec::with_capacity(network.reactions().len());
@@ -361,7 +362,7 @@ fn path_with_rng_mode(
                 if let Some(stop) = poller.poll() {
                     return Ok(stop);
                 }
-                counts.push(state.clone());
+                counts.extend_from_slice(&state);
                 save += 1;
             }
             if time == run.time.end {
@@ -418,7 +419,7 @@ fn path_with_rng_mode(
                     if let Some(stop) = poller.poll() {
                         return Ok(stop);
                     }
-                    counts.push(state.clone());
+                    counts.extend_from_slice(&state);
                     save += 1;
                 }
                 time = run.time.end;
@@ -431,7 +432,7 @@ fn path_with_rng_mode(
                 if let Some(stop) = poller.poll() {
                     return Ok(stop);
                 }
-                counts.push(state.clone());
+                counts.extend_from_slice(&state);
                 save += 1;
             }
             if next > run.time.end {
@@ -462,13 +463,8 @@ fn path_with_rng_mode(
             record.diagnostic = Some(error);
         }
     }
-    record.stop_time = time.max(
-        counts
-            .len()
-            .checked_sub(1)
-            .map_or(0.0, |i| run.time.save_times[i]),
-    );
-    record.saved_points = counts.len();
+    record.stop_time = time.max(save.checked_sub(1).map_or(0.0, |i| run.time.save_times[i]));
+    record.saved_points = save;
     PathResult { record, counts }
 }
 
@@ -498,17 +494,19 @@ fn execute_inner(
         let mut consume = |id: u64, path: PathResult| {
             if path.record.termination == Stop::Completed {
                 completed += 1;
-                for (i, count) in path.counts.iter().flatten().enumerate() {
+                for (i, count) in path.counts.iter().enumerate() {
                     let delta = *count as f64 - mean[i];
                     mean[i] += delta / completed as f64;
                     m2[i] += delta * (*count as f64 - mean[i]);
                 }
             }
             if id < run.outputs.keep_trajectories {
-                kept.push(Trajectory {
-                    id,
-                    counts: path.counts,
-                });
+                let counts = if n_species == 0 {
+                    vec![Vec::new(); path.record.saved_points]
+                } else {
+                    path.counts.chunks(n_species).map(<[i64]>::to_vec).collect()
+                };
+                kept.push(Trajectory { id, counts });
             }
             records.push(path.record);
         };
@@ -746,7 +744,8 @@ mod tests {
         );
         assert_eq!(path.record.termination, Stop::Completed);
         assert_eq!(path.record.events, 1);
-        assert_eq!(path.counts, vec![vec![0], vec![1]]);
+        assert_eq!(path.counts, vec![0, 1]);
+        assert_eq!(path.record.saved_points, 2);
         assert_eq!(rng.index, 2);
     }
     #[test]

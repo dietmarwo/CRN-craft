@@ -169,6 +169,60 @@ MUTATIONS = [
         'marker != format!("{}\\n", sha256(&manifest_bytes)).as_bytes()',
         "false",
     ),
+    (
+        "ssa_poller_skips_first_check",
+        "crates/crn-craft/src/simulation.rs",
+        "            countdown: 0,\n",
+        "            countdown: CLOCK_POLL_STRIDE,\n",
+    ),
+    (
+        "ssa_cancel_file_interval_inverted",
+        "crates/crn-craft/src/simulation.rs",
+        "now.duration_since(last) >= CANCEL_FILE_INTERVAL",
+        "now.duration_since(last) < CANCEL_FILE_INTERVAL",
+    ),
+    (
+        "ssa_extra_retained_trajectory",
+        "crates/crn-craft/src/simulation.rs",
+        "if id < run.outputs.keep_trajectories {",
+        "if id <= run.outputs.keep_trajectories {",
+    ),
+    (
+        "ssa_accepts_lost_positive_increment",
+        "crates/crn-craft/src/sampling.rs",
+        "|| (rate > 0.0 && next <= total)",
+        "|| false",
+    ),
+    (
+        "ssa_accepts_zero_wait",
+        "crates/crn-craft/src/sampling.rs",
+        "if !wait.is_finite() || wait <= 0.0 {",
+        "if !wait.is_finite() {",
+    ),
+    (
+        "archive_ignores_byte_budget",
+        "crates/crn-craft/src/archive.rs",
+        "if total_bytes > run.budget.max_output_bytes\n",
+        "if false\n",
+    ),
+    (
+        "archive_ignores_unstarted_record_rules",
+        "crates/crn-craft/src/archive.rs",
+        "            || (!record.started\n",
+        "            || (false && !record.started\n",
+    ),
+    (
+        "archive_ignores_initial_state",
+        "crates/crn-craft/src/archive.rs",
+        ".is_some_and(|counts| counts != prepared.network.initial_counts())",
+        ".is_some_and(|_| false)",
+    ),
+    (
+        "archive_accepts_state_after_stop_time",
+        "crates/crn-craft/src/archive.rs",
+        "&& run.time.save_times[record.saved_points - 1] > record.stop_time",
+        "&& false",
+    ),
 ]
 TEST_COMMAND = [
     "test",

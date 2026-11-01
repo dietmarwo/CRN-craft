@@ -23,7 +23,8 @@ jobs:
       - run: cargo +${{ matrix.toolchain }} test --release --workspace --locked
   contracts:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 35 mutants took 16 minutes on a two-CPU host.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

@@ -59,6 +59,38 @@ pub fn total_propensity(rates: &[f64]) -> Result<f64, Diagnostic> {
             minimum = minimum.min(rate);
         }
     }
+    resolution(minimum, total)?;
+    Ok(total)
+}
+
+/// `total_propensity` that also records each running sum: `prefix[i]` is the
+/// ordered sum of `rates[..=i]`, the same values `select_channel` accumulates.
+pub(crate) fn total_with_prefix(rates: &[f64], prefix: &mut Vec<f64>) -> Result<f64, Diagnostic> {
+    prefix.resize(rates.len(), 0.0);
+    let mut total = 0.0;
+    let mut minimum = f64::INFINITY;
+    for (slot, &rate) in prefix.iter_mut().zip(rates) {
+        if !rate.is_finite() || rate < 0.0 {
+            return Err(numeric("CRN-E061", "invalid propensity in Direct sum"));
+        }
+        let next = total + rate;
+        if !next.is_finite() || (rate > 0.0 && next <= total) {
+            return Err(numeric(
+                "CRN-E061",
+                "Direct sum overflows or loses a positive channel",
+            ));
+        }
+        total = next;
+        *slot = total;
+        if rate > 0.0 {
+            minimum = minimum.min(rate);
+        }
+    }
+    resolution(minimum, total)?;
+    Ok(total)
+}
+
+fn resolution(minimum: f64, total: f64) -> Result<(), Diagnostic> {
     // A 53-bit categorical uniform cannot resolve arbitrarily small channels.
     if minimum.is_finite() && minimum / total < UNIFORM_STEP {
         return Err(numeric(
@@ -66,7 +98,38 @@ pub fn total_propensity(rates: &[f64]) -> Result<f64, Diagnostic> {
             "positive channel is below the 53-bit selection resolution",
         ));
     }
-    Ok(total)
+    Ok(())
+}
+
+/// The channel `select_channel` returns for the same rates, found by binary
+/// search over the running sums recorded by a successful `total_with_prefix`.
+/// A zero rate leaves the running sum unchanged and the strict total rejects a
+/// lost positive increment, so the first running sum above the threshold
+/// always belongs to a positive channel.
+pub(crate) fn select_from_prefix(
+    prefix: &[f64],
+    total: f64,
+    uniform: f64,
+) -> Result<usize, Diagnostic> {
+    if !(0.0..1.0).contains(&uniform) || !total.is_finite() || total <= 0.0 {
+        return Err(numeric("CRN-E061", "invalid categorical sampler arguments"));
+    }
+    let threshold = uniform * total;
+    if threshold >= total {
+        return Err(numeric(
+            "CRN-E061",
+            "selection threshold rounded to the total",
+        ));
+    }
+    let index = prefix.partition_point(|&sum| sum <= threshold);
+    if index < prefix.len() {
+        Ok(index)
+    } else {
+        Err(numeric(
+            "CRN-E061",
+            "no channel contains the categorical threshold",
+        ))
+    }
 }
 
 pub fn waiting_time(total: f64, uniform: f64) -> Result<f64, Diagnostic> {
@@ -123,4 +186,79 @@ pub fn select_channel(rates: &[f64], total: f64, uniform: f64) -> Result<usize, 
         "CRN-E061",
         "no channel contains the categorical threshold",
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn same(a: Result<usize, Diagnostic>, b: Result<usize, Diagnostic>) {
+        match (a, b) {
+            (Ok(x), Ok(y)) => assert_eq!(x, y),
+            (Err(x), Err(y)) => assert_eq!((x.code, x.message), (y.code, y.message)),
+            (x, y) => panic!("linear {x:?} differs from binary {y:?}"),
+        }
+    }
+
+    #[test]
+    fn binary_search_selects_the_linear_scan_channel_at_exact_boundaries() {
+        // Dyadic rates summing to one: uniform*total lands exactly on running sums.
+        let rates = [0.0, 0.25, 0.0, 0.0, 0.125, 0.5, 0.0, 0.125, 0.0];
+        let mut prefix = Vec::new();
+        let total = total_with_prefix(&rates, &mut prefix).unwrap();
+        assert_eq!(total, total_propensity(&rates).unwrap());
+        assert_eq!(total, 1.0);
+        assert_eq!(prefix.len(), rates.len());
+        for k in 0..1024 {
+            let uniform = k as f64 / 1024.0;
+            same(
+                select_channel(&rates, total, uniform),
+                select_from_prefix(&prefix, total, uniform),
+            );
+        }
+        // Exactly at a running sum, the next positive channel is selected.
+        assert_eq!(select_from_prefix(&prefix, total, 0.25).unwrap(), 4);
+        assert_eq!(select_from_prefix(&prefix, total, 0.875).unwrap(), 7);
+        same(
+            select_channel(&rates, total, 1.0),
+            select_from_prefix(&prefix, total, 1.0),
+        );
+    }
+
+    #[test]
+    fn binary_search_matches_the_linear_scan_on_random_rates() {
+        let mut rng = stream(20261101, 0);
+        let mut prefix = Vec::new();
+        for _ in 0..4000 {
+            let n = 1 + (rng.next_u64() % 40) as usize;
+            let rates: Vec<f64> = (0..n)
+                .map(|_| match rng.next_u64() % 4 {
+                    0 => 0.0,
+                    1 => 1e-30 * uniform_closed_open(rng.next_u64()),
+                    _ => libm::exp(40.0 * (uniform_closed_open(rng.next_u64()) - 0.5)),
+                })
+                .collect();
+            let linear = total_propensity(&rates);
+            let binary = total_with_prefix(&rates, &mut prefix);
+            match (&linear, &binary) {
+                (Ok(a), Ok(b)) => assert_eq!(a.to_bits(), b.to_bits()),
+                (Err(a), Err(b)) => {
+                    assert_eq!((&a.code, &a.message), (&b.code, &b.message));
+                    continue;
+                }
+                _ => panic!("total {linear:?} differs from {binary:?}"),
+            }
+            let total = linear.unwrap();
+            if total == 0.0 {
+                continue;
+            }
+            for _ in 0..64 {
+                let uniform = uniform_closed_open(rng.next_u64());
+                same(
+                    select_channel(&rates, total, uniform),
+                    select_from_prefix(&prefix, total, uniform),
+                );
+            }
+        }
+    }
 }

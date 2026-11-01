@@ -343,6 +343,7 @@ fn path_with_rng_mode(
     let mut time = 0.0;
     let mut save = 0;
     let mut rates = Vec::with_capacity(network.reactions().len());
+    let mut prefix = Vec::with_capacity(network.reactions().len());
     let mut previous: Option<usize> = None;
     let outcome = (|| -> Result<Stop, Diagnostic> {
         if let Some(stop) = poller.poll() {
@@ -386,7 +387,7 @@ fn path_with_rng_mode(
                     rates.push(network.propensity_in_valid_state(reaction, &state)?);
                 }
             }
-            let total = sampling::total_propensity(&rates)?;
+            let total = sampling::total_with_prefix(&rates, &mut prefix)?;
             if total == 0.0 {
                 // Absorption consumes no RNG and retains the state to the horizon.
                 while save < run.time.save_times.len() {
@@ -416,8 +417,8 @@ fn path_with_rng_mode(
             if let Some(stop) = poller.poll() {
                 return Ok(stop);
             }
-            let channel = sampling::select_channel(
-                &rates,
+            let channel = sampling::select_from_prefix(
+                &prefix,
                 total,
                 sampling::uniform_closed_open(rng.next_u64()),
             )?;

@@ -112,15 +112,20 @@ fn simulation_json(
     let prepared = py
         .detach(move || crn_craft::simulation::prepare(&model, &run))
         .map_err(|e| failure(&e))?;
-    let result = interruptible(py, cancel_file, move |control| {
-        if cached {
-            crn_craft::simulation::execute_cached(&prepared, control)
-        } else {
-            crn_craft::simulation::execute(&prepared, control)
-        }
+    let encoded = interruptible(py, cancel_file, move |control| {
+        crn_craft::simulation::execute_encoded(&prepared, control, cached)
     })?
     .map_err(|e| failure(&e))?;
-    serde_json::to_string(&result.result).map_err(|e| PyValueError::new_err(e.to_string()))
+    // The bytes that passed the output budget are the compact result plus a
+    // newline; reuse them instead of serializing again.
+    match encoded.bytes {
+        Some(mut bytes) => {
+            bytes.pop();
+            String::from_utf8(bytes).map_err(|e| PyValueError::new_err(e.to_string()))
+        }
+        None => serde_json::to_string(&encoded.simulation.result)
+            .map_err(|e| PyValueError::new_err(e.to_string())),
+    }
 }
 #[pyfunction]
 #[pyo3(signature = (model, run, cancel_file=None))]

@@ -507,6 +507,84 @@ fn execute_inner(
     control: &Control,
     cached: bool,
 ) -> Result<Simulation, Diagnostic> {
+    let (mut simulation, start) = ensemble(prepared, control, cached)?;
+    constrain_output(&mut simulation.result, output_limit(prepared))?;
+    simulation.provenance.elapsed_seconds = start.elapsed().as_secs_f64();
+    Ok(simulation)
+}
+
+/// Bytes available to the numerical result after the inputs and a margin.
+fn output_limit(prepared: &Prepared) -> u64 {
+    prepared
+        .run
+        .budget
+        .max_output_bytes
+        .min(MAX_RESULT_BYTES)
+        .saturating_sub(prepared.input_bytes + 16_384)
+}
+
+/// A simulation together with its result serialized once.
+pub struct Encoded {
+    pub simulation: Simulation,
+    /// The result as compact JSON plus a newline when it fits the output
+    /// budget, exactly the bytes an archive writes. `None` when the result
+    /// was constrained to its accounting, as `execute` would constrain it.
+    pub bytes: Option<Vec<u8>>,
+}
+
+#[cfg(test)]
+thread_local! {
+    static SERIALIZATIONS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// `execute` or `execute_cached`, serializing the result only once: the
+/// serialization that checks the output budget is kept and reused.
+pub fn execute_encoded(
+    prepared: &Prepared,
+    control: &Control,
+    cached: bool,
+) -> Result<Encoded, Diagnostic> {
+    struct Limited {
+        bytes: Vec<u8>,
+        room: usize,
+    }
+    impl std::io::Write for Limited {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            if bytes.len() > self.room - self.bytes.len() {
+                return Err(std::io::Error::other("output limit"));
+            }
+            self.bytes.extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let (mut simulation, start) = ensemble(prepared, control, cached)?;
+    let limit = output_limit(prepared);
+    #[cfg(test)]
+    SERIALIZATIONS.with(|count| count.set(count.get() + 1));
+    // The same admission as constrain_output: JSON plus a newline within limit.
+    let mut buffer = Limited {
+        bytes: Vec::new(),
+        room: usize::try_from(limit.saturating_sub(1)).unwrap_or(usize::MAX),
+    };
+    let bytes = if serde_json::to_writer(&mut buffer, &simulation.result).is_ok() {
+        buffer.bytes.push(b'\n');
+        Some(buffer.bytes)
+    } else {
+        constrain_output(&mut simulation.result, limit)?;
+        None
+    };
+    simulation.provenance.elapsed_seconds = start.elapsed().as_secs_f64();
+    Ok(Encoded { simulation, bytes })
+}
+
+fn ensemble(
+    prepared: &Prepared,
+    control: &Control,
+    cached: bool,
+) -> Result<(Simulation, Instant), Diagnostic> {
     let start = Instant::now();
     let run = &prepared.run;
     let ensemble = run.ensemble.as_ref().unwrap();
@@ -618,7 +696,7 @@ fn execute_inner(
     } else {
         None
     };
-    let mut simulation = Simulation {
+    let simulation = Simulation {
         result: SimulationResult {
             schema: ResultVersion::V02,
             model_sha256: prepared.model_hash.clone(),
@@ -650,15 +728,7 @@ fn execute_inner(
             workspace_cap_bytes: MAX_WORKSPACE_BYTES,
         },
     };
-    constrain_output(
-        &mut simulation.result,
-        run.budget
-            .max_output_bytes
-            .min(MAX_RESULT_BYTES)
-            .saturating_sub(prepared.input_bytes + 16_384),
-    )?;
-    simulation.provenance.elapsed_seconds = start.elapsed().as_secs_f64();
-    Ok(simulation)
+    Ok((simulation, start))
 }
 
 pub(crate) fn constrain_output(
@@ -681,8 +751,11 @@ pub(crate) fn constrain_output(
             Ok(())
         }
     }
-    let fits =
-        |value: &SimulationResult| serde_json::to_writer(Counter { used: 1, limit }, value).is_ok();
+    let fits = |value: &SimulationResult| {
+        #[cfg(test)]
+        SERIALIZATIONS.with(|count| count.set(count.get() + 1));
+        serde_json::to_writer(Counter { used: 1, limit }, value).is_ok()
+    };
     if fits(result) {
         return Ok(());
     }
@@ -843,6 +916,62 @@ mod tests {
             );
         }
     }
+    #[test]
+    fn encoded_results_serialize_once_and_match_execute_at_every_budget() {
+        let model=serde_json::to_vec(&json!({"schema":"crn-craft.model/0.1","name":"encode","convention":"stochastic_counts","omega":1.0,"parameters":{},
+            "species":[{"name":"X","initial_count":5}],"reactions":[
+            {"name":"make","reactants":{},"products":{"X":1},"rate":{"kind":"mass_action","coefficient":2.0}},
+            {"name":"lose","reactants":{"X":1},"products":{},"rate":{"kind":"mass_action","coefficient":0.4}}]})).unwrap();
+        // Enough saved output that the result, not the evidence reserve,
+        // decides admission near the boundary.
+        let saves: Vec<f64> = (0..400).map(|i| f64::from(i) * 0.01).collect();
+        let run_with = |budget: u64| {
+            serde_json::to_vec(&json!({"schema":"crn-craft.run/0.1","model":{"path":"model.json","sha256":sha256(&model)},"method":{"kind":"ssa","aggregator":"direct"},
+                "ensemble":{"replicates":12,"root_seed":5},"time":{"end":3.99,"save_times":saves},"outputs":{"statistics":["mean","variance"],"keep_trajectories":12},
+                "budget":{"max_events_per_replicate":100000,"threads":1,"max_output_bytes":budget}})).unwrap()
+        };
+        // Find the smallest budget that admits the full result, then compare
+        // both paths on every budget around it.
+        let run = run_with(1_000_000);
+        let full = execute(&prepare(&model, &run).unwrap(), &Control::default()).unwrap();
+        let length = serde_json::to_vec(&full.result).unwrap().len() as u64;
+        let boundary = length + 1 + (model.len() + run.len()) as u64 - 2 + 16_384;
+        let (mut admitted, mut constrained) = (0, 0);
+        for budget in boundary - 40..boundary + 40 {
+            let run = run_with(budget);
+            let prepared = prepare(&model, &run).unwrap();
+            for cached in [false, true] {
+                let expected = execute_inner(&prepared, &Control::default(), cached).unwrap();
+                SERIALIZATIONS.with(|count| count.set(0));
+                let encoded = execute_encoded(&prepared, &Control::default(), cached).unwrap();
+                let serialized = SERIALIZATIONS.with(|count| count.get());
+                let mut text = serde_json::to_vec(&expected.result).unwrap();
+                assert_eq!(
+                    serde_json::to_vec(&encoded.simulation.result).unwrap(),
+                    text,
+                    "budget {budget}"
+                );
+                text.push(b'\n');
+                match encoded.bytes {
+                    Some(bytes) => {
+                        assert_eq!(bytes, text);
+                        assert_eq!(serialized, 1, "one serialization when it fits");
+                        assert_eq!(expected.result.termination, Stop::Completed);
+                        admitted += 1;
+                    }
+                    None => {
+                        assert_eq!(expected.result.termination, Stop::OutputLimit);
+                        constrained += 1;
+                    }
+                }
+            }
+        }
+        assert!(
+            admitted > 0 && constrained > 0,
+            "{admitted} admitted, {constrained} constrained"
+        );
+    }
+
     #[test]
     fn reused_workspaces_reproduce_fresh_paths() {
         // Paths end in different states and some absorb early, so a stale

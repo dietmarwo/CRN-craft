@@ -67,3 +67,19 @@ see below.
   unchanged predeclared envelopes; (c) a median W9 speedup of at least 1.5.
   Because the drawn values change, the tau algorithm identifier gets a new
   version.
+
+## Amendments before measurement
+
+- **P20 timer scope (recorded after implementing P20, before any P20
+  measurement).** The core timer in `provenance.json` stops after the output
+  budget check. Before P20 that check was a counting serialization and the
+  archive serialized the result a second time after the timer stopped; P20
+  keeps the checking serialization and reuses its bytes, so the work it
+  removes lies outside the core timer. Core time cannot observe P20, so P20
+  is judged on paired process time with the same thresholds, and its W1–W4
+  regression guard uses process time as well. Core time is still recorded.
+- **P14–P16 base (recorded before the confirmation run).** P14–P16 were
+  measured on a base that still contained P13, which was rejected and
+  reverted afterwards. A confirmation run compares the P16 binary (with P13)
+  with the reverted source on W1–W4 under `simulate-cached` and is reported
+  with the results; it is evidence for the revert, not a new candidate.

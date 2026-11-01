@@ -1,0 +1,15 @@
+{
+  "packages": {
+    "gillespy2": "1.8.3",
+    "numpy": "2.3.5",
+    "scipy": "1.17.0",
+    "matplotlib": "3.10.8",
+    "plotly": "7.1.0",
+    "scons": "4.11.1",
+    "narwhals": "2.28.0"
+  },
+  "gillespy2_reaction_source_sha256": "ae5d6c2e69179419150e1105b812ea44846c27703a3da49fab57e3d661f70d6f",
+  "gillespy2_metadata_home_page": "https://github.com/StochSS/GillesPy2",
+  "core_rust_dependency_changes": [],
+  "purpose": "optional reference validation; no reference package source is vendored or linked"
+}

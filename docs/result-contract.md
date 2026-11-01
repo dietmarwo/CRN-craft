@@ -13,3 +13,7 @@ The planned archive preserves exact consumed input bytes, numerical payloads, wo
 ## M1a analysis reports
 
 `analyze` emits a separate `crn-craft.analysis/0.1` contract with structure, evaluated propensities and bounded exact conservation. `success` describes this analysis; `simulation_available` is false. A conservation size/overflow warning leaves successful structure/rate results available and explicitly labels conservation unavailable. Neither `check` nor `analyze` emits the reserved simulation result envelope. See `docs/contracts.md` and `docs/network-api.md`.
+
+## M1b structural and export reports
+
+Current analysis is 0.2 and includes cone, graph and effective bounds. `analyze-v1` keeps 0.1 output. Export has a separate 0.1 report containing generated Python source and declared target limitations. Neither command executes CRN-craft trajectories or emits a simulator result envelope.

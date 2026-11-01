@@ -42,7 +42,23 @@ jobs:
       - run: python validation/check_network.py --output network.json
       - run: python -O validation/check_network.py --output network-optimized.json
       - run: diff network.json network-optimized.json
+      - run: python validation/check_structure.py --output structure.json
+      - run: python -O validation/check_structure.py --output structure-optimized.json
+      - run: diff structure.json structure-optimized.json
       - run: python validation/mutation_check.py --output mutations.json
+  reference-export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r validation/reference-requirements.txt
+      - run: cargo build --release --workspace --locked
+      - run: python validation/check_export.py --output export.json
+      - run: python -O validation/check_export.py --output export-optimized.json
+      - run: diff export.json export-optimized.json
   line-endings:
     # Model hashes cover exact bytes; a Windows-style checkout must keep them.
     runs-on: ubuntu-latest
@@ -60,4 +76,4 @@ jobs:
             echo "$converted"
             exit 1
           fi
-      - run: cargo test --release --locked -p crn-craft --test contracts --test network
+      - run: cargo test --release --locked -p crn-craft --test contracts --test network --test structure

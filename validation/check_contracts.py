@@ -42,7 +42,16 @@ def main():
         rows.append({"check": name, "passed": bool(condition)})
 
     validators = {}
-    for kind in ("model", "run", "result", "check", "state", "analysis"):
+    for kind in (
+        "model",
+        "run",
+        "result",
+        "check",
+        "state",
+        "analysis",
+        "analysis-v1",
+        "export",
+    ):
         code, schema = invoke("describe", kind)
         Draft7Validator.check_schema(schema)
         validators[kind] = Draft7Validator(schema)
@@ -55,8 +64,9 @@ def main():
         code == 0
         and capabilities["simulation_available"] is False
         and capabilities["rate_evaluation_available"] is True
-        and capabilities["commands"] == ["describe", "check", "analyze"]
-        and capabilities["schema"] == "crn-craft.describe/0.2",
+        and capabilities["commands"]
+        == ["describe", "check", "analyze", "analyze-v1", "export"]
+        and capabilities["schema"] == "crn-craft.describe/0.3",
     )
 
     examples = ROOT / "models/examples"
@@ -70,6 +80,31 @@ def main():
         record(
             f"analysis_{path.name}",
             code == 0 and analysis["success"] and not analysis["simulation_available"],
+        )
+        code, legacy = invoke("analyze-v1", path)
+        validators["analysis-v1"].validate(legacy)
+        record(
+            f"legacy_analysis_{path.name}",
+            code == 0
+            and legacy["success"]
+            and legacy["schema"] == "crn-craft.analysis/0.1",
+        )
+        code, exported = invoke("export", path, "gillespy2")
+        validators["export"].validate(exported)
+        supported = path.name in (
+            "enzyme-mechanism.model.json",
+            "immigration-death.model.json",
+        )
+        record(
+            f"export_{path.name}",
+            (code == 0 and exported["success"] and exported["artifact"] is not None)
+            if supported
+            else (
+                code == 1
+                and not exported["success"]
+                and exported["artifact"] is None
+                and any(d["code"] == "CRN-E050" for d in exported["diagnostics"])
+            ),
         )
     for path in sorted(examples.glob("*.run.json")):
         run = json.loads(path.read_text())
@@ -137,12 +172,17 @@ def main():
                 and any(d["code"] == expected_code for d in report["diagnostics"]),
             )
 
-    for command in ("run", "fsp", "report", "export"):
+    for command in ("run", "fsp", "report"):
         code, report = invoke(command)
         record(
             f"unimplemented_{command}_fails",
             code == 1 and report["diagnostics"][0]["code"] == "CRN-E031",
         )
+    code, report = invoke("export")
+    record(
+        "export_missing_arguments_fails",
+        code == 1 and report["diagnostics"][0]["code"] == "CRN-E031",
+    )
     first = invoke("check", examples / "immigration-death.model.json")
     second = invoke("check", examples / "immigration-death.model.json")
     record("deterministic_check_report", first == second)

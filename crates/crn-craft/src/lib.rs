@@ -1,10 +1,14 @@
 #![forbid(unsafe_code)]
-//! CRN-craft M1a: strict inputs, compiled networks, propensities and analysis.
+//! CRN-craft M1b: strict inputs, compiled networks, propensities and analysis.
 //! There is deliberately no time integration or simulation API yet.
 pub mod analysis;
+pub mod analysis_v1;
+pub mod cone;
 pub mod conservation;
 pub mod contracts;
 pub mod diagnostic;
+pub mod export;
+pub mod linkage;
 pub mod network;
 mod rates;
 pub mod strict_json;
@@ -80,6 +84,29 @@ pub fn analyze_files(model_path: &Path, state_path: Option<&Path>) -> AnalysisRe
         Err(error) => return AnalysisReport::failure(error),
     };
     analyze_bytes(&model, state.as_deref())
+}
+
+/// Legacy M1a output and warning semantics, retained for existing consumers.
+pub fn analyze_legacy_files(
+    model_path: &Path,
+    state_path: Option<&Path>,
+) -> analysis_v1::AnalysisReport {
+    let model = match read_document(model_path) {
+        Ok(bytes) => bytes,
+        Err(error) => return analysis_v1::AnalysisReport::failure(error),
+    };
+    let state = match state_path.map(read_document).transpose() {
+        Ok(bytes) => bytes,
+        Err(error) => return analysis_v1::AnalysisReport::failure(error),
+    };
+    analysis_v1::analyze_bytes(&model, state.as_deref())
+}
+
+pub fn export_gillespy2_file(model_path: &Path) -> export::ExportReport {
+    match read_document(model_path) {
+        Ok(bytes) => export::export_gillespy2(&bytes),
+        Err(error) => export::ExportReport::failure(error),
+    }
 }
 
 /// Validate in-memory input bytes. Only check_files verifies model.path identity.
@@ -201,17 +228,20 @@ pub fn schema(kind: &str) -> Option<Value> {
         "check" => serde_json::to_value(schema_for!(CheckReport)).ok(),
         "state" => serde_json::to_value(schema_for!(analysis::NamedState)).ok(),
         "analysis" => serde_json::to_value(schema_for!(AnalysisReport)).ok(),
+        "analysis-v1" => serde_json::to_value(schema_for!(analysis_v1::AnalysisReport)).ok(),
+        "export" => serde_json::to_value(schema_for!(export::ExportReport)).ok(),
         _ => None,
     }
 }
 
 pub fn describe() -> Value {
     json!({
-        "schema": "crn-craft.describe/0.2", "version": env!("CARGO_PKG_VERSION"), "milestone": "M1a",
-        "commands": ["describe", "check", "analyze"], "simulation_available": false,
+        "schema": "crn-craft.describe/0.3", "version": env!("CARGO_PKG_VERSION"), "milestone": "M1b",
+        "commands": ["describe", "check", "analyze", "analyze-v1", "export"], "simulation_available": false,
         "aggregators": [{"name": "direct", "status": "contract_only", "implementation_milestone": "M2"}],
         "methods": [{"name": "ssa", "status": "contract_only"}, {"name": "fsp", "status": "contract_only"}],
         "rate_laws": ["mass_action", "hill_activation", "hill_repression", "michaelis_menten"],
+        "reference_exporters": [{"target":"gillespy2", "version": export::GILLESPY2_VERSION, "subset":"elementary_mass_action", "maximum_reactant_order":2}],
         "rate_evaluation_available": true, "observables": [],
         "model_cards": ["docs/model-cards/rate-laws.md", "docs/model-cards/direct.md"],
         "limits": {"document_bytes": strict_json::MAX_DOCUMENT_BYTES, "json_depth": strict_json::MAX_JSON_DEPTH,
@@ -219,7 +249,9 @@ pub fn describe() -> Value {
             "reactions": validate::MAX_REACTIONS, "save_times": validate::MAX_SAVE_TIMES,
             "dependency_edges": network::MAX_DEPENDENCY_EDGES,
             "conservation_species": conservation::MAX_CONSERVATION_SPECIES,
-            "conservation_reactions": conservation::MAX_CONSERVATION_REACTIONS},
-        "schemas": {"model": schema("model"), "run": schema("run"), "result": schema("result"), "check": schema("check"), "state": schema("state"), "analysis": schema("analysis")}
+            "conservation_reactions": conservation::MAX_CONSERVATION_REACTIONS,
+            "cone_species": cone::MAX_CONE_SPECIES, "cone_reactions": cone::MAX_CONE_REACTIONS,
+            "cone_rays": cone::MAX_CONE_RAYS, "cone_work": cone::MAX_CONE_WORK},
+        "schemas": {"model": schema("model"), "run": schema("run"), "result": schema("result"), "check": schema("check"), "state": schema("state"), "analysis": schema("analysis"), "analysis-v1": schema("analysis-v1"), "export": schema("export")}
     })
 }

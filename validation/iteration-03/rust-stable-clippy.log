@@ -1,0 +1,3 @@
+    Blocking waiting for file lock on package cache
+    Checking crn-craft v0.1.0-dev.3 (/workspace/scratch/d05427e343fb/CRN-craft-iteration-03/crates/crn-craft)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.17s

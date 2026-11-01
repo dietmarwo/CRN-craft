@@ -55,6 +55,48 @@ MUTATIONS = [
         "let order = term.coefficient.min(count - term.coefficient);",
         "let order = term.coefficient;",
     ),
+    (
+        "cone_missing_positive_contribution",
+        "crates/crn-craft/src/cone.rs",
+        "let a = minus_q / divisor;",
+        "let a = 0;",
+    ),
+    (
+        "cone_without_adjacency",
+        "crates/crn-craft/src/cone.rs",
+        "if !adjacent {",
+        "if !adjacent && false {",
+    ),
+    (
+        "cone_bound_without_weight",
+        "crates/crn-craft/src/cone.rs",
+        "let bound = total / weight;",
+        "let bound = total;",
+    ),
+    (
+        "linkage_reversed_outgoing",
+        "crates/crn-craft/src/linkage.rs",
+        "out[edge.source].push(edge.target);",
+        "out[edge.target].push(edge.source);",
+    ),
+    (
+        "complex_identity_ignores_weight",
+        "crates/crn-craft/src/linkage.rs",
+        ".map(|t| (t.species, t.coefficient))",
+        ".map(|t| (t.species, 1))",
+    ),
+    (
+        "export_without_homodimer_factor",
+        "crates/crn-craft/src/export.rs",
+        "coefficient / 2.0",
+        "coefficient",
+    ),
+    (
+        "analysis_drops_fallback_bounds",
+        "crates/crn-craft/src/analysis.rs",
+        "\n            conservation.initial_class_upper_bounds.clone()",
+        "\n            vec![None; network.species().len()]",
+    ),
 ]
 TEST_COMMAND = [
     "test",
@@ -65,6 +107,8 @@ TEST_COMMAND = [
     "crn-craft",
     "--test",
     "network",
+    "--test",
+    "structure",
 ]
 
 
@@ -80,7 +124,12 @@ def main():
             ROOT,
             clone,
             ignore=shutil.ignore_patterns(
-                ".git", "target", "__pycache__", ".ruff_cache", "iteration-02"
+                ".git",
+                "target",
+                "__pycache__",
+                ".ruff_cache",
+                "iteration-02",
+                "iteration-03",
             ),
         )
         baseline = subprocess.run(

@@ -1,7 +1,9 @@
 //! Versioned, JSON-friendly analysis and named-state input.
 use crate::{
+    cone::{ConeReport, ConeStatus, analyze_cone},
     conservation::{ConservationReport, analyze_conservation},
     diagnostic::Diagnostic,
+    linkage::{LinkageReport, analyze_linkage},
     network::{CompiledNetwork, ReactionStructure},
     parse_model, sha256, strict_json,
 };
@@ -16,8 +18,8 @@ pub enum StateVersion {
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum AnalysisVersion {
-    #[serde(rename = "crn-craft.analysis/0.1")]
-    V01,
+    #[serde(rename = "crn-craft.analysis/0.2")]
+    V02,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -38,6 +40,10 @@ pub struct NetworkAnalysis {
     pub dependencies: Vec<Vec<usize>>,
     pub propensities: Vec<f64>,
     pub conservation: ConservationReport,
+    pub nonnegative_conservation: ConeReport,
+    pub linkage: LinkageReport,
+    /// Cone bounds when exact, otherwise sound linear-basis bounds.
+    pub initial_class_upper_bounds: Vec<Option<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -55,7 +61,7 @@ pub struct AnalysisReport {
 impl AnalysisReport {
     pub fn failure(error: Diagnostic) -> Self {
         Self {
-            schema: AnalysisVersion::V01,
+            schema: AnalysisVersion::V02,
             success: false,
             simulation_available: false,
             model_sha256: None,
@@ -68,7 +74,7 @@ impl AnalysisReport {
 
 pub fn analyze_bytes(model_bytes: &[u8], state_bytes: Option<&[u8]>) -> AnalysisReport {
     let mut report = AnalysisReport {
-        schema: AnalysisVersion::V01,
+        schema: AnalysisVersion::V02,
         success: false,
         simulation_available: false,
         model_sha256: Some(sha256(model_bytes)),
@@ -87,8 +93,14 @@ pub fn analyze_bytes(model_bytes: &[u8], state_bytes: Option<&[u8]>) -> Analysis
         };
         let propensities = network.propensities(&state).map_err(|d| vec![d])?;
         let conservation = analyze_conservation(&network);
-        let bounded_paths: Vec<String> = conservation
-            .initial_class_upper_bounds
+        let nonnegative_conservation = analyze_cone(&network);
+        let linkage = analyze_linkage(&network, conservation.rank);
+        let bounds = if nonnegative_conservation.status == ConeStatus::Exact {
+            nonnegative_conservation.initial_class_upper_bounds.clone()
+        } else {
+            conservation.initial_class_upper_bounds.clone()
+        };
+        let bounded_paths: Vec<String> = bounds
             .iter()
             .enumerate()
             .filter(|(_, bound)| bound.is_some())
@@ -103,6 +115,9 @@ pub fn analyze_bytes(model_bytes: &[u8], state_bytes: Option<&[u8]>) -> Analysis
         report
             .diagnostics
             .extend(conservation.diagnostics.iter().cloned());
+        report
+            .diagnostics
+            .extend(nonnegative_conservation.diagnostics.iter().cloned());
         Ok(NetworkAnalysis {
             species: network.species().to_vec(),
             initial_counts: network.initial_counts().to_vec(),
@@ -111,6 +126,9 @@ pub fn analyze_bytes(model_bytes: &[u8], state_bytes: Option<&[u8]>) -> Analysis
             dependencies: network.dependencies().to_vec(),
             propensities,
             conservation,
+            nonnegative_conservation,
+            linkage,
+            initial_class_upper_bounds: bounds,
         })
     })();
     match result {

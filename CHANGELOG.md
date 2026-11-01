@@ -1,6 +1,28 @@
 # Changelog
 
-## [Unreleased] — iteration 2 / M1a (`0.1.0-dev.2`)
+## [Unreleased] — iteration 3 / M1b (`0.1.0-dev.3`)
+
+### Added
+
+- Exact nonnegative conservation-cone rays with deterministic work/ray caps, checked i128 arithmetic and explicit unavailable statuses.
+- Effective initial-class bounds that resolve the reviewed mixed-sign-basis gap when cone enumeration completes.
+- Reaction complexes, linkage/strong/terminal classes, weak reversibility and structural deficiency, with iterative graph walks.
+- GillesPy2 1.8.3 elementary mass-action Python export, explicit homodimer conversion, collision-free aliases and unsupported-feature diagnostics.
+- Independent support-enumeration/reachability oracle for 300 seeded networks, real target propensity/SSA-smoke checks and seven additional source mutants.
+
+### Changed
+
+- Analysis advances to 0.2; `analyze-v1` preserves 0.1. Discovery advances to 0.3; export starts at 0.1. Model/run/check/result/state schemas remain unchanged.
+- W001 suppression uses exact cone bounds when available and retains sound basis bounds on unavailable outcomes.
+- CI covers structure/oracle checks under normal Python and `-O`, 14 mutants after a passing baseline, and optional pinned reference validation.
+
+### Limits
+
+- Cone enumeration can grow exponentially; size alone does not ensure completion. No partial cone is labelled complete.
+- Export supports mass-action reactant order at most two, no population safety limits and exactly representable initial counts up to 2^53. It is for reference SSA, not target ODE semantics or CRN-craft budget/range equivalence.
+- Direct SSA and all CRN-craft simulation remain M2 or later.
+
+## Iteration 2 / M1a (`0.1.0-dev.2`)
 
 ### Added
 

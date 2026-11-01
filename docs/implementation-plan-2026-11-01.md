@@ -5,6 +5,12 @@
 **Iteration 1:** M0, contracts and preflight validation. Numerical simulation is not part of this iteration.  
 **Original iteration-1 delivery:** a new local project suitable for a future `dietmarwo/CRN-craft` repository. No repository creation, push or release is required to test it.
 
+## Iteration 3 progress — 1 November 2026
+
+M1b is implemented in `0.1.0-dev.3`, based on merged PR #2 (`c167add`). It adds exact nonnegative conservation cones within deterministic ray/work and checked-arithmetic limits, linkage/SCC/terminal classes, structural deficiency and a GillesPy2 1.8.3 elementary mass-action exporter. The review's mixed-sign-basis bound gap is resolved when cone analysis completes; enumeration is not guaranteed to fit merely because there are at most 64 species.
+
+Analysis is version 0.2 with an explicit legacy 0.1 command; discovery is 0.3 and export is 0.1. The core still has no simulator. M2 Direct SSA is next. Keep positive-rate underflow as an explicit error in the first SSA baseline; a zero-with-counter approximation would require a separately designed option and error assessment. Broader rate/target export coverage belongs with concrete reference fixtures in M4a. No expression AST was needed for this iteration.
+
 ## Iteration 2 progress — 1 November 2026
 
 M1a is implemented in `0.1.0-dev.2`, based on GitHub main `8134f51`: compiled indices, sparse stoichiometry, availability gates, dependency graphs, all four rate laws, checked reaction updates and `analyze`. Bounded exact conservation also ships now (64 species / 256 reactions, checked i128); unavailable outcomes are explicit. The four existing 0.1 schemas remain unchanged, new state/analysis contracts are 0.1, and discovery advances to 0.2. See the iteration 2 log and acceptance evidence for executed checks and limitations.
@@ -182,7 +188,7 @@ Retain Tutorial 2 in M7: global fcmaes exploration followed by SQP refinement fr
 6. Run and retain local evidence; distinguish locally tested checks from hosted CI configuration.
 7. Deliver this revised plan, an implementation log with failures/fixes and limits, and a source ZIP including lockfile, docs, tests, fixtures and evidence. No build directories or cached dependencies in the ZIP.
 
-M0 completion does **not** close a simulator performance gap: it has no solver to time. M1a is now implemented; remaining M1b analysis/exporter work precedes M2's executable exact SSA baseline.
+M0 completion does **not** close a simulator performance gap: it has no solver to time. M1a is now implemented; bounded M1b analysis and elementary reference export are implemented; M2's executable Direct SSA baseline is next.
 
 ## 9. Sources and provenance
 

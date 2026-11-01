@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "Diagnostic": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "hint": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "path": {
+          "description": "RFC 6901 JSON Pointer. Empty string denotes the document root.",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/definitions/Severity"
+        }
+      },
+      "required": [
+        "code",
+        "hint",
+        "message",
+        "path",
+        "severity"
+      ],
+      "type": "object"
+    },
+    "ExportVersion": {
+      "enum": [
+        "crn-craft.export/0.1"
+      ],
+      "type": "string"
+    },
+    "PythonExport": {
+      "additionalProperties": false,
+      "properties": {
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "reaction_aliases": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "source": {
+          "type": "string"
+        },
+        "species_aliases": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        "target": {
+          "type": "string"
+        },
+        "target_version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "notes",
+        "reaction_aliases",
+        "source",
+        "species_aliases",
+        "target",
+        "target_version"
+      ],
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "error",
+        "warning"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "artifact": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/PythonExport"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "diagnostics": {
+      "items": {
+        "$ref": "#/definitions/Diagnostic"
+      },
+      "type": "array"
+    },
+    "model_sha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema": {
+      "$ref": "#/definitions/ExportVersion"
+    },
+    "simulation_available": {
+      "type": "boolean"
+    },
+    "success": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "diagnostics",
+    "schema",
+    "simulation_available",
+    "success"
+  ],
+  "title": "ExportReport",
+  "type": "object"
+}

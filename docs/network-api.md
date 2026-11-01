@@ -1,6 +1,6 @@
 # Compiled networks and analysis
 
-M1a adds `CompiledNetwork::compile(&Model)`, `analyze_bytes` and `analyze_files`. Compilation validates even directly constructed models, resolves parameter values and species references once, and owns an immutable snapshot. Editing the source model afterward does not alter the compiled network. Compile again for another parameter set. Compilation errors are diagnostics; successful compilation retains structural warnings.
+The core provides `CompiledNetwork::compile(&Model)`, `analyze_bytes` and `analyze_files`. Compilation validates even directly constructed models, resolves parameter values and species references once, and owns an immutable snapshot. Editing the source model afterward does not alter the compiled network. Compile again for another parameter set. Compilation errors are diagnostics; successful compilation retains structural warnings.
 
 ## Indices, sparse columns and dependencies
 
@@ -18,7 +18,7 @@ These operations have no random generator, event selection, elapsed time, thread
 
 `analyze MODEL [STATE]` uses initial counts unless given a strict `crn-craft.state/0.1` document. Its `model_sha256` and `state_sha256` identify raw supplied bytes, not normalized JSON. The optional state need not lie in the initial conservation class. The output separates `initial_counts` and `evaluation_counts`; it makes no reachability claim.
 
-## Exact conservation and boundedness
+## Linear-basis conservation (legacy-compatible)
 
 The analyzer computes the rational left nullspace of N by checked integer row elimination with gcd reduction, followed by checked rational back substitution. Primitive integer basis rows satisfy lᵀN=0. A limited sequence of elementary basis combinations exposes nonnegative rows where available; it is **not** an enumeration of the nonnegative conservation cone. Each returned row is verified against the original sparse columns. Basis rows span the rational conservation space, not necessarily the full integer lattice of laws.
 
@@ -40,4 +40,4 @@ For the explicit enzyme example, the analyzer exposes E+ES and S+ES+P, yielding 
 
 The independent oracle uses Fraction Gauss–Jordan elimination, a different algorithm from the Rust integer elimination. It checks rank, nullity, residuals, basis independence, rational span and bound totals on 200 seeded small networks. Tests also cover known enzyme laws, a weighted law (A + 2B), signed laws, no reactions, full rank, caps and arithmetic overflow. Seven source mutation tests, run only after the unmutated suite passes, exercise stoichiometric signs, combinatorial divisors, custom reads, availability gates, the `log1p` Hill path near x = k, weight division in bounds and binomial symmetry.
 
-Next M1b work may add linkage classes and explicitly tested exporters. M2 must add a separately validated Direct SSA scheduler, RNG stream design, live budgets and result/archive contracts; an atomic reaction update is only one building block.
+M1b adds a separate exact nonnegative-cone calculation, effective initial-class bounds, linkage analysis and a reference exporter; see [M1b analysis](m1b-analysis.md). The linear-basis fields above are retained unchanged for legacy consumers. M2 must add a separately validated Direct SSA scheduler, RNG stream design, live budgets and result/archive contracts; an atomic reaction update is only one building block.

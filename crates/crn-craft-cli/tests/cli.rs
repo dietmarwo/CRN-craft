@@ -25,7 +25,7 @@ fn invoke(args: &[&str]) -> (i32, Value) {
 fn cli_description_and_example_check() {
     let (code, value) = invoke(&["describe"]);
     assert_eq!(code, 0);
-    assert_eq!(value["milestone"], "M1a");
+    assert_eq!(value["milestone"], "M1b");
     let (code, value) = invoke(&[
         "check",
         "models/examples/immigration-death.model.json",
@@ -93,7 +93,7 @@ fn analyze_supports_named_state_and_reports_real_capabilities() {
     let model = temp.0.join("immigration-death.model.json");
     let (code, report) = invoke(&["analyze", model.to_str().unwrap(), state.to_str().unwrap()]);
     assert_eq!(code, 0);
-    assert_eq!(report["schema"], "crn-craft.analysis/0.1");
+    assert_eq!(report["schema"], "crn-craft.analysis/0.2");
     assert_eq!(report["success"], true);
     assert_eq!(report["simulation_available"], false);
     assert_eq!(
@@ -225,4 +225,77 @@ fn symlink_outside_run_directory_rejected_even_when_hash_matches() {
             .iter()
             .any(|d| d["code"] == "CRN-E022")
     );
+}
+
+#[test]
+fn legacy_analysis_retains_version_and_common_payload() {
+    let path = "models/examples/enzyme-mechanism.model.json";
+    let (code, mut current) = invoke(&["analyze", path]);
+    assert_eq!(code, 0);
+    let (code, legacy) = invoke(&["analyze-v1", path]);
+    assert_eq!(code, 0);
+    assert_eq!(current["schema"], "crn-craft.analysis/0.2");
+    assert_eq!(legacy["schema"], "crn-craft.analysis/0.1");
+    let data = current["analysis"].as_object_mut().unwrap();
+    for key in [
+        "nonnegative_conservation",
+        "linkage",
+        "initial_class_upper_bounds",
+    ] {
+        assert!(data.remove(key).is_some());
+    }
+    assert_eq!(current["analysis"], legacy["analysis"]);
+    assert_eq!(current["model_sha256"], legacy["model_sha256"]);
+}
+
+#[test]
+fn export_cli_is_json_and_rejects_unsupported_or_missing_inputs() {
+    let (code, report) = invoke(&[
+        "export",
+        "models/examples/immigration-death.model.json",
+        "gillespy2",
+    ]);
+    assert_eq!(code, 0);
+    assert_eq!(report["schema"], "crn-craft.export/0.1");
+    assert_eq!(report["simulation_available"], false);
+    assert!(
+        report["artifact"]["source"]
+            .as_str()
+            .unwrap()
+            .contains("def build_model():")
+    );
+    for (args, expected) in [
+        (
+            vec![
+                "export",
+                "models/examples/michaelis-menten.model.json",
+                "gillespy2",
+            ],
+            "CRN-E050",
+        ),
+        (
+            vec!["export", "missing-model.json", "gillespy2"],
+            "CRN-E030",
+        ),
+        (vec!["export"], "CRN-E031"),
+        (vec!["analyze-v1"], "CRN-E031"),
+        (
+            vec![
+                "export",
+                "models/examples/immigration-death.model.json",
+                "unknown",
+            ],
+            "CRN-E031",
+        ),
+    ] {
+        let (code, report) = invoke(&args);
+        assert_eq!(code, 1);
+        assert!(
+            report["diagnostics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|d| d["code"] == expected)
+        );
+    }
 }

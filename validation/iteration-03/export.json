@@ -1,0 +1,58 @@
+{
+  "schema": "crn-craft.reference-export-validation/0.1",
+  "gillespy2": "1.8.3",
+  "numpy": "2.3.5",
+  "scope": "exported_propensities_and_reference_smoke_no_crn_simulation",
+  "source_sha256": {
+    "grid_all_elementary": "7155a310f227d011697344535439f05d2a2126fd3ea0c5a8a726061adb8c9c17",
+    "immigration-death": "850a769448bd6a617d0d3e9a2dc65b5c27fa496aa3059cb5e407c5086f055441",
+    "enzyme-mechanism": "1de4995b1ac5ebe4941f6786ecbe2f43decae9e7684745e53bc670ced44c26fb"
+  },
+  "rate_comparisons": 15717,
+  "maximum_relative_error": 1.1328806373726087e-16,
+  "relative_tolerance": 2e-12,
+  "absolute_tolerance": 4e-323,
+  "passed": 6,
+  "failed": 0,
+  "checks": [
+    {
+      "case": "grid_all_elementary",
+      "passed": true,
+      "states": 2601
+    },
+    {
+      "case": "immigration-death",
+      "passed": true,
+      "states": 51
+    },
+    {
+      "case": "reference_ssa_smoke_only",
+      "passed": true,
+      "trajectories": [
+        [
+          0.0,
+          2.0,
+          6.0
+        ],
+        [
+          0.0,
+          4.0,
+          8.0
+        ]
+      ]
+    },
+    {
+      "case": "enzyme-mechanism",
+      "passed": true,
+      "states": 3
+    },
+    {
+      "case": "unsupported_michaelis-menten",
+      "passed": true
+    },
+    {
+      "case": "unsupported_repressilator",
+      "passed": true
+    }
+  ]
+}

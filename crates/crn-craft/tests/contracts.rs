@@ -614,7 +614,10 @@ fn fsp_options_initial_state_and_method_incompatibility() {
 fn description_cannot_imply_an_available_simulator() {
     let value = describe();
     assert_eq!(value["simulation_available"], false);
-    assert_eq!(value["commands"], json!(["describe", "check", "analyze"]));
+    assert_eq!(
+        value["commands"],
+        json!(["describe", "check", "analyze", "analyze-v1", "export"])
+    );
     assert_eq!(value["aggregators"][0]["status"], "contract_only");
     for kind in ["model", "run", "result", "check"] {
         assert!(schema(kind).unwrap().is_object());

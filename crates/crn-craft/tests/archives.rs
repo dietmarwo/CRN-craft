@@ -259,3 +259,63 @@ fn oversized_archive_payload_is_rejected_before_reading() {
     assert_eq!(report.diagnostics[0].code, "CRN-E065");
     assert!(report.diagnostics[0].message.contains("oversized"));
 }
+#[test]
+fn refreshed_hashes_do_not_hide_inconsistent_partial_evidence_or_budget() {
+    // Event-limited paths, two of eight retained: no statistics can be
+    // recomputed, so each record and trajectory rule must hold on its own.
+    let tmp = Temp::new();
+    inputs(&tmp.0, |r| {
+        r["budget"]["max_events_per_replicate"] = json!(15);
+        r["outputs"]["keep_trajectories"] = json!(2);
+    });
+    let report = create(&tmp.0, &Control::default());
+    assert!(report.valid && !report.simulation_complete, "{report:?}");
+    let out = tmp.0.join("out");
+    let original = fs::read(out.join("result.json")).unwrap();
+    let parsed: Value = serde_json::from_slice(&original).unwrap();
+    let records = parsed["replicates"].as_array().unwrap();
+    let limited = records
+        .iter()
+        .position(|r| r["termination"] == "event_limit" && r["saved_points"] == 2)
+        .expect("an event-limited path past the second save time");
+    let budget = 1_000_000_u64;
+    let expected = [
+        "invalid replicate accounting",
+        "saved state lies beyond observation time",
+        "trajectory starts at the wrong initial state",
+        "provenance or archive budget is inconsistent",
+    ];
+    for (mutation, message) in expected.into_iter().enumerate() {
+        let mut result = parsed.clone();
+        let mut bytes = match mutation {
+            0 => {
+                result["replicates"][limited]["started"] = json!(false);
+                serde_json::to_vec(&result).unwrap()
+            }
+            1 => {
+                result["replicates"][limited]["stop_time"] = json!(0.0);
+                serde_json::to_vec(&result).unwrap()
+            }
+            2 => {
+                result["trajectories"][0]["counts"][0][0] = json!(1);
+                serde_json::to_vec(&result).unwrap()
+            }
+            _ => original.clone(),
+        };
+        if mutation == 3 {
+            // Same JSON value, but the archive now exceeds the run's byte budget.
+            bytes.resize(budget as usize, b' ');
+            bytes.push(b'\n');
+        }
+        fs::write(out.join("result.json"), &bytes).unwrap();
+        reseal(&out);
+        let verified = archive::verify_archive(&out);
+        assert!(
+            !verified.valid && verified.diagnostics[0].message == message,
+            "mutation {mutation}: {verified:?}"
+        );
+    }
+    fs::write(out.join("result.json"), &original).unwrap();
+    reseal(&out);
+    assert!(archive::verify_archive(&out).valid);
+}

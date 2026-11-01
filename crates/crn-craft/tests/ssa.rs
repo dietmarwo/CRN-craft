@@ -376,3 +376,28 @@ fn cancel_file_created_during_a_run_stops_all_workers() {
     );
     assert!(elapsed.as_secs() < 15, "cancellation took {elapsed:?}");
 }
+
+#[test]
+fn lost_channel_and_underflowed_wait_fail_at_the_sampler_boundary() {
+    // 1 + 2^-53 rounds to 1, yet the tiny channel's share is exactly the
+    // 53-bit step, so only the lost-increment check can reject it.
+    let lost = sampling::total_propensity(&[1.0, sampling::UNIFORM_STEP]).unwrap_err();
+    assert_eq!(lost.code, "CRN-E061");
+    assert!(
+        lost.message.contains("loses a positive channel"),
+        "{lost:?}"
+    );
+    // -ln(1 - 2^-53) / f64::MAX underflows to zero.
+    let wait = sampling::waiting_time(f64::MAX, 1.0 - sampling::UNIFORM_STEP).unwrap_err();
+    assert_eq!(wait.code, "CRN-E062");
+}
+
+#[test]
+fn retained_trajectories_are_exactly_the_first_requested_ids() {
+    let r = simulate(&model(), |r| r["outputs"]["keep_trajectories"] = json!(2));
+    assert_eq!(r.replicates.len(), 32);
+    assert_eq!(
+        r.trajectories.iter().map(|t| t.id).collect::<Vec<_>>(),
+        [0, 1]
+    );
+}

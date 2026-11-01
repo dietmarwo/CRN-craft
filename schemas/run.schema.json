@@ -1,0 +1,242 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "Aggregator": {
+      "enum": [
+        "direct"
+      ],
+      "type": "string"
+    },
+    "Budget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_events_per_replicate": {
+          "description": "Required for SSA; omitted for FSP, which has max_states.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_output_bytes": {
+          "format": "uint64",
+          "minimum": 1.0,
+          "type": "integer"
+        },
+        "threads": {
+          "format": "uint32",
+          "maximum": 1024.0,
+          "minimum": 1.0,
+          "type": "integer"
+        },
+        "wall_time_s": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "max_output_bytes",
+        "threads"
+      ],
+      "type": "object"
+    },
+    "Ensemble": {
+      "additionalProperties": false,
+      "properties": {
+        "replicates": {
+          "format": "uint64",
+          "minimum": 1.0,
+          "type": "integer"
+        },
+        "root_seed": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "replicates",
+        "root_seed"
+      ],
+      "type": "object"
+    },
+    "Method": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "aggregator": {
+              "$ref": "#/definitions/Aggregator"
+            },
+            "kind": {
+              "enum": [
+                "ssa"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "aggregator",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "bounds": {
+              "additionalProperties": {
+                "format": "int64",
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            "kind": {
+              "enum": [
+                "fsp"
+              ],
+              "type": "string"
+            },
+            "max_states": {
+              "format": "uint64",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "tolerance": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "bounds",
+            "kind",
+            "max_states",
+            "tolerance"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ModelRef": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "description": "Portable, relative to the run file's directory; no parent traversal.",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "SHA-256 of the exact model input bytes, lowercase hexadecimal.",
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "Outputs": {
+      "additionalProperties": false,
+      "properties": {
+        "keep_trajectories": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "statistics": {
+          "items": {
+            "$ref": "#/definitions/Statistic"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "keep_trajectories",
+        "statistics"
+      ],
+      "type": "object"
+    },
+    "RunVersion": {
+      "enum": [
+        "crn-craft.run/0.1"
+      ],
+      "type": "string"
+    },
+    "Statistic": {
+      "enum": [
+        "mean",
+        "variance"
+      ],
+      "type": "string"
+    },
+    "TimeGrid": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "exclusiveMinimum": 0.0,
+          "format": "double",
+          "type": "number"
+        },
+        "save_times": {
+          "description": "Explicit sorted grid including 0 and end; no accumulated step rounding.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "end",
+        "save_times"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "budget": {
+      "$ref": "#/definitions/Budget"
+    },
+    "ensemble": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Ensemble"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "method": {
+      "$ref": "#/definitions/Method"
+    },
+    "model": {
+      "$ref": "#/definitions/ModelRef"
+    },
+    "outputs": {
+      "$ref": "#/definitions/Outputs"
+    },
+    "schema": {
+      "$ref": "#/definitions/RunVersion"
+    },
+    "time": {
+      "$ref": "#/definitions/TimeGrid"
+    }
+  },
+  "required": [
+    "budget",
+    "method",
+    "model",
+    "outputs",
+    "schema",
+    "time"
+  ],
+  "title": "Run",
+  "type": "object"
+}

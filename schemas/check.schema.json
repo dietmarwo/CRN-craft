@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "Diagnostic": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "hint": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "path": {
+          "description": "RFC 6901 JSON Pointer. Empty string denotes the document root.",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/definitions/Severity"
+        }
+      },
+      "required": [
+        "code",
+        "hint",
+        "message",
+        "path",
+        "severity"
+      ],
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "error",
+        "warning"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "diagnostics": {
+      "items": {
+        "$ref": "#/definitions/Diagnostic"
+      },
+      "type": "array"
+    },
+    "execution_available": {
+      "type": "boolean"
+    },
+    "model_sha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "run_sha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema": {
+      "type": "string"
+    },
+    "scope": {
+      "type": "string"
+    },
+    "valid": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "diagnostics",
+    "execution_available",
+    "schema",
+    "scope",
+    "valid"
+  ],
+  "title": "CheckReport",
+  "type": "object"
+}

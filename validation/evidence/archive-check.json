@@ -1,0 +1,15 @@
+{
+  "schema": "crn-craft.archive-check/0.1",
+  "source_stage": "pre-final-delivery archive; runtime source and contract snapshots unchanged in final packaging",
+  "zip_crc_check": "passed",
+  "source_manifest_hashes": "all passed",
+  "clean_extracted_build": {
+    "toolchain": "stable (Rust 1.99.1)",
+    "command": "cargo +stable build --release --workspace --locked --offline",
+    "exit_code": 0
+  },
+  "extracted_contract_acceptance": {
+    "passed": 43,
+    "failed": 0
+  }
+}

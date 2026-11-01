@@ -1,0 +1,35 @@
+{
+  "schema": "crn-craft.dependency-policy/0.1",
+  "allowed_registry_packages": [
+    "block-buffer",
+    "cfg-if",
+    "cpufeatures",
+    "crypto-common",
+    "digest",
+    "dyn-clone",
+    "generic-array",
+    "itoa",
+    "libc",
+    "memchr",
+    "proc-macro2",
+    "quote",
+    "schemars",
+    "schemars_derive",
+    "serde",
+    "serde_core",
+    "serde_derive",
+    "serde_derive_internals",
+    "serde_json",
+    "serde_path_to_error",
+    "sha2",
+    "syn",
+    "typenum",
+    "unicode-ident",
+    "version_check",
+    "zmij"
+  ],
+  "allowed_workspace_packages": [
+    "crn-craft",
+    "crn-craft-cli"
+  ]
+}

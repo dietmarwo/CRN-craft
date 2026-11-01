@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "Assessment": {
+      "enum": [
+        "exact_ensemble",
+        "fsp_approximation",
+        "incomplete",
+        "failed_checks"
+      ],
+      "type": "string"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "check": {
+          "type": "string"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "check",
+        "detail",
+        "passed"
+      ],
+      "type": "object"
+    },
+    "ResultVersion": {
+      "enum": [
+        "crn-craft.result/0.1"
+      ],
+      "type": "string"
+    },
+    "Termination": {
+      "enum": [
+        "completed",
+        "event_limit",
+        "wall_time_limit",
+        "population_limit",
+        "output_limit",
+        "cancelled",
+        "failed"
+      ],
+      "type": "string"
+    }
+  },
+  "description": "Reserved result envelope; M0 never fabricates a simulation result. Full statistics/archive contracts will be added with a new version in M2/M3.",
+  "properties": {
+    "assessment": {
+      "$ref": "#/definitions/Assessment"
+    },
+    "completed_replicates": {
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "events": {
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/definitions/Evidence"
+      },
+      "type": "array"
+    },
+    "model_sha256": {
+      "type": "string"
+    },
+    "requested_replicates": {
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "run_sha256": {
+      "type": "string"
+    },
+    "schema": {
+      "$ref": "#/definitions/ResultVersion"
+    },
+    "termination": {
+      "$ref": "#/definitions/Termination"
+    }
+  },
+  "required": [
+    "assessment",
+    "completed_replicates",
+    "events",
+    "evidence",
+    "model_sha256",
+    "requested_replicates",
+    "run_sha256",
+    "schema",
+    "termination"
+  ],
+  "title": "RunResult",
+  "type": "object"
+}

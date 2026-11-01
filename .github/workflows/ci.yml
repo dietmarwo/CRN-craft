@@ -49,6 +49,9 @@ jobs:
       - run: python validation/check_ssa.py --output ssa.json --latency-output cancellation-latency.json
       - run: python -O validation/check_ssa.py --output ssa-optimized.json
       - run: diff ssa.json ssa-optimized.json
+      - run: python validation/check_cme.py --output cme.json
+      - run: python -O validation/check_cme.py --output cme-optimized.json
+      - run: diff cme.json cme-optimized.json
       - run: python validation/mutation_check.py --output mutations.json
   reference-export:
     runs-on: ubuntu-latest

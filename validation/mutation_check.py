@@ -1,4 +1,8 @@
-"""Exercise four source mutations in an isolated copy; never edits the checkout."""
+"""Exercise source mutations in an isolated copy; never edits the checkout.
+
+The unmutated copy must pass first, so a mutant counts as caught only when it
+turns a passing suite into named test failures.
+"""
 
 import argparse
 import json
@@ -33,6 +37,34 @@ MUTATIONS = [
         "state[term.species] < term.coefficient",
         "state[term.species] < 0",
     ),
+    (
+        "hill_without_log1p_near_threshold",
+        "crates/crn-craft/src/rates.rs",
+        "relative.abs() <= 0.5",
+        "relative.abs() < 0.0",
+    ),
+    (
+        "bound_not_divided_by_weight",
+        "crates/crn-craft/src/conservation.rs",
+        "let bound = total / weight;",
+        "let bound = total;",
+    ),
+    (
+        "binomial_without_symmetry",
+        "crates/crn-craft/src/rates.rs",
+        "let order = term.coefficient.min(count - term.coefficient);",
+        "let order = term.coefficient;",
+    ),
+]
+TEST_COMMAND = [
+    "test",
+    "--release",
+    "--locked",
+    "--offline",
+    "-p",
+    "crn-craft",
+    "--test",
+    "network",
 ]
 
 
@@ -51,6 +83,20 @@ def main():
                 ".git", "target", "__pycache__", ".ruff_cache", "iteration-02"
             ),
         )
+        baseline = subprocess.run(
+            [args.cargo, *TEST_COMMAND],
+            cwd=clone,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            check=False,
+        )
+        if baseline.returncode != 0:
+            raise RuntimeError(
+                "unmutated tests fail; no mutant can count as caught\n"
+                + baseline.stdout[-2000:]
+                + baseline.stderr[-2000:]
+            )
         for name, relative, old, new in MUTATIONS:
             path = clone / relative
             original = path.read_text()
@@ -59,17 +105,7 @@ def main():
             path.write_text(original.replace(old, new))
             try:
                 result = subprocess.run(
-                    [
-                        args.cargo,
-                        "test",
-                        "--release",
-                        "--locked",
-                        "--offline",
-                        "-p",
-                        "crn-craft",
-                        "--test",
-                        "network",
-                    ],
+                    [args.cargo, *TEST_COMMAND],
                     cwd=clone,
                     capture_output=True,
                     text=True,
@@ -100,6 +136,7 @@ def main():
                 path.write_text(original)
     report = {
         "schema": "crn-craft.mutation-check/0.1",
+        "baseline_passed": True,
         "mutations": rows,
         "caught": sum(row["caught_by_test_failure"] for row in rows),
         "total": len(MUTATIONS),

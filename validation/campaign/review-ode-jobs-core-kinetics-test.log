@@ -1,0 +1,8 @@
+   Compiling crn-craft v0.2.0-dev.1 (/home/claude/scratch/crn5/ode-fix/repo/crates/crn-craft)
+    Finished `release` profile [optimized] target(s) in 21.95s
+     Running tests/kinetics.rs (/home/claude/scratch/crn5/ode-fix/target/release/deps/kinetics-7ee03b91bdebd327)
+
+running 1 test
+test analytic_state_and_parameter_derivatives_match_independent_central_differences ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

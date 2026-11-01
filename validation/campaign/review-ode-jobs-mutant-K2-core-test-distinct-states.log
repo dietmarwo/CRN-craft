@@ -1,0 +1,27 @@
+   Compiling crn-craft v0.2.0-dev.1 (/home/claude/scratch/crn5/ode-fix/repo/crates/crn-craft)
+    Finished `release` profile [optimized] target(s) in 22.36s
+     Running tests/kinetics.rs (/home/claude/scratch/crn5/ode-fix/target/release/deps/kinetics-7ee03b91bdebd327)
+
+running 1 test
+test analytic_state_and_parameter_derivatives_match_independent_central_differences ... FAILED
+
+failures:
+
+---- analytic_state_and_parameter_derivatives_match_independent_central_differences stdout ----
+
+thread 'analytic_state_and_parameter_derivatives_match_independent_central_differences' (29170) panicked at crates/crn-craft/tests/kinetics.rs:35:21:
+assertion failed: (numeric - result.state_jacobian[i][j]).abs() < 1e-7 * numeric.abs().max(1.)
+stack backtrace:
+   0: __rustc::rust_begin_unwind
+   1: core::panicking::panic_fmt
+   2: core::panicking::panic
+   3: <kinetics::analytic_state_and_parameter_derivatives_match_independent_central_differences::{closure#0} as core::ops::function::FnOnce<()>>::call_once
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+
+
+failures:
+    analytic_state_and_parameter_derivatives_match_independent_central_differences
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+error: test failed, to rerun pass `-p crn-craft --test kinetics`

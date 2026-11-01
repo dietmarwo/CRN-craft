@@ -1,0 +1,4 @@
+    Checking serde v1.0.229
+   Compiling crn-craft v0.2.0-dev.1 (/home/claude/scratch/crn5/ode-fix/repo/crates/crn-craft)
+    Checking schemars v0.8.22
+    Finished `release` profile [optimized] target(s) in 5.35s

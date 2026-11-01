@@ -344,6 +344,8 @@ fn path_with_rng_mode(
     let mut save = 0;
     let mut rates = Vec::with_capacity(network.reactions().len());
     let mut prefix = Vec::with_capacity(network.reactions().len());
+    let mut minima = Vec::with_capacity(network.reactions().len());
+    let mut total = 0.0;
     let mut previous: Option<usize> = None;
     let outcome = (|| -> Result<Stop, Diagnostic> {
         if let Some(stop) = poller.poll() {
@@ -368,13 +370,18 @@ fn path_with_rng_mode(
                 return Ok(Stop::EventLimit);
             }
             if let (true, Some(changed)) = (cached, previous) {
-                for (i, &reaction) in network.dependencies()[changed].iter().enumerate() {
+                let affected = &network.dependencies()[changed];
+                for (i, &reaction) in affected.iter().enumerate() {
                     if i % 64 == 0 {
                         if let Some(stop) = poller.poll() {
                             return Ok(stop);
                         }
                     }
                     rates[reaction] = network.propensity_in_valid_state(reaction, &state)?;
+                }
+                // Dependencies are sorted: running sums before the first one are unchanged.
+                if let Some(&lowest) = affected.first() {
+                    total = sampling::resume_total(&rates, &mut prefix, &mut minima, lowest)?;
                 }
             } else {
                 rates.clear();
@@ -386,8 +393,14 @@ fn path_with_rng_mode(
                     }
                     rates.push(network.propensity_in_valid_state(reaction, &state)?);
                 }
+                total = if cached {
+                    prefix.resize(rates.len(), 0.0);
+                    minima.resize(rates.len(), 0.0);
+                    sampling::resume_total(&rates, &mut prefix, &mut minima, 0)?
+                } else {
+                    sampling::total_with_prefix(&rates, &mut prefix)?
+                };
             }
-            let total = sampling::total_with_prefix(&rates, &mut prefix)?;
             if total == 0.0 {
                 // Absorption consumes no RNG and retains the state to the horizon.
                 while save < run.time.save_times.len() {

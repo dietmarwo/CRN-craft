@@ -90,6 +90,49 @@ pub(crate) fn total_with_prefix(rates: &[f64], prefix: &mut Vec<f64>) -> Result<
     Ok(total)
 }
 
+/// The strict ordered total resumed at `from` after only `rates[from..]`
+/// changed. `prefix[i]` and `minima[i]` hold the running sum and the running
+/// minimum positive rate of `rates[..=i]`; entries before `from` come from an
+/// earlier successful pass over the same values. Running sums depend only on
+/// earlier rates and the minimum is exact, so the total, the recorded sums and
+/// the first failure equal those of a full pass from index zero.
+pub(crate) fn resume_total(
+    rates: &[f64],
+    prefix: &mut [f64],
+    minima: &mut [f64],
+    from: usize,
+) -> Result<f64, Diagnostic> {
+    let (mut total, mut minimum) = if from == 0 {
+        (0.0, f64::INFINITY)
+    } else {
+        (prefix[from - 1], minima[from - 1])
+    };
+    for ((sum, least), &rate) in prefix[from..]
+        .iter_mut()
+        .zip(&mut minima[from..])
+        .zip(&rates[from..])
+    {
+        if !rate.is_finite() || rate < 0.0 {
+            return Err(numeric("CRN-E061", "invalid propensity in Direct sum"));
+        }
+        let next = total + rate;
+        if !next.is_finite() || (rate > 0.0 && next <= total) {
+            return Err(numeric(
+                "CRN-E061",
+                "Direct sum overflows or loses a positive channel",
+            ));
+        }
+        total = next;
+        *sum = total;
+        if rate > 0.0 {
+            minimum = minimum.min(rate);
+        }
+        *least = minimum;
+    }
+    resolution(minimum, total)?;
+    Ok(total)
+}
+
 fn resolution(minimum: f64, total: f64) -> Result<(), Diagnostic> {
     // A 53-bit categorical uniform cannot resolve arbitrarily small channels.
     if minimum.is_finite() && minimum / total < UNIFORM_STEP {
@@ -260,5 +303,52 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn resumed_totals_equal_full_passes_after_suffix_changes() {
+        let mut rng = stream(20261102, 0);
+        let draw = |rng: &mut rand_chacha::ChaCha8Rng| match rng.next_u64() % 12 {
+            0..=2 => 0.0,
+            3 => 1e-300 * (1.0 + uniform_closed_open(rng.next_u64())),
+            4 => 1e300 * (1.0 + uniform_closed_open(rng.next_u64())),
+            _ => libm::exp(30.0 * (uniform_closed_open(rng.next_u64()) - 0.5)),
+        };
+        let (mut prefix, mut minima, mut full) = (Vec::new(), Vec::new(), Vec::new());
+        let mut checked = 0;
+        for _ in 0..1000 {
+            let n = 1 + (rng.next_u64() % 30) as usize;
+            let mut rates: Vec<f64> = (0..n).map(|_| draw(&mut rng)).collect();
+            prefix.resize(n, 0.0);
+            minima.resize(n, 0.0);
+            if resume_total(&rates, &mut prefix, &mut minima, 0).is_err() {
+                continue;
+            }
+            for _ in 0..20 {
+                let from = (rng.next_u64() % n as u64) as usize;
+                for rate in &mut rates[from..] {
+                    if rng.next_u64() % 3 == 0 {
+                        *rate = draw(&mut rng);
+                    }
+                }
+                rates[from] = draw(&mut rng);
+                let resumed = resume_total(&rates, &mut prefix, &mut minima, from);
+                let expected = total_with_prefix(&rates, &mut full);
+                match (&resumed, &expected) {
+                    (Ok(a), Ok(b)) => {
+                        assert_eq!(a.to_bits(), b.to_bits());
+                        assert_eq!(prefix, full);
+                        assert_eq!(a.to_bits(), total_propensity(&rates).unwrap().to_bits());
+                        checked += 1;
+                    }
+                    (Err(a), Err(b)) => {
+                        assert_eq!((&a.code, &a.message), (&b.code, &b.message));
+                        break;
+                    }
+                    _ => panic!("resumed {resumed:?} differs from full {expected:?}"),
+                }
+            }
+        }
+        assert!(checked > 1000, "only {checked} successful resumed passes");
     }
 }

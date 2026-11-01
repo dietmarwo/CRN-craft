@@ -448,3 +448,64 @@ fn cone_failure_preserves_exact_linear_analysis_and_fallback_bound() {
             .all(Option::is_none)
     );
 }
+#[test]
+fn combined_rays_are_reduced_to_primitive_coefficients() {
+    // Combining the two rays of the last constraint gives 2 * (9, 23, 9, 6);
+    // the report must carry the primitive law, as its contract states.
+    let value = model(
+        &["X0", "X1", "X2", "X3"],
+        &[0, 6, 6, 9],
+        &[vec![-2, 3, -3, -4], vec![-4, 0, 2, 3], vec![3, 0, -3, 0]],
+    );
+    let cone = analyze_cone(&compile(&value));
+    assert_eq!(cone.status, ConeStatus::Exact);
+    assert_eq!(cone.extreme_rays.len(), 1);
+    assert_eq!(cone.extreme_rays[0].coefficients, ["9", "23", "9", "6"]);
+    assert_eq!(cone.extreme_rays[0].initial_total, "246");
+    assert_eq!(
+        cone.initial_class_upper_bounds,
+        [
+            Some("27".into()),
+            Some("10".into()),
+            Some("27".into()),
+            Some("41".into())
+        ]
+    );
+}
+#[test]
+fn initial_orthant_rays_respect_a_lower_ray_cap() {
+    // Without reactions the n unit rays are the whole answer; a cap below n
+    // must still report ray_limit rather than an exact cone with n rays.
+    let network = compile(&model(&["A", "B", "C"], &[1, 2, 3], &[]));
+    let limits = |max_rays| ConeLimits {
+        max_rays,
+        max_work: MAX_CONE_WORK,
+    };
+    let at = analyze_cone_with_limits(&network, limits(3));
+    assert_eq!(at.status, ConeStatus::Exact);
+    assert_eq!(at.extreme_rays.len(), 3);
+    let below = analyze_cone_with_limits(&network, limits(2));
+    assert_eq!(below.status, ConeStatus::RayLimit);
+    assert!(below.extreme_rays.is_empty());
+}
+#[test]
+fn linkage_classes_join_converging_reactions() {
+    // A -> B and C -> B: complex C reaches the others only through an edge
+    // into B, so a walk over outgoing edges alone would split the class.
+    let graph = analyze_linkage(
+        &compile(&model(
+            &["A", "B", "C"],
+            &[0; 3],
+            &[vec![-1, 1, 0], vec![0, 1, -1]],
+        )),
+        Some(2),
+    );
+    assert_eq!(graph.linkage_classes, vec![vec![0, 1, 2]]);
+    assert_eq!(
+        graph.strong_linkage_classes,
+        vec![vec![0], vec![1], vec![2]]
+    );
+    assert_eq!(graph.terminal_strong_linkage_classes, vec![vec![1]]);
+    assert!(!graph.weakly_reversible);
+    assert_eq!(graph.deficiency, Some(0));
+}

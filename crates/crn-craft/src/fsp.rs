@@ -76,6 +76,39 @@ impl Work<'_> {
     }
 }
 
+/// The Poisson weight omitted after term `first - 1`: the sum of the
+/// weights from index `first` on, starting with `first_weight`, summed
+/// explicitly rather than as `1 - kept weight`, which cancels to roundoff.
+/// The series stops only once `mu / (first + 1) < 1`, so the terms decrease.
+fn omitted_weight(first_weight: f64, mu: f64, first: u64) -> f64 {
+    let mut term = first_weight;
+    let mut sum = 0.0;
+    let mut index = first;
+    while term > 0.0 && term > sum * f64::EPSILON {
+        sum += term;
+        index += 1;
+        term *= mu / index as f64;
+    }
+    sum
+}
+
+/// Compact JSON length plus the trailing newline the CLI writes.
+fn serialized_len(result: &FspResult) -> u64 {
+    struct Counter(u64);
+    impl std::io::Write for Counter {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0 += bytes.len() as u64;
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let mut counter = Counter(1);
+    serde_json::to_writer(&mut counter, result).expect("finite FSP result");
+    counter.0
+}
+
 pub fn solve(
     model_bytes: &[u8],
     run_bytes: &[u8],
@@ -161,9 +194,11 @@ pub fn solve(
             if edge_count > MAX_EDGES {
                 return Err(error("FSP sparse-edge cap exceeded"));
             }
+            // Retained snapshots: probabilities, two moment vectors and the record.
             let memory = states.len() as u128 * (bounds.len() as u128 * 32 + 128)
                 + edge_count as u128 * 64
-                + states.len() as u128 * (run.time.save_times.len() as u128 * 8 + 64);
+                + states.len() as u128 * (run.time.save_times.len() as u128 * 8 + 64)
+                + run.time.save_times.len() as u128 * (bounds.len() as u128 * 16 + 256);
             if memory > MAX_BYTES {
                 return Err(error("FSP workspace reservation exceeds 256 MiB"));
             }
@@ -171,8 +206,10 @@ pub fn solve(
             i += 1;
         }
         let n = states.len();
+        // An early estimate; the serialized result is checked exactly at the end.
         let output_reserve = n as u128 * (bounds.len() as u128 * 24 + 32)
             + n as u128 * run.time.save_times.len() as u128 * 32
+            + run.time.save_times.len() as u128 * (bounds.len() as u128 * 48 + 400)
             + 16384;
         if output_reserve > u128::from(run.budget.max_output_bytes) {
             return Err(error("FSP output reservation exceeds budget"));
@@ -223,7 +260,6 @@ pub fn solve(
                 for _ in 0..steps {
                     term.clone_from(&p);
                     let mut weight = libm::exp(-mu);
-                    let mut sum_weight = weight;
                     for (out, value) in result.iter_mut().zip(&term) {
                         *out = value * weight;
                     }
@@ -234,7 +270,8 @@ pub fn solve(
                         let ratio = mu / (k + 2) as f64;
                         if ratio < 1.0 && next_weight / (1.0 - ratio) <= tail_per_step {
                             tail_bound += next_weight / (1.0 - ratio);
-                            discarded += (1.0 - sum_weight).max(0.0) * p.iter().sum::<f64>();
+                            discarded +=
+                                omitted_weight(next_weight, mu, k + 1) * p.iter().sum::<f64>();
                             break;
                         }
                         next.fill(0.0);
@@ -247,7 +284,6 @@ pub fn solve(
                         }
                         std::mem::swap(&mut term, &mut next);
                         weight = next_weight;
-                        sum_weight += weight;
                         for (out, value) in result.iter_mut().zip(&term) {
                             *out += weight * value;
                         }
@@ -256,6 +292,8 @@ pub fn solve(
                     std::mem::swap(&mut p, &mut result);
                 }
             }
+            // Moments and checks visit every state once per species.
+            work.add(n * (2 * bounds.len() + 1))?;
             let mass: f64 = p.iter().sum();
             if p.iter().any(|x| !x.is_finite() || *x < 0.0) {
                 return Err(error("invalid probability after uniformization"));
@@ -283,7 +321,7 @@ pub fn solve(
             });
             previous = time;
         }
-        Ok(FspResult {
+        let result = FspResult {
             schema: FspVersion::V01,
             model_sha256: sha256(model_bytes),
             run_sha256: sha256(run_bytes),
@@ -294,7 +332,11 @@ pub fn solve(
             sparse_edges: edge_count,
             work: work.used,
             numerical_error_certified: false,
-        })
+        };
+        if serialized_len(&result) > run.budget.max_output_bytes {
+            return Err(error("FSP result exceeds max_output_bytes"));
+        }
+        Ok(result)
     })();
     action.map_err(|e| vec![e])
 }

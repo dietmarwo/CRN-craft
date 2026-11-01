@@ -64,3 +64,71 @@ fn capacity_cancellation_bounds_and_null_reaction() {
     assert_eq!(f.states.len(), 1);
     assert_eq!(f.snapshots[1].probabilities, vec![1.0]);
 }
+#[test]
+fn omitted_weight_is_summed_not_cancelled_and_stays_below_the_tail_bound() {
+    // About 1000 split steps: 1 - (kept weight) would accumulate roundoff.
+    let (m, r) = fixture(4, 2.0, 1000.0);
+    let f = fsp::solve(&m, &r, &Control::default()).unwrap();
+    for s in &f.snapshots {
+        assert!(s.discarded_weight_estimate >= 0.0);
+        assert!(
+            s.discarded_weight_estimate <= s.series_tail_upper_bound,
+            "{} > {}",
+            s.discarded_weight_estimate,
+            s.series_tail_upper_bound
+        );
+        assert!(
+            s.roundoff_mass_residual < 1e-13,
+            "{}",
+            s.roundoff_mass_residual
+        );
+    }
+}
+#[test]
+fn the_tail_bound_bounds_the_missing_mass_at_a_loose_tolerance() {
+    let (m, r) = fixture(4, 2.0, 3.0);
+    let mut run: Value = serde_json::from_slice(&r).unwrap();
+    run["method"]["tolerance"] = json!(0.5);
+    let f = fsp::solve(&m, &serde_json::to_vec(&run).unwrap(), &Control::default()).unwrap();
+    let last = f.snapshots.last().unwrap();
+    assert!(
+        last.mass_defect > 1e-6,
+        "tolerance 0.5 should lose visible mass"
+    );
+    assert!(
+        last.mass_defect <= last.series_tail_upper_bound + 1e-12,
+        "{} > {}",
+        last.mass_defect,
+        last.series_tail_upper_bound
+    );
+    assert!(last.discarded_weight_estimate <= last.series_tail_upper_bound);
+    assert!((last.discarded_weight_estimate - last.mass_defect).abs() < 1e-12);
+}
+#[test]
+fn many_snapshots_respect_the_output_budget() {
+    // One reachable state: the early estimate counted 32 bytes per snapshot,
+    // while each snapshot record serializes to about 240 bytes.
+    let (m, _) = fixture(4, 2.0, 1.0);
+    let mut model: Value = serde_json::from_slice(&m).unwrap();
+    model["species"][0]["initial_count"] = json!(0);
+    let m = serde_json::to_vec(&model).unwrap();
+    let (_, r) = fixture(4, 2.0, 1.0);
+    let mut run: Value = serde_json::from_slice(&r).unwrap();
+    run["model"]["sha256"] = json!(crn_craft::sha256(&m));
+    let saves: Vec<f64> = (0..20000).map(|i| i as f64 * 1e-4).collect();
+    run["time"] = json!({"end": saves[saves.len() - 1], "save_times": saves});
+    run["method"]["tolerance"] = json!(1e-10);
+    run["budget"]["max_output_bytes"] = json!(2_000_000);
+    let errors =
+        fsp::solve(&m, &serde_json::to_vec(&run).unwrap(), &Control::default()).unwrap_err();
+    assert_eq!(errors[0].code, "CRN-E070");
+    assert!(
+        errors[0].message.contains("output"),
+        "{}",
+        errors[0].message
+    );
+    run["budget"]["max_output_bytes"] = json!(100_000_000);
+    let f = fsp::solve(&m, &serde_json::to_vec(&run).unwrap(), &Control::default()).unwrap();
+    let bytes = serde_json::to_vec(&f).unwrap().len();
+    assert!(bytes > 2_000_000, "fixture output is only {bytes} bytes");
+}

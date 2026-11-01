@@ -19,6 +19,14 @@ fn emit(value: &Value) -> io::Result<()> {
     out.write_all(b"\n")
 }
 
+/// FSP and tau results are checked against max_output_bytes in compact form,
+/// so they are written compactly.
+fn emit_compact(value: &Value) -> io::Result<()> {
+    let mut out = io::stdout().lock();
+    serde_json::to_writer(&mut out, value)?;
+    out.write_all(b"\n")
+}
+
 fn main() -> ExitCode {
     let args: Vec<_> = env::args_os().skip(1).collect();
     if args.len() == 1 && (args[0] == "--help" || args[0] == "-h") {
@@ -35,6 +43,7 @@ fn main() -> ExitCode {
             Err(_) => ExitCode::FAILURE,
         };
     }
+    let mut compact = false;
     let (value, success) = match args.first().and_then(|arg| arg.to_str()) {
         Some("describe") if args.len() == 1 => (describe(), true),
         Some("describe") if args.len() == 2 => match args[1].to_str().and_then(schema) {
@@ -103,6 +112,7 @@ fn main() -> ExitCode {
             ) {
                 Ok(result) => {
                     let complete = result.termination == crn_craft::simulation::Stop::Completed;
+                    compact = true;
                     (serde_json::to_value(result).unwrap(), complete)
                 }
                 Err(errors) => (
@@ -120,7 +130,10 @@ fn main() -> ExitCode {
             } else {
                 match (std::fs::read(&args[1]), std::fs::read(&args[2])) {
                     (Ok(m), Ok(r)) => match crn_craft::fsp::solve(&m, &r, &control) {
-                        Ok(result) => (serde_json::to_value(result).unwrap(), true),
+                        Ok(result) => {
+                            compact = true;
+                            (serde_json::to_value(result).unwrap(), true)
+                        }
                         Err(errors) => (
                             serde_json::json!({"success":false,"diagnostics":errors}),
                             false,
@@ -140,7 +153,12 @@ fn main() -> ExitCode {
         }
         _ => usage_error(),
     };
-    match emit(&value) {
+    let written = if compact {
+        emit_compact(&value)
+    } else {
+        emit(&value)
+    };
+    match written {
         Ok(()) if success => ExitCode::SUCCESS,
         Ok(()) => ExitCode::FAILURE,
         Err(error) => {

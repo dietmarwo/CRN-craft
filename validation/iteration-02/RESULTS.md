@@ -44,3 +44,17 @@ Log normalization removes only surplus blank lines at EOF for patch whitespace h
 The source candidate is applied to a fresh baseline checkout with `core.autocrlf=true` and validated independently; see `fresh-checkout.json` and `fresh-checkout-*.log/json`. The final mail patch is checked/applied separately and compared with the final commit tree; its verification is included with the downloadable delivery.
 
 This iteration does not implement time integration or sample stochastic trajectories. It provides no SSA/FSP accuracy, throughput, cross-platform identity or biological validation claim. Conservation uses checked i128 and a 64-species/256-reaction cap. Its nonnegative-basis heuristic does not find every possible bound. Rates use f64; integer counts remain exact, but conversion to f64 can round above 2^53. Native Windows/macOS/ARM execution was not tested; LF behavior was tested using Git's autocrlf setting on Linux.
+
+## Repository review, 1 November 2026
+
+The delivered mail patch `0001-m1a-network-analysis.patch` (SHA-256 `f6d12484…`) applied cleanly to `8134f51` and produced tree `2301d8c`, as its instructions expect. The delivery's checks reproduced on Linux x86_64 with Rust 1.97.0 and Python 3.13.18. There were 73 release tests, 48 contract checks and 218 oracle checks, and the contract and oracle reports were byte-identical to `contracts.json` and `network.json` here. Four of four mutants were caught.
+
+The review added independent probes and tests:
+
+| Check | Result |
+|---|---|
+| Rates against 80-digit mpmath | 2943 propensities from 20 analyze runs: mass action up to order 60 and counts near 2^62, coefficients down to 1e-300; Hill with n up to 60 and k near x; Michaelis–Menten with km from 1e-100 to 1e20. Maximum relative error 6.1e-14; none above 2e-12 |
+| Mutation probe of 20 rate, network, conservation and analysis rules | 17 caught by the delivered tests. Survivors: Hill without `log1p` near x = k, a bound not divided by its weight, mass action without binomial symmetry. Each now has a test, and `mutation_check.py` runs all seven mutants after requiring a passing unmutated suite |
+| Bound coverage on 300 random closed conversion networks | Of 875 species whose bound a small integer combination (multipliers −3…3) of the reported basis proves, the analyzer reported 810. The 65 missing bounds (7.4%) come from mixed-sign basis rows that no single non-negative row can repair. This matches the documented limit of the non-negative-row heuristic |
+
+After the review: 76 release tests (35 contract, 33 network, 8 CLI), 48 contract checks, 218 oracle checks and 7 of 7 mutants caught. GitHub Actions runs the full workflow on the pull request.

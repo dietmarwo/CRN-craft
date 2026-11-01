@@ -38,6 +38,6 @@ For the explicit enzyme example, the analyzer exposes E+ES and S+ES+P, yielding 
 
 ## Validation and next use
 
-The independent oracle uses Fraction Gauss–Jordan elimination, a different algorithm from the Rust integer elimination. It checks rank, nullity, residuals, basis independence, rational span and bound totals on 200 seeded small networks. Tests also cover known enzyme laws, signed laws, no reactions, full rank, caps and arithmetic overflow. Four source mutation tests exercise stoichiometric signs, combinatorial divisors, custom reads and availability gates.
+The independent oracle uses Fraction Gauss–Jordan elimination, a different algorithm from the Rust integer elimination. It checks rank, nullity, residuals, basis independence, rational span and bound totals on 200 seeded small networks. Tests also cover known enzyme laws, a weighted law (A + 2B), signed laws, no reactions, full rank, caps and arithmetic overflow. Seven source mutation tests, run only after the unmutated suite passes, exercise stoichiometric signs, combinatorial divisors, custom reads, availability gates, the `log1p` Hill path near x = k, weight division in bounds and binomial symmetry.
 
 Next M1b work may add linkage classes and explicitly tested exporters. M2 must add a separately validated Direct SSA scheduler, RNG stream design, live budgets and result/archive contracts; an atomic reaction update is only one building block.

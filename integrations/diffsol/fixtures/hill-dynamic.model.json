@@ -1,0 +1,124 @@
+{
+  "schema": "crn-craft.model/0.1",
+  "name": "hill_dynamic",
+  "convention": "stochastic_counts",
+  "omega": 1.0,
+  "parameters": {
+    "v": 30.0,
+    "b": 1.0,
+    "K": 10.0,
+    "n": 2.5,
+    "g": 0.5,
+    "kr": 6.0,
+    "gr": 0.2,
+    "c": 0.002
+  },
+  "species": [
+    {
+      "name": "R",
+      "initial_count": 2
+    },
+    {
+      "name": "X",
+      "initial_count": 0
+    },
+    {
+      "name": "Y",
+      "initial_count": 5
+    },
+    {
+      "name": "Z",
+      "initial_count": 0
+    }
+  ],
+  "reactions": [
+    {
+      "name": "make_r",
+      "reactants": {},
+      "products": {
+        "R": 1
+      },
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "kr"
+      }
+    },
+    {
+      "name": "decay_r",
+      "reactants": {
+        "R": 1
+      },
+      "products": {},
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "gr"
+      }
+    },
+    {
+      "name": "activate",
+      "reactants": {},
+      "products": {
+        "X": 1
+      },
+      "rate": {
+        "kind": "hill_activation",
+        "regulator": "R",
+        "vmax": "v",
+        "basal": "b",
+        "k": "K",
+        "n": "n"
+      }
+    },
+    {
+      "name": "decay_x",
+      "reactants": {
+        "X": 1
+      },
+      "products": {},
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "g"
+      }
+    },
+    {
+      "name": "repress",
+      "reactants": {},
+      "products": {
+        "Y": 1
+      },
+      "rate": {
+        "kind": "hill_repression",
+        "regulator": "R",
+        "vmax": "v",
+        "basal": "b",
+        "k": "K",
+        "n": "n"
+      }
+    },
+    {
+      "name": "decay_y",
+      "reactants": {
+        "Y": 1
+      },
+      "products": {},
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "g"
+      }
+    },
+    {
+      "name": "bind",
+      "reactants": {
+        "X": 1,
+        "Y": 2
+      },
+      "products": {
+        "Z": 1
+      },
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "c"
+      }
+    }
+  ]
+}

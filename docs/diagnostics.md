@@ -20,17 +20,23 @@ Every diagnostic contains `severity`, `code`, `path`, `message`, `hint`. Paths u
 | CRN-E022 | Unsafe/non-relative path, missing target or mismatch with supplied model | Put the model below the run directory and pass that file |
 | CRN-E023 | Missing/invalid FSP bounds, capacity or tolerance | Supply a finite truncation containing the initial state |
 | CRN-E030 | Input/output filesystem or stream failure | Supply a readable regular file or writable output stream |
-| CRN-E031 | Unsupported command or wrong arguments | Use `--help`; describe/check/analyze execute in M1a |
+| CRN-E031 | Unsupported command or wrong arguments | Use `--help`; describe/check/analyze/analyze-v1/export execute in M1b |
 | CRN-E040 | Dependency graph exceeds 1000000 edges | Reduce network coupling or size; edges are never silently dropped |
 | CRN-E041 | Invalid state length, missing/extra name, count or safety limit | Provide all species with valid non-negative i64 counts |
 | CRN-E042 | Evaluated rate overflows, is non-finite/negative, or a positive rate becomes zero | Revise/rescale the model; do not treat underflow as an absorbing channel |
 | CRN-E043 | Invalid reaction index or disabled reaction update | Select an in-range channel with positive propensity and sufficient reactants |
 | CRN-E044 | Reaction update overflows i64 or exceeds a population limit | Stop or explicitly revise the safety limit; state remains unchanged |
+| CRN-E050 | Export target cannot preserve a requested feature | Use the documented elementary mass-action subset; keep safety semantics in the source |
+| CRN-E051 | Homodimer coefficient cannot be halved exactly in f64 | Rescale the reference fixture; no source is emitted |
 | CRN-W001 | Net-producing reaction without a net-consuming one | Review growth and budgets; no proof of unboundedness is implied |
 | CRN-W002 | Zero mass-action coefficient | Confirm the channel is intentionally disabled |
 | CRN-W003 | Reaction has no net population effect | Remove it unless event counts have a stated purpose |
 | CRN-W010 | Exact conservation analysis exceeds 64 species / 256 reactions | Use a smaller network or independent analyzer; no absence of laws is implied |
 | CRN-W011 | Checked i128 conservation arithmetic exceeds its range | Use arbitrary precision; no partial basis or rank is reported |
+| CRN-W012 | Cone exceeds 64 species / 256 reactions | Use an independent analyzer; no absence of laws is implied |
+| CRN-W013 | Cone exhausts intermediate-ray or deterministic-work cap | Inspect cone status/limits; only sound basis bounds remain |
+| CRN-W014 | Checked i128 cone arithmetic overflows | Use arbitrary precision; no partial rays or cone bounds are emitted |
+| CRN-W015 | Internal exact cone residual verification fails | Report a defect; no cone result is trusted |
 
 The 13 persisted negative fixtures in `models/invalid/expected.json` pin representative codes and paths. Rust tests cover additional boundary and parser cases. Parsing stops on the first syntax/type error per document; semantic validation accumulates errors after a successful parse. A failed stdout write can only report to stderr and exit 1; it cannot guarantee a JSON response on a broken stream.
 

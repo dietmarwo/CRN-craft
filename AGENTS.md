@@ -1,6 +1,6 @@
 # Working on CRN-craft
 
-- Read README.md and docs/ai-context.md. The current implementation is M1a: compiled networks and analysis, without simulation.
+- Read README.md and docs/ai-context.md. The current implementation is M1b: compiled networks, bounded exact cone/graph analysis and reference export, without simulation.
 - The numerical engine must remain independent of job/campaign infrastructure.
 - Preserve strict input handling and stable diagnostic codes. Unknown fields and duplicate JSON keys must never be ignored.
 - Generate schemas from Rust types. A delivered contract shape change requires a new version and migration notes.

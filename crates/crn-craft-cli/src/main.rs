@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 use crn_craft::{
-    CheckReport, analyze_files, check_files, describe, diagnostic::Diagnostic, schema,
+    CheckReport, analyze_files, analyze_legacy_files, check_files, describe,
+    diagnostic::Diagnostic, export_gillespy2_file, schema,
 };
 use serde_json::Value;
 use std::{
@@ -10,7 +11,7 @@ use std::{
     process::ExitCode,
 };
 
-const HELP: &str = "crn-craft — M1a network analysis and propensities\n\nUsage:\n  crn-craft describe [model|run|result|check|state|analysis]\n  crn-craft check MODEL [RUN]\n  crn-craft analyze MODEL [STATE]\n  crn-craft --version\n\nAll data output is JSON. check/analyze exit 0 on success and 1 for errors.\nAnalysis reports conservation limits explicitly. No simulation is implemented.\n";
+const HELP: &str = "crn-craft — M1b network analysis and propensities\n\nUsage:\n  crn-craft describe [model|run|result|check|state|analysis|analysis-v1|export]\n  crn-craft check MODEL [RUN]\n  crn-craft analyze MODEL [STATE]\n  crn-craft analyze-v1 MODEL [STATE]\n  crn-craft export MODEL gillespy2\n  crn-craft --version\n\nAll data output is JSON. check/analyze exit 0 on success and 1 for errors.\nAnalysis reports conservation limits explicitly. No simulation is implemented.\n";
 
 fn emit(value: &Value) -> io::Result<()> {
     let mut out = io::stdout().lock();
@@ -28,7 +29,7 @@ fn main() -> ExitCode {
     }
     if args.len() == 1 && args[0] == "--version" {
         return match emit(
-            &serde_json::json!({"version": env!("CARGO_PKG_VERSION"), "milestone": "M1a"}),
+            &serde_json::json!({"version": env!("CARGO_PKG_VERSION"), "milestone": "M1b"}),
         ) {
             Ok(()) => ExitCode::SUCCESS,
             Err(_) => ExitCode::FAILURE,
@@ -56,6 +57,22 @@ fn main() -> ExitCode {
                 success,
             )
         }
+        Some("analyze-v1") if args.len() == 2 || args.len() == 3 => {
+            let report = analyze_legacy_files(Path::new(&args[1]), args.get(2).map(Path::new));
+            let success = report.success;
+            (
+                serde_json::to_value(report).expect("finite legacy report"),
+                success,
+            )
+        }
+        Some("export") if args.len() == 3 && args[2] == "gillespy2" => {
+            let report = export_gillespy2_file(Path::new(&args[1]));
+            let success = report.success;
+            (
+                serde_json::to_value(report).expect("finite export report"),
+                success,
+            )
+        }
         _ => usage_error(),
     };
     match emit(&value) {
@@ -73,7 +90,7 @@ fn usage_error() -> (Value, bool) {
         "CRN-E031",
         "",
         "unknown command or wrong argument count",
-        "Use --help. M1a supports describe, check and analyze; simulation is not implemented.",
+        "Use --help. M1b supports describe, check, analyze, analyze-v1 and export; simulation is not implemented.",
     ));
     (
         serde_json::to_value(report).expect("finite usage report"),

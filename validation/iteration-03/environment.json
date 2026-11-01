@@ -1,0 +1,10 @@
+{
+  "1.85.0": "rustc 1.85.0 (4d91de4e4 2025-02-17)",
+  "1.88.0": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "stable": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "python": "3.12.14",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+  "ruff": "0.11.13",
+  "jsonschema": "4.26.0",
+  "base_commit": "c167add312a271671bdc31c95162b5b5c1227ee1"
+}

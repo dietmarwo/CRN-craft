@@ -1,0 +1,55 @@
+{
+  "schema": "crn-craft.model/0.1",
+  "name": "cone_gap",
+  "convention": "stochastic_counts",
+  "omega": 1.0,
+  "parameters": {},
+  "species": [
+    {
+      "name": "X0",
+      "initial_count": 0
+    },
+    {
+      "name": "X1",
+      "initial_count": 0
+    },
+    {
+      "name": "X2",
+      "initial_count": 0
+    },
+    {
+      "name": "X3",
+      "initial_count": 1
+    }
+  ],
+  "reactions": [
+    {
+      "name": "r0",
+      "reactants": {
+        "X2": 1
+      },
+      "products": {
+        "X0": 1,
+        "X1": 2
+      },
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": 1
+      }
+    },
+    {
+      "name": "r1",
+      "reactants": {
+        "X3": 1
+      },
+      "products": {
+        "X2": 2,
+        "X0": 1
+      },
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": 1
+      }
+    }
+  ]
+}

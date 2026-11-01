@@ -1,0 +1,887 @@
+{
+  "schema": "crn-craft.network-validation/0.1",
+  "scope": "network_analysis_and_propensities_no_simulation",
+  "seed": 20261101,
+  "random_networks": 200,
+  "fixture_stream_sha256": "15ca5e78084d38599d7e25fb72acad6564d18f4a001cbf95b80d3e9d6bf43f06",
+  "relative_tolerance": 2e-12,
+  "absolute_tolerance": 4e-323,
+  "evaluated_rates": 1012,
+  "maximum_relative_error": 2.3706671727190152e-14,
+  "passed": 218,
+  "failed": 0,
+  "checks": [
+    {
+      "case": "random_000",
+      "passed": true
+    },
+    {
+      "case": "random_001",
+      "passed": true
+    },
+    {
+      "case": "random_002",
+      "passed": true
+    },
+    {
+      "case": "random_003",
+      "passed": true
+    },
+    {
+      "case": "random_004",
+      "passed": true
+    },
+    {
+      "case": "random_005",
+      "passed": true
+    },
+    {
+      "case": "random_006",
+      "passed": true
+    },
+    {
+      "case": "random_007",
+      "passed": true
+    },
+    {
+      "case": "random_008",
+      "passed": true
+    },
+    {
+      "case": "random_009",
+      "passed": true
+    },
+    {
+      "case": "random_010",
+      "passed": true
+    },
+    {
+      "case": "random_011",
+      "passed": true
+    },
+    {
+      "case": "random_012",
+      "passed": true
+    },
+    {
+      "case": "random_013",
+      "passed": true
+    },
+    {
+      "case": "random_014",
+      "passed": true
+    },
+    {
+      "case": "random_015",
+      "passed": true
+    },
+    {
+      "case": "random_016",
+      "passed": true
+    },
+    {
+      "case": "random_017",
+      "passed": true
+    },
+    {
+      "case": "random_018",
+      "passed": true
+    },
+    {
+      "case": "random_019",
+      "passed": true
+    },
+    {
+      "case": "random_020",
+      "passed": true
+    },
+    {
+      "case": "random_021",
+      "passed": true
+    },
+    {
+      "case": "random_022",
+      "passed": true
+    },
+    {
+      "case": "random_023",
+      "passed": true
+    },
+    {
+      "case": "random_024",
+      "passed": true
+    },
+    {
+      "case": "random_025",
+      "passed": true
+    },
+    {
+      "case": "random_026",
+      "passed": true
+    },
+    {
+      "case": "random_027",
+      "passed": true
+    },
+    {
+      "case": "random_028",
+      "passed": true
+    },
+    {
+      "case": "random_029",
+      "passed": true
+    },
+    {
+      "case": "random_030",
+      "passed": true
+    },
+    {
+      "case": "random_031",
+      "passed": true
+    },
+    {
+      "case": "random_032",
+      "passed": true
+    },
+    {
+      "case": "random_033",
+      "passed": true
+    },
+    {
+      "case": "random_034",
+      "passed": true
+    },
+    {
+      "case": "random_035",
+      "passed": true
+    },
+    {
+      "case": "random_036",
+      "passed": true
+    },
+    {
+      "case": "random_037",
+      "passed": true
+    },
+    {
+      "case": "random_038",
+      "passed": true
+    },
+    {
+      "case": "random_039",
+      "passed": true
+    },
+    {
+      "case": "random_040",
+      "passed": true
+    },
+    {
+      "case": "random_041",
+      "passed": true
+    },
+    {
+      "case": "random_042",
+      "passed": true
+    },
+    {
+      "case": "random_043",
+      "passed": true
+    },
+    {
+      "case": "random_044",
+      "passed": true
+    },
+    {
+      "case": "random_045",
+      "passed": true
+    },
+    {
+      "case": "random_046",
+      "passed": true
+    },
+    {
+      "case": "random_047",
+      "passed": true
+    },
+    {
+      "case": "random_048",
+      "passed": true
+    },
+    {
+      "case": "random_049",
+      "passed": true
+    },
+    {
+      "case": "random_050",
+      "passed": true
+    },
+    {
+      "case": "random_051",
+      "passed": true
+    },
+    {
+      "case": "random_052",
+      "passed": true
+    },
+    {
+      "case": "random_053",
+      "passed": true
+    },
+    {
+      "case": "random_054",
+      "passed": true
+    },
+    {
+      "case": "random_055",
+      "passed": true
+    },
+    {
+      "case": "random_056",
+      "passed": true
+    },
+    {
+      "case": "random_057",
+      "passed": true
+    },
+    {
+      "case": "random_058",
+      "passed": true
+    },
+    {
+      "case": "random_059",
+      "passed": true
+    },
+    {
+      "case": "random_060",
+      "passed": true
+    },
+    {
+      "case": "random_061",
+      "passed": true
+    },
+    {
+      "case": "random_062",
+      "passed": true
+    },
+    {
+      "case": "random_063",
+      "passed": true
+    },
+    {
+      "case": "random_064",
+      "passed": true
+    },
+    {
+      "case": "random_065",
+      "passed": true
+    },
+    {
+      "case": "random_066",
+      "passed": true
+    },
+    {
+      "case": "random_067",
+      "passed": true
+    },
+    {
+      "case": "random_068",
+      "passed": true
+    },
+    {
+      "case": "random_069",
+      "passed": true
+    },
+    {
+      "case": "random_070",
+      "passed": true
+    },
+    {
+      "case": "random_071",
+      "passed": true
+    },
+    {
+      "case": "random_072",
+      "passed": true
+    },
+    {
+      "case": "random_073",
+      "passed": true
+    },
+    {
+      "case": "random_074",
+      "passed": true
+    },
+    {
+      "case": "random_075",
+      "passed": true
+    },
+    {
+      "case": "random_076",
+      "passed": true
+    },
+    {
+      "case": "random_077",
+      "passed": true
+    },
+    {
+      "case": "random_078",
+      "passed": true
+    },
+    {
+      "case": "random_079",
+      "passed": true
+    },
+    {
+      "case": "random_080",
+      "passed": true
+    },
+    {
+      "case": "random_081",
+      "passed": true
+    },
+    {
+      "case": "random_082",
+      "passed": true
+    },
+    {
+      "case": "random_083",
+      "passed": true
+    },
+    {
+      "case": "random_084",
+      "passed": true
+    },
+    {
+      "case": "random_085",
+      "passed": true
+    },
+    {
+      "case": "random_086",
+      "passed": true
+    },
+    {
+      "case": "random_087",
+      "passed": true
+    },
+    {
+      "case": "random_088",
+      "passed": true
+    },
+    {
+      "case": "random_089",
+      "passed": true
+    },
+    {
+      "case": "random_090",
+      "passed": true
+    },
+    {
+      "case": "random_091",
+      "passed": true
+    },
+    {
+      "case": "random_092",
+      "passed": true
+    },
+    {
+      "case": "random_093",
+      "passed": true
+    },
+    {
+      "case": "random_094",
+      "passed": true
+    },
+    {
+      "case": "random_095",
+      "passed": true
+    },
+    {
+      "case": "random_096",
+      "passed": true
+    },
+    {
+      "case": "random_097",
+      "passed": true
+    },
+    {
+      "case": "random_098",
+      "passed": true
+    },
+    {
+      "case": "random_099",
+      "passed": true
+    },
+    {
+      "case": "random_100",
+      "passed": true
+    },
+    {
+      "case": "random_101",
+      "passed": true
+    },
+    {
+      "case": "random_102",
+      "passed": true
+    },
+    {
+      "case": "random_103",
+      "passed": true
+    },
+    {
+      "case": "random_104",
+      "passed": true
+    },
+    {
+      "case": "random_105",
+      "passed": true
+    },
+    {
+      "case": "random_106",
+      "passed": true
+    },
+    {
+      "case": "random_107",
+      "passed": true
+    },
+    {
+      "case": "random_108",
+      "passed": true
+    },
+    {
+      "case": "random_109",
+      "passed": true
+    },
+    {
+      "case": "random_110",
+      "passed": true
+    },
+    {
+      "case": "random_111",
+      "passed": true
+    },
+    {
+      "case": "random_112",
+      "passed": true
+    },
+    {
+      "case": "random_113",
+      "passed": true
+    },
+    {
+      "case": "random_114",
+      "passed": true
+    },
+    {
+      "case": "random_115",
+      "passed": true
+    },
+    {
+      "case": "random_116",
+      "passed": true
+    },
+    {
+      "case": "random_117",
+      "passed": true
+    },
+    {
+      "case": "random_118",
+      "passed": true
+    },
+    {
+      "case": "random_119",
+      "passed": true
+    },
+    {
+      "case": "random_120",
+      "passed": true
+    },
+    {
+      "case": "random_121",
+      "passed": true
+    },
+    {
+      "case": "random_122",
+      "passed": true
+    },
+    {
+      "case": "random_123",
+      "passed": true
+    },
+    {
+      "case": "random_124",
+      "passed": true
+    },
+    {
+      "case": "random_125",
+      "passed": true
+    },
+    {
+      "case": "random_126",
+      "passed": true
+    },
+    {
+      "case": "random_127",
+      "passed": true
+    },
+    {
+      "case": "random_128",
+      "passed": true
+    },
+    {
+      "case": "random_129",
+      "passed": true
+    },
+    {
+      "case": "random_130",
+      "passed": true
+    },
+    {
+      "case": "random_131",
+      "passed": true
+    },
+    {
+      "case": "random_132",
+      "passed": true
+    },
+    {
+      "case": "random_133",
+      "passed": true
+    },
+    {
+      "case": "random_134",
+      "passed": true
+    },
+    {
+      "case": "random_135",
+      "passed": true
+    },
+    {
+      "case": "random_136",
+      "passed": true
+    },
+    {
+      "case": "random_137",
+      "passed": true
+    },
+    {
+      "case": "random_138",
+      "passed": true
+    },
+    {
+      "case": "random_139",
+      "passed": true
+    },
+    {
+      "case": "random_140",
+      "passed": true
+    },
+    {
+      "case": "random_141",
+      "passed": true
+    },
+    {
+      "case": "random_142",
+      "passed": true
+    },
+    {
+      "case": "random_143",
+      "passed": true
+    },
+    {
+      "case": "random_144",
+      "passed": true
+    },
+    {
+      "case": "random_145",
+      "passed": true
+    },
+    {
+      "case": "random_146",
+      "passed": true
+    },
+    {
+      "case": "random_147",
+      "passed": true
+    },
+    {
+      "case": "random_148",
+      "passed": true
+    },
+    {
+      "case": "random_149",
+      "passed": true
+    },
+    {
+      "case": "random_150",
+      "passed": true
+    },
+    {
+      "case": "random_151",
+      "passed": true
+    },
+    {
+      "case": "random_152",
+      "passed": true
+    },
+    {
+      "case": "random_153",
+      "passed": true
+    },
+    {
+      "case": "random_154",
+      "passed": true
+    },
+    {
+      "case": "random_155",
+      "passed": true
+    },
+    {
+      "case": "random_156",
+      "passed": true
+    },
+    {
+      "case": "random_157",
+      "passed": true
+    },
+    {
+      "case": "random_158",
+      "passed": true
+    },
+    {
+      "case": "random_159",
+      "passed": true
+    },
+    {
+      "case": "random_160",
+      "passed": true
+    },
+    {
+      "case": "random_161",
+      "passed": true
+    },
+    {
+      "case": "random_162",
+      "passed": true
+    },
+    {
+      "case": "random_163",
+      "passed": true
+    },
+    {
+      "case": "random_164",
+      "passed": true
+    },
+    {
+      "case": "random_165",
+      "passed": true
+    },
+    {
+      "case": "random_166",
+      "passed": true
+    },
+    {
+      "case": "random_167",
+      "passed": true
+    },
+    {
+      "case": "random_168",
+      "passed": true
+    },
+    {
+      "case": "random_169",
+      "passed": true
+    },
+    {
+      "case": "random_170",
+      "passed": true
+    },
+    {
+      "case": "random_171",
+      "passed": true
+    },
+    {
+      "case": "random_172",
+      "passed": true
+    },
+    {
+      "case": "random_173",
+      "passed": true
+    },
+    {
+      "case": "random_174",
+      "passed": true
+    },
+    {
+      "case": "random_175",
+      "passed": true
+    },
+    {
+      "case": "random_176",
+      "passed": true
+    },
+    {
+      "case": "random_177",
+      "passed": true
+    },
+    {
+      "case": "random_178",
+      "passed": true
+    },
+    {
+      "case": "random_179",
+      "passed": true
+    },
+    {
+      "case": "random_180",
+      "passed": true
+    },
+    {
+      "case": "random_181",
+      "passed": true
+    },
+    {
+      "case": "random_182",
+      "passed": true
+    },
+    {
+      "case": "random_183",
+      "passed": true
+    },
+    {
+      "case": "random_184",
+      "passed": true
+    },
+    {
+      "case": "random_185",
+      "passed": true
+    },
+    {
+      "case": "random_186",
+      "passed": true
+    },
+    {
+      "case": "random_187",
+      "passed": true
+    },
+    {
+      "case": "random_188",
+      "passed": true
+    },
+    {
+      "case": "random_189",
+      "passed": true
+    },
+    {
+      "case": "random_190",
+      "passed": true
+    },
+    {
+      "case": "random_191",
+      "passed": true
+    },
+    {
+      "case": "random_192",
+      "passed": true
+    },
+    {
+      "case": "random_193",
+      "passed": true
+    },
+    {
+      "case": "random_194",
+      "passed": true
+    },
+    {
+      "case": "random_195",
+      "passed": true
+    },
+    {
+      "case": "random_196",
+      "passed": true
+    },
+    {
+      "case": "random_197",
+      "passed": true
+    },
+    {
+      "case": "random_198",
+      "passed": true
+    },
+    {
+      "case": "random_199",
+      "passed": true
+    },
+    {
+      "case": "enzyme-mechanism.model.json",
+      "passed": true
+    },
+    {
+      "case": "immigration-death.model.json",
+      "passed": true
+    },
+    {
+      "case": "michaelis-menten.model.json",
+      "passed": true
+    },
+    {
+      "case": "repressilator.model.json",
+      "passed": true
+    },
+    {
+      "case": "mass_50_2_0.5",
+      "passed": true
+    },
+    {
+      "case": "mass_2000_1000_1e-300",
+      "passed": true
+    },
+    {
+      "case": "mass_2000_1000_1",
+      "passed": true
+    },
+    {
+      "case": "mass_1000_1000_5e-324",
+      "passed": true
+    },
+    {
+      "case": "mass_49_50_1",
+      "passed": true
+    },
+    {
+      "case": "hill_activation_1_1e+300",
+      "passed": true
+    },
+    {
+      "case": "hill_repression_1_5e-324",
+      "passed": true
+    },
+    {
+      "case": "hill_activation_1_1.0000000000000002",
+      "passed": true
+    },
+    {
+      "case": "hill_repression_50_1e-300",
+      "passed": true
+    },
+    {
+      "case": "hill_activation_0_3",
+      "passed": true
+    },
+    {
+      "case": "mm_underflow",
+      "passed": true
+    },
+    {
+      "case": "bad_stoichiometry",
+      "passed": true
+    },
+    {
+      "case": "bad_dependency",
+      "passed": true
+    },
+    {
+      "case": "bad_conservation",
+      "passed": true
+    }
+  ]
+}

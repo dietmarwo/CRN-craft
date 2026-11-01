@@ -4,7 +4,104 @@
   "definitions": {
     "AnalysisVersion": {
       "enum": [
-        "crn-craft.analysis/0.1"
+        "crn-craft.analysis/0.2"
+      ],
+      "type": "string"
+    },
+    "ComplexEdge": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "target": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "source",
+        "target"
+      ],
+      "type": "object"
+    },
+    "ConeLimits": {
+      "additionalProperties": false,
+      "properties": {
+        "max_rays": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "max_work": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_rays",
+        "max_work"
+      ],
+      "type": "object"
+    },
+    "ConeReport": {
+      "additionalProperties": false,
+      "properties": {
+        "diagnostics": {
+          "items": {
+            "$ref": "#/definitions/Diagnostic"
+          },
+          "type": "array"
+        },
+        "extreme_rays": {
+          "items": {
+            "$ref": "#/definitions/ConservationLaw"
+          },
+          "type": "array"
+        },
+        "initial_class_upper_bounds": {
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": "array"
+        },
+        "limits": {
+          "$ref": "#/definitions/ConeLimits"
+        },
+        "status": {
+          "$ref": "#/definitions/ConeStatus"
+        },
+        "work_units": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "diagnostics",
+        "extreme_rays",
+        "initial_class_upper_bounds",
+        "limits",
+        "status",
+        "work_units"
+      ],
+      "type": "object"
+    },
+    "ConeStatus": {
+      "enum": [
+        "exact",
+        "size_limit",
+        "ray_limit",
+        "work_limit",
+        "arithmetic_overflow",
+        "verification_failed"
       ],
       "type": "string"
     },
@@ -110,6 +207,81 @@
       ],
       "type": "object"
     },
+    "LinkageReport": {
+      "additionalProperties": false,
+      "properties": {
+        "complexes": {
+          "description": "First occurrence order while visiting each reaction's reactants/products.",
+          "items": {
+            "items": {
+              "$ref": "#/definitions/Term"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "deficiency": {
+          "description": "Absent when the exact stoichiometric rank is unavailable.",
+          "format": "uint",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "linkage_classes": {
+          "items": {
+            "items": {
+              "format": "uint",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "reaction_edges": {
+          "items": {
+            "$ref": "#/definitions/ComplexEdge"
+          },
+          "type": "array"
+        },
+        "strong_linkage_classes": {
+          "items": {
+            "items": {
+              "format": "uint",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "terminal_strong_linkage_classes": {
+          "items": {
+            "items": {
+              "format": "uint",
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "weakly_reversible": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "complexes",
+        "linkage_classes",
+        "reaction_edges",
+        "strong_linkage_classes",
+        "terminal_strong_linkage_classes",
+        "weakly_reversible"
+      ],
+      "type": "object"
+    },
     "NetworkAnalysis": {
       "additionalProperties": false,
       "properties": {
@@ -135,12 +307,28 @@
           },
           "type": "array"
         },
+        "initial_class_upper_bounds": {
+          "description": "Cone bounds when exact, otherwise sound linear-basis bounds.",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": "array"
+        },
         "initial_counts": {
           "items": {
             "format": "int64",
             "type": "integer"
           },
           "type": "array"
+        },
+        "linkage": {
+          "$ref": "#/definitions/LinkageReport"
+        },
+        "nonnegative_conservation": {
+          "$ref": "#/definitions/ConeReport"
         },
         "propensities": {
           "items": {
@@ -166,7 +354,10 @@
         "conservation",
         "dependencies",
         "evaluation_counts",
+        "initial_class_upper_bounds",
         "initial_counts",
+        "linkage",
+        "nonnegative_conservation",
         "propensities",
         "reactions",
         "species"

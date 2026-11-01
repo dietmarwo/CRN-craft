@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/workspace/scratch/d05427e343fb/CRN-craft-iteration-03/validation/mutation_check.py", line 202, in <module>
+    main()
+  File "/workspace/scratch/d05427e343fb/CRN-craft-iteration-03/validation/mutation_check.py", line 153, in main
+    raise RuntimeError(f"{name}: mutation anchor not unique")
+RuntimeError: analysis_drops_fallback_bounds: mutation anchor not unique

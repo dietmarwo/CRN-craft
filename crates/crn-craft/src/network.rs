@@ -247,6 +247,16 @@ impl CompiledNetwork {
 
     pub fn propensity(&self, reaction: usize, state: &[i64]) -> Result<f64, Diagnostic> {
         self.validate_state(state)?;
+        self.propensity_in_valid_state(reaction, state)
+    }
+
+    /// Internal scheduler fast path: state comes from initial_counts or a
+    /// successful checked fire_reaction. Avoid O(species) validation per channel.
+    pub(crate) fn propensity_in_valid_state(
+        &self,
+        reaction: usize,
+        state: &[i64],
+    ) -> Result<f64, Diagnostic> {
         let rate = self
             .rates
             .get(reaction)

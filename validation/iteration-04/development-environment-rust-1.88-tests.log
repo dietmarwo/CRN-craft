@@ -1,0 +1,34 @@
+   Compiling crn-craft v0.1.0-dev.4 (/workspace/scratch/d05427e343fb/CRN-craft-iteration-04/crates/crn-craft)
+   Compiling crn-craft-cli v0.1.0-dev.4 (/workspace/scratch/d05427e343fb/CRN-craft-iteration-04/crates/crn-craft-cli)
+    Finished `release` profile [optimized] target(s) in 7.14s
+     Running unittests src/lib.rs (target/release/deps/crn_craft-ad837d453171f6db)
+
+running 3 tests
+test simulation::tests::encoded_budget_checks_exact_boundary_without_allocating_payload ... ok
+test simulation::tests::open_uniform_rejects_zero_and_never_returns_one ... ok
+test simulation::tests::event_exactly_at_horizon_is_included_and_consumes_two_words ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/archives.rs (target/release/deps/archives-46e314326f3de3fd)
+
+running 8 tests
+test incorrect_path_or_output_reservation_leaves_no_archive ... ok
+test checksum_and_completion_hash_are_checked_independently_of_json_semantics ... ok
+test archive_symlinks_are_rejected ... ok
+test interrupted_or_tampered_archives_are_never_accepted ... ok
+test completed_archive_preserves_inputs_and_byte_budget_and_refuses_overwrite ... ok
+test duplicate_keys_and_manifest_entries_fail_even_with_matching_marker ... ok
+test refreshed_hashes_do_not_hide_false_accounting_or_statistics ... ok
+test cancellation_and_event_limits_have_complete_archives_but_incomplete_ensembles ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/contracts.rs (target/release/deps/contracts-575171ede7fcb791)
+error: test failed, to rerun pass `-p crn-craft --test contracts`
+
+Caused by:
+  could not execute process `/workspace/scratch/d05427e343fb/CRN-craft-iteration-04/target/release/deps/contracts-575171ede7fcb791` (never executed)
+
+Caused by:
+  Permission denied (os error 13)

@@ -115,6 +115,60 @@ MUTATIONS = [
         "        undirected[edge.target].push(edge.source);\n",
         "",
     ),
+    (
+        "ssa_wait_wrong_scale",
+        "crates/crn-craft/src/sampling.rs",
+        "-libm::log(uniform) / total",
+        "-libm::log(uniform) * total",
+    ),
+    (
+        "ssa_selection_wrong_boundary",
+        "crates/crn-craft/src/sampling.rs",
+        "threshold < cumulative && rate > 0.0",
+        "threshold <= cumulative && rate > 0.0",
+    ),
+    (
+        "ssa_reuses_replicate_stream",
+        "crates/crn-craft/src/sampling.rs",
+        "rng.set_stream(replicate);",
+        "rng.set_stream(0);",
+    ),
+    (
+        "ssa_save_before_equal_event",
+        "crates/crn-craft/src/simulation.rs",
+        "run.time.save_times[save] < next",
+        "run.time.save_times[save] <= next",
+    ),
+    (
+        "ssa_event_cap_off_by_one",
+        "crates/crn-craft/src/simulation.rs",
+        "record.events >= run.budget.max_events_per_replicate.unwrap()",
+        "record.events > run.budget.max_events_per_replicate.unwrap()",
+    ),
+    (
+        "ssa_biased_variance",
+        "crates/crn-craft/src/simulation.rs",
+        "(completed - 1).max(1)",
+        "completed.max(1)",
+    ),
+    (
+        "ssa_conditional_statistics",
+        "crates/crn-craft/src/simulation.rs",
+        "completed == ensemble.replicates && !run.outputs.statistics.is_empty()",
+        "completed > 0 && !run.outputs.statistics.is_empty()",
+    ),
+    (
+        "archive_ignores_payload_digest",
+        "crates/crn-craft/src/archive.rs",
+        "entry.sha256 != sha256(&bytes)",
+        "false",
+    ),
+    (
+        "archive_ignores_completion_digest",
+        "crates/crn-craft/src/archive.rs",
+        'marker != format!("{}\\n", sha256(&manifest_bytes)).as_bytes()',
+        "false",
+    ),
 ]
 TEST_COMMAND = [
     "test",
@@ -123,6 +177,11 @@ TEST_COMMAND = [
     "--offline",
     "-p",
     "crn-craft",
+    "--lib",
+    "--test",
+    "ssa",
+    "--test",
+    "archives",
     "--test",
     "network",
     "--test",
@@ -148,6 +207,7 @@ def main():
                 ".ruff_cache",
                 "iteration-02",
                 "iteration-03",
+                "iteration-04",
             ),
         )
         baseline = subprocess.run(

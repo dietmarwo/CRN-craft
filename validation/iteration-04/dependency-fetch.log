@@ -1,0 +1,14 @@
+    Updating crates.io index
+     Locking 5 packages to latest Rust 1.85 compatible versions
+      Adding ppv-lite86 v0.2.21
+      Adding rand_chacha v0.3.1 (available: v0.10.0)
+      Adding rand_core v0.6.4 (available: v0.10.1)
+      Adding zerocopy v0.8.63
+      Adding zerocopy-derive v0.8.63
+ Downloading crates ...
+  Downloaded rand_core v0.6.4
+  Downloaded rand_chacha v0.3.1
+  Downloaded ppv-lite86 v0.2.21
+  Downloaded zerocopy v0.8.63
+  Downloaded zerocopy-derive v0.8.63
+  Downloaded libc v0.2.191

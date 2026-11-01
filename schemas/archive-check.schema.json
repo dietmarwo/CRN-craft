@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "Assessment": {
+      "enum": [
+        "exact_ensemble",
+        "incomplete",
+        "failed_checks"
+      ],
+      "type": "string"
+    },
+    "Diagnostic": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "hint": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "path": {
+          "description": "RFC 6901 JSON Pointer. Empty string denotes the document root.",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/definitions/Severity"
+        }
+      },
+      "required": [
+        "code",
+        "hint",
+        "message",
+        "path",
+        "severity"
+      ],
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "error",
+        "warning"
+      ],
+      "type": "string"
+    },
+    "Stop": {
+      "enum": [
+        "completed",
+        "event_limit",
+        "population_limit",
+        "wall_time_limit",
+        "cancelled",
+        "failed",
+        "output_limit"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "archive_complete": {
+      "type": "boolean"
+    },
+    "assessment": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Assessment"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "diagnostics": {
+      "items": {
+        "$ref": "#/definitions/Diagnostic"
+      },
+      "type": "array"
+    },
+    "model_sha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "run_sha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema": {
+      "type": "string"
+    },
+    "simulation_complete": {
+      "type": "boolean"
+    },
+    "termination": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Stop"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "valid": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "archive_complete",
+    "diagnostics",
+    "schema",
+    "simulation_complete",
+    "valid"
+  ],
+  "title": "ArchiveReport",
+  "type": "object"
+}

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.0-dev.4 — iteration 4 / M2
+
+- Implement Direct SSA for existing count propensities, exact save-time boundaries and absorbing states.
+- Pin ChaCha8 streams and owned uniform/wait/channel mappings; reject unresolved dynamic ranges and clock stagnation.
+- Add bounded ordered parallel ensembles, reproducible mean/sample variance and mean SE.
+- Enforce event/population/deadline/output/workspace limits and cooperative API/file cancellation; retain every replicate's accounting and withhold partial-ensemble statistics.
+- Emit result 0.2 and checksummed archive 0.1; add `simulate`, `verify`, generated schemas and migration notes. Preserve result-v1 and existing inputs/analysis/export.
+- Add the predeclared 300,000-path analytic campaign, independent scalar RNG and trajectory oracles, archive-corruption tests and nine new source mutants.
+- Preserve all three iteration-3 review regressions and the 17-mutant baseline. No FSP or comparative performance claim.
+
 ## [Unreleased] — iteration 3 / M1b (`0.1.0-dev.3`)
 
 ### Added

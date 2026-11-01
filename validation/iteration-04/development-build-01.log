@@ -1,0 +1,7 @@
+   Compiling zerocopy v0.8.63
+   Compiling rand_core v0.6.4
+   Compiling crn-craft v0.1.0-dev.4 (/workspace/scratch/d05427e343fb/CRN-craft-iteration-04/crates/crn-craft)
+   Compiling ppv-lite86 v0.2.21
+   Compiling rand_chacha v0.3.1
+   Compiling crn-craft-cli v0.1.0-dev.4 (/workspace/scratch/d05427e343fb/CRN-craft-iteration-04/crates/crn-craft-cli)
+    Finished `release` profile [optimized] target(s) in 8.70s

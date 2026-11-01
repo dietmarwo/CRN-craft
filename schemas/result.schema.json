@@ -5,52 +5,193 @@
     "Assessment": {
       "enum": [
         "exact_ensemble",
-        "fsp_approximation",
         "incomplete",
         "failed_checks"
       ],
       "type": "string"
     },
-    "Evidence": {
+    "Diagnostic": {
       "additionalProperties": false,
       "properties": {
-        "check": {
+        "code": {
           "type": "string"
         },
-        "detail": {
+        "hint": {
           "type": "string"
         },
-        "passed": {
-          "type": "boolean"
+        "message": {
+          "type": "string"
+        },
+        "path": {
+          "description": "RFC 6901 JSON Pointer. Empty string denotes the document root.",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/definitions/Severity"
         }
       },
       "required": [
-        "check",
-        "detail",
-        "passed"
+        "code",
+        "hint",
+        "message",
+        "path",
+        "severity"
+      ],
+      "type": "object"
+    },
+    "Replicate": {
+      "additionalProperties": false,
+      "properties": {
+        "diagnostic": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Diagnostic"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "events": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "id": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "saved_points": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "started": {
+          "type": "boolean"
+        },
+        "stop_time": {
+          "format": "double",
+          "type": "number"
+        },
+        "termination": {
+          "$ref": "#/definitions/Stop"
+        }
+      },
+      "required": [
+        "events",
+        "id",
+        "saved_points",
+        "started",
+        "stop_time",
+        "termination"
       ],
       "type": "object"
     },
     "ResultVersion": {
       "enum": [
-        "crn-craft.result/0.1"
+        "crn-craft.result/0.2"
       ],
       "type": "string"
     },
-    "Termination": {
+    "Severity": {
+      "enum": [
+        "error",
+        "warning"
+      ],
+      "type": "string"
+    },
+    "Statistics": {
+      "additionalProperties": false,
+      "properties": {
+        "mean": {
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "mean_standard_error": {
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "sample_variance": {
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "samples": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "samples"
+      ],
+      "type": "object"
+    },
+    "Stop": {
       "enum": [
         "completed",
         "event_limit",
-        "wall_time_limit",
         "population_limit",
-        "output_limit",
+        "wall_time_limit",
         "cancelled",
-        "failed"
+        "failed",
+        "output_limit"
       ],
       "type": "string"
+    },
+    "Trajectory": {
+      "additionalProperties": false,
+      "properties": {
+        "counts": {
+          "items": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "id": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "counts",
+        "id"
+      ],
+      "type": "object"
     }
   },
-  "description": "Reserved result envelope; M0 never fabricates a simulation result. Full statistics/archive contracts will be added with a new version in M2/M3.",
   "properties": {
     "assessment": {
       "$ref": "#/definitions/Assessment"
@@ -60,21 +201,32 @@
       "minimum": 0.0,
       "type": "integer"
     },
+    "diagnostics": {
+      "items": {
+        "$ref": "#/definitions/Diagnostic"
+      },
+      "type": "array"
+    },
     "events": {
       "format": "uint64",
       "minimum": 0.0,
       "type": "integer"
     },
-    "evidence": {
-      "items": {
-        "$ref": "#/definitions/Evidence"
-      },
-      "type": "array"
-    },
     "model_sha256": {
       "type": "string"
     },
+    "replicates": {
+      "items": {
+        "$ref": "#/definitions/Replicate"
+      },
+      "type": "array"
+    },
     "requested_replicates": {
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "root_seed": {
       "format": "uint64",
       "minimum": 0.0,
       "type": "integer"
@@ -82,24 +234,62 @@
     "run_sha256": {
       "type": "string"
     },
+    "sampler": {
+      "type": "string"
+    },
+    "save_times": {
+      "items": {
+        "format": "double",
+        "type": "number"
+      },
+      "type": "array"
+    },
     "schema": {
       "$ref": "#/definitions/ResultVersion"
     },
+    "species": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "statistics": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Statistics"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "termination": {
-      "$ref": "#/definitions/Termination"
+      "$ref": "#/definitions/Stop"
+    },
+    "trajectories": {
+      "items": {
+        "$ref": "#/definitions/Trajectory"
+      },
+      "type": "array"
     }
   },
   "required": [
     "assessment",
     "completed_replicates",
+    "diagnostics",
     "events",
-    "evidence",
     "model_sha256",
+    "replicates",
     "requested_replicates",
+    "root_seed",
     "run_sha256",
+    "sampler",
+    "save_times",
     "schema",
-    "termination"
+    "species",
+    "termination",
+    "trajectories"
   ],
-  "title": "RunResult",
+  "title": "SimulationResult",
   "type": "object"
 }

@@ -1,8 +1,8 @@
 #![forbid(unsafe_code)]
-//! CRN-craft M1b: strict inputs, compiled networks, propensities and analysis.
-//! There is deliberately no time integration or simulation API yet.
+//! CRN-craft M2: strict inputs, network analysis and Direct SSA.
 pub mod analysis;
 pub mod analysis_v1;
+pub mod archive;
 pub mod cone;
 pub mod conservation;
 pub mod contracts;
@@ -11,6 +11,8 @@ pub mod export;
 pub mod linkage;
 pub mod network;
 mod rates;
+pub mod sampling;
+pub mod simulation;
 pub mod strict_json;
 pub mod validate;
 
@@ -224,7 +226,10 @@ pub fn schema(kind: &str) -> Option<Value> {
     match kind {
         "model" => serde_json::to_value(schema_for!(Model)).ok(),
         "run" => serde_json::to_value(schema_for!(Run)).ok(),
-        "result" => serde_json::to_value(schema_for!(RunResult)).ok(),
+        "result" => serde_json::to_value(schema_for!(simulation::SimulationResult)).ok(),
+        "result-v1" => serde_json::to_value(schema_for!(RunResult)).ok(),
+        "archive" => serde_json::to_value(schema_for!(archive::Manifest)).ok(),
+        "archive-check" => serde_json::to_value(schema_for!(archive::ArchiveReport)).ok(),
         "check" => serde_json::to_value(schema_for!(CheckReport)).ok(),
         "state" => serde_json::to_value(schema_for!(analysis::NamedState)).ok(),
         "analysis" => serde_json::to_value(schema_for!(AnalysisReport)).ok(),
@@ -236,10 +241,11 @@ pub fn schema(kind: &str) -> Option<Value> {
 
 pub fn describe() -> Value {
     json!({
-        "schema": "crn-craft.describe/0.3", "version": env!("CARGO_PKG_VERSION"), "milestone": "M1b",
-        "commands": ["describe", "check", "analyze", "analyze-v1", "export"], "simulation_available": false,
-        "aggregators": [{"name": "direct", "status": "contract_only", "implementation_milestone": "M2"}],
-        "methods": [{"name": "ssa", "status": "contract_only"}, {"name": "fsp", "status": "contract_only"}],
+        "schema": "crn-craft.describe/0.4", "version": env!("CARGO_PKG_VERSION"), "milestone": "M2",
+        "commands": ["describe", "check", "analyze", "analyze-v1", "export", "simulate", "verify"], "simulation_available": true,
+        "aggregators": [{"name": "direct", "status": "implemented", "implementation_milestone": "M2"}],
+        "methods": [{"name": "ssa", "status": "implemented"}, {"name": "fsp", "status": "contract_only"}],
+        "sampler": sampling::SAMPLER,
         "rate_laws": ["mass_action", "hill_activation", "hill_repression", "michaelis_menten"],
         "reference_exporters": [{"target":"gillespy2", "version": export::GILLESPY2_VERSION, "subset":"elementary_mass_action", "maximum_reactant_order":2}],
         "rate_evaluation_available": true, "observables": [],
@@ -251,7 +257,9 @@ pub fn describe() -> Value {
             "conservation_species": conservation::MAX_CONSERVATION_SPECIES,
             "conservation_reactions": conservation::MAX_CONSERVATION_REACTIONS,
             "cone_species": cone::MAX_CONE_SPECIES, "cone_reactions": cone::MAX_CONE_REACTIONS,
-            "cone_rays": cone::MAX_CONE_RAYS, "cone_work": cone::MAX_CONE_WORK},
-        "schemas": {"model": schema("model"), "run": schema("run"), "result": schema("result"), "check": schema("check"), "state": schema("state"), "analysis": schema("analysis"), "analysis-v1": schema("analysis-v1"), "export": schema("export")}
+            "cone_rays": cone::MAX_CONE_RAYS, "cone_work": cone::MAX_CONE_WORK,
+            "simulation_replicates": simulation::MAX_REPLICATES, "simulation_workers": simulation::MAX_WORKERS,
+            "simulation_workspace_bytes": simulation::MAX_WORKSPACE_BYTES, "archive_bytes": simulation::MAX_RESULT_BYTES},
+        "schemas": {"model": schema("model"), "run": schema("run"), "result": schema("result"), "result-v1":schema("result-v1"), "archive":schema("archive"), "archive-check":schema("archive-check"), "check": schema("check"), "state": schema("state"), "analysis": schema("analysis"), "analysis-v1": schema("analysis-v1"), "export": schema("export")}
     })
 }

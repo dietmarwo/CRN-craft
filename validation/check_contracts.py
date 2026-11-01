@@ -46,6 +46,9 @@ def main():
         "model",
         "run",
         "result",
+        "result-v1",
+        "archive",
+        "archive-check",
         "check",
         "state",
         "analysis",
@@ -62,11 +65,19 @@ def main():
     record(
         "honest_capabilities",
         code == 0
-        and capabilities["simulation_available"] is False
+        and capabilities["simulation_available"] is True
         and capabilities["rate_evaluation_available"] is True
         and capabilities["commands"]
-        == ["describe", "check", "analyze", "analyze-v1", "export"]
-        and capabilities["schema"] == "crn-craft.describe/0.3",
+        == [
+            "describe",
+            "check",
+            "analyze",
+            "analyze-v1",
+            "export",
+            "simulate",
+            "verify",
+        ]
+        and capabilities["schema"] == "crn-craft.describe/0.4",
     )
 
     examples = ROOT / "models/examples"

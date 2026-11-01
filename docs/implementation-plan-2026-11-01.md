@@ -5,6 +5,14 @@
 **Iteration 1:** M0, contracts and preflight validation. Numerical simulation is not part of this iteration.  
 **Original iteration-1 delivery:** a new local project suitable for a future `dietmarwo/CRN-craft` repository. No repository creation, push or release is required to test it.
 
+## Iteration 4 progress — 1 November 2026
+
+M2 is implemented in `0.1.0-dev.4`, based on merged PR #3 (`bb2b9ae`). Direct SSA uses pinned ChaCha8 streams and owned sampler mappings, checked reaction updates, save-time equality rules, bounded ordered parallel ensembles and Welford mean/sample variance. It enforces event, population, wall-time, output and workspace admission limits with cooperative cancellation. Every replicate is accounted for; incomplete ensembles have no unconditional statistics. Positive-rate underflow remains CRN-E042, and unresolved selection dynamic ranges or stagnant clocks fail explicitly.
+
+Results now use 0.2; archives and archive-check use 0.1; discovery uses 0.4. Original input contracts, analyses and reference export are retained. Archives distinguish write completion from simulation completion and preserve exact consumed bytes. Validation uses the predeclared three 100,000-path analytic families, independent RNG/trajectory/archive checks, thread-count identity and the extended mutation gate. See the iteration 4 log and evidence for executed results and limitations.
+
+**Next: M3**, FSP plus independently checked traces/statistics and selected DSMTS cases. M4a then measures Direct against pinned reference simulators on the same host; this correctness iteration makes no competitive throughput claim. M5 application work follows verified baseline measurements. Advanced aggregators remain driven by measured bottlenecks.
+
 ## Iteration 3 progress — 1 November 2026
 
 M1b is implemented in `0.1.0-dev.3`, based on merged PR #2 (`c167add`). It adds exact nonnegative conservation cones within deterministic ray/work and checked-arithmetic limits, linkage/SCC/terminal classes, structural deficiency and a GillesPy2 1.8.3 elementary mass-action exporter. The review's mixed-sign-basis bound gap is resolved when cone analysis completes; enumeration is not guaranteed to fit merely because there are at most 64 species.

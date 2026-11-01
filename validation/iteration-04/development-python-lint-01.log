@@ -1,0 +1,23 @@
+validation/check_ssa.py:179:17: B007 Loop control variable `index` not used within loop body
+    |
+177 |             threshold = (next(generator) >> 11) / 2**53 * total
+178 |             cumulative = 0.0
+179 |             for index, rate in enumerate(rates):
+    |                 ^^^^^ B007
+180 |                 cumulative += rate
+181 |                 if threshold < cumulative:
+    |
+    = help: Rename unused `index` to `_index`
+
+validation/reference_rng.py:41:41: B905 [*] `zip()` without an explicit `strict=` parameter
+   |
+39 |         for indices in [(0, 5, 10, 15), (1, 6, 11, 12), (2, 7, 8, 13), (3, 4, 9, 14)]:
+40 |             quarter(*indices)
+41 |     words = [(a + b) & MASK for a, b in zip(x, initial)]
+   |                                         ^^^^^^^^^^^^^^^ B905
+42 |     return [words[i] | (words[i + 1] << 32) for i in range(0, 16, 2)]
+   |
+   = help: Add explicit value for parameter `strict=`
+
+Found 2 errors.
+[*] 1 fixable with the `--fix` option.

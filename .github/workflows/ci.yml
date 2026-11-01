@@ -45,6 +45,10 @@ jobs:
       - run: python validation/check_structure.py --output structure.json
       - run: python -O validation/check_structure.py --output structure-optimized.json
       - run: diff structure.json structure-optimized.json
+      - run: python validation/reference_rng.py
+      - run: python validation/check_ssa.py --output ssa.json --latency-output cancellation-latency.json
+      - run: python -O validation/check_ssa.py --output ssa-optimized.json
+      - run: diff ssa.json ssa-optimized.json
       - run: python validation/mutation_check.py --output mutations.json
   reference-export:
     runs-on: ubuntu-latest
@@ -76,4 +80,4 @@ jobs:
             echo "$converted"
             exit 1
           fi
-      - run: cargo test --release --locked -p crn-craft --test contracts --test network --test structure
+      - run: cargo test --release --locked -p crn-craft --lib --test contracts --test network --test structure --test ssa --test archives

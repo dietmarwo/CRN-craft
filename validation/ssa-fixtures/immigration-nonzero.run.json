@@ -1,0 +1,36 @@
+{
+  "schema": "crn-craft.run/0.1",
+  "model": {
+    "path": "immigration-nonzero.model.json",
+    "sha256": "7ef15ee474d2554a90c6deaeaad0e88feb9b16061d2f47a0337e97ad3043c891"
+  },
+  "method": {
+    "kind": "ssa",
+    "aggregator": "direct"
+  },
+  "ensemble": {
+    "replicates": 100000,
+    "root_seed": 2026110403
+  },
+  "time": {
+    "end": 2.0,
+    "save_times": [
+      0.0,
+      0.25,
+      1.0,
+      2.0
+    ]
+  },
+  "outputs": {
+    "statistics": [
+      "mean",
+      "variance"
+    ],
+    "keep_trajectories": 100000
+  },
+  "budget": {
+    "max_events_per_replicate": 10000,
+    "threads": 8,
+    "max_output_bytes": 268435456
+  }
+}

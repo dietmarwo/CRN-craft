@@ -611,14 +611,23 @@ fn fsp_options_initial_state_and_method_incompatibility() {
 }
 
 #[test]
-fn description_cannot_imply_an_available_simulator() {
+fn description_distinguishes_direct_ssa_from_unimplemented_fsp() {
     let value = describe();
-    assert_eq!(value["simulation_available"], false);
+    assert_eq!(value["simulation_available"], true);
     assert_eq!(
         value["commands"],
-        json!(["describe", "check", "analyze", "analyze-v1", "export"])
+        json!([
+            "describe",
+            "check",
+            "analyze",
+            "analyze-v1",
+            "export",
+            "simulate",
+            "verify"
+        ])
     );
-    assert_eq!(value["aggregators"][0]["status"], "contract_only");
+    assert_eq!(value["aggregators"][0]["status"], "implemented");
+    assert_eq!(value["methods"][1]["status"], "contract_only");
     for kind in ["model", "run", "result", "check"] {
         assert!(schema(kind).unwrap().is_object());
     }

@@ -118,11 +118,23 @@ impl<'de> Visitor<'de> for JsonVisitor<'_> {
 }
 
 pub fn parse<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, Diagnostic> {
-    if bytes.len() > MAX_DOCUMENT_BYTES {
+    parse_bounded(bytes, MAX_DOCUMENT_BYTES)
+}
+
+// Archive results have a separate encoded-size cap; input contracts keep 16 MiB.
+pub(crate) fn parse_bounded<T: DeserializeOwned>(
+    bytes: &[u8],
+    max_bytes: usize,
+) -> Result<T, Diagnostic> {
+    if bytes.len() > max_bytes {
         return Err(Diagnostic::error(
             "CRN-E004",
             "",
-            "document exceeds 16 MiB",
+            if max_bytes == MAX_DOCUMENT_BYTES {
+                "document exceeds 16 MiB".into()
+            } else {
+                format!("document exceeds {max_bytes} bytes")
+            },
             "Split or reduce the model.",
         ));
     }

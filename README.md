@@ -2,7 +2,7 @@
 
 Native Rust foundations for well-mixed chemical reaction networks, designed for reproducible simulation and optimization workflows.
 
-**Current status: iteration 3 / M1b (`0.1.0-dev.3`).** This version validates model/run documents, compiles indexed networks, evaluates propensities and analyzes conservation cones and reaction graphs. It also exports elementary mass-action models to pinned GillesPy2 1.8.3. It does not simulate, optimize or import SBML. A successful analysis is not a biological validation result.
+**Current status: iteration 4 / M2 (`0.1.0-dev.4`).** Direct SSA now executes the existing mass-action, Hill and Michaelis–Menten models. It provides pinned random streams, ordered parallel ensembles, mean/sample variance, execution limits and verifiable archives. Network/conservation/linkage analysis and elementary GillesPy2 export remain available. FSP, ODE, optimization and SBML execution are later milestones. A successful simulation is not biological validation.
 
 ## Quick start
 
@@ -17,10 +17,12 @@ cargo build --release --workspace --locked
 ./target/release/crn-craft analyze models/examples/immigration-death.model.json models/examples/immigration-death.state.json
 ./target/release/crn-craft analyze models/analysis/cone-gap.model.json
 ./target/release/crn-craft export models/examples/enzyme-mechanism.model.json gillespy2
+./target/release/crn-craft simulate models/examples/immigration-death.model.json models/examples/immigration-death.run.json /tmp/crn-ssa-example
+./target/release/crn-craft verify /tmp/crn-ssa-example
 cargo test --release --workspace --locked
 ```
 
-`check` emits JSON with `valid`, `execution_available: false`, hashes and diagnostics. `analyze MODEL [STATE]` emits `crn-craft.analysis/0.2` with indexed stoichiometry, evaluated rates, conservation cones, linkage classes and structural deficiency. `analyze-v1` retains the 0.1 report. `export MODEL gillespy2` returns generated Python in a JSON report; it does not execute that source. Without STATE it uses initial counts; otherwise STATE must name every species. These commands exit **0** on success and **1** for invalid inputs, usage, I/O or numerical errors. Warnings do not change exit 0. Conservation size/overflow limits are explicit partial-analysis warnings. No command emits a simulation result or exit code 2.
+`check` emits JSON with `valid`, `execution_available: false`, hashes and diagnostics. `analyze MODEL [STATE]` emits `crn-craft.analysis/0.2` with indexed stoichiometry, evaluated rates, conservation cones, linkage classes and structural deficiency. `analyze-v1` retains the 0.1 report. `export MODEL gillespy2` returns generated Python in a JSON report; it does not execute that source. Without STATE it uses initial counts; otherwise STATE must name every species. These commands exit **0** on success and **1** for invalid inputs, usage, I/O or numerical errors. Warnings do not change exit 0. Conservation size/overflow limits are explicit partial-analysis warnings. `simulate MODEL RUN NEW_DIRECTORY [--cancel-file PATH]` writes result 0.2 and archive 0.1. It exits 0 only for a completed ensemble; incomplete work exits 1 with evidence when finalization succeeds. `verify DIRECTORY` exits 0 for a valid archive even if the simulation is incomplete. The output directory must be new. Read the [Direct SSA guide](docs/direct-ssa.md) and [archive contract](docs/archive-contract.md). Historical preflight/analysis flags remain unchanged; use `describe` for executable capabilities.
 
 ```json
 {
@@ -42,8 +44,10 @@ cargo test --release --workspace --locked
 | Analyzer | Exact linear basis and nonnegative cone within explicit limits; complete conservation bounds when the cone succeeds; linkage/SCC/terminal classes and deficiency |
 | Reference exporter | GillesPy2 1.8.3 elementary mass action, explicit homodimer conversion, fixed count convention and safe aliases |
 | Models | Immigration–death; explicit enzyme mechanism; reduced Michaelis–Menten; complete three-gene repressilator |
-| Run contracts | Direct SSA requests and bounded FSP requests; execution unavailable |
-| Evidence | Rust regression tests, 13 invalid fixtures, independent exact/Decimal oracle for 200 seeded networks, 300-network exact cone/graph oracle with five targeted models, 17 source mutations against a passing baseline and real GillesPy2 exporter checks, schema and dependency gates |
+| Simulator | Direct SSA; pinned ChaCha8 streams; deterministic ordered ensembles; mean/sample variance/mean SE; event, population, wall-time and output limits; cooperative cancellation |
+| Results | Exact input snapshots, complete replicate accounting, checksummed archives and a marker written last; independent verifier |
+| Other run contracts | Bounded FSP requests; FSP execution remains unavailable |
+| Evidence | Rust regression tests, 13 invalid fixtures, independent exact/Decimal oracle for 200 seeded networks, 300-network exact cone/graph oracle with five targeted models, 26 source mutations against a passing baseline, three 100,000-path analytic campaigns, thread identity and real GillesPy2 exporter checks, schema and dependency gates |
 | Documentation | Revised plan, diagnostics, rate conventions, statistical policy, extension/model-card templates and agent guide |
 
 Unknown fields and duplicate JSON keys are errors. Names are unique ASCII identifiers. Counts are checked i64 values. Rate parameters have finite domains. Custom rates are complete propensities, with separate reactant-availability gates. No extra mass-action factor is applied to a custom law.
@@ -76,6 +80,10 @@ diff network.json network-optimized.json
 python3 validation/check_structure.py --output structure.json
 python3 -O validation/check_structure.py --output structure-optimized.json
 diff structure.json structure-optimized.json
+python3 validation/reference_rng.py
+python3 validation/check_ssa.py --output ssa.json
+python3 -O validation/check_ssa.py --output ssa-optimized.json
+diff ssa.json ssa-optimized.json
 python3 validation/mutation_check.py
 ```
 
@@ -88,14 +96,14 @@ python3 -m venv .venv-reference
 .venv-reference/bin/python -O validation/check_export.py
 ```
 
-All eight schema snapshots are compared with the CLI. Model/run/check/result/state 0.1 remain unchanged. The original analysis 0.1 schema is retained as `analysis-v1`; current analysis is 0.2, export is 0.1 and discovery is 0.3. JSON Schema validates shape and selected local bounds; Rust checks cross-references, positivity, cardinalities, hash/path identity and other semantic constraints. Core checks evaluate rates and structure. The optional exporter checker also runs a short GillesPy2 SSA smoke test; this does not implement or benchmark a CRN-craft simulator.
+All eleven schema snapshots are compared with the CLI. Model/run/check/state, analysis 0.2, legacy analysis 0.1 and export 0.1 remain unchanged. Reserved result 0.1 is retained as `result-v1`; real simulation results use 0.2. Archive and archive-check are 0.1; discovery is 0.4. Strict parsers and semantic checks remain mandatory. The optional exporter checker runs a short GillesPy2 smoke test; the independent SSA campaign validates CRN-craft against declared analytic distributions.
 
-GitHub Actions is configured for fmt, clippy and release tests on Rust 1.85.0, 1.88.0 and stable; dependency, schema/CLI and independent network/structure checks normally and under Python `-O` with identical reports; source mutation checks; and contract/network/structure tests with `core.autocrlf=true`. See [iteration 3 evidence](validation/iteration-03/RESULTS.md) for executed local checks. The default build has no C/C++ simulator, Julia or Python runtime dependency. It pins pure-Rust libm for rate evaluation. Python is only needed for independent acceptance checks.
+GitHub Actions is configured for fmt, clippy and release tests on Rust 1.85.0, 1.88.0 and stable; dependency, schema/CLI and independent network/structure/SSA checks normally and under Python `-O` with identical reports; source mutation checks; and contract/network/structure/SSA/archive tests with `core.autocrlf=true`. See [iteration 4 evidence](validation/iteration-04/RESULTS.md) for executed local checks. The default build has no C/C++ simulator, Julia or Python runtime dependency. It pins pure-Rust libm for rate evaluation. Python is only needed for independent acceptance checks.
 
 ## Next work
 
-[The revised plan](docs/implementation-plan-2026-11-01.md) tracks completed M1a/M1b analysis work. Broader exporters and fixture-driven expressions remain optional extensions. **Next is M2**, which adds the first executable Direct SSA baseline. Performance comparisons begin once a verified simulator exists.
+[The revised plan](docs/implementation-plan-2026-11-01.md) tracks completed M0–M2. **Next is M3**: FSP with separate leakage/error accounting, independent checks and selected DSMTS fixtures. M4a then measures pinned simulator quality/cost on the same host. M5 adds bindings and the circuit application. There is no measured competitive performance-gap claim yet.
 
-The planned ecosystem boundary remains: CRN-craft supplies numerical models; fcmaes searches parameters; optimization-jobs executes jobs; experiment-craft coordinates campaigns. Their integrations are future milestones and are not dependencies of the core project.
+The ecosystem boundary remains: CRN-craft supplies numerical models; fcmaes searches parameters; optimization-jobs executes jobs; experiment-craft coordinates campaigns. Their integrations remain later milestones and are not dependencies of the core project.
 
-Read [the agent context](docs/ai-context.md), [contract details](docs/contracts.md), [diagnostics](docs/diagnostics.md), [result contract](docs/result-contract.md) and [release instructions](RELEASING.md) before extending the project. License: MIT; dependency notices remain under their respective licenses.
+Read [the agent context](docs/ai-context.md), [contract details](docs/contracts.md), [diagnostics](docs/diagnostics.md), [archive contract](docs/archive-contract.md) and [release instructions](RELEASING.md) before extending the project. License: MIT; dependencies retain their respective licenses.

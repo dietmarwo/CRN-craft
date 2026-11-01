@@ -76,3 +76,39 @@ The mail patch is applied and rebuilt separately after committing source; its
 post-commit tree hashes and fresh validation are in the downloadable ZIP.
 The project now executes Direct SSA, but no controlled simulator performance
 comparison or physical-core scaling result is claimed. M3 precedes M4a.
+
+## Repository review, 1 November 2026
+
+The delivered mail patch `0001-m2-direct-ssa-and-archives.patch` (SHA-256
+`3fc39c3d…`) applied cleanly to `bb2b9ae` and produced tree `b977d47`. The
+delivery's gates reproduced on Linux x86_64 (two CPUs) with Rust 1.97.0,
+Python 3.13.18 and the pinned GillesPy2 1.8.3 stack:
+
+- 126 release tests;
+- 61 contract, 218 network, 309 structure, 6 reference-export and 17 SSA
+  checks and the 360-word RNG check, each report byte-identical to the
+  delivered one and under `-O`;
+- the dependency gate;
+- 26 of 26 mutants caught after a passing baseline.
+
+Independent checks run in review:
+
+| Check | Result |
+|---|---|
+| Exact master equation (`check_cme.py`, rule declared in `docs/decisions/iteration-04-review-cme.md` before the first run) | Dimerization with a null reaction, heterodimer binding, a Michaelis–Menten/Hill loop (n = 2.5) and immigration with homodimer annihilation, 100,000 paths each. All 12 DKW tests pass: largest error 0.00245 against ε = 0.00710. Laws with the falling-factorial convention (no 1/2 for 2A) are rejected for both homodimer fixtures, with errors up to 0.445 and 0.372. `review-cme.json` holds the report |
+| Oracle accuracy | Uniformization against `scipy.linalg.expm`: largest difference 1.47e-12, above the declared 1e-12 agreement; this row failed and is retained. Against a 40-digit mpmath matrix exponential, uniformization errs by at most 6.0e-13 and expm by 3.4e-14, both nine orders of magnitude below ε |
+| Thread invariance | The four fixtures with 2,000 replicates at 1, 3 and 8 threads give identical results apart from the run hash |
+| Polling cost | Delivered code read the clock (when a wall-time limit was set) and stat'ed the cancel file at every poll, three or more per event. Median simulation time per event of seven runs, two-reaction birth/death model, delivered (fixed): no limit 95–110 ns in both, wall-time limit 234 ns (110), cancel file 1224 ns (106), both 1238 ns (113); with 66 reactions, cancel file 2202 ns (749). Fixed in review; event counts unchanged |
+| Mutation probe of 24 rules in the delivered sampler, scheduler, archive and CLI code | 14 caught by the delivered tests. Survivors: lost positive increment accepted, zero wait accepted, one extra retained trajectory, archive verification without the byte budget, the unstarted-record rules, the initial-state check or the saved-state-after-stop check, the completed-record stop-time check, the pre-write self-check, and `simulate` exiting 0 for incomplete runs. New tests catch eight. The completed-record stop-time check is implied by the saved-state rule, and the pre-write self-check cannot fail for a correct engine |
+| Mutation probe of the review's poller | Skipping the first clock/file read, dropping the kept stop and inverting the file interval are caught. A file found by one worker not cancelling the others survives: each worker still finds the file within a millisecond |
+
+After the review:
+
+- 133 release tests: 4 unit, 10 archive, 35 contract, 33 network, 18 SSA,
+  22 structure, 11 CLI;
+- all earlier Python reports unchanged byte for byte; the CME check passes 14
+  rows, identical under `-O`;
+- active CLI cancellation took 6.3 ms normally and 5.2 ms under `-O`, after
+  about 723,000 and 690,000 events (the delivered binary managed about 66,000
+  events in the same window on this host);
+- the mutation gate catches 35 of 35 mutants after a passing baseline.

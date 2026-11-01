@@ -11,6 +11,9 @@
 - Emit result 0.2 and checksummed archive 0.1; add `simulate`, `verify`, generated schemas and migration notes. Preserve result-v1 and existing inputs/analysis/export.
 - Add the predeclared 300,000-path analytic campaign, independent scalar RNG and trajectory oracles, archive-corruption tests and nine new source mutants.
 - Preserve all three iteration-3 review regressions and the 17-mutant baseline. No FSP or comparative performance claim.
+- Review tests for lost positive increments and underflowed waits at the sampler boundary, retained-trajectory IDs, existing and live cancel files, tampered partial-evidence archives and the archive byte budget, and CLI `simulate`/`verify` exit codes. Eight probe mutants had passed every delivered test.
+- `validation/check_cme.py`: four 100,000-path fixtures with second-order, Hill and Michaelis–Menten channels against exact master-equation laws (12 DKW tests, family alpha 0.001, declared in `docs/decisions/iteration-04-review-cme.md`). It runs in CI normally and under `-O`.
+- Nine review mutants in the mutation gate, now 35.
 
 ### Fixed
 

@@ -25,7 +25,7 @@ fn invoke(args: &[&str]) -> (i32, Value) {
 fn cli_description_and_example_check() {
     let (code, value) = invoke(&["describe"]);
     assert_eq!(code, 0);
-    assert_eq!(value["milestone"], "M0");
+    assert_eq!(value["milestone"], "M1a");
     let (code, value) = invoke(&[
         "check",
         "models/examples/immigration-death.model.json",
@@ -79,6 +79,62 @@ fn cli_negative_fixtures_have_expected_exit_code_and_fields() {
             "{entry}: {value}"
         );
     }
+}
+
+#[test]
+fn analyze_supports_named_state_and_reports_real_capabilities() {
+    let temp = staged();
+    let state = temp.0.join("state.json");
+    std::fs::write(
+        &state,
+        br#"{"schema":"crn-craft.state/0.1","counts":{"A":5}}"#,
+    )
+    .unwrap();
+    let model = temp.0.join("immigration-death.model.json");
+    let (code, report) = invoke(&["analyze", model.to_str().unwrap(), state.to_str().unwrap()]);
+    assert_eq!(code, 0);
+    assert_eq!(report["schema"], "crn-craft.analysis/0.1");
+    assert_eq!(report["success"], true);
+    assert_eq!(report["simulation_available"], false);
+    assert_eq!(
+        report["analysis"]["propensities"],
+        serde_json::json!([4.0, 1.0])
+    );
+}
+
+#[test]
+fn analyze_state_errors_remain_coded_json() {
+    let temp = staged();
+    let state = temp.0.join("state.json");
+    let model = temp.0.join("immigration-death.model.json");
+    for (text, expected) in [
+        (
+            r#"{"schema":"crn-craft.state/0.1","counts":{"A":-1}}"#,
+            "CRN-E041",
+        ),
+        (
+            r#"{"schema":"crn-craft.state/0.1","counts":{"A":1,"A":2}}"#,
+            "CRN-E002",
+        ),
+        (
+            r#"{"schema":"crn-craft.state/0.1","counts":{"A":1},"extra":0}"#,
+            "CRN-E003",
+        ),
+        (
+            r#"{"schema":"crn-craft.state/99","counts":{"A":1}}"#,
+            "CRN-E003",
+        ),
+    ] {
+        std::fs::write(&state, text).unwrap();
+        let (code, report) = invoke(&["analyze", model.to_str().unwrap(), state.to_str().unwrap()]);
+        assert_eq!(code, 1);
+        assert_eq!(report["success"], false);
+        assert!(report["analysis"].is_null());
+        assert_eq!(report["diagnostics"][0]["code"], expected);
+    }
+    let (code, report) = invoke(&["analyze", model.to_str().unwrap(), "missing-state.json"]);
+    assert_eq!(code, 1);
+    assert_eq!(report["diagnostics"][0]["code"], "CRN-E030");
 }
 
 struct Temp(PathBuf);

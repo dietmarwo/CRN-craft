@@ -1,0 +1,78 @@
+{
+  "analysis": {
+    "conservation": {
+      "basis": [],
+      "diagnostics": [],
+      "initial_class_upper_bounds": [
+        null
+      ],
+      "rank": 1,
+      "status": "exact"
+    },
+    "dependencies": [
+      [
+        1
+      ],
+      [
+        1
+      ]
+    ],
+    "evaluation_counts": [
+      5
+    ],
+    "initial_counts": [
+      0
+    ],
+    "propensities": [
+      4.0,
+      1.0
+    ],
+    "reactions": [
+      {
+        "name": "birth",
+        "net_changes": [
+          {
+            "coefficient": 1,
+            "species": 0
+          }
+        ],
+        "products": [
+          {
+            "coefficient": 1,
+            "species": 0
+          }
+        ],
+        "reactants": [],
+        "reads": []
+      },
+      {
+        "name": "death",
+        "net_changes": [
+          {
+            "coefficient": -1,
+            "species": 0
+          }
+        ],
+        "products": [],
+        "reactants": [
+          {
+            "coefficient": 1,
+            "species": 0
+          }
+        ],
+        "reads": [
+          0
+        ]
+      }
+    ],
+    "species": [
+      "A"
+    ]
+  },
+  "diagnostics": [],
+  "model_sha256": "3f647f5a88bfbaf5136ccbcb45b90ca8c16737a0ba88e157ef40f4a86810f1b4",
+  "schema": "crn-craft.analysis/0.1",
+  "simulation_available": false,
+  "state_sha256": "fbffc8c099a71fdc9f371657e8a7e27ea44253121a18e046b8965f1e2f839440",
+  "success": true
+}

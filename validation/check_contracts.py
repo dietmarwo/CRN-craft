@@ -42,7 +42,7 @@ def main():
         rows.append({"check": name, "passed": bool(condition)})
 
     validators = {}
-    for kind in ("model", "run", "result", "check"):
+    for kind in ("model", "run", "result", "check", "state", "analysis"):
         code, schema = invoke("describe", kind)
         Draft7Validator.check_schema(schema)
         validators[kind] = Draft7Validator(schema)
@@ -54,8 +54,9 @@ def main():
         "honest_capabilities",
         code == 0
         and capabilities["simulation_available"] is False
-        and capabilities["rate_evaluation_available"] is False
-        and capabilities["commands"] == ["describe", "check"],
+        and capabilities["rate_evaluation_available"] is True
+        and capabilities["commands"] == ["describe", "check", "analyze"]
+        and capabilities["schema"] == "crn-craft.describe/0.2",
     )
 
     examples = ROOT / "models/examples"
@@ -64,6 +65,12 @@ def main():
         code, report = invoke("check", path)
         validators["check"].validate(report)
         record(f"model_{path.name}", code == 0 and report["valid"])
+        code, analysis = invoke("analyze", path)
+        validators["analysis"].validate(analysis)
+        record(
+            f"analysis_{path.name}",
+            code == 0 and analysis["success"] and not analysis["simulation_available"],
+        )
     for path in sorted(examples.glob("*.run.json")):
         run = json.loads(path.read_text())
         validators["run"].validate(run)
@@ -130,7 +137,7 @@ def main():
                 and any(d["code"] == expected_code for d in report["diagnostics"]),
             )
 
-    for command in ("run", "analyze", "fsp", "report", "export"):
+    for command in ("run", "fsp", "report", "export"):
         code, report = invoke(command)
         record(
             f"unimplemented_{command}_fails",

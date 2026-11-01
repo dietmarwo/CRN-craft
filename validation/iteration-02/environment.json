@@ -1,0 +1,11 @@
+{
+  "1.85.0": "rustc 1.85.0 (4d91de4e4 2025-02-17)",
+  "1.88.0": "rustc 1.88.0 (6b00bc388 2025-06-23)",
+  "stable": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "python": "3.12.14",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+  "ruff": "ruff 0.11.13",
+  "jsonschema": "4.26.0",
+  "base_commit": "8134f510546c4b0711b1e5c21855f18d9b53e80a",
+  "new_dependency": "libm = 0.2.15"
+}

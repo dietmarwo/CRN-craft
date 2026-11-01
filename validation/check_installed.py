@@ -1,13 +1,46 @@
-"""Acceptance from an installed wheel, independent of repository imports."""
+"""Acceptance from an installed wheel, independent of repository imports.
+
+Run it with the environment's Python. The console scripts are taken from that
+environment's scripts directory, never from PATH, so a native `crn-craft`
+binary elsewhere on PATH cannot stand in for the installed entry point.
+"""
 
 import argparse
+import importlib.metadata
 import json
+import math
 from pathlib import Path
+import shutil
 import subprocess
+import sysconfig
 import tempfile
+import numpy as np
 import crn_craft as c
 from crn_craft.importers import import_bng_net
-from crn_craft.observables import sampled_first_passage
+from crn_craft.observables import oscillation, sampled_first_passage
+
+SBML = (
+    b'<sbml xmlns="http://www.sbml.org/sbml/level3/version2/core" level="3" '
+    b'version="2"><model id="Decay" substanceUnits="item" timeUnits="second">'
+    b'<listOfCompartments><compartment id="cell" size="1" constant="true"/>'
+    b'</listOfCompartments><listOfSpecies><species id="A" compartment="cell" '
+    b'initialAmount="10" hasOnlySubstanceUnits="true" boundaryCondition="false" '
+    b'constant="false"/></listOfSpecies><listOfParameters><parameter id="k" '
+    b'value="0.5" constant="true"/></listOfParameters><listOfReactions>'
+    b'<reaction id="decay" reversible="false"><listOfReactants><speciesReference '
+    b'species="A" stoichiometry="1" constant="true"/></listOfReactants>'
+    b'<kineticLaw><math xmlns="http://www.w3.org/1998/Math/MathML"><apply><times/>'
+    b"<ci>k</ci><ci>A</ci></apply></math></kineticLaw></reaction>"
+    b"</listOfReactions></model></sbml>"
+)
+
+
+def script(name):
+    """The console script installed with this interpreter's package."""
+    found = shutil.which(name, path=sysconfig.get_path("scripts"))
+    if found is None:
+        raise RuntimeError(f"{name} is not installed next to this interpreter")
+    return found
 
 
 def require(v, m):
@@ -20,6 +53,16 @@ def main():
     ap.add_argument("--output", type=Path, required=True)
     args = ap.parse_args()
     checks = []
+    cli, importer = script("crn-craft"), script("crn-craft-import")
+    version = importlib.metadata.version("crn-craft")
+    require(c.__version__ == version, "package __version__ matches metadata")
+    reported = subprocess.run([cli, "--version"], capture_output=True, check=False)
+    require(
+        reported.returncode == 0
+        and json.loads(reported.stdout) == {"version": version, "interface": "python"},
+        "installed entry point is the Python CLI",
+    )
+    checks.append("version_and_entry_points")
     m = c.load_example("immigration-death")
     r = c.run_spec(m, end=2.0, replicates=32, seed=77, keep=32)
     a = c.simulate(m, r)
@@ -36,7 +79,7 @@ def main():
         (folder / "run.json").write_bytes(c.model_bytes(r))
         proc = subprocess.run(
             [
-                "crn-craft",
+                cli,
                 "simulate-cached",
                 str(folder / "model.json"),
                 str(folder / "run.json"),
@@ -52,7 +95,7 @@ def main():
         )
         require(
             subprocess.run(
-                ["crn-craft", "verify", str(folder / "out")],
+                [cli, "verify", str(folder / "out")],
                 capture_output=True,
                 check=False,
             ).returncode
@@ -64,9 +107,7 @@ def main():
             ["analyze-v1", str(folder / "model.json")],
             ["export", str(folder / "model.json"), "gillespy2"],
         ]:
-            extra = subprocess.run(
-                ["crn-craft", *command], capture_output=True, check=False
-            )
+            extra = subprocess.run([cli, *command], capture_output=True, check=False)
             require(extra.returncode == 0, "installed discovery/legacy/export parity")
         tau_request = {
             "schema": "crn-craft.tau-request/0.1",
@@ -76,7 +117,7 @@ def main():
         }
         (folder / "tau.json").write_bytes(c.model_bytes(tau_request))
         extra = subprocess.run(
-            ["crn-craft", "tau", str(folder / "model.json"), str(folder / "tau.json")],
+            [cli, "tau", str(folder / "model.json"), str(folder / "tau.json")],
             capture_output=True,
             check=False,
         )
@@ -85,7 +126,27 @@ def main():
             and json.loads(extra.stdout)["assessment"] == "approximate_ensemble",
             "installed tau CLI parity",
         )
-        checks.append("installed_CLI_and_archive")
+        (folder / "decay.xml").write_bytes(SBML)
+        imported = subprocess.run(
+            [
+                importer,
+                "sbml",
+                str(folder / "decay.xml"),
+                str(folder / "decay.json"),
+                "--convention",
+                "stochastic_count_propensity",
+            ],
+            capture_output=True,
+            check=False,
+        )
+        require(imported.returncode == 0, imported.stdout.decode())
+        decay = json.loads((folder / "decay.json").read_bytes())["model"]
+        require(
+            c.check(decay)["valid"]
+            and decay["reactions"][0]["rate"]["coefficient"] == 0.5,
+            "installed SBML import script",
+        )
+        checks.append("installed_CLI_archive_and_import_scripts")
     fsp = {k: v for k, v in r.items() if k != "ensemble"}
     fsp["method"] = {
         "kind": "fsp",
@@ -99,6 +160,14 @@ def main():
     }
     result = c.fsp(m, fsp)
     require(not result["numerical_error_certified"], "installed FSP semantics")
+    # Immigration-death from zero is Poisson with mean 20 (1 - exp(-0.2 t)).
+    final = result["snapshots"][-1]
+    mean = 20.0 * (1.0 - math.exp(-0.4))
+    require(
+        abs(final["projected_first_moment"][0] - mean) < 1e-9
+        and abs(final["projected_second_raw_moment"][0] - mean - mean**2) < 1e-8,
+        "installed FSP matches the Poisson moments",
+    )
     checks.append("FSP")
     approx = c.tau(
         m,
@@ -134,6 +203,18 @@ def main():
         sampled_first_passage([0, 1], [[0, 0]], 1)["not_detected"] == 1,
         "installed observables",
     )
+    t = np.linspace(0, 100, 501)
+    require(
+        oscillation(t, np.sin(2 * np.pi * t / 10))["classification"] == "oscillatory"
+        and oscillation(t, np.full(len(t), 0.3))["classification"] == "nonoscillatory",
+        "installed oscillation detector",
+    )
+    try:
+        c.fsp(m, dict(fsp, schema="crn-craft.run/9"))
+    except c.CrnError as error:
+        require(error.diagnostics[0]["code"] == "CRN-E003", "installed CrnError")
+    else:
+        raise RuntimeError("installed FSP accepted an invalid run")
     checks.append("observables")
     args.output.write_text(
         json.dumps(

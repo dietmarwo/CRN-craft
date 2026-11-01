@@ -1,10 +1,84 @@
 //! Minimal JSON bridge; numerical semantics and validators live in the core.
-use pyo3::{exceptions::PyValueError, prelude::*};
+use crn_craft::simulation::Control;
+use pyo3::{
+    create_exception,
+    exceptions::{PyRuntimeError, PyValueError},
+    prelude::*,
+};
+use std::{
+    path::PathBuf,
+    sync::{Arc, mpsc},
+    time::Duration,
+};
+
+create_exception!(
+    _native,
+    NativeError,
+    PyValueError,
+    "Rejected request; the message is the JSON diagnostic list or object."
+);
+
 fn failure<T: serde::Serialize>(value: &T) -> PyErr {
-    PyValueError::new_err(
+    NativeError::new_err(
         serde_json::to_string(value).unwrap_or_else(|_| "serialization failure".into()),
     )
 }
+
+/// How often the waiting thread checks for Python signals.
+const SIGNAL_INTERVAL: Duration = Duration::from_millis(50);
+
+/// Runs `work` on a helper thread. The calling thread waits without the GIL
+/// and checks for Python signals every 50 ms; a signal handler that raises
+/// (Ctrl-C raises KeyboardInterrupt) cancels the run through the shared
+/// control, and its exception is raised once the helper has stopped. Signals
+/// are only delivered to the main thread, so calls from other Python threads
+/// are not interruptible, as before. A cancel file is polled as in the CLI.
+fn interruptible<T: Send + 'static>(
+    py: Python<'_>,
+    cancel_file: Option<String>,
+    work: impl FnOnce(&Control) -> T + Send + 'static,
+) -> PyResult<T> {
+    let mut control = Control::default();
+    control.cancel_file = cancel_file.map(PathBuf::from);
+    let control = Arc::new(control);
+    let shared = Arc::clone(&control);
+    let (sender, mut receiver) = mpsc::channel();
+    let helper = std::thread::Builder::new()
+        .name("crn-craft".into())
+        .spawn(move || {
+            let _ = sender.send(work(&shared));
+        })
+        .map_err(|e| PyRuntimeError::new_err(format!("cannot start worker: {e}")))?;
+    let mut signal = None;
+    let value = loop {
+        let (back, received) = py.detach(move || {
+            let received = receiver.recv_timeout(SIGNAL_INTERVAL);
+            (receiver, received)
+        });
+        receiver = back;
+        match received {
+            Ok(value) => break Some(value),
+            Err(mpsc::RecvTimeoutError::Disconnected) => break None,
+            Err(mpsc::RecvTimeoutError::Timeout) => {
+                if signal.is_none() {
+                    if let Err(error) = py.check_signals() {
+                        control.cancel();
+                        signal = Some(error);
+                    }
+                }
+            }
+        }
+    };
+    let joined = py.detach(move || helper.join());
+    if let Some(error) = signal {
+        return Err(error);
+    }
+    match (value, joined) {
+        (Some(value), Ok(())) => Ok(value),
+        _ => Err(PyRuntimeError::new_err("CRN-craft worker thread panicked")),
+    }
+}
+
 #[pyfunction]
 fn describe_json() -> String {
     crn_craft::describe().to_string()
@@ -19,23 +93,48 @@ fn check_json(model: &[u8], run: Option<&[u8]>) -> String {
     serde_json::to_string(&crn_craft::check_bytes(model, run)).unwrap()
 }
 #[pyfunction]
-fn simulate_json(py: Python<'_>, model: Vec<u8>, run: Vec<u8>) -> PyResult<String> {
-    py.detach(move || {
-        let prepared = crn_craft::simulation::prepare(&model, &run).map_err(|e| failure(&e))?;
-        let result =
-            crn_craft::simulation::execute(&prepared, &crn_craft::simulation::Control::default())
-                .map_err(|e| failure(&e))?;
-        serde_json::to_string(&result.result).map_err(|e| PyValueError::new_err(e.to_string()))
-    })
+#[pyo3(signature = (model, run, cancel_file=None))]
+fn simulate_json(
+    py: Python<'_>,
+    model: Vec<u8>,
+    run: Vec<u8>,
+    cancel_file: Option<String>,
+) -> PyResult<String> {
+    simulation_json(py, model, run, cancel_file, false)
+}
+fn simulation_json(
+    py: Python<'_>,
+    model: Vec<u8>,
+    run: Vec<u8>,
+    cancel_file: Option<String>,
+    cached: bool,
+) -> PyResult<String> {
+    let prepared = py
+        .detach(move || crn_craft::simulation::prepare(&model, &run))
+        .map_err(|e| failure(&e))?;
+    let result = interruptible(py, cancel_file, move |control| {
+        if cached {
+            crn_craft::simulation::execute_cached(&prepared, control)
+        } else {
+            crn_craft::simulation::execute(&prepared, control)
+        }
+    })?
+    .map_err(|e| failure(&e))?;
+    serde_json::to_string(&result.result).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 #[pyfunction]
-fn fsp_json(py: Python<'_>, model: Vec<u8>, run: Vec<u8>) -> PyResult<String> {
-    py.detach(move || {
-        let result =
-            crn_craft::fsp::solve(&model, &run, &crn_craft::simulation::Control::default())
-                .map_err(|e| failure(&e))?;
-        serde_json::to_string(&result).map_err(|e| PyValueError::new_err(e.to_string()))
-    })
+#[pyo3(signature = (model, run, cancel_file=None))]
+fn fsp_json(
+    py: Python<'_>,
+    model: Vec<u8>,
+    run: Vec<u8>,
+    cancel_file: Option<String>,
+) -> PyResult<String> {
+    let result = interruptible(py, cancel_file, move |control| {
+        crn_craft::fsp::solve(&model, &run, control)
+    })?
+    .map_err(|e| failure(&e))?;
+    serde_json::to_string(&result).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 #[pymodule]
 fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -53,31 +152,37 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(export_json, module)?)?;
     module.add_function(wrap_pyfunction!(analyze_state_json, module)?)?;
     module.add_function(wrap_pyfunction!(tau_files_json, module)?)?;
+    module.add("NativeError", module.py().get_type::<NativeError>())?;
+    module.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }
 
 #[pyfunction]
-fn simulate_cached_json(py: Python<'_>, model: Vec<u8>, run: Vec<u8>) -> PyResult<String> {
-    py.detach(move || {
-        let prepared = crn_craft::simulation::prepare(&model, &run).map_err(|e| failure(&e))?;
-        let result = crn_craft::simulation::execute_cached(
-            &prepared,
-            &crn_craft::simulation::Control::default(),
-        )
-        .map_err(|e| failure(&e))?;
-        serde_json::to_string(&result.result).map_err(|e| PyValueError::new_err(e.to_string()))
-    })
+#[pyo3(signature = (model, run, cancel_file=None))]
+fn simulate_cached_json(
+    py: Python<'_>,
+    model: Vec<u8>,
+    run: Vec<u8>,
+    cancel_file: Option<String>,
+) -> PyResult<String> {
+    simulation_json(py, model, run, cancel_file, true)
 }
 #[pyfunction]
-fn tau_json(py: Python<'_>, model: Vec<u8>, request: Vec<u8>) -> PyResult<String> {
-    py.detach(move || {
-        let result =
-            crn_craft::tau::solve(&model, &request, &crn_craft::simulation::Control::default())
-                .map_err(|e| failure(&e))?;
-        serde_json::to_string(&result).map_err(|e| PyValueError::new_err(e.to_string()))
-    })
+#[pyo3(signature = (model, request, cancel_file=None))]
+fn tau_json(
+    py: Python<'_>,
+    model: Vec<u8>,
+    request: Vec<u8>,
+    cancel_file: Option<String>,
+) -> PyResult<String> {
+    let result = interruptible(py, cancel_file, move |control| {
+        crn_craft::tau::solve(&model, &request, control)
+    })?
+    .map_err(|e| failure(&e))?;
+    serde_json::to_string(&result).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 #[pyfunction]
+#[pyo3(signature = (model, run, output, cached, cancel_file=None))]
 fn archive_json(
     py: Python<'_>,
     model: String,
@@ -85,10 +190,8 @@ fn archive_json(
     output: String,
     cached: bool,
     cancel_file: Option<String>,
-) -> String {
-    py.detach(move || {
-        let mut control = crn_craft::simulation::Control::default();
-        control.cancel_file = cancel_file.map(std::path::PathBuf::from);
+) -> PyResult<String> {
+    interruptible(py, cancel_file, move |control| {
         let f = if cached {
             crn_craft::archive::simulate_cached_files
         } else {
@@ -98,7 +201,7 @@ fn archive_json(
             std::path::Path::new(&model),
             std::path::Path::new(&run),
             std::path::Path::new(&output),
-            &control,
+            control,
         ))
         .unwrap()
     })
@@ -144,15 +247,23 @@ fn analyze_state_json(model: Vec<u8>, state: Option<Vec<u8>>, legacy: bool) -> S
     }
 }
 #[pyfunction]
-fn tau_files_json(py: Python<'_>, model: String, request: String) -> String {
-    py.detach(move || {
-        match crn_craft::tau::solve_files(
+#[pyo3(signature = (model, request, cancel_file=None))]
+fn tau_files_json(
+    py: Python<'_>,
+    model: String,
+    request: String,
+    cancel_file: Option<String>,
+) -> PyResult<String> {
+    interruptible(
+        py,
+        cancel_file,
+        move |control| match crn_craft::tau::solve_files(
             std::path::Path::new(&model),
             std::path::Path::new(&request),
-            &crn_craft::simulation::Control::default(),
+            control,
         ) {
             Ok(result) => serde_json::to_string(&result).unwrap(),
             Err(errors) => serde_json::json!({"success":false,"diagnostics":errors}).to_string(),
-        }
-    })
+        },
+    )
 }

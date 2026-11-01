@@ -3,9 +3,13 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
+import signal
 import subprocess
+import sys
 import tempfile
+import time
 import numpy as np
 import crn_craft as crn
 from crn_craft.observables import oscillation, sampled_first_passage
@@ -119,6 +123,85 @@ def main():
     else:
         raise RuntimeError("too few samples after the burn-in were accepted")
     rows.append({"check": "oscillation_edge_cases", "passed": True})
+    # The detector's three documented gates, each checked on its own:
+    # removing the mean (an offset changes nothing), the autocorrelation gate
+    # (a spectral peak whose lag-period autocorrelation is below 0.2 is not
+    # called oscillatory) and the burn-in (samples before it are ignored).
+    rng = np.random.default_rng(5)
+    base = np.sin(2 * np.pi * t / 10) + 0.1 * rng.normal(size=len(t))
+    plain, shifted = oscillation(t, base), oscillation(t, base + 1000.0)
+    require(
+        plain["classification"] == shifted["classification"] == "oscillatory"
+        and abs(plain["autocorrelation_peak"] - shifted["autocorrelation_peak"]) < 1e-9,
+        "oscillation is offset invariant",
+    )
+    noise = np.random.default_rng(12).normal(scale=np.sqrt(0.8), size=500)
+    n = np.arange(500.0)
+    aliased = oscillation(n, np.sin(2 * np.pi * 0.4 * n) + noise, burn_fraction=0)
+    require(
+        aliased["peak_fraction"] >= 0.3
+        and aliased["cycles"] >= 3
+        and aliased["autocorrelation_peak"] < 0.2
+        and aliased["classification"] == "nonoscillatory",
+        "autocorrelation gate",
+    )
+    transient = base.copy()
+    transient[: int(len(t) * 0.2)] += 1000.0
+    require(
+        oscillation(t, transient) == plain
+        and oscillation(t, transient, burn_fraction=0)["classification"]
+        != "oscillatory",
+        "burn-in excludes the transient",
+    )
+    rows.append({"check": "oscillation_gates", "passed": True})
+    # Rejections carry their diagnostics; a cancel file stops a run; Ctrl-C
+    # interrupts a long native call promptly instead of being ignored.
+    model = crn.load_example("immigration-death")
+    try:
+        crn.simulate(model, dict(crn.run_spec(model), schema="crn-craft.run/9"))
+    except crn.CrnError as error:
+        require(
+            isinstance(error, ValueError)
+            and error.diagnostics[0]["code"] == "CRN-E003"
+            and str(error).startswith("CRN-E003"),
+            "CrnError diagnostics",
+        )
+    else:
+        raise RuntimeError("an invalid run was accepted")
+    with tempfile.TemporaryDirectory() as tmp:
+        stop = Path(tmp) / "stop"
+        stop.write_text("")
+        long = crn.run_spec(model, end=1e6, replicates=8, max_events=10**9)
+        cancelled = crn.simulate(model, long, cancel_file=stop)
+        require(cancelled["termination"] == "cancelled", "binding cancel file")
+    rows.append({"check": "binding_errors_and_cancel_file", "passed": True})
+    if os.name == "posix":
+        script = (
+            "import crn_craft as c, time\n"
+            "m = c.load_example('immigration-death')\n"
+            "r = c.run_spec(m, end=1e9, replicates=4, max_events=10**12)\n"
+            "print('started', flush=True)\n"
+            "try:\n"
+            "    c.simulate(m, r)\n"
+            "except KeyboardInterrupt:\n"
+            "    print('interrupted', flush=True)\n"
+        )
+        child = subprocess.Popen(
+            [sys.executable, "-I", "-c", script],
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        require(child.stdout.readline().strip() == "started", "child started")
+        time.sleep(0.5)
+        sent = time.monotonic()
+        child.send_signal(signal.SIGINT)
+        out, _ = child.communicate(timeout=30)
+        latency = time.monotonic() - sent
+        require(
+            out.strip() == "interrupted" and child.returncode == 0 and latency < 2.0,
+            f"Ctrl-C interrupts a native run ({latency:.2f} s, {out!r})",
+        )
+        rows.append({"check": "keyboard_interrupt", "passed": True})
     circuit = (root / "models/examples/repressilator.model.json").read_bytes()
     study = []
     for split, seeds in [("development", [3101, 3102]), ("held_out", [3201, 3202])]:

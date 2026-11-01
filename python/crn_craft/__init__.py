@@ -1,8 +1,45 @@
 """Small byte-preserving JSON interface to the native CRN-craft core."""
 
 import hashlib
+import importlib.metadata
 import json
 from . import _native
+
+try:
+    __version__ = importlib.metadata.version("crn-craft")
+except importlib.metadata.PackageNotFoundError:  # a source tree, not installed
+    __version__ = _native.__version__
+
+
+class CrnError(ValueError):
+    """A request the native core rejected.
+
+    ``diagnostics`` is the list of CRN-craft diagnostics (dictionaries with
+    ``code``, ``path``, ``message`` and ``hint``). It is a ``ValueError``, so
+    existing ``except ValueError`` handlers keep working.
+    """
+
+    def __init__(self, diagnostics):
+        self.diagnostics = diagnostics
+        first = diagnostics[0] if diagnostics else {}
+        message = f"{first.get('code', 'CRN')}: {first.get('message', 'rejected')}"
+        if first.get("path"):
+            message += f" at {first['path']}"
+        if len(diagnostics) > 1:
+            message += f" (and {len(diagnostics) - 1} more)"
+        super().__init__(message)
+
+
+def _call(method, *args, **kwargs):
+    try:
+        return json.loads(method(*args, **kwargs))
+    except _native.NativeError as error:
+        text = str(error)
+        try:
+            value = json.loads(text)
+        except ValueError:
+            value = [{"code": "CRN-E000", "path": "", "message": text}]
+        raise CrnError(value if isinstance(value, list) else [value]) from None
 
 
 def model_bytes(model):
@@ -29,14 +66,26 @@ def analyze(model):
     return json.loads(_native.analyze_json(model_bytes(model)))
 
 
-def simulate(model, run, *, cached=False):
-    """Return the numerical result; inspect termination before using statistics."""
+def simulate(model, run, *, cached=False, cancel_file=None):
+    """Return the numerical result; inspect termination before using statistics.
+
+    Ctrl-C (in the main thread) cancels the run and raises KeyboardInterrupt.
+    Creating ``cancel_file`` stops the run with termination ``cancelled``.
+    Rejected requests raise ``CrnError``.
+    """
     method = _native.simulate_cached_json if cached else _native.simulate_json
-    return json.loads(method(model_bytes(model), model_bytes(run)))
+    return _call(method, model_bytes(model), model_bytes(run), _path(cancel_file))
 
 
-def fsp(model, run):
-    return json.loads(_native.fsp_json(model_bytes(model), model_bytes(run)))
+def fsp(model, run, *, cancel_file=None):
+    """Solve the finite state projection; rejected requests raise ``CrnError``."""
+    return _call(
+        _native.fsp_json, model_bytes(model), model_bytes(run), _path(cancel_file)
+    )
+
+
+def _path(value):
+    return None if value is None else str(value)
 
 
 def run_spec(
@@ -76,8 +125,11 @@ def run_spec(
     }
 
 
-def tau(model, request):
-    return json.loads(_native.tau_json(model_bytes(model), model_bytes(request)))
+def tau(model, request, *, cancel_file=None):
+    """Approximate tau-leaping ensemble; rejected requests raise ``CrnError``."""
+    return _call(
+        _native.tau_json, model_bytes(model), model_bytes(request), _path(cancel_file)
+    )
 
 
 def load_example(name):

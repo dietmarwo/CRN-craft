@@ -342,7 +342,7 @@ fn path_with_rng_mode(
     let mut state = network.initial_counts().to_vec();
     let mut time = 0.0;
     let mut save = 0;
-    let mut rates = Vec::with_capacity(network.reactions().len());
+    let mut rates: Vec<f64> = Vec::with_capacity(network.reactions().len());
     let mut prefix = Vec::with_capacity(network.reactions().len());
     let mut minima = Vec::with_capacity(network.reactions().len());
     let mut total = 0.0;
@@ -370,17 +370,23 @@ fn path_with_rng_mode(
                 return Ok(Stop::EventLimit);
             }
             if let (true, Some(changed)) = (cached, previous) {
-                let affected = &network.dependencies()[changed];
-                for (i, &reaction) in affected.iter().enumerate() {
+                // Dependencies are sorted, so the first bitwise change is the
+                // lowest; running sums before it are unchanged. Without a
+                // change the previous total and running sums still hold.
+                let mut lowest = None;
+                for (i, &reaction) in network.dependencies()[changed].iter().enumerate() {
                     if i % 64 == 0 {
                         if let Some(stop) = poller.poll() {
                             return Ok(stop);
                         }
                     }
-                    rates[reaction] = network.propensity_in_valid_state(reaction, &state)?;
+                    let rate = network.propensity_in_valid_state(reaction, &state)?;
+                    if lowest.is_none() && rate.to_bits() != rates[reaction].to_bits() {
+                        lowest = Some(reaction);
+                    }
+                    rates[reaction] = rate;
                 }
-                // Dependencies are sorted: running sums before the first one are unchanged.
-                if let Some(&lowest) = affected.first() {
+                if let Some(lowest) = lowest {
                     total = sampling::resume_total(&rates, &mut prefix, &mut minima, lowest)?;
                 }
             } else {

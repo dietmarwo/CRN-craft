@@ -452,9 +452,7 @@ fn external_checkpoint_interrupts_active_cached_and_direct_work() {
 #[test]
 fn cached_direct_matches_direct_with_partial_resumption_and_failures() {
     let mass = |c: f64| json!({"kind": "mass_action", "coefficient": c});
-    let reaction = |name: &str, reactants: Value, products: Value, rate: Value| {
-        json!({"name": name, "reactants": reactants, "products": products, "rate": rate})
-    };
+    let reaction = |name: &str, reactants: Value, products: Value, rate: Value| json!({"name": name, "reactants": reactants, "products": products, "rate": rate});
     let reactions = vec![
         reaction("zero", json!({"A": 1}), json!({}), mass(0.0)),
         reaction("make_a", json!({}), json!({"A": 1}), mass(5.0)),
@@ -465,7 +463,12 @@ fn cached_direct_matches_direct_with_partial_resumption_and_failures() {
             json!({"D": 1}),
             json!({"kind": "hill_repression", "regulator": "C", "vmax": 4.0, "basal": 0.0, "k": 1.0, "n": 8.0}),
         ),
-        reaction("catalysed_b", json!({"A": 1, "E": 1}), json!({"A": 1, "E": 1, "B": 1}), mass(0.4)),
+        reaction(
+            "catalysed_b",
+            json!({"A": 1, "E": 1}),
+            json!({"A": 1, "E": 1, "B": 1}),
+            mass(0.4),
+        ),
         reaction("lose_a", json!({"A": 1}), json!({}), mass(0.3)),
         reaction("triple_c", json!({"C": 3}), json!({"C": 2}), mass(0.001)),
         reaction("lose_d", json!({"D": 1}), json!({}), mass(0.5)),

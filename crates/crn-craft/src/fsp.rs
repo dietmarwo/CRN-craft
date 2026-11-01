@@ -113,30 +113,66 @@ fn serialized_len(result: &FspResult) -> u64 {
 /// edges of each projected state; `usize::MAX` targets the escaping sink.
 type Rows = [(f64, Vec<(usize, f64)>)];
 
-#[cfg(test)]
-thread_local! {
-    static ROWS_VISITED: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+/// The same generator by column: the incoming (source, weight) entries of
+/// each target, the sink last, each in ascending source order with the
+/// diagonal at its own position. Gathering a column adds its contributions
+/// in the order the row-oriented product scattered them.
+struct Columns {
+    start: Vec<usize>,
+    entries: Vec<(usize, f64)>,
 }
 
-/// One series term: `next = term · P`, the sink (index n) keeping its mass.
-/// Each entry receives its contributions in ascending source order.
-fn multiply(rows: &Rows, term: &[f64], next: &mut [f64]) {
+fn columns(rows: &Rows) -> Columns {
     let n = rows.len();
-    next.fill(0.0);
-    next[n] = term[n];
+    let target = |j: usize| if j == usize::MAX { n } else { j };
+    let mut start = vec![0; n + 2];
+    for (i, (_, edges)) in rows.iter().enumerate() {
+        start[i + 1] += 1;
+        for &(j, _) in edges {
+            start[target(j) + 1] += 1;
+        }
+    }
+    for c in 1..start.len() {
+        start[c] += start[c - 1];
+    }
+    let mut fill = start.clone();
+    let mut entries = vec![(0, 0.0); start[n + 1]];
     for (i, (diagonal, edges)) in rows.iter().enumerate() {
-        let value = term[i];
-        // An exactly zero term adds exact zeros, and no entry of `next` is
-        // -0.0, so skipping it leaves every sum bitwise unchanged.
-        if value == 0.0 {
-            continue;
+        entries[fill[i]] = (i, *diagonal);
+        fill[i] += 1;
+        for &(j, weight) in edges {
+            let c = target(j);
+            entries[fill[c]] = (i, weight);
+            fill[c] += 1;
         }
-        #[cfg(test)]
-        ROWS_VISITED.with(|count| count.set(count.get() + 1));
-        next[i] += value * diagonal;
-        for &(j, rate) in edges {
-            next[if j == usize::MAX { n } else { j }] += value * rate;
+    }
+    Columns { start, entries }
+}
+
+/// One series term, `next = term · P`, with the sink (index n) keeping its
+/// mass, fused with the series accumulation `result += weight * next`. Each
+/// entry of `next` is the same ascending-source sum as the row-oriented
+/// product computed, so results are bitwise unchanged.
+fn multiply_accumulate(
+    columns: &Columns,
+    term: &[f64],
+    next: &mut [f64],
+    result: &mut [f64],
+    weight: f64,
+) {
+    let n = columns.start.len() - 2;
+    for (c, ((out, total), bounds)) in next
+        .iter_mut()
+        .zip(result.iter_mut())
+        .zip(columns.start.windows(2))
+        .enumerate()
+    {
+        let mut sum = if c == n { term[n] } else { 0.0 };
+        for &(i, rate) in &columns.entries[bounds[0]..bounds[1]] {
+            sum += term[i] * rate;
         }
+        *out = sum;
+        *total += weight * sum;
     }
 }
 
@@ -274,6 +310,8 @@ pub fn solve(
                 }
             }
         }
+        let columns = columns(&rows);
+        drop(rows);
         let mut term = vec![0.0; n + 1];
         let mut next = vec![0.0; n + 1];
         let mut result = vec![0.0; n + 1];
@@ -305,12 +343,9 @@ pub fn solve(
                                 omitted_weight(next_weight, mu, k + 1) * p.iter().sum::<f64>();
                             break;
                         }
-                        multiply(&rows, &term, &mut next);
+                        multiply_accumulate(&columns, &term, &mut next, &mut result, next_weight);
                         std::mem::swap(&mut term, &mut next);
                         weight = next_weight;
-                        for (out, value) in result.iter_mut().zip(&term) {
-                            *out += weight * value;
-                        }
                         k += 1;
                     }
                     std::mem::swap(&mut p, &mut result);
@@ -369,7 +404,7 @@ pub fn solve(
 mod tests {
     use super::*;
 
-    /// The unskipped row-oriented product, as before P17.
+    /// The row-oriented scatter product used before P17 and P18.
     fn reference(rows: &Rows, term: &[f64], next: &mut [f64]) {
         let n = rows.len();
         next.fill(0.0);
@@ -405,13 +440,13 @@ mod tests {
     }
 
     #[test]
-    fn the_product_skips_exact_zero_terms_without_changing_a_bit() {
+    fn the_gathered_product_and_fused_sum_match_the_row_product_bit_for_bit() {
         let mut seed = 20261101;
         for n in [1, 2, 17, 300] {
             let rows = random_rows(n, &mut seed);
+            let columns = columns(&rows);
             for density in [0.0, 0.1, 0.5, 1.0] {
                 let mut term = vec![0.0; n + 1];
-                let mut nonzero = 0;
                 for (i, value) in term.iter_mut().enumerate() {
                     seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
                     let u = (seed >> 11) as f64 / (1u64 << 53) as f64;
@@ -422,16 +457,20 @@ mod tests {
                         } else {
                             u * 1e-3
                         };
-                        nonzero += usize::from(i < n);
                     }
                 }
+                let weight = 0.37;
                 let (mut fast, mut slow) = (vec![1.0; n + 1], vec![2.0; n + 1]);
-                ROWS_VISITED.with(|count| count.set(0));
-                multiply(&rows, &term, &mut fast);
+                let mut fused: Vec<f64> = (0..=n).map(|i| i as f64 * 1e-4).collect();
+                let mut separate = fused.clone();
+                multiply_accumulate(&columns, &term, &mut fast, &mut fused, weight);
                 reference(&rows, &term, &mut slow);
-                assert_eq!(ROWS_VISITED.with(|count| count.get()), nonzero as u64);
+                for (out, value) in separate.iter_mut().zip(&slow) {
+                    *out += weight * value;
+                }
                 let bits = |v: &[f64]| v.iter().map(|x| x.to_bits()).collect::<Vec<_>>();
                 assert_eq!(bits(&fast), bits(&slow), "n {n}, density {density}");
+                assert_eq!(bits(&fused), bits(&separate), "n {n}, density {density}");
             }
         }
     }

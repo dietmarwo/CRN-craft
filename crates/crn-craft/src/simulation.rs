@@ -125,6 +125,8 @@ pub struct Control {
     pub external_stop: Option<Box<dyn Fn() -> bool + Send + Sync>>,
     #[cfg(test)]
     file_checks: std::sync::atomic::AtomicU64,
+    #[cfg(test)]
+    polls: std::sync::atomic::AtomicU64,
 }
 impl Control {
     /// Requests cancellation. Observing the cancel file sets the same flag.
@@ -157,6 +159,8 @@ impl<'a> Poller<'a> {
         }
     }
     pub(crate) fn poll(&mut self) -> Option<Stop> {
+        #[cfg(test)]
+        self.control.polls.fetch_add(1, Ordering::Relaxed);
         if self.stopped.is_some() {
             return self.stopped;
         }
@@ -375,7 +379,8 @@ fn path_with_rng_mode(
                 // change the previous total and running sums still hold.
                 let mut lowest = None;
                 for (i, &reaction) in network.dependencies()[changed].iter().enumerate() {
-                    if i % 64 == 0 {
+                    // The event's poll above covers the first 64 channels.
+                    if i > 0 && i % 64 == 0 {
                         if let Some(stop) = poller.poll() {
                             return Ok(stop);
                         }
@@ -392,7 +397,7 @@ fn path_with_rng_mode(
             } else {
                 rates.clear();
                 for reaction in 0..network.reactions().len() {
-                    if reaction % 64 == 0 {
+                    if reaction > 0 && reaction % 64 == 0 {
                         if let Some(stop) = poller.poll() {
                             return Ok(stop);
                         }
@@ -432,9 +437,6 @@ fn path_with_rng_mode(
             if next > run.time.end {
                 time = run.time.end;
                 return Ok(Stop::Completed);
-            }
-            if let Some(stop) = poller.poll() {
-                return Ok(stop);
             }
             let channel = sampling::select_from_prefix(
                 &prefix,
@@ -781,6 +783,36 @@ mod tests {
             "{checks} cancel-file checks in {elapsed:?} for {} events",
             path.record.events
         );
+    }
+    #[test]
+    fn the_event_loop_polls_once_per_event_for_small_networks() {
+        let model=serde_json::to_vec(&json!({"schema":"crn-craft.model/0.1","name":"polls","convention":"stochastic_counts","omega":1.0,"parameters":{},
+            "species":[{"name":"X","initial_count":0}],"reactions":[{"name":"birth","reactants":{},"products":{"X":1},"rate":{"kind":"mass_action","coefficient":100.0}},
+            {"name":"death","reactants":{"X":1},"products":{},"rate":{"kind":"mass_action","coefficient":1.0}}]})).unwrap();
+        let run=serde_json::to_vec(&json!({"schema":"crn-craft.run/0.1","model":{"path":"model.json","sha256":sha256(&model)},"method":{"kind":"ssa","aggregator":"direct"},
+            "ensemble":{"replicates":1,"root_seed":3},"time":{"end":10.0,"save_times":[0.0,5.0,10.0]},"outputs":{"statistics":["mean"],"keep_trajectories":0},
+            "budget":{"max_events_per_replicate":1000000,"threads":1,"max_output_bytes":100000}})).unwrap();
+        let prepared = prepare(&model, &run).unwrap();
+        for cached in [false, true] {
+            let control = Control::default();
+            let path = path_with_rng_mode(
+                &prepared.network,
+                &prepared.run,
+                0,
+                &mut Poller::new(&control, Instant::now(), None),
+                &mut sampling::stream(3, 0),
+                cached,
+            );
+            assert_eq!(path.record.termination, Stop::Completed);
+            assert!(path.record.events > 1000);
+            let polls = control.polls.load(Ordering::Relaxed);
+            // One per event, one per saved point, the first and the final loop.
+            assert!(
+                polls <= path.record.events + 3 + 2,
+                "{polls} polls for {} events",
+                path.record.events
+            );
+        }
     }
     #[test]
     fn encoded_budget_checks_exact_boundary_without_allocating_payload() {

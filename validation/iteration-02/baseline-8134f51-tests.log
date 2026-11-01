@@ -1,0 +1,99 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling version_check v0.9.5
+   Compiling serde_core v1.0.229
+   Compiling typenum v1.20.1
+   Compiling zmij v1.0.23
+   Compiling itoa v1.0.18
+   Compiling serde_json v1.0.154
+   Compiling generic-array v0.14.7
+   Compiling serde v1.0.229
+   Compiling memchr v2.8.3
+   Compiling schemars v0.8.22
+   Compiling cfg-if v1.0.5
+   Compiling dyn-clone v1.0.20
+   Compiling cpufeatures v0.2.17
+   Compiling syn v2.0.119
+   Compiling syn v3.0.9
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling serde_derive v1.0.229
+   Compiling serde_derive_internals v0.29.1
+   Compiling serde_path_to_error v0.1.20
+   Compiling schemars_derive v0.8.22
+   Compiling crn-craft v0.1.0-dev.1 (/workspace/scratch/d05427e343fb/CRN-craft/crates/crn-craft)
+   Compiling crn-craft-cli v0.1.0-dev.1 (/workspace/scratch/d05427e343fb/CRN-craft/crates/crn-craft-cli)
+    Finished `release` profile [optimized] target(s) in 9.86s
+     Running unittests src/lib.rs (target/release/deps/crn_craft-1f168296f0ea53ab)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/contracts.rs (target/release/deps/contracts-5d0415423ca0ed8b)
+
+running 35 tests
+test absorbing_model_with_no_reactions_is_valid ... ok
+test all_rate_law_domains_and_species_reads_checked ... ok
+test check_report_is_deterministic ... ok
+test budget_and_replication_errors_are_pinned ... ok
+test byte_hash_known_answer ... ok
+test duplicate_keys_at_all_depths_and_escaped_spellings_rejected ... ok
+test duplicate_reaction_names_rejected ... ok
+test excessive_depth_is_rejected_without_stack_overflow ... ok
+test fsp_allows_physically_unbounded_model_with_finite_truncation ... ok
+test formatting_changes_model_identity ... ok
+test fsp_options_initial_state_and_method_incompatibility ... ok
+test finite_and_positive_domains_checked_for_typed_callers ... ok
+test full_repressilator_has_three_modules ... ok
+test initial_state_must_lie_within_population_limits_and_fsp_bounds ... ok
+test invalid_identifier_and_namespace_collision ... ok
+test all_example_models_and_run_references_pass ... ok
+test description_cannot_imply_an_available_simulator ... ok
+test malformed_trailing_non_json_and_non_utf8_rejected ... ok
+test i64_overflow_and_fractional_counts_rejected ... ok
+test nesting_limit_boundary_matches_its_documentation ... ok
+test output_budget_minimum_matches_the_documented_formula ... ok
+test output_selection_errors_are_pinned ... ok
+test population_limit_is_checked_separately ... ok
+test roundtrip_preserves_integer_counts_above_double_precision ... ok
+test invalid_relative_paths_and_hashes_rejected ... ok
+test negative_fixture_manifest_pins_codes_and_paths ... ok
+test time_grid_errors_are_pinned ... ok
+test unknown_fields_rejected_in_every_model_object ... ok
+test warnings_do_not_make_valid_models_invalid_or_prove_growth ... ok
+test wrong_version_is_not_silently_upgraded ... ok
+test unknown_fields_rejected_in_every_run_object ... ok
+test unsupported_run_versions_methods_and_aggregators_rejected ... ok
+test zero_and_oversized_stoichiometry_rejected ... ok
+test oversized_document_rejected_before_parsing ... ok
+test decimal_literals_parse_to_correctly_rounded_doubles ... ok
+
+test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/main.rs (target/release/deps/crn_craft-409de388e7bf2af2)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cli.rs (target/release/deps/cli-3832c533b9873400)
+
+running 6 tests
+test reference_is_relative_to_run_directory_not_working_directory ... ok
+test symlink_outside_run_directory_rejected_even_when_hash_matches ... ok
+test different_file_with_identical_bytes_is_not_the_referenced_path ... ok
+test cli_description_and_example_check ... ok
+test cli_errors_are_json_and_exit_one ... ok
+test cli_negative_fixtures_have_expected_exit_code_and_fields ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests crn_craft
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

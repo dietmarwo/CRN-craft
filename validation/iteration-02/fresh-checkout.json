@@ -1,0 +1,14 @@
+{
+  "base_commit": "8134f510546c4b0711b1e5c21855f18d9b53e80a",
+  "core_autocrlf": "true",
+  "all_tracked_files_lf_or_empty": true,
+  "tracked_files": 131,
+  "candidate_diff_sha256": "a835af5942b824fb17524728cf68d69bcf4e6334475e43e4f46b2b806af77793",
+  "applied_index_tree": "c28b2c58629e67ccbd726827e104c6b7859a7a47",
+  "git_apply_check": true,
+  "git_apply_index": true,
+  "release_tests_passed": 73,
+  "contract_checks_passed": 48,
+  "network_checks_passed": 218,
+  "scope": "fresh source-candidate application; final mail patch is also verified separately"
+}

@@ -1,0 +1,192 @@
+{
+  "analysis": {
+    "conservation": {
+      "basis": [
+        {
+          "coefficients": [
+            "0",
+            "1",
+            "1",
+            "0"
+          ],
+          "initial_total": "10"
+        },
+        {
+          "coefficients": [
+            "1",
+            "0",
+            "1",
+            "1"
+          ],
+          "initial_total": "50"
+        }
+      ],
+      "diagnostics": [],
+      "initial_class_upper_bounds": [
+        "50",
+        "10",
+        "10",
+        "50"
+      ],
+      "rank": 2,
+      "status": "exact"
+    },
+    "dependencies": [
+      [
+        0,
+        1,
+        2
+      ],
+      [
+        0,
+        1,
+        2
+      ],
+      [
+        0,
+        1,
+        2
+      ]
+    ],
+    "evaluation_counts": [
+      50,
+      10,
+      0,
+      0
+    ],
+    "initial_counts": [
+      50,
+      10,
+      0,
+      0
+    ],
+    "propensities": [
+      5.0,
+      0.0,
+      0.0
+    ],
+    "reactions": [
+      {
+        "name": "bind",
+        "net_changes": [
+          {
+            "coefficient": -1,
+            "species": 0
+          },
+          {
+            "coefficient": -1,
+            "species": 1
+          },
+          {
+            "coefficient": 1,
+            "species": 2
+          }
+        ],
+        "products": [
+          {
+            "coefficient": 1,
+            "species": 2
+          }
+        ],
+        "reactants": [
+          {
+            "coefficient": 1,
+            "species": 0
+          },
+          {
+            "coefficient": 1,
+            "species": 1
+          }
+        ],
+        "reads": [
+          0,
+          1
+        ]
+      },
+      {
+        "name": "unbind",
+        "net_changes": [
+          {
+            "coefficient": 1,
+            "species": 0
+          },
+          {
+            "coefficient": 1,
+            "species": 1
+          },
+          {
+            "coefficient": -1,
+            "species": 2
+          }
+        ],
+        "products": [
+          {
+            "coefficient": 1,
+            "species": 0
+          },
+          {
+            "coefficient": 1,
+            "species": 1
+          }
+        ],
+        "reactants": [
+          {
+            "coefficient": 1,
+            "species": 2
+          }
+        ],
+        "reads": [
+          2
+        ]
+      },
+      {
+        "name": "catalysis",
+        "net_changes": [
+          {
+            "coefficient": 1,
+            "species": 1
+          },
+          {
+            "coefficient": -1,
+            "species": 2
+          },
+          {
+            "coefficient": 1,
+            "species": 3
+          }
+        ],
+        "products": [
+          {
+            "coefficient": 1,
+            "species": 1
+          },
+          {
+            "coefficient": 1,
+            "species": 3
+          }
+        ],
+        "reactants": [
+          {
+            "coefficient": 1,
+            "species": 2
+          }
+        ],
+        "reads": [
+          2
+        ]
+      }
+    ],
+    "species": [
+      "S",
+      "E",
+      "ES",
+      "P"
+    ]
+  },
+  "diagnostics": [],
+  "model_sha256": "ec6f357ca915619cab5ac84297becc2cbba6add041662a88d665b1f5bd135cfd",
+  "schema": "crn-craft.analysis/0.1",
+  "simulation_available": false,
+  "state_sha256": null,
+  "success": true
+}

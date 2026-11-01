@@ -39,6 +39,10 @@ jobs:
       - run: python validation/check_contracts.py --output contracts.json
       - run: python -O validation/check_contracts.py --output contracts-optimized.json
       - run: diff contracts.json contracts-optimized.json
+      - run: python validation/check_network.py --output network.json
+      - run: python -O validation/check_network.py --output network-optimized.json
+      - run: diff network.json network-optimized.json
+      - run: python validation/mutation_check.py --output mutations.json
   line-endings:
     # Model hashes cover exact bytes; a Windows-style checkout must keep them.
     runs-on: ubuntu-latest
@@ -56,4 +60,4 @@ jobs:
             echo "$converted"
             exit 1
           fi
-      - run: cargo test --release --locked -p crn-craft --test contracts
+      - run: cargo test --release --locked -p crn-craft --test contracts --test network

@@ -10,6 +10,7 @@
     "generic-array",
     "itoa",
     "libc",
+    "libm",
     "memchr",
     "proc-macro2",
     "quote",

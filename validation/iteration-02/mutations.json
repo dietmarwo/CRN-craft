@@ -1,0 +1,54 @@
+{
+  "schema": "crn-craft.mutation-check/0.1",
+  "mutations": [
+    {
+      "mutation": "missing_binomial_divisor",
+      "file": "crates/crn-craft/src/rates.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test homodimer_all_counts_exact ... FAILED",
+        "test high_order_and_small_coefficient_do_not_overflow_intermediates ... FAILED"
+      ]
+    },
+    {
+      "mutation": "wrong_product_sign",
+      "file": "crates/crn-craft/src/network.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test count_updates_remain_exact_above_two_to_the_53 ... FAILED",
+        "test count_overflow_is_transactional ... FAILED",
+        "test dependency_graph_includes_custom_reads_and_gate_reads ... FAILED",
+        "test indexed_columns_follow_declaration_order_and_have_correct_signs ... FAILED",
+        "test known_enzyme_laws_and_bounds_are_found ... FAILED",
+        "test no_change_reaction_invalidates_no_propensity ... FAILED",
+        "test population_limit_is_transactional ... FAILED"
+      ]
+    },
+    {
+      "mutation": "missing_custom_rate_read",
+      "file": "crates/crn-craft/src/network.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test dependency_graph_includes_custom_reads_and_gate_reads ... FAILED"
+      ]
+    },
+    {
+      "mutation": "missing_reactant_gate",
+      "file": "crates/crn-craft/src/rates.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test high_order_and_small_coefficient_do_not_overflow_intermediates ... FAILED",
+        "test custom_constant_rate_still_requires_all_reactants ... FAILED",
+        "test homodimer_all_counts_exact ... FAILED",
+        "test heterodimer_all_count_pairs_exact ... FAILED",
+        "test unavailable_gate_prevents_evaluating_overflowing_custom_rate ... FAILED"
+      ]
+    }
+  ],
+  "caught": 4,
+  "total": 4
+}

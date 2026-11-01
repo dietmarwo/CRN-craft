@@ -1,0 +1,138 @@
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling version_check v0.9.5
+   Compiling serde_core v1.0.229
+   Compiling typenum v1.20.1
+   Compiling zmij v1.0.23
+   Compiling serde_json v1.0.154
+   Compiling itoa v1.0.18
+   Compiling serde v1.0.229
+   Compiling memchr v2.8.3
+   Compiling schemars v0.8.22
+   Compiling libm v0.2.15
+   Compiling cpufeatures v0.2.17
+   Compiling generic-array v0.14.7
+   Compiling cfg-if v1.0.5
+   Compiling dyn-clone v1.0.20
+   Compiling syn v2.0.119
+   Compiling syn v3.0.9
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling serde_path_to_error v0.1.20
+   Compiling serde_derive v1.0.229
+   Compiling serde_derive_internals v0.29.1
+   Compiling schemars_derive v0.8.22
+   Compiling crn-craft v0.1.0-dev.2 (/workspace/scratch/d05427e343fb/CRN-craft/crates/crn-craft)
+   Compiling crn-craft-cli v0.1.0-dev.2 (/workspace/scratch/d05427e343fb/CRN-craft/crates/crn-craft-cli)
+    Finished `release` profile [optimized] target(s) in 15.06s
+     Running unittests src/lib.rs (/workspace/scratch/d05427e343fb/target-m1a-stable/release/deps/crn_craft-dbd3ec648a970c40)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/contracts.rs (/workspace/scratch/d05427e343fb/target-m1a-stable/release/deps/contracts-551d5b8cad98799a)
+
+running 35 tests
+test budget_and_replication_errors_are_pinned ... ok
+test absorbing_model_with_no_reactions_is_valid ... ok
+test check_report_is_deterministic ... ok
+test duplicate_reaction_names_rejected ... ok
+test excessive_depth_is_rejected_without_stack_overflow ... ok
+test all_rate_law_domains_and_species_reads_checked ... ok
+test finite_and_positive_domains_checked_for_typed_callers ... ok
+test formatting_changes_model_identity ... ok
+test fsp_allows_physically_unbounded_model_with_finite_truncation ... ok
+test fsp_options_initial_state_and_method_incompatibility ... ok
+test byte_hash_known_answer ... ok
+test full_repressilator_has_three_modules ... ok
+test i64_overflow_and_fractional_counts_rejected ... ok
+test all_example_models_and_run_references_pass ... ok
+test initial_state_must_lie_within_population_limits_and_fsp_bounds ... ok
+test malformed_trailing_non_json_and_non_utf8_rejected ... ok
+test description_cannot_imply_an_available_simulator ... ok
+test invalid_identifier_and_namespace_collision ... ok
+test duplicate_keys_at_all_depths_and_escaped_spellings_rejected ... ok
+test nesting_limit_boundary_matches_its_documentation ... ok
+test output_budget_minimum_matches_the_documented_formula ... ok
+test population_limit_is_checked_separately ... ok
+test invalid_relative_paths_and_hashes_rejected ... ok
+test output_selection_errors_are_pinned ... ok
+test roundtrip_preserves_integer_counts_above_double_precision ... ok
+test negative_fixture_manifest_pins_codes_and_paths ... ok
+test warnings_do_not_make_valid_models_invalid_or_prove_growth ... ok
+test unsupported_run_versions_methods_and_aggregators_rejected ... ok
+test time_grid_errors_are_pinned ... ok
+test unknown_fields_rejected_in_every_run_object ... ok
+test wrong_version_is_not_silently_upgraded ... ok
+test zero_and_oversized_stoichiometry_rejected ... ok
+test unknown_fields_rejected_in_every_model_object ... ok
+test oversized_document_rejected_before_parsing ... ok
+test decimal_literals_parse_to_correctly_rounded_doubles ... ok
+
+test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/network.rs (/workspace/scratch/d05427e343fb/target-m1a-stable/release/deps/network-7609a6ef94ab20a7)
+
+running 30 tests
+test compile_rejects_invalid_typed_model_before_indexing ... ok
+test analysis_failure_and_state_identity_are_honest ... ok
+test compiled_parameters_do_not_follow_later_model_edits ... ok
+test count_overflow_is_transactional ... ok
+test conservation_overflow_never_reports_partial_basis ... ok
+test custom_constant_rate_still_requires_all_reactants ... ok
+test dependency_graph_includes_custom_reads_and_gate_reads ... ok
+test full_rank_network_has_no_conservation_basis ... ok
+test empty_network_has_complete_identity_conservation_basis ... ok
+test high_order_and_small_coefficient_do_not_overflow_intermediates ... ok
+test hill_extreme_parameters_and_tails_are_checked ... ok
+test homodimer_all_counts_exact ... ok
+test count_updates_remain_exact_above_two_to_the_53 ... ok
+test heterodimer_all_count_pairs_exact ... ok
+test indexed_columns_follow_declaration_order_and_have_correct_signs ... ok
+test mass_action_true_overflow_is_coded_and_bounded_in_work ... ok
+test named_state_requires_exact_species_set ... ok
+test known_enzyme_laws_and_bounds_are_found ... ok
+test hill_complement_and_zero_regulator ... ok
+test no_change_reaction_invalidates_no_propensity ... ok
+test mm_avoids_multiplication_overflow_and_reports_underflow ... ok
+test population_limit_is_transactional ... ok
+test representable_subnormal_source_rate_is_kept ... ok
+test unavailable_gate_prevents_evaluating_overflowing_custom_rate ... ok
+test signed_law_does_not_prove_individual_count_bounds ... ok
+test steep_hill_preserves_near_equal_arguments ... ok
+test zero_rate_and_invalid_indices_cannot_fire ... ok
+test state_domains_checked_before_evaluation ... ok
+test conservation_size_limit_is_honest ... ok
+test dependency_edge_limit_is_explicit ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running unittests src/main.rs (/workspace/scratch/d05427e343fb/target-m1a-stable/release/deps/crn_craft-c3c314a0cdf85ced)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cli.rs (/workspace/scratch/d05427e343fb/target-m1a-stable/release/deps/cli-3734cfd4756c52ef)
+
+running 8 tests
+test analyze_supports_named_state_and_reports_real_capabilities ... ok
+test reference_is_relative_to_run_directory_not_working_directory ... ok
+test symlink_outside_run_directory_rejected_even_when_hash_matches ... ok
+test different_file_with_identical_bytes_is_not_the_referenced_path ... ok
+test cli_description_and_example_check ... ok
+test analyze_state_errors_remain_coded_json ... ok
+test cli_errors_are_json_and_exit_one ... ok
+test cli_negative_fixtures_have_expected_exit_code_and_fields ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests crn_craft
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

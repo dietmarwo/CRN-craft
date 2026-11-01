@@ -1,6 +1,29 @@
 # Changelog
 
-## [Unreleased]
+## [Unreleased] — iteration 2 / M1a (`0.1.0-dev.2`)
+
+### Added
+
+- Immutable compiled networks, sparse stoichiometry, reactant gates and propensity dependency graphs.
+- Checked mass-action, Hill activation/repression and Michaelis–Menten evaluation using pinned pure-Rust libm 0.2.15; atomic i64 reaction updates.
+- `analyze MODEL [STATE]`, new state/analysis 0.1 schemas, exact checked small-network conservation with explicit cap/overflow status and initial-class bounds.
+- Independent 200-network Fraction/Decimal oracle, source mutation tests, numerical edge/atomicity regressions, documentation and retained evidence.
+- Tests for the `log1p` Hill path near x = k, for weight division in conservation bounds and for binomial symmetry at high reactant orders, which three probe mutants had passed.
+
+### Changed
+
+- Discovery is `crn-craft.describe/0.2` and advertises implemented rate evaluation; model/run/check/result 0.1 contracts are unchanged.
+- Analyzer growth warnings are suppressed only by proven initial-class bounds. Structural `check` semantics are unchanged.
+- CI includes the independent network oracle normally and under `-O`, source mutation checks and network tests in the LF checkout job.
+- The mutation check runs the unmutated suite first and requires it to pass, then runs seven mutants.
+
+### Limitations
+
+- No scheduler, RNG, SSA/FSP/ODE, linkage classes, expression AST, exporters or ecosystem integrations yet.
+- Conservation uses checked i128 within 64 species / 256 reactions; its nonnegative basis heuristic is not a complete bound solver.
+- f64 propensity evaluation is tested against declared tolerances, not certified correctly rounded or cross-platform identical.
+
+## Iteration 1 / M0 (`0.1.0-dev.1`)
 
 ### Added
 

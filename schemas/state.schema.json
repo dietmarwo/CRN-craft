@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "StateVersion": {
+      "enum": [
+        "crn-craft.state/0.1"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "counts": {
+      "additionalProperties": {
+        "format": "int64",
+        "type": "integer"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "$ref": "#/definitions/StateVersion"
+    }
+  },
+  "required": [
+    "counts",
+    "schema"
+  ],
+  "title": "NamedState",
+  "type": "object"
+}

@@ -1,10 +1,17 @@
 #![forbid(unsafe_code)]
-//! CRN-craft M0: strict contracts, capability discovery and preflight checks.
-//! There is deliberately no numerical execution API in this iteration.
+//! CRN-craft M1a: strict inputs, compiled networks, propensities and analysis.
+//! There is deliberately no time integration or simulation API yet.
+pub mod analysis;
+pub mod conservation;
 pub mod contracts;
 pub mod diagnostic;
+pub mod network;
+mod rates;
 pub mod strict_json;
 pub mod validate;
+
+pub use analysis::{AnalysisReport, analyze_bytes};
+pub use network::CompiledNetwork;
 
 use contracts::{Model, Run, RunResult};
 use diagnostic::{Diagnostic, Severity};
@@ -61,6 +68,18 @@ pub fn parse_model(bytes: &[u8]) -> Result<Model, Diagnostic> {
 }
 pub fn parse_run(bytes: &[u8]) -> Result<Run, Diagnostic> {
     strict_json::parse(bytes)
+}
+
+pub fn analyze_files(model_path: &Path, state_path: Option<&Path>) -> AnalysisReport {
+    let model = match read_document(model_path) {
+        Ok(bytes) => bytes,
+        Err(error) => return AnalysisReport::failure(error),
+    };
+    let state = match state_path.map(read_document).transpose() {
+        Ok(bytes) => bytes,
+        Err(error) => return AnalysisReport::failure(error),
+    };
+    analyze_bytes(&model, state.as_deref())
 }
 
 /// Validate in-memory input bytes. Only check_files verifies model.path identity.
@@ -180,22 +199,27 @@ pub fn schema(kind: &str) -> Option<Value> {
         "run" => serde_json::to_value(schema_for!(Run)).ok(),
         "result" => serde_json::to_value(schema_for!(RunResult)).ok(),
         "check" => serde_json::to_value(schema_for!(CheckReport)).ok(),
+        "state" => serde_json::to_value(schema_for!(analysis::NamedState)).ok(),
+        "analysis" => serde_json::to_value(schema_for!(AnalysisReport)).ok(),
         _ => None,
     }
 }
 
 pub fn describe() -> Value {
     json!({
-        "schema": "crn-craft.describe/0.1", "version": env!("CARGO_PKG_VERSION"), "milestone": "M0",
-        "commands": ["describe", "check"], "simulation_available": false,
+        "schema": "crn-craft.describe/0.2", "version": env!("CARGO_PKG_VERSION"), "milestone": "M1a",
+        "commands": ["describe", "check", "analyze"], "simulation_available": false,
         "aggregators": [{"name": "direct", "status": "contract_only", "implementation_milestone": "M2"}],
         "methods": [{"name": "ssa", "status": "contract_only"}, {"name": "fsp", "status": "contract_only"}],
         "rate_laws": ["mass_action", "hill_activation", "hill_repression", "michaelis_menten"],
-        "rate_evaluation_available": false, "observables": [],
+        "rate_evaluation_available": true, "observables": [],
         "model_cards": ["docs/model-cards/rate-laws.md", "docs/model-cards/direct.md"],
         "limits": {"document_bytes": strict_json::MAX_DOCUMENT_BYTES, "json_depth": strict_json::MAX_JSON_DEPTH,
             "species": validate::MAX_SPECIES, "parameters": validate::MAX_PARAMETERS,
-            "reactions": validate::MAX_REACTIONS, "save_times": validate::MAX_SAVE_TIMES},
-        "schemas": {"model": schema("model"), "run": schema("run"), "result": schema("result"), "check": schema("check")}
+            "reactions": validate::MAX_REACTIONS, "save_times": validate::MAX_SAVE_TIMES,
+            "dependency_edges": network::MAX_DEPENDENCY_EDGES,
+            "conservation_species": conservation::MAX_CONSERVATION_SPECIES,
+            "conservation_reactions": conservation::MAX_CONSERVATION_REACTIONS},
+        "schemas": {"model": schema("model"), "run": schema("run"), "result": schema("result"), "check": schema("check"), "state": schema("state"), "analysis": schema("analysis")}
     })
 }

@@ -2,7 +2,7 @@
 
 Native Rust foundations for well-mixed chemical reaction networks, designed for reproducible simulation and optimization workflows.
 
-**Current status: iteration 1 / M0.** This version validates model/run documents and describes their schemas. It does not simulate, evaluate propensities, analyze conservation laws, optimize, or import SBML. A valid input is not a numerical or biological validation result.
+**Current status: iteration 2 / M1a (`0.1.0-dev.2`).** This version validates model/run documents, compiles indexed networks, evaluates propensities and analyzes conservation laws for small networks. It does not simulate, optimize or import SBML. A successful analysis is not a biological validation result.
 
 ## Quick start
 
@@ -13,10 +13,12 @@ cargo build --release --workspace --locked
 ./target/release/crn-craft describe
 ./target/release/crn-craft describe model
 ./target/release/crn-craft check models/examples/immigration-death.model.json models/examples/immigration-death.run.json
+./target/release/crn-craft analyze models/examples/enzyme-mechanism.model.json
+./target/release/crn-craft analyze models/examples/immigration-death.model.json models/examples/immigration-death.state.json
 cargo test --release --workspace --locked
 ```
 
-`check` emits JSON with `valid`, `execution_available: false`, hashes and diagnostics. It exits **0** when no errors were found, **1** for invalid inputs, usage or I/O errors. Warnings do not change exit 0. No M0 command emits a simulation result or exit code 2.
+`check` emits JSON with `valid`, `execution_available: false`, hashes and diagnostics. `analyze MODEL [STATE]` emits `crn-craft.analysis/0.1` with indexed sparse stoichiometry, dependencies, evaluated rates and conservation status. Without STATE it uses initial counts; otherwise STATE must name every species. Both commands exit **0** on success and **1** for invalid inputs, usage, I/O or numerical errors. Warnings do not change exit 0. Conservation size/overflow limits are explicit partial-analysis warnings. No command emits a simulation result or exit code 2.
 
 ```json
 {
@@ -33,12 +35,17 @@ cargo test --release --workspace --locked
 | Component | Implemented now |
 |---|---|
 | Rust library and CLI | Strict JSON parsing, typed contracts, semantic preflight checks, generated schemas |
+| Network core | Immutable indices, sparse stoichiometry, availability gates, dependencies, transactional checked updates |
+| Rate evaluation | Stochastic mass action, Hill activation/repression and Michaelis–Menten; finite-range diagnostics |
+| Analyzer | Optional named state, exact checked integer conservation basis up to 64 species / 256 reactions, proven initial-class bounds |
 | Models | Immigration–death; explicit enzyme mechanism; reduced Michaelis–Menten; complete three-gene repressilator |
 | Run contracts | Direct SSA requests and bounded FSP requests; execution unavailable |
-| Evidence | Rust regression tests, 13 deliberately invalid fixtures, independent Python schema/CLI checker, dependency-policy checker |
+| Evidence | Rust regression tests, 13 invalid fixtures, independent exact/Decimal oracle for 200 seeded networks, seven source mutation tests against a passing baseline, schema and dependency gates |
 | Documentation | Revised plan, diagnostics, rate conventions, statistical policy, extension/model-card templates and agent guide |
 
-Unknown fields and duplicate JSON keys are errors. Names are unique ASCII identifiers. Counts are checked i64 values. Rate parameters have finite domains. Custom rates are complete propensities, with separate reactant-availability rules for the future engine.
+Unknown fields and duplicate JSON keys are errors. Names are unique ASCII identifiers. Counts are checked i64 values. Rate parameters have finite domains. Custom rates are complete propensities, with separate reactant-availability gates. No extra mass-action factor is applied to a custom law.
+
+`CompiledNetwork` exposes pure rate evaluation and an atomic `fire_reaction` operation without a clock or random generator. Conservation arithmetic uses checked i128; unavailable results never imply absence of laws. Derived bounds describe the **initial conservation class**, even when rates are evaluated at another state. Read [the network API and limits](docs/network-api.md).
 
 `run.model.sha256` identifies the model's exact bytes. Model paths are relative to the **run file directory**, must stay below it, and must resolve to the same model supplied to `check`. Reformatting a model changes its hash. Recompute after reviewing an intentional edit:
 
@@ -60,16 +67,20 @@ python3 -m ruff check validation
 python3 validation/check_dependencies.py
 python3 validation/check_contracts.py
 python3 -O validation/check_contracts.py
+python3 validation/check_network.py --output network.json
+python3 -O validation/check_network.py --output network-optimized.json
+diff network.json network-optimized.json
+python3 validation/mutation_check.py
 ```
 
-The checked-in schema files are compared with schemas generated by the compiled CLI. JSON Schema validates shape and selected local bounds; Rust checks cross-references, positivity, cardinalities, hash/path identity and other semantic constraints. Neither checker executes a reaction network.
+The six checked-in schema files are compared with schemas generated by the compiled CLI. The four original 0.1 schemas are unchanged; state and analysis are new 0.1 contracts. Discovery advances to `crn-craft.describe/0.2`. JSON Schema validates shape and selected local bounds; Rust checks cross-references, positivity, cardinalities, hash/path identity and other semantic constraints. Acceptance checks evaluate rates and structure, without stochastic simulation.
 
-GitHub Actions runs the workflow on every push and pull request: fmt, clippy and release tests on Rust 1.85.0, 1.88.0 and stable; the dependency gate and the schema/CLI suite, each normally and under Python `-O` with identical reports; and the contract suite on a checkout made with `core.autocrlf=true`. See [validation/RESULTS.md](validation/RESULTS.md) for the exact local tools and results. The default build has no C/C++ simulator, Julia or Python runtime dependency. Python is only needed for the independent acceptance checks.
+GitHub Actions is configured for fmt, clippy and release tests on Rust 1.85.0, 1.88.0 and stable; dependency, schema/CLI and independent network checks normally and under Python `-O` with identical reports; source mutation checks; and contract/network tests with `core.autocrlf=true`. See [iteration 2 evidence](validation/iteration-02/RESULTS.md) for executed local checks. The default build has no C/C++ simulator, Julia or Python runtime dependency. It pins pure-Rust libm for rate evaluation. Python is only needed for independent acceptance checks.
 
 ## Next work
 
-[The revised plan](docs/implementation-plan-2026-11-01.md) defines the next iteration, **M1a**: compiled network indices, stoichiometry, reactant gates, dependencies, rate evaluation and `analyze`. **M2** adds the first executable Direct SSA baseline. Performance comparisons begin once a verified simulator exists.
+[The revised plan](docs/implementation-plan-2026-11-01.md) tracks completed **M1a** and remaining **M1b** work: linkage classes, explicit reference exporters and expression nodes only if a concrete fixture requires them. **M2** adds the first executable Direct SSA baseline. Performance comparisons begin once a verified simulator exists.
 
-The planned ecosystem boundary remains: CRN-craft supplies numerical models; fcmaes searches parameters; optimization-jobs executes jobs; experiment-craft coordinates campaigns. Their integrations are future milestones and are not dependencies of this M0 project.
+The planned ecosystem boundary remains: CRN-craft supplies numerical models; fcmaes searches parameters; optimization-jobs executes jobs; experiment-craft coordinates campaigns. Their integrations are future milestones and are not dependencies of the core project.
 
 Read [the agent context](docs/ai-context.md), [contract details](docs/contracts.md), [diagnostics](docs/diagnostics.md), [result contract](docs/result-contract.md) and [release instructions](RELEASING.md) before extending the project. License: MIT; dependency notices remain under their respective licenses.

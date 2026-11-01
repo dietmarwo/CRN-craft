@@ -3,7 +3,13 @@
 **Date:** 1 November 2026  
 **Basis:** the attached 31 October CRN-craft plan, GillesPy2 alternatives note, and 29 October ecosystem review.  
 **Iteration 1:** M0, contracts and preflight validation. Numerical simulation is not part of this iteration.  
-**Delivery:** a new local project suitable for a future `dietmarwo/CRN-craft` repository. No repository creation, push or release is required to test it.
+**Original iteration-1 delivery:** a new local project suitable for a future `dietmarwo/CRN-craft` repository. No repository creation, push or release is required to test it.
+
+## Iteration 2 progress — 1 November 2026
+
+M1a is implemented in `0.1.0-dev.2`, based on GitHub main `8134f51`: compiled indices, sparse stoichiometry, availability gates, dependency graphs, all four rate laws, checked reaction updates and `analyze`. Bounded exact conservation also ships now (64 species / 256 reactions, checked i128); unavailable outcomes are explicit. The four existing 0.1 schemas remain unchanged, new state/analysis contracts are 0.1, and discovery advances to 0.2. See the iteration 2 log and acceptance evidence for executed checks and limitations.
+
+M1b remains linkage classes, reference exporters and only fixture-driven expressions; arbitrary-precision or complete nonnegative conservation analysis is not claimed. M2 remains the first executable Direct SSA. The original milestone text below is retained as the design baseline.
 
 ## 1. Review and decisions
 
@@ -139,7 +145,7 @@ The week estimates in the original plan are replaced by concrete gates. Workload
 | Milestone | Deliverable | Exit evidence |
 |---|---|---|
 | **M0 / iteration 1** | Two-crate Rust workspace, strict JSON, typed model/run/reserved-result contracts, generated schemas, `describe`, `check`, complete examples, negative fixtures, CI and agent docs | Local fmt/clippy/release tests on installed stable and Rust 1.85/1.88; Python schema/CLI checker both normally and under `-O`; dependency gate; precise limitations |
-| **M1a / next iteration** | Compiled network indices, checked stoichiometry, reactant gates, dependencies, mass-action/Hill/MM rate evaluation, `analyze` | Exact count tests, 200 random networks, known enzyme conservation laws, independent oracle and mutation catches |
+| **M1a / iteration 2** | Compiled network indices, checked stoichiometry, reactant gates, dependencies, mass-action/Hill/MM rate evaluation, `analyze` | Exact count tests, 200 random networks, known enzyme conservation laws, independent oracle and mutation catches |
 | **M1b** | Conservation/null-space completion and linkage classes if not in M1a; only needed expression nodes and reference exporters | Rank/residual checks, overflow cases, explicit rate convention exporter checks; no unnecessary symbolic differentiation framework |
 | **M2** | Direct SSA, own pinned samplers, fixed-order ensembles, basic mean/variance, budgets/cancellation and verifiable archives | Analytic marginal tests; save-time/absorption fixtures; 1/2/8-thread numerical identity; interrupted/failed/oversized archive tests |
 | **M3** | FSP, independently checked traces/statistics, selected DSMTS fixtures | Analytic FSP accuracy, leakage/error-accounting tests, predeclared statistical suite, checker mutation tests |
@@ -176,7 +182,7 @@ Retain Tutorial 2 in M7: global fcmaes exploration followed by SQP refinement fr
 6. Run and retain local evidence; distinguish locally tested checks from hosted CI configuration.
 7. Deliver this revised plan, an implementation log with failures/fixes and limits, and a source ZIP including lockfile, docs, tests, fixtures and evidence. No build directories or cached dependencies in the ZIP.
 
-M0 completion does **not** close a simulator performance gap: it has no solver to time. The next concrete iteration is M1a, after which M2 can deliver the first executable exact SSA baseline.
+M0 completion does **not** close a simulator performance gap: it has no solver to time. M1a is now implemented; remaining M1b analysis/exporter work precedes M2's executable exact SSA baseline.
 
 ## 9. Sources and provenance
 

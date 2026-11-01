@@ -97,6 +97,24 @@ MUTATIONS = [
         "\n            conservation.initial_class_upper_bounds.clone()",
         "\n            vec![None; network.species().len()]",
     ),
+    (
+        "cone_rays_not_primitive",
+        "crates/crn-craft/src/cone.rs",
+        "*value /= common;",
+        "*value /= 1;",
+    ),
+    (
+        "cone_initial_ray_cap_ignored",
+        "crates/crn-craft/src/cone.rs",
+        "if n > limits.max_rays {\n        return Err(ConeStatus::RayLimit);\n    }",
+        "",
+    ),
+    (
+        "linkage_directed_edges_only",
+        "crates/crn-craft/src/linkage.rs",
+        "        undirected[edge.target].push(edge.source);\n",
+        "",
+    ),
 ]
 TEST_COMMAND = [
     "test",

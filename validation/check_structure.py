@@ -159,11 +159,22 @@ def special_models():
     enzyme = json.loads(
         (ROOT / "models/examples/enzyme-mechanism.model.json").read_text()
     )
+    # Its last constraint combines rays into 2 * (9, 23, 9, 6): the reported
+    # law must be primitive. X3 is also a catalyst of r2.
+    primitive_combination = make_model(
+        [("X0", 0), ("X1", 6), ("X2", 6), ("X3", 9)],
+        [
+            reaction("r0", {"X0": 2, "X2": 3, "X3": 4}, {"X1": 3}, mass_action(1)),
+            reaction("r1", {"X0": 4}, {"X2": 2, "X3": 3}, mass_action(1)),
+            reaction("r2", {"X2": 3, "X3": 2}, {"X0": 3, "X3": 2}, mass_action(1)),
+        ],
+    )
     return [
         ("review_counterexample", review),
         ("adjacency", adjacency),
         ("weighted", weighted),
         ("enzyme", enzyme),
+        ("primitive_combination", primitive_combination),
     ]
 
 

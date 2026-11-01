@@ -109,6 +109,37 @@ fn serialized_len(result: &FspResult) -> u64 {
     counter.0
 }
 
+/// Normalized rows: the diagonal weight and the off-diagonal (target, weight)
+/// edges of each projected state; `usize::MAX` targets the escaping sink.
+type Rows = [(f64, Vec<(usize, f64)>)];
+
+#[cfg(test)]
+thread_local! {
+    static ROWS_VISITED: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
+/// One series term: `next = term · P`, the sink (index n) keeping its mass.
+/// Each entry receives its contributions in ascending source order.
+fn multiply(rows: &Rows, term: &[f64], next: &mut [f64]) {
+    let n = rows.len();
+    next.fill(0.0);
+    next[n] = term[n];
+    for (i, (diagonal, edges)) in rows.iter().enumerate() {
+        let value = term[i];
+        // An exactly zero term adds exact zeros, and no entry of `next` is
+        // -0.0, so skipping it leaves every sum bitwise unchanged.
+        if value == 0.0 {
+            continue;
+        }
+        #[cfg(test)]
+        ROWS_VISITED.with(|count| count.set(count.get() + 1));
+        next[i] += value * diagonal;
+        for &(j, rate) in edges {
+            next[if j == usize::MAX { n } else { j }] += value * rate;
+        }
+    }
+}
+
 pub fn solve(
     model_bytes: &[u8],
     run_bytes: &[u8],
@@ -274,14 +305,7 @@ pub fn solve(
                                 omitted_weight(next_weight, mu, k + 1) * p.iter().sum::<f64>();
                             break;
                         }
-                        next.fill(0.0);
-                        next[n] = term[n];
-                        for (i, (diagonal, edges)) in rows.iter().enumerate() {
-                            next[i] += term[i] * diagonal;
-                            for &(j, rate) in edges {
-                                next[if j == usize::MAX { n } else { j }] += term[i] * rate;
-                            }
-                        }
+                        multiply(&rows, &term, &mut next);
                         std::mem::swap(&mut term, &mut next);
                         weight = next_weight;
                         for (out, value) in result.iter_mut().zip(&term) {
@@ -339,4 +363,76 @@ pub fn solve(
         Ok(result)
     })();
     action.map_err(|e| vec![e])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The unskipped row-oriented product, as before P17.
+    fn reference(rows: &Rows, term: &[f64], next: &mut [f64]) {
+        let n = rows.len();
+        next.fill(0.0);
+        next[n] = term[n];
+        for (i, (diagonal, edges)) in rows.iter().enumerate() {
+            next[i] += term[i] * diagonal;
+            for &(j, rate) in edges {
+                next[if j == usize::MAX { n } else { j }] += term[i] * rate;
+            }
+        }
+    }
+
+    fn random_rows(n: usize, seed: &mut u64) -> Vec<(f64, Vec<(usize, f64)>)> {
+        let mut uniform = || {
+            *seed = seed
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            (*seed >> 11) as f64 / (1u64 << 53) as f64
+        };
+        (0..n)
+            .map(|_| {
+                let mut edges: Vec<(usize, f64)> = (0..4)
+                    .map(|_| {
+                        let j = (uniform() * (n + 1) as f64) as usize;
+                        (if j >= n { usize::MAX } else { j }, uniform() * 0.2)
+                    })
+                    .collect();
+                edges.sort_by_key(|&(j, _)| j);
+                edges.dedup_by_key(|&mut (j, _)| j);
+                (uniform() * 0.2, edges)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_product_skips_exact_zero_terms_without_changing_a_bit() {
+        let mut seed = 20261101;
+        for n in [1, 2, 17, 300] {
+            let rows = random_rows(n, &mut seed);
+            for density in [0.0, 0.1, 0.5, 1.0] {
+                let mut term = vec![0.0; n + 1];
+                let mut nonzero = 0;
+                for (i, value) in term.iter_mut().enumerate() {
+                    seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+                    let u = (seed >> 11) as f64 / (1u64 << 53) as f64;
+                    if u < density {
+                        // Include subnormal and tiny values.
+                        *value = if i % 7 == 0 {
+                            5e-324 * (i + 1) as f64
+                        } else {
+                            u * 1e-3
+                        };
+                        nonzero += usize::from(i < n);
+                    }
+                }
+                let (mut fast, mut slow) = (vec![1.0; n + 1], vec![2.0; n + 1]);
+                ROWS_VISITED.with(|count| count.set(0));
+                multiply(&rows, &term, &mut fast);
+                reference(&rows, &term, &mut slow);
+                assert_eq!(ROWS_VISITED.with(|count| count.get()), nonzero as u64);
+                let bits = |v: &[f64]| v.iter().map(|x| x.to_bits()).collect::<Vec<_>>();
+                assert_eq!(bits(&fast), bits(&slow), "n {n}, density {density}");
+            }
+        }
+    }
 }

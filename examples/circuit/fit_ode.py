@@ -11,6 +11,34 @@ import fcmaes_rust
 import sqp_craft
 
 
+NAMES = ["birth", "death"]  # coordinate order of x = log(rates)
+
+
+def analytic_gradient(x, times, target):
+    """Closed-form gradient of sum((b/d (1 - exp(-d t)) - target)^2) in log rates."""
+    b, d = np.exp(x)
+    decay = np.exp(-d * times)
+    residual = b / d * (1 - decay) - target
+    dy_db = (1 - decay) / d
+    dy_dd = -b / d**2 * (1 - decay) + b / d * times * decay
+    return np.array([2 * residual @ dy_db * b, 2 * residual @ dy_dd * d])
+
+
+def split_timings(value):
+    """Separate wall-clock fields (*_seconds) from reproducible fixed-work content."""
+    if not isinstance(value, dict):
+        return value, None
+    kept, timings = {}, {}
+    for key, item in value.items():
+        if key.endswith("_seconds"):
+            timings[key] = item
+            continue
+        kept[key], inner = split_timings(item)
+        if inner:
+            timings[key] = inner
+    return kept, timings or None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--binary", type=Path, required=True)
@@ -60,6 +88,11 @@ def main():
                     if proc.returncode:
                         raise sqp_craft.UndefinedPointError(proc.stderr.decode())
                     result = json.loads(proc.stdout)
+                    # Sensitivities follow result["parameters"]; x follows NAMES.
+                    if result["parameters"] != NAMES:
+                        raise RuntimeError(
+                            f"parameter order {result['parameters']} != {NAMES}"
+                        )
                     actual = np.asarray(result["values"])[:, 0]
                     residual = actual - target
                     self.value = float(residual @ residual)
@@ -103,6 +136,40 @@ def main():
                 qp_solver="active-set", max_iterations=60, stationarity_tolerance=1e-7
             ),
         )
+        # Native forward-sensitivity gradients against the closed form and against
+        # central differences of native solves (step 1e-5 in log rates), at the
+        # fixed initial point and at the global best point. Thresholds: relative
+        # 1e-6 (closed form) and 1e-4 (finite differences), scaled by max(1, |g|).
+        gradient_checks = []
+        for label, point in [("initial", [0.5, -0.5]), ("global_best", start)]:
+            native = np.asarray(objective.derivatives(point)[0])
+            closed = analytic_gradient(np.asarray(point), times, target)
+            h = 1e-5
+            numeric = np.array(
+                [
+                    (
+                        objective.functions(np.add(point, h * e))[0]
+                        - objective.functions(np.subtract(point, h * e))[0]
+                    )
+                    / (2 * h)
+                    for e in np.eye(2)
+                ]
+            )
+            scale = np.maximum(1.0, np.abs(closed))
+            analytic_error = float(np.max(np.abs(native - closed) / scale))
+            numeric_error = float(np.max(np.abs(native - numeric) / scale))
+            gradient_checks.append(
+                {
+                    "point": label,
+                    "x": list(point),
+                    "native": native.tolist(),
+                    "closed_form": closed.tolist(),
+                    "central_difference": numeric.tolist(),
+                    "closed_form_error": analytic_error,
+                    "central_difference_error": numeric_error,
+                    "passed": analytic_error <= 1e-6 and numeric_error <= 1e-4,
+                }
+            )
         value, _ = objective.functions(local.candidate)
         gradient, _ = objective.derivatives(local.candidate)
         fitted = np.exp(local.candidate)
@@ -113,10 +180,16 @@ def main():
             value < 1e-10
             and independent_loss < 1e-10
             and max(abs(g) for g in gradient) < 1e-5
+            and derivative_report.passed
+            and not derivative_report.inconclusive
+            and all(c["passed"] for c in gradient_checks)
         )
+        local_report, local_timings = split_timings(asdict(local))
         report = {
-            "schema": "crn-craft.global-local-fit/0.1",
+            "schema": "crn-craft.global-local-fit/0.2",
             "passed": passed,
+            "parameter_order": NAMES,
+            "gradient_checks": gradient_checks,
             "versions": {
                 "fcmaes-rust": fcmaes_rust.__version__,
                 "sqp-craft": sqp_craft.__version__,
@@ -128,7 +201,7 @@ def main():
                 "loss": float(global_result[1]),
                 "evaluations": int(global_result[2]),
             },
-            "local": asdict(local),
+            "local": local_report,
             "fitted_rates": fitted.tolist(),
             "native_loss": value,
             "independent_analytic_loss": independent_loss,
@@ -137,6 +210,10 @@ def main():
             "actual_native_solves_including_checks": objective.calls,
         }
         args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+        # Wall-clock timings vary between runs; they are kept beside the report.
+        args.output.with_suffix(".timing.json").write_text(
+            json.dumps({"local": local_timings}, indent=2, sort_keys=True) + "\n"
+        )
         if not passed:
             raise RuntimeError("fit gate failed; retained report")
         print(

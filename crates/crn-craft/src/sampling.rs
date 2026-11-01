@@ -361,4 +361,22 @@ mod tests {
         }
         assert!(checked > 1000, "only {checked} successful resumed passes");
     }
+
+    #[test]
+    fn the_resolution_check_uses_the_smallest_positive_rate() {
+        // Not lost in the sum (more than half an ulp of 1.9), yet below 2^-53
+        // of the total: the first positive rate would wrongly pass the check.
+        let rates = [1.9, 1.5e-16];
+        assert!(rates[0] + rates[1] > rates[0]);
+        let mut prefix = Vec::new();
+        let (mut sums, mut minima) = (vec![0.0; 2], vec![0.0; 2]);
+        for error in [
+            total_propensity(&rates).unwrap_err(),
+            total_with_prefix(&rates, &mut prefix).unwrap_err(),
+            resume_total(&rates, &mut sums, &mut minima, 0).unwrap_err(),
+        ] {
+            assert_eq!(error.code, "CRN-E061");
+            assert!(error.message.contains("resolution"), "{}", error.message);
+        }
+    }
 }

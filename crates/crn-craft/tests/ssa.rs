@@ -540,3 +540,115 @@ fn saved_rows_keep_species_order_on_dense_grids() {
     assert_eq!(mean.len(), saves.len());
     assert_eq!(mean[0], vec![0.0, 1.0, 7.0]);
 }
+
+/// Cached and plain Direct end every kind of replicate identically: a rate
+/// overflow (E042), a population limit, an i64 count overflow, an event cap
+/// and completion, with several failing dependents at once.
+#[test]
+fn cached_direct_matches_direct_on_every_termination() {
+    let mass = |c: f64| json!({"kind": "mass_action", "coefficient": c});
+    let cases = [
+        // Ten W is a quarter of the f64 range per channel; one more W makes both
+        // dependents overflow at once, and E042 must name the first of them.
+        json!([{"name":"make","reactants":{},"products":{"X":1},"rate":mass(1.0)},
+               {"name":"boom_a","reactants":{"W":10},"products":{"W":11},"rate":mass(4e307)},
+               {"name":"boom_b","reactants":{"W":10},"products":{"W":11},"rate":mass(4e307)}]),
+        json!([{"name":"make","reactants":{},"products":{"Y":1},"rate":mass(5.0)},
+               {"name":"lose","reactants":{"Y":1},"products":{},"rate":mass(0.1)}]),
+        json!([{"name":"make","reactants":{},"products":{"Z":1},"rate":mass(1.0)}]),
+        json!([{"name":"make","reactants":{},"products":{"X":1},"rate":mass(50.0)},
+               {"name":"lose","reactants":{"X":1},"products":{},"rate":mass(1.0)}]),
+    ];
+    let expected = [
+        Stop::Failed,
+        Stop::PopulationLimit,
+        Stop::Failed,
+        Stop::EventLimit,
+    ];
+    for (reactions, stop) in cases.into_iter().zip(expected) {
+        let model = json!({"schema":"crn-craft.model/0.1","name":"stops","convention":"stochastic_counts","omega":1.0,"parameters":{},
+            "species":[{"name":"X","initial_count":0},{"name":"Y","initial_count":0,"population_limit":40},{"name":"Z","initial_count":i64::MAX - 3},{"name":"W","initial_count":10}],
+            "reactions": reactions});
+        let bytes = serde_json::to_vec(&model).unwrap();
+        for threads in [1, 3] {
+            let mut request = run(&bytes);
+            request["budget"]["threads"] = json!(threads);
+            request["time"] = json!({"end": 20.0, "save_times": [0.0, 10.0, 20.0]});
+            request["budget"]["max_events_per_replicate"] = json!(400);
+            let request = serde_json::to_vec(&request).unwrap();
+            let p = simulation::prepare(&bytes, &request).unwrap();
+            let direct = simulation::execute(&p, &Control::default()).unwrap();
+            let cached = simulation::execute_cached(&p, &Control::default()).unwrap();
+            assert_eq!(
+                serde_json::to_value(&direct.result).unwrap(),
+                serde_json::to_value(&cached.result).unwrap()
+            );
+            assert!(
+                direct
+                    .result
+                    .replicates
+                    .iter()
+                    .any(|r| r.termination == stop),
+                "{stop:?} not reached"
+            );
+            if let Some(failure) = direct.result.replicates[0].diagnostic.as_ref() {
+                if failure.code == "CRN-E042" {
+                    assert_eq!(failure.path, "/reactions/1/rate");
+                }
+            }
+        }
+    }
+}
+
+/// The workspace reservation is part of provenance and admission: one worker
+/// reserves three path buffers, several workers with room reserve six for the
+/// capacity-four queues, and a run that only fits the smaller reservation
+/// falls back to it.
+#[test]
+fn workspace_reservations_follow_the_published_formula() {
+    let bytes = serde_json::to_vec(&model()).unwrap();
+    let reserve = |cells: u64, saves: u64, buffers: u64, workers: u64, kept: u64, count: u64| {
+        (cells * 8 + saves * 24) * (buffers * workers + kept)
+            + cells * 24
+            + count * 1024
+            + workers * (2 * 1024 * 1024 + 2 * 8)
+            + 32 * 1024 * 1024
+    };
+    for (threads, buffers) in [(1, 3), (8, 6)] {
+        let mut request = run(&bytes);
+        request["budget"]["threads"] = json!(threads);
+        let request = serde_json::to_vec(&request).unwrap();
+        let p = simulation::prepare(&bytes, &request).unwrap();
+        let result = simulation::execute(&p, &Control::default()).unwrap();
+        assert_eq!(
+            result.provenance.reserved_workspace_bytes,
+            reserve(4, 4, buffers, threads, 32, 32),
+            "{threads} workers"
+        );
+    }
+    // 3000 species, 500 save points and 4 workers: six buffers per worker
+    // exceed the 256 MiB cap, three fit.
+    let mut wide = model();
+    let species = wide["species"].as_array_mut().unwrap();
+    for i in 1..3000 {
+        species.push(json!({"name": format!("S{i}"), "initial_count": 0}));
+    }
+    let bytes = serde_json::to_vec(&wide).unwrap();
+    let mut request = run(&bytes);
+    let saves: Vec<f64> = (0..500).map(|i| i as f64 * 0.004).collect();
+    request["time"] = json!({"end": saves[saves.len() - 1], "save_times": saves});
+    request["budget"]["threads"] = json!(4);
+    request["outputs"]["keep_trajectories"] = json!(0);
+    request["ensemble"]["replicates"] = json!(4);
+    request["budget"]["max_output_bytes"] = json!(64 * 1024 * 1024);
+    let request = serde_json::to_vec(&request).unwrap();
+    let p = simulation::prepare(&bytes, &request).unwrap();
+    let small = reserve(1_500_000, 500, 3, 4, 0, 4);
+    let cap = simulation::MAX_WORKSPACE_BYTES;
+    assert!(small <= cap);
+    assert!(reserve(1_500_000, 500, 6, 4, 0, 4) > cap);
+    let control = Control::default();
+    control.cancel();
+    let result = simulation::execute(&p, &control).unwrap();
+    assert_eq!(result.provenance.reserved_workspace_bytes, small);
+}

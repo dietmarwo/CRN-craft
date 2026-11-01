@@ -30,6 +30,7 @@ Output statistics are `mean` and/or `variance`, without duplicates. Kept traject
 - Duplicate keys are rejected even when JSON escaping gives two spellings of the same key.
 - Unknown fields are rejected in nested objects and tagged variants.
 - `NaN`/`Infinity` are invalid JSON; overflowing numeric literals such as `1e400` fail with a numeric diagnostic.
+- Decimal literals parse to the correctly rounded double, as Rust's `str::parse` and Python's `json` do, so the shortest round-trip text of a double reads back to the same bits (serde_json `float_roundtrip`).
 
 `parse_model`/`parse_run` reject syntax and shape errors but are **not** semantic validation. Use `check_bytes` for byte/hash and semantic checks; use `check_files` when filesystem reference identity matters. Directly constructed Rust values still require `validate_model` and `validate_run`; those functions check non-finite values that cannot appear in valid JSON. No validated/compiled network object exists until M1.
 

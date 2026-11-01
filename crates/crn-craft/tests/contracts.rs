@@ -106,6 +106,57 @@ fn roundtrip_preserves_integer_counts_above_double_precision() {
     );
 }
 
+/// The shortest round-trip decimal of a double must parse back to the same
+/// double, as Rust's `str::parse` and Python's `json` do. serde_json's default
+/// best-effort parser misreads about a quarter of such literals by one ulp.
+#[test]
+fn decimal_literals_parse_to_correctly_rounded_doubles() {
+    let mut state: u64 = 0x9e37_79b9_7f4a_7c15;
+    let mut values = vec![3.983_236_103_458_967e-14, 3.167_810_103_450_541e-16];
+    while values.len() < 10_000 {
+        state = state
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        let value = f64::from_bits(state & 0x7fff_ffff_ffff_ffff);
+        if value.is_finite() {
+            values.push(value);
+        }
+    }
+    let entries: Vec<String> = values
+        .iter()
+        .enumerate()
+        .map(|(i, value)| format!("\"p{i}\": {value:e}"))
+        .collect();
+    let original = String::from_utf8(bytes()).unwrap();
+    let text = original.replacen(
+        "\"birth\": 4.0,",
+        &format!("\"birth\": 4.0, {},", entries.join(", ")),
+        1,
+    );
+    assert_ne!(text, original);
+    let parsed = parse_model(text.as_bytes()).unwrap();
+    let wrong: Vec<String> = values
+        .iter()
+        .enumerate()
+        .filter(|(i, value)| parsed.parameters[&format!("p{i}")].to_bits() != value.to_bits())
+        .map(|(i, value)| format!("{value:e} -> {:e}", parsed.parameters[&format!("p{i}")]))
+        .collect();
+    assert!(
+        wrong.is_empty(),
+        "{} of {} literals misparsed, e.g. {:?}",
+        wrong.len(),
+        values.len(),
+        &wrong[..wrong.len().min(3)]
+    );
+    let again = parse_model(&serde_json::to_vec(&parsed).unwrap()).unwrap();
+    assert!(
+        parsed
+            .parameters
+            .iter()
+            .all(|(name, value)| again.parameters[name].to_bits() == value.to_bits())
+    );
+}
+
 #[test]
 fn i64_overflow_and_fractional_counts_rejected() {
     for number in [json!(9223372036854775808_u64), json!(1.5)] {

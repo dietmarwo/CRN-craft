@@ -402,24 +402,18 @@ fn path_with_rng_mode(
                 return Ok(Stop::EventLimit);
             }
             if let (true, Some(changed)) = (cached, previous) {
-                // Dependencies are sorted, so the first bitwise change is the
-                // lowest; running sums before it are unchanged. Without a
-                // change the previous total and running sums still hold.
-                let mut lowest = None;
-                for (i, &reaction) in network.dependencies()[changed].iter().enumerate() {
+                let affected = &network.dependencies()[changed];
+                for (i, &reaction) in affected.iter().enumerate() {
                     // The event's poll above covers the first 64 channels.
                     if i > 0 && i % 64 == 0 {
                         if let Some(stop) = poller.poll() {
                             return Ok(stop);
                         }
                     }
-                    let rate = network.propensity_in_valid_state(reaction, &state)?;
-                    if lowest.is_none() && rate.to_bits() != rates[reaction].to_bits() {
-                        lowest = Some(reaction);
-                    }
-                    rates[reaction] = rate;
+                    rates[reaction] = network.propensity_in_valid_state(reaction, &state)?;
                 }
-                if let Some(lowest) = lowest {
+                // Dependencies are sorted: running sums before the first one are unchanged.
+                if let Some(&lowest) = affected.first() {
                     total = sampling::resume_total(&rates, &mut prefix, &mut minima, lowest)?;
                 }
             } else {

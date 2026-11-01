@@ -2,7 +2,7 @@
 
 CRN-craft models well-mixed chemical reaction networks. This version supports **validation and capability discovery only**. No command runs SSA, FSP, ODEs, optimization or numerical network analysis.
 
-Start by running `crn-craft describe`; use `describe model` and `describe run` for canonical schemas. Select an example from `models/examples`. After editing a model, compute SHA-256 on its exact bytes and update its run reference. Keep the model in or below the run directory. Run `check MODEL RUN` and inspect every diagnostic; zero exit status means input preflight passed, not that a simulation ran.
+Start by running `crn-craft describe`; use `describe model` and `describe run` for canonical schemas. Select an example from `models/examples`. After editing a model, compute SHA-256 on its exact bytes and update its run reference; keep LF line endings, because they are part of those bytes. Keep the model in or below the run directory. Run `check MODEL RUN` and inspect every diagnostic; zero exit status means input preflight passed, not that a simulation ran.
 
 Identifiers use ASCII letters/digits/underscore, beginning with a letter or underscore, up to 64 bytes. Species/parameter names must be disjoint. Reactions have positive integer stoichiometry entries; omit zero entries. Parameter references are exact strings. Mass-action coefficients are stochastic count coefficients; Ω is not an automatic rescaling instruction. Use counts and seconds. Hill/MM rates are complete propensities. Read docs/model-cards/rate-laws.md before translating another simulator's input.
 

@@ -34,4 +34,4 @@ Output statistics are `mean` and/or `variance`, without duplicates. Kept traject
 
 `parse_model`/`parse_run` reject syntax and shape errors but are **not** semantic validation. Use `check_bytes` for byte/hash and semantic checks; use `check_files` when filesystem reference identity matters. Directly constructed Rust values still require `validate_model` and `validate_run`; those functions check non-finite values that cannot appear in valid JSON. No validated/compiled network object exists until M1.
 
-Rust float serialization may normalize literals, so hashes are never taken from re-serialized models to claim original-byte identity. BTreeMap ordering and ordered vectors make diagnostics deterministic on repeat checks.
+Rust float serialization may normalize literals, so hashes are never taken from re-serialized models to claim original-byte identity. Line endings are part of the bytes: the repository's `.gitattributes` keeps LF endings in every checkout, and CI runs the contract suite on a checkout made with `core.autocrlf=true`. BTreeMap ordering and ordered vectors make diagnostics deterministic on repeat checks.

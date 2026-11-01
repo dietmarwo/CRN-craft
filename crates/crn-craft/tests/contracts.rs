@@ -234,6 +234,24 @@ fn excessive_depth_is_rejected_without_stack_overflow() {
 }
 
 #[test]
+fn nesting_limit_boundary_matches_its_documentation() {
+    // docs/contracts.md: nesting depth at most 48, root at depth 0.
+    let nested =
+        |levels: usize, inner: &str| format!("{}{inner}{}", "[".repeat(levels), "]".repeat(levels));
+    // Within the limit, the document fails only as a model (an array).
+    for raw in [nested(48, "0"), nested(49, "")] {
+        assert_eq!(parse_model(raw.as_bytes()).unwrap_err().code, "CRN-E003");
+    }
+    let error = parse_model(nested(49, "0").as_bytes()).unwrap_err();
+    assert_eq!(error.code, "CRN-E004");
+    assert_eq!(error.path, "/0".repeat(49));
+    assert_eq!(
+        error.hint,
+        "Keep every value within 48 levels below the root, which is level 0."
+    );
+}
+
+#[test]
 fn oversized_document_rejected_before_parsing() {
     let bytes = vec![b' '; crn_craft::strict_json::MAX_DOCUMENT_BYTES + 1];
     assert_eq!(parse_model(&bytes).unwrap_err().code, "CRN-E004");

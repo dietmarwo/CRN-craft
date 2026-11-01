@@ -22,7 +22,7 @@ impl<'de> DeserializeSeed<'de> for Seed<'_> {
                 "CRN-E004",
                 &path,
                 "JSON nesting limit exceeded",
-                "Use at most 48 nested containers.",
+                "Keep every value within 48 levels below the root, which is level 0.",
             ));
             return Err(de::Error::custom("JSON nesting limit exceeded"));
         }

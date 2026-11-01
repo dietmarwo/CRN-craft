@@ -14,13 +14,17 @@ use std::{
         atomic::{AtomicBool, Ordering},
         mpsc,
     },
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 pub const MAX_REPLICATES: u64 = 1_000_000;
 pub const MAX_WORKSPACE_BYTES: u64 = 256 * 1024 * 1024;
 pub const MAX_RESULT_BYTES: u64 = 256 * 1024 * 1024;
 pub const MAX_WORKERS: usize = 64;
+/// Polls between reads of the wall clock and, at most once per
+/// `CANCEL_FILE_INTERVAL`, the cancel file. The flag is read at every poll.
+pub const CLOCK_POLL_STRIDE: u32 = 64;
+pub const CANCEL_FILE_INTERVAL: Duration = Duration::from_millis(1);
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ResultVersion {
@@ -117,21 +121,75 @@ pub struct Simulation {
 pub struct Control {
     cancelled: AtomicBool,
     pub cancel_file: Option<PathBuf>,
+    #[cfg(test)]
+    file_checks: std::sync::atomic::AtomicU64,
 }
 impl Control {
+    /// Requests cancellation. Observing the cancel file sets the same flag.
     pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::Relaxed);
     }
-    fn poll(&self, start: Instant, wall: Option<f64>) -> Option<Stop> {
-        if self.cancelled.load(Ordering::Relaxed)
-            || self.cancel_file.as_ref().is_some_and(|p| p.exists())
+}
+
+/// Per-worker polling state. A stat of the cancel file costs about a
+/// microsecond and the clock tens of nanoseconds, against roughly a hundred
+/// nanoseconds per event for small models, so both are amortized. The first
+/// poll of each worker reads both, and a stop, once observed, is kept.
+struct Poller<'a> {
+    control: &'a Control,
+    start: Instant,
+    wall: Option<f64>,
+    countdown: u32,
+    last_file_check: Option<Instant>,
+    stopped: Option<Stop>,
+}
+impl<'a> Poller<'a> {
+    fn new(control: &'a Control, start: Instant, wall: Option<f64>) -> Self {
+        Self {
+            control,
+            start,
+            wall,
+            countdown: 0,
+            last_file_check: None,
+            stopped: None,
+        }
+    }
+    fn poll(&mut self) -> Option<Stop> {
+        if self.stopped.is_some() {
+            return self.stopped;
+        }
+        if self.control.cancelled.load(Ordering::Relaxed) {
+            self.stopped = Some(Stop::Cancelled);
+            return self.stopped;
+        }
+        if self.countdown > 0 || (self.wall.is_none() && self.control.cancel_file.is_none()) {
+            self.countdown = self.countdown.saturating_sub(1);
+            return None;
+        }
+        self.countdown = CLOCK_POLL_STRIDE - 1;
+        let now = Instant::now();
+        if let Some(path) = &self.control.cancel_file {
+            if self
+                .last_file_check
+                .is_none_or(|last| now.duration_since(last) >= CANCEL_FILE_INTERVAL)
+            {
+                self.last_file_check = Some(now);
+                #[cfg(test)]
+                self.control.file_checks.fetch_add(1, Ordering::Relaxed);
+                if path.exists() {
+                    self.control.cancel();
+                    self.stopped = Some(Stop::Cancelled);
+                    return self.stopped;
+                }
+            }
+        }
+        if self
+            .wall
+            .is_some_and(|seconds| now.duration_since(self.start).as_secs_f64() >= seconds)
         {
-            return Some(Stop::Cancelled);
+            self.stopped = Some(Stop::WallTimeLimit);
         }
-        if wall.is_some_and(|seconds| start.elapsed().as_secs_f64() >= seconds) {
-            return Some(Stop::WallTimeLimit);
-        }
-        None
+        self.stopped
     }
 }
 
@@ -219,18 +277,17 @@ struct PathResult {
     counts: Vec<Vec<i64>>,
 }
 
-fn trajectory(prepared: &Prepared, id: u64, control: &Control, start: Instant) -> PathResult {
+fn trajectory(prepared: &Prepared, id: u64, poller: &mut Poller) -> PathResult {
     let run = &prepared.run;
     let mut rng = sampling::stream(run.ensemble.as_ref().unwrap().root_seed, id);
-    path_with_rng(&prepared.network, run, id, control, start, &mut rng)
+    path_with_rng(&prepared.network, run, id, poller, &mut rng)
 }
 
 fn path_with_rng(
     network: &CompiledNetwork,
     run: &Run,
     id: u64,
-    control: &Control,
-    start: Instant,
+    poller: &mut Poller,
     rng: &mut impl RngCore,
 ) -> PathResult {
     let mut record = Replicate {
@@ -248,13 +305,13 @@ fn path_with_rng(
     let mut save = 0;
     let mut rates = Vec::with_capacity(network.reactions().len());
     let outcome = (|| -> Result<Stop, Diagnostic> {
-        if let Some(stop) = control.poll(start, run.budget.wall_time_s) {
+        if let Some(stop) = poller.poll() {
             return Ok(stop);
         }
         record.started = true;
         loop {
             while save < run.time.save_times.len() && run.time.save_times[save] <= time {
-                if let Some(stop) = control.poll(start, run.budget.wall_time_s) {
+                if let Some(stop) = poller.poll() {
                     return Ok(stop);
                 }
                 counts.push(state.clone());
@@ -263,7 +320,7 @@ fn path_with_rng(
             if time == run.time.end {
                 return Ok(Stop::Completed);
             }
-            if let Some(stop) = control.poll(start, run.budget.wall_time_s) {
+            if let Some(stop) = poller.poll() {
                 return Ok(stop);
             }
             if record.events >= run.budget.max_events_per_replicate.unwrap() {
@@ -272,7 +329,7 @@ fn path_with_rng(
             rates.clear();
             for reaction in 0..network.reactions().len() {
                 if reaction % 64 == 0 {
-                    if let Some(stop) = control.poll(start, run.budget.wall_time_s) {
+                    if let Some(stop) = poller.poll() {
                         return Ok(stop);
                     }
                 }
@@ -282,7 +339,7 @@ fn path_with_rng(
             if total == 0.0 {
                 // Absorption consumes no RNG and retains the state to the horizon.
                 while save < run.time.save_times.len() {
-                    if let Some(stop) = control.poll(start, run.budget.wall_time_s) {
+                    if let Some(stop) = poller.poll() {
                         return Ok(stop);
                     }
                     counts.push(state.clone());
@@ -295,7 +352,7 @@ fn path_with_rng(
             let next = sampling::event_time(time, wait)?;
             // Strict inequality: an event exactly at a save time comes first.
             while save < run.time.save_times.len() && run.time.save_times[save] < next {
-                if let Some(stop) = control.poll(start, run.budget.wall_time_s) {
+                if let Some(stop) = poller.poll() {
                     return Ok(stop);
                 }
                 counts.push(state.clone());
@@ -305,7 +362,7 @@ fn path_with_rng(
                 time = run.time.end;
                 return Ok(Stop::Completed);
             }
-            if let Some(stop) = control.poll(start, run.budget.wall_time_s) {
+            if let Some(stop) = poller.poll() {
                 return Ok(stop);
             }
             let channel = sampling::select_channel(
@@ -360,8 +417,9 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<Simulation, Dia
             std::thread::Builder::new()
                 .name(format!("crn-{worker}"))
                 .spawn_scoped(scope, move || {
+                    let mut poller = Poller::new(control, start, run.budget.wall_time_s);
                     for id in (worker as u64..ensemble.replicates).step_by(prepared.workers) {
-                        if tx.send(trajectory(prepared, id, control, start)).is_err() {
+                        if tx.send(trajectory(prepared, id, &mut poller)).is_err() {
                             break;
                         }
                     }
@@ -575,18 +633,53 @@ mod tests {
             values: vec![1_u64 << 63, 0],
             index: 0,
         };
+        let control = Control::default();
         let path = path_with_rng(
             &prepared.network,
             &prepared.run,
             0,
-            &Control::default(),
-            Instant::now(),
+            &mut Poller::new(&control, Instant::now(), None),
             &mut rng,
         );
         assert_eq!(path.record.termination, Stop::Completed);
         assert_eq!(path.record.events, 1);
         assert_eq!(path.counts, vec![vec![0], vec![1]]);
         assert_eq!(rng.index, 2);
+    }
+    #[test]
+    fn cancel_file_checks_are_rate_limited() {
+        // About 20,000 events in one path: polling must not stat the file per event.
+        let model=serde_json::to_vec(&json!({"schema":"crn-craft.model/0.1","name":"polling","convention":"stochastic_counts","omega":1.0,"parameters":{},
+            "species":[{"name":"X","initial_count":0}],"reactions":[{"name":"birth","reactants":{},"products":{"X":1},"rate":{"kind":"mass_action","coefficient":1000.0}}]})).unwrap();
+        let run=serde_json::to_vec(&json!({"schema":"crn-craft.run/0.1","model":{"path":"model.json","sha256":sha256(&model)},"method":{"kind":"ssa","aggregator":"direct"},
+            "ensemble":{"replicates":1,"root_seed":0},"time":{"end":20.0,"save_times":[0.0,20.0]},"outputs":{"statistics":["mean"],"keep_trajectories":0},
+            "budget":{"max_events_per_replicate":1000000,"threads":1,"max_output_bytes":100000}})).unwrap();
+        let prepared = prepare(&model, &run).unwrap();
+        let control = Control {
+            cancel_file: Some(std::env::temp_dir().join(format!(
+                "crn-craft-absent-cancel-file-{}",
+                std::process::id()
+            ))),
+            ..Control::default()
+        };
+        let start = Instant::now();
+        let path = path_with_rng(
+            &prepared.network,
+            &prepared.run,
+            0,
+            &mut Poller::new(&control, start, None),
+            &mut sampling::stream(1, 0),
+        );
+        let elapsed = start.elapsed();
+        assert_eq!(path.record.termination, Stop::Completed);
+        assert!(path.record.events > 15_000);
+        let checks = control.file_checks.load(Ordering::Relaxed);
+        // At most one check per millisecond after the first.
+        assert!(
+            checks <= 1 + elapsed.as_millis() as u64,
+            "{checks} cancel-file checks in {elapsed:?} for {} events",
+            path.record.events
+        );
     }
     #[test]
     fn encoded_budget_checks_exact_boundary_without_allocating_payload() {

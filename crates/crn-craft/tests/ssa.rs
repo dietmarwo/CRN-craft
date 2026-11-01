@@ -304,3 +304,75 @@ fn live_serialized_output_cap_keeps_ledger_and_discards_statistics() {
     assert_eq!(r.replicates.len(), 32);
     assert!(r.statistics.is_none() && r.trajectories.is_empty());
 }
+
+fn cancel_dir(name: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("crn-ssa-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir(&dir).unwrap();
+    dir
+}
+
+#[test]
+fn existing_cancel_file_stops_every_worker_before_any_replicate_starts() {
+    let dir = cancel_dir("existing");
+    std::fs::write(dir.join("STOP"), b"").unwrap();
+    let bytes = serde_json::to_vec(&model()).unwrap();
+    let mut r = run(&bytes);
+    r["budget"]["threads"] = json!(4);
+    let mut control = Control::default();
+    control.cancel_file = Some(dir.join("STOP"));
+    let result = simulation::simulate_bytes(&bytes, &serde_json::to_vec(&r).unwrap(), &control)
+        .unwrap()
+        .result;
+    std::fs::remove_dir_all(&dir).unwrap();
+    assert_eq!(result.termination, Stop::Cancelled);
+    assert_eq!(result.replicates.len(), 32);
+    assert!(
+        result
+            .replicates
+            .iter()
+            .all(|r| !r.started && r.events == 0)
+    );
+}
+
+#[test]
+fn cancel_file_created_during_a_run_stops_all_workers() {
+    let dir = cancel_dir("live");
+    let mut m = model();
+    m["reactions"][0]["rate"]["coefficient"] = json!(1000.0);
+    let bytes = serde_json::to_vec(&m).unwrap();
+    let mut r = run(&bytes);
+    // About 10^9 events per replicate: only cancellation can end this run
+    // soon. The wall-time limit only bounds the test if cancellation breaks.
+    r["time"] = json!({"end": 1e6, "save_times": [0.0, 1e6]});
+    r["budget"]["wall_time_s"] = json!(20.0);
+    r["ensemble"]["replicates"] = json!(8);
+    r["outputs"] = json!({"statistics": ["mean"], "keep_trajectories": 0});
+    r["budget"]["threads"] = json!(4);
+    r["budget"]["max_events_per_replicate"] = json!(10_000_000_000_u64);
+    let mut control = Control::default();
+    control.cancel_file = Some(dir.join("STOP"));
+    let start = std::time::Instant::now();
+    let result = std::thread::scope(|scope| {
+        scope.spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            std::fs::write(dir.join("STOP"), b"").unwrap();
+        });
+        simulation::simulate_bytes(&bytes, &serde_json::to_vec(&r).unwrap(), &control)
+            .unwrap()
+            .result
+    });
+    let elapsed = start.elapsed();
+    std::fs::remove_dir_all(&dir).unwrap();
+    assert_eq!(result.termination, Stop::Cancelled);
+    assert!(result.events > 0);
+    assert!(
+        result
+            .replicates
+            .iter()
+            .all(|r| r.termination == Stop::Cancelled),
+        "{:?}",
+        result.replicates
+    );
+    assert!(elapsed.as_secs() < 15, "cancellation took {elapsed:?}");
+}

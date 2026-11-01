@@ -103,10 +103,17 @@ again. Filesystem allocation units are not counted as content bytes.
 
 `simulation::Control::cancel()` supports library callers. The CLI accepts
 `--cancel-file PATH`; creating that file requests cooperative cancellation.
-An already present file cancels before work starts. Polling occurs at every
-event, at most every 64 rate evaluations, and during save-point filling.
-The wall clock starts before worker setup and is polled during trajectory
-generation. Pending ordered collection, statistic reduction and finalization
+An already present file cancels before work starts. Polls occur at every
+event, at most every 64 rate evaluations, and for every saved point. Each
+poll reads the cancellation flag. Every 64th poll of a worker, starting with
+its first, also reads the wall clock and, at most once per millisecond, checks
+the cancel file; a found file sets the cancellation flag for all workers.
+A worker keeps a stop once it has seen one, so its remaining replicates stay
+unstarted. Without a file or wall-time limit, polls read only the flag.
+Checking the file at every poll made small models about ten times slower (a
+stat per poll against roughly 100 ns per event), and reading the clock at every
+poll about doubled the cost of a wall-time limit. The wall clock starts before
+worker setup and is polled during trajectory generation. Pending ordered collection, statistic reduction and finalization
 may continue afterward; input parsing and model compilation precede it.
 The process must still be allowed to finalize bounded evidence. This is not
 a hard real-time deadline, signal handler or resumable checkpoint protocol.

@@ -1,6 +1,8 @@
 # Changelog
 
-## 0.1.0-dev.4 — iteration 4 / M2
+## [Unreleased] — iteration 4 / M2 (`0.1.0-dev.4`)
+
+### Added
 
 - Implement Direct SSA for existing count propensities, exact save-time boundaries and absorbing states.
 - Pin ChaCha8 streams and owned uniform/wait/channel mappings; reject unresolved dynamic ranges and clock stagnation.
@@ -10,7 +12,11 @@
 - Add the predeclared 300,000-path analytic campaign, independent scalar RNG and trajectory oracles, archive-corruption tests and nine new source mutants.
 - Preserve all three iteration-3 review regressions and the 17-mutant baseline. No FSP or comparative performance claim.
 
-## [Unreleased] — iteration 3 / M1b (`0.1.0-dev.3`)
+### Fixed
+
+- `--cancel-file` no longer slows simulation about tenfold, and a wall-time limit no longer doubles the cost per event. Every poll used to stat the file, which costs about a microsecond against roughly 100 ns per event for small models, and read the clock. A per-worker poller now reads the cancellation flag at every poll and the wall clock and cancel file at every 64th poll, the file at most once per millisecond. A found file cancels all workers, and a worker keeps an observed stop. Numerical results are unchanged.
+
+## Iteration 3 / M1b (`0.1.0-dev.3`)
 
 ### Added
 

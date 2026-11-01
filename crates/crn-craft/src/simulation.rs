@@ -309,10 +309,25 @@ struct PathResult {
     counts: Vec<i64>,
 }
 
-fn trajectory(prepared: &Prepared, id: u64, poller: &mut Poller, cached: bool) -> PathResult {
+/// Per-worker buffers reused across replicates. Each path resets what it reads.
+#[derive(Default)]
+struct Workspace {
+    state: Vec<i64>,
+    rates: Vec<f64>,
+    prefix: Vec<f64>,
+    minima: Vec<f64>,
+}
+
+fn trajectory(
+    prepared: &Prepared,
+    id: u64,
+    poller: &mut Poller,
+    cached: bool,
+    work: &mut Workspace,
+) -> PathResult {
     let run = &prepared.run;
     let mut rng = sampling::stream(run.ensemble.as_ref().unwrap().root_seed, id);
-    path_with_rng_mode(&prepared.network, run, id, poller, &mut rng, cached)
+    path_with_rng_mode(&prepared.network, run, id, poller, &mut rng, cached, work)
 }
 
 #[cfg(test)]
@@ -323,7 +338,15 @@ fn path_with_rng(
     poller: &mut Poller,
     rng: &mut impl RngCore,
 ) -> PathResult {
-    path_with_rng_mode(network, run, id, poller, rng, false)
+    path_with_rng_mode(
+        network,
+        run,
+        id,
+        poller,
+        rng,
+        false,
+        &mut Workspace::default(),
+    )
 }
 
 fn path_with_rng_mode(
@@ -333,6 +356,7 @@ fn path_with_rng_mode(
     poller: &mut Poller,
     rng: &mut impl RngCore,
     cached: bool,
+    work: &mut Workspace,
 ) -> PathResult {
     let mut record = Replicate {
         id,
@@ -343,13 +367,16 @@ fn path_with_rng_mode(
         saved_points: 0,
         diagnostic: None,
     };
-    let mut state = network.initial_counts().to_vec();
+    let mut state = std::mem::take(&mut work.state);
+    state.clear();
+    state.extend_from_slice(network.initial_counts());
     let mut counts = Vec::with_capacity(run.time.save_times.len() * state.len());
     let mut time = 0.0;
     let mut save = 0;
-    let mut rates: Vec<f64> = Vec::with_capacity(network.reactions().len());
-    let mut prefix = Vec::with_capacity(network.reactions().len());
-    let mut minima = Vec::with_capacity(network.reactions().len());
+    // The first event recomputes every rate and running sum before use.
+    let mut rates = std::mem::take(&mut work.rates);
+    let mut prefix = std::mem::take(&mut work.prefix);
+    let mut minima = std::mem::take(&mut work.minima);
     let mut total = 0.0;
     let mut previous: Option<usize> = None;
     let outcome = (|| -> Result<Stop, Diagnostic> {
@@ -465,6 +492,12 @@ fn path_with_rng_mode(
     }
     record.stop_time = time.max(save.checked_sub(1).map_or(0.0, |i| run.time.save_times[i]));
     record.saved_points = save;
+    *work = Workspace {
+        state,
+        rates,
+        prefix,
+        minima,
+    };
     PathResult { record, counts }
 }
 
@@ -512,8 +545,9 @@ fn execute_inner(
         };
         if prepared.workers == 1 {
             let mut poller = Poller::new(control, start, run.budget.wall_time_s);
+            let mut work = Workspace::default();
             for id in 0..ensemble.replicates {
-                consume(id, trajectory(prepared, id, &mut poller, cached));
+                consume(id, trajectory(prepared, id, &mut poller, cached, &mut work));
             }
         } else {
             std::thread::scope(|scope| -> Result<(), Diagnostic> {
@@ -525,10 +559,11 @@ fn execute_inner(
                         .name(format!("crn-{worker}"))
                         .spawn_scoped(scope, move || {
                             let mut poller = Poller::new(control, start, run.budget.wall_time_s);
+                            let mut work = Workspace::default();
                             for id in (worker as u64..ensemble.replicates).step_by(prepared.workers)
                             {
                                 if tx
-                                    .send(trajectory(prepared, id, &mut poller, cached))
+                                    .send(trajectory(prepared, id, &mut poller, cached, &mut work))
                                     .is_err()
                                 {
                                     break;
@@ -801,6 +836,7 @@ mod tests {
                 &mut Poller::new(&control, Instant::now(), None),
                 &mut sampling::stream(3, 0),
                 cached,
+                &mut Workspace::default(),
             );
             assert_eq!(path.record.termination, Stop::Completed);
             assert!(path.record.events > 1000);
@@ -811,6 +847,38 @@ mod tests {
                 "{polls} polls for {} events",
                 path.record.events
             );
+        }
+    }
+    #[test]
+    fn reused_workspaces_reproduce_fresh_paths() {
+        // Paths end in different states and some absorb early, so a stale
+        // state, rate or running sum would change a later replicate.
+        let model=serde_json::to_vec(&json!({"schema":"crn-craft.model/0.1","name":"reuse","convention":"stochastic_counts","omega":1.0,"parameters":{},
+            "species":[{"name":"X","initial_count":5},{"name":"Y","initial_count":0}],"reactions":[
+            {"name":"convert","reactants":{"X":1},"products":{"Y":1},"rate":{"kind":"mass_action","coefficient":1.5}},
+            {"name":"pair","reactants":{"Y":2},"products":{"X":1},"rate":{"kind":"mass_action","coefficient":0.7}},
+            {"name":"lose","reactants":{"Y":1},"products":{},"rate":{"kind":"mass_action","coefficient":0.2}}]})).unwrap();
+        let run=serde_json::to_vec(&json!({"schema":"crn-craft.run/0.1","model":{"path":"model.json","sha256":sha256(&model)},"method":{"kind":"ssa","aggregator":"direct"},
+            "ensemble":{"replicates":40,"root_seed":11},"time":{"end":6.0,"save_times":[0.0,1.0,3.0,6.0]},"outputs":{"statistics":["mean"],"keep_trajectories":40},
+            "budget":{"max_events_per_replicate":100000,"threads":1,"max_output_bytes":1000000}})).unwrap();
+        let prepared = prepare(&model, &run).unwrap();
+        for cached in [false, true] {
+            let ensemble = execute_inner(&prepared, &Control::default(), cached).unwrap();
+            let control = Control::default();
+            for (id, kept) in ensemble.result.trajectories.iter().enumerate() {
+                let fresh = path_with_rng_mode(
+                    &prepared.network,
+                    &prepared.run,
+                    id as u64,
+                    &mut Poller::new(&control, Instant::now(), None),
+                    &mut sampling::stream(11, id as u64),
+                    cached,
+                    &mut Workspace::default(),
+                );
+                let rows: Vec<Vec<i64>> = fresh.counts.chunks(2).map(<[i64]>::to_vec).collect();
+                assert_eq!(kept.counts, rows, "replicate {id}");
+                assert_eq!(ensemble.result.replicates[id].events, fresh.record.events);
+            }
         }
     }
     #[test]

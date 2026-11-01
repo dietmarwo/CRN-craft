@@ -444,3 +444,67 @@ fn external_checkpoint_interrupts_active_cached_and_direct_work() {
         assert!(result.result.statistics.is_none());
     }
 }
+
+/// Gated, catalytic, saturated, constant and zero channels in mixed order, so
+/// the cached path resumes its running sums at many different indices and
+/// often recomputes rates that do not change. A tiny channel that switches on
+/// later makes some replicates fail at the selection-resolution check.
+#[test]
+fn cached_direct_matches_direct_with_partial_resumption_and_failures() {
+    let mass = |c: f64| json!({"kind": "mass_action", "coefficient": c});
+    let reaction = |name: &str, reactants: Value, products: Value, rate: Value| {
+        json!({"name": name, "reactants": reactants, "products": products, "rate": rate})
+    };
+    let reactions = vec![
+        reaction("zero", json!({"A": 1}), json!({}), mass(0.0)),
+        reaction("make_a", json!({}), json!({"A": 1}), mass(5.0)),
+        reaction("dimerize_b", json!({"B": 2}), json!({"C": 1}), mass(0.02)),
+        reaction(
+            "repressed_d",
+            json!({}),
+            json!({"D": 1}),
+            json!({"kind": "hill_repression", "regulator": "C", "vmax": 4.0, "basal": 0.0, "k": 1.0, "n": 8.0}),
+        ),
+        reaction("catalysed_b", json!({"A": 1, "E": 1}), json!({"A": 1, "E": 1, "B": 1}), mass(0.4)),
+        reaction("lose_a", json!({"A": 1}), json!({}), mass(0.3)),
+        reaction("triple_c", json!({"C": 3}), json!({"C": 2}), mass(0.001)),
+        reaction("lose_d", json!({"D": 1}), json!({}), mass(0.5)),
+        reaction(
+            "saturated_mm",
+            json!({}),
+            json!({"F": 1}),
+            json!({"kind": "michaelis_menten", "substrate": "E", "vmax": 2.0, "km": 1e-9}),
+        ),
+        reaction("tiny", json!({"F": 40}), json!({"F": 39}), mass(1e-19)),
+        reaction("lose_f", json!({"F": 1}), json!({}), mass(0.05)),
+    ];
+    let model = json!({"schema":"crn-craft.model/0.1","name":"partial","convention":"stochastic_counts","omega":1.0,"parameters":{},
+        "species":[{"name":"A","initial_count":2},{"name":"B","initial_count":0},{"name":"C","initial_count":0},
+            {"name":"D","initial_count":0},{"name":"E","initial_count":1},{"name":"F","initial_count":0}],
+        "reactions": reactions});
+    let bytes = serde_json::to_vec(&model).unwrap();
+    let mut failed = 0;
+    for (threads, end) in [(1, 30.0), (2, 30.0), (1, 4.0)] {
+        let mut request = run(&bytes);
+        request["budget"]["threads"] = json!(threads);
+        request["ensemble"]["replicates"] = json!(48);
+        request["time"] = json!({"end": end, "save_times": [0.0, end / 2.0, end]});
+        let request = serde_json::to_vec(&request).unwrap();
+        let p = simulation::prepare(&bytes, &request).unwrap();
+        let direct = simulation::execute(&p, &Control::default()).unwrap();
+        let cached = simulation::execute_cached(&p, &Control::default()).unwrap();
+        assert_eq!(
+            serde_json::to_value(&direct.result).unwrap(),
+            serde_json::to_value(&cached.result).unwrap()
+        );
+        failed += direct
+            .result
+            .replicates
+            .iter()
+            .filter(|r| r.termination == Stop::Failed)
+            .count();
+        assert!(direct.result.events > 1000);
+    }
+    // The long runs reach the tiny channel; the short run mostly does not.
+    assert!(failed > 0, "no replicate reached the resolution failure");
+}

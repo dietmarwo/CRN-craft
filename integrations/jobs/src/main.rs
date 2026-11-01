@@ -73,6 +73,30 @@ fn simulation(
     }
     Ok(results)
 }
+/// Mean over kept paths of 1 / (1 + variance of the amplitude species over save times after
+/// `burn_in`, which start at index `first`). A mean, so the penalty does not grow with the
+/// replicate count.
+fn amplitude_penalty(
+    paths: &[simulation::Trajectory],
+    species: usize,
+    first: usize,
+    replicates: u64,
+) -> std::result::Result<f64, String> {
+    if paths.len() as u64 != replicates || paths.is_empty() {
+        return Err("circuit score requires every replicate path".into());
+    }
+    let mut total = 0.0;
+    for path in paths {
+        let x: Vec<_> = path.counts[first..]
+            .iter()
+            .map(|s| s[species] as f64)
+            .collect();
+        let mean = x.iter().sum::<f64>() / x.len() as f64;
+        let variance = x.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / x.len() as f64;
+        total += 1.0 / (1.0 + variance);
+    }
+    Ok(total / paths.len() as f64)
+}
 fn application(instance: &Instance, circuit: bool) -> Result<Scalar> {
     let model: Model = crn_craft::parse_model(&instance.input("model")?).map_err(|e| e.message)?;
     crn_craft::CompiledNetwork::compile(&model).map_err(|e| serde_json::to_string(&e).unwrap())?;
@@ -94,8 +118,9 @@ fn application(instance: &Instance, circuit: bool) -> Result<Scalar> {
     {
         return Err("parameter_names must name positive model parameters".into());
     }
-    // Fixed seeds across candidates. SimContext.seed is point-derived and deliberately unused.
-    let seeds: Vec<u64> = instance.parameter("seed_set", vec![20261101_u64])?;
+    // Fixed seeds across candidates, always explicit: search and held-out jobs must name their
+    // own seed sets. SimContext.seed is point-derived and deliberately unused.
+    let seeds: Vec<u64> = instance.required("seed_set")?;
     let replicates: u64 = instance.parameter("replicates", 64_u64)?;
     let max_events: u64 = instance.parameter("max_events", 1_000_000_u64)?;
     if seeds
@@ -129,6 +154,24 @@ fn application(instance: &Instance, circuit: bool) -> Result<Scalar> {
     {
         return Err("invalid fit-data dimensions/domain/grid".into());
     }
+    // Circuit amplitude: a named species, over save times strictly after a declared burn-in, so
+    // the deterministic initial state never contributes.
+    let amplitude = if circuit {
+        let name: String = instance.required("amplitude_species")?;
+        let burn_in: f64 = instance.parameter("burn_in", 0.0)?;
+        let species = model
+            .species
+            .iter()
+            .position(|s| s.name == name)
+            .ok_or("amplitude_species must name a model species")?;
+        let first = data.times.partition_point(|t| *t <= burn_in);
+        if !burn_in.is_finite() || burn_in < 0.0 || data.times.len() - first < 2 {
+            return Err("burn_in must leave at least two save times after it".into());
+        }
+        Some((species, first))
+    } else {
+        None
+    };
     let lower = vec![-12.0; names.len()];
     let upper = vec![12.0; names.len()];
     let objective = move |x: &[f64], ctx: &SimContext| -> std::result::Result<f64, String> {
@@ -166,16 +209,10 @@ fn application(instance: &Instance, circuit: bool) -> Result<Scalar> {
                 loss += ((actual - target) / target.abs().max(1.0)).powi(2)
                     + ((variance - target_v) / target_v.abs().max(1.0)).powi(2);
             }
-            if circuit {
-                // Fixed-topology temporal shape loss, per-trajectory amplitude floor.
+            if let Some((species, first)) = amplitude {
+                // Fixed-topology temporal shape loss plus a per-path amplitude floor.
                 // An ODE screen is never allowed to remove the stochastic evaluation.
-                for path in &result.trajectories {
-                    let x: Vec<_> = path.counts.iter().map(|s| s[0] as f64).collect();
-                    let mean = x.iter().sum::<f64>() / x.len() as f64;
-                    let variance =
-                        x.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / x.len() as f64;
-                    loss += 1.0 / (1.0 + variance);
-                }
+                loss += amplitude_penalty(&result.trajectories, species, first, replicates)?;
             }
         }
         let value = loss / results.len() as f64;
@@ -192,7 +229,17 @@ fn main() {
         ("app.crn.fit-moments", false),
         ("app.crn.circuit-score", true),
     ] {
-        registry.scalar(id,"1",json!({"simulation":true,"variables":"natural logarithms of parameter_names","inputs":{"model":"crn-craft.model/0.1 exact bytes","data":"crn-craft.fit-data/0.1"},"seed_policy":"explicit fixed seed_set across every candidate; separate held-out job required","failure_policy":"incomplete simulation is a failed evaluation"}),move |instance|application(instance,circuit));
+        let mut about = json!({"simulation":true,"variables":"natural logarithms of parameter_names","inputs":{"model":"crn-craft.model/0.1 exact bytes","data":"crn-craft.fit-data/0.1"},"seed_policy":"required explicit seed_set, fixed across every candidate; separate held-out job with its own seed_set required","failure_policy":"incomplete simulation is a failed evaluation","objective":"mean over seed_set of the normalized mean/variance residual sum over all save times and species"});
+        if circuit {
+            about["objective"] = json!(
+                "mean over seed_set of the normalized mean/variance residual sum plus the mean over all replicate paths of 1/(1+variance) of amplitude_species over save times after burn_in"
+            );
+            about["parameter_notes"] = json!({"amplitude_species":"required model species name","burn_in":"save times t <= burn_in are excluded from the amplitude penalty; default 0, which excludes the initial state"});
+        }
+        // Version 2: seed_set is required; circuit amplitude is a per-path mean of a named species after burn_in.
+        registry.scalar(id, "2", about, move |instance| {
+            application(instance, circuit)
+        });
         let model = json!({"schema":"crn-craft.model/0.1","name":"ImmigrationDeathFit","convention":"stochastic_counts","omega":1.0,"parameters":{"birth":3.0,"death":0.8},"species":[{"name":"X","initial_count":0}],"reactions":[{"name":"birth","reactants":{},"products":{"X":1},"rate":{"kind":"mass_action","coefficient":"birth"}},{"name":"death","reactants":{"X":1},"products":{},"rate":{"kind":"mass_action","coefficient":"death"}}]});
         let data = json!({"schema":"crn-craft.fit-data/0.1","times":[0.,1.,2.],"mean":[[0.],[2.065016384560419],[2.992888064407119]],"variance":[[0.],[2.065016384560419],[2.992888064407119]]});
         if circuit {
@@ -203,6 +250,8 @@ fn main() {
                     .parameter("parameter_names", vec!["alpha", "gamma_m"])
                     .parameter("replicates", 8)
                     .parameter("seed_set", vec![20261101_u64])
+                    .parameter("amplitude_species", "m1")
+                    .parameter("burn_in", 0.0)
                     .input_text(
                         "model",
                         "model.json",
@@ -242,5 +291,33 @@ impl Worker for DiscoveredWorker {
         base: &std::path::Path,
     ) -> Result<Box<dyn optimization_job_api::worker::Prepared>> {
         self.0.prepare(spec, base)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn path(id: u64, counts: &[[i64; 2]]) -> simulation::Trajectory {
+        simulation::Trajectory {
+            id,
+            counts: counts.iter().map(|c| c.to_vec()).collect(),
+        }
+    }
+    #[test]
+    fn amplitude_penalty_is_a_per_path_mean_of_the_named_species_after_burn_in() {
+        // Species 1 after index 1: [2, 4] has variance 1 (penalty 1/2); [5, 5] has 0 (penalty 1).
+        let paths = [
+            path(0, &[[9, 0], [9, 2], [9, 4]]),
+            path(1, &[[9, 100], [9, 5], [9, 5]]),
+        ];
+        assert_eq!(amplitude_penalty(&paths, 1, 1, 2), Ok(0.75));
+        // Doubling the replicate count with the same paths leaves the mean unchanged.
+        let doubled: Vec<_> = paths.iter().chain(&paths).cloned().collect();
+        assert_eq!(amplitude_penalty(&doubled, 1, 1, 4), Ok(0.75));
+        // Species 0 is constant: no amplitude on any path.
+        assert_eq!(amplitude_penalty(&paths, 0, 1, 2), Ok(1.0));
+        // Including the initial state would credit the 100 -> 5 transient as amplitude.
+        assert!(amplitude_penalty(&paths, 1, 0, 2).unwrap() < 0.75);
+        assert!(amplitude_penalty(&paths, 1, 1, 3).is_err());
     }
 }

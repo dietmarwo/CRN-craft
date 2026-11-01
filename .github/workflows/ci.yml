@@ -23,8 +23,9 @@ jobs:
       - run: cargo +${{ matrix.toolchain }} test --release --workspace --locked
   contracts:
     runs-on: ubuntu-latest
-    # Expanded mutation gate retains the reviewed 35 and adds 8 campaign mutants.
-    timeout-minutes: 40
+    # Mutation gate: the reviewed 35, 8 campaign mutants and the lost-increment
+    # check in the prefix-sum and resumed-sum passes added by P11/P12.
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -100,6 +101,9 @@ jobs:
       - run: python validation/check_importers.py --output importers.json
       - run: python -O validation/check_importers.py --output importers-optimized.json
       - run: diff importers.json importers-optimized.json
+      - run: python validation/check_tutorial.py --binary target/release/crn-craft --output tutorial.json
+      - run: python -O validation/check_tutorial.py --binary target/release/crn-craft --output tutorial-optimized.json
+      - run: diff tutorial.json tutorial-optimized.json
       - name: Installed-package acceptance outside the source tree
         working-directory: ${{ runner.temp }}
         run: |

@@ -187,11 +187,57 @@ MUTATIONS = [
         "if id < run.outputs.keep_trajectories {",
         "if id <= run.outputs.keep_trajectories {",
     ),
+    # The strict sum is checked in three places since P11/P12: the plain
+    # total, the total that records prefix sums, and the resumed total.
     (
         "ssa_accepts_lost_positive_increment",
         "crates/crn-craft/src/sampling.rs",
-        "|| (rate > 0.0 && next <= total)",
-        "|| false",
+        "    for &rate in rates {\n"
+        "        if !rate.is_finite() || rate < 0.0 {\n"
+        '            return Err(numeric("CRN-E061", "invalid propensity in Direct sum"));\n'
+        "        }\n"
+        "        let next = total + rate;\n"
+        "        if !next.is_finite() || (rate > 0.0 && next <= total) {",
+        "    for &rate in rates {\n"
+        "        if !rate.is_finite() || rate < 0.0 {\n"
+        '            return Err(numeric("CRN-E061", "invalid propensity in Direct sum"));\n'
+        "        }\n"
+        "        let next = total + rate;\n"
+        "        if !next.is_finite() || false {",
+    ),
+    (
+        "prefix_sum_accepts_lost_positive_increment",
+        "crates/crn-craft/src/sampling.rs",
+        "    for (slot, &rate) in prefix.iter_mut().zip(rates) {\n"
+        "        if !rate.is_finite() || rate < 0.0 {\n"
+        '            return Err(numeric("CRN-E061", "invalid propensity in Direct sum"));\n'
+        "        }\n"
+        "        let next = total + rate;\n"
+        "        if !next.is_finite() || (rate > 0.0 && next <= total) {",
+        "    for (slot, &rate) in prefix.iter_mut().zip(rates) {\n"
+        "        if !rate.is_finite() || rate < 0.0 {\n"
+        '            return Err(numeric("CRN-E061", "invalid propensity in Direct sum"));\n'
+        "        }\n"
+        "        let next = total + rate;\n"
+        "        if !next.is_finite() || false {",
+    ),
+    (
+        "resumed_sum_accepts_lost_positive_increment",
+        "crates/crn-craft/src/sampling.rs",
+        "        .zip(&rates[from..])\n"
+        "    {\n"
+        "        if !rate.is_finite() || rate < 0.0 {\n"
+        '            return Err(numeric("CRN-E061", "invalid propensity in Direct sum"));\n'
+        "        }\n"
+        "        let next = total + rate;\n"
+        "        if !next.is_finite() || (rate > 0.0 && next <= total) {",
+        "        .zip(&rates[from..])\n"
+        "    {\n"
+        "        if !rate.is_finite() || rate < 0.0 {\n"
+        '            return Err(numeric("CRN-E061", "invalid propensity in Direct sum"));\n'
+        "        }\n"
+        "        let next = total + rate;\n"
+        "        if !next.is_finite() || false {",
     ),
     (
         "ssa_accepts_zero_wait",

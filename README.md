@@ -4,7 +4,7 @@ Native Rust foundations for well-mixed chemical reaction networks, designed for 
 
 **Current status: remaining-milestone campaign (`0.2.0-dev.1`).** Native Direct and exact dependency-cached SSA, sparse FSP and explicitly approximate Poisson leaps execute. Optional Python bindings, trajectory diagnostics, pinned fcmaes job applications, diffsol BDF/forward sensitivities, global-to-SQP fitting and explicit SBML/BioNetGen import subsets are included. The default Rust engine remains independent of Python, jobs and ODE dependencies. A successful numerical run is not biological validation.
 
-Start with [the campaign guide](docs/campaign/README.md), [measured milestone results](docs/campaign/) and `crn-craft describe`. Legacy input/result/archive contracts remain available; new approximate/FSP results use distinct schemas.
+Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/architecture.md), the [technical report](docs/technical-report.md) (design, validation and measured performance), [the campaign guide](docs/campaign/README.md), [measured milestone results](docs/campaign/) and `crn-craft describe`. Legacy input/result/archive contracts remain available; new approximate/FSP results use distinct schemas.
 
 ## Quick start
 
@@ -51,7 +51,7 @@ cargo test --release --workspace --locked
 | FSP | Reachable sparse projection, escaping sink, stable split uniformization, separate leakage/series/roundoff accounting |
 | Experimental approximation | Checked Poisson leaps, critical Direct fallback, own approximate result schema |
 | Optional applications | Python diagnostics/importers; native fcmaes worker; diffsol BDF and sensitivities; global-to-SQP fitting |
-| Evidence | Rust regression tests, 13 invalid fixtures, independent exact/Decimal oracle for 200 seeded networks, 300-network exact cone/graph oracle with five targeted models, 43 source mutations against a passing baseline, three 100,000-path analytic campaigns, four 100,000-path exact master-equation checks of second-order, Hill and Michaelis–Menten channels, thread identity and real GillesPy2 exporter checks, schema and dependency gates |
+| Evidence | Rust regression tests, 13 invalid fixtures, independent exact/Decimal oracle for 200 seeded networks, 300-network exact cone/graph oracle with five targeted models, 45 source mutations against a passing baseline, three 100,000-path analytic campaigns, four 100,000-path exact master-equation checks of second-order, Hill and Michaelis–Menten channels, thread identity and real GillesPy2 exporter checks, schema and dependency gates |
 | Documentation | Revised plan, diagnostics, rate conventions, statistical policy, extension/model-card templates and agent guide |
 
 Unknown fields and duplicate JSON keys are errors. Names are unique ASCII identifiers. Counts are checked i64 values. Rate parameters have finite domains. Custom rates are complete propensities, with separate reactant-availability gates. No extra mass-action factor is applied to a custom law.

@@ -1,10 +1,69 @@
 # CRN-craft
 
+![CRN-craft: chemical reaction networks in native Rust with stochastic simulation. Models, budgets, evidence: define, simulate, verify.](docs/images/crn-craft-banner.jpg)
+
 Native Rust foundations for well-mixed chemical reaction networks, designed for reproducible simulation and optimization workflows.
 
 **Current status: remaining-milestone campaign (`0.2.0-dev.1`).** Native Direct and exact dependency-cached SSA, sparse FSP and explicitly approximate Poisson leaps execute. Optional Python bindings, trajectory diagnostics, pinned fcmaes job applications, diffsol BDF/forward sensitivities, global-to-SQP fitting and explicit SBML/BioNetGen import subsets are included. The default Rust engine remains independent of Python, jobs and ODE dependencies. A successful numerical run is not biological validation.
 
-Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/architecture.md), the [technical report](docs/technical-report.md) (design, validation and measured performance), [the campaign guide](docs/campaign/README.md), [measured milestone results](docs/campaign/) and `crn-craft describe`. Legacy input/result/archive contracts remain available; new approximate/FSP results use distinct schemas.
+Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/architecture.md), the [technical report](docs/technical-report.md) (design, validation and measured performance), the [comparison with GillesPy2](docs/comparison-gillespy2.md) and `crn-craft describe`. Every document is listed under [Documentation](#documentation). Legacy input/result/archive contracts remain available; new approximate/FSP results use distinct schemas.
+
+## Documentation
+
+**Start here**
+
+- [Tutorial](docs/tutorial.md): from a first model to exact ensembles, FSP, tau leaping and the Python interface, with screenshots and figures
+- [Architecture overview](docs/architecture.md): layers, contracts, engines, determinism, archives and integrations
+- [Technical report](docs/technical-report.md): numerical methods, validation evidence and measured performance
+- [Comparison with GillesPy2](docs/comparison-gillespy2.md): same models, timed against GillesPy2's C++ and NumPy solvers
+- [Agent context](docs/ai-context.md): what an AI agent needs to use and extend CRN-craft
+
+**Using CRN-craft**
+
+- [Direct SSA](docs/direct-ssa.md): exact simulation, termination states and budgets
+- [Result 0.2 and archive 0.1](docs/archive-contract.md): sealed result directories and the verifier
+- [Input and analysis contracts](docs/contracts.md): models, runs and analysis reports
+- [Results and claims](docs/result-contract.md): what a result does and does not establish
+- [Diagnostics](docs/diagnostics.md): every error and warning code
+- [Compiled networks and analysis](docs/network-api.md): the Rust network API
+- [Conservation cones and reaction graphs](docs/m1b-analysis.md): exact analysis and its limits
+- [GillesPy2 reference export](docs/reference-export.md): exporting models for cross-checks
+- [Extending the project](docs/extending.md): how to add rate laws, methods and evidence
+
+**Model and algorithm cards**
+
+- [Card template](docs/model-cards/README.md)
+- [Direct SSA card](docs/model-cards/direct.md)
+- [Rate-law contracts](docs/model-cards/rate-laws.md)
+
+**Campaign M3–M10 and performance iterations**
+
+- [Campaign guide](docs/campaign/README.md) and [acceptance plan](docs/campaign/acceptance.md)
+- [M3: finite state projection](docs/campaign/M3.md)
+- [M4a: same-host Direct baseline](docs/campaign/M4a.md) and [M4b: dependency-cached Direct](docs/campaign/M4b.md)
+- [M5: Python and circuit workflows](docs/campaign/M5.md)
+- [M6: job SDK and optimization studies](docs/campaign/M6.md)
+- [M7 targets](docs/campaign/M7-targets.md) and [M7: BDF, sensitivities, fitting and screening](docs/campaign/M7.md)
+- [M8: import subsets](docs/campaign/M8.md)
+- [M9 targets](docs/campaign/M9-targets.md) and [M9: approximate Poisson leaping](docs/campaign/M9.md)
+- [M10: installation and release preparation](docs/campaign/M10.md)
+- [Performance experiments P01–P10](docs/campaign/performance.md) and [P11–P20](docs/campaign/performance-p11-p20.md)
+- [Campaign implementation log](docs/campaign/implementation-log-2026-11-01.md) and [review of 1 November 2026](docs/campaign/review-2026-11-01.md)
+
+**Plans and decisions**
+
+- [Implementation plan, revision 2](docs/implementation-plan-2026-11-01.md)
+- [M0 design decisions](docs/decisions/plan.md) and [statistical verification policy](docs/decisions/statistics.md)
+- Acceptance declared before implementation: [iteration 2](docs/decisions/iteration-02-validation.md), [iteration 3](docs/decisions/iteration-03-validation.md), [iteration 4](docs/decisions/iteration-04-validation.md), [iteration 4 CME review check](docs/decisions/iteration-04-review-cme.md)
+
+**Implementation logs and validation results**
+
+- Implementation logs: [iteration 1](docs/iteration-01-implementation-log.md), [iteration 2](docs/iteration-02-implementation-log.md), [iteration 3](docs/iteration-03-implementation-log.md), [iteration 4](docs/iteration-04-implementation-log.md)
+- Validation results: [summary](validation/RESULTS.md), [iteration 2](validation/iteration-02/RESULTS.md), [iteration 3](validation/iteration-03/RESULTS.md), [iteration 4](validation/iteration-04/RESULTS.md)
+
+**Project**
+
+- [Changelog](CHANGELOG.md), [releasing](RELEASING.md) and [agent working rules](AGENTS.md)
 
 ## Quick start
 

@@ -417,6 +417,13 @@ CRN-craft core times include the ordered statistics, and the two use
 independent random streams, so this is a cost comparison, not a path
 comparison. Reports: `validation/campaign/p11-p20/cumulative/rebop-*.json`.
 
+GillesPy2 1.8.3 on the same four workloads (details in the
+[comparison](comparison-gillespy2.md)): its compiled C++ solver takes 87, 513,
+170 and 617 ns per event on W1–W4, against 48, 154, 151 and 568 ns for
+`simulate-cached`, so it is 1.1 to 3.3 times slower. It also needs 1.5–2.1 s
+to compile each model. GillesPy2's NumPy solver is 43 to 126 times slower than
+`simulate-cached`.
+
 ### 7.4 Memory
 
 Each SSA run reserves, before executing, *(8 c + 24 t)(b w + k) + 24 c +

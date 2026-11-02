@@ -49,9 +49,11 @@ Model definitions, targets and hashes are frozen before the first experiment.
 
 Each candidate uses 32 paths, a fixed common training seed within its engine,
 and the same uniform six-point save grid and normalized mean/variance loss.
-Uniform grids match rebop Python's public output API: horizons 10, 20 and 2
-respectively. Initial nonuniform draft targets are retained as development
-evidence; this choice is fixed before any optimization experiment. Cross-engine random
+**Amendment (before any optimization experiment):** uniform grids match rebop
+Python's public output API: horizons 10, 20 and 2 respectively (binding12 moved
+from horizon 10 with seven points to horizon 2 with six, so its transient
+identifies both rates). Initial nonuniform draft targets are retained as
+development evidence. Cross-engine random
 streams differ. Three native CRN fast/Ziggurat routes: fresh preparation,
 reusable parameter binding, generated propensities. Use cached Direct for all
 three so specialization is separated from algorithm choice. Include rebop

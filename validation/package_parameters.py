@@ -91,7 +91,7 @@ def main():
     log = (
         ROOT / "docs/campaign/reusable-parameters-implementation-log-2026-11-02.md"
     ).read_text()
-    log += f"\n## Delivered patch verification\n\nThe aggregate patch applies cleanly to `{BASE}` and reconstructs tree `{tree}`, exactly equal to committed head `{head}`. The ZIP passed a full CRC test and verification of every file against its SHA256 manifest.\n"
+    log += f"\n## Delivered patch verification\n\nThe aggregate patch applies cleanly to `{BASE}` and reconstructs tree `{tree}`, exactly equal to committed head `{head}`. After writing this log, the packager tests the ZIP's CRCs and every member against `SHA256SUMS`; on failure it deletes the ZIP and the log and exits with an error.\n"
     (stage / LOG).write_text(log)
     (output / LOG).write_text(log)
     (
@@ -150,13 +150,19 @@ existing schedulers/checks. Compiler/optimizer/rebop dependencies are optional.
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o100644 << 16
             archive.writestr(info, path.read_bytes())
-    with zipfile.ZipFile(target) as archive:
-        if archive.testzip() is not None:
-            raise RuntimeError("ZIP CRC failed")
-        for line in archive.read("SHA256SUMS").decode().splitlines():
-            digest, name = line.split("  ", 1)
-            if hashlib.sha256(archive.read(name)).hexdigest() != digest:
-                raise RuntimeError("ZIP member hash failed: " + name)
+    try:
+        with zipfile.ZipFile(target) as archive:
+            if archive.testzip() is not None:
+                raise RuntimeError("ZIP CRC failed")
+            for line in archive.read("SHA256SUMS").decode().splitlines():
+                digest, name = line.split("  ", 1)
+                if hashlib.sha256(archive.read(name)).hexdigest() != digest:
+                    raise RuntimeError("ZIP member hash failed: " + name)
+    except Exception:
+        # Never leave a log that claims a verification which failed.
+        target.unlink(missing_ok=True)
+        (output / LOG).unlink(missing_ok=True)
+        raise
     result = dict(
         verification=verification,
         zip_bytes=target.stat().st_size,

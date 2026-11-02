@@ -416,7 +416,12 @@ def run():
                 if line.startswith("model name")
             ),
             affinity=len(os.sched_getaffinity(0)),
-            quota=Path("/sys/fs/cgroup/cpu.max").read_text().strip(),
+            # cgroup v2 only; absent on cgroup v1 hosts and in a v2 root.
+            quota=(
+                Path("/sys/fs/cgroup/cpu.max").read_text().strip()
+                if Path("/sys/fs/cgroup/cpu.max").exists()
+                else None
+            ),
         ),
         rows=[],
     )

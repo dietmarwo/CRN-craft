@@ -179,3 +179,41 @@ and raw evidence are under `validation/parameter-optimization/`. The shipped
 log contains all outcomes, including slower generated variants and development
 failures. The default remains checked and fast is explicit. No remote was
 pushed or package published.
+
+## Review notes (2 November 2026, after import)
+
+Two independent reviews (core code; evidence and documentation) found no
+blocking correctness problem: bound runs, generated-kernel runs and fresh
+preparation were byte-identical in every tested combination, and every number
+in the comparison recomputes from the raw evidence. Fixed afterwards in commits
+on `reusable-parameters`:
+
+- Generated kernels fell back to the state-scanning `propensity` for
+  higher-order reactions (about 17× slower than the default path on a
+  1,500-reaction review model with `direct`); they now call
+  `propensity_in_scheduler_state` (1.7–1.8× slower there; still measure before
+  using generated kernels on very large networks).
+- Ordinary preparation had started compiling the dependency graph before the
+  admission checks (`CRN-E040` instead of `CRN-E060` for an oversized request);
+  the old order is restored with a regression test.
+- Binding mismatches use `CRN-E014` and list missing and unknown names; Python
+  seed errors use `CRN-E020`; Python rejects sets and maps float overflow to
+  `CrnError`.
+- The comparison now gives per-seed ranges. Fresh and reusable CRN simulate
+  identical paths, yet their optimizer-time ratio varied 0.85–1.16× across
+  seeds on birth/death, so the generated-kernel effects (median 1.18× on
+  birth/death, about 8.5% slower on sparse33) and the 2.5% gap between
+  reusable CRN and rebop macros are not resolved. The claim that event counts
+  were retained was wrong and is corrected.
+- Provenance: the import is one squashed commit, so "protocol committed
+  before experiments" cannot be checked from history; the grid amendment is now
+  marked in the protocol. The final gate logs record
+  `check_parameter_interface.py` with SHA-256 `9f08cca6…`, the committed file
+  is `8ee7cc7f…`. Reproduction steps gained `cargo fetch`, the 1.85.0
+  toolchain, the run and report steps; the run no longer requires
+  `/sys/fs/cgroup/cpu.max`; the packager no longer leaves a success claim when
+  ZIP verification fails.
+- Not changed: the kernel fingerprint covers the model, not the CRN-craft
+  version (documented: regenerate kernels after upgrading); `describe` does not
+  list the library-level parameter API.
+

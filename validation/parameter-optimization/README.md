@@ -15,15 +15,28 @@ Use Rust 1.88 (the core is also tested on 1.85) and Python 3.12. Install the
 benchmark dependencies in an isolated environment, build and install the wheel:
 
 ```sh
+rustup toolchain install 1.85.0 --profile minimal --component clippy  # validate_parameters.py uses cargo +1.85.0
 python -m pip install -r validation/requirements.txt -r validation/parameter-optimization/requirements.txt
 maturin build --release --locked --out dist
 python -m pip install --force-reinstall --no-deps dist/*.whl
 python validation/generate_parameter_workers.py
 cargo fmt --manifest-path validation/parameter-optimization/worker/Cargo.toml
-python validation/parameter_optimization.py --build --target /tmp/crn-parameter-target
+cargo fetch --manifest-path validation/parameter-optimization/worker/Cargo.toml  # builds run --offline
+python validation/parameter_optimization.py --build --target /tmp/crn-parameters-target
 python validation/check_parameter_interface.py
-python validation/validate_parameters.py --target /tmp/crn-parameter-target
+python validation/validate_parameters.py --target /tmp/crn-parameters-target
+python validation/parameter_optimization.py --run --target /tmp/crn-parameters-target
+python validation/report_parameter_optimization.py
 ```
+
+The recorded evidence used `/tmp/crn-parameters-target`. The worker uses the
+held-out seed 880431 and, if a request omits them, 32 paths and seed 77201; the
+driver relies on these defaults, so change them in `worker/src/main.rs` and in
+the rebop routes together. The report renderer computes the tables, but its
+prose (ratios, totals, error ranges) is written for this evidence: after a
+rerun, revise the prose in `report_parameter_optimization.py`. Regenerating the
+workers after a CRN-craft upgrade changes their source hashes and generated
+kernel fallbacks.
 
 The model/target definitions are already frozen. `parameter_optimization_models.py`
 can recompute their independent Poisson/finite-state targets and rejects a

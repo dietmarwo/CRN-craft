@@ -170,13 +170,19 @@ comparisons were identical, point for point and loss for loss. Compiled code
 reused each topology across all candidates; coefficients remained runtime data.
 
 The reusable interface reduced total optimizer time by about 7% on sparse33
-and 1.73× on binding12; birth/death was essentially flat. Generated propensities
-improved birth/death optimizer time 1.18×, but sparse33 regressed by about 8.5%
-and binding12 was flat. Generation did not repay its bundle compilation in these
-128-evaluation runs. Rebop macros were 3.44× faster on birth/death, 1.72× on
-binding12, and approximately tied on sparse33, using optimizer time. Across all
-nine runs per route, complete cost including one build was 13.21s for reusable
-CRN, 17.53s for generated CRN and 12.88s for rebop macros. These aggregated
+and 1.73× on binding12 (per seed 1.69–1.77×); birth/death was essentially flat.
+Three seeds with one repetition each cannot resolve smaller effects: on
+birth/death, where fresh and reusable CRN simulate identical paths, their ratio
+still ranged 0.85–1.16× across seeds. Generated propensities gave a median
+1.18× on birth/death (per seed 0.99–1.27×), 0.92–0.97× on sparse33 (median
+about 8.5% slower) and 0.73–1.01× on binding12; none of these is resolved.
+Generation did not repay its bundle compilation in these 128-evaluation runs.
+Rebop macros were faster than reusable CRN by 3.44× on birth/death (per seed
+2.99–4.35×) and 1.72× on binding12 (1.64–1.77×), and approximately tied on
+sparse33 (0.94–1.00×), using optimizer time. Across all nine runs per route,
+complete cost including one build was 13.21s for reusable CRN, 17.53s for
+generated CRN and 12.88s for rebop macros; the 2.5% difference between reusable
+CRN and rebop macros is within the run-to-run variation. These aggregated
 results also include different cross-engine search paths and final points.
 
 The new parameter interface and optional generator are runnable. Numerical
@@ -276,12 +282,14 @@ preparation; it is not the minimum overhead of an in-process Rust application.
 Dynamic rebop explicitly uses sparse storage on the 33-species model. Both
 Python routes construct per-trajectory xarray outputs; native routes communicate
 with a persistent worker and return reduced moments. These are complete
-application costs with different allocation/check pipelines. Event counts and
-native bind/simulation components are retained for CRN; ratios of optimization
-times are not isolated event-kernel throughput measurements.
+application costs with different allocation/check pipelines. Native bind and
+simulation times are retained for CRN; event counts are not, so the engines'
+different search paths cannot be normalized by work. The CRN worker also
+serializes and hashes each result. Ratios of optimization times are not
+isolated event-kernel throughput measurements.
 
 The host is {report["environment"]["cpu"]}, affinity allowance
-{report["environment"]["affinity"]}, CPU quota `{report["environment"]["quota"]}`.
+{report["environment"]["affinity"]}, CPU quota `{report["environment"]["quota"] or "unavailable"}`.
 All builds and heavy gates finished before optimizer timing. No multithread,
 GPU, biological-network generalization or Julia performance claim is made.
 
@@ -295,6 +303,10 @@ fixture/variant, with the existing .001 family alpha and .008046120180018303
 DKW epsilon unchanged. Normal/-O outputs match. Independent generated checks
 cover 180 bindings/executions, 3150 arithmetic evaluations, cache refresh,
 invalid inputs, cancellation, concurrency, worker replay and wrong topology.
+The final gate logs record `check_parameter_interface.py` with SHA-256
+`9f08cca6…`; the committed file (`8ee7cc7f…`) was edited afterwards and only
+`parameter-validation.json` was refreshed with it. The evidence describes the
+import commit `85a085b`; later commits change hashed sources.
 
 [API guide](reusable-parameters.md),
 [fixed protocol](decisions/reusable-parameters-2026-11-02.md),

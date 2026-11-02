@@ -34,4 +34,5 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 end of terms and conditions
 
-Please see [THIRDPARTY.md](./THIRDPARTY.md) for license information for other software used in this project.
+[Julia's LICENSE.md ends with a pointer to its own THIRDPARTY.md, which
+covers other software in the Julia repository; none of it is used here.]

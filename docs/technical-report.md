@@ -424,6 +424,16 @@ GillesPy2 1.8.3 on the same four workloads (details in the
 to compile each model. GillesPy2's NumPy solver is 43 to 126 times slower than
 `simulate-cached`.
 
+Catalyst 17 / JumpProcesses 10.0.1 on seven workloads (details in the
+[comparison](comparison-catalyst-jumpprocesses.md)): after the alternative
+exact methods were added, Julia's fastest aggregator was 1.54–2.39 times
+faster than the fastest CRN-craft option (geometric mean 2.02). The follow-up
+[Julia-gap campaign](campaign/julia-gap-implementation-log-2026-11-02.md)
+sped DirectCR, SortingDirect and RSSACR up 1.07–2.4 times with unchanged
+numbers or statistically gated paths; projected from those paired speedups, the remaining gap is
+1.11–1.83 times (geometric mean 1.46). That projection is not a Julia
+measurement.
+
 ### 7.4 Memory
 
 Each SSA run reserves, before executing, *(8 c + 24 t)(b w + k) + 24 c +

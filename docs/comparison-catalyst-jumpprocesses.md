@@ -28,6 +28,30 @@ Julia was faster.
 | W6 | CRN RSSACR · ziggurat | 0.0874 | Julia RSSACR | 0.0396 | 2.21× | 6.71× |
 | W7 | CRN RSSACR · ziggurat | 0.0238 | Julia RSSACR | 0.0133 | 1.79× | 1.63× |
 
+**Update after the Julia-gap campaign (projected, not remeasured).** A
+follow-up campaign ([protocol](decisions/julia-gap-2026-11-02.md),
+[log](campaign/julia-gap-implementation-log-2026-11-02.md)) kept five of ten
+iterations under predeclared rules: AVX2 ChaCha8 dispatch, an exact Hill-rate
+memo, a cached composition envelope, a sums-only lazily checked rate tree and a
+joint member/acceptance word. Julia's package hosts were unreachable from that
+session, so the table multiplies the CRN medians above by the paired speedups
+measured on another host; it is not a Julia measurement, and the tables below
+remain the measured comparison.
+
+| Workload | Fastest projected CRN | Projected seconds | Fastest Julia | CRN / Julia |
+|---|---|---|---|---|
+| W1 | Legacy cached | 0.0749 | Direct | 1.47× |
+| W2 | DirectCR | 0.1272 | DirectCR | 1.31× |
+| W3 | SortingDirect | 0.3278 | SortingDirect | 1.11× |
+| W4 | RSSACR | 0.1946 | RSSACR | 1.83× |
+| W5 | DirectCR | 0.0768 | DirectCR | 1.61× |
+| W6 | RSSACR | 0.0614 | RSSACR | 1.55× |
+| W7 | RSSACR | 0.0187 | RSSACR | 1.41× |
+
+The projected geometric-mean gap is 1.46× (measured 2.02× before). A direct
+rerun of `validation/compare_julia_accelerated.py` remains the authoritative
+check.
+
 ![Warm ensemble times after SSA acceleration](images/julia-comparison-accelerated.png)
 
 The [earlier comparison](comparison-catalyst-jumpprocesses-before-acceleration.md)
@@ -171,9 +195,10 @@ its following values use the legacy CRN count as an explicitly labelled proxy.
 
 The first-step component measurements found roughly 3 ns per random word and
 16–18 ns per inverse exponential draw, but preparation savings were small on
-the original W1–W4 batches. The expanded W6 case benefits more from reuse: its
-best new method takes 0.1141 s one-shot versus
-0.0874 s prepared. These diagnostic component timings include their own API overhead;
+the original W1–W4 batches. On W6, RSSACR/Ziggurat took 0.1141 s one-shot
+versus 0.0874 s prepared, but RSSACR/inverse moved only from 0.1076 s to
+0.0936 s, and one-shot calls were faster than prepared ones on W1, W2 and W4;
+with five shared-host observations per row, the reuse benefit is not resolved. These diagnostic component timings include their own API overhead;
 they are not additive percentages of total simulation time.
 
 The new selectors use checked balanced sums and bounded sampling. They pay for
@@ -240,6 +265,20 @@ No independence between species is assumed for the union bound.
 | W5 | 4096 | 0.12109 | 0.24075 | Pass |
 | W6 | 512 | 0.10742 | 0.24075 | Pass |
 | W7 | 1536 | 0.12500 | 0.24075 | Pass |
+
+The "Checks" column counts every engine/species comparison, including rows that
+cannot fail. On W3–W7, three CRN engines (`legacy_direct`, `direct/inverse` and
+`cached_direct/inverse`) reproduce the legacy cached reference sample exactly at
+the shared seed, and `direct/ziggurat` reproduces `cached_direct/ziggurat`; their
+distance is 0 by construction (W3 18 of 96 rows, W4 24 of 128, W5 768 of 4096,
+W6 96 of 512, W7 288 of 1536). All engines also share the legacy random streams
+at that seed, so even different methods are correlated with the reference, which
+weakens a two-sample test that assumes independent samples. With N=512 the
+two-sample gate detects only CDF differences above 0.24. For W3–W7 these checks
+are therefore translation checks of Julia against legacy cached SSA; the
+100,000-path exact-law gate above is the evidence for the new methods' laws.
+Future runs should use distinct seeds per engine and report distinct-sample
+comparisons separately.
 
 Propensity and stoichiometry probes passed on all seven models. W5/W6 preserve
 total molecule count; W7 preserves global A+C and each compartment's B+C; W4

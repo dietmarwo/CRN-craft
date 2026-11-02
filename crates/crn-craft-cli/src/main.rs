@@ -37,7 +37,7 @@ fn main() -> ExitCode {
     }
     if args.len() == 1 && args[0] == "--version" {
         return match emit(
-            &serde_json::json!({"version": env!("CARGO_PKG_VERSION"), "milestone": "M10"}),
+            &serde_json::json!({"version": env!("CARGO_PKG_VERSION"), "milestone": "SSA-acceleration"}),
         ) {
             Ok(()) => ExitCode::SUCCESS,
             Err(_) => ExitCode::FAILURE,

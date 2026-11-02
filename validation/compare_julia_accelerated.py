@@ -118,7 +118,7 @@ def main():
         engines=ENGINES,
         rounds=5,
         timing_seed=4242,
-        validation_seed=777,
+        validation_seed="777 + 1009 * engine index",
         validation={},
         probes={},
         timings={},
@@ -215,6 +215,9 @@ def main():
                 samples = {}
                 report["first_runs"][name] = {}
                 for engine in ENGINES:
+                    # Distinct seeds: engines sharing a stream would make the
+                    # two-sample gates compare correlated (or identical) samples.
+                    seed = 777 + 1009 * ENGINES.index(engine)
                     if engine.startswith("Julia/"):
                         algorithm = engine.split("/")[1]
                         first = julia.call(
@@ -231,13 +234,13 @@ def main():
                             name=name,
                             algorithm=algorithm,
                             paths=N,
-                            seed=777,
+                            seed=seed,
                             keep=True,
                         )
                         final = np.array(result["final_counts"], dtype=np.int64)
                     else:
                         result = rust_job(
-                            engine, models[name], end, N, 777, True, "prepared"
+                            engine, models[name], end, N, seed, True, "prepared"
                         )()
                         require(
                             result["termination"] == "completed",

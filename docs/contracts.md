@@ -60,7 +60,8 @@ Discovery advances to `crn-craft.describe/0.3`, adding the legacy-analysis/expor
 `verify DIRECTORY` checks its archive. The original model/run shapes remain
 0.1. Result 0.2 replaces the never-emitted reserved result for actual execution;
 `describe result-v1` retains its old schema. Archive and archive-check begin at
-0.1; discovery is 0.4. FSP stays `contract_only`. Existing check/analysis/export
+0.1; discovery is 0.6 (`alternative_exact_ssa` lists the `ssa-run`/`ssa-result`
+methods; the top-level `aggregators` list still describes legacy Direct only). FSP stays `contract_only`. Existing check/analysis/export
 reports remain unchanged; query discovery for current executable methods.
 
 New runtime limits supplement input-domain validation. Invalid/unsupported

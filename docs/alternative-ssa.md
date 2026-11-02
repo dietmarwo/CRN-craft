@@ -61,13 +61,47 @@ count. SortingDirect resets its learned order per replicate.
 
 DirectCR is an original variant in the composition–rejection family: a bucket
 is chosen in proportion to its envelope mass, a member is chosen using unbiased
-integer sampling, and rejection yields actual-rate proportions. The event wait
+integer sampling, and rejection yields actual-rate proportions. For buckets of
+up to 1024 members, one random word supplies both the member (Lemire's
+multiply-and-reject) and the acceptance uniform (the top 53 bits of the low
+product word, which given the member is uniform on a lattice of spacing at
+most 2^-54); larger buckets draw them separately. This is sampler version 2 of
+`direct_cr` and `rssa_cr`. The event wait
 uses the actual total. It is not a port of Julia's internal data structures and
 is not strictly constant-time: dependency updates cost O(log R), and selection
-scans active exponent buckets. Balanced trees rebuild sums from children, avoiding
-incremental add/subtract drift. Non-finite totals, lost positive additions and
-channels below 53-bit selection resolution fail explicitly. Tiny or overflowing
-waits also fail. Integer state updates remain checked and transactional.
+uses a binary search over cached bucket envelope sums, rebuilt only when a
+bucket gains or loses a member. Balanced trees rebuild sums from children,
+avoiding incremental add/subtract drift. Non-finite totals, lost positive additions and channels below
+53-bit selection resolution fail explicitly. Tiny or overflowing waits also
+fail. Integer state updates remain checked and transactional.
+
+Why selection stays exact to 53 bits: bucket bounds are powers of two, so the
+acceptance test `U·2^k < a` has probability exactly `a/2^k` at 53-bit
+resolution, and the member index uses unbiased integer sampling (with the joint word, the
+acceptance probability errs by at most 2^-53 + 2^-54). Bucket choice
+and totals round at about 2^-53 relative, as in legacy Direct, and the wait
+always uses the actual total. The guarantee that every positive channel is
+resolvable comes from the tree's check that the smallest positive leaf is at
+least 2^-53 of the total. The tree evaluates that check lazily: it keeps a floor
+that never exceeds a current positive leaf, returns the total directly when the
+floor is at least 2^-52 of a normal total (then no pairwise addition can lose a
+positive operand, because that would need at most half an ulp, i.e. 2^-53 of a
+sum no larger than the total), and otherwise evaluates the fully checked tree.
+Decisions and totals are identical to checking every node. Two edge cases are
+known: bucket bounds below 2^-1021 are subnormal, so the acceptance product
+rounds (absolute error at most about 2^-53); and the top bucket (rates at or
+above 2^1023) uses `f64::MAX`, which is not a power of two. Neither occurs in a
+model whose total propensity is finite and whose rates are normal numbers.
+
+SortingDirect scales its threshold by the pairwise tree total but scans in
+learned order; the two sums can differ in the last bit. A threshold at or above
+the sequential sum is redrawn (counted against the sampling budget), so accepted
+thresholds are uniform below the sum the scan partitions.
+
+One-variable Hill laws
+memoize their checked value per integer regulator count below 8192 (first 128
+Hill laws of a network, lazily allocated, at most 64 KiB each); failures are
+never stored. Michaelis–Menten and mass action are evaluated directly.
 
 RSSACR uses thinning of a process with the summed upper-bound rate. Every
 candidate advances time, including a rejected candidate; saved states retain
@@ -104,8 +138,24 @@ bound updates, point fallbacks, rejected RSSA candidates and random words.
 
 Bucket buffers shrink as memberships fall, so memory is bounded by live reaction
 membership rather than every exponent bucket visited over a long trajectory.
-Request validation reserves selector/bound/reverse-reader workspace and rejects
-counter bounds that could overflow u64.
+Request validation
+reserves selector/bound/reverse-reader workspace and rejects counter bounds that
+could overflow u64. Admission still uses the legacy archive reserve (model and
+request size plus a fixed envelope) when it checks `max_output_bytes` up front,
+so a budget smaller than that reserve is rejected even if the compact result
+would fit; the result itself is then checked once against the full budget.
+
+New methods draw from the same per-path ChaCha8 streams as legacy Direct for
+the same `root_seed`. Different methods consume the words differently, but
+their early states are strongly correlated with legacy cached Direct at equal
+seeds (about 0.6–0.8 at short times on a birth–death model). Use different
+seeds when comparing methods statistically.
+
+Known limitation: RSSACR passes the smallest positive rate anywhere in a box to
+the resolution check. A very steep Hill law (for example repression with n=130
+and the regulator at K) can then fail with CRN-E061 at t=0 even though the
+current rates are resolvable, while `direct`, `cached_direct` and `direct_cr`
+complete. Use one of those methods for such models.
 
 ## Validation and scope
 

@@ -512,17 +512,32 @@ fn execute_inner(
     control: &Control,
     cached: bool,
 ) -> Result<Simulation, Diagnostic> {
-    execute_paths::<Workspace, (), _>(prepared, control, sampling::SAMPLER, |id, poller, work| {
-        (trajectory(prepared, id, poller, cached, work), ())
-    })
+    // The sealed archive also carries the model, the request and a fixed
+    // envelope, so the legacy numerical payload gets what remains.
+    let payload = prepared
+        .run
+        .budget
+        .max_output_bytes
+        .min(MAX_RESULT_BYTES)
+        .saturating_sub(prepared.input_bytes + 16_384);
+    execute_paths::<Workspace, (), _>(
+        prepared,
+        control,
+        sampling::SAMPLER,
+        Some(payload),
+        |id, poller, work| (trajectory(prepared, id, poller, cached, work), ()),
+    )
     .map(|(simulation, _)| simulation)
 }
 
 /// Shared bounded scheduling and ordered reduction; each algorithm owns its path state.
+/// `payload_limit` bounds the serialized legacy result; callers that encode a
+/// different result type pass `None` and apply their own byte budget.
 pub(crate) fn execute_paths<W: Default + Send, M: Send, F>(
     prepared: &Prepared,
     control: &Control,
     sampler: &str,
+    payload_limit: Option<u64>,
     runner: F,
 ) -> Result<(Simulation, Vec<M>), Diagnostic>
 where
@@ -671,21 +686,16 @@ where
             workspace_cap_bytes: MAX_WORKSPACE_BYTES,
         },
     };
-    constrain_output(
-        &mut simulation.result,
-        run.budget
-            .max_output_bytes
-            .min(MAX_RESULT_BYTES)
-            .saturating_sub(prepared.input_bytes + 16_384),
-    )?;
+    if let Some(limit) = payload_limit {
+        constrain_output(&mut simulation.result, limit)?;
+    }
     simulation.provenance.elapsed_seconds = start.elapsed().as_secs_f64();
     Ok((simulation, metrics))
 }
 
-pub(crate) fn constrain_output(
-    result: &mut SimulationResult,
-    limit: u64,
-) -> Result<(), Diagnostic> {
+/// Whether `value` serializes as compact JSON plus a trailing newline within
+/// `limit` bytes. Counts bytes and stops at the limit without buffering.
+pub(crate) fn fits_json(value: &impl serde::Serialize, limit: u64) -> bool {
     struct Counter {
         used: u64,
         limit: u64,
@@ -702,8 +712,14 @@ pub(crate) fn constrain_output(
             Ok(())
         }
     }
-    let fits =
-        |value: &SimulationResult| serde_json::to_writer(Counter { used: 1, limit }, value).is_ok();
+    serde_json::to_writer(Counter { used: 1, limit }, value).is_ok()
+}
+
+pub(crate) fn constrain_output(
+    result: &mut SimulationResult,
+    limit: u64,
+) -> Result<(), Diagnostic> {
+    let fits = |value: &SimulationResult| fits_json(value, limit);
     if fits(result) {
         return Ok(());
     }

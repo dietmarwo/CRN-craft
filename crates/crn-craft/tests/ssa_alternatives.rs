@@ -172,3 +172,30 @@ fn rssacr_cooperatively_cancels_during_rejected_work() {
         assert!(result.statistics.is_none());
     }
 }
+
+#[test]
+fn the_output_budget_covers_exactly_the_compact_result_json() {
+    // Eight-digit counts make the result larger than the request's minimum
+    // numeric payload estimate (8 bytes per retained value).
+    let (_, mut r) = inputs("direct_cr", 1);
+    let m=serde_json::to_vec(&json!({"schema":"crn-craft.model/0.1","name":"Budget",
+        "convention":"stochastic_counts","omega":1.0,"parameters":{},
+        "species":[{"name":"X","initial_count":10_000_000}],"reactions":[
+            {"name":"birth","reactants":{},"products":{"X":1},"rate":{"kind":"mass_action","coefficient":1.0}},
+            {"name":"death","reactants":{"X":1},"products":{},"rate":{"kind":"mass_action","coefficient":1e-7}}]})).unwrap();
+    r["model"]["sha256"] = json!(crn_craft::sha256(&m));
+    let saves: Vec<f64> = (0..=1000).map(|i| f64::from(i) * 0.01).collect();
+    r["time"]["save_times"] = json!(saves);
+    let full = solve(&m, &r);
+    assert_eq!(full["termination"], "completed");
+    // The request digest has a fixed length, so the size does not depend on the budget.
+    let size = serde_json::to_vec(&full).unwrap().len() as u64 + 1;
+    r["budget"]["max_output_bytes"] = json!(size);
+    let exact = solve(&m, &r);
+    assert_eq!(exact["termination"], "completed", "budget {size}");
+    assert_eq!(exact["trajectories"], full["trajectories"]);
+    r["budget"]["max_output_bytes"] = json!(size - 1);
+    let short = solve(&m, &r);
+    assert_eq!(short["termination"], "output_limit");
+    assert!(short["statistics"].is_null());
+}

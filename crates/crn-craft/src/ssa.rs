@@ -595,6 +595,7 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<SsaResult, Diag
         &prepared.core,
         control,
         &sampler,
+        None,
         |id, poller, work| match (algorithm, waiting_time) {
             (Algorithm::Direct, WaitingTime::Inverse) => {
                 path::<0, false>(prepared, id, poller, work)
@@ -681,13 +682,8 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<SsaResult, Diag
         .budget
         .max_output_bytes
         .min(simulation::MAX_RESULT_BYTES);
-    let size = |r: &SsaResult| -> Result<u64, Diagnostic> {
-        Ok(serde_json::to_vec(r)
-            .map_err(|e| numeric(e.to_string()))?
-            .len() as u64
-            + 1)
-    };
-    if size(&result)? > limit {
+    // The budget covers this compact result JSON and its trailing newline.
+    if !simulation::fits_json(&result, limit) {
         result.termination = Termination::OutputLimit;
         result.assessment = Assessment::Incomplete;
         result.statistics = None;
@@ -698,7 +694,7 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<SsaResult, Diag
             "alternative SSA output exceeds its byte budget",
             "Increase max_output_bytes; statistics and trajectories have been removed.",
         ));
-        if size(&result)? > limit {
+        if !simulation::fits_json(&result, limit) {
             return Err(simulation::execution_error(
                 "SSA evidence exceeds output budget",
             ));

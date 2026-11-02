@@ -1,0 +1,8 @@
+W4/cached_direct/ziggurat      a07->a09 0.946(0)
+W4/direct_cr/ziggurat          a07->a09 1.204(5)
+W4/sorting_direct/ziggurat     a07->a09 1.450(5)
+W4/rssa_cr/ziggurat            a07->a09 0.948(0)
+W7/cached_direct/ziggurat      a07->a09 0.995(1)
+W7/direct_cr/ziggurat          a07->a09 0.950(1)
+W7/sorting_direct/ziggurat     a07->a09 0.974(0)
+W7/rssa_cr/ziggurat            a07->a09 0.992(1)

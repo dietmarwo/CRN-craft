@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 import sys
-from . import CrnError, __version__, _native, describe, fsp
+from . import CrnError, __version__, _call, _native, describe, fsp
 
 
 def main():
@@ -66,8 +66,8 @@ def main():
             report = json.loads(_native.export_json(args.model.read_bytes()))
             success = report["success"]
         elif args.command == "ssa":
-            report = json.loads(
-                _native.ssa_files_json(str(args.model), str(args.run), args.cancel_file)
+            report = _call(
+                _native.ssa_files_json, str(args.model), str(args.run), args.cancel_file
             )
             success = report.get("termination") == "completed"
         elif args.command == "tau":
@@ -116,6 +116,8 @@ def main():
             json.dumps(report, allow_nan=False, separators=(",", ":"), sort_keys=True)
         )
         sys.stdout.write("\n")
+        if not success:
+            raise SystemExit(1)
         return
     print(json.dumps(report, indent=2, allow_nan=False, sort_keys=True))
     if not success:

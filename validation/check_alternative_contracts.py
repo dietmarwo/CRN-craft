@@ -80,6 +80,33 @@ def main():
                 )
                 require(result.returncode == 0 and not result.stderr, "CLI failure")
                 require(json.loads(result.stdout) == expected, "CLI identity")
+                # Incomplete runs and rejected requests exit 1 with JSON on stdout.
+                limited = json.loads(json.dumps(request))
+                limited["budget"]["max_events_per_replicate"] = 1
+                unknown = dict(request, unknown=True)
+                for changed, check in [
+                    (limited, lambda r: r["termination"] == "event_limit"),
+                    (
+                        unknown,
+                        lambda r: (
+                            r["success"] is False
+                            and r["diagnostics"]
+                            and all("code" in d for d in r["diagnostics"])
+                        ),
+                    ),
+                ]:
+                    bad = folder / "changed.json"
+                    bad.write_bytes(crn.model_bytes(changed))
+                    result = subprocess.run(
+                        [*command, "ssa", str(mp), str(bad)],
+                        capture_output=True,
+                        check=False,
+                        timeout=30,
+                    )
+                    require(
+                        result.returncode == 1 and check(json.loads(result.stdout)),
+                        f"CLI exit status: {command[-1]}",
+                    )
             for field, value, stop in [
                 ("max_sampling_steps_per_replicate", 0, "sampling_limit"),
                 ("max_events_per_replicate", 1, "event_limit"),

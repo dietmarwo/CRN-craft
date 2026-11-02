@@ -30,16 +30,20 @@ class CrnError(ValueError):
         super().__init__(message)
 
 
+def _crn_error(error):
+    text = str(error)
+    try:
+        value = json.loads(text)
+    except ValueError:
+        value = [{"code": "CRN-E000", "path": "", "message": text}]
+    return CrnError(value if isinstance(value, list) else [value])
+
+
 def _call(method, *args, **kwargs):
     try:
         return json.loads(method(*args, **kwargs))
     except _native.NativeError as error:
-        text = str(error)
-        try:
-            value = json.loads(text)
-        except ValueError:
-            value = [{"code": "CRN-E000", "path": "", "message": text}]
-        raise CrnError(value if isinstance(value, list) else [value]) from None
+        raise _crn_error(error) from None
 
 
 def model_bytes(model):
@@ -92,13 +96,13 @@ class PreparedSimulation:
 
 
 def prepare(model, run, *, cached=False):
-    """Prepare a legacy Direct request once; retain its exact bytes and hashes."""
+    """Validate and prepare a legacy Direct request once for repeated runs."""
     try:
         return PreparedSimulation(
             _native.prepare_json(model_bytes(model), model_bytes(run), cached)
         )
     except _native.NativeError as error:
-        raise CrnError(json.loads(str(error))) from None
+        raise _crn_error(error) from None
 
 
 def ssa_spec(
@@ -135,7 +139,7 @@ def prepare_ssa(model, request):
             _native.prepare_ssa_json(model_bytes(model), model_bytes(request))
         )
     except _native.NativeError as error:
-        raise CrnError(json.loads(str(error))) from None
+        raise _crn_error(error) from None
 
 
 def fsp(model, run, *, cancel_file=None):

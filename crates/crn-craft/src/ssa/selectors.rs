@@ -316,10 +316,8 @@ impl Composition {
                 self.locations[moved].1 = pos;
             }
             // Bound retained capacity by live memberships, rather than by all
-            // exponent buckets a reaction has visited over a long trajectory,
-            // but keep up to 64 slots so a group swinging between zero and one
-            // member does not free and reallocate (at most 1 MiB in total).
-            if self.groups[old].capacity() > 4 * self.groups[old].len().max(16) {
+            // exponent buckets a reaction has visited over a long trajectory.
+            if self.groups[old].capacity() > 4 * self.groups[old].len() {
                 self.groups[old].shrink_to_fit();
             }
             if self.groups[old].is_empty() {

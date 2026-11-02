@@ -8,6 +8,12 @@ use rand_core::RngCore;
 
 /// McCollum et al., Computational Biology and Chemistry 30 (2006), 39–49.
 /// The fired channel moves one position forward; the order resets per path.
+///
+/// The threshold scales the tree's pairwise total, but the scan adds rates in
+/// the learned order, and the two sums may differ in the last bit. A threshold
+/// at or above the sequential sum is redrawn (each draw counts against the
+/// sampling budget), so accepted thresholds are uniform below the sum that the
+/// scan actually partitions.
 pub(super) fn sorting_sample(
     order: &mut [usize],
     rates: &[f64],
@@ -15,28 +21,33 @@ pub(super) fn sorting_sample(
     rng: &mut impl RngCore,
     draws: &mut Draws,
 ) -> Result<usize, Bail> {
-    let threshold = draws.closed(rng)? * total;
-    if threshold >= total {
-        return Err(numeric("sorting threshold rounded to total").into());
-    }
-    let mut sum = 0.0;
-    for (position, &channel) in order.iter().enumerate() {
-        if position % 64 == 0 {
-            draws.poll()?;
+    loop {
+        let threshold = draws.closed(rng)? * total;
+        if threshold >= total {
+            return Err(numeric("sorting threshold rounded to total").into());
         }
-        let next = sum + rates[channel];
-        if rates[channel] > 0.0 && next <= sum {
-            return Err(numeric("sorting sum loses a positive channel").into());
-        }
-        sum = next;
-        if threshold < sum {
-            if position > 0 {
-                order.swap(position, position - 1);
+        let mut sum = 0.0;
+        for (position, &channel) in order.iter().enumerate() {
+            if position % 64 == 63 {
+                draws.poll()?;
             }
-            return Ok(channel);
+            let next = sum + rates[channel];
+            if rates[channel] > 0.0 && next <= sum {
+                return Err(numeric("sorting sum loses a positive channel").into());
+            }
+            sum = next;
+            if threshold < sum {
+                if position > 0 {
+                    order.swap(position, position - 1);
+                }
+                return Ok(channel);
+            }
         }
+        if sum == 0.0 {
+            return Err(numeric("sorting selection has no positive channel").into());
+        }
+        draws.poll()?;
     }
-    Err(numeric("sorting selection cannot resolve the checked total").into())
 }
 
 #[derive(Clone, Copy)]
@@ -407,6 +418,55 @@ mod tests {
             assert!((observed - expected).abs() <= bound);
         }
     }
+    #[test]
+    fn sorting_selection_redraws_a_threshold_beyond_the_sequential_sum() {
+        // The pairwise total exceeds the ordered sum by one ulp.
+        let rates = [
+            1.5667571478300881,
+            0.2652157528648588,
+            1.4018558426681513,
+            0.6054530008643468,
+            0.40195711670041256,
+        ];
+        let mut tree = RateTree::default();
+        tree.reset(rates.len());
+        for (i, &rate) in rates.iter().enumerate() {
+            tree.set(i, rate, rate);
+        }
+        let total = tree.total().unwrap();
+        let sequential = rates.iter().fold(0.0, |sum, &rate| sum + rate);
+        assert!(sequential < total, "{sequential} {total}");
+        struct Words(Vec<u64>);
+        impl RngCore for Words {
+            fn next_u64(&mut self) -> u64 {
+                self.0.remove(0)
+            }
+            fn next_u32(&mut self) -> u32 {
+                unreachable!()
+            }
+            fn fill_bytes(&mut self, _: &mut [u8]) {
+                unreachable!()
+            }
+            fn try_fill_bytes(&mut self, _: &mut [u8]) -> Result<(), rand_core::Error> {
+                unreachable!()
+            }
+        }
+        // The largest 53-bit uniform overruns; the next draw selects channel 0.
+        let mut rng = Words(vec![u64::MAX, 0]);
+        let control = crate::simulation::Control::default();
+        let mut poller = crate::simulation::Poller::new(&control, std::time::Instant::now(), None);
+        let mut work = super::super::Work::default();
+        let mut draws = Draws {
+            limit: 10,
+            work: &mut work,
+            poller: &mut poller,
+        };
+        let mut order: Vec<usize> = (0..rates.len()).collect();
+        let chosen = sorting_sample(&mut order, &rates, total, &mut rng, &mut draws);
+        assert_eq!(chosen.ok(), Some(0));
+        assert_eq!(draws.work.rng_words, 2);
+    }
+
     #[test]
     fn exponent_groups_cover_normal_subnormal_and_extreme_values() {
         for x in [

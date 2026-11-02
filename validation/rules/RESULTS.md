@@ -1,7 +1,10 @@
 # Rules engine K1: exact-law gates
 
-Protocol: `docs/decisions/rules-k0-k1-2026-11-02.md` (declared at `fe0ca4e`,
-implementation details and power laws fixed at `1c5df66` before the run).
+Protocol: `docs/decisions/rules-k0-k1-2026-11-02.md` (declared at `373c527`,
+implementation details and power laws fixed at `19a7e89` before the run;
+`fe0ca4e` and `1c5df66` before a rebase that left the rules sources unchanged).
+The first run used the pre-rebase build; a rerun on the rebased branch gave a
+byte-identical report.
 Script: `validation/check_rules.py`. Report: `k1-gates.json` (fixed-work
 evidence; identical under `python -O`). Root seed 20261102, 100,000 replicates
 per fixture, four worker threads.

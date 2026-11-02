@@ -323,7 +323,6 @@ struct Workspace {
     state: Vec<i64>,
     rates: Vec<f64>,
     prefix: Vec<f64>,
-    minima: Vec<f64>,
 }
 
 fn trajectory(
@@ -384,7 +383,7 @@ fn path_with_rng_mode(
     // The first event recomputes every rate and running sum before use.
     let mut rates = std::mem::take(&mut work.rates);
     let mut prefix = std::mem::take(&mut work.prefix);
-    let mut minima = std::mem::take(&mut work.minima);
+    let mut floor = f64::INFINITY;
     let mut total = 0.0;
     let mut previous: Option<usize> = None;
     let outcome = (|| -> Result<Stop, Diagnostic> {
@@ -422,7 +421,7 @@ fn path_with_rng_mode(
                 }
                 // Dependencies are sorted: running sums before the first one are unchanged.
                 if let Some(&lowest) = affected.first() {
-                    total = sampling::resume_total(&rates, &mut prefix, &mut minima, lowest)?;
+                    total = sampling::resume_total(&rates, &mut prefix, &mut floor, lowest)?;
                 }
             } else {
                 rates.clear();
@@ -436,8 +435,7 @@ fn path_with_rng_mode(
                 }
                 total = if cached {
                     prefix.resize(rates.len(), 0.0);
-                    minima.resize(rates.len(), 0.0);
-                    sampling::resume_total(&rates, &mut prefix, &mut minima, 0)?
+                    sampling::resume_total(&rates, &mut prefix, &mut floor, 0)?
                 } else {
                     sampling::total_with_prefix(&rates, &mut prefix)?
                 };
@@ -498,7 +496,6 @@ fn path_with_rng_mode(
         state,
         rates,
         prefix,
-        minima,
     };
     PathResult { record, counts }
 }

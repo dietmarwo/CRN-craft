@@ -1,6 +1,7 @@
 # Run files bind models by the SHA-256 of their exact bytes, so text must keep
 # LF line endings in every checkout, including Git for Windows with autocrlf.
 * text=auto eol=lf
-# Images are binary; they have no line endings to keep.
+# Images and compressed evidence are binary; they have no line endings to keep.
 *.png binary
 *.jpg binary
+*.gz binary

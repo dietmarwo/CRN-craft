@@ -313,7 +313,7 @@ struct Workspace {
     state: Vec<i64>,
     rates: Vec<f64>,
     prefix: Vec<f64>,
-    floor: f64,
+    minima: Vec<f64>,
     tree: RateTree,
     composition: Composition,
     order: Vec<usize>,
@@ -350,7 +350,7 @@ fn path<const MODE: u8, const ZIG: bool>(
     let n = network.reactions().len();
     space.rates.resize(n, 0.0);
     space.prefix.resize(n, 0.0);
-    space.floor = f64::INFINITY;
+    space.minima.resize(n, 0.0);
     if MODE >= 2 {
         space.tree.reset(n);
         if MODE == 2 || MODE == 4 {
@@ -436,7 +436,7 @@ fn path<const MODE: u8, const ZIG: bool>(
                         total = sampling::resume_total(
                             &space.rates,
                             &mut space.prefix,
-                            &mut space.floor,
+                            &mut space.minima,
                             first,
                         )?;
                     }
@@ -465,7 +465,7 @@ fn path<const MODE: u8, const ZIG: bool>(
                     total = sampling::resume_total(
                         &space.rates,
                         &mut space.prefix,
-                        &mut space.floor,
+                        &mut space.minima,
                         0,
                     )?;
                 }

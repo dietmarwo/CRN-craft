@@ -101,45 +101,27 @@ pub(crate) fn total_with_prefix(rates: &[f64], prefix: &mut Vec<f64>) -> Result<
 }
 
 /// The strict ordered total resumed at `from` after only `rates[from..]`
-/// changed. `prefix[i]` holds the running sum of `rates[..=i]`; entries before
-/// `from` come from an earlier successful pass over the same values, and
-/// `floor` never exceeds any positive rate those passes saw. Running sums
-/// depend only on earlier rates, so the total, the recorded sums and the first
-/// failure equal those of a full pass from index zero.
-///
-/// The common pass only adds. When every rate is non-negative, the total is
-/// normal and finite, and the smallest positive rate is at least 2^-52 of the
-/// total, no positive rate can be lost (that would need at most half an ulp,
-/// i.e. 2^-53 of a running sum, and running sums never exceed the total) and
-/// the 53-bit resolution test passes. Anything else repeats the checked pass
-/// from index zero, which decides and reports exactly as before.
+/// changed. `prefix[i]` and `minima[i]` hold the running sum and the running
+/// minimum positive rate of `rates[..=i]`; entries before `from` come from an
+/// earlier successful pass over the same values. Running sums depend only on
+/// earlier rates and the minimum is exact, so the total, the recorded sums and
+/// the first failure equal those of a full pass from index zero.
 pub(crate) fn resume_total(
     rates: &[f64],
     prefix: &mut [f64],
-    floor: &mut f64,
+    minima: &mut [f64],
     from: usize,
 ) -> Result<f64, Diagnostic> {
-    let mut total = if from == 0 { 0.0 } else { prefix[from - 1] };
-    let mut low = if from == 0 { f64::INFINITY } else { *floor };
-    let mut valid = true;
-    for (sum, &rate) in prefix[from..].iter_mut().zip(&rates[from..]) {
-        valid &= rate >= 0.0;
-        total += rate;
-        *sum = total;
-        low = low.min(if rate > 0.0 { rate } else { f64::INFINITY });
-    }
-    if valid && total.is_normal() && low >= total * (1.0 / (1u64 << 52) as f64) {
-        *floor = low;
-        return Ok(total);
-    }
-    checked_resume(rates, prefix, floor)
-}
-
-#[cold]
-fn checked_resume(rates: &[f64], prefix: &mut [f64], floor: &mut f64) -> Result<f64, Diagnostic> {
-    let mut total = 0.0;
-    let mut minimum = f64::INFINITY;
-    for (sum, &rate) in prefix.iter_mut().zip(rates) {
+    let (mut total, mut minimum) = if from == 0 {
+        (0.0, f64::INFINITY)
+    } else {
+        (prefix[from - 1], minima[from - 1])
+    };
+    for ((sum, least), &rate) in prefix[from..]
+        .iter_mut()
+        .zip(&mut minima[from..])
+        .zip(&rates[from..])
+    {
         if !rate.is_finite() || rate < 0.0 {
             return Err(numeric("CRN-E061", "invalid propensity in Direct sum"));
         }
@@ -155,8 +137,8 @@ fn checked_resume(rates: &[f64], prefix: &mut [f64], floor: &mut f64) -> Result<
         if rate > 0.0 {
             minimum = minimum.min(rate);
         }
+        *least = minimum;
     }
-    *floor = minimum;
     resolution(minimum, total)?;
     Ok(total)
 }
@@ -342,13 +324,14 @@ mod tests {
             4 => 1e300 * (1.0 + uniform_closed_open(rng.next_u64())),
             _ => libm::exp(30.0 * (uniform_closed_open(rng.next_u64()) - 0.5)),
         };
-        let (mut prefix, mut floor, mut full) = (Vec::new(), f64::INFINITY, Vec::new());
+        let (mut prefix, mut minima, mut full) = (Vec::new(), Vec::new(), Vec::new());
         let mut checked = 0;
         for _ in 0..1000 {
             let n = 1 + (rng.next_u64() % 30) as usize;
             let mut rates: Vec<f64> = (0..n).map(|_| draw(&mut rng)).collect();
             prefix.resize(n, 0.0);
-            if resume_total(&rates, &mut prefix, &mut floor, 0).is_err() {
+            minima.resize(n, 0.0);
+            if resume_total(&rates, &mut prefix, &mut minima, 0).is_err() {
                 continue;
             }
             for _ in 0..20 {
@@ -359,7 +342,7 @@ mod tests {
                     }
                 }
                 rates[from] = draw(&mut rng);
-                let resumed = resume_total(&rates, &mut prefix, &mut floor, from);
+                let resumed = resume_total(&rates, &mut prefix, &mut minima, from);
                 let expected = total_with_prefix(&rates, &mut full);
                 match (&resumed, &expected) {
                     (Ok(a), Ok(b)) => {
@@ -380,48 +363,17 @@ mod tests {
     }
 
     #[test]
-    fn resumed_totals_match_full_passes_at_the_fast_path_boundaries() {
-        let tiny = f64::MIN_POSITIVE;
-        let cases: [&[f64]; 10] = [
-            &[1.0, 2.0f64.powi(-52)],
-            &[1.0, 2.0f64.powi(-53)],
-            &[1.0, 2.0f64.powi(-53) * (1.0 + f64::EPSILON)],
-            &[2.0f64.powi(-53), 1.0],
-            &[1.0, 0.0, 2.0f64.powi(-54)],
-            &[tiny, tiny * 2.0f64.powi(-40)],
-            &[tiny * 2.0f64.powi(52), tiny],
-            &[f64::MAX, f64::MAX],
-            &[0.0, 0.0],
-            &[f64::from_bits(1), f64::from_bits(1)],
-        ];
-        for rates in cases {
-            let (mut resumed, mut full) = (vec![0.0; rates.len()], Vec::new());
-            let mut floor = f64::INFINITY;
-            let a = resume_total(rates, &mut resumed, &mut floor, 0);
-            let b = total_with_prefix(rates, &mut full);
-            match (a, b) {
-                (Ok(a), Ok(b)) => {
-                    assert_eq!(a.to_bits(), b.to_bits(), "{rates:?}");
-                    assert_eq!(resumed, full);
-                }
-                (Err(a), Err(b)) => assert_eq!((a.code, a.message), (b.code, b.message)),
-                (a, b) => panic!("{rates:?}: {a:?} versus {b:?}"),
-            }
-        }
-    }
-
-    #[test]
     fn the_resolution_check_uses_the_smallest_positive_rate() {
         // Not lost in the sum (more than half an ulp of 1.9), yet below 2^-53
         // of the total: the first positive rate would wrongly pass the check.
         let rates = [1.9, 1.5e-16];
         assert!(rates[0] + rates[1] > rates[0]);
         let mut prefix = Vec::new();
-        let (mut sums, mut floor) = (vec![0.0; 2], f64::INFINITY);
+        let (mut sums, mut minima) = (vec![0.0; 2], vec![0.0; 2]);
         for error in [
             total_propensity(&rates).unwrap_err(),
             total_with_prefix(&rates, &mut prefix).unwrap_err(),
-            resume_total(&rates, &mut sums, &mut floor, 0).unwrap_err(),
+            resume_total(&rates, &mut sums, &mut minima, 0).unwrap_err(),
         ] {
             assert_eq!(error.code, "CRN-E061");
             assert!(error.message.contains("resolution"), "{}", error.message);

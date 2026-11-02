@@ -491,6 +491,8 @@ Performance notes, from the measurements in the
 - [Architecture](architecture.md): how the pieces fit together.
 - [Technical report](technical-report.md): design, validation and measured
   performance.
+- [Comparison with GillesPy2](comparison-gillespy2.md): the same models timed
+  against GillesPy2's C++ and NumPy solvers.
 - [Direct SSA guide](direct-ssa.md), [archive contract](archive-contract.md),
   [diagnostics](diagnostics.md) and [contracts](contracts.md).
 - [Campaign guide](campaign/README.md) for the fcmaes worker, the ODE and

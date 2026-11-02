@@ -112,7 +112,12 @@ pub(crate) struct Draw<'a, R: RngCore> {
     pub rng: &'a mut R,
     pub next_id: &'a mut f64,
     pub words: &'a mut u64,
+    /// Set when `new_id()` would return 2^53 or more.
+    pub id_overflow: &'a mut bool,
 }
+
+/// First identity `new_id()` cannot return exactly.
+pub(crate) const ID_LIMIT: f64 = 9_007_199_254_740_992.0;
 
 fn uniform(word: u64) -> f64 {
     (word >> 11) as f64 * (1.0 / 9_007_199_254_740_992.0)
@@ -149,6 +154,19 @@ impl Expr {
         }
     }
 
+    /// Whether the expression calls `new_id()`.
+    pub(crate) fn uses_new_id(&self) -> bool {
+        fn walk(node: &Node) -> bool {
+            match node {
+                Node::Num(_) | Node::Var(_) => false,
+                Node::Neg(a) | Node::Not(a) => walk(a),
+                Node::Bin(_, a, b) => walk(a) || walk(b),
+                Node::Call(f, args) => *f == Func::NewId || args.iter().any(walk),
+            }
+        }
+        walk(&self.root)
+    }
+
     /// Deterministic evaluation; random functions are rejected at parse time
     /// wherever this is used.
     pub(crate) fn eval(&self, env: &Env) -> f64 {
@@ -160,6 +178,7 @@ impl Expr {
             rng: &mut *draw.rng,
             next_id: &mut *draw.next_id,
             words: &mut *draw.words,
+            id_overflow: &mut *draw.id_overflow,
         });
         eval_node(&self.root, env, &mut d)
     }
@@ -185,6 +204,10 @@ fn truth(x: f64) -> bool {
     x != 0.0
 }
 
+fn flag(x: bool) -> f64 {
+    f64::from(u8::from(x))
+}
+
 fn eval_node<R: RngCore>(node: &Node, env: &Env, draw: &mut Option<Draw<R>>) -> f64 {
     match node {
         Node::Num(x) => *x,
@@ -192,11 +215,17 @@ fn eval_node<R: RngCore>(node: &Node, env: &Env, draw: &mut Option<Draw<R>>) -> 
         Node::Var(Slot::Observable(i)) => env.observables[*i],
         Node::Var(Slot::Attribute { reactant, index }) => env.attributes[*reactant][*index],
         Node::Neg(a) => -eval_node(a, env, draw),
-        Node::Not(a) => f64::from(u8::from(!truth(eval_node(a, env, draw)))),
+        // An undefined (NaN) condition stays NaN through logic, so `where`
+        // and `stop` can reject it instead of treating it as true.
+        Node::Not(a) => {
+            let x = eval_node(a, env, draw);
+            if x.is_nan() { x } else { flag(!truth(x)) }
+        }
         Node::Bin(op, a, b) => {
             let x = eval_node(a, env, draw);
             // Short-circuit logic, so a guarded division is not evaluated.
             match op {
+                Op::And | Op::Or if x.is_nan() => return x,
                 Op::And if !truth(x) => return 0.0,
                 Op::Or if truth(x) => return 1.0,
                 _ => {}
@@ -214,12 +243,17 @@ fn eval_node<R: RngCore>(node: &Node, env: &Env, draw: &mut Option<Draw<R>>) -> 
                 Op::Le => f64::from(u8::from(x <= y)),
                 Op::Gt => f64::from(u8::from(x > y)),
                 Op::Ge => f64::from(u8::from(x >= y)),
-                Op::And | Op::Or => f64::from(u8::from(truth(y))),
+                Op::And | Op::Or if y.is_nan() => y,
+                Op::And | Op::Or => flag(truth(y)),
             }
         }
         Node::Call(f, args) => {
             if *f == Func::If {
-                return if truth(eval_node(&args[0], env, draw)) {
+                let c = eval_node(&args[0], env, draw);
+                if c.is_nan() {
+                    return c;
+                }
+                return if truth(c) {
                     eval_node(&args[1], env, draw)
                 } else {
                     eval_node(&args[2], env, draw)
@@ -228,8 +262,24 @@ fn eval_node<R: RngCore>(node: &Node, env: &Env, draw: &mut Option<Draw<R>>) -> 
             if *f == Func::NewId {
                 let d = draw.as_mut().expect("random context");
                 let id = *d.next_id;
+                if id >= ID_LIMIT {
+                    *d.id_overflow = true;
+                    return f64::NAN;
+                }
                 *d.next_id += 1.0;
                 return id;
+            }
+            if *f == Func::Choice {
+                // Only the chosen branch is evaluated (and draws).
+                let p = eval_node(&args[0], env, draw);
+                let d = draw.as_mut().expect("random context");
+                *d.words += 1;
+                let u = uniform(d.rng.next_u64());
+                return if u < p {
+                    eval_node(&args[1], env, draw)
+                } else {
+                    eval_node(&args[2], env, draw)
+                };
             }
             let v: Vec<f64> = args.iter().map(|a| eval_node(a, env, draw)).collect();
             let mut word = || {
@@ -238,6 +288,7 @@ fn eval_node<R: RngCore>(node: &Node, env: &Env, draw: &mut Option<Draw<R>>) -> 
                 d.rng.next_u64()
             };
             match f {
+                Func::Min | Func::Max if v[0].is_nan() || v[1].is_nan() => f64::NAN,
                 Func::Min => v[0].min(v[1]),
                 Func::Max => v[0].max(v[1]),
                 Func::Exp => libm::exp(v[0]),
@@ -247,13 +298,6 @@ fn eval_node<R: RngCore>(node: &Node, env: &Env, draw: &mut Option<Draw<R>>) -> 
                 Func::Floor => libm::floor(v[0]),
                 Func::Ceil => libm::ceil(v[0]),
                 Func::Bernoulli => f64::from(u8::from(uniform(word()) < v[0])),
-                Func::Choice => {
-                    if uniform(word()) < v[0] {
-                        v[1]
-                    } else {
-                        v[2]
-                    }
-                }
                 Func::Uniform => v[0] + (v[1] - v[0]) * uniform(word()),
                 Func::Normal => {
                     // Box–Muller with an open first uniform.
@@ -265,7 +309,7 @@ fn eval_node<R: RngCore>(node: &Node, env: &Env, draw: &mut Option<Draw<R>>) -> 
                     let r = libm::sqrt(-2.0 * libm::log(u1));
                     v[0] + v[1] * r * libm::cos(2.0 * std::f64::consts::PI * u2)
                 }
-                Func::If | Func::NewId => unreachable!(),
+                Func::If | Func::NewId | Func::Choice => unreachable!(),
             }
         }
     }
@@ -293,7 +337,7 @@ fn lex(source: &str) -> Result<Vec<Token>, String> {
     let mut i = 0;
     while i < chars.len() {
         let c = chars[i];
-        if c.is_whitespace() {
+        if c.is_ascii_whitespace() {
             i += 1;
         } else if c.is_ascii_digit()
             || (c == '.' && chars.get(i + 1).is_some_and(char::is_ascii_digit))
@@ -526,6 +570,11 @@ mod tests {
         assert_eq!(eval("if(x.len > 2, max(1, k), 7)"), 2.0);
         assert_eq!(eval("0 && 1 / 0"), 0.0);
         assert_eq!(eval("1.5e1 / 3"), 5.0);
+        // Undefined conditions stay undefined; min/max do not drop NaN.
+        assert!(eval("(0/0) && 1").is_nan());
+        assert!(eval("1 || (0/0)") == 1.0 && eval("0 || (0/0)").is_nan());
+        assert!(eval("!(0/0)").is_nan() && eval("if(0/0, 1, 2)").is_nan());
+        assert!(eval("max(0/0, 1)").is_nan() && eval("min(1, 0/0)").is_nan());
     }
 
     #[test]
@@ -587,7 +636,7 @@ mod tests {
         let id = Expr::parse("new_id()", &scope).unwrap();
         let coin = Expr::parse("choice(0.25, 10, 20)", &scope).unwrap();
         let mut rng = crate::stream(1, 2);
-        let (mut next, mut words) = (5.0, 0);
+        let (mut next, mut words, mut overflow) = (5.0, 0, false);
         let env = Env {
             params: &[],
             observables: &[],
@@ -597,6 +646,7 @@ mod tests {
             rng: &mut rng,
             next_id: &mut next,
             words: &mut words,
+            id_overflow: &mut overflow,
         };
         assert_eq!(id.eval_random(&env, &mut draw), 5.0);
         assert_eq!(id.eval_random(&env, &mut draw), 6.0);

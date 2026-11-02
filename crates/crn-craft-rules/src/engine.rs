@@ -2,7 +2,7 @@
 
 use crate::expr::{Draw, Env};
 use crate::model::{Compiled, MAX_COUNT, Reduce, Shape, Source};
-use crate::tree::{MaxTree, SumTree};
+use crate::tree::{MaxTree, PairChoice, PairTree, SumTree};
 use crate::{Control, InstanceRecord, Termination};
 use crn_craft::diagnostic::Diagnostic;
 use crn_craft::sampling::uniform_closed_open;
@@ -28,7 +28,6 @@ pub(crate) struct PathOutput {
     pub stop_time: f64,
     pub rule_events: Vec<u64>,
     pub rng_words: u64,
-    pub rejected_pairs: u64,
     pub peak_instances: u64,
     pub created_instances: u64,
     pub saved_points: usize,
@@ -57,8 +56,39 @@ struct TypeState {
 
 struct ClassState {
     h: Vec<f64>,
-    first: SumTree,
-    second: Option<SumTree>,
+    /// Classes of one-pattern and cross-type rules only.
+    single: Option<SumTree>,
+    /// Classes of identical-pair rules; also serves single selection.
+    pair: Option<PairTree>,
+}
+
+impl ClassState {
+    fn weight(&self) -> f64 {
+        match (&self.single, &self.pair) {
+            (Some(t), _) => t.total(),
+            (None, Some(t)) => t.total_weight(),
+            (None, None) => unreachable!("class without tree"),
+        }
+    }
+
+    /// Instance holding the weighted molecule at `target` in [0, weight).
+    fn select(&self, target: f64) -> usize {
+        match (&self.single, &self.pair) {
+            (Some(t), _) => t.select(target),
+            (None, Some(t)) => t.descend(1, target),
+            (None, None) => unreachable!("class without tree"),
+        }
+    }
+
+    /// Every positive instance weight is resolvable by a 53-bit uniform. For
+    /// pair trees the smallest factor bounds every h·n from below.
+    fn resolved(&self) -> bool {
+        match (&self.single, &self.pair) {
+            (Some(t), _) => t.min_positive() >= t.total() * RESOLUTION,
+            (None, Some(t)) => t.min_factor() >= t.total_weight() * RESOLUTION,
+            (None, None) => unreachable!("class without tree"),
+        }
+    }
 }
 
 struct ObservableState {
@@ -86,6 +116,25 @@ fn grow(v: &mut Vec<f64>, slot: usize, fill: f64) {
     }
 }
 
+/// A `where` condition; an undefined (NaN) value is an error, not true.
+fn condition(
+    expr: Option<&crate::expr::Expr>,
+    env: &Env,
+    path: &str,
+    attrs: &[f64],
+) -> Result<bool, Halt> {
+    let Some(e) = expr else { return Ok(true) };
+    let value = e.eval(env);
+    if value.is_nan() {
+        return Err(numerical(
+            path,
+            format!("condition is undefined (NaN) for attributes {attrs:?}"),
+            "Guard divisions and logarithms so conditions are defined for every instance.",
+        ));
+    }
+    Ok(value != 0.0)
+}
+
 impl<'m> State<'m> {
     fn new(model: &'m Compiled, max_instances: u64) -> Self {
         Self {
@@ -106,8 +155,8 @@ impl<'m> State<'m> {
                 .iter()
                 .map(|c| ClassState {
                     h: Vec::new(),
-                    first: SumTree::new(true),
-                    second: c.squares.then(|| SumTree::new(false)),
+                    single: (!c.squares).then(|| SumTree::new(true)),
+                    pair: c.squares.then(PairTree::new),
                 })
                 .collect(),
             observables: model
@@ -145,7 +194,12 @@ impl<'m> State<'m> {
         };
         for &c in &model.types[t].classes {
             let info = &model.classes[c];
-            let matched = info.condition.as_ref().is_none_or(|e| e.eval(&env) != 0.0);
+            let matched = condition(
+                info.condition.as_ref(),
+                &env,
+                &format!("{}/where", info.pointer),
+                attrs,
+            )?;
             let h = if matched {
                 info.factor.as_ref().map_or(1.0, |e| e.eval(&env))
             } else {
@@ -164,7 +218,8 @@ impl<'m> State<'m> {
         }
         for &o in &model.types[t].observables {
             let info = &model.observables[o];
-            let matched = info.condition.as_ref().is_none_or(|e| e.eval(&env) != 0.0);
+            let at = crn_craft::diagnostic::pointer("/observables", &info.name);
+            let matched = condition(info.condition.as_ref(), &env, &format!("{at}/where"), attrs)?;
             let w = if matched {
                 info.weight.as_ref().map_or(1.0, |e| e.eval(&env))
             } else {
@@ -187,7 +242,8 @@ impl<'m> State<'m> {
     #[allow(clippy::cast_precision_loss)]
     fn set_leaves(&mut self, t: usize, slot: usize) -> Result<(), Halt> {
         let model = self.model;
-        let n = self.types[t].counts[slot] as f64;
+        let count = self.types[t].counts[slot];
+        let n = count as f64;
         for &c in &model.types[t].classes {
             let state = &mut self.classes[c];
             let h = state.h[slot];
@@ -199,9 +255,11 @@ impl<'m> State<'m> {
                     "Reduce the factor or the population.",
                 ));
             }
-            state.first.set(slot, weight);
-            if let Some(second) = state.second.as_mut() {
-                second.set(slot, h * weight);
+            if let Some(single) = state.single.as_mut() {
+                single.set(slot, weight);
+            }
+            if let Some(pair) = state.pair.as_mut() {
+                pair.set(slot, h, count);
             }
         }
         for &o in &model.types[t].observables {
@@ -296,9 +354,9 @@ impl<'m> State<'m> {
         self.set_leaves(t, slot)
     }
 
-    fn refresh(&mut self) {
+    fn refresh(&mut self) -> Result<(), Halt> {
         for (o, state) in self.observables.iter().enumerate() {
-            self.values[o] = if let Some(sum) = &state.sum {
+            let value = if let Some(sum) = &state.sum {
                 sum.total()
             } else {
                 let top = state.extreme.as_ref().expect("extreme tree").top();
@@ -310,7 +368,19 @@ impl<'m> State<'m> {
                     top
                 }
             };
+            if !value.is_finite() {
+                return Err(numerical(
+                    &crn_craft::diagnostic::pointer(
+                        "/observables",
+                        &self.model.observables[o].name,
+                    ),
+                    "observable total overflows",
+                    "Rescale the weights; observables must stay finite.",
+                ));
+            }
+            self.values[o] = value;
         }
+        Ok(())
     }
 
     fn global_env(&self) -> Env<'_> {
@@ -328,18 +398,21 @@ impl<'m> State<'m> {
         for (r, rule) in self.model.rules.iter().enumerate() {
             let weight = match rule.shape {
                 Shape::Source => 1.0,
-                Shape::Single(c) => self.classes[c].first.total(),
-                Shape::Pair(c) => {
-                    let s = self.classes[c].first.total();
-                    let q = self.classes[c]
-                        .second
-                        .as_ref()
-                        .expect("pair class keeps squares")
-                        .total();
-                    (0.5 * (s * s - q)).max(0.0)
-                }
-                Shape::Cross(c, d) => self.classes[c].first.total() * self.classes[d].first.total(),
+                Shape::Single(c) => self.classes[c].weight(),
+                Shape::Pair(c) => self.classes[c]
+                    .pair
+                    .as_ref()
+                    .expect("pair class keeps a pair tree")
+                    .total_pairs(),
+                Shape::Cross(c, d) => self.classes[c].weight() * self.classes[d].weight(),
             };
+            if !weight.is_finite() {
+                return Err(numerical(
+                    &format!("/rules/{r}"),
+                    format!("reactant weight of `{}` overflows", rule.name),
+                    "Reduce factors or populations.",
+                ));
+            }
             a[r] = if weight > 0.0 {
                 let rate = rule.rate.eval(&env);
                 if !(rate.is_finite() && rate >= 0.0) {
@@ -377,16 +450,21 @@ impl<'m> State<'m> {
             if a[r] <= 0.0 {
                 continue;
             }
-            let classes: &[usize] = match &rule.shape {
-                Shape::Source => &[],
-                Shape::Single(c) | Shape::Pair(c) => std::slice::from_ref(c),
-                Shape::Cross(c, d) => &[*c, *d],
-            };
             let unresolved = a[r] < total * RESOLUTION
-                || classes.iter().any(|&c| {
-                    let tree = &self.classes[c].first;
-                    tree.min_positive() < tree.total() * RESOLUTION
-                });
+                || match rule.shape {
+                    Shape::Source => false,
+                    Shape::Single(c) => !self.classes[c].resolved(),
+                    Shape::Cross(c, d) => {
+                        !self.classes[c].resolved() || !self.classes[d].resolved()
+                    }
+                    Shape::Pair(c) => {
+                        // Every pair weight h(x)h(y) is at least the smallest
+                        // factor squared.
+                        let tree = self.classes[c].pair.as_ref().expect("pair tree");
+                        let m = tree.min_factor();
+                        !self.classes[c].resolved() || m * m < tree.total_pairs() * RESOLUTION
+                    }
+                };
             if unresolved {
                 return Err(Halt::Numerical(Diagnostic::error(
                     "CRN-R031",
@@ -471,7 +549,6 @@ impl Path<'_> {
             stop_time: 0.0,
             rule_events: vec![0; model.rules.len()],
             rng_words: 0,
-            rejected_pairs: 0,
             peak_instances: 0,
             created_instances: 0,
             saved_points: 0,
@@ -522,11 +599,22 @@ impl Path<'_> {
         out
     }
 
-    fn stop_now(&self, state: &State) -> bool {
-        self.model
-            .stop
-            .as_ref()
-            .is_some_and(|e| e.eval(&state.global_env()) != 0.0)
+    fn stop_now(&self, state: &State) -> Result<bool, Halt> {
+        let Some(e) = self.model.stop.as_ref() else {
+            return Ok(false);
+        };
+        let value = e.eval(&state.global_env());
+        if value.is_nan() {
+            return Err(numerical(
+                "/stop",
+                format!(
+                    "stop condition is undefined (NaN) at observables {:?}",
+                    state.values
+                ),
+                "Guard divisions so the stop condition is defined in every state.",
+            ));
+        }
+        Ok(value != 0.0)
     }
 
     fn poll(&self) -> Result<(), Halt> {
@@ -570,8 +658,8 @@ impl Path<'_> {
         for (t, attrs, count) in &model.initial {
             state.add(*t, attrs, *count)?;
         }
-        state.refresh();
-        if self.stop_now(state) {
+        state.refresh()?;
+        if self.stop_now(state)? {
             return Ok(Some(0.0));
         }
         let mut a = vec![0.0; model.rules.len()];
@@ -629,32 +717,26 @@ impl Path<'_> {
             match rule.shape {
                 Shape::Source => {}
                 Shape::Single(c) => {
-                    let tree = &state.classes[c].first;
-                    slots[0] = tree.select(words.uniform()? * tree.total());
+                    let class = &state.classes[c];
+                    slots[0] = class.select(words.uniform()? * class.weight());
                 }
                 Shape::Pair(c) => {
-                    let tree = &state.classes[c].first;
-                    let s = tree.total();
-                    loop {
-                        let i = tree.select(words.uniform()? * s);
-                        let j = tree.select(words.uniform()? * s);
-                        // Two draws of molecules; reject the same molecule.
-                        let accept = i != j || {
-                            let n = state.types[rule.reactant_types[0]].counts[i];
-                            n >= 2 && words.uniform()? * (n as f64) < (n - 1) as f64
-                        };
-                        if accept {
-                            slots = [i, j];
-                            break;
+                    // Exact: a node's pair weight splits into pairs inside its
+                    // children and pairs across them; no rejection.
+                    let tree = state.classes[c].pair.as_ref().expect("pair tree");
+                    match tree.select(words.uniform()? * tree.total_pairs()) {
+                        PairChoice::Same(i) => slots = [i, i],
+                        PairChoice::Across(l, r) => {
+                            slots[0] = tree.descend(l, words.uniform()? * tree.node_weight(l));
+                            slots[1] = tree.descend(r, words.uniform()? * tree.node_weight(r));
                         }
-                        out.rejected_pairs += 1;
                     }
                 }
                 Shape::Cross(c, d) => {
-                    let first = &state.classes[c].first;
-                    slots[0] = first.select(words.uniform()? * first.total());
-                    let second = &state.classes[d].first;
-                    slots[1] = second.select(words.uniform()? * second.total());
+                    let first = &state.classes[c];
+                    slots[0] = first.select(words.uniform()? * first.weight());
+                    let second = &state.classes[d];
+                    slots[1] = second.select(words.uniform()? * second.weight());
                 }
             }
             for (k, &t) in rule.reactant_types.iter().enumerate() {
@@ -672,10 +754,12 @@ impl Path<'_> {
                     observables: &[],
                     attributes: [&reactants[0], &reactants[1]],
                 };
+                let mut id_overflow = false;
                 let mut draw = Draw {
                     rng: &mut *words.rng,
                     next_id: &mut next_id,
                     words: &mut words.used,
+                    id_overflow: &mut id_overflow,
                 };
                 for (j, product) in rule.products.iter().enumerate() {
                     let (t, values) = &mut products[j];
@@ -686,6 +770,13 @@ impl Path<'_> {
                             Source::Copy { reactant, index } => reactants[*reactant][*index],
                             Source::Expression(e) => e.eval_random(&env, &mut draw),
                         };
+                        if *draw.id_overflow {
+                            return Err(numerical(
+                                &format!("/rules/{r}/products/{j}"),
+                                "new_id() reached 2^53",
+                                "Identities must stay exact integers; start initial identities lower.",
+                            ));
+                        }
                         if !x.is_finite() {
                             return Err(numerical(
                                 &format!(
@@ -708,14 +799,6 @@ impl Path<'_> {
                             "sampling work limit reached",
                             "Increase the sampling-step budget; incomplete ensembles withhold statistics.",
                         ),
-                    ));
-                }
-                #[allow(clippy::cast_precision_loss)]
-                if next_id > MAX_COUNT as f64 {
-                    return Err(numerical(
-                        &format!("/rules/{r}/products"),
-                        "new_id() exceeds 2^53",
-                        "Identities must stay exact integers.",
                     ));
                 }
             }
@@ -756,8 +839,8 @@ impl Path<'_> {
             *time = next;
             out.events += 1;
             out.rule_events[r] += 1;
-            state.refresh();
-            if self.stop_now(state) {
+            state.refresh()?;
+            if self.stop_now(state)? {
                 return Ok(Some(next));
             }
         }

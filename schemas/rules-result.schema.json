@@ -142,13 +142,8 @@
           "minimum": 0.0,
           "type": "integer"
         },
-        "rejected_pairs": {
-          "description": "Rejected draws of the same molecule twice for identical patterns.",
-          "format": "uint64",
-          "minimum": 0.0,
-          "type": "integer"
-        },
         "rng_words": {
+          "description": "Random words, including product draws; the final event's product draws can take it past the sampling budget that stopped the path.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
@@ -184,7 +179,6 @@
         "events",
         "id",
         "peak_instances",
-        "rejected_pairs",
         "rng_words",
         "rule_events",
         "saved_points",

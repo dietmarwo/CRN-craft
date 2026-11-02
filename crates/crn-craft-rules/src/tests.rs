@@ -466,3 +466,148 @@ fn schemas_are_generated() {
     }
     assert!(schema("model").is_none());
 }
+
+#[test]
+fn review_regressions() {
+    // Large attributes without new_id() run; new_id() near 2^53 is checked.
+    let big = json!({
+        "schema": "crn-craft.rules-model/0.1", "name": "big",
+        "types": [{"name": "P", "attributes": ["mass"]}],
+        "initial": [{"type": "P", "attributes": {"mass": 1e16}, "count": 3}],
+        "observables": {"P": {"type": "P"}},
+        "rules": [{"name": "decay", "reactants": [{"label": "p", "type": "P"}], "rate": "1", "products": []}]
+    });
+    assert_eq!(run(&big).termination, Termination::Completed);
+    let mut ids = clones();
+    ids["initial"][0]["attributes"]["id"] = json!(9_007_199_254_740_991.0_f64);
+    assert_eq!(codes(&ids), ["CRN-R014"]);
+    ids["initial"][0]["attributes"]["id"] = json!(9_007_199_254_740_990.0_f64);
+    let result = run_with(
+        &ids,
+        |r| r["time"]["end"] = json!(20.0),
+        &Control::default(),
+    )
+    .unwrap();
+    let failed = result.replicates.iter().find(|r| r.events >= 1).unwrap();
+    assert_eq!(failed.events, 1);
+    assert_eq!(failed.diagnostic.as_ref().unwrap().code, "CRN-R030");
+    // Overflowing pair weights and observable totals fail instead of
+    // becoming 0 or null.
+    let mut pairs = aggregation(true);
+    pairs["initial"] = json!([{"type": "X", "attributes": {"size": 1e200}, "count": 2}]);
+    pairs["parameters"]["k"] = json!(1e-300);
+    let result = run(&pairs);
+    assert_eq!(result.termination, Termination::Failed);
+    assert_eq!(
+        result.replicates[0].diagnostic.as_ref().unwrap().code,
+        "CRN-R030"
+    );
+    let mut totals = aggregation(false);
+    totals["initial"] = json!([{"type": "X", "attributes": {"size": 1e308}, "count": 1},
+                              {"type": "X", "attributes": {"size": 1.5e308}, "count": 1}]);
+    let result = run(&totals);
+    assert_eq!(
+        result.replicates[0].diagnostic.as_ref().unwrap().code,
+        "CRN-R030"
+    );
+    // An undefined condition is an error, not true.
+    let mut nan = clones();
+    nan["rules"][0]["reactants"][0]["where"] = json!("x.parent / x.parent");
+    let result = run(&nan);
+    assert_eq!(
+        result.replicates[0].diagnostic.as_ref().unwrap().code,
+        "CRN-R030"
+    );
+    // choice() evaluates only the chosen branch: one identity per division.
+    let mut choice = clones();
+    choice["rules"][0]["products"][1]["attributes"]["id"] = json!("choice(1, new_id(), new_id())");
+    let result = run_with(
+        &choice,
+        |r| r["time"]["end"] = json!(3.0),
+        &Control::default(),
+    )
+    .unwrap();
+    for f in &result.final_instances {
+        let mut ids: Vec<_> = f.instances.iter().map(|i| i.attributes[0]).collect();
+        ids.sort_by(f64::total_cmp);
+        let expected: Vec<f64> = (0..ids.len())
+            .map(|k| if k == 0 { 7.0 } else { 7.0 + k as f64 })
+            .collect();
+        assert_eq!(ids, expected);
+    }
+}
+
+#[test]
+fn diagnostics_paths_and_admission() {
+    let mut model = clones();
+    model["rules"][0]["reactants"] =
+        json!([{"label": "a", "type": "C"}, {"label": "a", "type": "C"}]);
+    let report = check_model(&serde_json::to_vec(&model).unwrap());
+    assert_eq!(report.diagnostics[0].path, "/rules/0/reactants/1/label");
+    let mut unnamed = clones();
+    unnamed["name"] = json!("");
+    assert_eq!(codes(&unnamed), ["CRN-R010"]);
+    let mut spaced = clones();
+    spaced["rules"][0]["rate"] = json!("r\u{00a0}* 1");
+    assert_eq!(codes(&spaced), ["CRN-R012"]);
+    // Oversized requests are rejected before running.
+    let bytes = serde_json::to_vec(&clones()).unwrap();
+    let mut req = request(&bytes, 1_000_000, 1.0, &[1.0]);
+    req["outputs"]["keep_paths"] = json!(0);
+    req["outputs"]["keep_instances"] = json!(0);
+    req["budget"]["max_output_bytes"] = json!(1000);
+    let errors = prepare(&bytes, &serde_json::to_vec(&req).unwrap())
+        .err()
+        .unwrap();
+    assert!(errors.iter().any(|d| d.path == "/budget/max_output_bytes"));
+    let times: Vec<f64> = (0..100_000).map(|k| k as f64 * 1e-5).collect();
+    let mut req = request(&bytes, 100_000, 1.0, &times);
+    req["outputs"]["keep_paths"] = json!(100_000);
+    req["outputs"]["keep_instances"] = json!(0);
+    let errors = prepare(&bytes, &serde_json::to_vec(&req).unwrap())
+        .err()
+        .unwrap();
+    assert!(
+        errors
+            .iter()
+            .any(|d| d.code == "CRN-R020" && d.path == "/budget")
+    );
+}
+
+#[test]
+fn pair_selection_is_exact_for_heterogeneous_factors() {
+    // Instances A (factor 1, two copies) and B (factor 10, one copy): pair
+    // weights AA 1, AB 2 × 10 = 20; first merge is AA with probability 1/21.
+    let model = json!({
+        "schema": "crn-craft.rules-model/0.1", "name": "pairs",
+        "types": [{"name": "X", "attributes": ["h"]}],
+        "initial": [{"type": "X", "attributes": {"h": 1}, "count": 2}, {"type": "X", "attributes": {"h": 10}, "count": 1}],
+        "observables": {"n": {"type": "X"}},
+        "stop": "n <= 2",
+        "rules": [{"name": "merge", "reactants": [{"label": "a", "type": "X", "factor": "a.h"}, {"label": "b", "type": "X", "factor": "b.h"}],
+                   "rate": "1", "products": [{"type": "X", "attributes": {"h": "a.h + b.h + 100"}}]}]
+    });
+    let bytes = serde_json::to_vec(&model).unwrap();
+    let mut req = request(&bytes, 42_000, 0.001, &[0.001]);
+    req["time"]["end"] = json!(1.0);
+    req["time"]["report_times"] = json!([1e-9, 1.0]);
+    req["outputs"]["keep_paths"] = json!(0);
+    req["outputs"]["keep_instances"] = json!(42_000);
+    req["budget"]["max_output_bytes"] = json!(200_000_000u64);
+    req["budget"]["max_instances"] = json!(3);
+    let result = solve(
+        &bytes,
+        &serde_json::to_vec(&req).unwrap(),
+        &Control::default(),
+    )
+    .unwrap();
+    // The run stops after the first merge; AA leaves h = 102 behind.
+    let aa = result
+        .final_instances
+        .iter()
+        .filter(|f| f.instances.iter().any(|i| i.attributes[0] == 102.0))
+        .count();
+    let p = aa as f64 / 42_000.0;
+    // 1/21 = 0.0476; 5 standard errors is 0.0052.
+    assert!((p - 1.0 / 21.0).abs() < 0.0052, "{p}");
+}

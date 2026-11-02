@@ -5,7 +5,7 @@
 ### Added: dynamic, attributed species (experimental rules engine, K0/K1)
 
 - New crate `crn-craft-rules` and CLI commands `rules-check` and `rules`: species types with numeric attributes, instances created and removed on the fly, rule schemata over zero to two reactant patterns with product-form propensities, observables (`sum`, `distinct`, `max`, `min`), `new_id()` clones, random product attributes and stop conditions. Contracts `crn-craft.rules-model/0.1`, `rules-check/0.1`, `rules-run/0.1`, `rules-result/0.1`; the native CLI's discovery moves to `describe/0.8` (core and Python stay at 0.7). Reference: `docs/rules-language.md`.
-- K1 gates (`validation/check_rules.py`, CI job `rules`): 30 exact-law comparisons over 100,000 replicates per fixture pass (largest distance 0.0038 against a bound of 0.0074), including Kowald's fixed-population mtDNA model and constant and multiplicative aggregation; all six wrong-law power checks reject.
+- K1 gates (`validation/check_rules.py`, CI job `rules`): 30 exact-law comparisons over 100,000 replicates per fixture pass (largest distance 0.0034 against a bound of 0.0074), including Kowald's fixed-population mtDNA model and constant and multiplicative aggregation; all six wrong-law power checks reject. After an independent review, identical-pattern pairs use exact pair trees (sampler `chacha8-u53/rules-direct/2`), statistics stream in replicate order with admission limits, and overflows and undefined conditions fail instead of passing silently; the gates were rerun unchanged.
 
 ### Added: reusable parameter bindings and generated kernels (imported, by Astra)
 

@@ -23,18 +23,24 @@ use schemars::{JsonSchema, schema_for};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 pub use model::Model;
 
-pub const SAMPLER: &str = "chacha8-u53/rules-direct/1";
+/// Version 2 selects identical-pattern pairs exactly from pair trees;
+/// version 1 (first K1 gate run only) drew two molecules with rejection.
+pub const SAMPLER: &str = "chacha8-u53/rules-direct/2";
 pub const MAX_REPLICATES: u64 = 1_000_000;
 pub const MAX_REPORT_TIMES: usize = 100_000;
 pub const MAX_WORKERS: u32 = 64;
 pub const MAX_RESULT_BYTES: u64 = 1 << 30;
+/// Conservative reservation for records, in-flight and kept series and kept
+/// final instances; not a cap on allocator or OS memory.
+pub const MAX_WORKSPACE_BYTES: u64 = 2 << 30;
 
 /// Per-replicate ChaCha8 stream in the rules domain: a SHA-256 key of the
 /// domain and root seed, with the replicate index as stream id.
@@ -186,9 +192,9 @@ pub struct Record {
     pub saved_points: usize,
     /// Events per rule, in rule order.
     pub rule_events: Vec<u64>,
+    /// Random words, including product draws; the final event's product
+    /// draws can take it past the sampling budget that stopped the path.
     pub rng_words: u64,
-    /// Rejected draws of the same molecule twice for identical patterns.
-    pub rejected_pairs: u64,
     pub peak_instances: u64,
     /// Instances created by events (excluding the initial state).
     pub created_instances: u64,
@@ -404,6 +410,9 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
             None
         }
     };
+    if let Some(compiled) = compiled.as_ref().filter(|_| diagnostics.is_empty()) {
+        diagnostics.extend(admission(compiled, &request));
+    }
     match compiled {
         Some(compiled) if diagnostics.is_empty() => Ok(Prepared {
             compiled,
@@ -413,6 +422,50 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
         }),
         _ => Err(diagnostics),
     }
+}
+
+fn workers(request: &RunRequest) -> u64 {
+    u64::from(request.budget.threads.clamp(1, MAX_WORKERS)).min(request.ensemble.replicates)
+}
+
+/// Replicates in flight or waiting for ordered reduction, per worker.
+const WINDOW_PER_WORKER: u64 = 4;
+
+/// Workspace and output reservations from sizes alone, checked before any run.
+fn admission(model: &model::Compiled, request: &RunRequest) -> Vec<Diagnostic> {
+    let n = u128::from(request.ensemble.replicates);
+    let series = request.time.report_times.len() as u128 * model.observables.len() as u128 * 8;
+    let record = 256 + 8 * model.rules.len() as u128;
+    let attributes = model
+        .types
+        .iter()
+        .map(|t| t.attributes.len())
+        .max()
+        .unwrap_or(0) as u128;
+    let instances = u128::from(request.outputs.keep_instances)
+        * u128::from(request.budget.max_instances)
+        * (8 * attributes + 48);
+    let in_flight = u128::from(workers(request)) * u128::from(1 + WINDOW_PER_WORKER);
+    let workspace =
+        n * record + (in_flight + u128::from(request.outputs.keep_paths)) * series + instances;
+    // Lower bound of the compact result: a record is at least 160 bytes.
+    let evidence = n * 160;
+    let mut out = Vec::new();
+    if workspace > u128::from(MAX_WORKSPACE_BYTES) {
+        out.push(request_error(
+            "/budget",
+            format!("execution reservation of {workspace} bytes exceeds {MAX_WORKSPACE_BYTES}"),
+            "Use fewer replicates, report times, kept paths or kept instance sets, or a smaller max_instances.",
+        ));
+    }
+    if evidence > u128::from(request.budget.max_output_bytes.min(MAX_RESULT_BYTES)) {
+        out.push(request_error(
+            "/budget/max_output_bytes",
+            format!("{n} replicate records need at least {evidence} output bytes"),
+            "Increase max_output_bytes or use fewer replicates.",
+        ));
+    }
+    out
 }
 
 fn record(id: u64, path: &engine::PathOutput) -> Record {
@@ -425,7 +478,6 @@ fn record(id: u64, path: &engine::PathOutput) -> Record {
         saved_points: path.saved_points,
         rule_events: path.rule_events.clone(),
         rng_words: path.rng_words,
-        rejected_pairs: path.rejected_pairs,
         peak_instances: path.peak_instances,
         created_instances: path.created_instances,
         diagnostic: path.diagnostic.clone(),
@@ -458,44 +510,73 @@ fn fits_json(value: &impl Serialize, limit: u64) -> bool {
     serde_json::to_writer(&mut counter, value).is_ok()
 }
 
+/// Ordered reduction: replicates are folded in id order (Welford), so the
+/// statistics do not depend on the thread count; only kept series stay.
+struct Reducer {
+    next: u64,
+    pending: BTreeMap<u64, engine::PathOutput>,
+    records: Vec<Record>,
+    paths: Vec<PathSeries>,
+    finals: Vec<FinalInstances>,
+    samples: u64,
+    mean: Vec<f64>,
+    m2: Vec<f64>,
+    halted: bool,
+}
+
+impl Reducer {
+    #[allow(clippy::cast_precision_loss)]
+    fn fold(&mut self, id: u64, path: engine::PathOutput, keep_paths: u64, columns: usize) {
+        self.records.push(record(id, &path));
+        if path.termination.complete() {
+            self.samples += 1;
+            let k = self.samples as f64;
+            for ((m, s), &x) in self.mean.iter_mut().zip(&mut self.m2).zip(&path.values) {
+                let delta = x - *m;
+                *m += delta / k;
+                *s += delta * (x - *m);
+            }
+        }
+        if id < keep_paths {
+            self.paths.push(PathSeries {
+                id,
+                values: if columns == 0 {
+                    vec![Vec::new(); path.saved_points]
+                } else {
+                    path.values[..path.saved_points * columns]
+                        .chunks(columns)
+                        .map(<[f64]>::to_vec)
+                        .collect()
+                },
+            });
+        }
+        if let Some(instances) = path.instances {
+            self.finals.push(FinalInstances { id, instances });
+        }
+    }
+}
+
 #[allow(clippy::cast_precision_loss)]
-fn statistics(
-    wanted: &[Statistic],
-    paths: &[engine::PathOutput],
-    rows: usize,
-    columns: usize,
-) -> Statistics {
-    let n = paths.len();
+fn statistics(wanted: &[Statistic], reducer: &Reducer, columns: usize) -> Statistics {
+    let n = reducer.samples;
     let chunk = |flat: Vec<f64>| -> Vec<Vec<f64>> {
-        flat.chunks(columns.max(1))
-            .take(rows)
-            .map(<[f64]>::to_vec)
-            .collect()
+        if columns == 0 {
+            vec![Vec::new(); reducer.mean.len()]
+        } else {
+            flat.chunks(columns).map(<[f64]>::to_vec).collect()
+        }
     };
-    let cells = rows * columns;
-    let mut mean = vec![0.0; cells];
-    for p in paths {
-        for (m, v) in mean.iter_mut().zip(&p.values) {
-            *m += v;
-        }
-    }
-    for m in &mut mean {
-        *m /= n as f64;
-    }
-    let mut m2 = vec![0.0; cells];
-    for p in paths {
-        for ((s, v), m) in m2.iter_mut().zip(&p.values).zip(&mean) {
-            *s += (v - m) * (v - m);
-        }
-    }
-    let variance: Vec<f64> = m2
+    let variance: Vec<f64> = reducer
+        .m2
         .iter()
-        .map(|s| if n > 1 { s / (n - 1) as f64 } else { f64::NAN })
+        .map(|s| s / n.saturating_sub(1) as f64)
         .collect();
     let has_variance = wanted.contains(&Statistic::Variance) && n > 1;
     Statistics {
-        samples: n as u64,
-        mean: wanted.contains(&Statistic::Mean).then(|| chunk(mean)),
+        samples: n,
+        mean: wanted
+            .contains(&Statistic::Mean)
+            .then(|| chunk(reducer.mean.clone())),
         mean_standard_error: has_variance
             .then(|| chunk(variance.iter().map(|v| libm::sqrt(v / n as f64)).collect())),
         sample_variance: has_variance.then(|| chunk(variance)),
@@ -504,7 +585,7 @@ fn statistics(
 
 /// Runs the ensemble. Replicates are independent keyed streams, so results do
 /// not depend on the thread count.
-#[allow(clippy::missing_panics_doc)]
+#[allow(clippy::missing_panics_doc, clippy::too_many_lines)]
 pub fn execute(prepared: &Prepared, control: &Control) -> Result<RulesResult, Diagnostic> {
     let model = &prepared.compiled;
     let request = &prepared.request;
@@ -520,15 +601,29 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<RulesResult, Di
         deadline,
     };
     let n = request.ensemble.replicates;
+    let columns = model.observables.len();
+    let rows = request.time.report_times.len();
+    let keep_paths = request.outputs.keep_paths;
     let keep_instances = request.outputs.keep_instances;
     let next = AtomicU64::new(0);
     let halt = AtomicBool::new(false);
-    let finished: Mutex<Vec<(u64, engine::PathOutput)>> = Mutex::new(Vec::new());
-    let workers = u64::from(request.budget.threads).min(n).max(1);
+    let workers = workers(request);
+    let window = workers * WINDOW_PER_WORKER;
+    let reducer = Mutex::new(Reducer {
+        next: 0,
+        pending: BTreeMap::new(),
+        records: Vec::with_capacity(usize::try_from(n).unwrap_or(0)),
+        paths: Vec::new(),
+        finals: Vec::new(),
+        samples: 0,
+        mean: vec![0.0; rows * columns],
+        m2: vec![0.0; rows * columns],
+        halted: false,
+    });
+    let reduced = Condvar::new();
     std::thread::scope(|scope| {
         for _ in 0..workers {
             scope.spawn(|| {
-                let mut local = Vec::new();
                 loop {
                     if halt.load(Ordering::Relaxed) {
                         break;
@@ -536,6 +631,16 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<RulesResult, Di
                     let id = next.fetch_add(1, Ordering::Relaxed);
                     if id >= n {
                         break;
+                    }
+                    {
+                        // Do not run ahead of the ordered reduction.
+                        let mut r = reducer.lock().expect("no poisoned workers");
+                        while id >= r.next + window && !r.halted {
+                            r = reduced.wait(r).expect("no poisoned workers");
+                        }
+                        if r.halted {
+                            break;
+                        }
                     }
                     let path = engine::Path {
                         model,
@@ -546,35 +651,45 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<RulesResult, Di
                         keep_instances: id < keep_instances,
                     };
                     let output = path.run(&mut stream(request.ensemble.root_seed, id));
-                    if matches!(
+                    let stop = matches!(
                         output.termination,
                         Termination::Cancelled | Termination::WallTimeLimit
-                    ) {
-                        halt.store(true, Ordering::Relaxed);
+                    );
+                    let mut r = reducer.lock().expect("no poisoned workers");
+                    r.pending.insert(id, output);
+                    while let Some(path) = {
+                        let key = r.next;
+                        r.pending.remove(&key)
+                    } {
+                        let id = r.next;
+                        r.fold(id, path, keep_paths, columns);
+                        r.next += 1;
                     }
-                    local.push((id, output));
+                    if stop {
+                        halt.store(true, Ordering::Relaxed);
+                        r.halted = true;
+                    }
+                    reduced.notify_all();
                 }
-                finished
-                    .lock()
-                    .expect("no poisoned workers")
-                    .append(&mut local);
             });
         }
     });
-    let mut finished = finished.into_inner().expect("no poisoned workers");
-    finished.sort_by_key(|(id, _)| *id);
+    let mut reducer = reducer.into_inner().expect("no poisoned workers");
+    // After a halt, finished replicates beyond a gap are reduced in id order;
+    // the gap's never-started replicates get unstarted records below.
     let control_stop = if control.is_cancelled() {
         Termination::Cancelled
     } else {
         Termination::WallTimeLimit
     };
-    let mut replicates = Vec::with_capacity(usize::try_from(n).unwrap_or(0));
-    let mut done = finished.iter().peekable();
-    for id in 0..n {
-        if let Some((_, path)) = done.next_if(|(i, _)| *i == id) {
-            replicates.push(record(id, path));
+    let rest: Vec<_> = std::mem::take(&mut reducer.pending).into_iter().collect();
+    let mut rest = rest.into_iter().peekable();
+    while reducer.next < n {
+        let id = reducer.next;
+        if let Some((_, path)) = rest.next_if(|(i, _)| *i == id) {
+            reducer.fold(id, path, keep_paths, columns);
         } else {
-            replicates.push(Record {
+            reducer.records.push(Record {
                 id,
                 started: false,
                 termination: control_stop,
@@ -583,13 +698,14 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<RulesResult, Di
                 saved_points: 0,
                 rule_events: vec![0; model.rules.len()],
                 rng_words: 0,
-                rejected_pairs: 0,
                 peak_instances: 0,
                 created_instances: 0,
                 diagnostic: None,
             });
         }
+        reducer.next += 1;
     }
+    let replicates = std::mem::take(&mut reducer.records);
     let complete = replicates.iter().all(|r| r.termination.complete());
     let termination = replicates
         .iter()
@@ -602,35 +718,10 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<RulesResult, Di
         })
         .max()
         .unwrap_or(Termination::Failed);
-    let columns = model.observables.len();
-    let rows = request.time.report_times.len();
-    let to_rows = |values: &[f64]| -> Vec<Vec<f64>> {
-        if columns == 0 {
-            vec![Vec::new(); rows]
-        } else {
-            values.chunks(columns).map(<[f64]>::to_vec).collect()
-        }
-    };
-    let paths = finished
-        .iter()
-        .filter(|(id, _)| *id < request.outputs.keep_paths)
-        .map(|(id, p)| PathSeries {
-            id: *id,
-            values: to_rows(&p.values[..p.saved_points * columns]),
-        })
-        .collect();
-    let final_instances = finished
-        .iter()
-        .filter_map(|(id, p)| {
-            p.instances.as_ref().map(|instances| FinalInstances {
-                id: *id,
-                instances: instances.clone(),
-            })
-        })
-        .collect();
-    let all: Vec<engine::PathOutput> = finished.into_iter().map(|(_, p)| p).collect();
     let statistics = (complete && !request.outputs.statistics.is_empty())
-        .then(|| statistics(&request.outputs.statistics, &all, rows, columns));
+        .then(|| statistics(&request.outputs.statistics, &reducer, columns));
+    let paths = std::mem::take(&mut reducer.paths);
+    let final_instances = std::mem::take(&mut reducer.finals);
     let mut diagnostics = Vec::new();
     if !complete {
         diagnostics.push(Diagnostic::warning(

@@ -361,6 +361,7 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
     if !out.is_empty() {
         return Err(out);
     }
+    check_name(&model.name, "/name", &mut out);
     if model.types.is_empty() {
         out.push(invalid(
             "CRN-R011",
@@ -541,7 +542,7 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
         .into_iter()
         .map(|((t, _), (v, n))| (t, v, n))
         .collect();
-    // new_id() values exceed every initial attribute value.
+    // new_id() values exceed every initial attribute value (and 0).
     let first_id = libm::floor(largest) + 1.0;
 
     // Observables.
@@ -655,7 +656,7 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
         if rule.reactants.len() == 2 && rule.reactants[0].label == rule.reactants[1].label {
             out.push(invalid(
                 "CRN-R010",
-                &pointer(&path, "reactants/1/label"),
+                &format!("{path}/reactants/1/label"),
                 "duplicate reactant label",
                 "Give the two reactants different labels.",
             ));
@@ -821,6 +822,23 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
             "/rules",
             "no rules",
             "Declare at least one rule.",
+        ));
+    }
+    let uses_new_id = rules.iter().any(|r| {
+        r.products.iter().any(|p| {
+            p.attributes
+                .iter()
+                .any(|a| matches!(a, Source::Expression(e) if e.uses_new_id()))
+        })
+    });
+    if uses_new_id && first_id >= crate::expr::ID_LIMIT {
+        out.push(invalid(
+            "CRN-R014",
+            "/initial",
+            format!(
+                "initial attribute values up to {largest} leave no exact identities for new_id()"
+            ),
+            "Keep initial attribute values below 2^53 - 1 when rules call new_id().",
         ));
     }
     if out.is_empty() {

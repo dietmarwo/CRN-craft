@@ -1,0 +1,54 @@
+{
+  "convention": "stochastic_counts",
+  "name": "ParameterBinding12",
+  "omega": 1.0,
+  "parameters": {
+    "bind": 0.03,
+    "unbind": 0.4
+  },
+  "reactions": [
+    {
+      "name": "bind",
+      "products": {
+        "C": 1
+      },
+      "rate": {
+        "coefficient": "bind",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "A": 1,
+        "B": 1
+      }
+    },
+    {
+      "name": "unbind",
+      "products": {
+        "A": 1,
+        "B": 1
+      },
+      "rate": {
+        "coefficient": "unbind",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "C": 1
+      }
+    }
+  ],
+  "schema": "crn-craft.model/0.1",
+  "species": [
+    {
+      "initial_count": 24,
+      "name": "A"
+    },
+    {
+      "initial_count": 12,
+      "name": "B"
+    },
+    {
+      "initial_count": 0,
+      "name": "C"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "passed": true,
+  "optimizer_runs": 54,
+  "objective_evaluations": 6912,
+  "identical_crn_traces": 9,
+  "source_files": 45,
+  "normal_optimized_reports_identical": true,
+  "installed_facade_identical": true,
+  "installed_native_sha256": {
+    "_native.abi3.so": "a9af3d60d0b050f5bfb9a2342d7b17b8364aea189b825270f7c913ac3d9d0df5"
+  },
+  "final_wheel_sha256": {
+    "crn_craft-0.2.0.dev1-cp310-abi3-manylinux_2_34_x86_64.whl": "259d21ded7cd8f252245df14dfaafb95bea4a896fc5675af8451ba9425455630"
+  },
+  "all_objective_points_within_declared_bounds": true,
+  "bounded_objective_points": 6912
+}

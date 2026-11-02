@@ -21,3 +21,8 @@ implementation plan and campaign acceptance before numerical changes. Retain fai
 rows; do not loosen tolerances after a failure. The Vilar and circuit diagnoses are
 exploratory; broad behavioral claims, other-platform wheels and
 owner-controlled publishing remain additional validation work.
+
+Fixed-topology parameter searches can use the Rust/Python parameter template API;
+read docs/reusable-parameters.md and docs/comparison-parameter-optimization.md.
+Optional generated mass-action propensities retain the existing checked solver;
+fast is still explicit and the dynamic numerical engine has no compiler dependency.

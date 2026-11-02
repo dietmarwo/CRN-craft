@@ -1,0 +1,568 @@
+   Compiling libc v0.2.191
+   Compiling autocfg v1.5.1
+   Compiling getrandom v0.4.3
+   Compiling rand_core v0.10.1
+   Compiling cpufeatures v0.3.1
+   Compiling winnow v1.0.4
+   Compiling crn-craft v0.2.0-dev.1 (/workspace/scratch/d05427e343fb/CRN-craft-parameters/crates/crn-craft)
+   Compiling chacha20 v0.10.2
+   Compiling num-traits v0.2.19
+   Compiling rand v0.10.3
+   Compiling rand_distr v0.6.0
+   Compiling rebop v0.10.0
+   Compiling crn-parameter-bench-worker v0.1.0 (/workspace/scratch/d05427e343fb/CRN-craft-parameters/validation/parameter-optimization/worker)
+warning: unnecessary parentheses around assigned value
+ --> src/rebop_birth_death.rs:5:16
+  |
+5 | birth:  => X @ (birth / 1.0)
+  |                ^           ^
+  |
+  = note: `#[warn(unused_parens)]` on by default
+help: remove these parentheses
+  |
+5 - birth:  => X @ (birth / 1.0)
+5 + birth:  => X @ birth / 1.0
+  |
+
+warning: unnecessary parentheses around assigned value
+ --> src/rebop_sparse33.rs:5:20
+  |
+5 | birth_X0:  => X0 @ (birth / 1.0)
+  |                    ^           ^
+  |
+help: remove these parentheses
+  |
+5 - birth_X0:  => X0 @ (birth / 1.0)
+5 + birth_X0:  => X0 @ birth / 1.0
+  |
+
+warning: unnecessary parentheses around assigned value
+ --> src/rebop_sparse33.rs:7:20
+  |
+7 | birth_X1:  => X1 @ (birth / 1.0)
+  |                    ^           ^
+  |
+help: remove these parentheses
+  |
+7 - birth_X1:  => X1 @ (birth / 1.0)
+7 + birth_X1:  => X1 @ birth / 1.0
+  |
+
+warning: unnecessary parentheses around assigned value
+ --> src/rebop_sparse33.rs:9:20
+  |
+9 | birth_X2:  => X2 @ (birth / 1.0)
+  |                    ^           ^
+  |
+help: remove these parentheses
+  |
+9 - birth_X2:  => X2 @ (birth / 1.0)
+9 + birth_X2:  => X2 @ birth / 1.0
+  |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:11:20
+   |
+11 | birth_X3:  => X3 @ (birth / 1.0)
+   |                    ^           ^
+   |
+help: remove these parentheses
+   |
+11 - birth_X3:  => X3 @ (birth / 1.0)
+11 + birth_X3:  => X3 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:13:20
+   |
+13 | birth_X4:  => X4 @ (birth / 1.0)
+   |                    ^           ^
+   |
+help: remove these parentheses
+   |
+13 - birth_X4:  => X4 @ (birth / 1.0)
+13 + birth_X4:  => X4 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:15:20
+   |
+15 | birth_X5:  => X5 @ (birth / 1.0)
+   |                    ^           ^
+   |
+help: remove these parentheses
+   |
+15 - birth_X5:  => X5 @ (birth / 1.0)
+15 + birth_X5:  => X5 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:17:20
+   |
+17 | birth_X6:  => X6 @ (birth / 1.0)
+   |                    ^           ^
+   |
+help: remove these parentheses
+   |
+17 - birth_X6:  => X6 @ (birth / 1.0)
+17 + birth_X6:  => X6 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:19:20
+   |
+19 | birth_X7:  => X7 @ (birth / 1.0)
+   |                    ^           ^
+   |
+help: remove these parentheses
+   |
+19 - birth_X7:  => X7 @ (birth / 1.0)
+19 + birth_X7:  => X7 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:21:20
+   |
+21 | birth_X8:  => X8 @ (birth / 1.0)
+   |                    ^           ^
+   |
+help: remove these parentheses
+   |
+21 - birth_X8:  => X8 @ (birth / 1.0)
+21 + birth_X8:  => X8 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:23:20
+   |
+23 | birth_X9:  => X9 @ (birth / 1.0)
+   |                    ^           ^
+   |
+help: remove these parentheses
+   |
+23 - birth_X9:  => X9 @ (birth / 1.0)
+23 + birth_X9:  => X9 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:25:22
+   |
+25 | birth_X10:  => X10 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+25 - birth_X10:  => X10 @ (birth / 1.0)
+25 + birth_X10:  => X10 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:27:22
+   |
+27 | birth_X11:  => X11 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+27 - birth_X11:  => X11 @ (birth / 1.0)
+27 + birth_X11:  => X11 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:29:22
+   |
+29 | birth_X12:  => X12 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+29 - birth_X12:  => X12 @ (birth / 1.0)
+29 + birth_X12:  => X12 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:31:22
+   |
+31 | birth_X13:  => X13 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+31 - birth_X13:  => X13 @ (birth / 1.0)
+31 + birth_X13:  => X13 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:33:22
+   |
+33 | birth_X14:  => X14 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+33 - birth_X14:  => X14 @ (birth / 1.0)
+33 + birth_X14:  => X14 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:35:22
+   |
+35 | birth_X15:  => X15 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+35 - birth_X15:  => X15 @ (birth / 1.0)
+35 + birth_X15:  => X15 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:37:22
+   |
+37 | birth_X16:  => X16 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+37 - birth_X16:  => X16 @ (birth / 1.0)
+37 + birth_X16:  => X16 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:39:22
+   |
+39 | birth_X17:  => X17 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+39 - birth_X17:  => X17 @ (birth / 1.0)
+39 + birth_X17:  => X17 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:41:22
+   |
+41 | birth_X18:  => X18 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+41 - birth_X18:  => X18 @ (birth / 1.0)
+41 + birth_X18:  => X18 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:43:22
+   |
+43 | birth_X19:  => X19 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+43 - birth_X19:  => X19 @ (birth / 1.0)
+43 + birth_X19:  => X19 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:45:22
+   |
+45 | birth_X20:  => X20 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+45 - birth_X20:  => X20 @ (birth / 1.0)
+45 + birth_X20:  => X20 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:47:22
+   |
+47 | birth_X21:  => X21 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+47 - birth_X21:  => X21 @ (birth / 1.0)
+47 + birth_X21:  => X21 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:49:22
+   |
+49 | birth_X22:  => X22 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+49 - birth_X22:  => X22 @ (birth / 1.0)
+49 + birth_X22:  => X22 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:51:22
+   |
+51 | birth_X23:  => X23 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+51 - birth_X23:  => X23 @ (birth / 1.0)
+51 + birth_X23:  => X23 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:53:22
+   |
+53 | birth_X24:  => X24 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+53 - birth_X24:  => X24 @ (birth / 1.0)
+53 + birth_X24:  => X24 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:55:22
+   |
+55 | birth_X25:  => X25 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+55 - birth_X25:  => X25 @ (birth / 1.0)
+55 + birth_X25:  => X25 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:57:22
+   |
+57 | birth_X26:  => X26 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+57 - birth_X26:  => X26 @ (birth / 1.0)
+57 + birth_X26:  => X26 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:59:22
+   |
+59 | birth_X27:  => X27 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+59 - birth_X27:  => X27 @ (birth / 1.0)
+59 + birth_X27:  => X27 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:61:22
+   |
+61 | birth_X28:  => X28 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+61 - birth_X28:  => X28 @ (birth / 1.0)
+61 + birth_X28:  => X28 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:63:22
+   |
+63 | birth_X29:  => X29 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+63 - birth_X29:  => X29 @ (birth / 1.0)
+63 + birth_X29:  => X29 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:65:22
+   |
+65 | birth_X30:  => X30 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+65 - birth_X30:  => X30 @ (birth / 1.0)
+65 + birth_X30:  => X30 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:67:22
+   |
+67 | birth_X31:  => X31 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+67 - birth_X31:  => X31 @ (birth / 1.0)
+67 + birth_X31:  => X31 @ birth / 1.0
+   |
+
+warning: unnecessary parentheses around assigned value
+  --> src/rebop_sparse33.rs:69:22
+   |
+69 | birth_X32:  => X32 @ (birth / 1.0)
+   |                      ^           ^
+   |
+help: remove these parentheses
+   |
+69 - birth_X32:  => X32 @ (birth / 1.0)
+69 + birth_X32:  => X32 @ birth / 1.0
+   |
+
+error[E0277]: `Diagnostic` doesn't implement `std::fmt::Display`
+  --> src/main.rs:83:21
+   |
+83 |         let model = crn_craft::parse_model(&model_bytes).map_err(error)?;
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Diagnostic` cannot be formatted with the default formatter
+   |
+   = help: the trait `std::fmt::Display` is not implemented for `Diagnostic`
+   = note: in format strings you may be able to use `{:?}` (or {:#?} for pretty-print) instead
+note: required by a bound in `error`
+  --> src/main.rs:73:22
+   |
+73 | fn error(value: impl std::fmt::Display) -> String {
+   |                      ^^^^^^^^^^^^^^^^^ required by this bound in `error`
+
+error[E0277]: `Diagnostic` doesn't implement `std::fmt::Display`
+  --> src/main.rs:83:66
+   |
+83 |         let model = crn_craft::parse_model(&model_bytes).map_err(error)?;
+   |                                                                  ^^^^^ `Diagnostic` cannot be formatted with the default formatter
+   |
+   = help: the trait `std::fmt::Display` is not implemented for `Diagnostic`
+   = note: in format strings you may be able to use `{:?}` (or {:#?} for pretty-print) instead
+note: required by a bound in `error`
+  --> src/main.rs:73:22
+   |
+73 | fn error(value: impl std::fmt::Display) -> String {
+   |                      ^^^^^^^^^^^^^^^^^ required by this bound in `error`
+
+error[E0277]: `Diagnostic` doesn't implement `std::fmt::Display`
+   --> src/main.rs:115:17
+    |
+115 |                 crn_craft::strict_json::parse(&request).map_err(error)?,
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Diagnostic` cannot be formatted with the default formatter
+    |
+    = help: the trait `std::fmt::Display` is not implemented for `Diagnostic`
+    = note: in format strings you may be able to use `{:?}` (or {:#?} for pretty-print) instead
+note: required by a bound in `error`
+   --> src/main.rs:73:22
+    |
+73  | fn error(value: impl std::fmt::Display) -> String {
+    |                      ^^^^^^^^^^^^^^^^^ required by this bound in `error`
+
+error[E0277]: `Diagnostic` doesn't implement `std::fmt::Display`
+   --> src/main.rs:115:65
+    |
+115 |                 crn_craft::strict_json::parse(&request).map_err(error)?,
+    |                                                                 ^^^^^ `Diagnostic` cannot be formatted with the default formatter
+    |
+    = help: the trait `std::fmt::Display` is not implemented for `Diagnostic`
+    = note: in format strings you may be able to use `{:?}` (or {:#?} for pretty-print) instead
+note: required by a bound in `error`
+   --> src/main.rs:73:22
+    |
+73  | fn error(value: impl std::fmt::Display) -> String {
+    |                      ^^^^^^^^^^^^^^^^^ required by this bound in `error`
+
+error[E0277]: `Diagnostic` doesn't implement `std::fmt::Display`
+   --> src/main.rs:185:22
+    |
+185 |           let result = if self.engine == "generated" {
+    |  ______________________^
+186 | |             #[cfg(feature = "generated")]
+187 | |             {
+188 | |                 match self.case.as_str() {
+...   |
+216 | |         .map_err(error)?;
+    | |_______________________^ `Diagnostic` cannot be formatted with the default formatter
+    |
+    = help: the trait `std::fmt::Display` is not implemented for `Diagnostic`
+    = note: in format strings you may be able to use `{:?}` (or {:#?} for pretty-print) instead
+note: required by a bound in `error`
+   --> src/main.rs:73:22
+    |
+73  | fn error(value: impl std::fmt::Display) -> String {
+    |                      ^^^^^^^^^^^^^^^^^ required by this bound in `error`
+
+error[E0277]: `Diagnostic` doesn't implement `std::fmt::Display`
+   --> src/main.rs:216:18
+    |
+216 |         .map_err(error)?;
+    |                  ^^^^^ `Diagnostic` cannot be formatted with the default formatter
+    |
+    = help: the trait `std::fmt::Display` is not implemented for `Diagnostic`
+    = note: in format strings you may be able to use `{:?}` (or {:#?} for pretty-print) instead
+note: required by a bound in `error`
+   --> src/main.rs:73:22
+    |
+73  | fn error(value: impl std::fmt::Display) -> String {
+    |                      ^^^^^^^^^^^^^^^^^ required by this bound in `error`
+
+error[E0277]: `Diagnostic` doesn't implement `std::fmt::Display`
+   --> src/main.rs:269:32
+    |
+269 |             let value: Value = crn_craft::strict_json::parse(line.as_bytes()).map_err(error)?;
+    |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `Diagnostic` cannot be formatted with the default formatter
+    |
+    = help: the trait `std::fmt::Display` is not implemented for `Diagnostic`
+    = note: in format strings you may be able to use `{:?}` (or {:#?} for pretty-print) instead
+note: required by a bound in `error`
+   --> src/main.rs:73:22
+    |
+73  | fn error(value: impl std::fmt::Display) -> String {
+    |                      ^^^^^^^^^^^^^^^^^ required by this bound in `error`
+
+error[E0277]: `Diagnostic` doesn't implement `std::fmt::Display`
+   --> src/main.rs:269:87
+    |
+269 |             let value: Value = crn_craft::strict_json::parse(line.as_bytes()).map_err(error)?;
+    |                                                                                       ^^^^^ `Diagnostic` cannot be formatted with the default formatter
+    |
+    = help: the trait `std::fmt::Display` is not implemented for `Diagnostic`
+    = note: in format strings you may be able to use `{:?}` (or {:#?} for pretty-print) instead
+note: required by a bound in `error`
+   --> src/main.rs:73:22
+    |
+73  | fn error(value: impl std::fmt::Display) -> String {
+    |                      ^^^^^^^^^^^^^^^^^ required by this bound in `error`
+
+error[E0507]: cannot move out of `a` in pattern guard
+   --> src/main.rs:251:49
+    |
+251 |                         if serde_json::to_value(a).unwrap() == serde_json::to_value(b).unwrap() =>
+    |                                                 ^ move occurs because `a` has type `Diagnostic`, which does not implement the `Copy` trait
+    |
+    = note: variables bound in patterns cannot be moved from until after the end of the pattern guard
+help: consider cloning the value if the performance cost is acceptable
+    |
+251 |                         if serde_json::to_value(a.clone()).unwrap() == serde_json::to_value(b).unwrap() =>
+    |                                                  ++++++++
+
+error[E0507]: cannot move out of `b` in pattern guard
+   --> src/main.rs:251:85
+    |
+251 |                         if serde_json::to_value(a).unwrap() == serde_json::to_value(b).unwrap() =>
+    |                                                                                     ^ move occurs because `b` has type `Diagnostic`, which does not implement the `Copy` trait
+    |
+    = note: variables bound in patterns cannot be moved from until after the end of the pattern guard
+help: consider cloning the value if the performance cost is acceptable
+    |
+251 |                         if serde_json::to_value(a).unwrap() == serde_json::to_value(b.clone()).unwrap() =>
+    |                                                                                      ++++++++
+
+Some errors have detailed explanations: E0277, E0507.
+For more information about an error, try `rustc --explain E0277`.
+warning: `crn-parameter-bench-worker` (bin "crn-parameter-bench-worker") generated 34 warnings
+error: could not compile `crn-parameter-bench-worker` (bin "crn-parameter-bench-worker") due to 10 previous errors; 34 warnings emitted

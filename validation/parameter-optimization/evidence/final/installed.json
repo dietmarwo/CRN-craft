@@ -1,0 +1,15 @@
+{
+  "checks": [
+    "version_and_entry_points",
+    "native_API_exact_identity",
+    "discovery",
+    "installed_CLI_archive_and_import_scripts",
+    "FSP",
+    "tau",
+    "importer",
+    "observables"
+  ],
+  "package_path": "/workspace/scratch/d05427e343fb/crn-parameters-python/lib/python3.12/site-packages/crn_craft/__init__.py",
+  "passed": true,
+  "schema": "crn-craft.installed-validation/0.1"
+}

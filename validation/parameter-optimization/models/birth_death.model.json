@@ -1,0 +1,40 @@
+{
+  "convention": "stochastic_counts",
+  "name": "ParameterBirthDeath",
+  "omega": 1.0,
+  "parameters": {
+    "birth": 20.0,
+    "death": 0.6
+  },
+  "reactions": [
+    {
+      "name": "birth",
+      "products": {
+        "X": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X": 1
+      }
+    }
+  ],
+  "schema": "crn-craft.model/0.1",
+  "species": [
+    {
+      "initial_count": 0,
+      "name": "X"
+    }
+  ]
+}

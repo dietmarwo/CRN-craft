@@ -155,6 +155,78 @@ fn prepare_ssa_json(py: Python<'_>, model: Vec<u8>, request: Vec<u8>) -> PyResul
         prepared: Arc::new(prepared),
     })
 }
+#[pyclass(frozen)]
+struct ParameterTemplateRun {
+    template: Arc<crn_craft::parameters::ParameterTemplate>,
+}
+#[pyclass(frozen)]
+struct BoundParameterRun {
+    bound: Arc<crn_craft::parameters::BoundParameters>,
+}
+#[pymethods]
+impl ParameterTemplateRun {
+    fn parameter_names(&self) -> Vec<String> {
+        self.template.parameter_names().to_vec()
+    }
+    fn default_values(&self) -> Vec<f64> {
+        self.template.default_values()
+    }
+    fn topology_sha256(&self) -> String {
+        self.template.topology_sha256().to_owned()
+    }
+    #[pyo3(signature = (values, seed=None))]
+    fn bind(
+        &self,
+        py: Python<'_>,
+        values: Vec<f64>,
+        seed: Option<u64>,
+    ) -> PyResult<BoundParameterRun> {
+        let template = Arc::clone(&self.template);
+        let bound = py
+            .detach(move || template.bind(&values, seed))
+            .map_err(|e| failure(&e))?;
+        Ok(BoundParameterRun {
+            bound: Arc::new(bound),
+        })
+    }
+}
+#[pymethods]
+impl BoundParameterRun {
+    fn model_bytes<'py>(&self, py: Python<'py>) -> Bound<'py, pyo3::types::PyBytes> {
+        pyo3::types::PyBytes::new(py, &self.bound.model_bytes)
+    }
+    fn request_bytes<'py>(&self, py: Python<'py>) -> Bound<'py, pyo3::types::PyBytes> {
+        pyo3::types::PyBytes::new(py, &self.bound.request_bytes)
+    }
+    #[pyo3(signature = (cancel_file=None))]
+    fn simulate_json(&self, py: Python<'_>, cancel_file: Option<String>) -> PyResult<String> {
+        let bound = Arc::clone(&self.bound);
+        let result = interruptible(py, cancel_file, move |control| {
+            crn_craft::ssa::execute(&bound.prepared, control)
+        })?
+        .map_err(|e| failure(&e))?;
+        serde_json::to_string(&result).map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+}
+#[pyfunction]
+fn prepare_parameters_json(
+    py: Python<'_>,
+    model: Vec<u8>,
+    request: Vec<u8>,
+) -> PyResult<ParameterTemplateRun> {
+    let template = py
+        .detach(move || crn_craft::parameters::ParameterTemplate::prepare(&model, &request))
+        .map_err(|e| failure(&e))?;
+    Ok(ParameterTemplateRun {
+        template: Arc::new(template),
+    })
+}
+#[pyfunction]
+fn mass_action_kernel_source(py: Python<'_>, model: Vec<u8>) -> PyResult<String> {
+    py.detach(move || crn_craft::codegen::mass_action_source(&model))
+        .map_err(|e| failure(&e))
+}
+
 #[pyfunction]
 #[pyo3(signature = (model, request, cancel_file=None))]
 fn ssa_json(
@@ -234,6 +306,10 @@ fn fsp_json(
 }
 #[pymodule]
 fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<ParameterTemplateRun>()?;
+    module.add_class::<BoundParameterRun>()?;
+    module.add_function(wrap_pyfunction!(prepare_parameters_json, module)?)?;
+    module.add_function(wrap_pyfunction!(mass_action_kernel_source, module)?)?;
     module.add_class::<PreparedSsaRun>()?;
     module.add_function(wrap_pyfunction!(prepare_ssa_json, module)?)?;
     module.add_function(wrap_pyfunction!(ssa_json, module)?)?;

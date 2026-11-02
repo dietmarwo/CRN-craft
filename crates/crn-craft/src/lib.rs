@@ -3,6 +3,7 @@
 pub mod analysis;
 pub mod analysis_v1;
 pub mod archive;
+pub mod codegen;
 pub mod cone;
 pub mod conservation;
 pub mod contracts;
@@ -12,6 +13,7 @@ pub mod fsp;
 pub mod kinetics;
 pub mod linkage;
 pub mod network;
+pub mod parameters;
 mod rates;
 pub mod sampling;
 pub mod simulation;

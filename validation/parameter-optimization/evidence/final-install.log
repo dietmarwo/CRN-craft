@@ -1,0 +1,10 @@
+Processing /tmp/crn-parameters-wheel/crn_craft-0.2.0.dev1-cp310-abi3-manylinux_2_34_x86_64.whl
+Installing collected packages: crn-craft
+  Attempting uninstall: crn-craft
+    Found existing installation: crn-craft 0.2.0.dev1
+    Uninstalling crn-craft-0.2.0.dev1:
+      Successfully uninstalled crn-craft-0.2.0.dev1
+Successfully installed crn-craft-0.2.0.dev1
+
+[notice] A new release of pip is available: 25.0.1 -> 26.2.2
+[notice] To update, run: python -m pip install --upgrade pip

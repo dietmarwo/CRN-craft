@@ -1,0 +1,872 @@
+{
+  "convention": "stochastic_counts",
+  "name": "ParameterSparse33",
+  "omega": 1.0,
+  "parameters": {
+    "birth": 3.0,
+    "death": 0.2
+  },
+  "reactions": [
+    {
+      "name": "birth_X0",
+      "products": {
+        "X0": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X0",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X0": 1
+      }
+    },
+    {
+      "name": "birth_X1",
+      "products": {
+        "X1": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X1",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X1": 1
+      }
+    },
+    {
+      "name": "birth_X2",
+      "products": {
+        "X2": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X2",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X2": 1
+      }
+    },
+    {
+      "name": "birth_X3",
+      "products": {
+        "X3": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X3",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X3": 1
+      }
+    },
+    {
+      "name": "birth_X4",
+      "products": {
+        "X4": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X4",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X4": 1
+      }
+    },
+    {
+      "name": "birth_X5",
+      "products": {
+        "X5": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X5",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X5": 1
+      }
+    },
+    {
+      "name": "birth_X6",
+      "products": {
+        "X6": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X6",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X6": 1
+      }
+    },
+    {
+      "name": "birth_X7",
+      "products": {
+        "X7": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X7",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X7": 1
+      }
+    },
+    {
+      "name": "birth_X8",
+      "products": {
+        "X8": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X8",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X8": 1
+      }
+    },
+    {
+      "name": "birth_X9",
+      "products": {
+        "X9": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X9",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X9": 1
+      }
+    },
+    {
+      "name": "birth_X10",
+      "products": {
+        "X10": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X10",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X10": 1
+      }
+    },
+    {
+      "name": "birth_X11",
+      "products": {
+        "X11": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X11",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X11": 1
+      }
+    },
+    {
+      "name": "birth_X12",
+      "products": {
+        "X12": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X12",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X12": 1
+      }
+    },
+    {
+      "name": "birth_X13",
+      "products": {
+        "X13": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X13",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X13": 1
+      }
+    },
+    {
+      "name": "birth_X14",
+      "products": {
+        "X14": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X14",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X14": 1
+      }
+    },
+    {
+      "name": "birth_X15",
+      "products": {
+        "X15": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X15",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X15": 1
+      }
+    },
+    {
+      "name": "birth_X16",
+      "products": {
+        "X16": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X16",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X16": 1
+      }
+    },
+    {
+      "name": "birth_X17",
+      "products": {
+        "X17": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X17",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X17": 1
+      }
+    },
+    {
+      "name": "birth_X18",
+      "products": {
+        "X18": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X18",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X18": 1
+      }
+    },
+    {
+      "name": "birth_X19",
+      "products": {
+        "X19": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X19",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X19": 1
+      }
+    },
+    {
+      "name": "birth_X20",
+      "products": {
+        "X20": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X20",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X20": 1
+      }
+    },
+    {
+      "name": "birth_X21",
+      "products": {
+        "X21": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X21",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X21": 1
+      }
+    },
+    {
+      "name": "birth_X22",
+      "products": {
+        "X22": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X22",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X22": 1
+      }
+    },
+    {
+      "name": "birth_X23",
+      "products": {
+        "X23": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X23",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X23": 1
+      }
+    },
+    {
+      "name": "birth_X24",
+      "products": {
+        "X24": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X24",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X24": 1
+      }
+    },
+    {
+      "name": "birth_X25",
+      "products": {
+        "X25": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X25",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X25": 1
+      }
+    },
+    {
+      "name": "birth_X26",
+      "products": {
+        "X26": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X26",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X26": 1
+      }
+    },
+    {
+      "name": "birth_X27",
+      "products": {
+        "X27": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X27",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X27": 1
+      }
+    },
+    {
+      "name": "birth_X28",
+      "products": {
+        "X28": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X28",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X28": 1
+      }
+    },
+    {
+      "name": "birth_X29",
+      "products": {
+        "X29": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X29",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X29": 1
+      }
+    },
+    {
+      "name": "birth_X30",
+      "products": {
+        "X30": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X30",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X30": 1
+      }
+    },
+    {
+      "name": "birth_X31",
+      "products": {
+        "X31": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X31",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X31": 1
+      }
+    },
+    {
+      "name": "birth_X32",
+      "products": {
+        "X32": 1
+      },
+      "rate": {
+        "coefficient": "birth",
+        "kind": "mass_action"
+      },
+      "reactants": {}
+    },
+    {
+      "name": "death_X32",
+      "products": {},
+      "rate": {
+        "coefficient": "death",
+        "kind": "mass_action"
+      },
+      "reactants": {
+        "X32": 1
+      }
+    }
+  ],
+  "schema": "crn-craft.model/0.1",
+  "species": [
+    {
+      "initial_count": 0,
+      "name": "X0"
+    },
+    {
+      "initial_count": 0,
+      "name": "X1"
+    },
+    {
+      "initial_count": 0,
+      "name": "X2"
+    },
+    {
+      "initial_count": 0,
+      "name": "X3"
+    },
+    {
+      "initial_count": 0,
+      "name": "X4"
+    },
+    {
+      "initial_count": 0,
+      "name": "X5"
+    },
+    {
+      "initial_count": 0,
+      "name": "X6"
+    },
+    {
+      "initial_count": 0,
+      "name": "X7"
+    },
+    {
+      "initial_count": 0,
+      "name": "X8"
+    },
+    {
+      "initial_count": 0,
+      "name": "X9"
+    },
+    {
+      "initial_count": 0,
+      "name": "X10"
+    },
+    {
+      "initial_count": 0,
+      "name": "X11"
+    },
+    {
+      "initial_count": 0,
+      "name": "X12"
+    },
+    {
+      "initial_count": 0,
+      "name": "X13"
+    },
+    {
+      "initial_count": 0,
+      "name": "X14"
+    },
+    {
+      "initial_count": 0,
+      "name": "X15"
+    },
+    {
+      "initial_count": 0,
+      "name": "X16"
+    },
+    {
+      "initial_count": 0,
+      "name": "X17"
+    },
+    {
+      "initial_count": 0,
+      "name": "X18"
+    },
+    {
+      "initial_count": 0,
+      "name": "X19"
+    },
+    {
+      "initial_count": 0,
+      "name": "X20"
+    },
+    {
+      "initial_count": 0,
+      "name": "X21"
+    },
+    {
+      "initial_count": 0,
+      "name": "X22"
+    },
+    {
+      "initial_count": 0,
+      "name": "X23"
+    },
+    {
+      "initial_count": 0,
+      "name": "X24"
+    },
+    {
+      "initial_count": 0,
+      "name": "X25"
+    },
+    {
+      "initial_count": 0,
+      "name": "X26"
+    },
+    {
+      "initial_count": 0,
+      "name": "X27"
+    },
+    {
+      "initial_count": 0,
+      "name": "X28"
+    },
+    {
+      "initial_count": 0,
+      "name": "X29"
+    },
+    {
+      "initial_count": 0,
+      "name": "X30"
+    },
+    {
+      "initial_count": 0,
+      "name": "X31"
+    },
+    {
+      "initial_count": 0,
+      "name": "X32"
+    }
+  ]
+}

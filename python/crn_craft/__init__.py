@@ -1,5 +1,7 @@
 """Small byte-preserving JSON interface to the native CRN-craft core."""
 
+from collections.abc import Mapping
+import numbers
 import hashlib
 import importlib.metadata
 import json
@@ -147,6 +149,109 @@ def prepare_ssa(model, request):
         return PreparedSimulation(
             _native.prepare_ssa_json(model_bytes(model), model_bytes(request))
         )
+    except _native.NativeError as error:
+        raise _crn_error(error) from None
+
+
+class BoundParameterSimulation(PreparedSimulation):
+    """Independent bound model/run snapshots and restartable prepared execution."""
+
+    @property
+    def model_bytes(self):
+        return self._prepared.model_bytes()
+
+    @property
+    def request_bytes(self):
+        return self._prepared.request_bytes()
+
+
+class ParameterTemplate:
+    """Fixed topology with independently bound parameter values.
+
+    All declared parameters must be supplied, in ``parameter_names`` order or
+    as an exact mapping. Initial populations/run settings are fixed. Each bind
+    refreshes law memos/bounds and retains shared immutable network structure.
+    """
+
+    def __init__(self, native):
+        self._template = native
+        self._parameter_names = tuple(native.parameter_names())
+        self._default_values = tuple(native.default_values())
+        self._topology_sha256 = native.topology_sha256()
+
+    @property
+    def parameter_names(self):
+        return self._parameter_names
+
+    @property
+    def default_values(self):
+        return self._default_values
+
+    @property
+    def topology_sha256(self):
+        return self._topology_sha256
+
+    def bind(self, values, *, seed=None):
+        def invalid(message):
+            return CrnError(
+                [
+                    {
+                        "code": "CRN-E015",
+                        "path": "/parameters",
+                        "message": message,
+                        "hint": "Use every parameter_names entry exactly once with real numeric values.",
+                    }
+                ]
+            )
+
+        if seed is not None:
+            if (
+                isinstance(seed, bool)
+                or not isinstance(seed, numbers.Integral)
+                or not 0 <= seed < 2**64
+            ):
+                raise invalid("seed must be an unsigned 64-bit integer")
+            seed = int(seed)
+        if isinstance(values, Mapping):
+            if set(values) != set(self.parameter_names):
+                raise invalid("parameter names do not match template")
+            values = [values[name] for name in self.parameter_names]
+        elif isinstance(values, str | bytes | bytearray):
+            raise invalid("parameter values must be a numeric sequence or mapping")
+        else:
+            try:
+                values = list(values)
+            except TypeError as error:
+                raise invalid(
+                    "parameter values must be a sequence or mapping"
+                ) from error
+        if any(isinstance(x, bool) or not isinstance(x, numbers.Real) for x in values):
+            raise invalid("parameter values must be real numbers, excluding booleans")
+        try:
+            return BoundParameterSimulation(
+                self._template.bind([float(x) for x in values], seed)
+            )
+        except _native.NativeError as error:
+            raise _crn_error(error) from None
+
+    def simulate(self, values, *, seed=None, cancel_file=None):
+        return self.bind(values, seed=seed).simulate(cancel_file=cancel_file)
+
+
+def prepare_parameters(model, request):
+    """Compile fixed topology once for a parameter search; no runtime compiler."""
+    try:
+        return ParameterTemplate(
+            _native.prepare_parameters_json(model_bytes(model), model_bytes(request))
+        )
+    except _native.NativeError as error:
+        raise _crn_error(error) from None
+
+
+def mass_action_kernel_source(model):
+    """Generate optional Rust propensity source; compile externally once per topology."""
+    try:
+        return _native.mass_action_kernel_source(model_bytes(model))
     except _native.NativeError as error:
         raise _crn_error(error) from None
 

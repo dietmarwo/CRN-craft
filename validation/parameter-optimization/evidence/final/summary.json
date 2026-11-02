@@ -1,0 +1,181 @@
+{
+  "complete": true,
+  "passed": true,
+  "checks": [
+    {
+      "check": "fmt",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "binding-fmt",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "worker-fmt",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "python-lint",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "python-fmt",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "build",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "clippy",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "binding-clippy",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "worker-clippy",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "release-tests",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "msrv-tests",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "build-wheel",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "install-wheel",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "check_contracts",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "check_contracts-optimized",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "check_alternative_contracts",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "check_alternative_contracts-optimized",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "check_python",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "check_python-optimized",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "check_ssa",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "check_ssa-optimized",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "check_cme",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "check_cme-optimized",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "default-laws",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "default-laws-optimized",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "fast-laws",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "fast-laws-optimized",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "check_ssa-cached",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "check_cme-cached",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "dependencies",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "dependencies-optimized",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "installed",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "installed-optimized",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "parameter-validation",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "parameter-validation-optimized",
+      "passed": true,
+      "returncode": 0
+    }
+  ]
+}

@@ -17,6 +17,8 @@ Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/ar
 - [Technical report](docs/technical-report.md): numerical methods, validation evidence and measured performance
 - [Comparison with GillesPy2](docs/comparison-gillespy2.md): same models, timed against GillesPy2's C++ and NumPy solvers
 - [Alternative exact SSA methods](docs/alternative-ssa.md): versioned requests, prepared Python calls, bounded sampling and gated RSSACR bounds
+- [Reusable parameter interface and optional generated kernels](docs/reusable-parameters.md): fixed-topology optimization, independent bindings and replay snapshots
+- [Complete parameter-optimization comparison](docs/comparison-parameter-optimization.md): fast CRN versus rebop dynamic/macro routes, including compilation and final fit quality
 - [Comparison with Catalyst and JumpProcesses](docs/comparison-catalyst-jumpprocesses.md): seven workloads, five Julia SSA algorithms and the new Rust methods, with pinned environments and distribution checks; the [earlier comparison](docs/comparison-catalyst-jumpprocesses-before-acceleration.md) is preserved
 - [Ten further Julia-gap iterations](docs/comparison-julia-gap10.md): same-host GitHub-main/final/Julia rerun, all methods, exposed regressions and [inspected Julia mechanisms](docs/campaign/julia-gap10-source-investigation.md)
 - [Agent context](docs/ai-context.md): what an AI agent needs to use and extend CRN-craft

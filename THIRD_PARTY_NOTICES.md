@@ -36,3 +36,13 @@ end of terms and conditions
 
 [Julia's LICENSE.md ends with a pointer to its own THIRDPARTY.md, which
 covers other software in the Julia repository; none of it is used here.]
+
+## Optional parameter-optimization references
+
+The isolated `validation/parameter-optimization/worker` workspace uses rebop
+0.10.0 as an optional benchmark reference. Its generated wrappers invoke the
+upstream macro API; it is not a dependency or implementation of the default
+CRN-craft engine. The upstream MIT notice is preserved in
+`validation/parameter-optimization/REBOP_LICENSE.txt`. Cargo.lock pins its
+reference dependencies. Python fcmaes-rust/rebop dependencies are separately
+listed in that directory's requirements file.

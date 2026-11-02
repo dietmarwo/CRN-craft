@@ -1,0 +1,108 @@
+start birth_death 20261102 crn_fresh_fast
+done crn_fresh_fast 0.12456647898943629 0.0004713520603175283 None
+start birth_death 20261102 crn_reuse_fast
+done crn_reuse_fast 0.1271624920045724 0.0004713520603175283 None
+start birth_death 20261102 crn_generated_fast
+done crn_generated_fast 0.10658115199476015 0.0004713520603175283 None
+start birth_death 20261102 rebop_expression
+done rebop_expression 1.8624466939945705 0.013255242902681366 None
+start birth_death 20261102 rebop_rebuild_lma
+done rebop_rebuild_lma 2.1787114999897312 0.013255242902681366 None
+start birth_death 20261102 rebop_macro
+done rebop_macro 0.04254693399707321 0.013255242902681366 None
+start birth_death 20261103 crn_fresh_fast
+done crn_fresh_fast 0.12319756799843162 0.0007756155856923826 None
+start birth_death 20261103 rebop_macro
+done rebop_macro 0.0343542369955685 0.0014643020969358183 None
+start birth_death 20261103 rebop_rebuild_lma
+done rebop_rebuild_lma 1.9870408580027288 0.0014643020969358183 None
+start birth_death 20261103 rebop_expression
+done rebop_expression 1.806674840991036 0.0014643020969358183 None
+start birth_death 20261103 crn_generated_fast
+done crn_generated_fast 0.10782461200142279 0.0007756155856923826 None
+start birth_death 20261103 crn_reuse_fast
+done crn_reuse_fast 0.10670538400881924 0.0007756155856923826 None
+start birth_death 20261104 crn_generated_fast
+done crn_generated_fast 0.12653383299766574 0.008478236204206043 None
+start birth_death 20261104 rebop_expression
+done rebop_expression 1.9588540469994769 0.002767714744774227 None
+start birth_death 20261104 rebop_rebuild_lma
+done rebop_rebuild_lma 2.245041855989257 0.002767714744774227 None
+start birth_death 20261104 rebop_macro
+done rebop_macro 0.036951721005607396 0.002767714744774227 None
+start birth_death 20261104 crn_fresh_fast
+done crn_fresh_fast 0.13600776699604467 0.008478236204206043 None
+start birth_death 20261104 crn_reuse_fast
+done crn_reuse_fast 0.16070175600179937 0.008478236204206043 None
+start sparse33 20261102 crn_reuse_fast
+done crn_reuse_fast 1.9565031160018407 0.0008568807580135192 None
+start sparse33 20261102 crn_generated_fast
+done crn_generated_fast 2.091686915999162 0.0008568807580135192 None
+start sparse33 20261102 rebop_expression
+done rebop_expression 44.681274905000464 0.003450230497250979 None
+start sparse33 20261102 rebop_rebuild_lma
+done rebop_rebuild_lma 26.048956810001982 0.003450230497250979 None
+start sparse33 20261102 rebop_macro
+done rebop_macro 2.088718119994155 0.003450230497250979 None
+start sparse33 20261102 crn_fresh_fast
+done crn_fresh_fast 1.9920132789993659 0.0008568807580135192 None
+start sparse33 20261103 crn_reuse_fast
+done crn_reuse_fast 1.6553343339910498 0.0023836605072805523 None
+start sparse33 20261103 crn_fresh_fast
+done crn_fresh_fast 1.9364902490051463 0.0023836605072805523 None
+start sparse33 20261103 rebop_macro
+done rebop_macro 1.726837467009318 0.0062454795414293805 None
+start sparse33 20261103 rebop_rebuild_lma
+done rebop_rebuild_lma 23.634331302004284 0.0062454795414293805 None
+start sparse33 20261103 rebop_expression
+done rebop_expression 40.45067245401151 0.0062454795414293805 None
+start sparse33 20261103 crn_generated_fast
+done crn_generated_fast 1.7029020670015598 0.0023836605072805523 None
+start sparse33 20261104 rebop_expression
+done rebop_expression 45.39357175199257 0.0027394314895779624 None
+start sparse33 20261104 rebop_rebuild_lma
+done rebop_rebuild_lma 23.57295778200205 0.0027394314895779624 None
+start sparse33 20261104 rebop_macro
+done rebop_macro 1.801763764990028 0.0027394314895779624 None
+start sparse33 20261104 crn_fresh_fast
+done crn_fresh_fast 1.8667474829999264 0.0017611298255147034 None
+start sparse33 20261104 crn_reuse_fast
+done crn_reuse_fast 1.807973855000455 0.0017611298255147034 None
+start sparse33 20261104 crn_generated_fast
+done crn_generated_fast 1.9625534680089913 0.0017611298255147034 None
+start binding12 20261102 crn_generated_fast
+done crn_generated_fast 0.03611767099937424 0.0011319841287134977 None
+start binding12 20261102 rebop_expression
+done rebop_expression 3.3750096409930848 0.0003761058784243257 None
+start binding12 20261102 rebop_rebuild_lma
+done rebop_rebuild_lma 3.3177602070063585 0.0003761058784243257 None
+start binding12 20261102 rebop_macro
+done rebop_macro 0.015940366007271223 0.0003761058784243257 None
+start binding12 20261102 crn_fresh_fast
+done crn_fresh_fast 0.04529525998805184 0.0011319841287134977 None
+start binding12 20261102 crn_reuse_fast
+done crn_reuse_fast 0.026206555994576775 0.0011319841287134977 None
+start binding12 20261103 crn_generated_fast
+done crn_generated_fast 0.026580667996313423 0.0010001190201550626 None
+start binding12 20261103 crn_reuse_fast
+done crn_reuse_fast 0.026947967999149114 0.0010001190201550626 None
+start binding12 20261103 crn_fresh_fast
+done crn_fresh_fast 0.04540546200587414 0.0010001190201550626 None
+start binding12 20261103 rebop_macro
+done rebop_macro 0.01525548800418619 0.0009385756830215671 None
+start binding12 20261103 rebop_rebuild_lma
+done rebop_rebuild_lma 3.3045253330055857 0.0009385756830215671 None
+start binding12 20261103 rebop_expression
+done rebop_expression 3.1695660870027496 0.0009385756830215671 None
+start binding12 20261104 rebop_rebuild_lma
+done rebop_rebuild_lma 3.339321603998542 0.0005585860691014206 None
+start binding12 20261104 rebop_macro
+done rebop_macro 0.014841330994386226 0.0005585860691014206 None
+start binding12 20261104 crn_fresh_fast
+done crn_fresh_fast 0.04460033099167049 0.0008588793088531686 None
+start binding12 20261104 crn_reuse_fast
+done crn_reuse_fast 0.0252696750103496 0.0008588793088531686 None
+start binding12 20261104 crn_generated_fast
+done crn_generated_fast 0.02567696500045713 0.0008588793088531686 None
+start binding12 20261104 rebop_expression
+done rebop_expression 3.4789374789979775 0.0005585860691014206 None

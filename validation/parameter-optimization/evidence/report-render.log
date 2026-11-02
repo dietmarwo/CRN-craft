@@ -1,0 +1,29 @@
+{
+  "runs": 54,
+  "objective_calls": 6912,
+  "tests": 196,
+  "cases": [
+    {
+      "case": "birth_death",
+      "generated_optimizer_speedup": 1.179345695237878,
+      "reuse_over_fresh": 0.9795850728134301,
+      "macro_over_reuse": 0.29058663779787136,
+      "conservative_bundle_break_even_runs": 208
+    },
+    {
+      "case": "sparse33",
+      "generated_optimizer_speedup": 0.9212354641398091,
+      "reuse_over_fresh": 1.0710831042435949,
+      "macro_over_reuse": 0.9965651660319914,
+      "conservative_bundle_break_even_runs": null
+    },
+    {
+      "case": "binding12",
+      "generated_optimizer_speedup": 0.9859254100841809,
+      "reuse_over_fresh": 1.7283942230877385,
+      "macro_over_reuse": 0.5821248701028546,
+      "conservative_bundle_break_even_runs": null
+    }
+  ]
+}
+

@@ -242,6 +242,7 @@ impl Composition {
             if threshold < tree.get(index) {
                 return Ok(index);
             }
+            draws.poll()?;
         }
     }
 }

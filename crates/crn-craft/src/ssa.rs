@@ -265,6 +265,7 @@ struct Draws<'a, 'b> {
     poller: &'a mut Poller<'b>,
 }
 impl Draws<'_, '_> {
+    #[inline]
     fn poll(&mut self) -> Result<(), Bail> {
         if let Some(s) = self.poller.poll() {
             Err(Bail::Stopped(s))
@@ -272,8 +273,10 @@ impl Draws<'_, '_> {
             Ok(())
         }
     }
+    /// Callers poll once per event-loop iteration, per rejection retry and
+    /// every 64 inner steps; a single word is bounded by the work limit only.
+    #[inline]
     fn word(&mut self, rng: &mut impl RngCore) -> Result<u64, Bail> {
-        self.poll()?;
         if self.work.rng_words >= self.limit {
             return Err(Bail::SamplingLimit);
         }
@@ -289,6 +292,7 @@ impl Draws<'_, '_> {
             if u > 0.0 {
                 return Ok(u);
             }
+            self.poll()?;
         }
     }
     fn index(&mut self, rng: &mut impl RngCore, n: usize) -> Result<usize, Bail> {
@@ -299,6 +303,7 @@ impl Draws<'_, '_> {
             if product as u64 >= cutoff {
                 return Ok((product >> 64) as usize);
             }
+            self.poll()?;
         }
     }
 }

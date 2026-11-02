@@ -2,6 +2,10 @@
 
 ## [Unreleased] — alternative exact SSA methods and the Julia-gap campaign (`0.2.0-dev.1`)
 
+### Measured: fast mode versus Julia at one and eight threads
+
+- `docs/comparison-julia-8-threads.md`: same-host measurement of the ten `fast` configurations against five JumpProcesses 10.0.1 methods on W1–W7, original and 256-path batches, at one and eight workers (2,240 timed observations; 6,514 terminal-marginal checks passed). Geometric mean of best fast / best Julia: 0.69x (original) and 1.04x (256 paths) at eight workers; 1.15x and 1.12x at one worker (derived on import from the same observations), replacing the earlier serial projection of 1.02x. The harness and raw evidence were not part of the import; all summary statistics were recomputed from the reported observations.
+
 ### Added: the `fast` switch (`crn-craft.ssa-run/0.2`)
 
 - `method.fast` (default `false`) emulates JumpProcesses.jl: Xoshiro256++ words per replicate, running totals without lost-increment or 53-bit resolution checks, and stop polls every 256 event-loop iterations. New methods run 1.09–4.3x faster with it; it passes its own 210-comparison exact-law gate, now also in CI.

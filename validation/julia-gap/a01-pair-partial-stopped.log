@@ -1,0 +1,15 @@
+W1/legacy_cached/inverse       before 0.0602 after 0.0605 speedup 0.995 (0/5) identical
+W1/cached_direct/ziggurat      before 0.0550 after 0.0493 speedup 1.116 (5/5) identical
+W1/direct_cr/ziggurat          before 0.0954 after 0.0810 speedup 1.178 (5/5) identical
+W1/sorting_direct/ziggurat     before 0.0646 after 0.0558 speedup 1.155 (5/5) identical
+W1/rssa_cr/ziggurat            before 0.0977 after 0.0824 speedup 1.191 (5/5) identical
+W2/legacy_cached/inverse       before 0.1894 after 0.1880 speedup 1.004 (4/5) identical
+W2/cached_direct/ziggurat      before 0.1889 after 0.1834 speedup 1.031 (5/5) identical
+W2/direct_cr/ziggurat          before 0.1376 after 0.1218 speedup 1.135 (5/5) identical
+W2/sorting_direct/ziggurat     before 0.1438 after 0.1342 speedup 1.071 (5/5) identical
+W2/rssa_cr/ziggurat            before 0.1460 after 0.1258 speedup 1.160 (5/5) identical
+W3/legacy_cached/inverse       before 0.5613 after 0.5607 speedup 1.003 (3/5) identical
+W3/cached_direct/ziggurat      before 0.5785 after 0.5693 speedup 1.017 (5/5) identical
+W3/direct_cr/ziggurat          before 0.8694 after 0.8371 speedup 1.038 (5/5) identical
+W3/sorting_direct/ziggurat     before 0.6337 after 0.6019 speedup 1.053 (5/5) identical
+W3/rssa_cr/ziggurat            before 0.7578 after 0.7051 speedup 1.077 (5/5) identical

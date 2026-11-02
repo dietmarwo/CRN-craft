@@ -18,6 +18,7 @@ Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/ar
 - [Comparison with GillesPy2](docs/comparison-gillespy2.md): same models, timed against GillesPy2's C++ and NumPy solvers
 - [Alternative exact SSA methods](docs/alternative-ssa.md): versioned requests, prepared Python calls, bounded sampling and gated RSSACR bounds
 - [Comparison with Catalyst and JumpProcesses](docs/comparison-catalyst-jumpprocesses.md): seven workloads, five Julia SSA algorithms and the new Rust methods, with pinned environments and distribution checks; the [earlier comparison](docs/comparison-catalyst-jumpprocesses-before-acceleration.md) is preserved
+- [Ten further Julia-gap iterations](docs/comparison-julia-gap10.md): same-host GitHub-main/final/Julia rerun, all methods, exposed regressions and [inspected Julia mechanisms](docs/campaign/julia-gap10-source-investigation.md)
 - [Agent context](docs/ai-context.md): what an AI agent needs to use and extend CRN-craft
 
 **Using CRN-craft**
@@ -52,6 +53,7 @@ Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/ar
 - [Performance experiments P01–P10](docs/campaign/performance.md) and [P11–P20](docs/campaign/performance-p11-p20.md)
 - [Campaign implementation log](docs/campaign/implementation-log-2026-11-01.md) and [review of 1 November 2026](docs/campaign/review-2026-11-01.md)
 - [Exact-SSA acceleration log](docs/campaign/ssa-acceleration-implementation-log-2026-11-02.md) and [Julia-gap campaign log](docs/campaign/julia-gap-implementation-log-2026-11-02.md)
+- [Ten further iterations implementation log](docs/campaign/julia-gap10-implementation-log-2026-11-02.md), [fixed protocol](docs/decisions/julia-gap10-2026-11-02.md) and [raw evidence](validation/julia-gap10/README.md)
 
 **Plans and decisions**
 

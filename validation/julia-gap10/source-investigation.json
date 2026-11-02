@@ -1,0 +1,35 @@
+{
+  "files": {
+    "aggregators/direct.jl": {
+      "sha256": "e70b936c987214577edf91879308e317b309e6e8bec9fb068c40d1a481a38781",
+      "lines": 146
+    },
+    "aggregators/directcr.jl": {
+      "sha256": "6cb453580330a547f618750f545e1f9972aba598ab4c3f24d8127e5b135e5255",
+      "lines": 149
+    },
+    "aggregators/rssacr.jl": {
+      "sha256": "46ca66f18b48b73fee5b00accd9ead3d24bdde898f5097c237166c0168a3bf62",
+      "lines": 225
+    },
+    "aggregators/sortingdirect.jl": {
+      "sha256": "236e7f873100c3230bff7c4221996ab76624b83d934e18afd18bdcec5964700c",
+      "lines": 117
+    },
+    "aggregators/prioritytable.jl": {
+      "sha256": "a6dd18aa7388a79d1994e2da2194da5c462ecacb74c94a8b4d425f826be3a18a",
+      "lines": 503
+    },
+    "aggregators/bracketing.jl": {
+      "sha256": "93ef8a603bfd928de3ea9a4b32b952fadd99a28d01db4e0baf22e433a2a6f937",
+      "lines": 153
+    },
+    "massaction_rates.jl": {
+      "sha256": "4004f3d607bfc8bd5971f33ca0cfded163ea714dd97bebc808fbf21fddcf27d2",
+      "lines": 160
+    }
+  },
+  "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+  "affinity": 9,
+  "quota": "800000 100000"
+}

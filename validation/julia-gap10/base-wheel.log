@@ -1,0 +1,20 @@
+🍹 Building a mixed python/rust project
+🔗 Found pyo3 bindings with abi3 support
+🐍 Not using a specific python interpreter
+   Compiling target-lexicon v0.13.5
+   Compiling libc v0.2.191
+   Compiling syn v2.0.119
+   Compiling heck v0.5.0
+   Compiling crn-craft v0.2.0-dev.1 (/workspace/scratch/d05427e343fb/CRN-craft-julia-gap10/crates/crn-craft)
+   Compiling once_cell v1.21.4
+   Compiling pyo3-build-config v0.29.0
+   Compiling pyo3-ffi v0.29.0
+   Compiling pyo3 v0.29.0
+   Compiling serde_derive_internals v0.29.1
+   Compiling pyo3-macros-backend v0.29.0
+   Compiling schemars_derive v0.8.22
+   Compiling schemars v0.8.22
+   Compiling pyo3-macros v0.29.0
+   Compiling crn-craft-python v0.2.0-dev.1 (/workspace/scratch/d05427e343fb/CRN-craft-julia-gap10/bindings/python)
+    Finished `release` profile [optimized] target(s) in 13.03s
+📦 Built wheel for abi3 Python ≥ 3.10 to /tmp/crn-gap10-base-wheel/crn_craft-0.2.0.dev1-cp310-abi3-manylinux_2_34_x86_64.whl

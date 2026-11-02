@@ -1,0 +1,37 @@
+diff --git a/crates/crn-craft/src/ssa.rs b/crates/crn-craft/src/ssa.rs
+index c538f2f..a6d7c5b 100644
+--- a/crates/crn-craft/src/ssa.rs
++++ b/crates/crn-craft/src/ssa.rs
+@@ -273,7 +273,11 @@ impl Draws<'_, '_> {
+         }
+     }
+     fn word(&mut self, rng: &mut impl RngCore) -> Result<u64, Bail> {
+-        self.poll()?;
++        // Outer loops poll too. A retry-only path observes stops within 64
++        // random words, while every word still consumes its exact work budget.
++        if self.work.rng_words & 63 == 0 || self.work.rng_words >= self.limit {
++            self.poll()?;
++        }
+         if self.work.rng_words >= self.limit {
+             return Err(Bail::SamplingLimit);
+         }
+diff --git a/crates/crn-craft/src/ssa/ziggurat.rs b/crates/crn-craft/src/ssa/ziggurat.rs
+index f34767a..9649491 100644
+--- a/crates/crn-craft/src/ssa/ziggurat.rs
++++ b/crates/crn-craft/src/ssa/ziggurat.rs
+@@ -139,5 +139,15 @@ mod tests {
+             exponential(&mut rng, &mut d),
+             Err(Bail::Stopped(_))
+         ));
++        // A retry-only sampler, starting between checkpoints, must also stop
++        // within the declared 64-word bound, without exhausting its budget.
++        d.limit = 1000;
++        d.work.rng_words = 1;
++        rng.words = vec![0];
++        assert!(matches!(
++            exponential(&mut rng, &mut d),
++            Err(Bail::Stopped(_))
++        ));
++        assert!(d.work.rng_words <= 64);
+     }
+ }

@@ -1,0 +1,137 @@
+diff --git a/crates/crn-craft/src/ssa.rs b/crates/crn-craft/src/ssa.rs
+index c538f2f..2608e61 100644
+--- a/crates/crn-craft/src/ssa.rs
++++ b/crates/crn-craft/src/ssa.rs
+@@ -410,6 +410,9 @@ fn path<const MODE: u8, const ZIG: bool>(
+                 absorption_checked = true;
+             } else if MODE > 0 && previous.is_some() {
+                 let affected = &network.dependencies()[previous.unwrap()];
++                if MODE >= 2 {
++                    space.tree.begin_batch(affected.len());
++                }
+                 for (k, &rx) in affected.iter().enumerate() {
+                     if k % 64 == 0 {
+                         draws.poll()?;
+@@ -437,6 +440,9 @@ fn path<const MODE: u8, const ZIG: bool>(
+                     }
+                 }
+             } else {
++                if MODE >= 2 {
++                    space.tree.begin_batch(n);
++                }
+                 for rx in 0..n {
+                     if rx % 64 == 0 {
+                         draws.poll()?;
+diff --git a/crates/crn-craft/src/ssa/bounds.rs b/crates/crn-craft/src/ssa/bounds.rs
+index 032e3ca..049b6a4 100644
+--- a/crates/crn-craft/src/ssa/bounds.rs
++++ b/crates/crn-craft/src/ssa/bounds.rs
+@@ -226,6 +226,7 @@ impl Bounds {
+         } else {
+             self.dirty.extend(0..network.reactions().len());
+         }
++        tree.begin_batch(self.dirty.len());
+         for k in 0..self.dirty.len() {
+             draws.poll()?;
+             let rx = self.dirty[k];
+diff --git a/crates/crn-craft/src/ssa/selectors.rs b/crates/crn-craft/src/ssa/selectors.rs
+index 2dbf5c9..1ca9e4e 100644
+--- a/crates/crn-craft/src/ssa/selectors.rs
++++ b/crates/crn-craft/src/ssa/selectors.rs
+@@ -107,6 +107,8 @@ pub(super) struct RateTree {
+     invalid: usize,
+     floor: f64,
+     checked: Vec<Node>,
++    batching: bool,
++    dirty: Vec<usize>,
+ }
+ impl RateTree {
+     pub(super) fn reset(&mut self, count: usize) {
+@@ -118,6 +120,8 @@ impl RateTree {
+         self.minima.fill(f64::INFINITY);
+         self.invalid = 0;
+         self.floor = f64::INFINITY;
++        self.batching = false;
++        self.dirty.clear();
+     }
+     pub(super) fn get(&self, index: usize) -> f64 {
+         self.sums[self.base + index]
+@@ -130,12 +134,43 @@ impl RateTree {
+         self.minima[index] = minimum_positive;
+         let positive = if rate > 0.0 { rate } else { f64::INFINITY };
+         self.floor = self.floor.min(positive.min(minimum_positive));
+-        while i > 1 {
+-            i /= 2;
+-            self.sums[i] = self.sums[2 * i] + self.sums[2 * i + 1];
++        if self.batching {
++            if i > 1 {
++                self.dirty.push(i / 2);
++            }
++        } else {
++            while i > 1 {
++                i /= 2;
++                self.sums[i] = self.sums[2 * i] + self.sums[2 * i + 1];
++            }
+         }
+     }
++    pub(super) fn begin_batch(&mut self, updates: usize) {
++        self.batching = updates >= 4 && self.base >= 8;
++        self.dirty.clear();
++    }
++    pub(super) fn finish_batch(&mut self) {
++        if !self.batching {
++            return;
++        }
++        self.dirty.sort_unstable();
++        self.dirty.dedup();
++        while !self.dirty.is_empty() {
++            let mut out = 0;
++            for k in 0..self.dirty.len() {
++                let i = self.dirty[k];
++                self.sums[i] = self.sums[2 * i] + self.sums[2 * i + 1];
++                if i > 1 && (out == 0 || self.dirty[out - 1] != i / 2) {
++                    self.dirty[out] = i / 2;
++                    out += 1;
++                }
++            }
++            self.dirty.truncate(out);
++        }
++        self.batching = false;
++    }
+     pub(super) fn total(&mut self) -> Result<f64, Diagnostic> {
++        self.finish_batch();
+         let root = self.sums[1];
+         if self.invalid == 0 && root.is_normal() && self.floor >= root * (1.0 / (1u64 << 52) as f64)
+         {
+@@ -351,6 +386,31 @@ impl Composition {
+ mod tests {
+     use super::*;
+     #[test]
++    fn batched_updates_equal_canonical_tree_with_unsorted_duplicate_leaves() {
++        let mut single = RateTree::default();
++        let mut batch = RateTree::default();
++        single.reset(257);
++        batch.reset(257);
++        for round in 0..100 {
++            batch.begin_batch(200);
++            for k in 0..200 {
++                let i = (k * 73 + round) % 257;
++                let a = ((k + round) % 31 + 1) as f64 / 8.0;
++                single.set(i, a, a);
++                batch.set(i, a, a);
++            }
++            assert_eq!(
++                single.total().unwrap().to_bits(),
++                batch.total().unwrap().to_bits()
++            );
++            assert_eq!(single.sums, batch.sums);
++        }
++        batch.begin_batch(4);
++        single.set(0, 1e100, 1e100);
++        batch.set(0, 1e100, 1e100);
++        assert_eq!(single.total().is_err(), batch.total().is_err());
++    }
++    #[test]
+     fn composition_matches_declared_categorical_dkw_bound_after_membership_changes() {
+         let rates = [0.0, 0.125, 0.5, 1.0, 2.0, 7.0, 8.0, 50.0];
+         let mut tree = RateTree::default();

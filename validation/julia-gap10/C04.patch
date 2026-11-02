@@ -1,0 +1,57 @@
+diff --git a/crates/crn-craft/src/ssa/selectors.rs b/crates/crn-craft/src/ssa/selectors.rs
+index 2dbf5c9..8843234 100644
+--- a/crates/crn-craft/src/ssa/selectors.rs
++++ b/crates/crn-craft/src/ssa/selectors.rs
+@@ -105,6 +105,7 @@ pub(super) struct RateTree {
+     base: usize,
+     len: usize,
+     invalid: usize,
++    bad_leaves: Vec<bool>,
+     floor: f64,
+     checked: Vec<Node>,
+ }
+@@ -117,6 +118,8 @@ impl RateTree {
+         self.minima.resize(self.base, f64::INFINITY);
+         self.minima.fill(f64::INFINITY);
+         self.invalid = 0;
++        self.bad_leaves.resize(self.base, false);
++        self.bad_leaves.fill(false);
+         self.floor = f64::INFINITY;
+     }
+     pub(super) fn get(&self, index: usize) -> f64 {
+@@ -124,8 +127,10 @@ impl RateTree {
+     }
+     pub(super) fn set(&mut self, index: usize, rate: f64, minimum_positive: f64) {
+         let mut i = self.base + index;
+-        self.invalid -= usize::from(leaf(self.sums[i], self.minima[index]).bad);
+-        self.invalid += usize::from(leaf(rate, minimum_positive).bad);
++        self.invalid -= usize::from(self.bad_leaves[index]);
++        let bad = leaf(rate, minimum_positive).bad;
++        self.invalid += usize::from(bad);
++        self.bad_leaves[index] = bad;
+         self.sums[i] = rate;
+         self.minima[index] = minimum_positive;
+         let positive = if rate > 0.0 { rate } else { f64::INFINITY };
+@@ -351,6 +356,22 @@ impl Composition {
+ mod tests {
+     use super::*;
+     #[test]
++    fn leaf_validity_counter_survives_invalid_replacement_and_reset() {
++        let mut t = RateTree::default();
++        t.reset(8);
++        t.set(0, -1.0, 1.0);
++        t.set(1, 1.0, 0.0);
++        assert!(t.total().is_err());
++        t.set(0, 2.0, 2.0);
++        assert!(t.total().is_err());
++        t.set(1, 3.0, 3.0);
++        assert_eq!(t.total().unwrap(), 5.0);
++        t.set(0, f64::INFINITY, 1.0);
++        assert!(t.total().is_err());
++        t.reset(8);
++        assert_eq!(t.total().unwrap(), 0.0);
++    }
++    #[test]
+     fn composition_matches_declared_categorical_dkw_bound_after_membership_changes() {
+         let rates = [0.0, 0.125, 0.5, 1.0, 2.0, 7.0, 8.0, 50.0];
+         let mut tree = RateTree::default();

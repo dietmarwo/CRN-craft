@@ -1,0 +1,46 @@
+diff --git a/crates/crn-craft/src/ssa/bounds.rs b/crates/crn-craft/src/ssa/bounds.rs
+index 032e3ca..713b0e9 100644
+--- a/crates/crn-craft/src/ssa/bounds.rs
++++ b/crates/crn-craft/src/ssa/bounds.rs
+@@ -134,6 +134,9 @@ impl Bounds {
+             } else {
+                 Self::evaluate(network, rx, &self.low, draws)?
+             };
++            if !gated {
++                return Ok((low, high, if low > 0.0 { low } else { f64::INFINITY }));
++            }
+             // Lowest *enabled* state supplies the minimum positive mass-action
+             // rate even when a lower corner is disabled by an availability gate.
+             for t in &structure.reactants {
+@@ -259,6 +262,31 @@ mod tests {
+             .unwrap()
+     }
+ 
++    #[test]
++    fn enabled_mass_action_corner_is_reused_as_the_positive_minimum() {
++        let net = network(
++            json!({"kind":"mass_action","coefficient":0.1}),
++            json!({"X":2}),
++        );
++        let control = Control::default();
++        let mut poll = Poller::new(&control, Instant::now(), None);
++        let mut work = Work::default();
++        let mut draws = Draws {
++            limit: 0,
++            work: &mut work,
++            poller: &mut poll,
++        };
++        let mut b = Bounds::default();
++        b.reset(&net, &[4, 3]);
++        b.low = vec![4, 0];
++        b.high = vec![8, 6];
++        b.scratch.clone_from(&b.high);
++        let (low, high, minimum) = b.bound(&net, 0, &[4, 3], &mut draws).ok().unwrap();
++        assert_eq!(low, minimum);
++        assert_eq!(low, net.propensity(0, &[4, 0]).unwrap());
++        assert_eq!(high, net.propensity(0, &[8, 6]).unwrap());
++        assert_eq!(draws.work.propensity_evaluations, 2);
++    }
+     #[test]
+     fn every_integer_state_is_enclosed_in_gated_custom_and_mass_action_boxes() {
+         let mut cases = vec![

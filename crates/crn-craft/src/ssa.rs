@@ -16,7 +16,7 @@ use rand_core::RngCore;
 use schemars::JsonSchema;
 use selectors::{Composition, RateTree};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::{collections::BTreeMap, path::Path};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum RequestVersion {
@@ -199,6 +199,7 @@ pub struct Prepared {
     core: simulation::Prepared,
     request: Request,
     readers: Vec<Vec<usize>>,
+    bound_groups: Vec<usize>,
 }
 
 pub fn prepare(model: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec<Diagnostic>> {
@@ -234,10 +235,19 @@ pub fn prepare(model: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec<Diagn
             readers[s].push(rx);
         }
     }
+    let mut group_keys = BTreeMap::new();
+    let mut bound_groups = vec![usize::MAX; reactions as usize];
+    for (rx, slot) in bound_groups.iter_mut().enumerate() {
+        if let Some(key) = core.network.compiled_rate(rx).bounds_key() {
+            let next = group_keys.len();
+            *slot = *group_keys.entry(key).or_insert(next);
+        }
+    }
     Ok(Prepared {
         core,
         request,
         readers,
+        bound_groups,
     })
 }
 
@@ -388,6 +398,7 @@ fn path<const MODE: u8, const ZIG: bool>(
                     space.bounds.refresh(
                         network,
                         &prepared.readers,
+                        &prepared.bound_groups,
                         state,
                         previous.take(),
                         &mut space.tree,

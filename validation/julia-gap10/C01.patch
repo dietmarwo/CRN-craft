@@ -1,0 +1,24 @@
+diff --git a/crates/crn-craft/src/simulation.rs b/crates/crn-craft/src/simulation.rs
+index ea203f1..2684ca3 100644
+--- a/crates/crn-craft/src/simulation.rs
++++ b/crates/crn-craft/src/simulation.rs
+@@ -158,6 +158,7 @@ impl<'a> Poller<'a> {
+             stopped: None,
+         }
+     }
++    #[inline]
+     pub(crate) fn poll(&mut self) -> Option<Stop> {
+         #[cfg(test)]
+         self.control.polls.fetch_add(1, Ordering::Relaxed);
+@@ -176,6 +177,11 @@ impl<'a> Poller<'a> {
+             self.countdown = self.countdown.saturating_sub(1);
+             return None;
+         }
++        self.poll_slow()
++    }
++    #[cold]
++    #[inline(never)]
++    fn poll_slow(&mut self) -> Option<Stop> {
+         self.countdown = CLOCK_POLL_STRIDE - 1;
+         if self.control.external_stop.as_ref().is_some_and(|f| f()) {
+             self.control.cancel();

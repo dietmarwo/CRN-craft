@@ -20,9 +20,11 @@ docs/decisions/julia-gap-2026-11-02.md.
 import argparse
 import json
 import math
+import re
 import statistics
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -133,6 +135,114 @@ def chain(args):
                 args.output.write_text(json.dumps(report, indent=1) + "\n")
 
 
+def instructions(args):
+    """Callgrind instruction counts inside the path functions, first four paths."""
+    report = {}
+    for spec in args.binaries:
+        name, binary = spec.split("=", 1)
+        for workload in WORKLOADS:
+            horizon = WORKLOADS[workload][0]
+            model = EVIDENCE / "models" / f"{workload}.model.json"
+            for method, wait in METHODS:
+                with tempfile.TemporaryDirectory() as temp:
+                    out = Path(temp) / "callgrind.out"
+                    command = [
+                        "valgrind",
+                        "--tool=callgrind",
+                        "--toggle-collect=crn_craft::ssa::path*",
+                        "--toggle-collect=crn_craft::simulation::execute_inner::*",
+                        f"--callgrind-out-file={out}",
+                        binary,
+                        model,
+                        horizon,
+                        4,
+                        method,
+                        wait,
+                        1,
+                    ]
+                    subprocess.run(
+                        [str(part) for part in command], capture_output=True, check=True
+                    )
+                    summary = re.search(r"^summary: (\d+)", out.read_text(), re.M)
+                key = f"{workload}/{method}/{wait}"
+                report.setdefault(name, {})[key] = int(summary.group(1))
+                print(name, key, report[name][key], flush=True)
+    args.output.write_text(json.dumps(report, indent=1) + "\n")
+
+
+# First-round target rows, as declared in docs/decisions/julia-gap-2026-11-02.md.
+NEW = ["cached_direct", "direct_cr", "sorting_direct", "rssa_cr"]
+TREE = ["direct_cr", "sorting_direct", "rssa_cr"]
+DECLARED = {
+    "a01": (list(WORKLOADS), NEW),
+    "a02": (list(WORKLOADS), ["legacy_cached", *NEW]),
+    "a03": (["W3"], ["legacy_cached", *NEW]),
+    "a04": (["W4", "W5", "W6", "W7"], ["rssa_cr"]),
+    "a05": (list(WORKLOADS), ["direct_cr", "rssa_cr"]),
+    "a06": (list(WORKLOADS), TREE),
+    "a07": (list(WORKLOADS), ["legacy_cached", "cached_direct"]),
+    "a09": (list(WORKLOADS), TREE),
+    "a10": (list(WORKLOADS), ["direct_cr", "rssa_cr"]),
+}
+
+
+def decide(args):
+    report = json.loads(args.chain.read_text())
+    rows, order = report["rows"], report["order"]
+    counts = json.loads(args.instructions.read_text()) if args.instructions else None
+    # Five more rounds for a row that failed only the no-regression rule.
+    extra = {}
+    for path in args.remeasure:
+        more = json.loads(path.read_text())
+        for key, row in more["rows"].items():
+            for label, step in row["steps"].items():
+                extra[(label, key)] = step["ratios"]
+    for parent, child in zip(order, order[1:], strict=False):
+        step = f"{parent}->{child}"
+        if counts is None:
+            workloads, methods = DECLARED.get(child, ([], []))
+            targets = [
+                k
+                for k in rows
+                if k.split("/")[0] in workloads and k.split("/")[1] in methods
+            ]
+        else:
+            targets = [k for k in rows if counts[child][k] <= 0.95 * counts[parent][k]]
+        steps = {k: dict(rows[k]["steps"][step]) for k in rows}
+        for k in rows:
+            if k not in targets and (step, k) in extra:
+                ratios = steps[k]["ratios"] + extra[(step, k)]
+                steps[k].update(ratios=ratios, speedup=statistics.median(ratios))
+        median = (
+            statistics.median(steps[k]["speedup"] for k in targets) if targets else 0.0
+        )
+        weak = [k for k in targets if steps[k]["rounds_faster"] < 4]
+        regress = [k for k in rows if k not in targets and steps[k]["speedup"] < 0.97]
+        changed = [k for k in rows if not steps[k]["numerically_identical"]]
+        if child in args.path_changing:
+            changed = []  # decided by the statistical gate instead
+        performance = child not in args.no_target
+        accepted = (
+            not regress
+            and not changed
+            and (not performance or (targets and median >= 1.03 and not weak))
+        )
+        print(
+            f"{step:10s} targets {len(targets):2d} median {median:.3f} "
+            f"weak {len(weak)} regressions {len(regress)} changed {len(changed)} "
+            f"-> {'ACCEPT' if accepted else 'REJECT'}"
+        )
+        for k in targets:
+            print(
+                f"   target {k:30s} {steps[k]['speedup']:.3f} ({steps[k]['rounds_faster']})"
+            )
+        for k in regress:
+            ratios = [round(r, 3) for r in steps[k]["ratios"]]
+            print(f"   regression {k:26s} {steps[k]['speedup']:.3f} {ratios}")
+        for k in changed:
+            print(f"   numbers changed {k}")
+
+
 def project(args):
     report = json.loads(args.chain.read_text())
     first, last = report["order"][0], report["order"][-1]
@@ -188,10 +298,33 @@ def main():
     chained.add_argument("--repeats", type=int, default=3)
     chained.add_argument("--rounds", type=int, default=5)
     chained.add_argument("--output", type=Path)
+    counted = commands.add_parser("instructions")
+    counted.add_argument("binaries", nargs="+", help="NAME=PATH")
+    counted.add_argument("--output", type=Path, required=True)
+    decided = commands.add_parser("decide")
+    decided.add_argument("chain", type=Path)
+    decided.add_argument(
+        "--instructions", type=Path, help="B re-test: targets from instruction counts"
+    )
+    decided.add_argument(
+        "--no-target", nargs="*", default=[], help="non-performance commits (fixes)"
+    )
+    decided.add_argument(
+        "--path-changing", nargs="*", default=[], help="commits gated statistically"
+    )
+    decided.add_argument(
+        "--remeasure", nargs="*", type=Path, default=[], help="extra chain reports"
+    )
     projected = commands.add_parser("project")
     projected.add_argument("chain", type=Path)
     args = parser.parse_args()
-    {"chain": chain, "project": project}[args.command](args)
+    commands = {
+        "chain": chain,
+        "instructions": instructions,
+        "decide": decide,
+        "project": project,
+    }
+    commands[args.command](args)
     return 0
 
 

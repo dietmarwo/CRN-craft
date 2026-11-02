@@ -19,6 +19,7 @@ Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/ar
 - [Alternative exact SSA methods](docs/alternative-ssa.md): versioned requests, prepared Python calls, bounded sampling and gated RSSACR bounds
 - [Comparison with Catalyst and JumpProcesses](docs/comparison-catalyst-jumpprocesses.md): seven workloads, five Julia SSA algorithms and the new Rust methods, with pinned environments and distribution checks; the [earlier comparison](docs/comparison-catalyst-jumpprocesses-before-acceleration.md) is preserved
 - [Ten further Julia-gap iterations](docs/comparison-julia-gap10.md): same-host GitHub-main/final/Julia rerun, all methods, exposed regressions and [inspected Julia mechanisms](docs/campaign/julia-gap10-source-investigation.md)
+- [Fast mode versus Julia at one and eight threads](docs/comparison-julia-8-threads.md): direct same-host measurement of `fast` against five JumpProcesses methods, 2,240 timed observations, scaling and replay checks
 - [Agent context](docs/ai-context.md): what an AI agent needs to use and extend CRN-craft
 
 **Using CRN-craft**
@@ -179,9 +180,12 @@ rates are well scaled, such as large parameter scans or benchmarks.
 **Benchmarks use `fast`.** Julia and GillesPy2 make none of these checks, so
 comparisons time CRN-craft with `fast: true` and report the checked default
 alongside. With `fast`, CRN-craft is 2.9–9.2 times faster than GillesPy2's C++
-solver on W1–W4 ([comparison](docs/comparison-gillespy2.md)); projected from
-the same-host Julia rerun, it is within 0.80–1.40 times JumpProcesses.jl's
-fastest method on W1–W7 (geometric mean 1.02; [comparison](docs/comparison-catalyst-jumpprocesses.md)).
+solver on W1–W4 ([comparison](docs/comparison-gillespy2.md)). Measured directly
+against JumpProcesses.jl on one host ([comparison](docs/comparison-julia-8-threads.md)),
+the best fast method takes 0.69 times the time of Julia's best method at eight
+workers on the original W1–W7 batches (geometric mean; lower on 6 of 7) and
+1.04 times on 256-path batches. At one worker the same run gives 1.15 and 1.12
+times, so the earlier projection of 1.02 from serial timings was optimistic.
 
 ## Developer checks
 

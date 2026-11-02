@@ -1,0 +1,78 @@
+{
+  "schema": "crn-craft.acceleration-workloads/0.1",
+  "validation_engines": 17,
+  "validation_comparisons": 6946,
+  "family_alpha": 0.01,
+  "rows": [
+    {
+      "name": "W1",
+      "path": "W1.model.json",
+      "sha256": "d2fa8a1f5bdc9976c0bce4f36e8e472690f2ecd1ca3c0f3a4cf642059a37b61e",
+      "species": 1,
+      "reactions": 2,
+      "end": 100.0,
+      "timing_paths": 64,
+      "validation_paths": 512
+    },
+    {
+      "name": "W2",
+      "path": "W2.model.json",
+      "sha256": "d0f6a86b31cd697b821b5ed2bf384323c8eb1328868fe2274777bac0f5e73355",
+      "species": 33,
+      "reactions": 66,
+      "end": 100.0,
+      "timing_paths": 64,
+      "validation_paths": 512
+    },
+    {
+      "name": "W3",
+      "path": "W3.model.json",
+      "sha256": "69f9ff6bfec8a473b70111caf6ba2d57e9ce6d363f537eac185f0f88097c8637",
+      "species": 6,
+      "reactions": 12,
+      "end": 100.0,
+      "timing_paths": 64,
+      "validation_paths": 512
+    },
+    {
+      "name": "W4",
+      "path": "W4.model.json",
+      "sha256": "fb9204e42395eb3eeef76de4e2d54bf33611bdd43435eb7a4eb8fda652df8715",
+      "species": 8,
+      "reactions": 66,
+      "end": 100.0,
+      "timing_paths": 64,
+      "validation_paths": 512
+    },
+    {
+      "name": "W5",
+      "path": "W5.model.json",
+      "sha256": "c8c2671550a2c67562262f1c2ea22da468bf5acbce6a21309094db3e9aba2681",
+      "species": 256,
+      "reactions": 510,
+      "end": 20.0,
+      "timing_paths": 16,
+      "validation_paths": 512
+    },
+    {
+      "name": "W6",
+      "path": "W6.model.json",
+      "sha256": "4333e9086f36c5d713c16e7f8f12b43ff9163d2709459820bd92161a9c28f7e0",
+      "species": 32,
+      "reactions": 992,
+      "end": 20.0,
+      "timing_paths": 16,
+      "validation_paths": 512
+    },
+    {
+      "name": "W7",
+      "path": "W7.model.json",
+      "sha256": "5b6c5f5e329e9fe7146b68cb0ac7d54ee503b64b0e91c6d796c438575edf7ca1",
+      "species": 96,
+      "reactions": 126,
+      "end": 20.0,
+      "timing_paths": 16,
+      "validation_paths": 512
+    }
+  ]
+}

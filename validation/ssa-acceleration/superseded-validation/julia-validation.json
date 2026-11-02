@@ -1,0 +1,5020 @@
+{
+  "schema": "crn-craft.julia-comparison/0.2",
+  "protocol": "docs/decisions/ssa-acceleration-2026-11-02.md",
+  "workloads": {
+    "schema": "crn-craft.acceleration-workloads/0.1",
+    "validation_engines": 17,
+    "validation_comparisons": 6946,
+    "family_alpha": 0.01,
+    "rows": [
+      {
+        "name": "W1",
+        "path": "W1.model.json",
+        "sha256": "d2fa8a1f5bdc9976c0bce4f36e8e472690f2ecd1ca3c0f3a4cf642059a37b61e",
+        "species": 1,
+        "reactions": 2,
+        "end": 100.0,
+        "timing_paths": 64,
+        "validation_paths": 512
+      },
+      {
+        "name": "W2",
+        "path": "W2.model.json",
+        "sha256": "d0f6a86b31cd697b821b5ed2bf384323c8eb1328868fe2274777bac0f5e73355",
+        "species": 33,
+        "reactions": 66,
+        "end": 100.0,
+        "timing_paths": 64,
+        "validation_paths": 512
+      },
+      {
+        "name": "W3",
+        "path": "W3.model.json",
+        "sha256": "69f9ff6bfec8a473b70111caf6ba2d57e9ce6d363f537eac185f0f88097c8637",
+        "species": 6,
+        "reactions": 12,
+        "end": 100.0,
+        "timing_paths": 64,
+        "validation_paths": 512
+      },
+      {
+        "name": "W4",
+        "path": "W4.model.json",
+        "sha256": "fb9204e42395eb3eeef76de4e2d54bf33611bdd43435eb7a4eb8fda652df8715",
+        "species": 8,
+        "reactions": 66,
+        "end": 100.0,
+        "timing_paths": 64,
+        "validation_paths": 512
+      },
+      {
+        "name": "W5",
+        "path": "W5.model.json",
+        "sha256": "c8c2671550a2c67562262f1c2ea22da468bf5acbce6a21309094db3e9aba2681",
+        "species": 256,
+        "reactions": 510,
+        "end": 20.0,
+        "timing_paths": 16,
+        "validation_paths": 512
+      },
+      {
+        "name": "W6",
+        "path": "W6.model.json",
+        "sha256": "4333e9086f36c5d713c16e7f8f12b43ff9163d2709459820bd92161a9c28f7e0",
+        "species": 32,
+        "reactions": 992,
+        "end": 20.0,
+        "timing_paths": 16,
+        "validation_paths": 512
+      },
+      {
+        "name": "W7",
+        "path": "W7.model.json",
+        "sha256": "5b6c5f5e329e9fe7146b68cb0ac7d54ee503b64b0e91c6d796c438575edf7ca1",
+        "species": 96,
+        "reactions": 126,
+        "end": 20.0,
+        "timing_paths": 16,
+        "validation_paths": 512
+      }
+    ]
+  },
+  "engines": [
+    "legacy_direct",
+    "legacy_cached",
+    "direct/inverse",
+    "direct/ziggurat",
+    "cached_direct/inverse",
+    "cached_direct/ziggurat",
+    "direct_cr/inverse",
+    "direct_cr/ziggurat",
+    "sorting_direct/inverse",
+    "sorting_direct/ziggurat",
+    "rssa_cr/inverse",
+    "rssa_cr/ziggurat",
+    "Julia/Direct",
+    "Julia/SortingDirect",
+    "Julia/DirectCR",
+    "Julia/NRM",
+    "Julia/RSSACR"
+  ],
+  "rounds": 5,
+  "timing_seed": 4242,
+  "validation_seed": 777,
+  "validation": {
+    "W1": {
+      "paths_per_engine": 512,
+      "rows": [
+        {
+          "engine": "legacy_direct",
+          "species_index": 0,
+          "cdf_error": 0.034929795459989976,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 0,
+          "cdf_error": 0.034929795459989976,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 0,
+          "cdf_error": 0.034929795459989976,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 0,
+          "cdf_error": 0.04839217896641401,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 0,
+          "cdf_error": 0.034929795459989976,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 0,
+          "cdf_error": 0.04839217896641401,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 0,
+          "cdf_error": 0.02509903405374314,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 0,
+          "cdf_error": 0.018003545088295825,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 0,
+          "cdf_error": 0.03627695811564147,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 0,
+          "cdf_error": 0.056502424698732734,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 0,
+          "cdf_error": 0.028464458115641467,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 0,
+          "cdf_error": 0.0334959036937334,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 0,
+          "cdf_error": 0.04808039080283599,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 0,
+          "cdf_error": 0.03997967247289691,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 0,
+          "cdf_error": 0.037366806901443284,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 0,
+          "cdf_error": 0.03104896413005942,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 0,
+          "cdf_error": 0.021316396390919395,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        }
+      ],
+      "sample_sha256": {
+        "legacy_direct": "9e9d58ed38668cbe9cfb4998e4de41f5af56bf117d019399b4c6925cd3b007ef",
+        "legacy_cached": "9e9d58ed38668cbe9cfb4998e4de41f5af56bf117d019399b4c6925cd3b007ef",
+        "direct/inverse": "9e9d58ed38668cbe9cfb4998e4de41f5af56bf117d019399b4c6925cd3b007ef",
+        "direct/ziggurat": "63f41bf5d207debc94e46d549893e404604acd43a5f74ae25cff0aa3b9d791be",
+        "cached_direct/inverse": "9e9d58ed38668cbe9cfb4998e4de41f5af56bf117d019399b4c6925cd3b007ef",
+        "cached_direct/ziggurat": "63f41bf5d207debc94e46d549893e404604acd43a5f74ae25cff0aa3b9d791be",
+        "direct_cr/inverse": "b52933e13a880dcce17c4e866580559a15f83b52ffc84e285d0e77d72dca843a",
+        "direct_cr/ziggurat": "76d0bf4aae0550f090a86d7d0104f46cb3cf329588bde99272624fdde3b3c745",
+        "sorting_direct/inverse": "35eb010a1b1df20db842214405285024eb55e071cda1090667664b6981d4de36",
+        "sorting_direct/ziggurat": "5ed3e5d4e97554f39e08052b2dd3340563842d5c5595de160cae64e4b97b8ee0",
+        "rssa_cr/inverse": "3b9e8023de52e5c84f544efb73b5a5889f1a7a66cb76f7e5133b73855804e9bc",
+        "rssa_cr/ziggurat": "e6448cc5fadafd2d20dc988f8f927fe6c56e9d3e748684eb8cbbb56b1af08ec5",
+        "Julia/Direct": "efaf3483cbd0d22bc06b8a91feb98a6faef517a2f55d6c7d6523a6815e87d845",
+        "Julia/SortingDirect": "0756b735d2c96dc57f083b98bea313fd39193b40eaef10ecfc0995865fded654",
+        "Julia/DirectCR": "9c1561832c4d579abf56d4edd8857f9eb65fc451500159c7c6ad752eded8e403",
+        "Julia/NRM": "dfbe57f8ba3429bbb896ecf60dc64028ac1275f4d8c77984fb3d4d4869c8b936",
+        "Julia/RSSACR": "845759776250cde02c19ae92f518f9355ee4031e0ebe9e7ab19eafff397f77f5"
+      },
+      "sample_file": "W1.samples.json.gz",
+      "sample_file_sha256": "4ba2eab1604cac009856840615aac2e00c68e52969fdd72b3323a007036b326f",
+      "passed": true
+    },
+    "W2": {
+      "paths_per_engine": 512,
+      "rows": [
+        {
+          "engine": "legacy_direct",
+          "species_index": 0,
+          "cdf_error": 0.0457337546951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 1,
+          "cdf_error": 0.02623141118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 2,
+          "cdf_error": 0.04485847023537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 3,
+          "cdf_error": 0.03128291095436114,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 4,
+          "cdf_error": 0.01859159126120158,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 5,
+          "cdf_error": 0.03791933711105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 6,
+          "cdf_error": 0.027006630919161688,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 7,
+          "cdf_error": 0.02454983881588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 8,
+          "cdf_error": 0.023470410954361143,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 9,
+          "cdf_error": 0.05583066288894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 10,
+          "cdf_error": 0.04576266118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 11,
+          "cdf_error": 0.02337679642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 12,
+          "cdf_error": 0.06451652976462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 13,
+          "cdf_error": 0.02337679642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 14,
+          "cdf_error": 0.01841891118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 15,
+          "cdf_error": 0.031468786691024264,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 16,
+          "cdf_error": 0.02471441303192834,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 17,
+          "cdf_error": 0.05072054642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 18,
+          "cdf_error": 0.03912320357564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 19,
+          "cdf_error": 0.026185698926641104,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 20,
+          "cdf_error": 0.014130755696764363,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 21,
+          "cdf_error": 0.02818453618411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 22,
+          "cdf_error": 0.03987246211105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 23,
+          "cdf_error": 0.030108754695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 24,
+          "cdf_error": 0.04293583904563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 25,
+          "cdf_error": 0.03131340476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 26,
+          "cdf_error": 0.0340150046951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 27,
+          "cdf_error": 0.03013766118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 28,
+          "cdf_error": 0.02728034523537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 29,
+          "cdf_error": 0.04693840476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 30,
+          "cdf_error": 0.031217089045638857,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 31,
+          "cdf_error": 0.05660771404563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 32,
+          "cdf_error": 0.028838036701352293,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 0,
+          "cdf_error": 0.0457337546951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 1,
+          "cdf_error": 0.02623141118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 2,
+          "cdf_error": 0.04485847023537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 3,
+          "cdf_error": 0.03128291095436114,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 4,
+          "cdf_error": 0.01859159126120158,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 5,
+          "cdf_error": 0.03791933711105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 6,
+          "cdf_error": 0.027006630919161688,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 7,
+          "cdf_error": 0.02454983881588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 8,
+          "cdf_error": 0.023470410954361143,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 9,
+          "cdf_error": 0.05583066288894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 10,
+          "cdf_error": 0.04576266118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 11,
+          "cdf_error": 0.02337679642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 12,
+          "cdf_error": 0.06451652976462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 13,
+          "cdf_error": 0.02337679642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 14,
+          "cdf_error": 0.01841891118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 15,
+          "cdf_error": 0.031468786691024264,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 16,
+          "cdf_error": 0.02471441303192834,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 17,
+          "cdf_error": 0.05072054642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 18,
+          "cdf_error": 0.03912320357564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 19,
+          "cdf_error": 0.026185698926641104,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 20,
+          "cdf_error": 0.014130755696764363,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 21,
+          "cdf_error": 0.02818453618411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 22,
+          "cdf_error": 0.03987246211105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 23,
+          "cdf_error": 0.030108754695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 24,
+          "cdf_error": 0.04293583904563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 25,
+          "cdf_error": 0.03131340476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 26,
+          "cdf_error": 0.0340150046951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 27,
+          "cdf_error": 0.03013766118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 28,
+          "cdf_error": 0.02728034523537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 29,
+          "cdf_error": 0.04693840476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 30,
+          "cdf_error": 0.031217089045638857,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 31,
+          "cdf_error": 0.05660771404563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "legacy_cached",
+          "species_index": 32,
+          "cdf_error": 0.028838036701352293,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 0,
+          "cdf_error": 0.0457337546951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 1,
+          "cdf_error": 0.02623141118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 2,
+          "cdf_error": 0.04485847023537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 3,
+          "cdf_error": 0.03128291095436114,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 4,
+          "cdf_error": 0.01859159126120158,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 5,
+          "cdf_error": 0.03791933711105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 6,
+          "cdf_error": 0.027006630919161688,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 7,
+          "cdf_error": 0.02454983881588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 8,
+          "cdf_error": 0.023470410954361143,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 9,
+          "cdf_error": 0.05583066288894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 10,
+          "cdf_error": 0.04576266118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 11,
+          "cdf_error": 0.02337679642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 12,
+          "cdf_error": 0.06451652976462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 13,
+          "cdf_error": 0.02337679642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 14,
+          "cdf_error": 0.01841891118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 15,
+          "cdf_error": 0.031468786691024264,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 16,
+          "cdf_error": 0.02471441303192834,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 17,
+          "cdf_error": 0.05072054642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 18,
+          "cdf_error": 0.03912320357564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 19,
+          "cdf_error": 0.026185698926641104,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 20,
+          "cdf_error": 0.014130755696764363,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 21,
+          "cdf_error": 0.02818453618411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 22,
+          "cdf_error": 0.03987246211105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 23,
+          "cdf_error": 0.030108754695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 24,
+          "cdf_error": 0.04293583904563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 25,
+          "cdf_error": 0.03131340476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 26,
+          "cdf_error": 0.0340150046951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 27,
+          "cdf_error": 0.03013766118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 28,
+          "cdf_error": 0.02728034523537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 29,
+          "cdf_error": 0.04693840476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 30,
+          "cdf_error": 0.031217089045638857,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 31,
+          "cdf_error": 0.05660771404563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 32,
+          "cdf_error": 0.028838036701352293,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 0,
+          "cdf_error": 0.01134671946405863,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 1,
+          "cdf_error": 0.02349820357564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 2,
+          "cdf_error": 0.03899909523537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 3,
+          "cdf_error": 0.030440037888949112,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 4,
+          "cdf_error": 0.05105104622441525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 5,
+          "cdf_error": 0.04495478595436114,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 6,
+          "cdf_error": 0.02923617142435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 7,
+          "cdf_error": 0.02080816303192834,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 8,
+          "cdf_error": 0.03239316288894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 9,
+          "cdf_error": 0.021754171224415253,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 10,
+          "cdf_error": 0.03518916095436114,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 11,
+          "cdf_error": 0.0418275046951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 12,
+          "cdf_error": 0.03704867142435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 13,
+          "cdf_error": 0.03717007857564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 14,
+          "cdf_error": 0.02728304642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 15,
+          "cdf_error": 0.020674412888949112,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 16,
+          "cdf_error": 0.01299566303192834,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 17,
+          "cdf_error": 0.04997128788894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 18,
+          "cdf_error": 0.024595551073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 19,
+          "cdf_error": 0.014512661184115538,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 20,
+          "cdf_error": 0.03401308711105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 21,
+          "cdf_error": 0.021214578775584747,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 22,
+          "cdf_error": 0.022642426073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 23,
+          "cdf_error": 0.04290804642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 24,
+          "cdf_error": 0.036314301073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 25,
+          "cdf_error": 0.020343129695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 26,
+          "cdf_error": 0.0359681296951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 27,
+          "cdf_error": 0.024595551073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 28,
+          "cdf_error": 0.03205996211105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 29,
+          "cdf_error": 0.026200587111050888,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 30,
+          "cdf_error": 0.03912590476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 31,
+          "cdf_error": 0.04681429642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 32,
+          "cdf_error": 0.02697171946405863,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 0,
+          "cdf_error": 0.0457337546951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 1,
+          "cdf_error": 0.02623141118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 2,
+          "cdf_error": 0.04485847023537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 3,
+          "cdf_error": 0.03128291095436114,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 4,
+          "cdf_error": 0.01859159126120158,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 5,
+          "cdf_error": 0.03791933711105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 6,
+          "cdf_error": 0.027006630919161688,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 7,
+          "cdf_error": 0.02454983881588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 8,
+          "cdf_error": 0.023470410954361143,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 9,
+          "cdf_error": 0.05583066288894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 10,
+          "cdf_error": 0.04576266118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 11,
+          "cdf_error": 0.02337679642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 12,
+          "cdf_error": 0.06451652976462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 13,
+          "cdf_error": 0.02337679642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 14,
+          "cdf_error": 0.01841891118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 15,
+          "cdf_error": 0.031468786691024264,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 16,
+          "cdf_error": 0.02471441303192834,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 17,
+          "cdf_error": 0.05072054642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 18,
+          "cdf_error": 0.03912320357564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 19,
+          "cdf_error": 0.026185698926641104,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 20,
+          "cdf_error": 0.014130755696764363,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 21,
+          "cdf_error": 0.02818453618411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 22,
+          "cdf_error": 0.03987246211105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 23,
+          "cdf_error": 0.030108754695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 24,
+          "cdf_error": 0.04293583904563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 25,
+          "cdf_error": 0.03131340476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 26,
+          "cdf_error": 0.0340150046951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 27,
+          "cdf_error": 0.03013766118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 28,
+          "cdf_error": 0.02728034523537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 29,
+          "cdf_error": 0.04693840476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 30,
+          "cdf_error": 0.031217089045638857,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 31,
+          "cdf_error": 0.05660771404563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 32,
+          "cdf_error": 0.028838036701352293,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 0,
+          "cdf_error": 0.01134671946405863,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 1,
+          "cdf_error": 0.02349820357564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 2,
+          "cdf_error": 0.03899909523537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 3,
+          "cdf_error": 0.030440037888949112,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 4,
+          "cdf_error": 0.05105104622441525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 5,
+          "cdf_error": 0.04495478595436114,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 6,
+          "cdf_error": 0.02923617142435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 7,
+          "cdf_error": 0.02080816303192834,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 8,
+          "cdf_error": 0.03239316288894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 9,
+          "cdf_error": 0.021754171224415253,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 10,
+          "cdf_error": 0.03518916095436114,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 11,
+          "cdf_error": 0.0418275046951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 12,
+          "cdf_error": 0.03704867142435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 13,
+          "cdf_error": 0.03717007857564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 14,
+          "cdf_error": 0.02728304642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 15,
+          "cdf_error": 0.020674412888949112,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 16,
+          "cdf_error": 0.01299566303192834,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 17,
+          "cdf_error": 0.04997128788894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 18,
+          "cdf_error": 0.024595551073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 19,
+          "cdf_error": 0.014512661184115538,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 20,
+          "cdf_error": 0.03401308711105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 21,
+          "cdf_error": 0.021214578775584747,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 22,
+          "cdf_error": 0.022642426073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 23,
+          "cdf_error": 0.04290804642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 24,
+          "cdf_error": 0.036314301073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 25,
+          "cdf_error": 0.020343129695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 26,
+          "cdf_error": 0.0359681296951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 27,
+          "cdf_error": 0.024595551073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 28,
+          "cdf_error": 0.03205996211105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 29,
+          "cdf_error": 0.026200587111050888,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 30,
+          "cdf_error": 0.03912590476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 31,
+          "cdf_error": 0.04681429642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 32,
+          "cdf_error": 0.02697171946405863,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 0,
+          "cdf_error": 0.05865445357564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 1,
+          "cdf_error": 0.023404589045638857,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 2,
+          "cdf_error": 0.030440037888949112,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 3,
+          "cdf_error": 0.04098271404563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 4,
+          "cdf_error": 0.031031213308975736,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 5,
+          "cdf_error": 0.02154777976462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 6,
+          "cdf_error": 0.0382506203048365,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 7,
+          "cdf_error": 0.03822171381588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 8,
+          "cdf_error": 0.02740715476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 9,
+          "cdf_error": 0.029078088308975736,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 10,
+          "cdf_error": 0.025660421224415253,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 11,
+          "cdf_error": 0.04465207877558475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 12,
+          "cdf_error": 0.03812284126120158,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 13,
+          "cdf_error": 0.025609411691024264,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 14,
+          "cdf_error": 0.02142367142435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 15,
+          "cdf_error": 0.020341212111050888,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 16,
+          "cdf_error": 0.018390004695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 17,
+          "cdf_error": 0.026531870304836502,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 18,
+          "cdf_error": 0.01751742142435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 19,
+          "cdf_error": 0.02532992142435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 20,
+          "cdf_error": 0.020674412888949112,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 21,
+          "cdf_error": 0.021517285954361143,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 22,
+          "cdf_error": 0.02047090873879842,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 23,
+          "cdf_error": 0.03313972023537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 24,
+          "cdf_error": 0.02936027976462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 25,
+          "cdf_error": 0.017796911691024264,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 26,
+          "cdf_error": 0.024580662888949112,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 27,
+          "cdf_error": 0.019312463308975736,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 28,
+          "cdf_error": 0.03542604622441525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 29,
+          "cdf_error": 0.028501801073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 30,
+          "cdf_error": 0.03205996211105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 31,
+          "cdf_error": 0.04107902976462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 32,
+          "cdf_error": 0.03239316288894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 0,
+          "cdf_error": 0.03293332877558475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 1,
+          "cdf_error": 0.025849463298647707,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 2,
+          "cdf_error": 0.01239496196807166,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 3,
+          "cdf_error": 0.02697171946405863,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 4,
+          "cdf_error": 0.02185640553594137,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 5,
+          "cdf_error": 0.03431546381588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 6,
+          "cdf_error": 0.015592089045638857,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 7,
+          "cdf_error": 0.03643316303192834,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 8,
+          "cdf_error": 0.011658046424354751,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 9,
+          "cdf_error": 0.01841891118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 10,
+          "cdf_error": 0.016434962111050888,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 11,
+          "cdf_error": 0.049986176073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 12,
+          "cdf_error": 0.019564160954361143,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 13,
+          "cdf_error": 0.023707296224415253,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 14,
+          "cdf_error": 0.02801996196807166,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 15,
+          "cdf_error": 0.03714228595436114,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 16,
+          "cdf_error": 0.05279507857564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 17,
+          "cdf_error": 0.015564296424354751,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 18,
+          "cdf_error": 0.03118929642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 19,
+          "cdf_error": 0.022279448926641104,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 20,
+          "cdf_error": 0.03023653373879842,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 21,
+          "cdf_error": 0.05465458904563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 22,
+          "cdf_error": 0.034361176073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 23,
+          "cdf_error": 0.044126801073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 24,
+          "cdf_error": 0.012559536184115538,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 25,
+          "cdf_error": 0.03596621211105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 26,
+          "cdf_error": 0.03317021404563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 27,
+          "cdf_error": 0.034361176073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 28,
+          "cdf_error": 0.035375036691024264,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 29,
+          "cdf_error": 0.04411191288894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 30,
+          "cdf_error": 0.016783051073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 31,
+          "cdf_error": 0.032045073926641104,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 32,
+          "cdf_error": 0.026200587111050888,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 0,
+          "cdf_error": 0.024595551073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 1,
+          "cdf_error": 0.030980203775584747,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 2,
+          "cdf_error": 0.028138823926641104,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 3,
+          "cdf_error": 0.04684208904563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 4,
+          "cdf_error": 0.02835721626120158,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 5,
+          "cdf_error": 0.023707296224415253,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 6,
+          "cdf_error": 0.02532992142435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 7,
+          "cdf_error": 0.05192441288894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 8,
+          "cdf_error": 0.05072054642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 9,
+          "cdf_error": 0.03990328618411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 10,
+          "cdf_error": 0.03118929642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 11,
+          "cdf_error": 0.03791933711105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 12,
+          "cdf_error": 0.02349820357564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 13,
+          "cdf_error": 0.02666753803192834,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 14,
+          "cdf_error": 0.0418275046951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 15,
+          "cdf_error": 0.032408051073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 16,
+          "cdf_error": 0.027613546224415253,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 17,
+          "cdf_error": 0.05670132857564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 18,
+          "cdf_error": 0.0320618796951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 19,
+          "cdf_error": 0.028484995304836502,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 20,
+          "cdf_error": 0.03326652976462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 21,
+          "cdf_error": 0.02349820357564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 22,
+          "cdf_error": 0.025609411691024264,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 23,
+          "cdf_error": 0.03912320357564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 24,
+          "cdf_error": 0.027073953775584747,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 25,
+          "cdf_error": 0.02259671381588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 26,
+          "cdf_error": 0.0460631203048365,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 27,
+          "cdf_error": 0.024578745304836502,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 28,
+          "cdf_error": 0.028501801073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 29,
+          "cdf_error": 0.020326323926641104,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 30,
+          "cdf_error": 0.016783051073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 31,
+          "cdf_error": 0.0398743796951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 32,
+          "cdf_error": 0.014829926073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 0,
+          "cdf_error": 0.02728304642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 1,
+          "cdf_error": 0.02350090476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 2,
+          "cdf_error": 0.030980203775584747,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 3,
+          "cdf_error": 0.04182558711105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 4,
+          "cdf_error": 0.0538756203048365,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 5,
+          "cdf_error": 0.02532722023537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 6,
+          "cdf_error": 0.02545132857564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 7,
+          "cdf_error": 0.029755713298647707,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 8,
+          "cdf_error": 0.03879270377558475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 9,
+          "cdf_error": 0.0359681296951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 10,
+          "cdf_error": 0.026185698926641104,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 11,
+          "cdf_error": 0.02923617142435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 12,
+          "cdf_error": 0.04107902976462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 13,
+          "cdf_error": 0.02640409126120158,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 14,
+          "cdf_error": 0.017915244080838312,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 15,
+          "cdf_error": 0.029027078775584747,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 16,
+          "cdf_error": 0.03683957877558475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 17,
+          "cdf_error": 0.01299566303192834,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 18,
+          "cdf_error": 0.02337409523537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 19,
+          "cdf_error": 0.015287880919161688,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 20,
+          "cdf_error": 0.02154507857564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 21,
+          "cdf_error": 0.03314242142435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 22,
+          "cdf_error": 0.019072411701352293,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 23,
+          "cdf_error": 0.04684208904563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 24,
+          "cdf_error": 0.04768496211105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 25,
+          "cdf_error": 0.023707296224415253,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 26,
+          "cdf_error": 0.030106837111050888,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 27,
+          "cdf_error": 0.013213036701352293,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 28,
+          "cdf_error": 0.024232573926641104,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 29,
+          "cdf_error": 0.026533787888949112,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 30,
+          "cdf_error": 0.03683957877558475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 31,
+          "cdf_error": 0.028484995304836502,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 32,
+          "cdf_error": 0.02935757857564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 0,
+          "cdf_error": 0.05691042122441525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 1,
+          "cdf_error": 0.043763823926641104,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 2,
+          "cdf_error": 0.015843786691024264,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 3,
+          "cdf_error": 0.0398743796951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 4,
+          "cdf_error": 0.028484995304836502,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 5,
+          "cdf_error": 0.03434628788894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 6,
+          "cdf_error": 0.022296254695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 7,
+          "cdf_error": 0.04488896404563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 8,
+          "cdf_error": 0.04290804642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 9,
+          "cdf_error": 0.03326382857564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 10,
+          "cdf_error": 0.021025536701352293,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 11,
+          "cdf_error": 0.0480162453048365,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 12,
+          "cdf_error": 0.03205996211105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 13,
+          "cdf_error": 0.03323603595436114,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 14,
+          "cdf_error": 0.025357714045638857,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 15,
+          "cdf_error": 0.01869046381588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 16,
+          "cdf_error": 0.04963808711105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 17,
+          "cdf_error": 0.02740715476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 18,
+          "cdf_error": 0.03518916095436114,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 19,
+          "cdf_error": 0.03414278373879842,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 20,
+          "cdf_error": 0.021214578775584747,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 21,
+          "cdf_error": 0.02047090873879842,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 22,
+          "cdf_error": 0.010035421224415253,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 23,
+          "cdf_error": 0.03040921381588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 24,
+          "cdf_error": 0.04909792122441525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 25,
+          "cdf_error": 0.022627537888949112,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 26,
+          "cdf_error": 0.03717277976462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 27,
+          "cdf_error": 0.02532722023537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 28,
+          "cdf_error": 0.025120828775584747,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 29,
+          "cdf_error": 0.05276728595436114,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 30,
+          "cdf_error": 0.03131070357564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 31,
+          "cdf_error": 0.01434808696807166,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 32,
+          "cdf_error": 0.02349820357564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 0,
+          "cdf_error": 0.01673733881588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 1,
+          "cdf_error": 0.019261453775584747,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 2,
+          "cdf_error": 0.033421911691024264,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 3,
+          "cdf_error": 0.025171838308975736,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 4,
+          "cdf_error": 0.03128291095436114,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 5,
+          "cdf_error": 0.028155629695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 6,
+          "cdf_error": 0.032984338308975736,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 7,
+          "cdf_error": 0.02936027976462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 8,
+          "cdf_error": 0.030106837111050888,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 9,
+          "cdf_error": 0.013213036701352293,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 10,
+          "cdf_error": 0.02337679642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 11,
+          "cdf_error": 0.026202504695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 12,
+          "cdf_error": 0.029566671224415253,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 13,
+          "cdf_error": 0.026202504695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 14,
+          "cdf_error": 0.020672495304836502,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 15,
+          "cdf_error": 0.027376660954361143,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 16,
+          "cdf_error": 0.03031034126120158,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 17,
+          "cdf_error": 0.023707296224415253,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 18,
+          "cdf_error": 0.03040921381588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 19,
+          "cdf_error": 0.028484995304836502,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 20,
+          "cdf_error": 0.02154507857564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 21,
+          "cdf_error": 0.04889152976462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 22,
+          "cdf_error": 0.03987246211105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 23,
+          "cdf_error": 0.04300166095436114,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 24,
+          "cdf_error": 0.03596621211105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 25,
+          "cdf_error": 0.018721287888949112,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 26,
+          "cdf_error": 0.0320618796951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 27,
+          "cdf_error": 0.012513823926641104,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 28,
+          "cdf_error": 0.03683957877558475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 29,
+          "cdf_error": 0.04293583904563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 30,
+          "cdf_error": 0.03509554642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 31,
+          "cdf_error": 0.034361176073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 32,
+          "cdf_error": 0.021517285954361143,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 0,
+          "cdf_error": 0.05279777976462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 1,
+          "cdf_error": 0.03518916095436114,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 2,
+          "cdf_error": 0.02501859446405863,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 3,
+          "cdf_error": 0.025423535954361143,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 4,
+          "cdf_error": 0.014815037888949112,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 5,
+          "cdf_error": 0.020341212111050888,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 6,
+          "cdf_error": 0.06061027976462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 7,
+          "cdf_error": 0.03509554642435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 8,
+          "cdf_error": 0.04909792122441525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 9,
+          "cdf_error": 0.023167703775584747,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 10,
+          "cdf_error": 0.0320618796951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 11,
+          "cdf_error": 0.021943213298647707,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 12,
+          "cdf_error": 0.025120828775584747,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 13,
+          "cdf_error": 0.03131340476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 14,
+          "cdf_error": 0.01751742142435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 15,
+          "cdf_error": 0.028138823926641104,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 16,
+          "cdf_error": 0.03239316288894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 17,
+          "cdf_error": 0.02259671381588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 18,
+          "cdf_error": 0.04485847023537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 19,
+          "cdf_error": 0.021214578775584747,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 20,
+          "cdf_error": 0.023167703775584747,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 21,
+          "cdf_error": 0.03626858881588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 22,
+          "cdf_error": 0.04888882857564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 23,
+          "cdf_error": 0.03933229622441525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 24,
+          "cdf_error": 0.02845608881588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 25,
+          "cdf_error": 0.0320618796951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 26,
+          "cdf_error": 0.030440037888949112,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 27,
+          "cdf_error": 0.04269895377558475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 28,
+          "cdf_error": 0.04486117142435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 29,
+          "cdf_error": 0.03629941288894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 30,
+          "cdf_error": 0.01299566303192834,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 31,
+          "cdf_error": 0.017545214045638857,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 32,
+          "cdf_error": 0.01869046381588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 0,
+          "cdf_error": 0.03521965476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 1,
+          "cdf_error": 0.05192441288894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 2,
+          "cdf_error": 0.02337409523537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 3,
+          "cdf_error": 0.03313972023537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 4,
+          "cdf_error": 0.03879270377558475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 5,
+          "cdf_error": 0.05465458904563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 6,
+          "cdf_error": 0.029566671224415253,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 7,
+          "cdf_error": 0.023218713308975736,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 8,
+          "cdf_error": 0.022279448926641104,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 9,
+          "cdf_error": 0.05051145377558475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 10,
+          "cdf_error": 0.04606503788894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 11,
+          "cdf_error": 0.02350090476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 12,
+          "cdf_error": 0.015657910954361143,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 13,
+          "cdf_error": 0.03313972023537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 14,
+          "cdf_error": 0.02862066303192834,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 15,
+          "cdf_error": 0.05495729622441525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 16,
+          "cdf_error": 0.042173676073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 17,
+          "cdf_error": 0.02020746196807166,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 18,
+          "cdf_error": 0.03737917122441525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 19,
+          "cdf_error": 0.03151979622441525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 20,
+          "cdf_error": 0.03583246196807166,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 21,
+          "cdf_error": 0.02740445357564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 22,
+          "cdf_error": 0.024595551073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 23,
+          "cdf_error": 0.01568840476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 24,
+          "cdf_error": 0.024578745304836502,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 25,
+          "cdf_error": 0.04095222023537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 26,
+          "cdf_error": 0.0577818703048365,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 27,
+          "cdf_error": 0.03879270377558475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 28,
+          "cdf_error": 0.031217089045638857,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 29,
+          "cdf_error": 0.03401308711105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 30,
+          "cdf_error": 0.023707296224415253,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 31,
+          "cdf_error": 0.035951323926641104,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 32,
+          "cdf_error": 0.020343129695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 0,
+          "cdf_error": 0.0320618796951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 1,
+          "cdf_error": 0.02818453618411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 2,
+          "cdf_error": 0.029329785954361143,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 3,
+          "cdf_error": 0.01673733881588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 4,
+          "cdf_error": 0.02640409126120158,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 5,
+          "cdf_error": 0.02037203618411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 6,
+          "cdf_error": 0.02454983881588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 7,
+          "cdf_error": 0.019750036691024264,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 8,
+          "cdf_error": 0.019750036691024264,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 9,
+          "cdf_error": 0.03323603595436114,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 10,
+          "cdf_error": 0.03521965476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 11,
+          "cdf_error": 0.05657722023537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 12,
+          "cdf_error": 0.019498339045638857,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 13,
+          "cdf_error": 0.0362974953048365,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 14,
+          "cdf_error": 0.05105104622441525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 15,
+          "cdf_error": 0.04098271404563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 16,
+          "cdf_error": 0.02728034523537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 17,
+          "cdf_error": 0.027073953775584747,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 18,
+          "cdf_error": 0.05084465476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 19,
+          "cdf_error": 0.020341212111050888,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 20,
+          "cdf_error": 0.020343129695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 21,
+          "cdf_error": 0.05192441288894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 22,
+          "cdf_error": 0.03822171381588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 23,
+          "cdf_error": 0.02606683696807166,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 24,
+          "cdf_error": 0.025423535954361143,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 25,
+          "cdf_error": 0.03387933696807166,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 26,
+          "cdf_error": 0.03717277976462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 27,
+          "cdf_error": 0.015592089045638857,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 28,
+          "cdf_error": 0.028155629695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 29,
+          "cdf_error": 0.025357714045638857,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 30,
+          "cdf_error": 0.025609411691024264,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 31,
+          "cdf_error": 0.03912320357564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 32,
+          "cdf_error": 0.023167703775584747,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 0,
+          "cdf_error": 0.02935757857564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 1,
+          "cdf_error": 0.02427828618411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 2,
+          "cdf_error": 0.03401308711105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 3,
+          "cdf_error": 0.028155629695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 4,
+          "cdf_error": 0.03714228595436114,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 5,
+          "cdf_error": 0.02650296381588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 6,
+          "cdf_error": 0.018390004695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 7,
+          "cdf_error": 0.027124963308975736,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 8,
+          "cdf_error": 0.02471441303192834,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 9,
+          "cdf_error": 0.027376660954361143,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 10,
+          "cdf_error": 0.01715405653154771,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 11,
+          "cdf_error": 0.025357714045638857,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 12,
+          "cdf_error": 0.05246457877558475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 13,
+          "cdf_error": 0.028501801073358896,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 14,
+          "cdf_error": 0.04269895377558475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 15,
+          "cdf_error": 0.03795016118411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 16,
+          "cdf_error": 0.020326323926641104,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 17,
+          "cdf_error": 0.015561595235379921,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 18,
+          "cdf_error": 0.02545132857564525,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 19,
+          "cdf_error": 0.015406213308975736,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 20,
+          "cdf_error": 0.03431546381588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 21,
+          "cdf_error": 0.020674412888949112,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 22,
+          "cdf_error": 0.023707296224415253,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 23,
+          "cdf_error": 0.02037203618411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 24,
+          "cdf_error": 0.02923617142435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 25,
+          "cdf_error": 0.03512333904563886,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 26,
+          "cdf_error": 0.03599703618411554,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 27,
+          "cdf_error": 0.03643316303192834,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 28,
+          "cdf_error": 0.012861912888949112,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 29,
+          "cdf_error": 0.02801996196807166,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 30,
+          "cdf_error": 0.0343443703048365,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 31,
+          "cdf_error": 0.017308328775584747,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 32,
+          "cdf_error": 0.03118659523537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 0,
+          "cdf_error": 0.02728034523537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 1,
+          "cdf_error": 0.026200587111050888,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 2,
+          "cdf_error": 0.021214578775584747,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 3,
+          "cdf_error": 0.05159121211105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 4,
+          "cdf_error": 0.01525296946405863,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 5,
+          "cdf_error": 0.015166161701352293,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 6,
+          "cdf_error": 0.030108754695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 7,
+          "cdf_error": 0.031217089045638857,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 8,
+          "cdf_error": 0.0320618796951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 9,
+          "cdf_error": 0.029566671224415253,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 10,
+          "cdf_error": 0.05267097023537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 11,
+          "cdf_error": 0.04182558711105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 12,
+          "cdf_error": 0.027124963308975736,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 13,
+          "cdf_error": 0.018721287888949112,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 14,
+          "cdf_error": 0.026533787888949112,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 15,
+          "cdf_error": 0.03205996211105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 16,
+          "cdf_error": 0.04411191288894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 17,
+          "cdf_error": 0.03205996211105089,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 18,
+          "cdf_error": 0.015657910954361143,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 19,
+          "cdf_error": 0.04215878788894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 20,
+          "cdf_error": 0.05670402976462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 21,
+          "cdf_error": 0.03521965476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 22,
+          "cdf_error": 0.02142367142435475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 23,
+          "cdf_error": 0.04801816288894911,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 24,
+          "cdf_error": 0.03626858881588446,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 25,
+          "cdf_error": 0.020326323926641104,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 26,
+          "cdf_error": 0.0379212546951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 27,
+          "cdf_error": 0.022296254695163498,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 28,
+          "cdf_error": 0.0379212546951635,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 29,
+          "cdf_error": 0.02740715476462008,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 30,
+          "cdf_error": 0.02142097023537992,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 31,
+          "cdf_error": 0.03293332877558475,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 32,
+          "cdf_error": 0.030438120304836502,
+          "cdf_bound": 0.11752758402889095,
+          "passed": true
+        }
+      ],
+      "sample_sha256": {
+        "legacy_direct": "2e54c02393a2a6b0b2cb737ac7b887271235aa25462290e17cb7487db7c3c5d2",
+        "legacy_cached": "2e54c02393a2a6b0b2cb737ac7b887271235aa25462290e17cb7487db7c3c5d2",
+        "direct/inverse": "2e54c02393a2a6b0b2cb737ac7b887271235aa25462290e17cb7487db7c3c5d2",
+        "direct/ziggurat": "34457f818d512fe9a0876fbe40c4cc8b4eb705b989b7f76bf90bdb6fd3a7122b",
+        "cached_direct/inverse": "2e54c02393a2a6b0b2cb737ac7b887271235aa25462290e17cb7487db7c3c5d2",
+        "cached_direct/ziggurat": "34457f818d512fe9a0876fbe40c4cc8b4eb705b989b7f76bf90bdb6fd3a7122b",
+        "direct_cr/inverse": "f638b8791de9a3e9c24b48ed0adfaf109c0b853bcc8e908cac6ab42917734c4b",
+        "direct_cr/ziggurat": "e79b7423cf414bd5dde759e48d9bd13ade703c1f68c214bd5b766d22c3547d84",
+        "sorting_direct/inverse": "b12c02bd50c0fdccd1a52ab9b7895cede8d859a40d425cdb25d8cba11c630f55",
+        "sorting_direct/ziggurat": "5aa390161aef63f22fcf9087fb7ad2b5036a023b41826f1f4c6e32b211685b72",
+        "rssa_cr/inverse": "958b4656d27cb9fec0388cda99aa803c8de91aaab9c2558c9696938b0fe835ed",
+        "rssa_cr/ziggurat": "ba2c6267049a146e96e4a0d9c5e5b6cca8f7e1a8578d55993b318c25e972e264",
+        "Julia/Direct": "e016733c35d51fb290cecc49def74b3d2c7d9caf3e66ee0ef3069d7bf5f7b29b",
+        "Julia/SortingDirect": "d6139c19e036b23cf8c0d84739df31be57afd6818cd2f4a086968005bcd0d642",
+        "Julia/DirectCR": "787880430fa54680520c4081b125ab83d3108c486e2830d02c6560e7bf1c31d7",
+        "Julia/NRM": "c3343226b90591b20eea8a21ee746baba935ccdaa1cc8b674b58b79cc80fffca",
+        "Julia/RSSACR": "fd033fe8a2d3bd377858e28fc9f541ba44f0324b849197eeebc5ed142fa33dad"
+      },
+      "sample_file": "W2.samples.json.gz",
+      "sample_file_sha256": "79c0cd991863315bd98063c0e227bac5b7d4cfbcad06bba0102fd9494124131e",
+      "passed": true
+    },
+    "W3": {
+      "paths_per_engine": 512,
+      "rows": [
+        {
+          "engine": "legacy_direct",
+          "species_index": 0,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 1,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 2,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 3,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 4,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "legacy_direct",
+          "species_index": 5,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 0,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 1,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 2,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 3,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 4,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct/inverse",
+          "species_index": 5,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 0,
+          "cdf_error": 0.0703125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 1,
+          "cdf_error": 0.078125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 2,
+          "cdf_error": 0.060546875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 3,
+          "cdf_error": 0.044921875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 4,
+          "cdf_error": 0.048828125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct/ziggurat",
+          "species_index": 5,
+          "cdf_error": 0.072265625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 0,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 1,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 2,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 3,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 4,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/inverse",
+          "species_index": 5,
+          "cdf_error": 0.0,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 0,
+          "cdf_error": 0.0703125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 1,
+          "cdf_error": 0.078125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 2,
+          "cdf_error": 0.060546875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 3,
+          "cdf_error": 0.044921875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 4,
+          "cdf_error": 0.048828125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "cached_direct/ziggurat",
+          "species_index": 5,
+          "cdf_error": 0.072265625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 0,
+          "cdf_error": 0.0546875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 1,
+          "cdf_error": 0.037109375,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 2,
+          "cdf_error": 0.033203125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 3,
+          "cdf_error": 0.041015625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 4,
+          "cdf_error": 0.05078125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/inverse",
+          "species_index": 5,
+          "cdf_error": 0.060546875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 0,
+          "cdf_error": 0.0390625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 1,
+          "cdf_error": 0.056640625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 2,
+          "cdf_error": 0.0390625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 3,
+          "cdf_error": 0.046875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 4,
+          "cdf_error": 0.04296875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "direct_cr/ziggurat",
+          "species_index": 5,
+          "cdf_error": 0.037109375,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 0,
+          "cdf_error": 0.03515625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 1,
+          "cdf_error": 0.06640625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 2,
+          "cdf_error": 0.0625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 3,
+          "cdf_error": 0.0546875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 4,
+          "cdf_error": 0.052734375,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/inverse",
+          "species_index": 5,
+          "cdf_error": 0.052734375,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 0,
+          "cdf_error": 0.037109375,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 1,
+          "cdf_error": 0.04296875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 2,
+          "cdf_error": 0.044921875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 3,
+          "cdf_error": 0.052734375,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 4,
+          "cdf_error": 0.048828125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "sorting_direct/ziggurat",
+          "species_index": 5,
+          "cdf_error": 0.044921875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 0,
+          "cdf_error": 0.025390625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 1,
+          "cdf_error": 0.048828125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 2,
+          "cdf_error": 0.05078125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 3,
+          "cdf_error": 0.0546875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 4,
+          "cdf_error": 0.05078125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/inverse",
+          "species_index": 5,
+          "cdf_error": 0.03515625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 0,
+          "cdf_error": 0.0390625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 1,
+          "cdf_error": 0.05078125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 2,
+          "cdf_error": 0.056640625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 3,
+          "cdf_error": 0.056640625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 4,
+          "cdf_error": 0.0625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "rssa_cr/ziggurat",
+          "species_index": 5,
+          "cdf_error": 0.07421875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 0,
+          "cdf_error": 0.037109375,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 1,
+          "cdf_error": 0.044921875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 2,
+          "cdf_error": 0.044921875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 3,
+          "cdf_error": 0.03515625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 4,
+          "cdf_error": 0.044921875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/Direct",
+          "species_index": 5,
+          "cdf_error": 0.048828125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 0,
+          "cdf_error": 0.0390625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 1,
+          "cdf_error": 0.048828125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 2,
+          "cdf_error": 0.05859375,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 3,
+          "cdf_error": 0.05859375,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 4,
+          "cdf_error": 0.052734375,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/SortingDirect",
+          "species_index": 5,
+          "cdf_error": 0.05078125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 0,
+          "cdf_error": 0.029296875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 1,
+          "cdf_error": 0.0546875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 2,
+          "cdf_error": 0.0625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 3,
+          "cdf_error": 0.046875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 4,
+          "cdf_error": 0.0546875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/DirectCR",
+          "species_index": 5,
+          "cdf_error": 0.03515625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 0,
+          "cdf_error": 0.0625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 1,
+          "cdf_error": 0.056640625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 2,
+          "cdf_error": 0.048828125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 3,
+          "cdf_error": 0.052734375,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 4,
+          "cdf_error": 0.0625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/NRM",
+          "species_index": 5,
+          "cdf_error": 0.07421875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 0,
+          "cdf_error": 0.041015625,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 1,
+          "cdf_error": 0.05078125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 2,
+          "cdf_error": 0.048828125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 3,
+          "cdf_error": 0.064453125,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 4,
+          "cdf_error": 0.068359375,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        },
+        {
+          "engine": "Julia/RSSACR",
+          "species_index": 5,
+          "cdf_error": 0.0546875,
+          "cdf_bound": 0.2407457958194377,
+          "passed": true
+        }
+      ],
+      "sample_sha256": {
+        "legacy_direct": "bf6628988f2fc22e8981e2f37135143dae3a051672e64096520acc3eb286f6a0",
+        "legacy_cached": "bf6628988f2fc22e8981e2f37135143dae3a051672e64096520acc3eb286f6a0",
+        "direct/inverse": "bf6628988f2fc22e8981e2f37135143dae3a051672e64096520acc3eb286f6a0",
+        "direct/ziggurat": "94411823f6e3d2aa0f4988a98af629217ad60cca86123dc5fae06c0a525c0040",
+        "cached_direct/inverse": "bf6628988f2fc22e8981e2f37135143dae3a051672e64096520acc3eb286f6a0",
+        "cached_direct/ziggurat": "94411823f6e3d2aa0f4988a98af629217ad60cca86123dc5fae06c0a525c0040",
+        "direct_cr/inverse": "426b96de772910ef00fc170abfa586853afdcbf704862fe94871d8252eeed157",
+        "direct_cr/ziggurat": "4637bef1b5ed9d3f3882fdbd320944d4f2acd221f5dd6e4f90e0a7afb2d1e64b",
+        "sorting_direct/inverse": "c36813e1aac5454892978b91086e9d67a632698ba40981b9ab7e72435d3ca138",
+        "sorting_direct/ziggurat": "43124aa82318862cebbe3ca8ae652aeac086cd97062664049a73b21d745c1fb2",
+        "rssa_cr/inverse": "c4c26bffe2b8f8cdf2e4830514701c713a25c90d54bea5bad42c2f525726cf27",
+        "rssa_cr/ziggurat": "67d6acbc117cf34ab1ca947cdf817817e9aca801a5bbaea912f05fb7b1f2d933",
+        "Julia/Direct": "f88a583d8624412fad733dde0637fc4c974656ad1710b702eefb8ad0a2114cf1",
+        "Julia/SortingDirect": "e689b6b20feb0e77d776b5a79f0e63e8a1c4514b724f6e85590f9c2059c472b7",
+        "Julia/DirectCR": "447cf0a6825863f7780e89c9c886131eb38822cfa2c18949bba3eaf4ef23291e",
+        "Julia/NRM": "ae6f506db501c4ff986e66d74d6ce34156d5688ee2a8848c5eef8416272fdcc4",
+        "Julia/RSSACR": "0369a5ec049f7dd250a3d13ffde58a9fadbed993eb8bdc1769d2e0a822be9bbf"
+      },
+      "sample_file": "W3.samples.json.gz",
+      "sample_file_sha256": "3990e1ce5b1a7b28535c244975ceefd6096e5e1dde5d00c2ca9e8bf345ab6022",
+      "passed": true
+    }
+  },
+  "probes": {
+    "W1": {
+      "passed": true,
+      "comparisons": 16,
+      "max_relative_error": 0.0
+    },
+    "W2": {
+      "passed": true,
+      "comparisons": 528,
+      "max_relative_error": 0.0
+    },
+    "W3": {
+      "passed": true,
+      "comparisons": 96,
+      "max_relative_error": 8.287150528994676e-16
+    },
+    "W4": {
+      "passed": true,
+      "comparisons": 330,
+      "max_relative_error": 0.0
+    }
+  },
+  "timings": {},
+  "first_runs": {
+    "W1": {
+      "Julia/Direct": 0.449921922,
+      "Julia/SortingDirect": 0.350401859,
+      "Julia/DirectCR": 0.423787155,
+      "Julia/NRM": 0.461355507,
+      "Julia/RSSACR": 0.531502272
+    },
+    "W2": {
+      "Julia/Direct": 0.311132051,
+      "Julia/SortingDirect": 0.345767809,
+      "Julia/DirectCR": 0.351407127,
+      "Julia/NRM": 0.34994183,
+      "Julia/RSSACR": 0.449200779
+    },
+    "W3": {
+      "Julia/Direct": 0.472684253,
+      "Julia/SortingDirect": 0.648699323,
+      "Julia/DirectCR": 0.547638867,
+      "Julia/NRM": 0.450728474,
+      "Julia/RSSACR": 0.683155586
+    }
+  },
+  "preparation_seconds": {},
+  "source_sha256": {
+    "validation/compare_julia_accelerated.py": "a2f736a970910194bab829415a2767ae7093bd8838b938a4482ababcf2a232a7",
+    "validation/acceleration_workloads.py": "82a6479d06e61dd7b8c674cc876eea17b453b058e2709cdc29339bcb65540a9e",
+    "validation/compare_julia.py": "24897a366971d2bc8746d507f348d32f7cca242303bf3ef0cfb9dd48e19a5524",
+    "validation/ssa-acceleration/julia/reference_server.jl": "5b5b060e0566b5a856fddcd9603df0943d10cf15ca7cfa7c0e166a04fdbb6a2d",
+    "validation/ssa-acceleration/julia/Project.toml": "4721301b2e017a177b376b00765982bf67a1e98beadf1b1ce6862fb38e904885",
+    "validation/ssa-acceleration/julia/Manifest.toml": "2b7c9970e8bce9f1ca0c8f322ca7e4c20869aa4ec1f67c3a89d9b9df16b54655",
+    "validation/ssa-acceleration/julia/generated_models.jl": "5caeb8a25625cccd4d0c56b185e6bf5002002e40f676452a37c1caf6dd6de8ee"
+  },
+  "environment": {
+    "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+    "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+    "crn_craft": "0.2.0.dev1",
+    "numpy": "2.5.4",
+    "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+    "cpu_affinity": 9,
+    "cpu_quota": "800000 100000"
+  },
+  "julia_setup": {
+    "load_seconds": 9.024487904,
+    "model_setup_seconds": 49.993401814,
+    "versions": {
+      "Julia": "1.13.3",
+      "JSON3": "1.14.4",
+      "Catalyst": "17.0.0",
+      "JumpProcesses": "10.0.1"
+    },
+    "problem_setup_seconds": {
+      "W1/NRM": 0.070731375,
+      "W6/SortingDirect": 0.577439039,
+      "W2/NRM": 0.469769235,
+      "W4/NRM": 0.229461839,
+      "W5/DirectCR": 0.109755763,
+      "W2/RSSACR": 0.555857122,
+      "W7/SortingDirect": 0.079931286,
+      "W4/RSSACR": 0.489660034,
+      "W6/RSSACR": 0.11095495,
+      "W2/SortingDirect": 0.58447865,
+      "W7/NRM": 0.064457133,
+      "W5/NRM": 0.157914251,
+      "W1/DirectCR": 0.079821698,
+      "W1/RSSACR": 0.093805521,
+      "W2/DirectCR": 0.984285028,
+      "W3/Direct": 0.209894989,
+      "W3/NRM": 0.085064753,
+      "W5/Direct": 0.146854153,
+      "W1/Direct": 0.222982334,
+      "W3/SortingDirect": 0.099786463,
+      "W6/Direct": 0.146499358,
+      "W7/Direct": 0.09992639,
+      "W1/SortingDirect": 0.085063151,
+      "W5/RSSACR": 0.112491254,
+      "W3/RSSACR": 0.195534638,
+      "W6/NRM": 0.156767918,
+      "W7/RSSACR": 0.075382893,
+      "W6/DirectCR": 0.119018259,
+      "W4/Direct": 8.27351575,
+      "W7/DirectCR": 0.066925591,
+      "W4/DirectCR": 0.518746126,
+      "W2/Direct": 19.971271889,
+      "W4/SortingDirect": 0.263563087,
+      "W5/SortingDirect": 0.128761131,
+      "W3/DirectCR": 0.19226579
+    },
+    "threads": 1,
+    "blas_threads": 1
+  },
+  "julia_process_to_ready_seconds": 68.46498668599816
+}

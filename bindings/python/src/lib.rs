@@ -122,6 +122,102 @@ fn simulation_json(
     .map_err(|e| failure(&e))?;
     serde_json::to_string(&result.result).map_err(|e| PyValueError::new_err(e.to_string()))
 }
+
+/// Immutable prepared inputs. Every execution owns its RNG and worker buffers.
+#[pyclass(frozen)]
+struct PreparedRun {
+    prepared: Arc<crn_craft::simulation::Prepared>,
+    cached: bool,
+}
+
+#[pyclass(frozen)]
+struct PreparedSsaRun {
+    prepared: Arc<crn_craft::ssa::Prepared>,
+}
+#[pymethods]
+impl PreparedSsaRun {
+    #[pyo3(signature = (cancel_file=None))]
+    fn simulate_json(&self, py: Python<'_>, cancel_file: Option<String>) -> PyResult<String> {
+        let prepared = Arc::clone(&self.prepared);
+        let result = interruptible(py, cancel_file, move |control| {
+            crn_craft::ssa::execute(&prepared, control)
+        })?
+        .map_err(|e| failure(&e))?;
+        serde_json::to_string(&result).map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+}
+#[pyfunction]
+fn prepare_ssa_json(py: Python<'_>, model: Vec<u8>, request: Vec<u8>) -> PyResult<PreparedSsaRun> {
+    let prepared = py
+        .detach(move || crn_craft::ssa::prepare(&model, &request))
+        .map_err(|e| failure(&e))?;
+    Ok(PreparedSsaRun {
+        prepared: Arc::new(prepared),
+    })
+}
+#[pyfunction]
+#[pyo3(signature = (model, request, cancel_file=None))]
+fn ssa_json(
+    py: Python<'_>,
+    model: Vec<u8>,
+    request: Vec<u8>,
+    cancel_file: Option<String>,
+) -> PyResult<String> {
+    prepare_ssa_json(py, model, request)?.simulate_json(py, cancel_file)
+}
+#[pyfunction]
+#[pyo3(signature = (model, request, cancel_file=None))]
+fn ssa_files_json(
+    py: Python<'_>,
+    model: String,
+    request: String,
+    cancel_file: Option<String>,
+) -> PyResult<String> {
+    let result = interruptible(py, cancel_file, move |control| {
+        crn_craft::ssa::solve_files(
+            std::path::Path::new(&model),
+            std::path::Path::new(&request),
+            control,
+        )
+    })?
+    .map_err(|e| failure(&e))?;
+    serde_json::to_string(&result).map_err(|e| PyValueError::new_err(e.to_string()))
+}
+
+#[pymethods]
+impl PreparedRun {
+    #[pyo3(signature = (cancel_file=None))]
+    fn simulate_json(&self, py: Python<'_>, cancel_file: Option<String>) -> PyResult<String> {
+        let prepared = Arc::clone(&self.prepared);
+        let cached = self.cached;
+        let result = interruptible(py, cancel_file, move |control| {
+            if cached {
+                crn_craft::simulation::execute_cached(&prepared, control)
+            } else {
+                crn_craft::simulation::execute(&prepared, control)
+            }
+        })?
+        .map_err(|e| failure(&e))?;
+        serde_json::to_string(&result.result).map_err(|e| PyValueError::new_err(e.to_string()))
+    }
+}
+
+#[pyfunction]
+#[pyo3(signature = (model, run, cached=false))]
+fn prepare_json(
+    py: Python<'_>,
+    model: Vec<u8>,
+    run: Vec<u8>,
+    cached: bool,
+) -> PyResult<PreparedRun> {
+    let prepared = py
+        .detach(move || crn_craft::simulation::prepare(&model, &run))
+        .map_err(|e| failure(&e))?;
+    Ok(PreparedRun {
+        prepared: Arc::new(prepared),
+        cached,
+    })
+}
 #[pyfunction]
 #[pyo3(signature = (model, run, cancel_file=None))]
 fn fsp_json(
@@ -138,6 +234,12 @@ fn fsp_json(
 }
 #[pymodule]
 fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<PreparedSsaRun>()?;
+    module.add_function(wrap_pyfunction!(prepare_ssa_json, module)?)?;
+    module.add_function(wrap_pyfunction!(ssa_json, module)?)?;
+    module.add_function(wrap_pyfunction!(ssa_files_json, module)?)?;
+    module.add_class::<PreparedRun>()?;
+    module.add_function(wrap_pyfunction!(prepare_json, module)?)?;
     module.add_function(wrap_pyfunction!(describe_json, module)?)?;
     module.add_function(wrap_pyfunction!(analyze_json, module)?)?;
     module.add_function(wrap_pyfunction!(check_json, module)?)?;

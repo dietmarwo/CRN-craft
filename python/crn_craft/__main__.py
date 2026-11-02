@@ -17,14 +17,14 @@ def main():
     sub = parser.add_subparsers(dest="command", required=True)
     describe_parser = sub.add_parser("describe")
     describe_parser.add_argument("schema", nargs="?")
-    for command in ["check", "analyze", "analyze-v1", "fsp", "tau", "export"]:
+    for command in ["check", "analyze", "analyze-v1", "fsp", "tau", "ssa", "export"]:
         p = sub.add_parser(command)
         p.add_argument("model", type=Path)
         if command == "check":
             p.add_argument("run", type=Path, nargs="?")
         if command in ["analyze", "analyze-v1"]:
             p.add_argument("state", type=Path, nargs="?")
-        if command in ["fsp", "tau"]:
+        if command in ["fsp", "tau", "ssa"]:
             p.add_argument("run", type=Path)
             p.add_argument("--cancel-file")
         if command == "export":
@@ -65,6 +65,11 @@ def main():
         elif args.command == "export":
             report = json.loads(_native.export_json(args.model.read_bytes()))
             success = report["success"]
+        elif args.command == "ssa":
+            report = json.loads(
+                _native.ssa_files_json(str(args.model), str(args.run), args.cancel_file)
+            )
+            success = report.get("termination") == "completed"
         elif args.command == "tau":
             report = json.loads(
                 _native.tau_files_json(str(args.model), str(args.run), args.cancel_file)
@@ -105,7 +110,7 @@ def main():
     except KeyboardInterrupt:
         print(json.dumps({"success": False, "message": "interrupted"}))
         raise SystemExit(130) from None
-    if args.command in ["fsp", "tau"] and success:
+    if args.command == "ssa" or (args.command in ["fsp", "tau"] and success):
         # Checked against max_output_bytes in compact form, like the native CLI.
         sys.stdout.write(
             json.dumps(report, allow_nan=False, separators=(",", ":"), sort_keys=True)

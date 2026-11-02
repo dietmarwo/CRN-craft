@@ -68,7 +68,8 @@ from those types.
 | Archive check | `crn-craft.archive-check/0.1` | `simulate`, `verify` |
 | FSP result | `crn-craft.fsp-result/0.1` | `fsp` |
 | Tau request / result | `crn-craft.tau-request/0.1`, `crn-craft.tau-result/0.1` | `tau` |
-| Discovery | `crn-craft.describe/0.5` | `describe` |
+| Alternative exact SSA | `crn-craft.ssa-run/0.1` → `crn-craft.ssa-result/0.1` | `ssa`; [methods and bounds](alternative-ssa.md) |
+| Discovery | `crn-craft.describe/0.6` | `describe` |
 
 Parsing is strict: `strict_json` rejects duplicate keys before serde sees
 them, every struct denies unknown fields, numbers must be finite, and a

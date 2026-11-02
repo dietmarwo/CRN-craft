@@ -1,0 +1,101 @@
+   Compiling crn-craft v0.2.0-dev.1 (/workspace/scratch/d05427e343fb/CRN-craft-ssa-acceleration/crates/crn-craft)
+   Compiling crn-craft-cli v0.2.0-dev.1 (/workspace/scratch/d05427e343fb/CRN-craft-ssa-acceleration/crates/crn-craft-cli)
+    Finished `release` profile [optimized] target(s) in 11.73s
+     Running unittests src/lib.rs (/tmp/crn-ssa-target/release/deps/crn_craft-b94f017b3c4f4cd0)
+
+running 19 tests
+test network::tests::an_unenabled_channel_is_a_disabled_reaction_not_a_population_stop ... ok
+test fsp::tests::the_gathered_product_and_fused_sum_match_the_row_product_bit_for_bit ... ok
+test sampling::tests::binary_search_selects_the_linear_scan_channel_at_exact_boundaries ... ok
+test sampling::tests::the_resolution_check_uses_the_smallest_positive_rate ... ok
+test sampling::tests::resumed_totals_equal_full_passes_after_suffix_changes ... ok
+test simulation::tests::open_uniform_rejects_zero_and_never_returns_one ... ok
+test simulation::tests::event_exactly_at_horizon_is_included_and_consumes_two_words ... ok
+test simulation::tests::the_event_loop_polls_once_per_event_for_small_networks ... ok
+test simulation::tests::encoded_budget_checks_exact_boundary_without_allocating_payload ... ok
+test simulation::tests::reused_workspaces_reproduce_fresh_paths ... ok
+test ssa::selectors::tests::exponent_groups_cover_normal_subnormal_and_extreme_values ... ok
+test ssa::selectors::tests::tree_rebuilds_without_incremental_cancellation_drift ... ok
+test tau::tests::cgp_factors_follow_the_published_cases ... ok
+test tau::tests::tau_keys_differ_from_direct_keys ... ok
+test simulation::tests::cancel_file_checks_are_rate_limited ... ok
+test tau::tests::small_means_keep_the_multiplication_method_and_its_words ... ok
+test sampling::tests::binary_search_matches_the_linear_scan_on_random_rates ... ok
+test tau::tests::large_means_draw_a_few_uniforms_per_variate ... ok
+test tau::tests::poisson_draws_follow_the_poisson_law_on_both_sides_of_the_switch ... ok
+
+test result: ok. 19 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/archives.rs (/tmp/crn-ssa-target/release/deps/archives-1e54226592735487)
+
+running 11 tests
+test incorrect_path_or_output_reservation_leaves_no_archive ... ok
+test archive_symlinks_are_rejected ... ok
+test checksum_and_completion_hash_are_checked_independently_of_json_semantics ... ok
+test duplicate_keys_and_manifest_entries_fail_even_with_matching_marker ... ok
+test oversized_archive_payload_is_rejected_before_reading ... ok
+test interrupted_or_tampered_archives_are_never_accepted ... ok
+test completed_archive_preserves_inputs_and_byte_budget_and_refuses_overwrite ... ok
+test cancellation_and_event_limits_have_complete_archives_but_incomplete_ensembles ... ok
+test refreshed_hashes_do_not_hide_false_accounting_or_statistics ... ok
+test refreshed_hashes_do_not_hide_inconsistent_partial_evidence_or_budget ... ok
+test legacy_memory_admission_uses_small_queue_fallback_and_remains_verifiable ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
+
+     Running tests/contracts.rs (/tmp/crn-ssa-target/release/deps/contracts-475a0acca43f8db5)
+
+running 35 tests
+test absorbing_model_with_no_reactions_is_valid ... ok
+test byte_hash_known_answer ... ok
+test check_report_is_deterministic ... ok
+test all_rate_law_domains_and_species_reads_checked ... ok
+test budget_and_replication_errors_are_pinned ... ok
+test all_example_models_and_run_references_pass ... ok
+test finite_and_positive_domains_checked_for_typed_callers ... ok
+test excessive_depth_is_rejected_without_stack_overflow ... ok
+test duplicate_keys_at_all_depths_and_escaped_spellings_rejected ... ok
+test duplicate_reaction_names_rejected ... ok
+test formatting_changes_model_identity ... ok
+test fsp_allows_physically_unbounded_model_with_finite_truncation ... ok
+test fsp_options_initial_state_and_method_incompatibility ... ok
+test full_repressilator_has_three_modules ... ok
+test malformed_trailing_non_json_and_non_utf8_rejected ... ok
+test invalid_identifier_and_namespace_collision ... ok
+test initial_state_must_lie_within_population_limits_and_fsp_bounds ... ok
+test nesting_limit_boundary_matches_its_documentation ... ok
+test output_selection_errors_are_pinned ... ok
+test output_budget_minimum_matches_the_documented_formula ... ok
+test population_limit_is_checked_separately ... ok
+test invalid_relative_paths_and_hashes_rejected ... ok
+test negative_fixture_manifest_pins_codes_and_paths ... ok
+test i64_overflow_and_fractional_counts_rejected ... ok
+test roundtrip_preserves_integer_counts_above_double_precision ... ok
+test unknown_fields_rejected_in_every_run_object ... ok
+test warnings_do_not_make_valid_models_invalid_or_prove_growth ... ok
+test unsupported_run_versions_methods_and_aggregators_rejected ... ok
+test wrong_version_is_not_silently_upgraded ... ok
+test zero_and_oversized_stoichiometry_rejected ... ok
+test unknown_fields_rejected_in_every_model_object ... ok
+test time_grid_errors_are_pinned ... ok
+test description_distinguishes_exact_implemented_and_experimental_methods ... FAILED
+test oversized_document_rejected_before_parsing ... ok
+test decimal_literals_parse_to_correctly_rounded_doubles ... ok
+
+failures:
+
+---- description_distinguishes_exact_implemented_and_experimental_methods stdout ----
+
+thread 'description_distinguishes_exact_implemented_and_experimental_methods' panicked at crates/crn-craft/tests/contracts.rs:617:5:
+assertion `left == right` failed
+  left: Array [String("describe"), String("check"), String("analyze"), String("analyze-v1"), String("export"), String("simulate"), String("verify"), String("simulate-cached"), String("fsp"), String("tau"), String("ssa")]
+ right: Array [String("describe"), String("check"), String("analyze"), String("analyze-v1"), String("export"), String("simulate"), String("verify"), String("simulate-cached"), String("fsp"), String("tau")]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    description_distinguishes_exact_implemented_and_experimental_methods
+
+test result: FAILED. 34 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+error: test failed, to rerun pass `-p crn-craft --test contracts`

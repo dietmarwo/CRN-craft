@@ -77,6 +77,67 @@ def simulate(model, run, *, cached=False, cancel_file=None):
     return _call(method, model_bytes(model), model_bytes(run), _path(cancel_file))
 
 
+class PreparedSimulation:
+    """Validated immutable inputs reusable across independent executions.
+
+    Repeated calls restart the same fixed seeds. Prepare a new request to change
+    inputs. Each call owns its execution state, including when called concurrently.
+    """
+
+    def __init__(self, native):
+        self._prepared = native
+
+    def simulate(self, *, cancel_file=None):
+        return _call(self._prepared.simulate_json, _path(cancel_file))
+
+
+def prepare(model, run, *, cached=False):
+    """Prepare a legacy Direct request once; retain its exact bytes and hashes."""
+    try:
+        return PreparedSimulation(
+            _native.prepare_json(model_bytes(model), model_bytes(run), cached)
+        )
+    except _native.NativeError as error:
+        raise CrnError(json.loads(str(error))) from None
+
+
+def ssa_spec(
+    model,
+    *,
+    aggregator="direct_cr",
+    waiting_time="inverse",
+    max_sampling_steps=1000000000,
+    **kwargs,
+):
+    """Construct a versioned alternative exact-SSA request, bound to model bytes."""
+    request = run_spec(model, **kwargs)
+    request["schema"] = "crn-craft.ssa-run/0.1"
+    request["method"] = {
+        "kind": "ssa",
+        "aggregator": aggregator,
+        "waiting_time": waiting_time,
+    }
+    request["budget"]["max_sampling_steps_per_replicate"] = max_sampling_steps
+    return request
+
+
+def simulate_ssa(model, request, *, cancel_file=None):
+    """Alternative exact SSA; inspect termination before using statistics."""
+    return _call(
+        _native.ssa_json, model_bytes(model), model_bytes(request), _path(cancel_file)
+    )
+
+
+def prepare_ssa(model, request):
+    """Prepare immutable alternative-SSA inputs for repeated/concurrent execution."""
+    try:
+        return PreparedSimulation(
+            _native.prepare_ssa_json(model_bytes(model), model_bytes(request))
+        )
+    except _native.NativeError as error:
+        raise CrnError(json.loads(str(error))) from None
+
+
 def fsp(model, run, *, cancel_file=None):
     """Solve the finite state projection; rejected requests raise ``CrnError``."""
     return _call(

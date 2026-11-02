@@ -1,0 +1,101 @@
+{
+  "schema": "crn-craft.julia-comparison/0.1",
+  "base_commit": "baed0e4590f93e4c1dcc77cd7f039a2604a1594c",
+  "smoke": true,
+  "protocol": "docs/decisions/julia-comparison-2026-11-02.md",
+  "environment": {
+    "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+    "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+    "cpu_affinity": 9,
+    "cpu_quota": "800000 100000"
+  },
+  "paths": 64,
+  "horizon": 100.0,
+  "rounds": 2,
+  "model_sha256": {
+    "W1": "d2fa8a1f5bdc9976c0bce4f36e8e472690f2ecd1ca3c0f3a4cf642059a37b61e",
+    "W2": "d0f6a86b31cd697b821b5ed2bf384323c8eb1328868fe2274777bac0f5e73355",
+    "W3": "69f9ff6bfec8a473b70111caf6ba2d57e9ce6d363f537eac185f0f88097c8637",
+    "W4": "fb9204e42395eb3eeef76de4e2d54bf33611bdd43435eb7a4eb8fda652df8715",
+    "dimer": "969d0787b233a659b4383ff517773089d49618a7003351d47b9bf5102fdb3307"
+  },
+  "probes": {
+    "W1": {
+      "passed": true,
+      "rate_comparisons": 46,
+      "maximum_relative_error": 0.0,
+      "stoichiometry_identical": true
+    },
+    "W2": {
+      "passed": true,
+      "rate_comparisons": 1518,
+      "maximum_relative_error": 0.0,
+      "stoichiometry_identical": true
+    },
+    "W3": {
+      "passed": true,
+      "rate_comparisons": 276,
+      "maximum_relative_error": 8.287150528994676e-16,
+      "stoichiometry_identical": true
+    },
+    "W4": {
+      "passed": true,
+      "rate_comparisons": 462,
+      "maximum_relative_error": 1.509903313490213e-16,
+      "stoichiometry_identical": true
+    },
+    "dimer": {
+      "passed": true,
+      "rate_comparisons": 23,
+      "maximum_relative_error": 0.0,
+      "stoichiometry_identical": true
+    }
+  },
+  "validation": {},
+  "timings": {},
+  "first_runs": {
+    "W1": {}
+  },
+  "julia_setup": {
+    "load_seconds": 9.434014738,
+    "model_setup_seconds": 44.744332829,
+    "versions": {
+      "Julia": "1.13.3",
+      "JSON3": "1.14.4",
+      "Catalyst": "17.0.0",
+      "JumpProcesses": "10.0.1"
+    },
+    "problem_setup_seconds": {
+      "W1/NRM": 0.073903422,
+      "dimer/Direct": 0.094404905,
+      "W2/NRM": 0.455302461,
+      "W4/NRM": 0.213808883,
+      "W2/RSSACR": 0.557782682,
+      "W4/RSSACR": 0.458619658,
+      "W2/SortingDirect": 0.512882066,
+      "W1/DirectCR": 0.084447139,
+      "dimer/DirectCR": 0.06437734,
+      "W1/RSSACR": 0.086114206,
+      "W2/DirectCR": 0.957704298,
+      "W3/Direct": 0.178858482,
+      "W3/NRM": 0.067080899,
+      "W1/Direct": 0.108033426,
+      "W3/SortingDirect": 0.088500513,
+      "W1/SortingDirect": 0.089202558,
+      "dimer/SortingDirect": 0.069009543,
+      "W3/RSSACR": 0.164489439,
+      "dimer/NRM": 0.054086359,
+      "W4/Direct": 6.88115843,
+      "W4/DirectCR": 0.537258719,
+      "W4/SortingDirect": 0.22745369,
+      "W2/Direct": 18.41156124,
+      "W3/DirectCR": 0.17596841,
+      "dimer/RSSACR": 0.074726304
+    },
+    "threads": 1,
+    "blas_threads": 1
+  },
+  "julia_process_to_ready_seconds": 64.39329917699797,
+  "passed": false,
+  "failure": "MethodError: Cannot `convert` an object of type Float64 to an object of type Vector{Float64}\nThe function `convert` exists, but no method is defined for this combination of argument types.\n\nClosest candidates are:\n  convert(::Type{Array{T, N}}, !Matched::StaticArraysCore.SizedArray{S, T, N, N, Array{T, N}}) where {S, T, N}\n   @ StaticArrays /workspace/scratch/d05427e343fb/crn-julia-depot/packages/StaticArrays/SXG7G/src/SizedArray.jl:88\n  convert(::Type{Array{T, N}}, !Matched::StaticArraysCore.SizedArray{S, T, N, M, TData} where {M, TData<:AbstractArray{T, M}}) where {T, S, N}\n   @ StaticArrays /workspace/scratch/d05427e343fb/crn-julia-depot/packages/StaticArrays/SXG7G/src/SizedArray.jl:82\n  convert(::Type{<:Array{<:Any, N}}, !Matched::Symbolics.Arr{<:Any, N}) where N\n   @ Symbolics /workspace/scratch/d05427e343fb/crn-julia-depot/packages/Symbolics/twrWY/src/arrays.jl:256\n  ...\n"
+}

@@ -1,0 +1,284 @@
+{
+  "schema": "crn-craft.contract-validation/0.1",
+  "scope": "contracts_only_no_simulation",
+  "checks": [
+    {
+      "check": "schema_snapshot_model",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_run",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_result",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_result-v1",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_archive",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_archive-check",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_check",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_state",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_analysis",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_analysis-v1",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_export",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_fsp-result",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_tau-request",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_tau-result",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_ssa-run",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_ssa-result",
+      "passed": true
+    },
+    {
+      "check": "honest_capabilities",
+      "passed": true
+    },
+    {
+      "check": "model_enzyme-mechanism.model.json",
+      "passed": true
+    },
+    {
+      "check": "analysis_enzyme-mechanism.model.json",
+      "passed": true
+    },
+    {
+      "check": "legacy_analysis_enzyme-mechanism.model.json",
+      "passed": true
+    },
+    {
+      "check": "export_enzyme-mechanism.model.json",
+      "passed": true
+    },
+    {
+      "check": "model_immigration-death.model.json",
+      "passed": true
+    },
+    {
+      "check": "analysis_immigration-death.model.json",
+      "passed": true
+    },
+    {
+      "check": "legacy_analysis_immigration-death.model.json",
+      "passed": true
+    },
+    {
+      "check": "export_immigration-death.model.json",
+      "passed": true
+    },
+    {
+      "check": "model_michaelis-menten.model.json",
+      "passed": true
+    },
+    {
+      "check": "analysis_michaelis-menten.model.json",
+      "passed": true
+    },
+    {
+      "check": "legacy_analysis_michaelis-menten.model.json",
+      "passed": true
+    },
+    {
+      "check": "export_michaelis-menten.model.json",
+      "passed": true
+    },
+    {
+      "check": "model_repressilator.model.json",
+      "passed": true
+    },
+    {
+      "check": "analysis_repressilator.model.json",
+      "passed": true
+    },
+    {
+      "check": "legacy_analysis_repressilator.model.json",
+      "passed": true
+    },
+    {
+      "check": "export_repressilator.model.json",
+      "passed": true
+    },
+    {
+      "check": "model_vilar-noise.model.json",
+      "passed": true
+    },
+    {
+      "check": "analysis_vilar-noise.model.json",
+      "passed": true
+    },
+    {
+      "check": "legacy_analysis_vilar-noise.model.json",
+      "passed": true
+    },
+    {
+      "check": "export_vilar-noise.model.json",
+      "passed": true
+    },
+    {
+      "check": "run_enzyme-mechanism.run.json",
+      "passed": true
+    },
+    {
+      "check": "run_immigration-death.fsp.run.json",
+      "passed": true
+    },
+    {
+      "check": "run_immigration-death.run.json",
+      "passed": true
+    },
+    {
+      "check": "run_michaelis-menten.run.json",
+      "passed": true
+    },
+    {
+      "check": "run_repressilator.run.json",
+      "passed": true
+    },
+    {
+      "check": "unknown-species",
+      "passed": true
+    },
+    {
+      "check": "negative-stoichiometry",
+      "passed": true
+    },
+    {
+      "check": "duplicate-species",
+      "passed": true
+    },
+    {
+      "check": "missing-parameter",
+      "passed": true
+    },
+    {
+      "check": "nonfinite-number",
+      "passed": true
+    },
+    {
+      "check": "duplicate-key",
+      "passed": true
+    },
+    {
+      "check": "negative-count",
+      "passed": true
+    },
+    {
+      "check": "wrong-convention",
+      "passed": true
+    },
+    {
+      "check": "unsupported-expression-reference",
+      "passed": true
+    },
+    {
+      "check": "hash-mismatch",
+      "passed": true
+    },
+    {
+      "check": "missing-fsp-bound",
+      "passed": true
+    },
+    {
+      "check": "duplicate-save-time",
+      "passed": true
+    },
+    {
+      "check": "parent-path",
+      "passed": true
+    },
+    {
+      "check": "schema_rejects_unknown_top_level",
+      "passed": true
+    },
+    {
+      "check": "schema_rejects_wrong_version",
+      "passed": true
+    },
+    {
+      "check": "schema_rejects_zero_omega",
+      "passed": true
+    },
+    {
+      "check": "schema_rejects_unknown_species",
+      "passed": true
+    },
+    {
+      "check": "schema_rejects_unknown_reactions",
+      "passed": true
+    },
+    {
+      "check": "schema_rejects_unknown_rate",
+      "passed": true
+    },
+    {
+      "check": "trailing_document",
+      "passed": true
+    },
+    {
+      "check": "non_utf8",
+      "passed": true
+    },
+    {
+      "check": "deep_input",
+      "passed": true
+    },
+    {
+      "check": "oversized_input",
+      "passed": true
+    },
+    {
+      "check": "unimplemented_run_fails",
+      "passed": true
+    },
+    {
+      "check": "unimplemented_report_fails",
+      "passed": true
+    },
+    {
+      "check": "export_missing_arguments_fails",
+      "passed": true
+    },
+    {
+      "check": "deterministic_check_report",
+      "passed": true
+    }
+  ],
+  "passed": 69,
+  "failed": 0
+}

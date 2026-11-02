@@ -41,6 +41,9 @@ pub struct CompiledNetwork {
 }
 
 impl CompiledNetwork {
+    pub(crate) fn compiled_rate(&self, reaction: usize) -> &CompiledRate {
+        &self.rates[reaction]
+    }
     pub fn compile(model: &Model) -> Result<Self, Vec<Diagnostic>> {
         let warnings = validate_model(model);
         if warnings.iter().any(|d| d.severity == Severity::Error) {

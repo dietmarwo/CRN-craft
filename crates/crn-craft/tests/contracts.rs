@@ -626,7 +626,8 @@ fn description_distinguishes_exact_implemented_and_experimental_methods() {
             "verify",
             "simulate-cached",
             "fsp",
-            "tau"
+            "tau",
+            "ssa"
         ])
     );
     assert_eq!(value["aggregators"][0]["status"], "implemented");
@@ -640,6 +641,8 @@ fn description_distinguishes_exact_implemented_and_experimental_methods() {
         "fsp-result",
         "tau-request",
         "tau-result",
+        "ssa-run",
+        "ssa-result",
     ] {
         assert!(schema(kind).unwrap().is_object());
     }

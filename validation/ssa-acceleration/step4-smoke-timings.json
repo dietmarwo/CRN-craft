@@ -1,0 +1,642 @@
+[
+  {
+    "workload": "two_channel",
+    "algorithm": "direct",
+    "waiting_time": "inverse",
+    "seconds": 0.02294682100182399,
+    "events": 316217,
+    "work": {
+      "rng_words": 632450,
+      "proposals": 316217,
+      "propensity_evaluations": 632466,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "two_channel",
+    "algorithm": "direct",
+    "waiting_time": "ziggurat",
+    "seconds": 0.019059753998590168,
+    "events": 317862,
+    "work": {
+      "rng_words": 646587,
+      "proposals": 317862,
+      "propensity_evaluations": 635756,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "two_channel",
+    "algorithm": "cached_direct",
+    "waiting_time": "inverse",
+    "seconds": 0.022341289004543796,
+    "events": 316217,
+    "work": {
+      "rng_words": 632450,
+      "proposals": 316217,
+      "propensity_evaluations": 316249,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "two_channel",
+    "algorithm": "cached_direct",
+    "waiting_time": "ziggurat",
+    "seconds": 0.018418038001982495,
+    "events": 317862,
+    "work": {
+      "rng_words": 646587,
+      "proposals": 317862,
+      "propensity_evaluations": 317894,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "two_channel",
+    "algorithm": "direct_cr",
+    "waiting_time": "inverse",
+    "seconds": 0.05173717299476266,
+    "events": 318475,
+    "work": {
+      "rng_words": 1544585,
+      "proposals": 408698,
+      "propensity_evaluations": 318507,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "two_channel",
+    "algorithm": "direct_cr",
+    "waiting_time": "ziggurat",
+    "seconds": 0.04734822699538199,
+    "events": 318802,
+    "work": {
+      "rng_words": 1554538,
+      "proposals": 408310,
+      "propensity_evaluations": 318834,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "two_channel",
+    "algorithm": "sorting_direct",
+    "waiting_time": "inverse",
+    "seconds": 0.023863782997068483,
+    "events": 317927,
+    "work": {
+      "rng_words": 635870,
+      "proposals": 317927,
+      "propensity_evaluations": 317959,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "two_channel",
+    "algorithm": "sorting_direct",
+    "waiting_time": "ziggurat",
+    "seconds": 0.03274674199928995,
+    "events": 318213,
+    "work": {
+      "rng_words": 647334,
+      "proposals": 318213,
+      "propensity_evaluations": 318245,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "two_channel",
+    "algorithm": "rssa_cr",
+    "waiting_time": "inverse",
+    "seconds": 0.03645694800070487,
+    "events": 319029,
+    "work": {
+      "rng_words": 1924662,
+      "proposals": 418564,
+      "propensity_evaluations": 38985,
+      "bound_updates": 2857,
+      "point_fallbacks": 0,
+      "rejected_candidates": 15448
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "two_channel",
+    "algorithm": "rssa_cr",
+    "waiting_time": "ziggurat",
+    "seconds": 0.03821836900169728,
+    "events": 319366,
+    "work": {
+      "rng_words": 1939355,
+      "proposals": 419513,
+      "propensity_evaluations": 38790,
+      "bound_updates": 2841,
+      "point_fallbacks": 0,
+      "rejected_candidates": 15467
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "sparse_66",
+    "algorithm": "direct",
+    "waiting_time": "inverse",
+    "seconds": 0.18603420699946582,
+    "events": 309037,
+    "work": {
+      "rng_words": 618090,
+      "proposals": 309037,
+      "propensity_evaluations": 20397498,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "sparse_66",
+    "algorithm": "direct",
+    "waiting_time": "ziggurat",
+    "seconds": 0.1789080259986804,
+    "events": 308426,
+    "work": {
+      "rng_words": 627401,
+      "proposals": 308426,
+      "propensity_evaluations": 20357172,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "sparse_66",
+    "algorithm": "cached_direct",
+    "waiting_time": "inverse",
+    "seconds": 0.049519334999786224,
+    "events": 309037,
+    "work": {
+      "rng_words": 618090,
+      "proposals": 309037,
+      "propensity_evaluations": 310093,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "sparse_66",
+    "algorithm": "cached_direct",
+    "waiting_time": "ziggurat",
+    "seconds": 0.05422005199943669,
+    "events": 308426,
+    "work": {
+      "rng_words": 627401,
+      "proposals": 308426,
+      "propensity_evaluations": 309482,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "sparse_66",
+    "algorithm": "direct_cr",
+    "waiting_time": "inverse",
+    "seconds": 0.04612595100479666,
+    "events": 309285,
+    "work": {
+      "rng_words": 1601971,
+      "proposals": 430890,
+      "propensity_evaluations": 310341,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "sparse_66",
+    "algorithm": "direct_cr",
+    "waiting_time": "ziggurat",
+    "seconds": 0.04640023999672849,
+    "events": 308772,
+    "work": {
+      "rng_words": 1609239,
+      "proposals": 430016,
+      "propensity_evaluations": 309828,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "sparse_66",
+    "algorithm": "sorting_direct",
+    "waiting_time": "inverse",
+    "seconds": 0.04396971900132485,
+    "events": 307917,
+    "work": {
+      "rng_words": 615850,
+      "proposals": 307917,
+      "propensity_evaluations": 308973,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "sparse_66",
+    "algorithm": "sorting_direct",
+    "waiting_time": "ziggurat",
+    "seconds": 0.04125891399598913,
+    "events": 308526,
+    "work": {
+      "rng_words": 627607,
+      "proposals": 308526,
+      "propensity_evaluations": 309582,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "sparse_66",
+    "algorithm": "rssa_cr",
+    "waiting_time": "inverse",
+    "seconds": 0.04740572099399287,
+    "events": 307982,
+    "work": {
+      "rng_words": 2318347,
+      "proposals": 540039,
+      "propensity_evaluations": 119222,
+      "bound_updates": 12899,
+      "point_fallbacks": 0,
+      "rejected_candidates": 41125
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "sparse_66",
+    "algorithm": "rssa_cr",
+    "waiting_time": "ziggurat",
+    "seconds": 0.043080467999971006,
+    "events": 311300,
+    "work": {
+      "rng_words": 2356442,
+      "proposals": 546606,
+      "propensity_evaluations": 119923,
+      "bound_updates": 13043,
+      "point_fallbacks": 0,
+      "rejected_candidates": 41219
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "circuit_12",
+    "algorithm": "direct",
+    "waiting_time": "inverse",
+    "seconds": 0.39462632500362815,
+    "events": 895457,
+    "work": {
+      "rng_words": 1790930,
+      "proposals": 895457,
+      "propensity_evaluations": 10745676,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "circuit_12",
+    "algorithm": "direct",
+    "waiting_time": "ziggurat",
+    "seconds": 0.42044382199674146,
+    "events": 964515,
+    "work": {
+      "rng_words": 1961588,
+      "proposals": 964515,
+      "propensity_evaluations": 11574372,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "circuit_12",
+    "algorithm": "cached_direct",
+    "waiting_time": "inverse",
+    "seconds": 0.1662630540013197,
+    "events": 895457,
+    "work": {
+      "rng_words": 1790930,
+      "proposals": 895457,
+      "propensity_evaluations": 1791106,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "circuit_12",
+    "algorithm": "cached_direct",
+    "waiting_time": "ziggurat",
+    "seconds": 0.16912271099863574,
+    "events": 964515,
+    "work": {
+      "rng_words": 1961588,
+      "proposals": 964515,
+      "propensity_evaluations": 1929222,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "circuit_12",
+    "algorithm": "direct_cr",
+    "waiting_time": "inverse",
+    "seconds": 0.25708836300327675,
+    "events": 913749,
+    "work": {
+      "rng_words": 4880359,
+      "proposals": 1322198,
+      "propensity_evaluations": 1827690,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "circuit_12",
+    "algorithm": "direct_cr",
+    "waiting_time": "ziggurat",
+    "seconds": 0.2756294760038145,
+    "events": 993276,
+    "work": {
+      "rng_words": 5339315,
+      "proposals": 1437421,
+      "propensity_evaluations": 1986744,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "circuit_12",
+    "algorithm": "sorting_direct",
+    "waiting_time": "inverse",
+    "seconds": 0.22524682299990673,
+    "events": 989675,
+    "work": {
+      "rng_words": 1979366,
+      "proposals": 989675,
+      "propensity_evaluations": 1979542,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "circuit_12",
+    "algorithm": "sorting_direct",
+    "waiting_time": "ziggurat",
+    "seconds": 0.19970183999976143,
+    "events": 958567,
+    "work": {
+      "rng_words": 1949443,
+      "proposals": 958567,
+      "propensity_evaluations": 1917326,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "circuit_12",
+    "algorithm": "rssa_cr",
+    "waiting_time": "inverse",
+    "seconds": 0.21733261400368065,
+    "events": 928655,
+    "work": {
+      "rng_words": 7062151,
+      "proposals": 1612535,
+      "propensity_evaluations": 859200,
+      "bound_updates": 27356,
+      "point_fallbacks": 0,
+      "rejected_candidates": 183610
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "circuit_12",
+    "algorithm": "rssa_cr",
+    "waiting_time": "ziggurat",
+    "seconds": 0.20384327999636298,
+    "events": 968903,
+    "work": {
+      "rng_words": 7341159,
+      "proposals": 1664767,
+      "propensity_evaluations": 895312,
+      "bound_updates": 28306,
+      "point_fallbacks": 0,
+      "rejected_candidates": 185175
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "dense_66",
+    "algorithm": "direct",
+    "waiting_time": "inverse",
+    "seconds": 0.2771252399979858,
+    "events": 306820,
+    "work": {
+      "rng_words": 613656,
+      "proposals": 306820,
+      "propensity_evaluations": 20251176,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "dense_66",
+    "algorithm": "direct",
+    "waiting_time": "ziggurat",
+    "seconds": 0.31946628599689575,
+    "events": 307350,
+    "work": {
+      "rng_words": 625224,
+      "proposals": 307350,
+      "propensity_evaluations": 20286156,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "dense_66",
+    "algorithm": "cached_direct",
+    "waiting_time": "inverse",
+    "seconds": 0.25471682899660664,
+    "events": 306820,
+    "work": {
+      "rng_words": 613656,
+      "proposals": 306820,
+      "propensity_evaluations": 10126116,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "dense_66",
+    "algorithm": "cached_direct",
+    "waiting_time": "ziggurat",
+    "seconds": 0.22130892800487345,
+    "events": 307350,
+    "work": {
+      "rng_words": 625224,
+      "proposals": 307350,
+      "propensity_evaluations": 10143606,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "dense_66",
+    "algorithm": "direct_cr",
+    "waiting_time": "inverse",
+    "seconds": 0.6323291000007885,
+    "events": 307506,
+    "work": {
+      "rng_words": 1572490,
+      "proposals": 421656,
+      "propensity_evaluations": 10148754,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "dense_66",
+    "algorithm": "direct_cr",
+    "waiting_time": "ziggurat",
+    "seconds": 0.49605073199927574,
+    "events": 308200,
+    "work": {
+      "rng_words": 1586518,
+      "proposals": 422638,
+      "propensity_evaluations": 10171656,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "dense_66",
+    "algorithm": "sorting_direct",
+    "waiting_time": "inverse",
+    "seconds": 0.44004541599861113,
+    "events": 306539,
+    "work": {
+      "rng_words": 613094,
+      "proposals": 306539,
+      "propensity_evaluations": 10116843,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "dense_66",
+    "algorithm": "sorting_direct",
+    "waiting_time": "ziggurat",
+    "seconds": 0.49302252100460464,
+    "events": 307032,
+    "work": {
+      "rng_words": 624577,
+      "proposals": 307032,
+      "propensity_evaluations": 10133112,
+      "bound_updates": 0,
+      "point_fallbacks": 0,
+      "rejected_candidates": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "dense_66",
+    "algorithm": "rssa_cr",
+    "waiting_time": "inverse",
+    "seconds": 0.056184630004281644,
+    "events": 307312,
+    "work": {
+      "rng_words": 1879811,
+      "proposals": 421283,
+      "propensity_evaluations": 851387,
+      "bound_updates": 22638,
+      "point_fallbacks": 0,
+      "rejected_candidates": 661
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "dense_66",
+    "algorithm": "rssa_cr",
+    "waiting_time": "ziggurat",
+    "seconds": 0.05136565099383006,
+    "events": 308963,
+    "work": {
+      "rng_words": 1900837,
+      "proposals": 423774,
+      "propensity_evaluations": 831804,
+      "bound_updates": 23067,
+      "point_fallbacks": 0,
+      "rejected_candidates": 683
+    },
+    "prepared_equal": true
+  }
+]

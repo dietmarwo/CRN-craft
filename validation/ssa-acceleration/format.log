@@ -1,0 +1,12 @@
+unformatted: File would be reformatted
+  --> validation/profile_ssa_acceleration.py:67:27
+   |
+66 |         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+   -             values = list(pool.map(lambda _, shared=shared: shared.simulate(), range(3)))
+67 +             values = list(
+68 +                 pool.map(lambda _, shared=shared: shared.simulate(), range(3))
+69 +             )
+70 |         if any(v != expected for v in values):
+   |
+
+1 file would be reformatted, 38 files already formatted

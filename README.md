@@ -4,7 +4,7 @@
 
 Native Rust foundations for well-mixed chemical reaction networks, designed for reproducible simulation and optimization workflows.
 
-**Current status: remaining-milestone campaign (`0.2.0-dev.1`).** Native Direct and exact dependency-cached SSA, sparse FSP and explicitly approximate Poisson leaps execute. Optional Python bindings, trajectory diagnostics, pinned fcmaes job applications, diffsol BDF/forward sensitivities, global-to-SQP fitting and explicit SBML/BioNetGen import subsets are included. The default Rust engine remains independent of Python, jobs and ODE dependencies. A successful numerical run is not biological validation.
+**Current status: remaining-milestone campaign (`0.2.0-dev.1`).** Native Direct, dependency-cached SSA, DirectCR, SortingDirect and RSSACR, sparse FSP and explicitly approximate Poisson leaps execute. Optional Python bindings, trajectory diagnostics, pinned fcmaes job applications, diffsol BDF/forward sensitivities, global-to-SQP fitting and explicit SBML/BioNetGen import subsets are included. The default Rust engine remains independent of Python, jobs and ODE dependencies. A successful numerical run is not biological validation.
 
 Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/architecture.md), the [technical report](docs/technical-report.md) (design, validation and measured performance), the [comparison with GillesPy2](docs/comparison-gillespy2.md) and `crn-craft describe`. Every document is listed under [Documentation](#documentation). Legacy input/result/archive contracts remain available; new approximate/FSP results use distinct schemas.
 
@@ -16,6 +16,8 @@ Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/ar
 - [Architecture overview](docs/architecture.md): layers, contracts, engines, determinism, archives and integrations
 - [Technical report](docs/technical-report.md): numerical methods, validation evidence and measured performance
 - [Comparison with GillesPy2](docs/comparison-gillespy2.md): same models, timed against GillesPy2's C++ and NumPy solvers
+- [Alternative exact SSA methods](docs/alternative-ssa.md): versioned requests, prepared Python calls, bounded sampling and gated RSSACR bounds
+- [Comparison with Catalyst and JumpProcesses](docs/comparison-catalyst-jumpprocesses.md): seven workloads, five Julia SSA algorithms and the new Rust methods, with pinned environments and distribution checks
 - [Agent context](docs/ai-context.md): what an AI agent needs to use and extend CRN-craft
 
 **Using CRN-craft**

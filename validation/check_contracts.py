@@ -57,6 +57,8 @@ def main():
         "fsp-result",
         "tau-request",
         "tau-result",
+        "ssa-run",
+        "ssa-result",
     ):
         code, schema = invoke("describe", kind)
         Draft7Validator.check_schema(schema)
@@ -82,8 +84,9 @@ def main():
             "simulate-cached",
             "fsp",
             "tau",
+            "ssa",
         ]
-        and capabilities["schema"] == "crn-craft.describe/0.5",
+        and capabilities["schema"] == "crn-craft.describe/0.6",
     )
 
     examples = ROOT / "models/examples"

@@ -1,0 +1,221 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "Algorithm": {
+      "enum": [
+        "direct",
+        "cached_direct",
+        "direct_cr",
+        "sorting_direct",
+        "rssa_cr"
+      ],
+      "type": "string"
+    },
+    "Budget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_events_per_replicate": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "max_output_bytes": {
+          "format": "uint64",
+          "minimum": 1.0,
+          "type": "integer"
+        },
+        "max_sampling_steps_per_replicate": {
+          "description": "Includes every random word drawn by every rejection/tail loop.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "threads": {
+          "format": "uint32",
+          "maximum": 1024.0,
+          "minimum": 1.0,
+          "type": "integer"
+        },
+        "wall_time_s": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "max_events_per_replicate",
+        "max_output_bytes",
+        "max_sampling_steps_per_replicate",
+        "threads"
+      ],
+      "type": "object"
+    },
+    "Ensemble": {
+      "additionalProperties": false,
+      "properties": {
+        "replicates": {
+          "format": "uint64",
+          "minimum": 1.0,
+          "type": "integer"
+        },
+        "root_seed": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "replicates",
+        "root_seed"
+      ],
+      "type": "object"
+    },
+    "Method": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "aggregator": {
+              "$ref": "#/definitions/Algorithm"
+            },
+            "kind": {
+              "enum": [
+                "ssa"
+              ],
+              "type": "string"
+            },
+            "waiting_time": {
+              "$ref": "#/definitions/WaitingTime"
+            }
+          },
+          "required": [
+            "aggregator",
+            "kind",
+            "waiting_time"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ModelRef": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "description": "Portable, relative to the run file's directory; no parent traversal.",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "SHA-256 of the exact model input bytes, lowercase hexadecimal.",
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "Outputs": {
+      "additionalProperties": false,
+      "properties": {
+        "keep_trajectories": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "statistics": {
+          "items": {
+            "$ref": "#/definitions/Statistic"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "keep_trajectories",
+        "statistics"
+      ],
+      "type": "object"
+    },
+    "RequestVersion": {
+      "enum": [
+        "crn-craft.ssa-run/0.1"
+      ],
+      "type": "string"
+    },
+    "Statistic": {
+      "enum": [
+        "mean",
+        "variance"
+      ],
+      "type": "string"
+    },
+    "TimeGrid": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "exclusiveMinimum": 0.0,
+          "format": "double",
+          "type": "number"
+        },
+        "save_times": {
+          "description": "Explicit sorted grid including 0 and end; no accumulated step rounding.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "end",
+        "save_times"
+      ],
+      "type": "object"
+    },
+    "WaitingTime": {
+      "enum": [
+        "inverse",
+        "ziggurat"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "budget": {
+      "$ref": "#/definitions/Budget"
+    },
+    "ensemble": {
+      "$ref": "#/definitions/Ensemble"
+    },
+    "method": {
+      "$ref": "#/definitions/Method"
+    },
+    "model": {
+      "$ref": "#/definitions/ModelRef"
+    },
+    "outputs": {
+      "$ref": "#/definitions/Outputs"
+    },
+    "schema": {
+      "$ref": "#/definitions/RequestVersion"
+    },
+    "time": {
+      "$ref": "#/definitions/TimeGrid"
+    }
+  },
+  "required": [
+    "budget",
+    "ensemble",
+    "method",
+    "model",
+    "outputs",
+    "schema",
+    "time"
+  ],
+  "title": "Request",
+  "type": "object"
+}

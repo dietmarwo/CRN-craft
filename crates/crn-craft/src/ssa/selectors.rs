@@ -137,6 +137,10 @@ pub(super) struct Composition {
     groups: Vec<Vec<usize>>,
     active: Vec<usize>,
     locations: Vec<(usize, usize)>,
+    /// Running envelope sums over `active`, rebuilt only after a membership
+    /// change with the same additions in the same order as a fresh scan.
+    cumulative: Vec<f64>,
+    stale: bool,
 }
 impl Composition {
     pub(super) fn reset(&mut self, count: usize) {
@@ -149,6 +153,7 @@ impl Composition {
         }
         self.locations.resize(count, (usize::MAX, 0));
         self.locations.fill((usize::MAX, 0));
+        self.stale = true;
     }
     pub(super) fn update(&mut self, index: usize, value: f64) -> Result<(), Diagnostic> {
         if !value.is_finite() || value < 0.0 {
@@ -163,6 +168,7 @@ impl Composition {
         if next == old {
             return Ok(());
         }
+        self.stale = true;
         if old != usize::MAX {
             self.groups[old].swap_remove(pos);
             if let Some(&moved) = self.groups[old].get(pos) {
@@ -190,17 +196,13 @@ impl Composition {
         }
         Ok(())
     }
-    pub(super) fn sample(
-        &self,
-        tree: &RateTree,
-        rng: &mut impl RngCore,
-        draws: &mut Draws,
-    ) -> Result<usize, Bail> {
+    fn rebuild(&mut self, draws: &mut Draws) -> Result<(), Bail> {
         let largest = *self
             .active
             .last()
             .ok_or_else(|| numeric("empty composition selection"))?;
         let scale = ceiling(largest);
+        self.cumulative.clear();
         let mut sum = 0.0;
         for (k, &id) in self.active.iter().enumerate() {
             if k % 64 == 0 {
@@ -212,26 +214,36 @@ impl Composition {
                 return Err(numeric("composition envelope loses a positive group").into());
             }
             sum = next;
+            self.cumulative.push(sum);
         }
+        self.stale = false;
+        Ok(())
+    }
+    pub(super) fn sample(
+        &mut self,
+        tree: &RateTree,
+        rng: &mut impl RngCore,
+        draws: &mut Draws,
+    ) -> Result<usize, Bail> {
+        if self.stale {
+            self.rebuild(draws)?;
+        }
+        let sum = *self
+            .cumulative
+            .last()
+            .ok_or_else(|| numeric("empty composition selection"))?;
         loop {
             draws.work.proposals += 1;
             let threshold = draws.closed(rng)? * sum;
             if threshold >= sum {
                 return Err(numeric("composition threshold rounded to its total").into());
             }
-            let mut cumulative = 0.0;
-            let mut selected = None;
-            for (k, &id) in self.active.iter().enumerate() {
-                if k % 64 == 0 {
-                    draws.poll()?;
-                }
-                cumulative += (ceiling(id) / scale) * self.groups[id].len() as f64;
-                if threshold < cumulative {
-                    selected = Some(id);
-                    break;
-                }
-            }
-            let id = selected.ok_or_else(|| numeric("composition group selection failed"))?;
+            // First running sum above the threshold, as in a sequential scan.
+            let k = self.cumulative.partition_point(|&c| c <= threshold);
+            let id = *self
+                .active
+                .get(k)
+                .ok_or_else(|| numeric("composition group selection failed"))?;
             let members = &self.groups[id];
             let index = members[draws.index(rng, members.len())?];
             let bound = ceiling(id);

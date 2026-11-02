@@ -30,7 +30,8 @@ Main properties and results:
 - **Honest outputs.** Incomplete ensembles withhold statistics; FSP reports
   leakage, series truncation and roundoff separately and never renormalizes;
   approximate methods use their own schema and assessment.
-- **Validated.** 166 Rust tests; a 45-mutant source mutation gate; analytic
+- **Validated.** 166 Rust tests in the core and CLI and 9 in the
+  integrations; a 45-mutant source mutation gate; analytic
   SSA campaigns of 300,000 paths and exact master-equation checks of
   4 × 100,000 paths with second-order, Hill and Michaelis–Menten channels;
   FSP checks including the DSMTS suite; tau envelopes over 30,000 paths;
@@ -222,7 +223,7 @@ rejected requests raise `CrnError(ValueError)` with parsed diagnostics, and
 
 | Gate | Content |
 |---|---|
-| Rust tests | 166 tests (unit and integration) for contracts, validation, network, sampling, SSA, archives, FSP, tau, analysis, export and the CLI |
+| Rust tests | 166 tests in the core and CLI (plus 9 in the integrations) for contracts, validation, network, sampling, SSA, archives, FSP, tau, analysis, export and the CLI |
 | Mutation gate | 45 source mutants, each required to turn a passing suite into named failures (35 reviewed, 8 campaign, 2 added here for the prefix-sum and resumed-sum checks) |
 | `check_contracts.py`, `check_network.py`, `check_structure.py` | schemas, CLI behavior, exact/Decimal oracle on 200 seeded networks, 300-network cone/graph oracle |
 | `check_ssa.py` | three predeclared 100,000-path analytic campaigns, an independent scalar RNG, thread identity, cancellation latency |
@@ -262,8 +263,24 @@ core, FSP/tau, the Python layer and the integrations. Fixed in this round:
   and could hang or crash on adversarial input (all rejected with
   `CRN-E090` within one second); Ctrl-C was ignored; errors were unstructured;
   the installed-package check could test a different `crn-craft` on PATH.
-- **Integrations:** the ODE, jobs and fitting findings are covered in the
-  implementation log of this review.
+- **ODE (`crn-diffsol`):** BDF trial states that overshoot slightly below
+  zero aborted plain decays for horizons of 40 or more; rates are now
+  evaluated at max(y, 0), and accepted or reported values must stay within
+  one solver error weight of zero. Population limits are enforced
+  (`CRN-E044`), kinetics diagnostics are no longer lost, and times near the
+  largest double give a diagnostic instead of a panic. New dimerization, Hill
+  and decay fixtures and Jacobian checks at distinct states fail under seven
+  mutants that the old checks missed; `check_ode.py` grows from 16 to 50 rows.
+- **Fitting and screening examples:** the fit is gated on its derivative
+  report, its parameter order and a gradient check; the topology screen's
+  gate, formerly constant, now has five declared criteria and is shown to
+  fail on perturbed results. Its horizon was raised from 200 to 400 after
+  observing an ambiguous classification at 200 (documented as post hoc).
+- **Job worker:** the circuit-score penalty is a mean over paths (it grew
+  with the replicate count), the amplitude species is named, save times up to
+  a burn-in are excluded, and `seed_set` is required (problem version 2).
+  `check_jobs.py` now checks every objective value against an independent
+  recomputation and fails under five worker mutants.
 
 ### 6.3 Limitations
 
@@ -279,6 +296,10 @@ core, FSP/tau, the Python layer and the integrations. Fixed in this round:
   drift, but are not a cross-machine ranking.
 - macOS and Windows wheels are built by a manual workflow and are not locally
   executed.
+- The optional integrations (`crn-diffsol`, the job worker) are built and
+  checked locally, not in CI: they need newer Rust toolchains, pinned git
+  dependencies and the optimization-jobs runner. The ODE integration has no
+  step or wall-time budget.
 
 ## 7. Performance
 

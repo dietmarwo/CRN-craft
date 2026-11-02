@@ -4,6 +4,10 @@ Baseline: GitHub main 5a0733444aa46c8cea2a5b61bd8601daf5890d79. Read
 [acceptance.md](acceptance.md) for the frozen plan, and M3.md through M9.md for
 implementation, executed evidence and limitations. Performance has ten separate
 experiments, including retained/rejected candidates, in performance.md.
+Ten more (P11–P20), with their declaration and results, are in
+performance-p11-p20.md. For an introduction read the [tutorial](../tutorial.md),
+the [architecture overview](../architecture.md) and the
+[technical report](../technical-report.md).
 
 | Use | Command / interface |
 |---|---|

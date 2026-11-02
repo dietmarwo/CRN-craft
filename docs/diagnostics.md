@@ -57,6 +57,10 @@ CRN-E044 retains its checked update meaning: population-limit attempts stop
 without applying the event; integer overflow is a failed trajectory. Ordinary
 event, deadline and cancellation stops are typed termination states, not
 fabricated numerical errors. A valid incomplete archive remains incomplete.
+CRN-E043 also reports a reaction that would make a count negative: in the
+Direct loop this is a scheduler defect, never a population-limit stop. The
+optional `crn-diffsol` integration reports a species exceeding its
+`population_limit` between or at requested times with CRN-E044.
 
 Campaign codes: CRN-E070 covers FSP capacity, work, normalization, output and
 interruption failures; CRN-E080 covers optional deterministic domains/unsupported

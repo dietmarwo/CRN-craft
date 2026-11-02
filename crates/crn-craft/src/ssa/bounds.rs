@@ -129,11 +129,13 @@ impl Bounds {
             Ok((if gated { 0.0 } else { minimum }, maximum, positive))
         } else {
             let high = Self::evaluate(network, rx, &self.high, draws)?;
-            let low = if gated {
-                0.0
-            } else {
-                Self::evaluate(network, rx, &self.low, draws)?
-            };
+            if !gated {
+                // Mass action reads only its reactants, and without a gate the
+                // lowest enabled reactant state is the lower corner itself.
+                let low = Self::evaluate(network, rx, &self.low, draws)?;
+                return Ok((low, high, if low > 0.0 { low } else { f64::INFINITY }));
+            }
+            let low = 0.0;
             // Lowest *enabled* state supplies the minimum positive mass-action
             // rate even when a lower corner is disabled by an availability gate.
             for t in &structure.reactants {

@@ -1,0 +1,21 @@
+[package]
+name = "crn-craft-rules"
+description = "Exact stochastic simulation of dynamic, attributed species with rule schemata"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+crn-craft.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+schemars.workspace = true
+sha2.workspace = true
+libm.workspace = true
+rand_chacha.workspace = true
+rand_core.workspace = true
+
+[lints]
+workspace = true

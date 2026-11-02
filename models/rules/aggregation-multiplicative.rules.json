@@ -1,0 +1,66 @@
+{
+  "schema": "crn-craft.rules-model/0.1",
+  "name": "aggregation_multiplicative_kernel",
+  "description": "Coagulation X(a) + X(b) -> X(a + b) with multiplicative kernel k a b per unordered pair of clusters.",
+  "parameters": {
+    "k": 1.0,
+    "monomers": 12
+  },
+  "types": [
+    {
+      "name": "X",
+      "attributes": [
+        "size"
+      ]
+    }
+  ],
+  "initial": [
+    {
+      "type": "X",
+      "attributes": {
+        "size": 1
+      },
+      "count": "monomers"
+    }
+  ],
+  "observables": {
+    "clusters": {
+      "type": "X"
+    },
+    "largest": {
+      "type": "X",
+      "weight": "x.size",
+      "reduce": "max"
+    },
+    "mass": {
+      "type": "X",
+      "weight": "x.size"
+    }
+  },
+  "rules": [
+    {
+      "name": "merge",
+      "reactants": [
+        {
+          "label": "a",
+          "type": "X",
+          "factor": "a.size"
+        },
+        {
+          "label": "b",
+          "type": "X",
+          "factor": "b.size"
+        }
+      ],
+      "rate": "k",
+      "products": [
+        {
+          "type": "X",
+          "attributes": {
+            "size": "a.size + b.size"
+          }
+        }
+      ]
+    }
+  ]
+}

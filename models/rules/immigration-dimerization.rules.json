@@ -1,0 +1,48 @@
+{
+  "schema": "crn-craft.rules-model/0.1",
+  "name": "immigration_dimerization",
+  "description": "Immigration and annihilation of pairs, X + X -> 0 with propensity k2 n(n-1)/2 (the network engine's 2X convention).",
+  "parameters": {
+    "k_in": 20.0,
+    "k2": 0.1
+  },
+  "types": [
+    {
+      "name": "X",
+      "attributes": []
+    }
+  ],
+  "initial": [],
+  "observables": {
+    "X": {
+      "type": "X"
+    }
+  },
+  "rules": [
+    {
+      "name": "immigration",
+      "reactants": [],
+      "rate": "k_in",
+      "products": [
+        {
+          "type": "X"
+        }
+      ]
+    },
+    {
+      "name": "annihilation",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "X"
+        },
+        {
+          "label": "y",
+          "type": "X"
+        }
+      ],
+      "rate": "k2",
+      "products": []
+    }
+  ]
+}

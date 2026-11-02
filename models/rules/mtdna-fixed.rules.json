@@ -1,0 +1,121 @@
+{
+  "schema": "crn-craft.rules-model/0.1",
+  "name": "mtdna_fixed_population",
+  "description": "Kowald & Kirkwood-style mtDNA clonal expansion at a copy-number target K: degradation, replication into vacancies K - N weighted by s/D with Kowald's competition term D = wt + sm * mutants, and mutation of wild types into new clones (advantaged with probability fracAdv).",
+  "parameters": {
+    "K": 20,
+    "delta": 1.0,
+    "sw": 1.0,
+    "sm": 1.5,
+    "mu": 0.1,
+    "fracAdv": 0.5,
+    "w0": 20
+  },
+  "types": [
+    {
+      "name": "mtDNA",
+      "attributes": [
+        "clone",
+        "s",
+        "wt"
+      ]
+    }
+  ],
+  "initial": [
+    {
+      "type": "mtDNA",
+      "attributes": {
+        "clone": 0,
+        "s": "sw",
+        "wt": 1
+      },
+      "count": "w0"
+    }
+  ],
+  "observables": {
+    "N": {
+      "type": "mtDNA"
+    },
+    "wild_type": {
+      "type": "mtDNA",
+      "where": "x.wt == 1"
+    },
+    "mutants": {
+      "type": "mtDNA",
+      "where": "x.wt == 0"
+    },
+    "advantaged_mutants": {
+      "type": "mtDNA",
+      "where": "x.wt == 0 && x.s == sm"
+    },
+    "D": {
+      "type": "mtDNA",
+      "weight": "x.wt + sm * (1 - x.wt)"
+    },
+    "mutant_clones": {
+      "type": "mtDNA",
+      "where": "x.wt == 0",
+      "reduce": "distinct"
+    }
+  },
+  "rules": [
+    {
+      "name": "degradation",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA"
+        }
+      ],
+      "rate": "delta",
+      "products": []
+    },
+    {
+      "name": "replication",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "factor": "x.s * (1 - mu * x.wt)"
+        }
+      ],
+      "rate": "max(0, K - N) / D",
+      "products": [
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        },
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        }
+      ]
+    },
+    {
+      "name": "mutation",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "where": "x.wt == 1",
+          "factor": "x.s * mu"
+        }
+      ],
+      "rate": "max(0, K - N) / D",
+      "products": [
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        },
+        {
+          "type": "mtDNA",
+          "attributes": {
+            "clone": "new_id()",
+            "s": "choice(fracAdv, sm, sw)",
+            "wt": 0
+          }
+        }
+      ]
+    }
+  ]
+}

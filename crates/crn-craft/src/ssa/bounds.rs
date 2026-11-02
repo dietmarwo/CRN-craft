@@ -235,11 +235,10 @@ impl Bounds {
             self.positive_lower -= usize::from(self.lower[rx] > 0.0);
             self.positive_lower += usize::from(low > 0.0);
             self.lower[rx] = low;
-            tree.set_leaf(rx, high, minimum);
+            tree.set(rx, high, minimum);
             composition.update(rx, high)?;
             draws.work.bound_updates += 1;
         }
-        tree.rebuild(&self.dirty);
         Ok(())
     }
 }

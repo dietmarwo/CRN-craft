@@ -290,6 +290,28 @@ fn unreasonable_memory_work_and_fsp_requests_fail_before_execution() {
 }
 
 #[test]
+fn admission_precedes_dependency_compilation() {
+    // 1001 autocatalytic channels exceed the dependency-edge limit, but the
+    // tiny output budget is rejected first, without compiling the graph.
+    let reactions: Vec<_> = (0..1001)
+        .map(|i| {
+            json!({"name": format!("r{i}"), "reactants": {"X": 1}, "products": {"X": 2},
+                        "rate": {"kind": "mass_action", "coefficient": 1.0}})
+        })
+        .collect();
+    let m = json!({"schema": "crn-craft.model/0.1", "name": "wide", "convention": "stochastic_counts",
+                   "omega": 1.0, "parameters": {}, "species": [{"name": "X", "initial_count": 1}],
+                   "reactions": reactions});
+    let bytes = serde_json::to_vec(&m).unwrap();
+    let r = json!({"schema": "crn-craft.run/0.1", "model": {"path": "m.json", "sha256": crn_craft::sha256(&bytes)},
+                   "method": {"kind": "ssa", "aggregator": "direct"}, "time": {"end": 1.0, "save_times": [0.0, 1.0]},
+                   "ensemble": {"replicates": 2, "root_seed": 1}, "outputs": {"statistics": ["mean"], "keep_trajectories": 0},
+                   "budget": {"threads": 1, "max_events_per_replicate": 10, "max_output_bytes": 1024}});
+    let errors = simulation::prepare(&bytes, &serde_json::to_vec(&r).unwrap()).unwrap_err();
+    assert_eq!(errors[0].code, "CRN-E060", "{errors:?}");
+}
+
+#[test]
 fn live_serialized_output_cap_keeps_ledger_and_discards_statistics() {
     let mut m = model();
     m["species"][0]["initial_count"] = json!(i64::MAX);

@@ -12,10 +12,10 @@ Every diagnostic contains `severity`, `code`, `path`, `message`, `hint`. Paths u
 | CRN-E011 | Duplicate name or species/parameter collision | Rename the conflicting entry |
 | CRN-E012 | Unknown species | Declare or correct it |
 | CRN-E013 | Non-positive or oversized integer stoichiometry | Use 1–2147483647; omit zeros |
-| CRN-E014 | Unknown parameter | Declare it or provide a numeric literal |
+| CRN-E014 | Unknown parameter; for parameter templates, a wrong value count or name set | Declare it or provide a numeric literal; bind exactly the declared names |
 | CRN-E015 | Non-finite or out-of-domain numeric argument | Use the required finite positive/non-negative domain |
 | CRN-E016 | Negative population or insufficient safety limit | Correct counts/limits |
-| CRN-E020 | Invalid time grid, budget, ensemble, output or method combination | Follow the field hint |
+| CRN-E020 | Invalid time grid, budget, ensemble, output or method combination; at the API path `/kernel`, a generated kernel for another topology or kernel generation for non-mass-action laws | Follow the field hint; regenerate the kernel for this model |
 | CRN-E021 | Malformed or mismatched SHA-256 | Review model bytes and compute their lowercase digest |
 | CRN-E022 | Unsafe/non-relative path, missing target or mismatch with supplied model | Put the model below the run directory and pass that file |
 | CRN-E023 | Missing/invalid FSP bounds, capacity or tolerance | Supply a finite truncation containing the initial state |

@@ -2,6 +2,11 @@
 
 ## [Unreleased] — alternative exact SSA methods and the Julia-gap campaign (`0.2.0-dev.1`)
 
+### Added: reusable parameter bindings and generated kernels (imported, by Astra)
+
+- `parameters::ParameterTemplate` (Rust) and `crn.prepare_parameters` (Python) compile a model's topology once and bind parameter vectors or exact name maps per candidate; each binding keeps byte snapshots for replay. Optional `codegen::mass_action_source` / `crn.mass_action_kernel_source` emit a Rust propensity kernel for `ssa::execute_with_kernel`, guarded by `CompiledNetwork::topology_sha256`. Results are byte-identical to fresh preparation. See `docs/reusable-parameters.md` and the optimization comparison with rebop.
+- Review fixes: generated kernels fall back to the new `CompiledNetwork::propensity_in_scheduler_state` instead of the state-scanning `propensity` (a 1,500-reaction review model went from about 40 s to 4.2 s with `direct`); ordinary preparation again checks admission before compiling the dependency graph (`CRN-E060` before `CRN-E040`, as before the import); binding mismatches are `CRN-E014` with missing and unknown names, invalid Python seeds `CRN-E020`; Python `bind` rejects sets and turns float overflow into `CrnError`.
+
 ### Added: the `fast` switch (`crn-craft.ssa-run/0.2`)
 
 - `method.fast` (default `false`) emulates JumpProcesses.jl: Xoshiro256++ words per replicate, running totals without lost-increment or 53-bit resolution checks, and stop polls every 256 event-loop iterations. New methods run 1.09–4.3x faster with it; it passes its own 210-comparison exact-law gate, now also in CI.

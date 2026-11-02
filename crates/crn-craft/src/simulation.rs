@@ -236,6 +236,15 @@ pub fn prepare(model_bytes: &[u8], run_bytes: &[u8]) -> Result<Prepared, Vec<Dia
     }
     let model = parse_model(model_bytes).map_err(|e| vec![e])?;
     let run = parse_run(run_bytes).map_err(|e| vec![e])?;
+    // Cheap admission first, as before parameter templates: an oversized
+    // request is rejected without compiling its dependency graph.
+    admission(
+        model.species.len(),
+        model.reactions.len(),
+        &run,
+        model_bytes.len(),
+        run_bytes.len(),
+    )?;
     let network = CompiledNetwork::compile(&model)?;
     prepare_compiled(
         network,
@@ -247,16 +256,20 @@ pub fn prepare(model_bytes: &[u8], run_bytes: &[u8]) -> Result<Prepared, Vec<Dia
     )
 }
 
-/// Admission for already validated structure/run inputs; parameter templates
-/// invoke the same reservation checks as ordinary preparation on every bind.
-pub(crate) fn prepare_compiled(
-    network: CompiledNetwork,
-    run: Run,
-    model_hash: String,
-    run_hash: String,
+struct Admission {
+    workers: usize,
+    workspace: u128,
+    queue_capacity: usize,
+}
+
+/// Workspace and evidence reservations; depends only on sizes and the run.
+fn admission(
+    species: usize,
+    reactions: usize,
+    run: &Run,
     model_len: usize,
     run_len: usize,
-) -> Result<Prepared, Vec<Diagnostic>> {
+) -> Result<Admission, Vec<Diagnostic>> {
     if !matches!(run.method, Method::Ssa { .. }) {
         return Err(vec![execution_error("FSP execution is not implemented")]);
     }
@@ -268,14 +281,14 @@ pub(crate) fn prepare_compiled(
     let workers = (run.budget.threads as usize)
         .min(MAX_WORKERS)
         .min(count as usize);
-    let cells = (network.species().len() as u128) * run.time.save_times.len() as u128;
+    let cells = (species as u128) * run.time.save_times.len() as u128;
     // Conservative allocation reservation, not a claim to cap allocator/OS RSS.
     let reserve = |buffers_per_worker: u128| {
         (cells * 8 + run.time.save_times.len() as u128 * 24)
             * (buffers_per_worker * workers as u128 + u128::from(run.outputs.keep_trajectories))
             + cells * 24
             + u128::from(count) * 1024
-            + workers as u128 * (2 * 1024 * 1024 + network.reactions().len() as u128 * 8)
+            + workers as u128 * (2 * 1024 * 1024 + reactions as u128 * 8)
             + 32 * 1024 * 1024
     };
     // Preserve legacy admission and archive verification near the memory cap.
@@ -294,7 +307,7 @@ pub(crate) fn prepare_compiled(
         + run_len as u128
         + 16_384
         + u128::from(count) * 1024
-        + network.species().len() as u128 * 80
+        + species as u128 * 80
         + run.time.save_times.len() as u128 * 32;
     if count > MAX_REPLICATES
         || workspace > u128::from(MAX_WORKSPACE_BYTES)
@@ -311,6 +324,34 @@ pub(crate) fn prepare_compiled(
     {
         return Err(vec![execution_error("aggregate event cap exceeds u64")]);
     }
+    Ok(Admission {
+        workers,
+        workspace,
+        queue_capacity,
+    })
+}
+
+/// Admission for already validated structure/run inputs; parameter templates
+/// invoke the same reservation checks as ordinary preparation on every bind.
+pub(crate) fn prepare_compiled(
+    network: CompiledNetwork,
+    run: Run,
+    model_hash: String,
+    run_hash: String,
+    model_len: usize,
+    run_len: usize,
+) -> Result<Prepared, Vec<Diagnostic>> {
+    let Admission {
+        workers,
+        workspace,
+        queue_capacity,
+    } = admission(
+        network.species().len(),
+        network.reactions().len(),
+        &run,
+        model_len,
+        run_len,
+    )?;
     Ok(Prepared {
         network,
         run,

@@ -297,6 +297,22 @@ impl CompiledNetwork {
         self.propensity_in_valid_state(reaction, state)
     }
 
+    /// For [`crate::ssa::PropensityKernel`] implementations: the engine only
+    /// passes states built from `initial_counts` and checked `fire_reaction`
+    /// updates, so the O(species) state scan of [`Self::propensity`] is
+    /// skipped. The length is still checked; callers must not pass negative
+    /// counts.
+    pub fn propensity_in_scheduler_state(
+        &self,
+        reaction: usize,
+        state: &[i64],
+    ) -> Result<f64, Diagnostic> {
+        if state.len() != self.species.len() {
+            return self.propensity(reaction, state);
+        }
+        self.propensity_in_valid_state(reaction, state)
+    }
+
     /// Internal scheduler fast path: state comes from initial_counts or a
     /// successful checked fire_reaction. Avoid O(species) validation per channel.
     pub(crate) fn propensity_in_valid_state(
@@ -375,6 +391,7 @@ impl CompiledNetwork {
 }
 
 /// Fingerprint of fixed topology, literals, initial populations and limits.
+/// It does not cover the CRN-craft version: regenerate kernels after upgrading.
 pub fn topology_sha256(model: &Model) -> String {
     let mut shape = model.clone();
     for value in shape.parameters.values_mut() {

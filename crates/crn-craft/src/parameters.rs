@@ -27,6 +27,16 @@ fn invalid(message: impl Into<String>) -> Vec<Diagnostic> {
     )]
 }
 
+/// Wrong number of values or a key set different from the declared names.
+fn mismatch(message: impl Into<String>) -> Vec<Diagnostic> {
+    vec![Diagnostic::error(
+        "CRN-E014",
+        "/parameters",
+        message,
+        "Supply exactly one value per declared parameter, in parameter_names order (sorted by name) or by name.",
+    )]
+}
+
 impl ParameterTemplate {
     pub fn prepare(model: &[u8], request: &[u8]) -> Result<Self, Vec<Diagnostic>> {
         let prepared = ssa::prepare(model, request)?;
@@ -57,7 +67,7 @@ impl ParameterTemplate {
         seed: Option<u64>,
     ) -> Result<BoundParameters, Vec<Diagnostic>> {
         if values.len() != self.names.len() {
-            return Err(invalid(format!(
+            return Err(mismatch(format!(
                 "expected {} values, got {}",
                 self.names.len(),
                 values.len()
@@ -117,7 +127,15 @@ impl ParameterTemplate {
         seed: Option<u64>,
     ) -> Result<BoundParameters, Vec<Diagnostic>> {
         if values.len() != self.names.len() || !values.keys().eq(self.names.iter()) {
-            return Err(invalid("parameter names do not match template"));
+            let missing: Vec<_> = self
+                .names
+                .iter()
+                .filter(|n| !values.contains_key(*n))
+                .collect();
+            let extra: Vec<_> = values.keys().filter(|n| !self.names.contains(n)).collect();
+            return Err(mismatch(format!(
+                "parameter names do not match template: missing {missing:?}, unknown {extra:?}"
+            )));
         }
         self.bind(&values.values().copied().collect::<Vec<_>>(), seed)
     }
@@ -277,6 +295,58 @@ mod tests {
         assert_ne!(
             template.topology_sha256(),
             crate::network::topology_sha256(&model)
+        );
+    }
+    #[test]
+    fn binding_errors_name_the_mismatch() {
+        let raw = model(false);
+        let template =
+            ParameterTemplate::prepare(&raw, &request(&raw, "direct", "inverse", false, 1))
+                .unwrap();
+        let count = template.bind(&[1.0, 2.0], None).err().unwrap();
+        assert_eq!(
+            (count[0].code.as_str(), count[0].path.as_str()),
+            ("CRN-E014", "/parameters")
+        );
+        let named = BTreeMap::from([
+            ("a".to_string(), 1.0),
+            ("b".to_string(), 1.0),
+            ("z".to_string(), 1.0),
+        ]);
+        let names = template.bind_named(&named, None).err().unwrap();
+        assert_eq!(names[0].code, "CRN-E014");
+        assert!(
+            names[0].message.contains("missing [\"k\"]")
+                && names[0].message.contains("unknown [\"z\"]")
+        );
+        let value = template.bind(&[f64::NAN, 1.0, 1.0], None).err().unwrap();
+        assert_eq!(value[0].code, "CRN-E015");
+    }
+    #[test]
+    fn scheduler_state_evaluator_matches_checked_propensity() {
+        let raw = model(true);
+        let template =
+            ParameterTemplate::prepare(&raw, &request(&raw, "direct", "inverse", false, 1))
+                .unwrap();
+        let network = &template.prepared.core.network;
+        for x in [0, 1, 2, 4, 1000] {
+            for rx in 0..2 {
+                assert_eq!(
+                    network
+                        .propensity_in_scheduler_state(rx, &[x])
+                        .unwrap()
+                        .to_bits(),
+                    network.propensity(rx, &[x]).unwrap().to_bits()
+                );
+            }
+        }
+        // A wrong length still gets the checked path and its diagnostic.
+        assert_eq!(
+            network
+                .propensity_in_scheduler_state(0, &[1, 2])
+                .unwrap_err()
+                .code,
+            network.propensity(0, &[1, 2]).unwrap_err().code
         );
     }
 }

@@ -34,11 +34,11 @@ pub fn mass_action_source(model_bytes: &[u8]) -> Result<String, Vec<Diagnostic>>
             [] => "let value = c;".to_owned(),
             [a] if a.coefficient == 1 => format!("let value = c * state[{}] as f64;", a.species),
             [a] if a.coefficient == 2 => format!(
-                "let n = state[{}]; let first = if n == 2 {{ c }} else if n == 3 {{ c * 3.0 }} else {{ c * (n - 1) as f64 }}; if !first.is_normal() {{ return net.propensity(rx, state); }} let value = if n <= 3 {{ first }} else {{ first * (n as f64 / 2.0) }};",
+                "let n = state[{}]; let first = if n == 2 {{ c }} else if n == 3 {{ c * 3.0 }} else {{ c * (n - 1) as f64 }}; if !first.is_normal() {{ return net.propensity_in_scheduler_state(rx, state); }} let value = if n <= 3 {{ first }} else {{ first * (n as f64 / 2.0) }};",
                 a.species
             ),
             [a, b] if a.coefficient == 1 && b.coefficient == 1 => format!(
-                "let first = c * state[{}] as f64; if !first.is_normal() {{ return net.propensity(rx, state); }} let value = first * state[{}] as f64;",
+                "let first = c * state[{}] as f64; if !first.is_normal() {{ return net.propensity_in_scheduler_state(rx, state); }} let value = first * state[{}] as f64;",
                 a.species, b.species
             ),
             _ => continue,
@@ -55,8 +55,8 @@ pub fn mass_action_source(model_bytes: &[u8]) -> Result<String, Vec<Diagnostic>>
             )
             .unwrap();
         }
-        writeln!(out, "if let Some(c) = net.mass_action_coefficient({rx}) {{\nif c == 0.0 {{ return Ok(0.0); }}\nif c.is_normal() {{ {expression} if value.is_normal() {{ return Ok(value); }} }}\n}}\nnet.propensity(rx, state)\n}},").unwrap();
+        writeln!(out, "if let Some(c) = net.mass_action_coefficient({rx}) {{\nif c == 0.0 {{ return Ok(0.0); }}\nif c.is_normal() {{ {expression} if value.is_normal() {{ return Ok(value); }} }}\n}}\nnet.propensity_in_scheduler_state(rx, state)\n}},").unwrap();
     }
-    out.push_str("_ => net.propensity(rx, state),\n}\n}\n}\n");
+    out.push_str("_ => net.propensity_in_scheduler_state(rx, state),\n}\n}\n}\n");
     Ok(out)
 }

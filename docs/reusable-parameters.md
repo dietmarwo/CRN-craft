@@ -24,11 +24,15 @@ assert replay == result
 ```
 
 For an optimizer, call `template.simulate(values)` with a numeric vector in
-`parameter_names` order. `bind(values, seed=...)` overrides the root seed for an
+`parameter_names` order. That order is sorted by name (byte order), not the
+order of the model file. Sets and other unordered collections are rejected. `bind(values, seed=...)` overrides the root seed for an
 independent held-out evaluation. Names/default values/topology identity are
 read-only. Mappings must contain exactly the declared parameter names; unused
 parameters must still be supplied. Boolean/string/nonfinite/domain-invalid
-values fail. Binding errors leave the template and prior bindings intact.
+values fail. A wrong count or name set is `CRN-E014` (the message lists
+missing and unknown names), a non-numeric, out-of-range or domain-invalid
+value `CRN-E015`, and an invalid seed `CRN-E020` at `/ensemble/root_seed`.
+Binding errors leave the template and prior bindings intact.
 Initial populations, topology, literal coefficients, rate-law kinds, limits and
 run settings are fixed. Prepare a new template to change those settings.
 
@@ -54,12 +58,21 @@ it as a Rust module in an application depending on `crn-craft`. The emitted
 `ssa::execute_with_kernel(&bound.prepared, &control, &kernel)` from Rust.
 Named parameter values remain runtime inputs, so the compiled code is reused
 across optimizer candidates. A topology fingerprint guards accidental use with
-a different model. Trusted handwritten implementations of the trait carry the
+a different model (`CRN-E020` at the API path `/kernel`). It covers the model's
+structure, not the CRN-craft version: regenerate kernels after upgrading. Trusted handwritten implementations of the trait carry the
 same numerical-equivalence obligation as other custom Rust simulator code.
 
 Generation supports mass-action models. Zero/first/dimer/pair evaluation is
-specialized; exceptional arithmetic and higher orders use the existing checked
-evaluator. Custom Hill/MM laws use the reusable dynamic interface and are
+specialized; exceptional arithmetic and higher orders call
+`CompiledNetwork::propensity_in_scheduler_state`, the engine's own evaluator
+without the per-call O(species) state scan of `propensity`. (Kernels generated
+before this change called `propensity`, which is correct but much slower for
+higher-order reactions in large networks; regenerate them.) On a 1,500-reaction
+review model with 500 third-order channels, the regenerated kernel with
+`direct` took 4.2–4.3 s against 2.3–2.6 s for the default evaluator (the old
+fallback: about 40 s); with `direct_cr` 0.02–0.04 s against 0.02–0.03 s.
+Results were byte-identical. Measure before adopting generated kernels for very
+large networks. Custom Hill/MM laws use the reusable dynamic interface and are
 rejected by this generator. Generated kernels retain the core SSA scheduler,
 bounds, checked population updates, limits, cancellation and reduction. This is
 propensity specialization, not a generated whole solver. The core performs no

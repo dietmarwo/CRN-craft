@@ -85,10 +85,10 @@ fn highest_orders(network: &CompiledNetwork) -> Vec<(i64, i64)> {
         let order: i64 = reaction.reactants.iter().map(|t| t.coefficient).sum();
         for term in &reaction.reactants {
             let entry = &mut orders[term.species];
-            if order > entry.0 {
-                *entry = (order, term.coefficient);
-            } else if order == entry.0 {
-                entry.1 = entry.1.max(term.coefficient);
+            match order.cmp(&entry.0) {
+                std::cmp::Ordering::Greater => *entry = (order, term.coefficient),
+                std::cmp::Ordering::Equal => entry.1 = entry.1.max(term.coefficient),
+                std::cmp::Ordering::Less => {}
             }
         }
     }

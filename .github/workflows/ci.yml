@@ -121,7 +121,7 @@ jobs:
           git config core.autocrlf true
           git rm -q -r --cached .
           git reset -q --hard
-          converted=$(git ls-files --eol | grep -v -e 'w/lf' -e 'w/none' || true)
+          converted=$(git ls-files --eol | grep -v -e 'w/lf' -e 'w/none' -e 'attr/-text' || true)
           if [ -n "$converted" ]; then
             echo "Files without LF line endings after an autocrlf checkout:"
             echo "$converted"

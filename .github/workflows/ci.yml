@@ -82,6 +82,20 @@ jobs:
       - run: python validation/check_tau.py --binary target/release/crn-craft --output tau.json
       - run: python -O validation/check_tau.py --binary target/release/crn-craft --output tau-optimized.json
       - run: diff tau.json tau-optimized.json
+  rules:
+    # K1 exact-law gates for dynamic, attributed species (docs/rules-language.md).
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install numpy==2.3.5 jsonschema==4.26.0
+      - run: cargo build --release --workspace --locked
+      - run: python validation/check_rules.py --output rules.json
+      - run: python -O validation/check_rules.py --output rules-optimized.json
+      - run: diff rules.json rules-optimized.json
   python:
     # The wheel, its console scripts and the Python-level checks.
     runs-on: ubuntu-latest

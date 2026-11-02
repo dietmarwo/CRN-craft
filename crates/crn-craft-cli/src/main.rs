@@ -45,7 +45,16 @@ fn main() -> ExitCode {
     }
     let mut compact = false;
     let (value, success) = match args.first().and_then(|arg| arg.to_str()) {
-        Some("describe") if args.len() == 1 => (describe(), true),
+        Some("describe") if args.len() == 1 => {
+            // The native CLI adds the rules engine to the core description.
+            let mut value = describe();
+            value["schema"] = "crn-craft.describe/0.8".into();
+            if let Some(commands) = value["commands"].as_array_mut() {
+                commands.extend(["rules-check".into(), "rules".into()]);
+            }
+            value["dynamic_species"] = crn_craft_rules::describe();
+            (value, true)
+        }
         Some("describe") if args.len() == 2 => match args[1]
             .to_str()
             .and_then(|kind| schema(kind).or_else(|| crn_craft_rules::schema(kind)))

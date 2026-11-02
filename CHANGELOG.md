@@ -2,6 +2,11 @@
 
 ## [Unreleased] — alternative exact SSA methods and the Julia-gap campaign (`0.2.0-dev.1`)
 
+### Added: dynamic, attributed species (experimental rules engine, K0/K1)
+
+- New crate `crn-craft-rules` and CLI commands `rules-check` and `rules`: species types with numeric attributes, instances created and removed on the fly, rule schemata over zero to two reactant patterns with product-form propensities, observables (`sum`, `distinct`, `max`, `min`), `new_id()` clones, random product attributes and stop conditions. Contracts `crn-craft.rules-model/0.1`, `rules-check/0.1`, `rules-run/0.1`, `rules-result/0.1`; the native CLI's discovery moves to `describe/0.8` (core and Python stay at 0.7). Reference: `docs/rules-language.md`.
+- K1 gates (`validation/check_rules.py`, CI job `rules`): 30 exact-law comparisons over 100,000 replicates per fixture pass (largest distance 0.0038 against a bound of 0.0074), including Kowald's fixed-population mtDNA model and constant and multiplicative aggregation; all six wrong-law power checks reject.
+
 ### Added: reusable parameter bindings and generated kernels (imported, by Astra)
 
 - `parameters::ParameterTemplate` (Rust) and `crn.prepare_parameters` (Python) compile a model's topology once and bind parameter vectors or exact name maps per candidate; each binding keeps byte snapshots for replay. Optional `codegen::mass_action_source` / `crn.mass_action_kernel_source` emit a Rust propensity kernel for `ssa::execute_with_kernel`, guarded by `CompiledNetwork::topology_sha256`. Results are byte-identical to fresh preparation. See `docs/reusable-parameters.md` and the optimization comparison with rebop.

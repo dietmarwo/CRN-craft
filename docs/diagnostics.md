@@ -68,3 +68,15 @@ smooth extensions/solver failures; CRN-E085 covers approximate Poisson-leap
 requests, budgets and numerical failures; CRN-E090 covers importer syntax,
 unsupported semantics, explicit-convention and resource failures. None denotes
 biological validation or a certified floating-point error bound.
+
+## Rules engine (`CRN-R…`)
+
+The experimental rules engine for dynamic, attributed species
+([rules language](rules-language.md)) shares `CRN-E001`–`CRN-E004` for JSON
+input and the read error `CRN-E030`, and has its own codes: `CRN-R010` names,
+`CRN-R011` unknown types, `CRN-R012` expressions and scopes, `CRN-R013` rule
+shapes and product attributes, `CRN-R014` initial state, `CRN-R015` model
+limits, `CRN-R020` run requests, `CRN-R030` numerical failures during a
+replicate, `CRN-R031` weights below 53-bit resolution, `CRN-R040`–`CRN-R045`
+event, sampling, instance, wall-time, cancellation and output limits, and the
+warning `CRN-R050` for an incomplete ensemble.

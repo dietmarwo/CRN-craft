@@ -773,6 +773,29 @@ pub fn check_model_file(model_path: &Path) -> RulesCheck {
     }
 }
 
+/// Discovery entry for the native CLI's `describe` (`describe/0.8`).
+pub fn describe() -> Value {
+    serde_json::json!({
+        "status": "experimental",
+        "crate": "crn-craft-rules",
+        "commands": ["rules-check", "rules"],
+        "model": "crn-craft.rules-model/0.1",
+        "check": "crn-craft.rules-check/0.1",
+        "request": "crn-craft.rules-run/0.1",
+        "result": "crn-craft.rules-result/0.1",
+        "sampler": SAMPLER,
+        "reference": "docs/rules-language.md",
+        "limits": {
+            "types": model::MAX_TYPES, "attributes": model::MAX_ATTRIBUTES,
+            "parameters": model::MAX_PARAMETERS, "observables": model::MAX_OBSERVABLES,
+            "rules": model::MAX_RULES, "products": model::MAX_PRODUCTS,
+            "initial_entries": model::MAX_INITIAL, "expression_bytes": model::MAX_EXPRESSION_BYTES,
+            "replicates": MAX_REPLICATES, "report_times": MAX_REPORT_TIMES,
+            "threads": MAX_WORKERS, "result_bytes": MAX_RESULT_BYTES
+        }
+    })
+}
+
 /// JSON Schemas generated from the Rust contract types.
 pub fn schema(kind: &str) -> Option<Value> {
     match kind {

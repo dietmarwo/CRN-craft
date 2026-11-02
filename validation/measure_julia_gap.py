@@ -54,10 +54,12 @@ REPORT_ENGINE = {
 }
 
 
-def bench(binary, workload, method, wait, repeats):
+def bench(binary, workload, method, wait, repeats, fast=False):
     horizon, paths = WORKLOADS[workload]
     model = EVIDENCE / "models" / f"{workload}.model.json"
     command = [binary, model, horizon, paths, method, wait, repeats]
+    if fast:
+        command.append("fast")
     output = subprocess.run(
         [str(part) for part in command], capture_output=True, text=True, check=True
     ).stdout
@@ -66,7 +68,12 @@ def bench(binary, workload, method, wait, repeats):
 
 def chain(args):
     names = [b.split("=", 1)[0] for b in args.binaries]
-    paths = {b.split("=", 1)[0]: Path(b.split("=", 1)[1]) for b in args.binaries}
+    # NAME=PATH@fast times the same binary with method.fast (ssa-run/0.2).
+    paths = {
+        b.split("=", 1)[0]: Path(b.split("=", 1)[1].split("@")[0])
+        for b in args.binaries
+    }
+    fast = {b.split("=", 1)[0]: b.endswith("@fast") for b in args.binaries}
     methods = [m for m in METHODS if not args.methods or m[0] in args.methods]
     report = {"protocol": "docs/decisions/julia-gap-2026-11-02.md", "order": names}
     report["rows"] = {}
@@ -85,7 +92,9 @@ def chain(args):
                 if round_index % 2:
                     order.reverse()
                 for name in order:
-                    result = bench(paths[name], workload, method, wait, args.repeats)
+                    result = bench(
+                        paths[name], workload, method, wait, args.repeats, fast[name]
+                    )
                     seconds[name].append(result["seconds"])
                     digests[name].add(result["digest"])
                     numerical[name].add(
@@ -250,7 +259,7 @@ def project(args):
         key: {"speedup": row["steps"][f"{first}->{last}"]["speedup"]}
         for key, row in report["rows"].items()
     }
-    comparison = json.loads((EVIDENCE / "julia-comparison.json").read_text())
+    comparison = json.loads(args.reference.read_text())
     rows, gaps = [], []
     for workload in WORKLOADS:
         timings = comparison["timings"][workload]
@@ -291,7 +300,9 @@ def main():
     commands = parser.add_subparsers(dest="command", required=True)
     chained = commands.add_parser("chain")
     chained.add_argument(
-        "binaries", nargs="+", help="NAME=PATH, oldest commit first (at least two)"
+        "binaries",
+        nargs="+",
+        help="NAME=PATH or NAME=PATH@fast, oldest commit first (at least two)",
     )
     chained.add_argument("--workloads", nargs="+", default=list(WORKLOADS))
     chained.add_argument("--methods", nargs="+")
@@ -317,6 +328,12 @@ def main():
     )
     projected = commands.add_parser("project")
     projected.add_argument("chain", type=Path)
+    projected.add_argument(
+        "--reference",
+        type=Path,
+        default=EVIDENCE / "julia-comparison.json",
+        help="same-host CRN/Julia timing report whose CRN medians are scaled",
+    )
     args = parser.parse_args()
     commands = {
         "chain": chain,

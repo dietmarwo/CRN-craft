@@ -2,6 +2,16 @@
 
 ## [Unreleased] — alternative exact SSA methods and the Julia-gap campaign (`0.2.0-dev.1`)
 
+### Added: the `fast` switch (`crn-craft.ssa-run/0.2`)
+
+- `method.fast` (default `false`) emulates JumpProcesses.jl: Xoshiro256++ words per replicate, running totals without lost-increment or 53-bit resolution checks, and stop polls every 256 event-loop iterations. New methods run 1.09–4.3x faster with it; it passes its own 210-comparison exact-law gate, now also in CI.
+- `ssa-run/0.2` and `ssa-result/0.2`; 0.1 requests are still accepted, reject `fast`, and return byte-identical results. Discovery moves to `describe/0.7`. Python: `crn.ssa_spec(..., fast=True)`.
+- Benchmarks time CRN-craft with `fast` and report the checked default alongside: the GillesPy2 comparison was rerun (fast cached Direct 1.5–8.2x and the best fast method 2.9–9.2x faster than GillesPy2's C++ solver on W1–W4); the Julia comparison gained a projected `fast` table (geometric mean 1.02x).
+
+### Imported: ten further Julia-gap iterations (C01–C10, by Astra)
+
+- Kept C05 (lower-bound reuse), C06 (shared exact custom-law ranges) and C09 (compiled elementary mass-action kernels); same-host geometric-mean gap to Julia 1.54x to 1.44x. Evidence in `validation/julia-gap10/`.
+
 ### Added (imported acceleration patch)
 
 - `crn-craft.ssa-run/0.1` and `crn-craft.ssa-result/0.1` with `direct`, `cached_direct`, `direct_cr`, `sorting_direct` and `rssa_cr` aggregators, inverse or Ziggurat (Julia 1.13.3 tables, MIT) waits, and the `ssa` command in both CLIs; discovery `describe/0.6` lists them under `alternative_exact_ssa`.

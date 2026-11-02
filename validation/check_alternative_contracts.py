@@ -3,6 +3,7 @@
 import argparse
 import concurrent.futures
 import hashlib
+import itertools
 import json
 from pathlib import Path
 import subprocess
@@ -38,9 +39,10 @@ def main():
         mp = folder / "model.json"
         rp = folder / "request.json"
         mp.write_bytes(model)
-        for algorithm, wait in VARIANTS:
+        for (algorithm, wait), fast in itertools.product(VARIANTS, (False, True)):
             request = crn.ssa_spec(
                 model,
+                fast=fast,
                 aggregator=algorithm,
                 waiting_time=wait,
                 end=2.0,
@@ -56,6 +58,22 @@ def main():
             validators["ssa-run"].validate(request)
             expected = crn.simulate_ssa(model, request)
             validators["ssa-result"].validate(expected)
+            require(
+                expected["schema"].endswith("/0.2" if fast else "/0.1")
+                and expected["sampler"].startswith(
+                    "xoshiro256pp" if fast else "chacha8"
+                )
+                and expected["method"].get("fast", False) == fast,
+                "fast identity",
+            )
+            if fast:
+                old = dict(request, schema="crn-craft.ssa-run/0.1")
+                try:
+                    crn.simulate_ssa(model, old)
+                except crn.CrnError:
+                    pass
+                else:
+                    raise RuntimeError("fast accepted under ssa-run/0.1")
             prepared = crn.prepare_ssa(model, request)
             with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
                 require(
@@ -153,6 +171,7 @@ def main():
                 dict(
                     algorithm=algorithm,
                     waiting_time=wait,
+                    fast=fast,
                     passed=True,
                     result_sha256=hashlib.sha256(
                         json.dumps(expected, sort_keys=True).encode()

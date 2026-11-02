@@ -107,9 +107,26 @@ pub(super) struct RateTree {
     invalid: usize,
     floor: f64,
     checked: Vec<Node>,
+    /// `fast`: leaves plus a running total updated by `+= new - old`, as Julia
+    /// keeps `sum_rate`; no ancestors and no loss or resolution checks.
+    fast: bool,
+    running: f64,
+    peak: f64,
+    updates: u32,
 }
+/// A fast running total is recomputed from the leaves after this many updates,
+/// and whenever it falls far below its recent peak (cancellation).
+const FAST_RESUM: u32 = 1 << 16;
 impl RateTree {
+    pub(super) fn reset_fast(&mut self, count: usize, fast: bool) {
+        self.reset(count);
+        self.fast = fast;
+        self.running = 0.0;
+        self.peak = 0.0;
+        self.updates = 0;
+    }
     pub(super) fn reset(&mut self, count: usize) {
+        self.fast = false;
         self.len = count;
         self.base = count.max(1).next_power_of_two();
         self.sums.resize(self.base * 2, 0.0);
@@ -124,6 +141,13 @@ impl RateTree {
     }
     pub(super) fn set(&mut self, index: usize, rate: f64, minimum_positive: f64) {
         let mut i = self.base + index;
+        if self.fast {
+            self.running += rate - self.sums[i];
+            self.peak = self.peak.max(self.running);
+            self.sums[i] = rate;
+            self.updates += 1;
+            return;
+        }
         self.invalid -= usize::from(leaf(self.sums[i], self.minima[index]).bad);
         self.invalid += usize::from(leaf(rate, minimum_positive).bad);
         self.sums[i] = rate;
@@ -136,6 +160,21 @@ impl RateTree {
         }
     }
     pub(super) fn total(&mut self) -> Result<f64, Diagnostic> {
+        if self.fast {
+            if self.updates >= FAST_RESUM
+                || !self.running.is_finite()
+                || self.running <= self.peak * (1.0 / (1u64 << 30) as f64)
+            {
+                self.running = self.sums[self.base..self.base + self.len].iter().sum();
+                self.peak = self.running;
+                self.updates = 0;
+            }
+            return if self.running.is_finite() {
+                Ok(self.running)
+            } else {
+                Err(numeric("fast running total is not finite"))
+            };
+        }
         let root = self.sums[1];
         if self.invalid == 0 && root.is_normal() && self.floor >= root * (1.0 / (1u64 << 52) as f64)
         {
@@ -343,6 +382,7 @@ impl Composition {
             if threshold < tree.get(index) {
                 return Ok(index);
             }
+            draws.retry()?;
         }
     }
 }
@@ -371,6 +411,7 @@ mod tests {
             limit: 20_000_000,
             work: &mut work,
             poller: &mut poller,
+            fast: false,
         };
         let mut rng = crate::sampling::stream(4242, 777);
         let mut counts = [0u64; 8];
@@ -430,6 +471,7 @@ mod tests {
             limit: 10,
             work: &mut work,
             poller: &mut poller,
+            fast: false,
         };
         let mut order: Vec<usize> = (0..rates.len()).collect();
         let chosen = sorting_sample(&mut order, &rates, total, &mut rng, &mut draws);

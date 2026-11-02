@@ -19,6 +19,72 @@ pub fn tau_stream(root_seed: u64, replicate: u64) -> ChaCha8Rng {
     keyed_stream(b"crn-craft.chacha8-tau/0.1\0", root_seed, replicate)
 }
 
+/// Xoshiro256++ (Blackman & Vigna, public domain), the generator Julia's
+/// `Random.Xoshiro` uses. Only `fast` alternative-SSA runs draw from it.
+#[derive(Clone, Debug)]
+pub(crate) struct Xoshiro256pp {
+    s: [u64; 4],
+}
+impl RngCore for Xoshiro256pp {
+    #[inline]
+    fn next_u64(&mut self) -> u64 {
+        let s = &mut self.s;
+        let result = s[0].wrapping_add(s[3]).rotate_left(23).wrapping_add(s[0]);
+        let t = s[1] << 17;
+        s[2] ^= s[0];
+        s[3] ^= s[1];
+        s[1] ^= s[2];
+        s[0] ^= s[3];
+        s[2] ^= t;
+        s[3] = s[3].rotate_left(45);
+        result
+    }
+    fn next_u32(&mut self) -> u32 {
+        (self.next_u64() >> 32) as u32
+    }
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        rand_core::impls::fill_bytes_via_next(self, dest);
+    }
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
+        self.fill_bytes(dest);
+        Ok(())
+    }
+}
+
+/// One Xoshiro256++ state per replicate, seeded from its own keyed ChaCha8
+/// stream, so fast results stay independent of the worker count and share no
+/// words with the exact methods at the same root seed.
+pub(crate) fn fast_stream(root_seed: u64, replicate: u64) -> Xoshiro256pp {
+    let mut seeder = keyed_stream(b"crn-craft.xoshiro256pp-fast/0.1\0", root_seed, replicate);
+    let mut s = [0u64; 4];
+    while s == [0; 4] {
+        for word in &mut s {
+            *word = seeder.next_u64();
+        }
+    }
+    Xoshiro256pp { s }
+}
+
+/// Running sums with additions only, as Julia's Direct keeps them: no
+/// per-channel loss or 53-bit resolution checks. A positive rate below half an
+/// ulp of its running sum can then never be selected. Only `fast` runs use it.
+pub(crate) fn fast_prefix(
+    rates: &[f64],
+    prefix: &mut [f64],
+    from: usize,
+) -> Result<f64, Diagnostic> {
+    let mut total = if from == 0 { 0.0 } else { prefix[from - 1] };
+    for (sum, &rate) in prefix[from..].iter_mut().zip(&rates[from..]) {
+        total += rate;
+        *sum = total;
+    }
+    if total.is_finite() {
+        Ok(total)
+    } else {
+        Err(numeric("CRN-E061", "fast Direct sum overflows"))
+    }
+}
+
 fn keyed_stream(domain: &[u8], root_seed: u64, replicate: u64) -> ChaCha8Rng {
     let mut digest = Sha256::new();
     digest.update(domain);
@@ -360,6 +426,31 @@ mod tests {
             }
         }
         assert!(checked > 1000, "only {checked} successful resumed passes");
+    }
+
+    #[test]
+    fn xoshiro256pp_matches_the_reference_sequence() {
+        // Reference outputs for the state [1, 2, 3, 4] (Blackman & Vigna).
+        let mut rng = Xoshiro256pp { s: [1, 2, 3, 4] };
+        assert_eq!(rng.next_u64(), 41_943_041);
+        assert_eq!(rng.next_u64(), 58_720_359);
+        assert_eq!(rng.next_u64(), 3_588_806_011_781_223);
+        assert_eq!(rng.next_u64(), 3_591_011_842_654_386);
+        let (mut a, mut b) = (fast_stream(7, 3), fast_stream(7, 3));
+        assert_eq!(a.next_u64(), b.next_u64());
+        assert_ne!(fast_stream(7, 3).next_u64(), fast_stream(7, 4).next_u64());
+        assert_ne!(fast_stream(7, 3).next_u64(), stream(7, 3).next_u64());
+    }
+
+    #[test]
+    fn fast_prefix_sums_only_add() {
+        let rates = [1.0, 0.0, 2.0, 1e-17, 3.0];
+        let mut prefix = [0.0; 5];
+        assert_eq!(fast_prefix(&rates, &mut prefix, 0).unwrap(), 6.0);
+        assert_eq!(prefix, [1.0, 1.0, 3.0, 3.0, 6.0]);
+        let changed = [1.0, 0.0, 5.0, 0.0, 3.0];
+        assert_eq!(fast_prefix(&changed, &mut prefix, 2).unwrap(), 9.0);
+        assert!(fast_prefix(&[f64::MAX, f64::MAX], &mut [0.0; 2], 0).is_err());
     }
 
     #[test]

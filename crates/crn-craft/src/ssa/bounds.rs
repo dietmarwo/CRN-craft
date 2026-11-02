@@ -331,6 +331,7 @@ mod tests {
             limit: 0,
             work: &mut work,
             poller: &mut poll,
+            fast: false,
         };
         let mut b = Bounds::default();
         b.reset(&net, &[3, 3]);
@@ -374,6 +375,7 @@ mod tests {
             limit: 0,
             work: &mut work,
             poller: &mut poll,
+            fast: false,
         };
         let mut b = Bounds::default();
         b.reset(&net, &[4, 3]);
@@ -423,6 +425,7 @@ mod tests {
                 limit: 0,
                 work: &mut work,
                 poller: &mut poll,
+                fast: false,
             };
             let mut b = Bounds::default();
             b.reset(&net, &[3, 3]);
@@ -465,6 +468,7 @@ mod tests {
             limit: 0,
             work: &mut work,
             poller: &mut poll,
+            fast: false,
         };
         let mut tree = RateTree::default();
         tree.reset(1);
@@ -513,6 +517,7 @@ mod tests {
             limit: 0,
             work: &mut work,
             poller: &mut poll,
+            fast: false,
         };
         let mut b = Bounds::default();
         b.reset(&net, &[1, 3]);

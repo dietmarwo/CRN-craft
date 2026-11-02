@@ -81,6 +81,10 @@
             "aggregator": {
               "$ref": "#/definitions/Algorithm"
             },
+            "fast": {
+              "description": "ssa-run/0.2 only, default false. Emulates JumpProcesses.jl: Xoshiro256++ words, running totals updated by `+= new - old` without loss or 53-bit resolution checks, and stop polls per batch of events instead of per random word. Selection stays exact for the running totals; paths differ from the default and replay only with `fast` set.",
+              "type": "boolean"
+            },
             "kind": {
               "enum": [
                 "ssa"
@@ -141,10 +145,21 @@
       "type": "object"
     },
     "RequestVersion": {
-      "enum": [
-        "crn-craft.ssa-run/0.1"
-      ],
-      "type": "string"
+      "oneOf": [
+        {
+          "enum": [
+            "crn-craft.ssa-run/0.1"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Adds the optional `method.fast` switch.",
+          "enum": [
+            "crn-craft.ssa-run/0.2"
+          ],
+          "type": "string"
+        }
+      ]
     },
     "Statistic": {
       "enum": [

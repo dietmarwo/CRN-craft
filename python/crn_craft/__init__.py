@@ -111,16 +111,25 @@ def ssa_spec(
     aggregator="direct_cr",
     waiting_time="inverse",
     max_sampling_steps=1000000000,
+    fast=False,
     **kwargs,
 ):
-    """Construct a versioned alternative exact-SSA request, bound to model bytes."""
+    """Construct a versioned alternative exact-SSA request, bound to model bytes.
+
+    ``fast=True`` emulates JumpProcesses.jl (Xoshiro256++, running totals
+    without loss/resolution checks, batched stop polls) and needs the
+    ``crn-craft.ssa-run/0.2`` schema, which it selects. The default keeps the
+    checked exact policy and the 0.1 request bytes.
+    """
     request = run_spec(model, **kwargs)
-    request["schema"] = "crn-craft.ssa-run/0.1"
+    request["schema"] = "crn-craft.ssa-run/0.2" if fast else "crn-craft.ssa-run/0.1"
     request["method"] = {
         "kind": "ssa",
         "aggregator": aggregator,
         "waiting_time": waiting_time,
     }
+    if fast:
+        request["method"]["fast"] = True
     request["budget"]["max_sampling_steps_per_replicate"] = max_sampling_steps
     return request
 

@@ -199,3 +199,72 @@ fn the_output_budget_covers_exactly_the_compact_result_json() {
     assert_eq!(short["termination"], "output_limit");
     assert!(short["statistics"].is_null());
 }
+
+#[test]
+fn fast_requires_ssa_run_0_2_and_replays_across_threads() {
+    for algorithm in [
+        "direct",
+        "cached_direct",
+        "direct_cr",
+        "sorting_direct",
+        "rssa_cr",
+    ] {
+        let (m, mut r) = inputs(algorithm, 1);
+        r["method"]["fast"] = json!(true);
+        let rejected = ssa::solve(&m, &serde_json::to_vec(&r).unwrap(), &Control::default());
+        assert!(rejected.is_err(), "{algorithm}: fast under ssa-run/0.1");
+        r["schema"] = json!("crn-craft.ssa-run/0.2");
+        for wait in ["inverse", "ziggurat"] {
+            r["method"]["waiting_time"] = json!(wait);
+            r["budget"]["threads"] = json!(1);
+            let mut one = solve(&m, &r);
+            assert_eq!(one["termination"], "completed");
+            assert_eq!(one["schema"], "crn-craft.ssa-result/0.2");
+            assert_eq!(one["method"]["fast"], true);
+            assert!(
+                one["sampler"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("xoshiro256pp-u53/")
+            );
+            r["budget"]["threads"] = json!(3);
+            let mut many = solve(&m, &r);
+            one.as_object_mut().unwrap().remove("run_sha256");
+            many.as_object_mut().unwrap().remove("run_sha256");
+            assert_eq!(one, many, "{algorithm}/{wait}");
+            // fast=false under 0.2 is the default exact policy with a 0.2 envelope.
+            r["method"]["fast"] = json!(false);
+            r["budget"]["threads"] = json!(1);
+            let exact = solve(&m, &r);
+            assert_eq!(exact["schema"], "crn-craft.ssa-result/0.2");
+            assert!(exact["method"].get("fast").is_none());
+            assert!(
+                exact["sampler"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("chacha8-u53/")
+            );
+            r["method"]["fast"] = json!(true);
+        }
+    }
+}
+
+#[test]
+fn fast_runs_still_honor_cancellation_and_sampling_budgets() {
+    let (m, mut r) = inputs("direct_cr", 1);
+    r["schema"] = json!("crn-craft.ssa-run/0.2");
+    r["method"]["fast"] = json!(true);
+    r["budget"]["max_sampling_steps_per_replicate"] = json!(5);
+    let limited = solve(&m, &r);
+    assert_eq!(limited["termination"], "sampling_limit");
+    assert!(limited["statistics"].is_null());
+    r["budget"]["max_sampling_steps_per_replicate"] = json!(100000);
+    let prepared = ssa::prepare(&m, &serde_json::to_vec(&r).unwrap()).unwrap();
+    let control = Control::default();
+    control.cancel();
+    let cancelled = ssa::execute(&prepared, &control).unwrap();
+    assert_eq!(
+        serde_json::to_value(&cancelled).unwrap()["termination"],
+        "cancelled"
+    );
+}

@@ -1,7 +1,8 @@
 //! Timing harness for exact SSA engines on one prepared request.
 //!
-//! cargo run --release --example bench_ssa -- MODEL.json HORIZON PATHS METHOD WAIT REPEATS
+//! cargo run --release --example bench_ssa -- MODEL.json HORIZON PATHS METHOD WAIT REPEATS [fast]
 //!
+//! A trailing `fast` sends an `ssa-run/0.2` request with `method.fast: true`.
 //! METHOD is `legacy_direct`, `legacy_cached` or an `ssa-run/0.1` aggregator
 //! (`direct`, `cached_direct`, `direct_cr`, `sorting_direct`, `rssa_cr`); WAIT is
 //! `inverse` or `ziggurat` (ignored by the legacy methods). Prints one JSON line
@@ -21,6 +22,7 @@ fn main() {
     let method = args[4].as_str();
     let wait = args[5].as_str();
     let repeats: usize = args[6].parse().expect("repeats");
+    let fast = args.get(7).is_some_and(|a| a == "fast");
     let reference = json!({"path": "model.json", "sha256": sha256(&model)});
     let time = json!({"end": horizon, "save_times": [0.0, horizon]});
     let ensemble = json!({"replicates": paths, "root_seed": 4242});
@@ -57,9 +59,20 @@ fn main() {
             }
         }
     } else {
+        let (schema, method_spec) = if fast {
+            (
+                "crn-craft.ssa-run/0.2",
+                json!({"kind": "ssa", "aggregator": method, "waiting_time": wait, "fast": true}),
+            )
+        } else {
+            (
+                "crn-craft.ssa-run/0.1",
+                json!({"kind": "ssa", "aggregator": method, "waiting_time": wait}),
+            )
+        };
         let request = serde_json::to_vec(&json!({
-            "schema": "crn-craft.ssa-run/0.1", "model": reference,
-            "method": {"kind": "ssa", "aggregator": method, "waiting_time": wait},
+            "schema": schema, "model": reference,
+            "method": method_spec,
             "time": time, "ensemble": ensemble, "outputs": outputs,
             "budget": {"max_events_per_replicate": 1_000_000_000u64,
                        "max_sampling_steps_per_replicate": 10_000_000_000u64,

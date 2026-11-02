@@ -91,13 +91,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install maturin==1.9.6 numpy==2.3.5
+      - run: python -m pip install maturin==1.9.6 numpy==2.3.5 jsonschema==4.26.0
       - run: cargo build --release --workspace --locked
       - run: maturin build --release --locked --out dist
       - run: python -m pip install dist/*.whl
       - run: python validation/check_python.py --binary target/release/crn-craft --output python.json
       - run: python -O validation/check_python.py --binary target/release/crn-craft --output python-optimized.json
       - run: diff python.json python-optimized.json
+      - run: python validation/check_alternative_contracts.py --binary target/release/crn-craft --output alternative-contracts.json
+      - run: python -O validation/check_alternative_contracts.py --binary target/release/crn-craft --output alternative-contracts-optimized.json
+      - run: diff alternative-contracts.json alternative-contracts-optimized.json
+      - run: python validation/check_alternative_ssa.py --output alternative-laws.json
+      - run: python -O validation/check_alternative_ssa.py --output alternative-laws-optimized.json
+      - run: diff alternative-laws.json alternative-laws-optimized.json
       - run: python validation/check_importers.py --output importers.json
       - run: python -O validation/check_importers.py --output importers-optimized.json
       - run: diff importers.json importers-optimized.json

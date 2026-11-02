@@ -1,0 +1,191 @@
+Julia ready {'load_seconds': 9.170567972, 'model_setup_seconds': 49.211214853, 'versions': {'Julia': '1.13.3', 'JSON3': '1.14.4', 'Catalyst': '17.0.0', 'JumpProcesses': '10.0.1'}, 'problem_setup_seconds': {'W1/NRM': 0.063159674, 'dimer/Direct': 0.117257593, 'W2/NRM': 0.594355399, 'W4/NRM': 0.231528456, 'W2/RSSACR': 0.846767191, 'W4/RSSACR': 0.484395714, 'W2/SortingDirect': 0.577801749, 'W1/DirectCR': 0.136177985, 'dimer/DirectCR': 0.158697343, 'W1/RSSACR': 0.087369946, 'W2/DirectCR': 1.173420685, 'W3/Direct': 0.256137717, 'W3/NRM': 0.065819252, 'W1/Direct': 0.13229273, 'W3/SortingDirect': 0.091131505, 'W1/SortingDirect': 0.093630001, 'dimer/SortingDirect': 0.082158369, 'W3/RSSACR': 0.157225988, 'dimer/NRM': 0.063043716, 'W4/Direct': 8.670913641, 'W4/DirectCR': 0.412024437, 'W4/SortingDirect': 0.239580767, 'W2/Direct': 21.600292504, 'W3/DirectCR': 0.191443717, 'dimer/RSSACR': 0.093845028}, 'threads': 1, 'blas_threads': 1}
+W1 Direct validation complete
+W1 SortingDirect validation complete
+W1 DirectCR validation complete
+W1 NRM validation complete
+W1 RSSACR validation complete
+W2 Direct validation complete
+W2 SortingDirect validation complete
+W2 DirectCR validation complete
+W2 NRM validation complete
+W2 RSSACR validation complete
+W3 Direct validation complete
+W3 SortingDirect validation complete
+W3 DirectCR validation complete
+W3 NRM validation complete
+W3 RSSACR validation complete
+W4 Direct validation complete
+W4 SortingDirect validation complete
+W4 DirectCR validation complete
+W4 NRM validation complete
+W4 RSSACR validation complete
+W1 timing round 1
+W1 timing round 2
+W1 timing round 3
+W1 timing round 4
+W1 timing round 5
+W2 timing round 1
+W2 timing round 2
+W2 timing round 3
+W2 timing round 4
+W2 timing round 5
+W3 timing round 1
+W3 timing round 2
+W3 timing round 3
+W3 timing round 4
+W3 timing round 5
+W4 timing round 1
+W4 timing round 2
+W4 timing round 3
+W4 timing round 4
+W4 timing round 5
+{
+  "W1": {
+    "CRN-cached": {
+      "median_seconds": 0.0893321119947359,
+      "min_seconds": 0.08264791400142713,
+      "max_seconds": 0.10354729200480506
+    },
+    "CRN-direct": {
+      "median_seconds": 0.08433258500008378,
+      "min_seconds": 0.08291621899843449,
+      "max_seconds": 0.09286122099729255
+    },
+    "Direct": {
+      "median_seconds": 0.053505625,
+      "min_seconds": 0.048330777,
+      "max_seconds": 0.05587768
+    },
+    "SortingDirect": {
+      "median_seconds": 0.059072217,
+      "min_seconds": 0.054575298,
+      "max_seconds": 0.060095214
+    },
+    "DirectCR": {
+      "median_seconds": 0.086109453,
+      "min_seconds": 0.080640486,
+      "max_seconds": 0.086528111
+    },
+    "NRM": {
+      "median_seconds": 0.072514532,
+      "min_seconds": 0.066594368,
+      "max_seconds": 0.077251322
+    },
+    "RSSACR": {
+      "median_seconds": 0.074249168,
+      "min_seconds": 0.068482711,
+      "max_seconds": 0.082240292
+    }
+  },
+  "W2": {
+    "CRN-cached": {
+      "median_seconds": 0.21005229699949268,
+      "min_seconds": 0.20020651099912357,
+      "max_seconds": 0.2447909949987661
+    },
+    "CRN-direct": {
+      "median_seconds": 0.7783144760032883,
+      "min_seconds": 0.7450081880015205,
+      "max_seconds": 0.8765987500009942
+    },
+    "Direct": {
+      "median_seconds": 0.1948498,
+      "min_seconds": 0.181609686,
+      "max_seconds": 0.220562701
+    },
+    "SortingDirect": {
+      "median_seconds": 0.122271159,
+      "min_seconds": 0.119375793,
+      "max_seconds": 0.130472101
+    },
+    "DirectCR": {
+      "median_seconds": 0.093550268,
+      "min_seconds": 0.089242841,
+      "max_seconds": 0.110048745
+    },
+    "NRM": {
+      "median_seconds": 0.109749786,
+      "min_seconds": 0.108463083,
+      "max_seconds": 0.153607935
+    },
+    "RSSACR": {
+      "median_seconds": 0.101205316,
+      "min_seconds": 0.099504613,
+      "max_seconds": 0.131027478
+    }
+  },
+  "W3": {
+    "CRN-cached": {
+      "median_seconds": 0.7080558900051983,
+      "min_seconds": 0.6387509029955254,
+      "max_seconds": 0.7536336679986562
+    },
+    "CRN-direct": {
+      "median_seconds": 1.7571620140006416,
+      "min_seconds": 1.6798216120005236,
+      "max_seconds": 1.8820565679998253
+    },
+    "Direct": {
+      "median_seconds": 0.398843279,
+      "min_seconds": 0.389055081,
+      "max_seconds": 0.414240401
+    },
+    "SortingDirect": {
+      "median_seconds": 0.275146676,
+      "min_seconds": 0.267251711,
+      "max_seconds": 0.27953482
+    },
+    "DirectCR": {
+      "median_seconds": 0.409332659,
+      "min_seconds": 0.393260657,
+      "max_seconds": 0.432368858
+    },
+    "NRM": {
+      "median_seconds": 0.35054339,
+      "min_seconds": 0.34866608,
+      "max_seconds": 0.363129118
+    },
+    "RSSACR": {
+      "median_seconds": 0.325035244,
+      "min_seconds": 0.318128435,
+      "max_seconds": 0.345020275
+    }
+  },
+  "W4": {
+    "CRN-cached": {
+      "median_seconds": 0.8573262689969852,
+      "min_seconds": 0.8202811560040573,
+      "max_seconds": 1.0030023450017325
+    },
+    "CRN-direct": {
+      "median_seconds": 0.97052134200203,
+      "min_seconds": 0.9087040269951103,
+      "max_seconds": 1.0344353320033406
+    },
+    "Direct": {
+      "median_seconds": 0.254913458,
+      "min_seconds": 0.251887073,
+      "max_seconds": 0.268162242
+    },
+    "SortingDirect": {
+      "median_seconds": 1.185324181,
+      "min_seconds": 1.162706834,
+      "max_seconds": 1.259924908
+    },
+    "DirectCR": {
+      "median_seconds": 0.852992179,
+      "min_seconds": 0.837508488,
+      "max_seconds": 0.968467399
+    },
+    "NRM": {
+      "median_seconds": 1.03888457,
+      "min_seconds": 1.013847397,
+      "max_seconds": 1.12441107
+    },
+    "RSSACR": {
+      "median_seconds": 0.104121101,
+      "min_seconds": 0.098548018,
+      "max_seconds": 0.106105704
+    }
+  }
+}

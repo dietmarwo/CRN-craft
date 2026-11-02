@@ -1,5 +1,26 @@
 # Changelog
 
+## [Unreleased] — alternative exact SSA methods and the Julia-gap campaign (`0.2.0-dev.1`)
+
+### Added (imported acceleration patch)
+
+- `crn-craft.ssa-run/0.1` and `crn-craft.ssa-result/0.1` with `direct`, `cached_direct`, `direct_cr`, `sorting_direct` and `rssa_cr` aggregators, inverse or Ziggurat (Julia 1.13.3 tables, MIT) waits, and the `ssa` command in both CLIs; discovery `describe/0.6` lists them under `alternative_exact_ssa`.
+- Reusable prepared handles in Python: `crn.prepare`, `crn.prepare_ssa`, `crn.ssa_spec`, `crn.simulate_ssa`.
+- `docs/comparison-catalyst-jumpprocesses.md` on seven workloads, with the evidence in `validation/ssa-acceleration/`.
+
+### Performance (declared in docs/decisions/julia-gap-2026-11-02.md)
+
+- Kept: ChaCha8 AVX2 dispatch (A02), exact Hill-rate memo by regulator count (A03, W3 about 2x on every method, legacy included), cached composition envelope (A05), sums-only lazily checked rate tree (A06), and one word for composition member and acceptance (A08; DirectCR and RSSACR sampler version 2, 210/210 exact-law checks).
+- Rejected and reverted with evidence in `validation/julia-gap/`: A01 (poll per loop), A04 (redundant RSSACR evaluation), A07 (additions-only ordered sums), A09 (batched tree rebuild), A10 (bucket buffer policy).
+- DirectCR, SortingDirect and RSSACR 1.07–2.4x faster than the import, cached_direct 1.01–2.05x; projected gap to JumpProcesses 1.11–1.83x (geometric mean 1.46x, from 2.02x measured). Legacy Direct and cached results are byte-identical.
+
+### Fixed
+
+- SortingDirect no longer fails a replicate when its ordered scan sum rounds one ulp below the tree total; the threshold is redrawn.
+- The alternative-SSA output budget is applied once, to the `ssa-result` JSON, instead of after a legacy archive allowance.
+- `python -m crn_craft ssa` exits 1 for rejected or incomplete runs and reports diagnostics like the native CLI; `prepare`/`prepare_ssa` convert non-JSON native errors to `CrnError`.
+- The native CLI `--version` milestone matches `describe`; the notices no longer point to a file that does not exist here.
+
 ## [Unreleased] — campaign review and performance iterations P11–P20 (`0.2.0-dev.1`)
 
 ### Performance (declared in docs/campaign/performance-p11-p20.md)

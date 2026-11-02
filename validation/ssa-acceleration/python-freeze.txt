@@ -1,0 +1,20 @@
+attrs==26.1.0
+contourpy==1.4.0
+crn-craft @ file:///tmp/crn-ssa-wheel/crn_craft-0.2.0.dev1-cp310-abi3-manylinux_2_34_x86_64.whl#sha256=58f4d3d2ecd4f3b3cfc5519fb457bf70b9c152f8e47bb9386a1b1ee9242fc13c
+cycler==0.12.1
+fonttools==4.68.0
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+kiwisolver==1.5.1
+matplotlib==3.11.2
+numpy==2.5.4
+packaging==26.3
+pillow==13.0.0
+pyparsing==3.3.3
+python-dateutil==4.0.0
+referencing==0.37.0
+rpds-py==2026.9.1
+ruff==0.17.3
+scipy==1.17.0
+typing_extensions==4.16.0
+tzdata==2026.6

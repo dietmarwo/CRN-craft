@@ -226,7 +226,7 @@ pub struct Prepared {
     pub(crate) workers: usize,
     pub(crate) workspace: u64,
     pub(crate) queue_capacity: usize,
-    input_bytes: u64,
+    pub(crate) input_bytes: u64,
 }
 
 pub fn prepare(model_bytes: &[u8], run_bytes: &[u8]) -> Result<Prepared, Vec<Diagnostic>> {
@@ -303,10 +303,10 @@ pub fn prepare(model_bytes: &[u8], run_bytes: &[u8]) -> Result<Prepared, Vec<Dia
     })
 }
 
-struct PathResult {
-    record: Replicate,
+pub(crate) struct PathResult {
+    pub(crate) record: Replicate,
     /// Saved states, one row of `species` counts per saved point.
-    counts: Vec<i64>,
+    pub(crate) counts: Vec<i64>,
 }
 
 /// Per-worker buffers reused across replicates. Each path resets what it reads.
@@ -507,6 +507,37 @@ fn execute_inner(
     control: &Control,
     cached: bool,
 ) -> Result<Simulation, Diagnostic> {
+    // The sealed archive also carries the model, the request and a fixed
+    // envelope, so the legacy numerical payload gets what remains.
+    let payload = prepared
+        .run
+        .budget
+        .max_output_bytes
+        .min(MAX_RESULT_BYTES)
+        .saturating_sub(prepared.input_bytes + 16_384);
+    execute_paths::<Workspace, (), _>(
+        prepared,
+        control,
+        sampling::SAMPLER,
+        Some(payload),
+        |id, poller, work| (trajectory(prepared, id, poller, cached, work), ()),
+    )
+    .map(|(simulation, _)| simulation)
+}
+
+/// Shared bounded scheduling and ordered reduction; each algorithm owns its path state.
+/// `payload_limit` bounds the serialized legacy result; callers that encode a
+/// different result type pass `None` and apply their own byte budget.
+pub(crate) fn execute_paths<W: Default + Send, M: Send, F>(
+    prepared: &Prepared,
+    control: &Control,
+    sampler: &str,
+    payload_limit: Option<u64>,
+    runner: F,
+) -> Result<(Simulation, Vec<M>), Diagnostic>
+where
+    F: Fn(u64, &mut Poller, &mut W) -> (PathResult, M) + Sync,
+{
     let start = Instant::now();
     let run = &prepared.run;
     let ensemble = run.ensemble.as_ref().unwrap();
@@ -516,9 +547,11 @@ fn execute_inner(
     let mut m2 = vec![0.0; cells];
     let mut completed = 0;
     let mut records = Vec::with_capacity(ensemble.replicates as usize);
+    let mut metrics = Vec::with_capacity(ensemble.replicates as usize);
     let mut kept = Vec::new();
     {
-        let mut consume = |id: u64, path: PathResult| {
+        let mut consume = |id: u64, (path, metric): (PathResult, M)| {
+            metrics.push(metric);
             if path.record.termination == Stop::Completed {
                 completed += 1;
                 for (i, count) in path.counts.iter().enumerate() {
@@ -539,27 +572,25 @@ fn execute_inner(
         };
         if prepared.workers == 1 {
             let mut poller = Poller::new(control, start, run.budget.wall_time_s);
-            let mut work = Workspace::default();
+            let mut work = W::default();
             for id in 0..ensemble.replicates {
-                consume(id, trajectory(prepared, id, &mut poller, cached, &mut work));
+                consume(id, runner(id, &mut poller, &mut work));
             }
         } else {
             std::thread::scope(|scope| -> Result<(), Diagnostic> {
                 let mut receivers = Vec::new();
                 for worker in 0..prepared.workers {
+                    let runner = &runner;
                     let (tx, rx) = mpsc::sync_channel(prepared.queue_capacity);
                     receivers.push(rx);
                     std::thread::Builder::new()
                         .name(format!("crn-{worker}"))
                         .spawn_scoped(scope, move || {
                             let mut poller = Poller::new(control, start, run.budget.wall_time_s);
-                            let mut work = Workspace::default();
+                            let mut work = W::default();
                             for id in (worker as u64..ensemble.replicates).step_by(prepared.workers)
                             {
-                                if tx
-                                    .send(trajectory(prepared, id, &mut poller, cached, &mut work))
-                                    .is_err()
-                                {
+                                if tx.send(runner(id, &mut poller, &mut work)).is_err() {
                                     break;
                                 }
                             }
@@ -623,7 +654,7 @@ fn execute_inner(
             schema: ResultVersion::V02,
             model_sha256: prepared.model_hash.clone(),
             run_sha256: prepared.run_hash.clone(),
-            sampler: sampling::SAMPLER.into(),
+            sampler: sampler.into(),
             root_seed: ensemble.root_seed,
             species: prepared.network.species().to_vec(),
             save_times: run.time.save_times.clone(),
@@ -650,21 +681,16 @@ fn execute_inner(
             workspace_cap_bytes: MAX_WORKSPACE_BYTES,
         },
     };
-    constrain_output(
-        &mut simulation.result,
-        run.budget
-            .max_output_bytes
-            .min(MAX_RESULT_BYTES)
-            .saturating_sub(prepared.input_bytes + 16_384),
-    )?;
+    if let Some(limit) = payload_limit {
+        constrain_output(&mut simulation.result, limit)?;
+    }
     simulation.provenance.elapsed_seconds = start.elapsed().as_secs_f64();
-    Ok(simulation)
+    Ok((simulation, metrics))
 }
 
-pub(crate) fn constrain_output(
-    result: &mut SimulationResult,
-    limit: u64,
-) -> Result<(), Diagnostic> {
+/// Whether `value` serializes as compact JSON plus a trailing newline within
+/// `limit` bytes. Counts bytes and stops at the limit without buffering.
+pub(crate) fn fits_json(value: &impl serde::Serialize, limit: u64) -> bool {
     struct Counter {
         used: u64,
         limit: u64,
@@ -681,8 +707,14 @@ pub(crate) fn constrain_output(
             Ok(())
         }
     }
-    let fits =
-        |value: &SimulationResult| serde_json::to_writer(Counter { used: 1, limit }, value).is_ok();
+    serde_json::to_writer(Counter { used: 1, limit }, value).is_ok()
+}
+
+pub(crate) fn constrain_output(
+    result: &mut SimulationResult,
+    limit: u64,
+) -> Result<(), Diagnostic> {
+    let fits = |value: &SimulationResult| fits_json(value, limit);
     if fits(result) {
         return Ok(());
     }

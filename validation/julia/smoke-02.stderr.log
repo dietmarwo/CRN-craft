@@ -1,0 +1,27 @@
+MethodError: Cannot `convert` an object of type Float64 to an object of type Vector{Float64}
+The function `convert` exists, but no method is defined for this combination of argument types.
+
+Closest candidates are:
+  convert(::Type{Array{T, N}}, !Matched::StaticArraysCore.SizedArray{S, T, N, N, Array{T, N}}) where {S, T, N}
+   @ StaticArrays /workspace/scratch/d05427e343fb/crn-julia-depot/packages/StaticArrays/SXG7G/src/SizedArray.jl:88
+  convert(::Type{Array{T, N}}, !Matched::StaticArraysCore.SizedArray{S, T, N, M, TData} where {M, TData<:AbstractArray{T, M}}) where {T, S, N}
+   @ StaticArrays /workspace/scratch/d05427e343fb/crn-julia-depot/packages/StaticArrays/SXG7G/src/SizedArray.jl:82
+  convert(::Type{<:Array{<:Any, N}}, !Matched::Symbolics.Arr{<:Any, N}) where N
+   @ Symbolics /workspace/scratch/d05427e343fb/crn-julia-depot/packages/Symbolics/twrWY/src/arrays.jl:256
+  ...
+
+Stacktrace:
+ [1] convert(::Type{Union{Nothing, Vector{Float64}}}, x::Float64)
+   @ Base ./some.jl:35
+ [2] setindex!(h::Dict{String, Union{Nothing, Vector{Float64}}}, v0::Float64, key::String)
+   @ Base ./dict.jl:357
+ [3] handle(req::JSON3.Object{Base.CodeUnits{UInt8, String}, Vector{UInt64}})
+   @ Main /workspace/scratch/d05427e343fb/CRN-craft-julia-comparison/validation/julia/reference_server.jl:100
+ [4] top-level scope
+   @ /workspace/scratch/d05427e343fb/CRN-craft-julia-comparison/validation/julia/reference_server.jl:108
+ [5] include(mod::Module, _path::String)
+   @ Base ./Base.jl:309
+ [6] exec_options(opts::Base.JLOptions)
+   @ Base ./client.jl:344
+ [7] _start()
+   @ Base ./client.jl:577

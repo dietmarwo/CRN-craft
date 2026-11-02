@@ -1,0 +1,198 @@
+{
+  "schema": "crn-craft.ssa-profile/0.1",
+  "workloads": {
+    "two_channel": {
+      "components": {
+        "cached_seconds": [
+          0.07870382,
+          0.076718795,
+          0.077957439,
+          0.078482033,
+          0.075896394
+        ],
+        "direct_seconds": [
+          0.082564519,
+          0.084973598,
+          0.085028749,
+          0.0841192,
+          0.085413776
+        ],
+        "events": 1268165,
+        "inverse_wait_and_rng_ns": 17.796275,
+        "prepare_seconds": 4.148893e-05,
+        "public_propensity_batch_ns": 38.694,
+        "reactions": 2,
+        "result_encoding_seconds": 1.024309e-05,
+        "rng_word_ns": 2.87792,
+        "species": 1
+      },
+      "python_seconds": {
+        "one_shot": [
+          0.07779192699672421,
+          0.0751028039958328,
+          0.0778465459952713,
+          0.07703755499824183,
+          0.07672378300048877
+        ],
+        "prepared": [
+          0.07715099200140685,
+          0.07649562699953094,
+          0.07547173299826682,
+          0.08894695100025274,
+          0.0769445670011919
+        ]
+      },
+      "medians": {
+        "one_shot": 0.07703755499824183,
+        "prepared": 0.0769445670011919
+      },
+      "prepared_replay": true,
+      "concurrent_replay": true
+    },
+    "sparse_66": {
+      "components": {
+        "cached_seconds": [
+          0.20085013,
+          0.194651975,
+          0.190756742,
+          0.19413554,
+          0.188543605
+        ],
+        "direct_seconds": [
+          0.70179714,
+          0.703031608,
+          0.674732143,
+          0.67697651,
+          0.679223589
+        ],
+        "events": 1234576,
+        "inverse_wait_and_rng_ns": 17.709753000000003,
+        "prepare_seconds": 0.00077376755,
+        "public_propensity_batch_ns": 707.2541,
+        "reactions": 66,
+        "result_encoding_seconds": 1.239837e-05,
+        "rng_word_ns": 2.808719,
+        "species": 33
+      },
+      "python_seconds": {
+        "one_shot": [
+          0.20250559200212592,
+          0.19377582999732113,
+          0.19981083200400462,
+          0.20425823000550736,
+          0.1974954510005773
+        ],
+        "prepared": [
+          0.19391222600097535,
+          0.2022161960048834,
+          0.20416052899963688,
+          0.19340829400607618,
+          0.19710317299905
+        ]
+      },
+      "medians": {
+        "one_shot": 0.19981083200400462,
+        "prepared": 0.19710317299905
+      },
+      "prepared_replay": true,
+      "concurrent_replay": true
+    },
+    "circuit_12": {
+      "components": {
+        "cached_seconds": [
+          0.676752468,
+          0.657073939,
+          0.644049609,
+          0.65571059,
+          0.637021036
+        ],
+        "direct_seconds": [
+          1.665163235,
+          1.672363923,
+          1.651437108,
+          1.634997898,
+          1.659146059
+        ],
+        "events": 3663350,
+        "inverse_wait_and_rng_ns": 16.245606,
+        "prepare_seconds": 0.00018126658,
+        "public_propensity_batch_ns": 446.67709999999994,
+        "reactions": 12,
+        "result_encoding_seconds": 9.88027e-06,
+        "rng_word_ns": 3.182008,
+        "species": 6
+      },
+      "python_seconds": {
+        "one_shot": [
+          0.6426739279995672,
+          0.6690119589984533,
+          0.6434724650025601,
+          0.7014132769982098,
+          0.6738266309985192
+        ],
+        "prepared": [
+          0.6797871789967758,
+          0.6453202029952081,
+          0.6671872639999492,
+          0.641782359998615,
+          0.6980015830049524
+        ]
+      },
+      "medians": {
+        "one_shot": 0.6690119589984533,
+        "prepared": 0.6671872639999492
+      },
+      "prepared_replay": true,
+      "concurrent_replay": true
+    },
+    "dense_66": {
+      "components": {
+        "cached_seconds": [
+          0.819783091,
+          0.81447069,
+          0.806238134,
+          0.814742271,
+          0.827058787
+        ],
+        "direct_seconds": [
+          0.940584292,
+          0.925671752,
+          0.907753205,
+          0.930174653,
+          0.90591687
+        ],
+        "events": 1225923,
+        "inverse_wait_and_rng_ns": 17.162547,
+        "prepare_seconds": 0.00159156024,
+        "public_propensity_batch_ns": 847.0315000000002,
+        "reactions": 66,
+        "result_encoding_seconds": 1.483736e-05,
+        "rng_word_ns": 2.919593,
+        "species": 8
+      },
+      "python_seconds": {
+        "one_shot": [
+          0.8161245730007067,
+          0.8666738020037883,
+          0.8840682299996843,
+          0.848469093994936,
+          0.87869462800154
+        ],
+        "prepared": [
+          0.9070697549977922,
+          0.8972367150054197,
+          0.8416120749971014,
+          0.8555158429953735,
+          0.8483125479979208
+        ]
+      },
+      "medians": {
+        "one_shot": 0.8666738020037883,
+        "prepared": 0.8555158429953735
+      },
+      "prepared_replay": true,
+      "concurrent_replay": true
+    }
+  },
+  "passed": true
+}

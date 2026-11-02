@@ -1,0 +1,396 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "Algorithm": {
+      "enum": [
+        "direct",
+        "cached_direct",
+        "direct_cr",
+        "sorting_direct",
+        "rssa_cr"
+      ],
+      "type": "string"
+    },
+    "Assessment": {
+      "enum": [
+        "exact_ensemble",
+        "incomplete",
+        "failed_checks"
+      ],
+      "type": "string"
+    },
+    "Diagnostic": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "hint": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "path": {
+          "description": "RFC 6901 JSON Pointer. Empty string denotes the document root.",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/definitions/Severity"
+        }
+      },
+      "required": [
+        "code",
+        "hint",
+        "message",
+        "path",
+        "severity"
+      ],
+      "type": "object"
+    },
+    "Method": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "aggregator": {
+              "$ref": "#/definitions/Algorithm"
+            },
+            "kind": {
+              "enum": [
+                "ssa"
+              ],
+              "type": "string"
+            },
+            "waiting_time": {
+              "$ref": "#/definitions/WaitingTime"
+            }
+          },
+          "required": [
+            "aggregator",
+            "kind",
+            "waiting_time"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Record": {
+      "additionalProperties": false,
+      "properties": {
+        "diagnostic": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Diagnostic"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "events": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "id": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "saved_points": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "started": {
+          "type": "boolean"
+        },
+        "stop_time": {
+          "format": "double",
+          "type": "number"
+        },
+        "termination": {
+          "$ref": "#/definitions/Termination"
+        },
+        "work": {
+          "$ref": "#/definitions/Work"
+        }
+      },
+      "required": [
+        "events",
+        "id",
+        "saved_points",
+        "started",
+        "stop_time",
+        "termination",
+        "work"
+      ],
+      "type": "object"
+    },
+    "ResultVersion": {
+      "enum": [
+        "crn-craft.ssa-result/0.1"
+      ],
+      "type": "string"
+    },
+    "Severity": {
+      "enum": [
+        "error",
+        "warning"
+      ],
+      "type": "string"
+    },
+    "Statistics": {
+      "additionalProperties": false,
+      "properties": {
+        "mean": {
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "mean_standard_error": {
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "sample_variance": {
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "samples": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "samples"
+      ],
+      "type": "object"
+    },
+    "Termination": {
+      "enum": [
+        "completed",
+        "event_limit",
+        "sampling_limit",
+        "population_limit",
+        "wall_time_limit",
+        "cancelled",
+        "failed",
+        "output_limit"
+      ],
+      "type": "string"
+    },
+    "Trajectory": {
+      "additionalProperties": false,
+      "properties": {
+        "counts": {
+          "items": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "id": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "counts",
+        "id"
+      ],
+      "type": "object"
+    },
+    "WaitingTime": {
+      "enum": [
+        "inverse",
+        "ziggurat"
+      ],
+      "type": "string"
+    },
+    "Work": {
+      "additionalProperties": false,
+      "properties": {
+        "bound_updates": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "point_fallbacks": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "propensity_evaluations": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "proposals": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "rejected_candidates": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "rng_words": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "bound_updates",
+        "point_fallbacks",
+        "propensity_evaluations",
+        "proposals",
+        "rejected_candidates",
+        "rng_words"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "assessment": {
+      "$ref": "#/definitions/Assessment"
+    },
+    "completed_replicates": {
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "diagnostics": {
+      "items": {
+        "$ref": "#/definitions/Diagnostic"
+      },
+      "type": "array"
+    },
+    "events": {
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "method": {
+      "$ref": "#/definitions/Method"
+    },
+    "model_sha256": {
+      "type": "string"
+    },
+    "replicates": {
+      "items": {
+        "$ref": "#/definitions/Record"
+      },
+      "type": "array"
+    },
+    "requested_replicates": {
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "root_seed": {
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "run_sha256": {
+      "type": "string"
+    },
+    "sampler": {
+      "type": "string"
+    },
+    "save_times": {
+      "items": {
+        "format": "double",
+        "type": "number"
+      },
+      "type": "array"
+    },
+    "schema": {
+      "$ref": "#/definitions/ResultVersion"
+    },
+    "species": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "statistics": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Statistics"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "termination": {
+      "$ref": "#/definitions/Termination"
+    },
+    "trajectories": {
+      "items": {
+        "$ref": "#/definitions/Trajectory"
+      },
+      "type": "array"
+    },
+    "work": {
+      "$ref": "#/definitions/Work"
+    }
+  },
+  "required": [
+    "assessment",
+    "completed_replicates",
+    "diagnostics",
+    "events",
+    "method",
+    "model_sha256",
+    "replicates",
+    "requested_replicates",
+    "root_seed",
+    "run_sha256",
+    "sampler",
+    "save_times",
+    "schema",
+    "species",
+    "termination",
+    "trajectories",
+    "work"
+  ],
+  "title": "SsaResult",
+  "type": "object"
+}

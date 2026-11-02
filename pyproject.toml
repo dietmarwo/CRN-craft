@@ -7,7 +7,7 @@ version = "0.2.0.dev1"
 requires-python = ">=3.10"
 description = "Reproducible well-mixed reaction network simulation and analysis"
 license = "MIT"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 readme = "README.md"
 dependencies = ["numpy>=1.24,<3"]
 [project.scripts]

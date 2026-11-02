@@ -1,0 +1,19 @@
+ref->a01   targets 18 median 1.105 weak 0 regressions 1 changed 0 -> REJECT
+   regression W4/cached_direct/ziggurat  0.963 [0.914, 0.877, 0.933, 0.982, 0.954, 0.989, 0.973, 0.96, 0.973, 0.965]
+a01->a02   targets 10 median 1.082 weak 0 regressions 0 changed 0 -> ACCEPT
+a02->a03   targets  5 median 1.987 weak 0 regressions 0 changed 0 -> ACCEPT
+a03->a04   targets  1 median 1.051 weak 0 regressions 1 changed 0 -> REJECT
+   regression W4/cached_direct/ziggurat  0.960 [0.947, 0.921, 0.96, 0.955, 0.979, 0.96, 0.968, 0.96, 0.963, 0.964]
+a04->a05   targets 10 median 1.090 weak 0 regressions 0 changed 0 -> ACCEPT
+a05->a06   targets 13 median 1.308 weak 0 regressions 0 changed 0 -> ACCEPT
+a06->a07   targets 13 median 1.049 weak 3 regressions 2 changed 0 -> REJECT
+   regression W4/direct_cr/ziggurat      0.965 [0.978, 0.975, 0.961, 0.942, 0.965]
+   regression W6/direct_cr/ziggurat      0.965 [0.965, 0.965, 1.113, 0.959, 0.956]
+a07->a09   targets  5 median 1.221 weak 0 regressions 3 changed 0 -> REJECT
+   regression W4/cached_direct/ziggurat  0.948 [0.981, 0.911, 1.049, 0.947, 0.948, 0.925, 0.956, 0.946, 0.938, 0.985]
+   regression W4/rssa_cr/ziggurat        0.946 [0.952, 0.928, 0.937, 0.944, 0.96, 0.932, 0.972, 0.948, 0.934, 0.956]
+   regression W7/direct_cr/ziggurat      0.949 [0.95, 0.947, 0.946, 0.952, 0.938, 1.474, 0.95, 0.949, 0.959, 0.937]
+a09->a10   targets  0 median 0.000 weak 0 regressions 0 changed 0 -> REJECT
+a10->fix   targets  0 median 0.000 weak 0 regressions 1 changed 0 -> REJECT
+   regression W4/cached_direct/ziggurat  0.965 [0.965, 1.013, 0.959, 0.953, 0.964, 0.997, 0.964, 0.972, 0.997, 0.964]
+fix->a08   targets  8 median 1.035 weak 0 regressions 0 changed 0 -> ACCEPT

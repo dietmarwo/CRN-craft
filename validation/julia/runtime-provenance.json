@@ -1,0 +1,7 @@
+{
+  "julia": "1.13.3",
+  "url": "https://julialang-s3.julialang.org/bin/linux/x64/1.13/julia-1.13.3-linux-x86_64.tar.gz",
+  "archive_sha256": "5c61cb4b40332cb5a3504e7779e2f5dac093caa4a1116ded19f01413f85c63e4",
+  "archive_bytes": 302726241,
+  "base_commit": "baed0e4590f93e4c1dcc77cd7f039a2604a1594c"
+}

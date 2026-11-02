@@ -15,6 +15,7 @@ pub mod network;
 mod rates;
 pub mod sampling;
 pub mod simulation;
+pub mod ssa;
 pub mod strict_json;
 pub mod tau;
 pub mod validate;
@@ -241,18 +242,21 @@ pub fn schema(kind: &str) -> Option<Value> {
         "tau-request" => serde_json::to_value(schema_for!(tau::Request)).ok(),
         "tau-result" => serde_json::to_value(schema_for!(tau::TauResult)).ok(),
         "fsp-result" => serde_json::to_value(schema_for!(fsp::FspResult)).ok(),
+        "ssa-run" => serde_json::to_value(schema_for!(ssa::Request)).ok(),
+        "ssa-result" => serde_json::to_value(schema_for!(ssa::SsaResult)).ok(),
         _ => None,
     }
 }
 
 pub fn describe() -> Value {
     json!({
-        "schema": "crn-craft.describe/0.5", "version": env!("CARGO_PKG_VERSION"), "milestone": "M10",
-        "commands": ["describe", "check", "analyze", "analyze-v1", "export", "simulate", "verify", "simulate-cached", "fsp", "tau"], "simulation_available": true,
+        "schema": "crn-craft.describe/0.6", "version": env!("CARGO_PKG_VERSION"), "milestone": "SSA-acceleration",
+        "commands": ["describe", "check", "analyze", "analyze-v1", "export", "simulate", "verify", "simulate-cached", "fsp", "tau", "ssa"], "simulation_available": true,
         "aggregators": [{"name": "direct", "status": "implemented", "implementation_milestone": "M2"}],
         "methods": [{"name": "ssa", "status": "implemented"}, {"name": "fsp", "status": "implemented"}, {"name": "tau", "status": "experimental_approximation"}],
         "sampler": sampling::SAMPLER,
         "implementation_variants": ["direct", "dependency_cached_direct"],
+        "alternative_exact_ssa": {"request":"crn-craft.ssa-run/0.1", "result":"crn-craft.ssa-result/0.1", "aggregators":["direct","cached_direct","direct_cr","sorting_direct","rssa_cr"], "waiting_times":["inverse","ziggurat"], "archive_format":null},
         "optional_integrations": {"python":"bindings/python", "jobs":"integrations/jobs", "ode_bdf_sensitivities":"integrations/diffsol"},
         "rate_laws": ["mass_action", "hill_activation", "hill_repression", "michaelis_menten"],
         "reference_exporters": [{"target":"gillespy2", "version": export::GILLESPY2_VERSION, "subset":"elementary_mass_action", "maximum_reactant_order":2}],

@@ -1,0 +1,54 @@
+[
+  {
+    "workload": "two_channel",
+    "seconds": 0.000613354000961408,
+    "events": 2226,
+    "work": {
+      "rng_words": 11074,
+      "proposals": 2944,
+      "propensity_evaluations": 2258,
+      "bound_updates": 0,
+      "point_fallbacks": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "sparse_66",
+    "seconds": 0.0005566100007854402,
+    "events": 1782,
+    "work": {
+      "rng_words": 9043,
+      "proposals": 2415,
+      "propensity_evaluations": 2838,
+      "bound_updates": 0,
+      "point_fallbacks": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "circuit_12",
+    "seconds": 0.004540380003163591,
+    "events": 15955,
+    "work": {
+      "rng_words": 82889,
+      "proposals": 22306,
+      "propensity_evaluations": 32102,
+      "bound_updates": 0,
+      "point_fallbacks": 0
+    },
+    "prepared_equal": true
+  },
+  {
+    "workload": "dense_66",
+    "seconds": 0.004296820996387396,
+    "events": 2604,
+    "work": {
+      "rng_words": 13705,
+      "proposals": 3695,
+      "propensity_evaluations": 86988,
+      "bound_updates": 0,
+      "point_fallbacks": 0
+    },
+    "prepared_equal": true
+  }
+]

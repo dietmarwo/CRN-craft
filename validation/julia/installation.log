@@ -1,0 +1,628 @@
+  Installing known registries into `/workspace/scratch/d05427e343fb/crn-julia-depot`
+       Added `General` registry to /workspace/scratch/d05427e343fb/crn-julia-depot/registries
+   Resolving package versions...
+   Installed OrderedCollections ────────── v2.0.3
+   Installed FastPower ─────────────────── v1.5.1
+   Installed SymbolicUtils ─────────────── v4.54.0
+   Installed CommonWorldInvalidations ──── v1.2.2
+   Installed MKL_jll ───────────────────── v2025.2.0+0
+   Installed PreallocationTools ────────── v1.7.1
+   Installed EnzymeCore ────────────────── v0.8.26
+   Installed Sobol ─────────────────────── v1.5.0
+   Installed DispatchDoctor ────────────── v0.4.29
+   Installed DiffEqCallbacks ───────────── v4.19.5
+   Installed DynamicQuantities ─────────── v1.13.0
+   Installed NaNMath ───────────────────── v1.1.5
+   Installed LinearSolve ───────────────── v5.18.3
+   Installed OpenSpecFun_jll ───────────── v0.5.6+0
+   Installed WeakCacheSets ─────────────── v0.1.0
+   Installed NonlinearSolveBase ────────── v2.55.1
+   Installed FastBroadcast ─────────────── v1.5.0
+   Installed JumpProcesses ─────────────── v10.0.1
+   Installed LHLFactorization ──────────── v2.2.2
+   Installed SCCNonlinearSolve ─────────── v1.16.0
+   Installed StarAlgebras ──────────────── v0.3.1
+   Installed EnumX ─────────────────────── v1.0.7
+   Installed Tables ────────────────────── v1.14.0
+   Installed DiffEqBase ────────────────── v7.21.5
+   Installed BracketingNonlinearSolve ──── v1.12.8
+   Installed Jieko ─────────────────────── v0.2.1
+   Installed BandedMatrices ────────────── v1.14.0
+   Installed InverseFunctions ──────────── v0.1.18
+   Installed Reexport ──────────────────── v1.2.2
+   Installed Catalyst ──────────────────── v17.0.0
+   Installed TableTraits ───────────────── v1.0.1
+   Installed Preferences ───────────────── v1.6.1
+   Installed MaybeInplace ──────────────── v0.1.8
+   Installed LaTeXStrings ──────────────── v1.4.1
+   Installed Crayons ───────────────────── v4.2.0
+   Installed RecursiveArrayTools ───────── v4.5.6
+   Installed UnPack ────────────────────── v1.0.2
+   Installed Format ────────────────────── v1.3.7
+   Installed Inflate ───────────────────── v0.1.5
+   Installed ADTypes ───────────────────── v1.24.0
+   Installed MacroTools ────────────────── v0.5.16
+   Installed DataStructures ────────────── v0.19.6
+   Installed DiffResults ───────────────── v1.1.0
+   Installed TermInterface ─────────────── v2.0.1
+   Installed FillArrays ────────────────── v1.18.2
+   Installed AbstractTrees ─────────────── v0.4.5
+   Installed Tricks ────────────────────── v0.1.13
+   Installed oneTBB_jll ────────────────── v2023.1.0+0
+   Installed DelimitedFiles ────────────── v1.9.1
+   Installed ArnoldiMethod ─────────────── v0.4.0
+   Installed ExprTools ─────────────────── v0.1.11
+   Installed SciMLJacobianOperators ────── v0.1.20
+   Installed ReadOnlyArrays ────────────── v0.2.0
+   Installed ArrayInterface ────────────── v7.30.2
+   Installed IntelOpenMP_jll ───────────── v2025.2.0+0
+   Installed DataValueInterfaces ───────── v1.0.0
+   Installed CommonSubexpressions ──────── v0.3.1
+   Installed LoggingExtras ─────────────── v1.2.0
+   Installed ConcreteStructs ───────────── v0.2.8
+   Installed GPUArraysCore ─────────────── v0.2.2
+   Installed TruncatedStacktraces ──────── v1.4.0
+   Installed IrrationalConstants ───────── v0.2.7
+   Installed BlockArrays ───────────────── v1.10.3
+   Installed ArrayLayouts ──────────────── v1.16.0
+   Installed ModelingToolkitBase ───────── v1.79.0
+   Installed SimpleTraits ──────────────── v0.9.6
+   Installed IntegerMathUtils ──────────── v0.1.4
+   Installed CompositionsBase ──────────── v0.1.2
+   Installed SparseColumnPivotedQR ─────── v2.1.8
+   Installed DifferentiationInterface ──── v0.7.21
+   Installed Moshi ─────────────────────── v0.3.13
+   Installed FindFirstFunctions ────────── v3.4.1
+   Installed CommonSolve ───────────────── v0.2.14
+   Installed DocStringExtensions ───────── v0.9.5
+   Installed CompositeTypes ────────────── v0.1.4
+   Installed Setfield ──────────────────── v1.2.0
+   Installed Bijections ────────────────── v0.2.2
+   Installed RespecializeParams ────────── v1.3.0
+   Installed ForwardDiff ───────────────── v1.4.6
+   Installed Ghostscript_jll ───────────── v9.55.1+0
+   Installed LineSearch ────────────────── v0.1.19
+   Installed Combinatorics ─────────────── v1.0.2
+   Installed DynamicPolynomials ────────── v0.6.8
+   Installed Krylov ────────────────────── v0.10.12
+   Installed IteratorInterfaceExtensions ─ v1.0.0
+   Installed RecipesBase ───────────────── v1.4.0
+   Installed FunctionWrappersWrappers ──── v1.13.0
+   Installed DomainSets ────────────────── v0.8.3
+   Installed SciMLOperators ────────────── v1.30.4
+   Installed DataAPI ───────────────────── v1.16.0
+   Installed SciMLStructures ───────────── v1.10.6
+   Installed TaskLocalValues ───────────── v0.1.3
+   Installed StaticArraysCore ──────────── v1.4.4
+   Installed MultivariatePolynomials ───── v0.5.20
+   Installed AbstractPlutoDingetjes ────── v1.4.1
+   Installed StaticArrays ──────────────── v1.9.24
+   Installed Symbolics ─────────────────── v7.48.0
+   Installed Latexify ──────────────────── v0.16.12
+   Installed FunctionWrappers ──────────── v1.1.3
+   Installed Requires ──────────────────── v1.3.1
+   Installed SciMLPublic ───────────────── v1.3.0
+   Installed StringManipulation ────────── v0.6.1
+   Installed LogExpFunctions ───────────── v1.0.3
+   Installed PrettyTables ──────────────── v3.5.0
+   Installed FunctionMaps ──────────────── v0.1.2
+   Installed DiffRules ─────────────────── v1.16.0
+   Installed SciMLBase ─────────────────── v3.58.0
+   Installed OrdinaryDiffEqCore ────────── v4.19.1
+   Installed Parsers ───────────────────── v2.8.11
+   Installed NonlinearSolveFirstOrder ──── v2.10.0
+   Installed FiniteDiff ────────────────── v2.33.0
+   Installed MutableArithmetics ────────── v1.9.3
+   Installed FastClosures ──────────────── v0.3.2
+   Installed SymbolicLimits ────────────── v1.2.2
+   Installed Graphs ────────────────────── v1.15.0
+   Installed TestItems ─────────────────── v1.1.0
+   Installed Primes ────────────────────── v0.5.7
+   Installed JLLWrappers ───────────────── v1.8.0
+   Installed Accessors ─────────────────── v0.1.46
+   Installed StructTypes ───────────────── v1.11.1
+   Installed JpegTurbo_jll ─────────────── v3.2.1+0
+   Installed Adapt ─────────────────────── v4.7.4
+   Installed RuntimeGeneratedFunctions ─── v0.5.27
+   Installed ConstructionBase ──────────── v1.6.0
+   Installed ImplicitDiscreteSolve ─────── v2.3.0
+   Installed Compat ────────────────────── v4.18.1
+   Installed SymbolicIndexingInterface ─── v0.3.55
+   Installed PoissonRandom ─────────────── v0.4.14
+   Installed Statistics ────────────────── v1.11.5
+   Installed BinaryHeaps ───────────────── v1.1.0
+   Installed TimerOutputs ──────────────── v1.2.2
+   Installed OffsetArrays ──────────────── v1.17.0
+   Installed ReadOnlyDicts ─────────────── v1.0.1
+   Installed JSON3 ─────────────────────── v1.14.4
+   Installed ExproniconLite ────────────── v0.10.14
+   Installed AMD ───────────────────────── v0.5.4
+   Installed PrecompileTools ───────────── v1.3.4
+   Installed Parameters ────────────────── v0.13.1
+   Installed MuladdMacro ───────────────── v0.2.7
+   Installed BipartiteGraphs ───────────── v0.1.15
+   Installed SciMLLogging ──────────────── v2.1.0
+   Installed IntervalSets ──────────────── v0.7.15
+   Installed SimpleNonlinearSolve ──────── v2.14.6
+   Installed PureKLU ───────────────────── v1.6.0
+   Installed SpecialFunctions ──────────── v2.9.1
+  Installing 3 artifacts
+   Installed artifact OpenSpecFun 105.4 KiB
+   Installed artifact JpegTurbo   716.5 KiB
+   Installed artifact Ghostscript 30.0 MiB
+    Updating `/workspace/scratch/d05427e343fb/CRN-craft-julia-comparison/validation/julia/Project.toml`
+  [479239e8] + Catalyst v17.0.0
+  [0f8b85d8] + JSON3 v1.14.4 [deprecated]
+  [ccbc3e58] + JumpProcesses v10.0.1
+  [10745b16] + Statistics v1.11.5
+        Info Packages marked with [deprecated] are no longer maintained. Use `status --deprecated` to see more information.
+    Updating `/workspace/scratch/d05427e343fb/CRN-craft-julia-comparison/validation/julia/Manifest.toml`
+  [47edcb42] + ADTypes v1.24.0
+  [14f7f29c] + AMD v0.5.4
+  [6e696c72] + AbstractPlutoDingetjes v1.4.1
+  [1520ce14] + AbstractTrees v0.4.5
+  [7d9f7c33] + Accessors v0.1.46
+  [79e6a3ab] + Adapt v4.7.4
+  [ec485272] + ArnoldiMethod v0.4.0
+  [4fba245c] + ArrayInterface v7.30.2
+  [4c555306] + ArrayLayouts v1.16.0
+  [aae01518] + BandedMatrices v1.14.0
+  [e2ed5e7c] + Bijections v0.2.2
+  [b2a6c25c] + BinaryHeaps v1.1.0
+  [caf10ac8] + BipartiteGraphs v0.1.15
+  [8e7c35d0] + BlockArrays v1.10.3
+  [70df07ce] + BracketingNonlinearSolve v1.12.8
+  [479239e8] + Catalyst v17.0.0
+⌅ [861a8166] + Combinatorics v1.0.2
+  [38540f10] + CommonSolve v0.2.14
+  [bbf7d656] + CommonSubexpressions v0.3.1
+  [f70d9fcc] + CommonWorldInvalidations v1.2.2
+  [34da2185] + Compat v4.18.1
+  [b152e2b5] + CompositeTypes v0.1.4
+  [a33af91c] + CompositionsBase v0.1.2
+  [2569d6c7] + ConcreteStructs v0.2.8
+  [187b0558] + ConstructionBase v1.6.0
+  [a8cc5b0e] + Crayons v4.2.0
+  [9a962f9c] + DataAPI v1.16.0
+  [864edb3b] + DataStructures v0.19.6
+  [e2d170a0] + DataValueInterfaces v1.0.0
+  [8bb1440f] + DelimitedFiles v1.9.1
+  [2b5f629d] + DiffEqBase v7.21.5
+  [459566f4] + DiffEqCallbacks v4.19.5
+  [163ba53b] + DiffResults v1.1.0
+  [b552c78f] + DiffRules v1.16.0
+  [a0c0ee7d] + DifferentiationInterface v0.7.21
+  [8d63f2c5] + DispatchDoctor v0.4.29
+⌅ [ffbed154] + DocStringExtensions v0.9.5
+  [5b8099bc] + DomainSets v0.8.3
+⌅ [7c1d4256] + DynamicPolynomials v0.6.8
+  [06fc5a27] + DynamicQuantities v1.13.0
+  [4e289a0a] + EnumX v1.0.7
+  [f151be2c] + EnzymeCore v0.8.26
+  [e2ba6199] + ExprTools v0.1.11
+  [55351af7] + ExproniconLite v0.10.14
+  [7034ab61] + FastBroadcast v1.5.0
+  [9aa1b823] + FastClosures v0.3.2
+  [a4df4552] + FastPower v1.5.1
+  [1a297f60] + FillArrays v1.18.2
+  [64ca27bc] + FindFirstFunctions v3.4.1
+  [6a86dc24] + FiniteDiff v2.33.0
+  [1fa38f19] + Format v1.3.7
+  [f6369f11] + ForwardDiff v1.4.6
+  [a85aefff] + FunctionMaps v0.1.2
+  [069b7b12] + FunctionWrappers v1.1.3
+  [77dc65aa] + FunctionWrappersWrappers v1.13.0
+  [46192b85] + GPUArraysCore v0.2.2
+  [86223c79] + Graphs v1.15.0
+  [3263718b] + ImplicitDiscreteSolve v2.3.0
+  [d25df0c9] + Inflate v0.1.5
+  [18e54dd8] + IntegerMathUtils v0.1.4
+  [8197267c] + IntervalSets v0.7.15
+  [3587e190] + InverseFunctions v0.1.18
+  [92d709cd] + IrrationalConstants v0.2.7
+  [82899510] + IteratorInterfaceExtensions v1.0.0
+  [692b3bcd] + JLLWrappers v1.8.0
+  [0f8b85d8] + JSON3 v1.14.4 [deprecated]
+  [ae98c720] + Jieko v0.2.1
+  [ccbc3e58] + JumpProcesses v10.0.1
+  [ba0b0d4f] + Krylov v0.10.12
+  [2faa5264] + LHLFactorization v2.2.2
+  [b964fa9f] + LaTeXStrings v1.4.1
+  [23fbe1c1] + Latexify v0.16.12
+  [87fe0de2] + LineSearch v0.1.19
+  [7ed4a6bd] + LinearSolve v5.18.3
+  [2ab3a3ac] + LogExpFunctions v1.0.3
+  [e6f89c97] + LoggingExtras v1.2.0
+  [1914dd2f] + MacroTools v0.5.16
+  [bb5d69b7] + MaybeInplace v0.1.8
+  [7771a370] + ModelingToolkitBase v1.79.0
+  [2e0e35c7] + Moshi v0.3.13
+  [46d2c3a1] + MuladdMacro v0.2.7
+⌅ [102ac46a] + MultivariatePolynomials v0.5.20
+  [d8a4904e] + MutableArithmetics v1.9.3
+  [77ba4419] + NaNMath v1.1.5
+  [be0214bd] + NonlinearSolveBase v2.55.1
+  [5959db7a] + NonlinearSolveFirstOrder v2.10.0
+  [6fe1bfb0] + OffsetArrays v1.17.0
+  [bac558e1] + OrderedCollections v2.0.3
+  [bbf590c4] + OrdinaryDiffEqCore v4.19.1
+  [d96e819e] + Parameters v0.13.1
+⌅ [69de0a69] + Parsers v2.8.11
+  [e409e4f3] + PoissonRandom v0.4.14
+  [d236fae5] + PreallocationTools v1.7.1
+  [aea7be01] + PrecompileTools v1.3.4
+  [21216c6a] + Preferences v1.6.1
+  [08abe8d2] + PrettyTables v3.5.0
+  [27ebfcd6] + Primes v0.5.7
+  [0c0d3e7f] + PureKLU v1.6.0
+  [988b38a3] + ReadOnlyArrays v0.2.0
+  [795d4caa] + ReadOnlyDicts v1.0.1
+  [3cdcf5f2] + RecipesBase v1.4.0
+  [731186ca] + RecursiveArrayTools v4.5.6
+  [189a3867] + Reexport v1.2.2
+  [ae029012] + Requires v1.3.1
+  [9fe22ead] + RespecializeParams v1.3.0
+  [7e49a35a] + RuntimeGeneratedFunctions v0.5.27
+  [9dfe8606] + SCCNonlinearSolve v1.16.0
+  [0bca4576] + SciMLBase v3.58.0
+  [19f34311] + SciMLJacobianOperators v0.1.20
+  [a6db7da4] + SciMLLogging v2.1.0
+  [c0aeaf25] + SciMLOperators v1.30.4
+  [431bcebd] + SciMLPublic v1.3.0
+  [53ae85a6] + SciMLStructures v1.10.6
+  [efcf1570] + Setfield v1.2.0
+  [727e6d20] + SimpleNonlinearSolve v2.14.6
+  [699a6c99] + SimpleTraits v0.9.6
+  [ed01d8cd] + Sobol v1.5.0
+  [a57abbd0] + SparseColumnPivotedQR v2.1.8
+  [276daf66] + SpecialFunctions v2.9.1
+⌅ [0c0c59c1] + StarAlgebras v0.3.1
+  [90137ffa] + StaticArrays v1.9.24
+  [1e83bf80] + StaticArraysCore v1.4.4
+  [10745b16] + Statistics v1.11.5
+  [892a3eda] + StringManipulation v0.6.1
+  [856f2bd8] + StructTypes v1.11.1
+  [2efcf032] + SymbolicIndexingInterface v0.3.55
+  [19f23fe9] + SymbolicLimits v1.2.2
+  [d1185830] + SymbolicUtils v4.54.0
+  [0c5d862f] + Symbolics v7.48.0
+  [3783bdb8] + TableTraits v1.0.1
+  [bd369af6] + Tables v1.14.0
+  [ed4db957] + TaskLocalValues v0.1.3
+  [8ea1fca8] + TermInterface v2.0.1
+  [1c621080] + TestItems v1.1.0
+  [a759f4b9] + TimerOutputs v1.2.2
+  [410a4b4d] + Tricks v0.1.13
+  [781d530d] + TruncatedStacktraces v1.4.0
+  [3a884ed6] + UnPack v1.0.2
+  [d30d5f5c] + WeakCacheSets v0.1.0
+  [61579ee1] + Ghostscript_jll v9.55.1+0
+  [1d5cc7b8] + IntelOpenMP_jll v2025.2.0+0
+  [aacddb02] + JpegTurbo_jll v3.2.1+0
+  [856f044c] + MKL_jll v2025.2.0+0
+  [efe28fd5] + OpenSpecFun_jll v0.5.6+0
+  [1317d2d5] + oneTBB_jll v2023.1.0+0
+  [0dad84c5] + ArgTools v1.1.2
+  [56f22d72] + Artifacts v1.11.0
+  [2a0f44e3] + Base64 v1.11.0
+  [ade2ca70] + Dates v1.11.0
+  [8ba89e20] + Distributed v1.11.0
+  [f43a241f] + Downloads v1.7.0
+  [7b1f6079] + FileWatching v1.11.0
+  [9fa8497b] + Future v1.11.0
+  [b77e0a4c] + InteractiveUtils v1.11.0
+  [ac6e5ff7] + JuliaSyntaxHighlighting v1.12.0
+  [4af54fe1] + LazyArtifacts v1.11.0
+  [b27032c2] + LibCURL v1.0.0
+  [76f85450] + LibGit2 v1.11.0
+  [8f399da3] + Libdl v1.11.0
+  [37e2e46d] + LinearAlgebra v1.13.0
+  [56ddb016] + Logging v1.11.0
+  [d6f4376e] + Markdown v1.11.0
+  [a63ad114] + Mmap v1.11.0
+  [ca575930] + NetworkOptions v1.3.0
+  [44cfe95a] + Pkg v1.13.0
+  [de0858da] + Printf v1.11.0
+  [3fa0cd96] + REPL v1.11.0
+  [9a3f8284] + Random v1.11.0
+  [ea8e919c] + SHA v1.0.0
+  [9e88b42a] + Serialization v1.11.0
+  [6462fe0b] + Sockets v1.11.0
+  [2f01184e] + SparseArrays v1.13.0
+  [f489334b] + StyledStrings v1.11.0
+  [fa267f1f] + TOML v1.0.3
+  [a4e569a6] + Tar v1.10.0
+  [8dfed614] + Test v1.11.0
+  [cf7118a7] + UUIDs v1.11.0
+  [4ec0a83e] + Unicode v1.11.0
+  [e66e0078] + CompilerSupportLibraries_jll v1.5.5+2
+  [deac9b47] + LibCURL_jll v8.22.0+0
+  [e37daf67] + LibGit2_jll v1.9.7+0
+  [29816b5a] + LibSSH2_jll v1.11.104+0
+  [14a3606d] + MozillaCACerts_jll v2026.10.20
+  [4536629a] + OpenBLAS_jll v0.3.30+0
+  [05823500] + OpenLibm_jll v0.8.7+0
+  [458c3c95] + OpenSSL_jll v3.5.8+0
+  [efcefdf7] + PCRE2_jll v10.47.0+0
+  [bea87d4a] + SuiteSparse_jll v7.10.1+0
+  [83775a58] + Zlib_jll v1.3.2+0
+  [3161d3a3] + Zstd_jll v1.5.7+1
+  [8e850b90] + libblastrampoline_jll v5.15.0+0
+  [8e850ede] + nghttp2_jll v1.70.0+0
+  [3f19e933] + p7zip_jll v17.8.3+0
+        Info Packages marked with ⌅ have new versions available but compatibility constraints restrict them from upgrading. To see why use `status --outdated -m`
+        Info Packages marked with [deprecated] are no longer maintained. Use `status --deprecated -m` to see more information.
+Precompiling packages...
+   0.6 s  ✓ AbstractPlutoDingetjes
+   0.2 s  ✓ Reexport
+   0.4 s  ✓ ConstructionBase
+   1.8 s  ✓ MacroTools
+   0.2 s  ✓ DataValueInterfaces
+   1.0 s  ✓ IrrationalConstants
+   0.2 s  ✓ ReadOnlyArrays
+   0.2 s  ✓ WeakCacheSets
+   0.8 s  ✓ Format
+   0.3 s  ✓ IntervalSets
+   0.2 s  ✓ Unicode
+   0.3 s  ✓ Inflate
+   0.6 s  ✓ Combinatorics
+   0.2 s  ✓ LaTeXStrings
+   0.2 s  ✓ TestItems
+   0.2 s  ✓ Tricks
+   0.3 s  ✓ Statistics
+   0.3 s  ✓ StaticArraysCore
+   0.2 s  ✓ CompositeTypes
+   0.4 s  ✓ EnzymeCore
+   0.2 s  ✓ TaskLocalValues
+   0.2 s  ✓ Mmap
+   0.2 s  ✓ DataAPI
+   0.3 s  ✓ Adapt
+   0.3 s  ✓ CompilerSupportLibraries_jll
+   0.2 s  ✓ Future
+   0.3 s  ✓ InverseFunctions
+   0.2 s  ✓ CompositionsBase
+   0.4 s  ✓ AbstractTrees
+   1.4 s  ✓ ExproniconLite
+   0.2 s  ✓ EnumX
+   0.2 s  ✓ Bijections
+   0.2 s  ✓ IntegerMathUtils
+   0.2 s  ✓ ExprTools
+   0.2 s  ✓ UnPack
+   0.8 s  ✓ FillArrays
+   0.4 s  ✓ OrderedCollections
+   0.4 s  ✓ FunctionWrappers
+   0.4 s  ✓ Serialization
+   0.3 s  ✓ DocStringExtensions
+   0.2 s  ✓ FastClosures
+   0.2 s  ✓ IteratorInterfaceExtensions
+   0.7 s  ✓ OffsetArrays
+   0.8 s  ✓ Crayons
+   0.5 s  ✓ Requires
+   0.2 s  ✓ ConstructionBase → ConstructionBaseLinearAlgebraExt
+   0.3 s  ✓ CommonSubexpressions
+   0.2 s  ✓ IntervalSets → IntervalSetsRandomExt
+   0.2 s  ✓ ConstructionBase → ConstructionBaseIntervalSetsExt
+   1.0 s  ✓ InteractiveUtils
+   0.4 s  ✓ LoggingExtras
+   0.6 s  ✓ StructTypes
+   0.3 s  ✓ Compat
+   0.2 s  ✓ IntervalSets → IntervalSetsStatisticsExt
+   0.5 s  ✓ Preferences
+   0.2 s  ✓ DiffResults
+   0.3 s  ✓ DelimitedFiles
+   0.3 s  ✓ ArrayInterface
+   0.3 s  ✓ GPUArraysCore
+   0.2 s  ✓ EnzymeCore → AdaptExt
+   0.3 s  ✓ SuiteSparse_jll
+   0.2 s  ✓ OpenLibm_jll
+   0.3 s  ✓ InverseFunctions → InverseFunctionsDatesExt
+   0.2 s  ✓ CompositionsBase → CompositionsBaseInverseFunctionsExt
+   0.6 s  ✓ LazyArtifacts
+   0.4 s  ✓ Primes
+   0.3 s  ✓ FillArrays → FillArraysStatisticsExt
+   1.1 s  ✓ Jieko
+   0.4 s  ✓ Parameters
+   1.4 s  ✓ Distributed
+   1.5 s  ✓ DataStructures
+   0.3 s  ✓ ReadOnlyDicts
+   0.5 s  ✓ LogExpFunctions
+   0.2 s  ✓ TableTraits
+   0.2 s  ✓ OffsetArrays → OffsetArraysAdaptExt
+   0.7 s  ✓ Setfield
+   0.7 s  ✓ SimpleTraits
+   4.0 s  ✓ Test
+   0.2 s  ✓ Compat → CompatLinearAlgebraExt
+   0.4 s  ✓ PrecompileTools
+   0.4 s  ✓ JLLWrappers
+   1.0 s  ✓ DispatchDoctor
+   0.5 s  ✓ TruncatedStacktraces
+   0.7 s  ✓ Sobol
+   0.3 s  ✓ ArrayInterface → ArrayInterfaceFillArraysExt
+   0.2 s  ✓ ArrayInterface → ArrayInterfaceStaticArraysCoreExt
+   0.4 s  ✓ ArrayInterface → ArrayInterfaceGPUArraysCoreExt
+   3.8 s  ✓ SparseArrays
+   0.4 s  ✓ NaNMath
+   1.5 s  ✓ Accessors
+   8.0 s  ✓ Moshi
+   0.3 s  ✓ LogExpFunctions → LogExpFunctionsInverseFunctionsExt
+   0.9 s  ✓ Tables
+   0.4 s  ✓ InverseFunctions → InverseFunctionsTestExt
+   0.6 s  ✓ TermInterface
+   3.3 s  ✓ StringManipulation
+   0.3 s  ✓ CommonSolve
+   5.8 s  ✓ StaticArrays
+  32.8 s  ✓ REPL
+   1.0 s  ✓ BinaryHeaps
+   0.5 s  ✓ SciMLPublic
+   0.4 s  ✓ CommonWorldInvalidations
+   2.3 s  ✓ FindFirstFunctions
+   0.5 s  ✓ FastPower
+   0.6 s  ✓ MuladdMacro
+   1.0 s  ✓ RecipesBase
+   1.6 s  ✓ ConcreteStructs
+   0.7 s  ✓ ADTypes
+   6.5 s  ✓ Parsers
+   1.7 s  ✓ RuntimeGeneratedFunctions
+   0.8 s  ✓ SciMLLogging
+   1.0 s  ✓ FastBroadcast
+   1.2 s  ✓ MaybeInplace
+   0.6 s  ✓ SciMLStructures
+   0.8 s  ✓ PoissonRandom
+   1.3 s  ✓ IntelOpenMP_jll
+   1.2 s  ✓ oneTBB_jll
+   1.1 s  ✓ JpegTurbo_jll
+   0.8 s  ✓ OpenSpecFun_jll
+   0.4 s  ✓ DispatchDoctor → DispatchDoctorEnzymeCoreExt
+  27.8 s  ✓ LHLFactorization
+   0.6 s  ✓ FiniteDiff
+   4.9 s  ✓ DynamicQuantities
+   0.5 s  ✓ AMD
+   4.4 s  ✓ MutableArithmetics
+   0.4 s  ✓ Statistics → SparseArraysExt
+   0.4 s  ✓ Adapt → AdaptSparseArraysExt
+   0.5 s  ✓ FillArrays → FillArraysSparseArraysExt
+   0.4 s  ✓ ArrayInterface → ArrayInterfaceSparseArraysExt
+   5.5 s  ✓ Krylov
+   6.8 s  ✓ SparseColumnPivotedQR
+   0.5 s  ✓ Accessors → TestExt
+   0.4 s  ✓ Accessors → IntervalSetsExt
+   0.4 s  ✓ Accessors → LinearAlgebraExt
+   0.8 s  ✓ ArnoldiMethod
+   0.5 s  ✓ StaticArrays → StaticArraysStatisticsExt
+   0.4 s  ✓ ConstructionBase → ConstructionBaseStaticArraysExt
+   1.0 s  ✓ FunctionMaps
+   0.5 s  ✓ Adapt → AdaptStaticArraysExt
+   0.5 s  ✓ FillArrays → FillArraysStaticArraysExt
+   0.5 s  ✓ Accessors → StaticArraysExt
+   2.8 s  ✓ Pkg → REPLExt
+  21.5 s  ✓ PureKLU
+   1.1 s  ✓ FunctionWrappersWrappers
+   1.2 s  ✓ PreallocationTools
+   0.5 s  ✓ FindFirstFunctions → FindFirstFunctionsEnzymeCoreExt
+   0.5 s  ✓ IntervalSets → IntervalSetsRecipesBaseExt
+   0.7 s  ✓ ADTypes → ADTypesConstructionBaseExt
+   1.2 s  ✓ DifferentiationInterface
+   0.3 s  ✓ ADTypes → ADTypesEnzymeCoreExt
+   6.1 s  ✓ JSON3
+   0.5 s  ✓ MaybeInplace → MaybeInplaceSparseArraysExt
+ Downloading artifact: IntelOpenMP
+  21.8 s  ✓ PrettyTables
+   1.0 s  ✓ Ghostscript_jll
+   2.1 s  ✓ SpecialFunctions
+   0.5 s  ✓ FiniteDiff → FiniteDiffStaticArraysExt
+   0.4 s  ✓ FiniteDiff → FiniteDiffSparseArraysExt
+   0.6 s  ✓ DynamicQuantities → DynamicQuantitiesLinearAlgebraExt
+   1.5 s  ✓ StarAlgebras
+   0.5 s  ✓ SparseColumnPivotedQR → SparseColumnPivotedQRAMDExt
+   3.0 s  ✓ SciMLOperators
+   1.1 s  ✓ SymbolicIndexingInterface
+   3.4 s  ✓ Graphs
+   1.4 s  ✓ DomainSets
+ Downloading artifact: oneTBB
+  10.9 s  ✓ ArrayLayouts
+   1.6 s  ✓ LHLFactorization → LHLFactorizationSparseExt
+   0.7 s  ✓ RespecializeParams
+   0.4 s  ✓ PreallocationTools → PreallocationToolsEnzymeCoreExt
+   0.4 s  ✓ DifferentiationInterface → DifferentiationInterfaceGPUArraysCoreExt
+   0.4 s  ✓ DifferentiationInterface → DifferentiationInterfaceFiniteDiffExt
+   0.5 s  ✓ DifferentiationInterface → DifferentiationInterfaceStaticArraysExt
+   0.6 s  ✓ DifferentiationInterface → DifferentiationInterfaceSparseArraysExt
+   4.3 s  ✓ TimerOutputs
+  37.4 s  ✓ MKL_jll
+   0.5 s  ✓ DiffRules
+   2.7 s  ✓ Latexify
+   1.6 s  ✓ MultivariatePolynomials
+   0.6 s  ✓ SciMLOperators → SciMLOperatorsSparseArraysExt
+   0.5 s  ✓ SymbolicIndexingInterface → SymbolicIndexingInterfacePrettyTablesExt
+   2.9 s  ✓ RecursiveArrayTools
+   0.6 s  ✓ DomainSets → DomainSetsRecipesBaseExt
+   3.3 s  ✓ BipartiteGraphs
+   0.5 s  ✓ DomainSets → DomainSetsRandomExt
+   1.2 s  ✓ ArrayLayouts → ArrayLayoutsSparseArraysExt
+   1.8 s  ✓ BlockArrays
+   2.7 s  ✓ ForwardDiff
+   0.6 s  ✓ Latexify → SparseArraysExt
+   1.1 s  ✓ MultivariatePolynomials → LatexifyExt
+   1.4 s  ✓ DynamicPolynomials
+   0.7 s  ✓ RecursiveArrayTools → RecursiveArrayToolsSparseArraysExt
+   0.5 s  ✓ RecursiveArrayTools → RecursiveArrayToolsTablesExt
+  11.0 s  ✓ BandedMatrices
+   0.6 s  ✓ RecursiveArrayTools → RecursiveArrayToolsFastBroadcastExt
+   0.4 s  ✓ RecursiveArrayTools → RecursiveArrayToolsStatisticsExt
+   0.6 s  ✓ DynamicQuantities → DynamicQuantitiesRecursiveArrayToolsExt
+   1.2 s  ✓ BipartiteGraphs → BipartiteGraphsSparseArraysExt
+   1.1 s  ✓ BlockArrays → BlockArraysAdaptExt
+   0.5 s  ✓ FastPower → FastPowerForwardDiffExt
+   0.6 s  ✓ ForwardDiff → ForwardDiffStaticArraysExt
+   0.6 s  ✓ PureKLU → PureKLUForwardDiffExt
+   0.9 s  ✓ PreallocationTools → PreallocationToolsForwardDiffExt
+   0.6 s  ✓ DifferentiationInterface → DifferentiationInterfaceForwardDiffExt
+   0.4 s  ✓ RecursiveArrayTools → RecursiveArrayToolsForwardDiffExt
+   1.5 s  ✓ BandedMatrices → BandedMatricesSparseArraysExt
+   1.5 s  ✓ ArrayInterface → ArrayInterfaceBandedMatricesExt
+   1.3 s  ✓ FiniteDiff → FiniteDiffBandedMatricesExt
+   2.0 s  ✓ BlockArrays → BlockArraysBandedMatricesExt
+   7.9 s  ✓ SciMLBase
+   0.8 s  ✓ SciMLBase → SciMLBaseStaticArraysExt
+   0.9 s  ✓ SciMLBase → SciMLBaseForwardDiffExt
+   0.6 s  ✓ SciMLBase → SciMLBaseDifferentiationInterfaceExt
+   0.7 s  ✓ DynamicQuantities → DynamicQuantitiesSciMLBaseExt
+  16.6 s  ✓ LinearSolve
+   1.9 s  ✓ SciMLJacobianOperators
+   2.3 s  ✓ LinearSolve → LinearSolveBandedMatricesExt
+   1.5 s  ✓ LinearSolve → LinearSolveEnzymeExt
+   1.6 s  ✓ LinearSolve → LinearSolveArnoldiMethodExt
+   1.9 s  ✓ LinearSolve → LinearSolveForwardDiffExt
+   3.9 s  ✓ LineSearch
+   6.1 s  ✓ NonlinearSolveBase
+   1.0 s  ✓ NonlinearSolveBase → NonlinearSolveBaseSparseArraysExt
+   1.2 s  ✓ NonlinearSolveBase → NonlinearSolveBaseLinearSolveExt
+   0.8 s  ✓ NonlinearSolveBase → NonlinearSolveBaseLineSearchExt
+   5.8 s  ✓ NonlinearSolveBase → NonlinearSolveBaseForwardDiffExt
+   1.8 s  ✓ NonlinearSolveBase → NonlinearSolveBaseBandedMatricesExt
+   0.9 s  ✓ SCCNonlinearSolve
+   2.2 s  ✓ BracketingNonlinearSolve
+  96.5 s  ✓ SymbolicUtils
+   1.6 s  ✓ BracketingNonlinearSolve → BracketingNonlinearSolveForwardDiffExt
+   4.1 s  ✓ DiffEqBase
+  44.6 s  ✓ NonlinearSolveFirstOrder
+  15.3 s  ✓ SymbolicLimits
+   6.4 s  ✓ SimpleNonlinearSolve
+   1.5 s  ✓ DiffEqBase → DiffEqBaseSparseArraysExt
+   1.1 s  ✓ DiffEqBase → DiffEqBaseDynamicQuantitiesExt
+   3.0 s  ✓ DiffEqCallbacks
+   3.4 s  ✓ DiffEqBase → DiffEqBaseForwardDiffExt
+   3.9 s  ✓ OrdinaryDiffEqCore
+   4.3 s  ✓ JumpProcesses
+   1.1 s  ✓ OrdinaryDiffEqCore → OrdinaryDiffEqCoreSparseArraysExt
+   1.5 s  ✓ JumpProcesses → JumpProcessesForwardDiffExt
+   1.2 s  ✓ JumpProcesses → JumpProcessesOrdinaryDiffEqCoreExt
+   2.1 s  ✓ ImplicitDiscreteSolve
+  58.3 s  ✓ Symbolics
+   2.8 s  ✓ Symbolics → SymbolicsLatexifyExt
+   3.2 s  ✓ Symbolics → SymbolicsForwardDiffExt
+   1.8 s  ✓ Symbolics → SymbolicsStaticArraysExt
+   1.7 s  ✓ DifferentiationInterface → DifferentiationInterfaceSymbolicsExt
+WARNING: @nospecialize annotation only supported on the first 32 arguments.
+WARNING: @nospecialize annotation only supported on the first 32 arguments.
+ 112.4 s  ✓ ModelingToolkitBase
+   7.6 s  ✓ ModelingToolkitBase → MTKLatexifyExt
+   8.5 s  ✓ ModelingToolkitBase → MTKDynamicQuantitiesExt
+  10.6 s  ✓ Catalyst
+  252 dependencies successfully precompiled in 495 seconds. 26 already precompiled.
+
+  2 dependencies had output during precompilation:
+┌ ModelingToolkitBase
+│  WARNING: @nospecialize annotation only supported on the first 32 arguments.
+│  WARNING: @nospecialize annotation only supported on the first 32 arguments.
+└  
+┌ MKL_jll
+│  Downloading artifact: IntelOpenMP
+│   Downloading artifact: oneTBB
+└  
+Status `/workspace/scratch/d05427e343fb/CRN-craft-julia-comparison/validation/julia/Project.toml`
+  [479239e8] Catalyst v17.0.0
+  [0f8b85d8] JSON3 v1.14.4 [deprecated]
+  [ccbc3e58] JumpProcesses v10.0.1
+  [10745b16] Statistics v1.11.5
+Info Packages marked with [deprecated] are no longer maintained. Use `status --deprecated` to see more information.

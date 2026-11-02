@@ -1,0 +1,49 @@
+B007 Loop control variable `end` not used within loop body
+   --> validation/compare_julia_accelerated.py:105:23
+    |
+103 |     generated.write_text(source)
+104 |     models = {}
+105 |     for (name, model, end, paths), entry in zip(data, manifest["rows"], strict=True):
+    |                       ^^^
+106 |         m = encode(model)
+107 |         require(
+    |
+help: Rename unused `end` to `_end`
+
+B007 Loop control variable `paths` not used within loop body
+   --> validation/compare_julia_accelerated.py:105:28
+    |
+103 |     generated.write_text(source)
+104 |     models = {}
+105 |     for (name, model, end, paths), entry in zip(data, manifest["rows"], strict=True):
+    |                            ^^^^^
+106 |         m = encode(model)
+107 |         require(
+    |
+help: Rename unused `paths` to `_paths`
+
+B007 Loop control variable `paths` not used within loop body
+   --> validation/compare_julia_accelerated.py:186:35
+    |
+184 |         else:
+185 |             rng = random.Random(1729)
+186 |             for name, model, end, paths in data:
+    |                                   ^^^^^
+187 |                 ns = len(model["species"])
+188 |                 states = [[v] * ns for v in [0, 1, 2, 10, 100]]
+    |
+help: Rename unused `paths` to `_paths`
+
+B007 Loop control variable `model` not used within loop body
+   --> validation/compare_julia_accelerated.py:314:19
+    |
+312 |         if args.validation_only:
+313 |             return
+314 |         for name, model, end, paths in data:
+    |                   ^^^^^
+315 |             jobs = {}
+316 |             replays = {}
+    |
+help: Rename unused `model` to `_model`
+
+Found 4 errors.

@@ -1,0 +1,1 @@
+This comparison validation was intentionally interrupted after W3 when final review added an RSSACR absorption check. It is incomplete evidence, not a failed numerical gate or a performance result. The completed final validation lives in the parent folder.

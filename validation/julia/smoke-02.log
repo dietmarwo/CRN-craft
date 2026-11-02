@@ -1,0 +1,23 @@
+Julia ready {'load_seconds': 9.434014738, 'model_setup_seconds': 44.744332829, 'versions': {'Julia': '1.13.3', 'JSON3': '1.14.4', 'Catalyst': '17.0.0', 'JumpProcesses': '10.0.1'}, 'problem_setup_seconds': {'W1/NRM': 0.073903422, 'dimer/Direct': 0.094404905, 'W2/NRM': 0.455302461, 'W4/NRM': 0.213808883, 'W2/RSSACR': 0.557782682, 'W4/RSSACR': 0.458619658, 'W2/SortingDirect': 0.512882066, 'W1/DirectCR': 0.084447139, 'dimer/DirectCR': 0.06437734, 'W1/RSSACR': 0.086114206, 'W2/DirectCR': 0.957704298, 'W3/Direct': 0.178858482, 'W3/NRM': 0.067080899, 'W1/Direct': 0.108033426, 'W3/SortingDirect': 0.088500513, 'W1/SortingDirect': 0.089202558, 'dimer/SortingDirect': 0.069009543, 'W3/RSSACR': 0.164489439, 'dimer/NRM': 0.054086359, 'W4/Direct': 6.88115843, 'W4/DirectCR': 0.537258719, 'W4/SortingDirect': 0.22745369, 'W2/Direct': 18.41156124, 'W3/DirectCR': 0.17596841, 'dimer/RSSACR': 0.074726304}, 'threads': 1, 'blas_threads': 1}
+Traceback (most recent call last):
+  File "/workspace/scratch/d05427e343fb/CRN-craft-julia-comparison/validation/compare_julia.py", line 428, in <module>
+    main()
+  File "/workspace/scratch/d05427e343fb/CRN-craft-julia-comparison/validation/compare_julia.py", line 282, in main
+    first = julia.call(
+            ^^^^^^^^^^^
+  File "/workspace/scratch/d05427e343fb/CRN-craft-julia-comparison/validation/compare_julia.py", line 111, in call
+    require(reply["ok"], reply.get("error", "Julia error"))
+  File "/workspace/scratch/d05427e343fb/CRN-craft-julia-comparison/validation/compare_julia.py", line 35, in require
+    raise RuntimeError(message)
+RuntimeError: MethodError: Cannot `convert` an object of type Float64 to an object of type Vector{Float64}
+The function `convert` exists, but no method is defined for this combination of argument types.
+
+Closest candidates are:
+  convert(::Type{Array{T, N}}, !Matched::StaticArraysCore.SizedArray{S, T, N, N, Array{T, N}}) where {S, T, N}
+   @ StaticArrays /workspace/scratch/d05427e343fb/crn-julia-depot/packages/StaticArrays/SXG7G/src/SizedArray.jl:88
+  convert(::Type{Array{T, N}}, !Matched::StaticArraysCore.SizedArray{S, T, N, M, TData} where {M, TData<:AbstractArray{T, M}}) where {T, S, N}
+   @ StaticArrays /workspace/scratch/d05427e343fb/crn-julia-depot/packages/StaticArrays/SXG7G/src/SizedArray.jl:82
+  convert(::Type{<:Array{<:Any, N}}, !Matched::Symbolics.Arr{<:Any, N}) where N
+   @ Symbolics /workspace/scratch/d05427e343fb/crn-julia-depot/packages/Symbolics/twrWY/src/arrays.jl:256
+  ...
+

@@ -41,6 +41,9 @@ pub struct CompiledNetwork {
 }
 
 impl CompiledNetwork {
+    pub(crate) fn compiled_rate(&self, reaction: usize) -> &CompiledRate {
+        &self.rates[reaction]
+    }
     pub fn compile(model: &Model) -> Result<Self, Vec<Diagnostic>> {
         let warnings = validate_model(model);
         if warnings.iter().any(|d| d.severity == Severity::Error) {
@@ -70,6 +73,7 @@ impl CompiledNetwork {
         let mut reactions = Vec::with_capacity(model.reactions.len());
         let mut rates = Vec::with_capacity(model.reactions.len());
         let mut readers = vec![Vec::new(); model.species.len()];
+        let mut hill_laws = 0;
         for (id, reaction) in model.reactions.iter().enumerate() {
             let rate = match &reaction.rate {
                 Rate::MassAction { coefficient } => CompiledRate::MassAction(resolve(coefficient)),
@@ -93,6 +97,10 @@ impl CompiledNetwork {
                     k: resolve(k),
                     n: resolve(n),
                     repression: matches!(reaction.rate, Rate::HillRepression { .. }),
+                    memo: {
+                        hill_laws += 1;
+                        (hill_laws <= crate::rates::MEMO_LAWS).then(Default::default)
+                    },
                 },
                 Rate::MichaelisMenten {
                     substrate,

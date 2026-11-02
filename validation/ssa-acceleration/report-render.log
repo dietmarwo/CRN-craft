@@ -1,0 +1,11 @@
+| Workload | Fastest CRN prepared | Seconds | Fastest Julia | Seconds | CRN / Julia | Cached / best CRN |
+|---|---|---|---|---|---|---|
+| W1 | CRN Legacy cached | 0.0785 | Julia Direct | 0.0511 | 1.54× | 1.00× |
+| W2 | CRN SortingDirect · ziggurat | 0.1827 | Julia DirectCR | 0.0968 | 1.89× | 1.19× |
+| W3 | CRN Legacy cached | 0.7048 | Julia SortingDirect | 0.2944 | 2.39× | 1.00× |
+| W4 | CRN RSSACR · ziggurat | 0.2379 | Julia RSSACR | 0.1061 | 2.24× | 4.04× |
+| W5 | CRN RSSACR · ziggurat | 0.1051 | Julia DirectCR | 0.0477 | 2.20× | 2.39× |
+| W6 | CRN RSSACR · ziggurat | 0.0874 | Julia RSSACR | 0.0396 | 2.21× | 6.71× |
+| W7 | CRN RSSACR · ziggurat | 0.0238 | Julia RSSACR | 0.0133 | 1.79× | 1.63× |
+
+maximum ratio 2.3943344560774933

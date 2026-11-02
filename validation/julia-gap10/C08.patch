@@ -1,0 +1,187 @@
+diff --git a/crates/crn-craft/src/ssa.rs b/crates/crn-craft/src/ssa.rs
+index a21f5b8..99390c3 100644
+--- a/crates/crn-craft/src/ssa.rs
++++ b/crates/crn-craft/src/ssa.rs
+@@ -321,7 +321,7 @@ struct Workspace {
+     minima: Vec<f64>,
+     tree: RateTree,
+     composition: Composition,
+-    order: Vec<usize>,
++    sorting: selectors::Sorting,
+     bounds: bounds::Bounds,
+ }
+ 
+@@ -362,8 +362,7 @@ fn path<const MODE: u8, const ZIG: bool>(
+             space.composition.reset(n);
+         }
+         if MODE == 3 {
+-            space.order.clear();
+-            space.order.extend(0..n);
++            space.sorting.reset(n);
+         }
+     }
+     if MODE == 4 {
+@@ -428,6 +427,9 @@ fn path<const MODE: u8, const ZIG: bool>(
+                     let a = network.propensity_in_valid_state(rx, state)?;
+                     draws.work.propensity_evaluations += 1;
+                     space.rates[rx] = a;
++                    if MODE == 3 {
++                        space.sorting.update(rx, a);
++                    }
+                     if MODE >= 2 {
+                         space
+                             .tree
+@@ -455,6 +457,9 @@ fn path<const MODE: u8, const ZIG: bool>(
+                     let a = network.propensity_in_valid_state(rx, state)?;
+                     draws.work.propensity_evaluations += 1;
+                     space.rates[rx] = a;
++                    if MODE == 3 {
++                        space.sorting.update(rx, a);
++                    }
+                     if MODE >= 2 {
+                         space
+                             .tree
+@@ -513,13 +518,7 @@ fn path<const MODE: u8, const ZIG: bool>(
+                     .sample(&space.tree, &mut rng, &mut draws)?
+             } else if MODE == 3 {
+                 draws.work.proposals += 1;
+-                selectors::sorting_sample(
+-                    &mut space.order,
+-                    &space.rates,
+-                    total,
+-                    &mut rng,
+-                    &mut draws,
+-                )?
++                space.sorting.sample(total, &mut rng, &mut draws)?
+             } else {
+                 draws.work.proposals += 1;
+                 sampling::select_from_prefix(&space.prefix, total, draws.closed(&mut rng)?)?
+diff --git a/crates/crn-craft/src/ssa/selectors.rs b/crates/crn-craft/src/ssa/selectors.rs
+index 2dbf5c9..11f5331 100644
+--- a/crates/crn-craft/src/ssa/selectors.rs
++++ b/crates/crn-craft/src/ssa/selectors.rs
+@@ -14,6 +14,7 @@ use rand_core::RngCore;
+ /// at or above the sequential sum is redrawn (each draw counts against the
+ /// sampling budget), so accepted thresholds are uniform below the sum that the
+ /// scan actually partitions.
++#[cfg(test)]
+ pub(super) fn sorting_sample(
+     order: &mut [usize],
+     rates: &[f64],
+@@ -50,6 +51,65 @@ pub(super) fn sorting_sample(
+     }
+ }
+ 
++/// Exact learned order, with rates stored contiguously in that same order.
++#[derive(Default)]
++pub(super) struct Sorting {
++    order: Vec<usize>,
++    rates: Vec<f64>,
++    positions: Vec<usize>,
++}
++impl Sorting {
++    pub(super) fn reset(&mut self, n: usize) {
++        self.order.clear();
++        self.order.extend(0..n);
++        self.positions.clear();
++        self.positions.extend(0..n);
++        self.rates.resize(n, 0.0);
++        self.rates.fill(0.0);
++    }
++    pub(super) fn update(&mut self, rx: usize, a: f64) {
++        self.rates[self.positions[rx]] = a;
++    }
++    pub(super) fn sample(
++        &mut self,
++        total: f64,
++        rng: &mut impl RngCore,
++        draws: &mut Draws,
++    ) -> Result<usize, Bail> {
++        loop {
++            let threshold = draws.closed(rng)? * total;
++            if threshold >= total {
++                return Err(numeric("sorting threshold rounded to total").into());
++            }
++            let mut sum = 0.0;
++            for (position, &rate) in self.rates.iter().enumerate() {
++                if position % 64 == 63 {
++                    draws.poll()?;
++                }
++                let next = sum + rate;
++                if rate > 0.0 && next <= sum {
++                    return Err(numeric("sorting sum loses a positive channel").into());
++                }
++                sum = next;
++                if threshold < sum {
++                    let channel = self.order[position];
++                    if position > 0 {
++                        self.order.swap(position, position - 1);
++                        self.rates.swap(position, position - 1);
++                        self.positions[self.order[position]] = position;
++                        self.positions[channel] = position - 1;
++                    }
++                    return Ok(channel);
++                }
++            }
++            if sum == 0.0 {
++                return Err(numeric("sorting selection has no positive channel").into());
++            }
++            draws.poll()?;
++        }
++    }
++}
++
+ #[derive(Clone, Copy)]
+ struct Node {
+     sum: f64,
+@@ -351,6 +411,50 @@ impl Composition {
+ mod tests {
+     use super::*;
+     #[test]
++    fn contiguous_sorting_replays_indirect_reference_after_updates_and_swaps() {
++        let control = crate::simulation::Control::default();
++        let mut p = crate::simulation::Poller::new(&control, std::time::Instant::now(), None);
++        let mut q = crate::simulation::Poller::new(&control, std::time::Instant::now(), None);
++        let mut a = super::super::Work::default();
++        let mut b = super::super::Work::default();
++        let mut d = Draws {
++            limit: 100000,
++            work: &mut a,
++            poller: &mut p,
++        };
++        let mut e = Draws {
++            limit: 100000,
++            work: &mut b,
++            poller: &mut q,
++        };
++        let mut r = crate::sampling::stream(400, 8);
++        let mut t = crate::sampling::stream(400, 8);
++        let mut cached = Sorting::default();
++        cached.reset(65);
++        let mut rates = vec![1.0; 65];
++        let mut order: Vec<_> = (0..65).collect();
++        for i in 0..65 {
++            cached.update(i, 1.0);
++        }
++        for turn in 0..2048 {
++            let i = (turn * 13) % 65;
++            let value = (turn % 7) as f64 / 8.0;
++            rates[i] = value;
++            cached.update(i, value);
++            let total = rates.iter().sum();
++            assert_eq!(
++                sorting_sample(&mut order, &rates, total, &mut r, &mut d).ok(),
++                cached.sample(total, &mut t, &mut e).ok()
++            );
++            assert_eq!(order, cached.order);
++            for (position, &rx) in order.iter().enumerate() {
++                assert_eq!(cached.rates[position], rates[rx]);
++                assert_eq!(cached.positions[rx], position);
++            }
++        }
++        assert_eq!(d.work.rng_words, e.work.rng_words);
++    }
++    #[test]
+     fn composition_matches_declared_categorical_dkw_bound_after_membership_changes() {
+         let rates = [0.0, 0.125, 0.5, 1.0, 2.0, 7.0, 8.0, 50.0];
+         let mut tree = RateTree::default();

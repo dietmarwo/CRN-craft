@@ -10,6 +10,7 @@ pub(super) fn exponential(rng: &mut impl RngCore, draws: &mut Draws) -> Result<f
         let word = draws.word(rng)? & 0x000f_ffff_ffff_ffff;
         // Exact zero is excluded, as it is in the legacy inverse sampler.
         if word == 0 {
+            draws.retry()?;
             continue;
         }
         let index = (word & 255) as usize;
@@ -24,6 +25,7 @@ pub(super) fn exponential(rng: &mut impl RngCore, draws: &mut Draws) -> Result<f
         if y < libm::exp(-x) {
             return Ok(x);
         }
+        draws.retry()?;
     }
 }
 
@@ -54,6 +56,7 @@ mod tests {
             limit: 10_000_000,
             work: &mut w,
             poller: &mut p,
+            fast: false,
         };
         let mut rng = sampling::stream(4242, 778);
         let mut bins = [0u64; 91];
@@ -109,6 +112,7 @@ mod tests {
             limit: 4,
             work: &mut w,
             poller: &mut p,
+            fast: false,
         };
         let mut rng = Words {
             words: vec![0],

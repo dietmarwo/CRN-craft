@@ -1,7 +1,7 @@
 //! Immutable, validated indexed representation and checked reaction operations.
 use crate::contracts::{Model, Rate, Scalar};
 use crate::diagnostic::{Diagnostic, Severity, pointer};
-use crate::rates::CompiledRate;
+use crate::rates::{CompiledRate, MassKernel};
 use crate::validate::validate_model;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -75,8 +75,12 @@ impl CompiledNetwork {
         let mut readers = vec![Vec::new(); model.species.len()];
         let mut hill_laws = 0;
         for (id, reaction) in model.reactions.iter().enumerate() {
+            let reactants = sparse(&reaction.reactants);
             let rate = match &reaction.rate {
-                Rate::MassAction { coefficient } => CompiledRate::MassAction(resolve(coefficient)),
+                Rate::MassAction { coefficient } => {
+                    let c = resolve(coefficient);
+                    CompiledRate::MassAction(c, MassKernel::compile(c, &reactants))
+                }
                 Rate::HillActivation {
                     regulator,
                     vmax,
@@ -112,7 +116,6 @@ impl CompiledNetwork {
                     km: resolve(km),
                 },
             };
-            let reactants = sparse(&reaction.reactants);
             let products = sparse(&reaction.products);
             let mut changes = BTreeMap::new();
             for term in &reactants {

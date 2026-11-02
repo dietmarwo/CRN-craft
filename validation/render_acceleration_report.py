@@ -293,6 +293,30 @@ same prepared boundary. Ratios use unrounded medians; CRN / Julia above 1 means
 Julia was faster.
 
 {summary}
+**Update with `fast` (projected, not remeasured).** Comparisons now time
+CRN-craft with the opt-in `fast` switch, which emulates JumpProcesses' policy
+(Xoshiro256++, running totals without loss or resolution checks, batched stop
+polls; see the [README](../README.md#exact-ssa-methods-and-the-fast-switch)).
+Julia's package hosts were again unreachable, so this table scales the CRN
+prepared medians of Astra's same-host rerun
+([gap10 comparison](comparison-julia-gap10.md), `validation/julia-gap10/comparison.json`)
+by the paired fast/default speedups measured on a different host
+(`validation/fast/fast-vs-default.json`). It is a projection, not a Julia
+measurement.
+
+| Workload | Fastest projected CRN with `fast` | Projected seconds | Fastest Julia | Julia seconds | CRN / Julia |
+|---|---|---|---|---|---|
+| W1 | cached Direct | 0.0493 | Direct | 0.0506 | 0.97× |
+| W2 | cached Direct | 0.0849 | RSSACR | 0.0980 | 0.87× |
+| W3 | cached Direct | 0.2322 | SortingDirect | 0.2920 | 0.80× |
+| W4 | RSSACR | 0.1137 | RSSACR | 0.1072 | 1.06× |
+| W5 | DirectCR | 0.0580 | DirectCR | 0.0484 | 1.20× |
+| W6 | RSSACR | 0.0544 | RSSACR | 0.0388 | 1.40× |
+| W7 | cached Direct | 0.0133 | RSSACR | 0.0138 | 0.96× |
+
+Projected geometric mean 1.02× (checked default, measured by Astra on the same
+host: 1.44×). A direct rerun with `fast` engines remains the authoritative check.
+
 **Update after the Julia-gap campaign (projected, not remeasured).** A
 follow-up campaign ([protocol](decisions/julia-gap-2026-11-02.md),
 [log](campaign/julia-gap-implementation-log-2026-11-02.md)) kept five of ten

@@ -70,7 +70,7 @@ def main():
     require(a == b, "installed cached identity")
     checks.append("native_API_exact_identity")
     require(
-        c.describe()["schema"] == "crn-craft.describe/0.6", "installed capabilities"
+        c.describe()["schema"] == "crn-craft.describe/0.7", "installed capabilities"
     )
     checks.append("discovery")
     with tempfile.TemporaryDirectory() as tmp:

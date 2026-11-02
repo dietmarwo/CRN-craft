@@ -6,6 +6,14 @@ use super::{
 };
 use crate::{network::CompiledNetwork, rates::CompiledRate};
 
+#[derive(Clone, Copy)]
+struct CachedRange {
+    start: i64,
+    end: i64,
+    minimum: f64,
+    maximum: f64,
+    positive: f64,
+}
 #[derive(Default)]
 pub(super) struct Bounds {
     low: Vec<i64>,
@@ -17,6 +25,7 @@ pub(super) struct Bounds {
     marks: Vec<u32>,
     generation: u32,
     dirty: Vec<usize>,
+    ranges: Vec<Option<CachedRange>>,
 }
 
 fn interval(count: i64, pinned: bool) -> (i64, i64) {
@@ -32,7 +41,7 @@ fn interval(count: i64, pinned: bool) -> (i64, i64) {
 
 fn elementary(rate: &CompiledRate, rx: &crate::network::ReactionStructure) -> bool {
     match rate {
-        CompiledRate::MassAction(c) => {
+        CompiledRate::MassAction(c, _) => {
             if *c == 0.0 || rx.reactants.is_empty() {
                 return true;
             }
@@ -70,6 +79,7 @@ impl Bounds {
         self.marks.fill(0);
         self.generation = 0;
         self.dirty.clear();
+        self.ranges.fill(None);
     }
 
     fn evaluate(
@@ -87,6 +97,7 @@ impl Bounds {
         &mut self,
         network: &CompiledNetwork,
         rx: usize,
+        group: usize,
         draws: &mut Draws,
     ) -> Result<(f64, f64, f64), Bail> {
         let structure = &network.reactions()[rx];
@@ -112,6 +123,18 @@ impl Bounds {
                 .find(|t| t.species == s)
                 .map_or(0, |t| t.coefficient);
             let start = self.low[s].max(gate);
+            if group != usize::MAX {
+                if let Some(Some(cached)) = self.ranges.get(group) {
+                    if cached.start == start && cached.end == self.high[s] {
+                        draws.poll()?;
+                        return Ok((
+                            if gated { 0.0 } else { cached.minimum },
+                            cached.maximum,
+                            cached.positive,
+                        ));
+                    }
+                }
+            }
             let mut minimum = f64::INFINITY;
             let mut positive = f64::INFINITY;
             let mut maximum: f64 = 0.0;
@@ -126,6 +149,18 @@ impl Bounds {
                     positive = positive.min(a);
                 }
             }
+            if group != usize::MAX {
+                if self.ranges.len() <= group {
+                    self.ranges.resize(group + 1, None);
+                }
+                self.ranges[group] = Some(CachedRange {
+                    start,
+                    end: self.high[s],
+                    minimum,
+                    maximum,
+                    positive,
+                });
+            }
             Ok((if gated { 0.0 } else { minimum }, maximum, positive))
         } else {
             let high = Self::evaluate(network, rx, &self.high, draws)?;
@@ -134,6 +169,9 @@ impl Bounds {
             } else {
                 Self::evaluate(network, rx, &self.low, draws)?
             };
+            if !gated {
+                return Ok((low, high, if low > 0.0 { low } else { f64::INFINITY }));
+            }
             // Lowest *enabled* state supplies the minimum positive mass-action
             // rate even when a lower corner is disabled by an availability gate.
             for t in &structure.reactants {
@@ -148,11 +186,22 @@ impl Bounds {
         }
     }
 
+    #[cfg(test)]
     fn bound(
         &mut self,
         network: &CompiledNetwork,
         rx: usize,
         state: &[i64],
+        draws: &mut Draws,
+    ) -> Result<(f64, f64, f64), Bail> {
+        self.bound_group(network, rx, state, usize::MAX, draws)
+    }
+    fn bound_group(
+        &mut self,
+        network: &CompiledNetwork,
+        rx: usize,
+        state: &[i64],
+        group: usize,
         draws: &mut Draws,
     ) -> Result<(f64, f64, f64), Bail> {
         if network.reactions()[rx]
@@ -166,7 +215,7 @@ impl Bounds {
             }
             return Ok((a, a, if a > 0.0 { a } else { f64::INFINITY }));
         }
-        match self.bounded(network, rx, draws) {
+        match self.bounded(network, rx, group, draws) {
             Ok(value) => Ok(value),
             Err(Bail::Numerical(_)) => {
                 // A neighboring state may be unrepresentable even if the
@@ -191,6 +240,7 @@ impl Bounds {
         &mut self,
         network: &CompiledNetwork,
         readers: &[Vec<usize>],
+        groups: &[usize],
         state: &[i64],
         previous: Option<usize>,
         tree: &mut RateTree,
@@ -229,7 +279,7 @@ impl Bounds {
         for k in 0..self.dirty.len() {
             draws.poll()?;
             let rx = self.dirty[k];
-            let (low, high, minimum) = self.bound(network, rx, state, draws)?;
+            let (low, high, minimum) = self.bound_group(network, rx, state, groups[rx], draws)?;
             self.positive_lower -= usize::from(self.lower[rx] > 0.0);
             self.positive_lower += usize::from(low > 0.0);
             self.lower[rx] = low;
@@ -259,6 +309,85 @@ mod tests {
             .unwrap()
     }
 
+    #[test]
+    fn shared_ranges_preserve_distinct_gates_and_feasible_regulator_intervals() {
+        let value = json!({"schema":"crn-craft.model/0.1","name":"Shared","convention":"stochastic_counts","omega":1.,"parameters":{},
+          "species":[{"name":"X","initial_count":3},{"name":"G","initial_count":3}],
+          "reactions":[
+          {"name":"first","reactants":{"G":1},"products":{},"rate":{"kind":"michaelis_menten","substrate":"X","vmax":3.,"km":2.}},
+          {"name":"second","reactants":{"G":2,"X":1},"products":{},"rate":{"kind":"michaelis_menten","substrate":"X","vmax":3.,"km":2.}}]});
+        let net = CompiledNetwork::compile(
+            &crate::parse_model(&serde_json::to_vec(&value).unwrap()).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            net.compiled_rate(0).bounds_key(),
+            net.compiled_rate(1).bounds_key()
+        );
+        let control = Control::default();
+        let mut poll = Poller::new(&control, Instant::now(), None);
+        let mut work = Work::default();
+        let mut draws = Draws {
+            limit: 0,
+            work: &mut work,
+            poller: &mut poll,
+            fast: false,
+        };
+        let mut b = Bounds::default();
+        b.reset(&net, &[3, 3]);
+        b.low = vec![2, 2];
+        b.high = vec![6, 6];
+        b.scratch.clone_from(&b.high);
+        let first = b.bound_group(&net, 0, &[3, 3], 0, &mut draws).ok().unwrap();
+        let count = draws.work.propensity_evaluations;
+        assert_eq!(
+            first,
+            b.bound_group(&net, 1, &[3, 3], 0, &mut draws).ok().unwrap()
+        );
+        assert_eq!(count, draws.work.propensity_evaluations);
+        b.low = vec![0, 0];
+        for rx in 0..2 {
+            let (low, high, _) = b
+                .bound_group(&net, rx, &[3, 3], 0, &mut draws)
+                .ok()
+                .unwrap();
+            for x in 0..=6 {
+                for g in 0..=6 {
+                    let a = net.propensity(rx, &[x, g]).unwrap();
+                    assert!(a >= low && a <= high);
+                }
+            }
+        }
+        assert!(draws.work.propensity_evaluations > count);
+        b.reset(&net, &[3, 3]);
+        assert!(b.ranges.iter().all(Option::is_none));
+    }
+    #[test]
+    fn enabled_mass_action_corner_is_reused_as_the_positive_minimum() {
+        let net = network(
+            json!({"kind":"mass_action","coefficient":0.1}),
+            json!({"X":2}),
+        );
+        let control = Control::default();
+        let mut poll = Poller::new(&control, Instant::now(), None);
+        let mut work = Work::default();
+        let mut draws = Draws {
+            limit: 0,
+            work: &mut work,
+            poller: &mut poll,
+            fast: false,
+        };
+        let mut b = Bounds::default();
+        b.reset(&net, &[4, 3]);
+        b.low = vec![4, 0];
+        b.high = vec![8, 6];
+        b.scratch.clone_from(&b.high);
+        let (low, high, minimum) = b.bound(&net, 0, &[4, 3], &mut draws).ok().unwrap();
+        assert_eq!(low, minimum);
+        assert_eq!(low, net.propensity(0, &[4, 0]).unwrap());
+        assert_eq!(high, net.propensity(0, &[8, 6]).unwrap());
+        assert_eq!(draws.work.propensity_evaluations, 2);
+    }
     #[test]
     fn every_integer_state_is_enclosed_in_gated_custom_and_mass_action_boxes() {
         let mut cases = vec![
@@ -296,6 +425,7 @@ mod tests {
                 limit: 0,
                 work: &mut work,
                 poller: &mut poll,
+                fast: false,
             };
             let mut b = Bounds::default();
             b.reset(&net, &[3, 3]);
@@ -338,6 +468,7 @@ mod tests {
             limit: 0,
             work: &mut work,
             poller: &mut poll,
+            fast: false,
         };
         let mut tree = RateTree::default();
         tree.reset(1);
@@ -347,6 +478,7 @@ mod tests {
         b.refresh(
             &net,
             &readers,
+            &[usize::MAX],
             &[3, 3],
             None,
             &mut tree,
@@ -359,6 +491,7 @@ mod tests {
         b.refresh(
             &net,
             &readers,
+            &[usize::MAX],
             &[0, 3],
             Some(0),
             &mut tree,
@@ -384,6 +517,7 @@ mod tests {
             limit: 0,
             work: &mut work,
             poller: &mut poll,
+            fast: false,
         };
         let mut b = Bounds::default();
         b.reset(&net, &[1, 3]);

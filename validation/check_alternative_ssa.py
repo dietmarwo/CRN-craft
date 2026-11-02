@@ -74,9 +74,15 @@ def fixtures():
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--output", type=Path, required=True)
+    p.add_argument(
+        "--fast",
+        action="store_true",
+        help="validate method.fast (its own family of the same 210 comparisons)",
+    )
     args = p.parse_args()
     report = dict(
         schema="crn-craft.alternative-ssa-validation/0.1",
+        fast=args.fast,
         replicates_per_fixture=N,
         positive_time_cdf_tests=TESTS,
         family_alpha=ALPHA,
@@ -107,6 +113,7 @@ def main():
                     max_events=1_000_000,
                     max_sampling_steps=100_000_000,
                     max_output_bytes=268_435_456,
+                    fast=args.fast,
                 )
                 result = crn.simulate_ssa(model, request)
                 if (

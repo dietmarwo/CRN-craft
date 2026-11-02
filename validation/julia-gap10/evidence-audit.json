@@ -1,0 +1,24 @@
+{
+  "comparison_sources": 38,
+  "validation_report_unchanged": true,
+  "compressed_sample_files": 7,
+  "engine_sample_arrays": 119,
+  "distribution_checks": 6946,
+  "timing_observations": 1435,
+  "normal_optimized_identical": [
+    "check_contracts",
+    "check_alternative_contracts",
+    "check_python",
+    "check_alternative_ssa",
+    "check_ssa",
+    "check_cme",
+    "installed"
+  ],
+  "pinned_julia_source_files": 7,
+  "final_native_sha256": "f0fc400b8061701ee8d1265a6670fd36b8298d62539b6c06e855b67adccf11ee",
+  "final_wheel_sha256": {
+    "crn_craft-0.2.0.dev1-cp310-abi3-manylinux_2_34_x86_64.whl": "254dc7bba0bd9f5840913285ff90ed65022ef90ba3eb01257df275664c2152f9"
+  },
+  "baseline_extension_sha256": "d193fe36db321039157583a271ba6c3dbcfc193d5188cded9105489e1d1face1",
+  "passed": true
+}

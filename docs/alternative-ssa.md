@@ -34,13 +34,56 @@ crn-craft describe ssa-result
 crn-craft ssa model.json request.json [--cancel-file PATH]
 ```
 
-The request schema is `crn-craft.ssa-run/0.1`, and the result is
-`crn-craft.ssa-result/0.1`. These are standalone JSON results, not legacy sealed
+The request schema is `crn-craft.ssa-run/0.1` or `0.2`, and the result is
+`crn-craft.ssa-result/0.1` or `0.2` to match. These are standalone JSON results, not legacy sealed
 archives. The command exits 0 only for a completed ensemble; incomplete runs
 exit 1 and withhold ensemble statistics. Unknown fields, duplicate keys and
 mismatched model references are rejected. `max_output_bytes` covers compact
 result JSON including its trailing newline. If even minimal diagnostic evidence
 cannot fit, execution returns a coded error instead of oversized evidence.
+
+### The `fast` switch and ssa-run/0.2
+
+`crn-craft.ssa-run/0.2` adds an optional `method.fast` boolean (default
+`false`). With `fast: true`, every method keeps its selection algorithm but
+emulates JumpProcesses.jl's numerical policy:
+
+- random words come from Xoshiro256++, one state per replicate, seeded from a
+  keyed ChaCha8 stream with its own domain (`crn-craft.xoshiro256pp-fast/0.1`),
+  so results stay independent of the thread count and share no words with the
+  default methods at the same root seed;
+- DirectCR, SortingDirect and RSSACR keep a running total updated by
+  `+= new - old` instead of the pairwise tree, recomputed from the leaves every
+  65,536 updates or when it falls below 2^-30 of its recent peak; Direct and
+  cached Direct keep their prefix sums by additions only;
+- no lost-increment or 53-bit resolution checks; a positive rate below half an
+  ulp of its running sum is then never selected, as in Julia;
+- cooperative stops are polled every 256 event-loop iterations and before
+  every rejection retry, instead of before every random word.
+
+Selection remains exact for the totals in use (composition–rejection still
+accepts with probability rate/bound, and SortingDirect redraws a threshold
+beyond its scanned sum). Sampling budgets, population and event limits,
+checked state updates, cancellation and output budgets still apply. The
+sampler identity is `xoshiro256pp-u53/<method>/<wait>/fast-1`. The fast policy
+has its own exact-law gate: `check_alternative_ssa.py --fast` runs the same 210
+comparisons (100,000 paths per fixture, family alpha 0.001); it passes with a
+largest CDF error of 0.00526 against the 0.00805 limit and rejects all 20 wrong
+laws (`validation/fast/fast-laws.json`).
+
+`fast` is off by default because the default's guarantees cannot be checked
+after the fact: a result does not reveal that a tiny channel lost its
+probability or that a total drifted. Use it for well-scaled models where speed
+matters, and for benchmarks against tools that make the same choices.
+
+**Migrating from ssa-run/0.1.** Nothing changes for existing requests: 0.1 is
+still accepted, rejects `fast`, and returns `crn-craft.ssa-result/0.1` with the
+same bytes as before. To use `fast`, set `schema` to `crn-craft.ssa-run/0.2`
+and add `"fast": true` to `method`; the result is then
+`crn-craft.ssa-result/0.2`, and its `method` echoes `fast: true` (omitted when
+false). `crn.ssa_spec(..., fast=True)` writes such a request; without `fast`
+it still writes 0.1. Discovery (`describe/0.7`) lists both request versions
+under `alternative_exact_ssa`.
 
 ## Methods and numerical policy
 

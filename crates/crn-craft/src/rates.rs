@@ -24,9 +24,86 @@ impl std::fmt::Debug for Memo {
     }
 }
 
+/// Compiled elementary shape. Its arithmetic is the existing mass-action fast
+/// branch, including its multiplication order and n=2/3 homodimer cases.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum MassKernel {
+    Zero,
+    First(usize),
+    Dimer(usize),
+    Pair(usize, usize),
+    General,
+}
+impl MassKernel {
+    pub(crate) fn compile(c: f64, reactants: &[Term]) -> Self {
+        if reactants.is_empty() {
+            return Self::Zero;
+        }
+        if !c.is_normal() {
+            return Self::General;
+        }
+        match reactants {
+            [a] if a.coefficient == 1 => Self::First(a.species),
+            [a] if a.coefficient == 2 => Self::Dimer(a.species),
+            [a, b] if a.coefficient == 1 && b.coefficient == 1 => Self::Pair(a.species, b.species),
+            _ => Self::General,
+        }
+    }
+    #[inline]
+    fn value(self, c: f64, state: &[i64]) -> Option<f64> {
+        if c == 0.0 {
+            return Some(0.0);
+        }
+        let value = match self {
+            Self::Zero => return Some(c),
+            Self::First(s) => {
+                let n = state[s];
+                if n < 1 {
+                    return Some(0.0);
+                }
+                c * n as f64
+            }
+            Self::Dimer(s) => {
+                let n = state[s];
+                if n < 2 {
+                    return Some(0.0);
+                }
+                let first = if n == 2 {
+                    c
+                } else if n == 3 {
+                    c * 3.0
+                } else {
+                    c * (n - 1) as f64
+                };
+                let result = if n <= 3 {
+                    first
+                } else {
+                    first * (n as f64 / 2.0)
+                };
+                if !first.is_normal() {
+                    return None;
+                }
+                result
+            }
+            Self::Pair(s, t) => {
+                if state[s] < 1 || state[t] < 1 {
+                    return Some(0.0);
+                }
+                let first = c * state[s] as f64;
+                if !first.is_normal() {
+                    return None;
+                }
+                first * state[t] as f64
+            }
+            Self::General => return None,
+        };
+        value.is_normal().then_some(value)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) enum CompiledRate {
-    MassAction(f64),
+    MassAction(f64, MassKernel),
     Hill {
         regulator: usize,
         vmax: f64,
@@ -53,9 +130,37 @@ fn range_error(reaction: usize, reason: &str) -> Diagnostic {
 }
 
 impl CompiledRate {
+    /// Pure enabled-law identity. Availability gates are handled separately.
+    pub(crate) fn bounds_key(&self) -> Option<[u64; 7]> {
+        match *self {
+            Self::MassAction(..) => None,
+            Self::Hill {
+                regulator,
+                vmax,
+                basal,
+                k,
+                n,
+                repression,
+                ..
+            } => Some([
+                2,
+                regulator as u64,
+                vmax.to_bits(),
+                basal.to_bits(),
+                k.to_bits(),
+                n.to_bits(),
+                u64::from(repression),
+            ]),
+            Self::MichaelisMenten {
+                substrate,
+                vmax,
+                km,
+            } => Some([1, substrate as u64, vmax.to_bits(), km.to_bits(), 0, 0, 0]),
+        }
+    }
     pub(crate) fn extra_read(&self) -> Option<usize> {
         match self {
-            Self::MassAction(_) => None,
+            Self::MassAction(..) => None,
             Self::Hill { regulator, .. } => Some(*regulator),
             Self::MichaelisMenten { substrate, .. } => Some(*substrate),
         }
@@ -67,6 +172,11 @@ impl CompiledRate {
         reactants: &[Term],
         reaction: usize,
     ) -> Result<f64, Diagnostic> {
+        if let Self::MassAction(c, kernel) = *self {
+            if let Some(value) = kernel.value(c, state) {
+                return Ok(value);
+            }
+        }
         // Gate *before* evaluation, including custom and constant propensities.
         if reactants
             .iter()
@@ -75,7 +185,9 @@ impl CompiledRate {
             return Ok(0.0);
         }
         match *self {
-            Self::MassAction(coefficient) => mass_action(coefficient, state, reactants, reaction),
+            Self::MassAction(coefficient, _) => {
+                mass_action(coefficient, state, reactants, reaction)
+            }
             Self::Hill {
                 regulator,
                 vmax,
@@ -311,5 +423,83 @@ mod tests {
             unreachable!()
         };
         assert_eq!(memo.0.get().unwrap()[1].load(Ordering::Relaxed), EMPTY);
+    }
+}
+
+#[cfg(test)]
+mod kernel_tests {
+    use super::*;
+    #[test]
+    fn elementary_kernels_match_general_bits_and_diagnostics_at_extremes() {
+        let shapes = vec![
+            vec![],
+            vec![Term {
+                species: 0,
+                coefficient: 1,
+            }],
+            vec![Term {
+                species: 0,
+                coefficient: 2,
+            }],
+            vec![
+                Term {
+                    species: 0,
+                    coefficient: 1,
+                },
+                Term {
+                    species: 1,
+                    coefficient: 1,
+                },
+            ],
+            vec![Term {
+                species: 0,
+                coefficient: 3,
+            }],
+        ];
+        let counts = [
+            0,
+            1,
+            2,
+            3,
+            4,
+            10,
+            9_007_199_254_740_991,
+            9_007_199_254_740_993,
+            i64::MAX,
+        ];
+        for reactants in shapes {
+            for c in [
+                0.0,
+                -0.0,
+                f64::from_bits(1),
+                f64::MIN_POSITIVE,
+                1e-300,
+                0.1,
+                1.0,
+                1e200,
+                f64::MAX,
+            ] {
+                let compiled = CompiledRate::MassAction(c, MassKernel::compile(c, &reactants));
+                let general = CompiledRate::MassAction(c, MassKernel::General);
+                for x in counts {
+                    for y in counts {
+                        let a = compiled.evaluate(&[x, y], &reactants, 7);
+                        let b = general.evaluate(&[x, y], &reactants, 7);
+                        match (a, b) {
+                            (Ok(a), Ok(b)) => assert_eq!(a.to_bits(), b.to_bits()),
+                            (Err(a), Err(b)) => assert_eq!(
+                                serde_json::to_value(a).unwrap(),
+                                serde_json::to_value(b).unwrap()
+                            ),
+                            _ => panic!("kernel/fallback differ"),
+                        }
+                    }
+                }
+            }
+        }
+        eprintln!(
+            "CompiledRate size {} bytes",
+            std::mem::size_of::<CompiledRate>()
+        );
     }
 }

@@ -16,17 +16,23 @@ use rand_core::RngCore;
 use schemars::JsonSchema;
 use selectors::{Composition, RateTree};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::{collections::BTreeMap, path::Path};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum RequestVersion {
     #[serde(rename = "crn-craft.ssa-run/0.1")]
     V01,
+    /// Adds the optional `method.fast` switch.
+    #[serde(rename = "crn-craft.ssa-run/0.2")]
+    V02,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ResultVersion {
     #[serde(rename = "crn-craft.ssa-result/0.1")]
     V01,
+    /// Answers an ssa-run/0.2 request; `method` may carry `fast: true`.
+    #[serde(rename = "crn-craft.ssa-result/0.2")]
+    V02,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -60,12 +66,24 @@ pub enum Method {
     Ssa {
         aggregator: Algorithm,
         waiting_time: WaitingTime,
+        /// ssa-run/0.2 only, default false. Emulates JumpProcesses.jl:
+        /// Xoshiro256++ words, running totals updated by `+= new - old`
+        /// without loss or 53-bit resolution checks, and stop polls per batch
+        /// of events instead of per random word. Selection stays exact for
+        /// the running totals; paths differ from the default and replay only
+        /// with `fast` set.
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        fast: bool,
     },
 }
 impl Method {
     fn algorithm(self) -> Algorithm {
         let Self::Ssa { aggregator, .. } = self;
         aggregator
+    }
+    fn fast(self) -> bool {
+        let Self::Ssa { fast, .. } = self;
+        fast
     }
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -199,10 +217,19 @@ pub struct Prepared {
     core: simulation::Prepared,
     request: Request,
     readers: Vec<Vec<usize>>,
+    bound_groups: Vec<usize>,
 }
 
 pub fn prepare(model: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec<Diagnostic>> {
     let request: Request = crate::strict_json::parse(request_bytes).map_err(|e| vec![e])?;
+    if request.method.fast() && request.schema == RequestVersion::V01 {
+        return Err(vec![Diagnostic::error(
+            "CRN-E020",
+            "/method/fast",
+            "fast requires crn-craft.ssa-run/0.2",
+            "Set schema to crn-craft.ssa-run/0.2, or remove fast for the default exact policy.",
+        )]);
+    }
     let legacy = serde_json::to_vec(&request.legacy())
         .map_err(|e| vec![simulation::execution_error(e.to_string())])?;
     let mut core = simulation::prepare(model, &legacy)?;
@@ -234,10 +261,19 @@ pub fn prepare(model: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec<Diagn
             readers[s].push(rx);
         }
     }
+    let mut group_keys = BTreeMap::new();
+    let mut bound_groups = vec![usize::MAX; reactions as usize];
+    for (rx, slot) in bound_groups.iter_mut().enumerate() {
+        if let Some(key) = core.network.compiled_rate(rx).bounds_key() {
+            let next = group_keys.len();
+            *slot = *group_keys.entry(key).or_insert(next);
+        }
+    }
     Ok(Prepared {
         core,
         request,
         readers,
+        bound_groups,
     })
 }
 
@@ -263,6 +299,9 @@ struct Draws<'a, 'b> {
     limit: u64,
     work: &'a mut Work,
     poller: &'a mut Poller<'b>,
+    /// `fast` polls for stops per batch of event-loop iterations and on
+    /// rejection retries, not before every random word.
+    fast: bool,
 }
 impl Draws<'_, '_> {
     fn poll(&mut self) -> Result<(), Bail> {
@@ -272,8 +311,14 @@ impl Draws<'_, '_> {
             Ok(())
         }
     }
+    /// Before redrawing in a rejection loop (exact runs already polled per word).
+    fn retry(&mut self) -> Result<(), Bail> {
+        if self.fast { self.poll() } else { Ok(()) }
+    }
     fn word(&mut self, rng: &mut impl RngCore) -> Result<u64, Bail> {
-        self.poll()?;
+        if !self.fast {
+            self.poll()?;
+        }
         if self.work.rng_words >= self.limit {
             return Err(Bail::SamplingLimit);
         }
@@ -289,6 +334,7 @@ impl Draws<'_, '_> {
             if u > 0.0 {
                 return Ok(u);
             }
+            self.retry()?;
         }
     }
     fn index(&mut self, rng: &mut impl RngCore, n: usize) -> Result<usize, Bail> {
@@ -299,6 +345,7 @@ impl Draws<'_, '_> {
             if product as u64 >= cutoff {
                 return Ok((product >> 64) as usize);
             }
+            self.retry()?;
         }
     }
 }
@@ -315,15 +362,32 @@ struct Workspace {
     bounds: bounds::Bounds,
 }
 
-fn path<const MODE: u8, const ZIG: bool>(
+fn path<const MODE: u8, const ZIG: bool, const FAST: bool>(
     prepared: &Prepared,
     id: u64,
     poller: &mut Poller,
     space: &mut Workspace,
 ) -> (PathResult, Work) {
+    let seed = prepared.core.run.ensemble.as_ref().unwrap().root_seed;
+    if FAST {
+        run_path::<MODE, ZIG, FAST, _>(prepared, id, poller, space, sampling::fast_stream(seed, id))
+    } else {
+        run_path::<MODE, ZIG, FAST, _>(prepared, id, poller, space, sampling::stream(seed, id))
+    }
+}
+
+/// Stop polls in `fast` runs: one per this many event-loop iterations.
+const FAST_POLL_STRIDE: u64 = 256;
+
+fn run_path<const MODE: u8, const ZIG: bool, const FAST: bool, R: RngCore>(
+    prepared: &Prepared,
+    id: u64,
+    poller: &mut Poller,
+    space: &mut Workspace,
+    mut rng: R,
+) -> (PathResult, Work) {
     let network = &prepared.core.network;
     let run = &prepared.core.run;
-    let mut rng = sampling::stream(run.ensemble.as_ref().unwrap().root_seed, id);
     let mut record = Replicate {
         id,
         started: false,
@@ -338,6 +402,7 @@ fn path<const MODE: u8, const ZIG: bool>(
         limit: prepared.request.budget.max_sampling_steps_per_replicate,
         work: &mut work,
         poller,
+        fast: FAST,
     };
     let state = &mut space.state;
     state.clear();
@@ -347,7 +412,7 @@ fn path<const MODE: u8, const ZIG: bool>(
     space.prefix.resize(n, 0.0);
     space.minima.resize(n, 0.0);
     if MODE >= 2 {
-        space.tree.reset(n);
+        space.tree.reset_fast(n, FAST);
         if MODE == 2 || MODE == 4 {
             space.composition.reset(n);
         }
@@ -367,6 +432,7 @@ fn path<const MODE: u8, const ZIG: bool>(
     let mut bounds_initialized = false;
     let mut absorption_checked = false;
     let mut absorbed = false;
+    let mut iterations: u64 = 0;
     let outcome = (|| -> Result<Stop, Bail> {
         draws.poll()?;
         record.started = true;
@@ -379,7 +445,10 @@ fn path<const MODE: u8, const ZIG: bool>(
             if time == run.time.end {
                 return Ok(Stop::Completed);
             }
-            draws.poll()?;
+            if !FAST || iterations % FAST_POLL_STRIDE == 0 {
+                draws.poll()?;
+            }
+            iterations += 1;
             if record.events >= run.budget.max_events_per_replicate.unwrap() {
                 return Ok(Stop::EventLimit);
             }
@@ -388,6 +457,7 @@ fn path<const MODE: u8, const ZIG: bool>(
                     space.bounds.refresh(
                         network,
                         &prepared.readers,
+                        &prepared.bound_groups,
                         state,
                         previous.take(),
                         &mut space.tree,
@@ -411,7 +481,7 @@ fn path<const MODE: u8, const ZIG: bool>(
             } else if MODE > 0 && previous.is_some() {
                 let affected = &network.dependencies()[previous.unwrap()];
                 for (k, &rx) in affected.iter().enumerate() {
-                    if k % 64 == 0 {
+                    if k % 64 == 0 && (!FAST || k > 0) {
                         draws.poll()?;
                     }
                     let a = network.propensity_in_valid_state(rx, state)?;
@@ -428,12 +498,16 @@ fn path<const MODE: u8, const ZIG: bool>(
                 }
                 if MODE == 1 {
                     if let Some(&first) = affected.first() {
-                        total = sampling::resume_total(
-                            &space.rates,
-                            &mut space.prefix,
-                            &mut space.minima,
-                            first,
-                        )?;
+                        total = if FAST {
+                            sampling::fast_prefix(&space.rates, &mut space.prefix, first)?
+                        } else {
+                            sampling::resume_total(
+                                &space.rates,
+                                &mut space.prefix,
+                                &mut space.minima,
+                                first,
+                            )?
+                        };
                     }
                 }
             } else {
@@ -453,10 +527,11 @@ fn path<const MODE: u8, const ZIG: bool>(
                         }
                     }
                 }
-                if MODE == 0 {
+                if FAST && MODE <= 1 {
+                    total = sampling::fast_prefix(&space.rates, &mut space.prefix, 0)?;
+                } else if MODE == 0 {
                     total = sampling::total_with_prefix(&space.rates, &mut space.prefix)?;
-                }
-                if MODE == 1 {
+                } else if MODE == 1 {
                     total = sampling::resume_total(
                         &space.rates,
                         &mut space.prefix,
@@ -571,57 +646,52 @@ fn path<const MODE: u8, const ZIG: bool>(
 
 pub fn execute(prepared: &Prepared, control: &Control) -> Result<SsaResult, Diagnostic> {
     let algorithm = prepared.request.method.algorithm();
-    let Method::Ssa { waiting_time, .. } = prepared.request.method;
-    let sampler = format!(
-        "chacha8-u53/{}/{}/{}",
-        algorithm.name(),
-        match waiting_time {
-            WaitingTime::Inverse => "inverse",
-            WaitingTime::Ziggurat => "ziggurat256-julia",
-        },
-        // Version 2: composition draws member and acceptance from one word.
-        if matches!(algorithm, Algorithm::DirectCr | Algorithm::RssaCr) {
-            2
-        } else {
-            1
-        }
-    );
+    let Method::Ssa {
+        waiting_time, fast, ..
+    } = prepared.request.method;
+    let wait = match waiting_time {
+        WaitingTime::Inverse => "inverse",
+        WaitingTime::Ziggurat => "ziggurat256-julia",
+    };
+    let sampler = if fast {
+        format!("xoshiro256pp-u53/{}/{wait}/fast-1", algorithm.name())
+    } else {
+        format!(
+            "chacha8-u53/{}/{wait}/{}",
+            algorithm.name(),
+            // Version 2: composition draws member and acceptance from one word.
+            if matches!(algorithm, Algorithm::DirectCr | Algorithm::RssaCr) {
+                2
+            } else {
+                1
+            }
+        )
+    };
+    macro_rules! run {
+        ($mode:literal, $zig:literal, $id:expr, $poller:expr, $work:expr) => {
+            if fast {
+                path::<$mode, $zig, true>(prepared, $id, $poller, $work)
+            } else {
+                path::<$mode, $zig, false>(prepared, $id, $poller, $work)
+            }
+        };
+    }
     let (simulation, metrics) = simulation::execute_paths::<Workspace, Work, _>(
         &prepared.core,
         control,
         &sampler,
         None,
         |id, poller, work| match (algorithm, waiting_time) {
-            (Algorithm::Direct, WaitingTime::Inverse) => {
-                path::<0, false>(prepared, id, poller, work)
-            }
-            (Algorithm::CachedDirect, WaitingTime::Inverse) => {
-                path::<1, false>(prepared, id, poller, work)
-            }
-            (Algorithm::DirectCr, WaitingTime::Inverse) => {
-                path::<2, false>(prepared, id, poller, work)
-            }
-            (Algorithm::SortingDirect, WaitingTime::Inverse) => {
-                path::<3, false>(prepared, id, poller, work)
-            }
-            (Algorithm::Direct, WaitingTime::Ziggurat) => {
-                path::<0, true>(prepared, id, poller, work)
-            }
-            (Algorithm::CachedDirect, WaitingTime::Ziggurat) => {
-                path::<1, true>(prepared, id, poller, work)
-            }
-            (Algorithm::DirectCr, WaitingTime::Ziggurat) => {
-                path::<2, true>(prepared, id, poller, work)
-            }
-            (Algorithm::SortingDirect, WaitingTime::Ziggurat) => {
-                path::<3, true>(prepared, id, poller, work)
-            }
-            (Algorithm::RssaCr, WaitingTime::Inverse) => {
-                path::<4, false>(prepared, id, poller, work)
-            }
-            (Algorithm::RssaCr, WaitingTime::Ziggurat) => {
-                path::<4, true>(prepared, id, poller, work)
-            }
+            (Algorithm::Direct, WaitingTime::Inverse) => run!(0, false, id, poller, work),
+            (Algorithm::CachedDirect, WaitingTime::Inverse) => run!(1, false, id, poller, work),
+            (Algorithm::DirectCr, WaitingTime::Inverse) => run!(2, false, id, poller, work),
+            (Algorithm::SortingDirect, WaitingTime::Inverse) => run!(3, false, id, poller, work),
+            (Algorithm::RssaCr, WaitingTime::Inverse) => run!(4, false, id, poller, work),
+            (Algorithm::Direct, WaitingTime::Ziggurat) => run!(0, true, id, poller, work),
+            (Algorithm::CachedDirect, WaitingTime::Ziggurat) => run!(1, true, id, poller, work),
+            (Algorithm::DirectCr, WaitingTime::Ziggurat) => run!(2, true, id, poller, work),
+            (Algorithm::SortingDirect, WaitingTime::Ziggurat) => run!(3, true, id, poller, work),
+            (Algorithm::RssaCr, WaitingTime::Ziggurat) => run!(4, true, id, poller, work),
         },
     )?;
     let r = simulation.result;
@@ -653,7 +723,10 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<SsaResult, Diag
         stop = Termination::OutputLimit;
     }
     let mut result = SsaResult {
-        schema: ResultVersion::V01,
+        schema: match prepared.request.schema {
+            RequestVersion::V01 => ResultVersion::V01,
+            RequestVersion::V02 => ResultVersion::V02,
+        },
         method: prepared.request.method,
         model_sha256: r.model_sha256,
         run_sha256: r.run_sha256,

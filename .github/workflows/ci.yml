@@ -104,6 +104,9 @@ jobs:
       - run: python validation/check_alternative_ssa.py --output alternative-laws.json
       - run: python -O validation/check_alternative_ssa.py --output alternative-laws-optimized.json
       - run: diff alternative-laws.json alternative-laws-optimized.json
+      - run: python validation/check_alternative_ssa.py --fast --output fast-laws.json
+      - run: python -O validation/check_alternative_ssa.py --fast --output fast-laws-optimized.json
+      - run: diff fast-laws.json fast-laws-optimized.json
       - run: python validation/check_importers.py --output importers.json
       - run: python -O validation/check_importers.py --output importers-optimized.json
       - run: diff importers.json importers-optimized.json

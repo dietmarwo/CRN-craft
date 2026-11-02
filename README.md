@@ -18,6 +18,7 @@ Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/ar
 - [Comparison with GillesPy2](docs/comparison-gillespy2.md): same models, timed against GillesPy2's C++ and NumPy solvers
 - [Alternative exact SSA methods](docs/alternative-ssa.md): versioned requests, prepared Python calls, bounded sampling and gated RSSACR bounds
 - [Comparison with Catalyst and JumpProcesses](docs/comparison-catalyst-jumpprocesses.md): seven workloads, five Julia SSA algorithms and the new Rust methods, with pinned environments and distribution checks; the [earlier comparison](docs/comparison-catalyst-jumpprocesses-before-acceleration.md) is preserved
+- [Ten further Julia-gap iterations](docs/comparison-julia-gap10.md): same-host GitHub-main/final/Julia rerun, all methods, exposed regressions and [inspected Julia mechanisms](docs/campaign/julia-gap10-source-investigation.md)
 - [Agent context](docs/ai-context.md): what an AI agent needs to use and extend CRN-craft
 
 **Using CRN-craft**
@@ -52,6 +53,8 @@ Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/ar
 - [Performance experiments P01–P10](docs/campaign/performance.md) and [P11–P20](docs/campaign/performance-p11-p20.md)
 - [Campaign implementation log](docs/campaign/implementation-log-2026-11-01.md) and [review of 1 November 2026](docs/campaign/review-2026-11-01.md)
 - [Exact-SSA acceleration log](docs/campaign/ssa-acceleration-implementation-log-2026-11-02.md) and [Julia-gap campaign log](docs/campaign/julia-gap-implementation-log-2026-11-02.md)
+- [Ten further iterations implementation log](docs/campaign/julia-gap10-implementation-log-2026-11-02.md), [fixed protocol](docs/decisions/julia-gap10-2026-11-02.md) and [raw evidence](validation/julia-gap10/README.md)
+- [The `fast` switch: implementation log](docs/campaign/fast-implementation-log-2026-11-02.md), with evidence in `validation/fast/`
 
 **Plans and decisions**
 
@@ -128,6 +131,57 @@ sha256sum models/examples/immigration-death.model.json
 ```
 
 Copy the returned digest into the corresponding run file. Do not assume that semantically equivalent JSON has the same byte identity. The repository's `.gitattributes` keeps LF line endings in every checkout, so the example hashes also hold with Git for Windows' `core.autocrlf=true`.
+
+## Exact SSA methods and the `fast` switch
+
+Besides the legacy `simulate`/`simulate-cached` archives, `crn-craft ssa MODEL REQUEST`
+runs five exact methods (`direct`, `cached_direct`, `direct_cr`, `sorting_direct`,
+`rssa_cr`) with inverse or Ziggurat waits; see [alternative exact SSA methods](docs/alternative-ssa.md).
+Requests with schema `crn-craft.ssa-run/0.2` accept one more switch, `method.fast`:
+
+```json
+"method": {"kind": "ssa", "aggregator": "direct_cr", "waiting_time": "ziggurat", "fast": true}
+```
+
+```python
+request = crn.ssa_spec(model, aggregator="cached_direct", waiting_time="ziggurat", fast=True)
+result = crn.simulate_ssa(model, request)
+```
+
+`fast` emulates what JumpProcesses.jl (and GillesPy2) do:
+
+| | `fast: false` (default) | `fast: true` |
+|---|---|---|
+| Random words | ChaCha8, keyed per replicate | Xoshiro256++ per replicate (Julia's generator), seeded from its own keyed stream |
+| Totals | Exact pairwise tree or ordered sums, rebuilt without drift | Running totals updated by `+= new - old` (Direct: additions only), recomputed from the leaves every 65,536 updates |
+| Per-event checks | Rejects lost positive increments and channels below the 53-bit selection resolution | None |
+| Stop polling | Before every random word | Every 256 event-loop iterations and on rejection retries |
+| Kept in both | Exact selection for the totals in use, checked state updates, population/event/sampling budgets, cancellation, replay independent of the thread count | |
+
+`fast` made the new methods 1.09–4.3 times faster on the seven benchmark
+networks (W1–W7, `validation/fast/fast-vs-default.json`) and passes its own
+210-comparison exact-law gate (100,000 paths per fixture). Its sampler identity
+is `xoshiro256pp-u53/<method>/<wait>/fast-1`, so its paths differ from the
+default and replay only with `fast` set. Results answer with
+`crn-craft.ssa-result/0.2`; 0.1 requests are still accepted and give the same
+bytes as before.
+
+**Why `fast` is off by default.** CRN-craft's default promises that a result is
+exact to the resolution of its 53-bit uniforms: no positive channel silently
+loses its probability to rounding, totals carry no accumulated drift, and a
+cancellation request is seen before the next random word is drawn. Without
+those checks, a model whose rates span more than about 16 orders of magnitude
+can silently never fire its smallest channels, and a running total can drift
+from the true sum over long runs. Neither is visible in a result, so the
+default keeps the checks and `fast` is an explicit choice for workloads whose
+rates are well scaled, such as large parameter scans or benchmarks.
+
+**Benchmarks use `fast`.** Julia and GillesPy2 make none of these checks, so
+comparisons time CRN-craft with `fast: true` and report the checked default
+alongside. With `fast`, CRN-craft is 2.9–9.2 times faster than GillesPy2's C++
+solver on W1–W4 ([comparison](docs/comparison-gillespy2.md)); projected from
+the same-host Julia rerun, it is within 0.80–1.40 times JumpProcesses.jl's
+fastest method on W1–W7 (geometric mean 1.02; [comparison](docs/comparison-catalyst-jumpprocesses.md)).
 
 ## Developer checks
 

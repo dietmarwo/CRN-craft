@@ -86,7 +86,7 @@ def main():
             "tau",
             "ssa",
         ]
-        and capabilities["schema"] == "crn-craft.describe/0.6",
+        and capabilities["schema"] == "crn-craft.describe/0.7",
     )
 
     examples = ROOT / "models/examples"

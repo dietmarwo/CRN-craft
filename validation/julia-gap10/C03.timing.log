@@ -1,0 +1,6 @@
+C03 round 1
+C03 round 2
+C03 round 3
+C03 round 4
+C03 round 5
+{"iteration": "C03", "accepted": false, "target_speedup": 0.9898479571814557, "guard_speedup": 0.9890943705345985, "target_rounds": [1.011169428374664, 1.0040084334359567, 0.9730445311978676, 0.995989558740556, 1.0477860187633345]}

@@ -14,9 +14,18 @@ thread, with independent random streams in the two simulators. The script
    with the exact law;
 3. times, interleaved: the CRN-craft CLI (`simulate`, `simulate-cached`;
    process wall and core time), the CRN-craft Python API (`crn.simulate`,
-   plain and cached; call wall time), GillesPy2's compiled SSACSolver
-   (compiled once, compile time reported separately) and its
-   NumPySSASolver.
+   plain and cached; and `crn.simulate_ssa` with `fast=True` for the
+   cached Direct, DirectCR, SortingDirect and RSSACR methods with Ziggurat
+   waits; call wall time), GillesPy2's compiled SSACSolver (compiled once,
+   compile time reported separately) and its NumPySSASolver.
+
+`fast=True` is CRN-craft's opt-in JumpProcesses-style policy (Xoshiro256++,
+running totals without loss or resolution checks, batched stop polls). Like
+GillesPy2, it does not check every positive channel against the 53-bit
+selection resolution, so it is the like-for-like setting; the checked default
+(`fast` off) is timed as well. The fast cached Direct method is the closest
+algorithmic match to GillesPy2's SSACSolver (Direct method); it is also
+validated against GillesPy2 below.
 
 W4: every reaction changes all eight species by the same amount, so they
 stay equal and CRN-craft's reactant gates on the Michaelis-Menten deaths are
@@ -49,6 +58,7 @@ from benchmark_campaign import models
 
 NAMES = {"two_channel": "W1", "sparse_66": "W2", "circuit_12": "W3", "dense_66": "W4"}
 HORIZON, PATHS, SEED, CHECK_PATHS = 100.0, 64, 4242, 512
+FAST = ["cached_direct", "direct_cr", "sorting_direct", "rssa_cr"]
 
 
 def value(model, x):
@@ -128,6 +138,23 @@ def run_spec(model, paths, seed, keep):
     )
 
 
+def fast_spec(model, paths, seed, keep, aggregator):
+    return crn.ssa_spec(
+        encoded(model),
+        aggregator=aggregator,
+        waiting_time="ziggurat",
+        fast=True,
+        end=HORIZON,
+        save_times=[0.0, HORIZON],
+        replicates=paths,
+        seed=seed,
+        keep=keep,
+        max_events=10**9,
+        max_sampling_steps=10**10,
+        max_output_bytes=200_000_000,
+    )
+
+
 def exact_poisson(name):
     """Mean of the Poisson law of every species at t = 100, if known."""
     if name == "two_channel":
@@ -137,11 +164,16 @@ def exact_poisson(name):
     return None
 
 
-def validate(name, model, gmodel, solver):
-    ours = crn.simulate(
-        encoded(model), run_spec(model, CHECK_PATHS, 777, CHECK_PATHS), cached=True
+def validate(name, model, gmodel, solver, fast=False):
+    if fast:
+        spec = fast_spec(model, CHECK_PATHS, 778, CHECK_PATHS, "cached_direct")
+        ours = crn.simulate_ssa(encoded(model), spec)
+    else:
+        spec = run_spec(model, CHECK_PATHS, 777, CHECK_PATHS)
+        ours = crn.simulate(encoded(model), spec, cached=True)
+    theirs = gmodel.run(
+        solver=solver, number_of_trajectories=CHECK_PATHS, seed=779 if fast else 777
     )
-    theirs = gmodel.run(solver=solver, number_of_trajectories=CHECK_PATHS, seed=777)
     names = [s["name"] for s in model["species"]]
     a = np.array([p["counts"][-1] for p in ours["trajectories"]], dtype=float)
     b = np.array([[t[n][-1] for n in names] for t in theirs], dtype=float)
@@ -228,22 +260,27 @@ def plot(report, path):
         "W4": "W4 dense 66",
     }
     series = [
-        ("python_cached", "CRN-craft simulate-cached", "#2a78d6"),
+        ("python_fast_cached_direct", "CRN-craft fast cached Direct", "#2a78d6"),
+        ("python_cached", "CRN-craft simulate-cached (checked default)", "#8fb5e6"),
         ("python_simulate", "CRN-craft simulate", "#eb6834"),
         ("gillespy2_ssa_cpp", "GillesPy2 SSACSolver (C++)", "#1baf7a"),
     ]
     names = list(report["workloads"])
     fig, axis = plt.subplots(figsize=(9, 3.8), facecolor="#fcfcfb")
     axis.set_facecolor("#fcfcfb")
-    width = 0.26
+    width = 0.2
+
+    def events(n, key):
+        entry = report["workloads"][n]
+        if key.startswith("python_fast_"):
+            return entry["fast_events"][key.removeprefix("python_fast_")]
+        return entry["crn_events"]
+
     for i, (key, label, color) in enumerate(series):
         values = [
-            1e9
-            * report["workloads"][n][key]["median"]
-            / report["workloads"][n]["crn_events"]
-            for n in names
+            1e9 * report["workloads"][n][key]["median"] / events(n, key) for n in names
         ]
-        x = [j + (i - 1) * width for j in range(len(names))]
+        x = [j + (i - 1.5) * width for j in range(len(names))]
         bars = axis.bar(x, values, width * 0.92, color=color, label=label)
         axis.bar_label(bars, fmt="%.0f", fontsize=8, color="#52514e", padding=2)
     axis.set_xticks(range(len(names)), [labels[n] for n in names])
@@ -284,7 +321,7 @@ def main():
     binary = args.binary.resolve()
     version = subprocess.run([str(binary), "--version"], capture_output=True)
     report = {
-        "schema": "crn-craft.gillespy2-comparison/0.1",
+        "schema": "crn-craft.gillespy2-comparison/0.2",
         "versions": {
             "crn_craft_cli": json.loads(version.stdout)["version"],
             "crn_craft_python": crn.__version__,
@@ -308,8 +345,11 @@ def main():
             compile_seconds = time.perf_counter() - start
             nsolver = gp.NumPySSASolver(model=gmodel)
             check = validate(name, model, gmodel, csolver)
+            fast_check = validate(name, model, gmodel, csolver, fast=True)
             mb, plain = encoded(model), run_spec(model, PATHS, SEED, 0)
             crn.simulate(mb, plain)  # warm-up
+            fast = {m: fast_spec(model, PATHS, SEED, 0, m) for m in FAST}
+            fast_events = {m: crn.simulate_ssa(mb, fast[m])["events"] for m in FAST}
             gmodel.run(solver=csolver, number_of_trajectories=PATHS, seed=SEED)
             rows = {
                 k: []
@@ -320,6 +360,7 @@ def main():
                     "cli_cached_core",
                     "python_simulate",
                     "python_cached",
+                    *[f"python_fast_{m}" for m in FAST],
                     "gillespy2_ssa_cpp",
                 ]
             }
@@ -338,6 +379,10 @@ def main():
                 rows["python_cached"].append(
                     timed(crn.simulate, mb, plain, cached=True)
                 )
+                for m in FAST:
+                    rows[f"python_fast_{m}"].append(
+                        timed(crn.simulate_ssa, mb, fast[m])
+                    )
                 rows["gillespy2_ssa_cpp"].append(
                     timed(
                         gmodel.run,
@@ -375,7 +420,9 @@ def main():
             entry["gillespy2_ssa_cpp_compile_seconds"] = compile_seconds
             entry["gillespy2_gates_omitted_as_redundant"] = redundant_gates
             entry["crn_events"] = events
+            entry["fast_events"] = fast_events
             entry["validation"] = check
+            entry["fast_validation"] = fast_check
             report["workloads"][label] = entry
             medians = {
                 k: round(v["median"], 4)

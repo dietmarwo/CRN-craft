@@ -5,8 +5,10 @@
 //! METHOD is `legacy_direct`, `legacy_cached` or an `ssa-run/0.1` aggregator
 //! (`direct`, `cached_direct`, `direct_cr`, `sorting_direct`, `rssa_cr`); WAIT is
 //! `inverse` or `ziggurat` (ignored by the legacy methods). Prints one JSON line
-//! with every timed run (seconds, excluding preparation), the event count and a
-//! SHA-256 of the numerical result, which must not change between repeats.
+//! with every timed run (seconds, excluding preparation), the event count, a
+//! SHA-256 of the whole result and a numerical SHA-256 that ignores work
+//! counters (random words, evaluations, bound updates). Neither may change
+//! between repeats.
 use crn_craft::{sha256, simulation, ssa};
 use serde_json::json;
 use std::{hint::black_box, time::Instant};
@@ -26,6 +28,7 @@ fn main() {
     let control = simulation::Control::default();
     let mut times = Vec::new();
     let mut digests = Vec::new();
+    let mut numerical = Vec::new();
     let mut events = 0;
     if let Some(variant) = method.strip_prefix("legacy_") {
         let run = serde_json::to_vec(&json!({
@@ -49,6 +52,7 @@ fn main() {
             let digest = sha256(&serde_json::to_vec(black_box(&result.result)).unwrap());
             if repeat > 0 {
                 times.push(elapsed);
+                numerical.push(digest.clone());
                 digests.push(digest);
             }
         }
@@ -68,17 +72,25 @@ fn main() {
             let elapsed = start.elapsed().as_secs_f64();
             events = result.events;
             let digest = sha256(&serde_json::to_vec(black_box(&result)).unwrap());
+            let mut value = serde_json::to_value(&result).unwrap();
+            value["work"] = json!(null);
+            for record in value["replicates"].as_array_mut().unwrap() {
+                record["work"] = json!(null);
+            }
             if repeat > 0 {
                 times.push(elapsed);
+                numerical.push(sha256(&serde_json::to_vec(&value).unwrap()));
                 digests.push(digest);
             }
         }
     }
     digests.dedup();
+    numerical.dedup();
     assert_eq!(digests.len(), 1, "results changed between repeats");
+    assert_eq!(numerical.len(), 1, "results changed between repeats");
     println!(
         "{}",
-        json!({"method": method, "wait": wait, "events": events,
-               "seconds": times, "digest": digests[0]})
+        json!({"method": method, "wait": wait, "events": events, "seconds": times,
+               "digest": digests[0], "numerical_digest": numerical[0]})
     );
 }

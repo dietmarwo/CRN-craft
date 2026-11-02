@@ -65,7 +65,13 @@ def pair(args):
     report = {"protocol": "docs/decisions/julia-gap-2026-11-02.md", "rows": {}}
     for workload in args.workloads:
         for method, wait in methods:
-            row = {"before": [], "after": [], "digests": {}, "events": {}}
+            row = {
+                "before": [],
+                "after": [],
+                "digests": {},
+                "numerical": {},
+                "events": {},
+            }
             for round_index in range(args.rounds):
                 order = [("before", args.before), ("after", args.after)]
                 if round_index % 2:
@@ -74,6 +80,8 @@ def pair(args):
                     result = bench(binary, workload, method, wait, args.repeats)
                     row[label].append(result["seconds"])
                     row["digests"].setdefault(label, set()).add(result["digest"])
+                    numerical = result.get("numerical_digest", result["digest"])
+                    row["numerical"].setdefault(label, set()).add(numerical)
                     row["events"][label] = result["events"]
             medians = {
                 k: [statistics.median(r) for r in row[k]] for k in ("before", "after")
@@ -81,8 +89,12 @@ def pair(args):
             ratios = [
                 b / a for b, a in zip(medians["before"], medians["after"], strict=True)
             ]
-            row["digests"] = {k: sorted(v) for k, v in row["digests"].items()}
+            for field in ("digests", "numerical"):
+                row[field] = {k: sorted(v) for k, v in row[field].items()}
             row["identical"] = len(set().union(*map(set, row["digests"].values()))) == 1
+            row["numerically_identical"] = (
+                len(set().union(*map(set, row["numerical"].values()))) == 1
+            )
             row["ratios"] = ratios
             row["speedup"] = statistics.median(ratios)
             row["rounds_faster"] = sum(r > 1.0 for r in ratios)
@@ -92,7 +104,13 @@ def pair(args):
                 f"{key:30s} before {statistics.median(medians['before']):.4f} "
                 f"after {statistics.median(medians['after']):.4f} "
                 f"speedup {row['speedup']:.3f} ({row['rounds_faster']}/{args.rounds}) "
-                + ("identical" if row["identical"] else "CHANGED"),
+                + (
+                    "identical"
+                    if row["identical"]
+                    else "same numbers, work changed"
+                    if row["numerically_identical"]
+                    else "CHANGED"
+                ),
                 flush=True,
             )
     if args.output:

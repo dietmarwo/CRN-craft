@@ -60,9 +60,10 @@ the supplementary "natural denominator" mtDNA law are rejected; the network
 engine agrees with the same dimerization law; one and four threads give
 identical ensembles. Both reports are identical under `python -O`.
 
-Rough single-thread speed on the 2-vCPU container (not a benchmark): Kowald's
-model at K = 1000 runs about 3.3 million events per second; aggregation of
-10,000 monomers about 2.4–2.9 million.
+Rough single-thread speed on the 2-vCPU container (not a benchmark), sampler
+version 2: Kowald's model at K = 1000 runs about 4.3 million events per
+second; aggregation of 10,000 monomers about 3.9 million (constant kernel) and
+1.8–2.4 million (multiplicative kernel, including past gelation).
 
 ## Independent review and second gate run
 

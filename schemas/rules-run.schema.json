@@ -1,0 +1,188 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "Budget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_events_per_replicate": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "max_instances": {
+          "description": "Distinct instances alive at once, over all types.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "max_output_bytes": {
+          "format": "uint64",
+          "minimum": 1.0,
+          "type": "integer"
+        },
+        "max_sampling_steps_per_replicate": {
+          "description": "Every random word, including rejected pair draws and product draws.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "threads": {
+          "format": "uint32",
+          "maximum": 64.0,
+          "minimum": 1.0,
+          "type": "integer"
+        },
+        "wall_time_s": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "max_events_per_replicate",
+        "max_instances",
+        "max_output_bytes",
+        "max_sampling_steps_per_replicate",
+        "threads"
+      ],
+      "type": "object"
+    },
+    "Ensemble": {
+      "additionalProperties": false,
+      "properties": {
+        "replicates": {
+          "format": "uint64",
+          "minimum": 1.0,
+          "type": "integer"
+        },
+        "root_seed": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "replicates",
+        "root_seed"
+      ],
+      "type": "object"
+    },
+    "ModelRef": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "description": "Portable, relative to the run file's directory; no parent traversal.",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "SHA-256 of the exact model input bytes, lowercase hexadecimal.",
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "Outputs": {
+      "additionalProperties": false,
+      "properties": {
+        "keep_instances": {
+          "description": "Final instances of replicates 0..keep_instances.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "keep_paths": {
+          "description": "Observable series of replicates 0..keep_paths.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "statistics": {
+          "items": {
+            "$ref": "#/definitions/Statistic"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "keep_instances",
+        "keep_paths",
+        "statistics"
+      ],
+      "type": "object"
+    },
+    "RunVersion": {
+      "enum": [
+        "crn-craft.rules-run/0.1"
+      ],
+      "type": "string"
+    },
+    "Statistic": {
+      "enum": [
+        "mean",
+        "variance"
+      ],
+      "type": "string"
+    },
+    "Time": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "description": "Simulated time horizon, positive and finite.",
+          "format": "double",
+          "type": "number"
+        },
+        "report_times": {
+          "description": "Strictly increasing times in [0, end] at which observables are reported (right-continuous: events at a report time are included).",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "end",
+        "report_times"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "budget": {
+      "$ref": "#/definitions/Budget"
+    },
+    "ensemble": {
+      "$ref": "#/definitions/Ensemble"
+    },
+    "model": {
+      "$ref": "#/definitions/ModelRef"
+    },
+    "outputs": {
+      "$ref": "#/definitions/Outputs"
+    },
+    "schema": {
+      "$ref": "#/definitions/RunVersion"
+    },
+    "time": {
+      "$ref": "#/definitions/Time"
+    }
+  },
+  "required": [
+    "budget",
+    "ensemble",
+    "model",
+    "outputs",
+    "schema",
+    "time"
+  ],
+  "title": "RunRequest",
+  "type": "object"
+}

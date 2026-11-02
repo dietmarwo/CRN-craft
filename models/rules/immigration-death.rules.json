@@ -1,0 +1,44 @@
+{
+  "schema": "crn-craft.rules-model/0.1",
+  "name": "immigration_death",
+  "description": "Empty-set immigration and first-order death; Poisson law with mean (k_in/k_out)(1 - exp(-k_out t)) from X0 = 0.",
+  "parameters": {
+    "k_in": 10.0,
+    "k_out": 1.0
+  },
+  "types": [
+    {
+      "name": "X",
+      "attributes": []
+    }
+  ],
+  "initial": [],
+  "observables": {
+    "X": {
+      "type": "X"
+    }
+  },
+  "rules": [
+    {
+      "name": "immigration",
+      "reactants": [],
+      "rate": "k_in",
+      "products": [
+        {
+          "type": "X"
+        }
+      ]
+    },
+    {
+      "name": "death",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "X"
+        }
+      ],
+      "rate": "k_out",
+      "products": []
+    }
+  ]
+}

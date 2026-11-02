@@ -69,7 +69,8 @@ from those types.
 | FSP result | `crn-craft.fsp-result/0.1` | `fsp` |
 | Tau request / result | `crn-craft.tau-request/0.1`, `crn-craft.tau-result/0.1` | `tau` |
 | Alternative exact SSA | `crn-craft.ssa-run/0.1` or `0.2` (adds `method.fast`) → `crn-craft.ssa-result/0.1` or `0.2` | `ssa`; [methods, bounds and `fast`](alternative-ssa.md) |
-| Discovery | `crn-craft.describe/0.7` | `describe` |
+| Rules engine (experimental) | `crn-craft.rules-model/0.1`, `rules-check/0.1`, `rules-run/0.1` → `rules-result/0.1` | `rules-check`, `rules`; [language reference](rules-language.md) |
+| Discovery | `crn-craft.describe/0.7` (core and Python); the native CLI reports `0.8`, which adds `dynamic_species` and the rules commands | `describe` |
 
 Parsing is strict: `strict_json` rejects duplicate keys before serde sees
 them, every struct denies unknown fields, numbers must be finite, and a

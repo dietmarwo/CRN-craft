@@ -1,0 +1,431 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "Diagnostic": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "hint": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "path": {
+          "description": "RFC 6901 JSON Pointer. Empty string denotes the document root.",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/definitions/Severity"
+        }
+      },
+      "required": [
+        "code",
+        "hint",
+        "message",
+        "path",
+        "severity"
+      ],
+      "type": "object"
+    },
+    "FinalInstances": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "instances": {
+          "items": {
+            "$ref": "#/definitions/InstanceRecord"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "instances"
+      ],
+      "type": "object"
+    },
+    "InstanceRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "attributes": {
+          "description": "One value per attribute of the type, in declared order.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "count": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "type_index": {
+          "description": "Index into `types`.",
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "attributes",
+        "count",
+        "type_index"
+      ],
+      "type": "object"
+    },
+    "PathSeries": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "values": {
+          "description": "report time × observable.",
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "values"
+      ],
+      "type": "object"
+    },
+    "Record": {
+      "additionalProperties": false,
+      "properties": {
+        "created_instances": {
+          "description": "Instances created by events (excluding the initial state).",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "diagnostic": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Diagnostic"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "events": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "id": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "peak_instances": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "rng_words": {
+          "description": "Random words, including product draws; the final event's product draws can take it past the sampling budget that stopped the path.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "rule_events": {
+          "description": "Events per rule, in rule order.",
+          "items": {
+            "format": "uint64",
+            "minimum": 0.0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "saved_points": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "started": {
+          "type": "boolean"
+        },
+        "stop_time": {
+          "description": "End of the horizon, the time the stop condition fired, or the time a limit or failure ended the path.",
+          "format": "double",
+          "type": "number"
+        },
+        "termination": {
+          "$ref": "#/definitions/Termination"
+        }
+      },
+      "required": [
+        "created_instances",
+        "events",
+        "id",
+        "peak_instances",
+        "rng_words",
+        "rule_events",
+        "saved_points",
+        "started",
+        "stop_time",
+        "termination"
+      ],
+      "type": "object"
+    },
+    "ResultVersion": {
+      "enum": [
+        "crn-craft.rules-result/0.1"
+      ],
+      "type": "string"
+    },
+    "Severity": {
+      "enum": [
+        "error",
+        "warning"
+      ],
+      "type": "string"
+    },
+    "Statistics": {
+      "additionalProperties": false,
+      "properties": {
+        "mean": {
+          "description": "report time × observable.",
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "mean_standard_error": {
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "sample_variance": {
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "samples": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "samples"
+      ],
+      "type": "object"
+    },
+    "Termination": {
+      "oneOf": [
+        {
+          "enum": [
+            "completed",
+            "event_limit",
+            "sampling_limit",
+            "instance_limit",
+            "wall_time_limit",
+            "cancelled",
+            "failed",
+            "output_limit"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "The stop condition held; the state is held to the end of the grid.",
+          "enum": [
+            "stopped"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "TypeHeader": {
+      "additionalProperties": false,
+      "properties": {
+        "attributes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "attributes",
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "completed_replicates": {
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "diagnostics": {
+      "items": {
+        "$ref": "#/definitions/Diagnostic"
+      },
+      "type": "array"
+    },
+    "events": {
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "final_instances": {
+      "items": {
+        "$ref": "#/definitions/FinalInstances"
+      },
+      "type": "array"
+    },
+    "model_sha256": {
+      "type": "string"
+    },
+    "observables": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "paths": {
+      "items": {
+        "$ref": "#/definitions/PathSeries"
+      },
+      "type": "array"
+    },
+    "replicates": {
+      "items": {
+        "$ref": "#/definitions/Record"
+      },
+      "type": "array"
+    },
+    "report_times": {
+      "items": {
+        "format": "double",
+        "type": "number"
+      },
+      "type": "array"
+    },
+    "requested_replicates": {
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "root_seed": {
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "rules": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "run_sha256": {
+      "type": "string"
+    },
+    "sampler": {
+      "type": "string"
+    },
+    "schema": {
+      "$ref": "#/definitions/ResultVersion"
+    },
+    "statistics": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Statistics"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Withheld unless every replicate completed or stopped."
+    },
+    "stopped_replicates": {
+      "format": "uint64",
+      "minimum": 0.0,
+      "type": "integer"
+    },
+    "termination": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/Termination"
+        }
+      ],
+      "description": "`completed` when every replicate completed or stopped; otherwise the most severe replicate termination."
+    },
+    "types": {
+      "items": {
+        "$ref": "#/definitions/TypeHeader"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "completed_replicates",
+    "diagnostics",
+    "events",
+    "final_instances",
+    "model_sha256",
+    "observables",
+    "paths",
+    "replicates",
+    "report_times",
+    "requested_replicates",
+    "root_seed",
+    "rules",
+    "run_sha256",
+    "sampler",
+    "schema",
+    "stopped_replicates",
+    "termination",
+    "types"
+  ],
+  "title": "RulesResult",
+  "type": "object"
+}

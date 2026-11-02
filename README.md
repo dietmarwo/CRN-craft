@@ -23,6 +23,7 @@ Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/ar
 - [Ten further Julia-gap iterations](docs/comparison-julia-gap10.md): same-host GitHub-main/final/Julia rerun, all methods, exposed regressions and [inspected Julia mechanisms](docs/campaign/julia-gap10-source-investigation.md)
 - [Fast mode versus Julia at one and eight threads](docs/comparison-julia-8-threads.md): direct same-host measurement of `fast` against five JumpProcesses methods, 2,240 timed observations, scaling and replay checks
 - [Agent context](docs/ai-context.md): what an AI agent needs to use and extend CRN-craft
+- [Dynamic, attributed species (experimental)](docs/rules-language.md): rule-based models whose species appear and disappear (mtDNA clones, aggregation), with [K1 law gates](validation/rules/RESULTS.md)
 
 **Using CRN-craft**
 
@@ -58,6 +59,7 @@ Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/ar
 - [Exact-SSA acceleration log](docs/campaign/ssa-acceleration-implementation-log-2026-11-02.md) and [Julia-gap campaign log](docs/campaign/julia-gap-implementation-log-2026-11-02.md)
 - [Ten further iterations implementation log](docs/campaign/julia-gap10-implementation-log-2026-11-02.md), [fixed protocol](docs/decisions/julia-gap10-2026-11-02.md) and [raw evidence](validation/julia-gap10/README.md)
 - [The `fast` switch: implementation log](docs/campaign/fast-implementation-log-2026-11-02.md), with evidence in `validation/fast/`
+- [Rules engine K0/K1: implementation log](docs/campaign/rules-k1-implementation-log-2026-11-02.md), [protocol](docs/decisions/rules-k0-k1-2026-11-02.md) and [results](validation/rules/RESULTS.md)
 
 **Plans and decisions**
 
@@ -189,6 +191,36 @@ workers on the original W1–W7 batches (geometric mean; lower on 6 of 7) and
 1.04 times on 256-path batches. At one worker the same run gives 1.15 and 1.12
 times, so the earlier projection of 1.02 from serial timings was optimistic.
 
+## Dynamic, attributed species (experimental)
+
+Some models cannot list their species in advance: every mitochondrial mutant
+is its own clone, clusters have a size, polymers a length. The rules engine
+(`crn-craft-rules`) simulates them exactly. Species *types* carry numeric
+*attributes*; instances appear when a rule produces a new attribute vector and
+vanish when their count reaches zero. A rule is a schema over zero, one or two
+reactant patterns with a global rate over observables and local factors over
+attributes:
+
+```json
+{"name": "mutation",
+ "reactants": [{"label": "x", "type": "mtDNA", "where": "x.wt == 1", "factor": "x.s * mu"}],
+ "rate": "max(0, K - N) / D",
+ "products": [{"type": "mtDNA", "copy": "x"},
+              {"type": "mtDNA", "attributes": {"clone": "new_id()", "s": "choice(fracAdv, sm, sw)", "wt": 0}}]}
+```
+
+```bash
+crn-craft rules-check models/rules/mtdna-fixed.rules.json
+crn-craft rules MODEL REQUEST [--cancel-file PATH]
+```
+
+K1 passes 30 exact-law comparisons over 100,000 replicates each (Kowald's
+fixed-population mtDNA model, constant and multiplicative aggregation kernels,
+immigration–death and immigration–dimerization, the last also against the
+network engine) and rejects every wrong law it was given. Time-dependent rates
+and ODE coupling (Kowald's variable-population model), a Python builder and
+benchmarks are not done yet. See the [language reference](docs/rules-language.md).
+
 ## Developer checks
 
 ```bash
@@ -215,6 +247,9 @@ python3 validation/check_cme.py --output cme.json
 python3 -O validation/check_cme.py --output cme-optimized.json
 diff cme.json cme-optimized.json
 python3 validation/mutation_check.py
+python3 validation/check_rules.py --output rules.json
+python3 -O validation/check_rules.py --output rules-optimized.json
+diff rules.json rules-optimized.json
 ```
 
 The optional real-reference checks use a separate Python environment:

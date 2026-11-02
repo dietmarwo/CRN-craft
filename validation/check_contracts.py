@@ -59,6 +59,10 @@ def main():
         "tau-result",
         "ssa-run",
         "ssa-result",
+        "rules-model",
+        "rules-check",
+        "rules-run",
+        "rules-result",
     ):
         code, schema = invoke("describe", kind)
         Draft7Validator.check_schema(schema)
@@ -85,8 +89,11 @@ def main():
             "fsp",
             "tau",
             "ssa",
+            "rules-check",
+            "rules",
         ]
-        and capabilities["schema"] == "crn-craft.describe/0.7",
+        and capabilities["dynamic_species"]["model"] == "crn-craft.rules-model/0.1"
+        and capabilities["schema"] == "crn-craft.describe/0.8",
     )
 
     examples = ROOT / "models/examples"
@@ -141,6 +148,17 @@ def main():
             and not report["execution_available"]
             and run["model"]["sha256"] == expected == report["model_sha256"]
             and report["run_sha256"] == hashlib.sha256(path.read_bytes()).hexdigest(),
+        )
+
+    for path in sorted((ROOT / "models/rules").glob("*.rules.json")):
+        validators["rules-model"].validate(json.loads(path.read_text()))
+        code, report = invoke("rules-check", path)
+        validators["rules-check"].validate(report)
+        record(
+            f"rules_{path.name}",
+            code == 0
+            and report["valid"]
+            and report["model_sha256"] == hashlib.sha256(path.read_bytes()).hexdigest(),
         )
 
     invalid = ROOT / "models/invalid"

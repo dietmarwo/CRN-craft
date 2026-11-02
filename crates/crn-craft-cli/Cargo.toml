@@ -13,6 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 crn-craft.workspace = true
+crn-craft-rules.workspace = true
 serde_json.workspace = true
 
 [lints]

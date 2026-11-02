@@ -1,0 +1,319 @@
+{
+  "alpha": 0.001,
+  "comparisons": 30,
+  "replicates": 100000,
+  "epsilon": 0.0074169063096429354,
+  "seed": 20261102,
+  "checks": [
+    {
+      "check": "schema_snapshot_rules-model",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_rules-check",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_rules-run",
+      "passed": true
+    },
+    {
+      "check": "schema_snapshot_rules-result",
+      "passed": true
+    },
+    {
+      "check": "rules_check_immigration_death",
+      "passed": true
+    },
+    {
+      "check": "rules:immigration_death:X@0.5",
+      "distance": 0.0013609981227501455,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:immigration_death:X@1.0",
+      "distance": 0.0012315108711178357,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:immigration_death:X@3.0",
+      "distance": 0.0016112794037942413,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "power:immigration_death:k_in = 10.5",
+      "passed": true
+    },
+    {
+      "check": "rules_check_immigration_dimerization",
+      "passed": true
+    },
+    {
+      "check": "rules:immigration_dimerization:X@0.5",
+      "distance": 0.0021143233216023294,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:immigration_dimerization:X@1.0",
+      "distance": 0.0019714128311740797,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:immigration_dimerization:X@3.0",
+      "distance": 0.0018739323468742741,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "power:immigration_dimerization:k2 = 0.11",
+      "passed": true
+    },
+    {
+      "check": "network:immigration_dimerization:X@0.5",
+      "distance": 0.0019767643049268813,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "network:immigration_dimerization:X@1.0",
+      "distance": 0.0019055280042264977,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "network:immigration_dimerization:X@3.0",
+      "distance": 0.001216462466206658,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules_check_mtdna_fixed_population",
+      "passed": true
+    },
+    {
+      "check": "rules:mtdna_fixed_population:wild_type@1.0",
+      "distance": 0.002624487906697337,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:mtdna_fixed_population:wild_type@3.0",
+      "distance": 0.0009961956858483556,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:mtdna_fixed_population:wild_type@10.0",
+      "distance": 0.0014101942718739435,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:mtdna_fixed_population:mutants@1.0",
+      "distance": 0.0032235770621520388,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:mtdna_fixed_population:mutants@3.0",
+      "distance": 0.002581853342957019,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:mtdna_fixed_population:mutants@10.0",
+      "distance": 0.0015515067046795172,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:mtdna_fixed_population:advantaged_mutants@1.0",
+      "distance": 0.001699383598930071,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:mtdna_fixed_population:advantaged_mutants@3.0",
+      "distance": 0.0016447096541770678,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:mtdna_fixed_population:advantaged_mutants@10.0",
+      "distance": 0.0011433837554103432,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "power:mtdna_fixed_population:sm = 1.35",
+      "passed": true
+    },
+    {
+      "check": "power:mtdna_fixed_population:D = w + sw a + sm b",
+      "passed": true
+    },
+    {
+      "check": "rules_check_aggregation_constant",
+      "passed": true
+    },
+    {
+      "check": "rules:aggregation_constant:clusters@0.02",
+      "distance": 0.0021800076407745284,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:aggregation_constant:clusters@0.1",
+      "distance": 0.0010775598221463012,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:aggregation_constant:clusters@0.5",
+      "distance": 0.0006432262080909856,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:aggregation_constant:largest@0.02",
+      "distance": 0.002094698034149689,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:aggregation_constant:largest@0.1",
+      "distance": 0.001010017074179248,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:aggregation_constant:largest@0.5",
+      "distance": 0.0020809518427721274,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "power:aggregation_constant:k = 1.1",
+      "passed": true
+    },
+    {
+      "check": "rules_check_aggregation_multiplicative",
+      "passed": true
+    },
+    {
+      "check": "rules:aggregation_multiplicative:clusters@0.02",
+      "distance": 0.0020946980341495225,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:aggregation_multiplicative:clusters@0.1",
+      "distance": 0.0034168936059699173,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:aggregation_multiplicative:clusters@0.5",
+      "distance": 0.00032629672743356153,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:aggregation_multiplicative:largest@0.02",
+      "distance": 0.002094698034149689,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:aggregation_multiplicative:largest@0.1",
+      "distance": 0.0025430028398310822,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "rules:aggregation_multiplicative:largest@0.5",
+      "distance": 0.0003262967274344705,
+      "bound": 0.0074169063096429354,
+      "passed": true
+    },
+    {
+      "check": "power:aggregation_multiplicative:k = 1.1",
+      "passed": true
+    },
+    {
+      "check": "replay_threads_1_4",
+      "passed": true
+    },
+    {
+      "check": "declared_comparison_count",
+      "passed": true
+    }
+  ],
+  "power": [
+    {
+      "fixture": "immigration_death",
+      "wrong_law": "k_in = 10.5",
+      "max_distance": 0.05924903149694721,
+      "rejected": true
+    },
+    {
+      "fixture": "immigration_dimerization",
+      "wrong_law": "k2 = 0.11",
+      "max_distance": 0.07900814280649593,
+      "rejected": true
+    },
+    {
+      "fixture": "mtdna_fixed_population",
+      "wrong_law": "sm = 1.35",
+      "max_distance": 0.062497493721984876,
+      "rejected": true
+    },
+    {
+      "fixture": "mtdna_fixed_population",
+      "wrong_law": "D = w + sw a + sm b",
+      "max_distance": 0.05469175486614497,
+      "rejected": true
+    },
+    {
+      "fixture": "aggregation_constant",
+      "wrong_law": "k = 1.1",
+      "max_distance": 0.08535206927109729,
+      "rejected": true
+    },
+    {
+      "fixture": "aggregation_multiplicative",
+      "wrong_law": "k = 1.1",
+      "max_distance": 0.09871121527606419,
+      "rejected": true
+    }
+  ],
+  "laws": [
+    {
+      "fixture": "immigration_death",
+      "leakage": 0.0
+    },
+    {
+      "fixture": "immigration_dimerization",
+      "leakage": 4.816616974602885e-106
+    },
+    {
+      "fixture": "mtdna_fixed_population",
+      "leakage": 0.0
+    },
+    {
+      "fixture": "aggregation_constant",
+      "leakage": 0.0
+    },
+    {
+      "fixture": "aggregation_multiplicative",
+      "leakage": 0.0
+    }
+  ],
+  "passed": 47,
+  "failed": 0
+}

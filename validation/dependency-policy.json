@@ -36,6 +36,7 @@
   ],
   "allowed_workspace_packages": [
     "crn-craft",
-    "crn-craft-cli"
+    "crn-craft-cli",
+    "crn-craft-rules"
   ]
 }

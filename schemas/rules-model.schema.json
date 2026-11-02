@@ -1,0 +1,298 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "Initial": {
+      "additionalProperties": false,
+      "properties": {
+        "attributes": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Value"
+          },
+          "default": {},
+          "description": "Every attribute of the type; parameters only.",
+          "type": "object"
+        },
+        "count": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Value"
+            }
+          ],
+          "description": "Nonnegative integer; parameters only."
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "count",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ModelVersion": {
+      "enum": [
+        "crn-craft.rules-model/0.1"
+      ],
+      "type": "string"
+    },
+    "Observable": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "description": "Name for the instance in `where` and `weight`; default `x`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reduce": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Reduce"
+            }
+          ],
+          "default": "sum"
+        },
+        "type": {
+          "type": "string"
+        },
+        "weight": {
+          "description": "Parameters and the instance's attributes; default 1.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "where": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "Pattern": {
+      "additionalProperties": false,
+      "properties": {
+        "factor": {
+          "description": "Local factor h(x) >= 0: parameters and this reactant's attributes.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "where": {
+          "description": "Parameters and this reactant's attributes.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "type"
+      ],
+      "type": "object"
+    },
+    "Product": {
+      "additionalProperties": false,
+      "properties": {
+        "attributes": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Value"
+          },
+          "default": {},
+          "description": "Overrides (with `copy`) or all attributes (without): parameters, reactant attributes and random draws.",
+          "type": "object"
+        },
+        "copy": {
+          "description": "Label of a reactant of the same type whose attributes are copied.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "Reduce": {
+      "oneOf": [
+        {
+          "description": "Count-weighted sum over matching instances.",
+          "enum": [
+            "sum"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Sum of weights over present matching instances, each counted once whatever its copy number (weight 1 counts distinct instances).",
+          "enum": [
+            "distinct"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Largest weight over present matching instances; 0 when none.",
+          "enum": [
+            "max"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Smallest weight over present matching instances; 0 when none.",
+          "enum": [
+            "min"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "Rule": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "products": {
+          "items": {
+            "$ref": "#/definitions/Product"
+          },
+          "type": "array"
+        },
+        "rate": {
+          "description": "Global factor: parameters and observables only.",
+          "type": "string"
+        },
+        "reactants": {
+          "description": "Zero, one or two patterns. Reactants are consumed; list a `copy` product to keep one.",
+          "items": {
+            "$ref": "#/definitions/Pattern"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "products",
+        "rate",
+        "reactants"
+      ],
+      "type": "object"
+    },
+    "SpeciesType": {
+      "additionalProperties": false,
+      "properties": {
+        "attributes": {
+          "default": [],
+          "description": "Numeric attributes; an instance is a type plus one value per attribute.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "Value": {
+      "anyOf": [
+        {
+          "format": "double",
+          "type": "number"
+        },
+        {
+          "type": "string"
+        }
+      ],
+      "description": "A number, or an expression string."
+    }
+  },
+  "properties": {
+    "description": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "initial": {
+      "items": {
+        "$ref": "#/definitions/Initial"
+      },
+      "type": "array"
+    },
+    "name": {
+      "type": "string"
+    },
+    "observables": {
+      "additionalProperties": {
+        "$ref": "#/definitions/Observable"
+      },
+      "default": {},
+      "type": "object"
+    },
+    "parameters": {
+      "additionalProperties": {
+        "format": "double",
+        "type": "number"
+      },
+      "default": {},
+      "description": "Finite numbers by name. Names share one namespace with observables.",
+      "type": "object"
+    },
+    "rules": {
+      "items": {
+        "$ref": "#/definitions/Rule"
+      },
+      "type": "array"
+    },
+    "schema": {
+      "$ref": "#/definitions/ModelVersion"
+    },
+    "stop": {
+      "description": "Parameters and observables. Once true, the state is held and the replicate is marked `stopped`.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "types": {
+      "items": {
+        "$ref": "#/definitions/SpeciesType"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "initial",
+    "name",
+    "rules",
+    "schema",
+    "types"
+  ],
+  "title": "Model",
+  "type": "object"
+}

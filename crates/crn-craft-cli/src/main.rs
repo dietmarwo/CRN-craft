@@ -11,7 +11,7 @@ use std::{
     process::ExitCode,
 };
 
-const HELP: &str = "crn-craft — CRN solvers and network analysis\n\nUsage:\n  crn-craft describe [model|run|result|result-v1|archive|archive-check|check|state|analysis|analysis-v1|export|fsp-result|tau-request|tau-result|ssa-run|ssa-result]\n  crn-craft check MODEL [RUN]\n  crn-craft analyze MODEL [STATE]\n  crn-craft analyze-v1 MODEL [STATE]\n  crn-craft export MODEL gillespy2\n  crn-craft simulate MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft verify DIRECTORY\n  crn-craft simulate-cached MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft fsp MODEL RUN [--cancel-file PATH]\n  crn-craft tau MODEL REQUEST [--cancel-file PATH]\n  crn-craft ssa MODEL REQUEST [--cancel-file PATH]\n  crn-craft --version\n\nAll data output is JSON. simulate exits 0 only for a completed ensemble.\nverify exits 0 for a valid archive, including an incomplete simulation.\nOther errors and incomplete simulations exit 1. Optional ODE uses crn-diffsol.\n";
+const HELP: &str = "crn-craft — CRN solvers and network analysis\n\nUsage:\n  crn-craft describe [model|run|result|result-v1|archive|archive-check|check|state|analysis|analysis-v1|export|fsp-result|tau-request|tau-result|ssa-run|ssa-result|rules-model|rules-check|rules-run|rules-result]\n  crn-craft check MODEL [RUN]\n  crn-craft analyze MODEL [STATE]\n  crn-craft analyze-v1 MODEL [STATE]\n  crn-craft export MODEL gillespy2\n  crn-craft simulate MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft verify DIRECTORY\n  crn-craft simulate-cached MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft fsp MODEL RUN [--cancel-file PATH]\n  crn-craft tau MODEL REQUEST [--cancel-file PATH]\n  crn-craft ssa MODEL REQUEST [--cancel-file PATH]\n  crn-craft rules-check RULES_MODEL\n  crn-craft rules RULES_MODEL REQUEST [--cancel-file PATH]\n  crn-craft --version\n\nAll data output is JSON. simulate exits 0 only for a completed ensemble.\nverify exits 0 for a valid archive, including an incomplete simulation.\nOther errors and incomplete simulations exit 1. Optional ODE uses crn-diffsol.\n";
 
 fn emit(value: &Value) -> io::Result<()> {
     let mut out = io::stdout().lock();
@@ -45,8 +45,20 @@ fn main() -> ExitCode {
     }
     let mut compact = false;
     let (value, success) = match args.first().and_then(|arg| arg.to_str()) {
-        Some("describe") if args.len() == 1 => (describe(), true),
-        Some("describe") if args.len() == 2 => match args[1].to_str().and_then(schema) {
+        Some("describe") if args.len() == 1 => {
+            // The native CLI adds the rules engine to the core description.
+            let mut value = describe();
+            value["schema"] = "crn-craft.describe/0.8".into();
+            if let Some(commands) = value["commands"].as_array_mut() {
+                commands.extend(["rules-check".into(), "rules".into()]);
+            }
+            value["dynamic_species"] = crn_craft_rules::describe();
+            (value, true)
+        }
+        Some("describe") if args.len() == 2 => match args[1]
+            .to_str()
+            .and_then(|kind| schema(kind).or_else(|| crn_craft_rules::schema(kind)))
+        {
             Some(value) => (value, true),
             None => usage_error(),
         },
@@ -110,6 +122,29 @@ fn main() -> ExitCode {
             match crn_craft::ssa::solve_files(Path::new(&args[1]), Path::new(&args[2]), &control) {
                 Ok(result) => {
                     let complete = result.termination == crn_craft::ssa::Termination::Completed;
+                    compact = true;
+                    (serde_json::to_value(result).unwrap(), complete)
+                }
+                Err(errors) => (
+                    serde_json::json!({"success":false,"diagnostics":errors}),
+                    false,
+                ),
+            }
+        }
+        Some("rules-check") if args.len() == 2 => {
+            let report = crn_craft_rules::check_model_file(Path::new(&args[1]));
+            let success = report.valid;
+            (
+                serde_json::to_value(report).expect("finite rules check report"),
+                success,
+            )
+        }
+        Some("rules") if args.len() == 3 || (args.len() == 5 && args[3] == "--cancel-file") => {
+            let mut control = crn_craft_rules::Control::default();
+            control.cancel_file = args.get(4).map(std::path::PathBuf::from);
+            match crn_craft_rules::solve_files(Path::new(&args[1]), Path::new(&args[2]), &control) {
+                Ok(result) => {
+                    let complete = result.termination == crn_craft_rules::Termination::Completed;
                     compact = true;
                     (serde_json::to_value(result).unwrap(), complete)
                 }

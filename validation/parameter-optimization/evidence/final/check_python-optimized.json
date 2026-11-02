@@ -1,0 +1,113 @@
+{
+  "circuit_study": [
+    {
+      "classification": [
+        "ambiguous",
+        "ambiguous",
+        "ambiguous",
+        "oscillatory"
+      ],
+      "events": 229738,
+      "scope": "synthetic fixed topology illustration; circuit-study source not supplied",
+      "seed": 3101,
+      "split": "development"
+    },
+    {
+      "classification": [
+        "nonoscillatory",
+        "ambiguous",
+        "ambiguous",
+        "ambiguous"
+      ],
+      "events": 230592,
+      "scope": "synthetic fixed topology illustration; circuit-study source not supplied",
+      "seed": 3102,
+      "split": "development"
+    },
+    {
+      "classification": [
+        "ambiguous",
+        "ambiguous",
+        "ambiguous",
+        "ambiguous"
+      ],
+      "events": 226395,
+      "scope": "synthetic fixed topology illustration; circuit-study source not supplied",
+      "seed": 3201,
+      "split": "held_out"
+    },
+    {
+      "classification": [
+        "ambiguous",
+        "ambiguous",
+        "ambiguous",
+        "ambiguous"
+      ],
+      "events": 247550,
+      "scope": "synthetic fixed topology illustration; circuit-study source not supplied",
+      "seed": 3202,
+      "split": "held_out"
+    }
+  ],
+  "passed": true,
+  "rows": [
+    {
+      "check": "CLI_binding_threads_1",
+      "numerical_sha256": "efc6234e13db9168465e8890ad943fd0fc3bd47119343b4280122e3f30bf9c04",
+      "passed": true
+    },
+    {
+      "check": "CLI_binding_threads_2",
+      "numerical_sha256": "efc6234e13db9168465e8890ad943fd0fc3bd47119343b4280122e3f30bf9c04",
+      "passed": true
+    },
+    {
+      "check": "CLI_binding_threads_8",
+      "numerical_sha256": "efc6234e13db9168465e8890ad943fd0fc3bd47119343b4280122e3f30bf9c04",
+      "passed": true
+    },
+    {
+      "check": "reusable_parameters_and_codegen",
+      "passed": true
+    },
+    {
+      "check": "strict_inputs",
+      "passed": true
+    },
+    {
+      "check": "synthetic_development",
+      "correct": 4,
+      "passed": true,
+      "scope": "labelled synthetic controls; no biological sensitivity/specificity claim",
+      "total": 4
+    },
+    {
+      "check": "synthetic_held_out",
+      "correct": 8,
+      "passed": true,
+      "scope": "labelled synthetic controls; no biological sensitivity/specificity claim",
+      "total": 8
+    },
+    {
+      "check": "saved_grid_first_passage",
+      "passed": true
+    },
+    {
+      "check": "oscillation_edge_cases",
+      "passed": true
+    },
+    {
+      "check": "oscillation_gates",
+      "passed": true
+    },
+    {
+      "check": "binding_errors_and_cancel_file",
+      "passed": true
+    },
+    {
+      "check": "keyboard_interrupt",
+      "passed": true
+    }
+  ],
+  "schema": "crn-craft.python-validation/0.1"
+}

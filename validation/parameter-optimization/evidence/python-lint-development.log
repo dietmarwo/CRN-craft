@@ -1,0 +1,36 @@
+F401 [*] `pathlib.Path` imported but unused
+ --> validation/generate_parameter_workers.py:5:21
+  |
+3 | import json
+4 | import math
+5 | from pathlib import Path
+  |                     ^^^^
+6 | import time
+7 | import crn_craft as crn
+  |
+help: Remove unused import: `pathlib.Path`
+  |
+4 | import math
+  - from pathlib import Path
+5 | import time
+  |
+
+F401 [*] `statistics` imported but unused
+  --> validation/parameter_optimization.py:12:8
+   |
+10 | import platform
+11 | import shutil
+12 | import statistics
+   |        ^^^^^^^^^^
+13 | import subprocess
+14 | import sys
+   |
+help: Remove unused import: `statistics`
+   |
+11 | import shutil
+   - import statistics
+12 | import subprocess
+   |
+
+Found 2 errors.
+[*] 2 fixable with `--fix`.

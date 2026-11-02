@@ -1,0 +1,25 @@
+{
+  "passed": false,
+  "checks": [
+    {
+      "check": "fmt",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "binding-fmt",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "worker-fmt",
+      "passed": true,
+      "returncode": 0
+    },
+    {
+      "check": "python-lint",
+      "passed": false,
+      "returncode": 1
+    }
+  ]
+}

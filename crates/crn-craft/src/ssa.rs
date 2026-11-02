@@ -16,7 +16,7 @@ use rand_core::RngCore;
 use schemars::JsonSchema;
 use selectors::{Composition, RateTree};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, path::Path};
+use std::{collections::BTreeMap, path::Path, sync::Arc};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum RequestVersion {
@@ -111,7 +111,7 @@ pub struct Request {
     pub budget: Budget,
 }
 impl Request {
-    fn legacy(&self) -> contracts::Run {
+    pub(crate) fn legacy(&self) -> contracts::Run {
         contracts::Run {
             schema: contracts::RunVersion::V01,
             model: self.model.clone(),
@@ -214,9 +214,9 @@ pub struct SsaResult {
 }
 
 pub struct Prepared {
-    core: simulation::Prepared,
-    request: Request,
-    readers: Vec<Vec<usize>>,
+    pub(crate) core: simulation::Prepared,
+    pub(crate) request: Request,
+    pub(crate) readers: Arc<Vec<Vec<usize>>>,
     bound_groups: Vec<usize>,
 }
 
@@ -232,7 +232,17 @@ pub fn prepare(model: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec<Diagn
     }
     let legacy = serde_json::to_vec(&request.legacy())
         .map_err(|e| vec![simulation::execution_error(e.to_string())])?;
-    let mut core = simulation::prepare(model, &legacy)?;
+    let core = simulation::prepare(model, &legacy)?;
+    finish_prepare(core, request, request_bytes, model.len(), None)
+}
+
+pub(crate) fn finish_prepare(
+    mut core: simulation::Prepared,
+    request: Request,
+    request_bytes: &[u8],
+    model_len: usize,
+    shared_readers: Option<Arc<Vec<Vec<usize>>>>,
+) -> Result<Prepared, Vec<Diagnostic>> {
     // Additional selector and bounded-range buffers, conservatively reserved.
     let reactions = core.network.reactions().len() as u64;
     let species = core.network.species().len() as u64;
@@ -254,13 +264,16 @@ pub fn prepare(model: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec<Diagn
     }
     core.workspace = workspace as u64;
     core.run_hash = crate::sha256(request_bytes);
-    core.input_bytes = (model.len() + request_bytes.len()) as u64;
-    let mut readers = vec![Vec::new(); species as usize];
-    for (rx, structure) in core.network.reactions().iter().enumerate() {
-        for &s in &structure.reads {
-            readers[s].push(rx);
+    core.input_bytes = (model_len + request_bytes.len()) as u64;
+    let readers = shared_readers.unwrap_or_else(|| {
+        let mut readers = vec![Vec::new(); species as usize];
+        for (rx, structure) in core.network.reactions().iter().enumerate() {
+            for &s in &structure.reads {
+                readers[s].push(rx);
+            }
         }
-    }
+        Arc::new(readers)
+    });
     let mut group_keys = BTreeMap::new();
     let mut bound_groups = vec![usize::MAX; reactions as usize];
     for (rx, slot) in bound_groups.iter_mut().enumerate() {
@@ -350,6 +363,34 @@ impl Draws<'_, '_> {
     }
 }
 
+/// Model-specific propensity evaluators must match the checked reference in
+/// every valid state, including gates, rounded arithmetic and diagnostics.
+/// Generated kernels are guarded by the fixed-topology fingerprint on execute.
+pub trait PropensityKernel: Sync {
+    fn topology_sha256(&self) -> &str;
+    fn evaluate(
+        &self,
+        network: &crate::CompiledNetwork,
+        reaction: usize,
+        state: &[i64],
+    ) -> Result<f64, Diagnostic>;
+}
+struct DynamicKernel;
+impl PropensityKernel for DynamicKernel {
+    fn topology_sha256(&self) -> &str {
+        ""
+    }
+    #[inline]
+    fn evaluate(
+        &self,
+        network: &crate::CompiledNetwork,
+        reaction: usize,
+        state: &[i64],
+    ) -> Result<f64, Diagnostic> {
+        network.propensity_in_valid_state(reaction, state)
+    }
+}
+
 #[derive(Default)]
 struct Workspace {
     state: Vec<i64>,
@@ -362,29 +403,45 @@ struct Workspace {
     bounds: bounds::Bounds,
 }
 
-fn path<const MODE: u8, const ZIG: bool, const FAST: bool>(
+fn path<const MODE: u8, const ZIG: bool, const FAST: bool, K: PropensityKernel>(
     prepared: &Prepared,
     id: u64,
     poller: &mut Poller,
     space: &mut Workspace,
+    kernel: &K,
 ) -> (PathResult, Work) {
     let seed = prepared.core.run.ensemble.as_ref().unwrap().root_seed;
     if FAST {
-        run_path::<MODE, ZIG, FAST, _>(prepared, id, poller, space, sampling::fast_stream(seed, id))
+        run_path::<MODE, ZIG, FAST, _, _>(
+            prepared,
+            id,
+            poller,
+            space,
+            sampling::fast_stream(seed, id),
+            kernel,
+        )
     } else {
-        run_path::<MODE, ZIG, FAST, _>(prepared, id, poller, space, sampling::stream(seed, id))
+        run_path::<MODE, ZIG, FAST, _, _>(
+            prepared,
+            id,
+            poller,
+            space,
+            sampling::stream(seed, id),
+            kernel,
+        )
     }
 }
 
 /// Stop polls in `fast` runs: one per this many event-loop iterations.
 const FAST_POLL_STRIDE: u64 = 256;
 
-fn run_path<const MODE: u8, const ZIG: bool, const FAST: bool, R: RngCore>(
+fn run_path<const MODE: u8, const ZIG: bool, const FAST: bool, R: RngCore, K: PropensityKernel>(
     prepared: &Prepared,
     id: u64,
     poller: &mut Poller,
     space: &mut Workspace,
     mut rng: R,
+    kernel: &K,
 ) -> (PathResult, Work) {
     let network = &prepared.core.network;
     let run = &prepared.core.run;
@@ -471,7 +528,7 @@ fn run_path<const MODE: u8, const ZIG: bool, const FAST: bool, R: RngCore>(
                     for rx in 0..n {
                         draws.poll()?;
                         draws.work.propensity_evaluations += 1;
-                        if network.propensity_in_valid_state(rx, state)? > 0.0 {
+                        if kernel.evaluate(network, rx, state)? > 0.0 {
                             absorbed = false;
                             break;
                         }
@@ -484,7 +541,7 @@ fn run_path<const MODE: u8, const ZIG: bool, const FAST: bool, R: RngCore>(
                     if k % 64 == 0 && (!FAST || k > 0) {
                         draws.poll()?;
                     }
-                    let a = network.propensity_in_valid_state(rx, state)?;
+                    let a = kernel.evaluate(network, rx, state)?;
                     draws.work.propensity_evaluations += 1;
                     space.rates[rx] = a;
                     if MODE >= 2 {
@@ -515,7 +572,7 @@ fn run_path<const MODE: u8, const ZIG: bool, const FAST: bool, R: RngCore>(
                     if rx % 64 == 0 {
                         draws.poll()?;
                     }
-                    let a = network.propensity_in_valid_state(rx, state)?;
+                    let a = kernel.evaluate(network, rx, state)?;
                     draws.work.propensity_evaluations += 1;
                     space.rates[rx] = a;
                     if MODE >= 2 {
@@ -595,7 +652,7 @@ fn run_path<const MODE: u8, const ZIG: bool, const FAST: bool, R: RngCore>(
                     return Err(numeric("RSSA acceptance rounded to its bound").into());
                 }
                 if threshold >= space.bounds.lower[channel] {
-                    let a = network.propensity_in_valid_state(channel, state)?;
+                    let a = kernel.evaluate(network, channel, state)?;
                     draws.work.propensity_evaluations += 1;
                     if a < space.bounds.lower[channel] || a > upper {
                         return Err(numeric(
@@ -645,6 +702,33 @@ fn run_path<const MODE: u8, const ZIG: bool, const FAST: bool, R: RngCore>(
 }
 
 pub fn execute(prepared: &Prepared, control: &Control) -> Result<SsaResult, Diagnostic> {
+    execute_inner(prepared, control, &DynamicKernel)
+}
+
+/// Execute an optional trusted Rust kernel against its exact topology. As with
+/// custom Rust simulation code, callers must establish evaluator correctness;
+/// this fingerprint prevents accidental use with a different network.
+pub fn execute_with_kernel<K: PropensityKernel>(
+    prepared: &Prepared,
+    control: &Control,
+    kernel: &K,
+) -> Result<SsaResult, Diagnostic> {
+    if kernel.topology_sha256() != prepared.core.network.topology_sha256() {
+        return Err(Diagnostic::error(
+            "CRN-E020",
+            "/kernel",
+            "generated kernel topology mismatch",
+            "Regenerate the kernel from this parameter template's model.",
+        ));
+    }
+    execute_inner(prepared, control, kernel)
+}
+
+fn execute_inner<K: PropensityKernel>(
+    prepared: &Prepared,
+    control: &Control,
+    kernel: &K,
+) -> Result<SsaResult, Diagnostic> {
     let algorithm = prepared.request.method.algorithm();
     let Method::Ssa {
         waiting_time, fast, ..
@@ -670,9 +754,9 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<SsaResult, Diag
     macro_rules! run {
         ($mode:literal, $zig:literal, $id:expr, $poller:expr, $work:expr) => {
             if fast {
-                path::<$mode, $zig, true>(prepared, $id, $poller, $work)
+                path::<$mode, $zig, true, _>(prepared, $id, $poller, $work, kernel)
             } else {
-                path::<$mode, $zig, false>(prepared, $id, $poller, $work)
+                path::<$mode, $zig, false, _>(prepared, $id, $poller, $work, kernel)
             }
         };
     }

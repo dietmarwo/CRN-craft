@@ -1,0 +1,22 @@
+Collecting rebop==0.10.0
+  Using cached rebop-0.10.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (10 kB)
+Collecting fcmaes-rust==0.2.1
+  Using cached fcmaes_rust-0.2.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.6 kB)
+Collecting xarray>=2024.9 (from rebop==0.10.0)
+  Using cached xarray-2026.9.0-py3-none-any.whl.metadata (12 kB)
+Requirement already satisfied: numpy>=1.20 in /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages (from fcmaes-rust==0.2.1) (2.3.5)
+Requirement already satisfied: scipy>=1.8 in /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages (from fcmaes-rust==0.2.1) (1.17.0)
+Requirement already satisfied: packaging>=24.2 in /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages (from xarray>=2024.9->rebop==0.10.0) (26.3)
+Requirement already satisfied: pandas>=2.2 in /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages (from xarray>=2024.9->rebop==0.10.0) (2.2.3)
+Requirement already satisfied: python-dateutil>=2.8.2 in /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages (from pandas>=2.2->xarray>=2024.9->rebop==0.10.0) (2.9.0.post0)
+Requirement already satisfied: pytz>=2020.1 in /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages (from pandas>=2.2->xarray>=2024.9->rebop==0.10.0) (2026.5)
+Requirement already satisfied: tzdata>=2022.7 in /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages (from pandas>=2.2->xarray>=2024.9->rebop==0.10.0) (2026.5)
+Requirement already satisfied: six>=1.5 in /opt/codex/runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/site-packages (from python-dateutil>=2.8.2->pandas>=2.2->xarray>=2024.9->rebop==0.10.0) (1.17.0)
+Using cached rebop-0.10.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (324 kB)
+Using cached fcmaes_rust-0.2.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (773 kB)
+Using cached xarray-2026.9.0-py3-none-any.whl (1.4 MB)
+Installing collected packages: fcmaes-rust, xarray, rebop
+Successfully installed fcmaes-rust-0.2.1 rebop-0.10.0 xarray-2026.9.0
+
+[notice] A new release of pip is available: 25.0.1 -> 26.2.2
+[notice] To update, run: python -m pip install --upgrade pip

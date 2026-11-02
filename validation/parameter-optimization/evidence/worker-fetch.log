@@ -1,0 +1,13 @@
+    Updating crates.io index
+     Locking 45 packages to latest Rust 1.85 compatible versions
+      Adding generic-array v0.14.7 (available: v0.14.9)
+      Adding libm v0.2.15 (available: v0.2.16)
+ Downloading crates ...
+  Downloaded chacha20 v0.10.2
+  Downloaded cpufeatures v0.3.1
+  Downloaded rand_core v0.10.1
+  Downloaded r-efi v6.0.0
+  Downloaded winnow v1.0.4
+  Downloaded rand_distr v0.6.0
+  Downloaded rand v0.10.3
+  Downloaded rebop v0.10.0

@@ -18,6 +18,19 @@ These operations have no random generator, event selection, elapsed time, thread
 
 `analyze MODEL [STATE]` uses initial counts unless given a strict `crn-craft.state/0.1` document. Its `model_sha256` and `state_sha256` identify raw supplied bytes, not normalized JSON. The optional state need not lie in the initial conservation class. The output separates `initial_counts` and `evaluation_counts`; it makes no reachability claim.
 
+### Parameter templates and generated kernels
+
+`topology_sha256()` fingerprints the model with every parameter value set to
+zero (structure, literals, initial counts and limits; not the CRN-craft
+version), so bindings of one template share it. `mass_action_coefficient(j)`
+returns the resolved coefficient of a mass-action reaction, or `None` for
+custom laws. `propensity_in_scheduler_state(j, &counts)` is the evaluator for
+`ssa::PropensityKernel` implementations: same arithmetic and diagnostics as
+`propensity`, but it skips the O(species) state scan because the engine only
+passes states built from `initial_counts` and checked `fire_reaction` updates
+(the length is still checked; callers must not pass negative counts). See
+[reusable parameters](reusable-parameters.md).
+
 ## Linear-basis conservation (legacy-compatible)
 
 The analyzer computes the rational left nullspace of N by checked integer row elimination with gcd reduction, followed by checked rational back substitution. Primitive integer basis rows satisfy lᵀN=0. A limited sequence of elementary basis combinations exposes nonnegative rows where available; it is **not** an enumeration of the nonnegative conservation cone. Each returned row is verified against the original sparse columns. Basis rows span the rational conservation space, not necessarily the full integer lattice of laws.

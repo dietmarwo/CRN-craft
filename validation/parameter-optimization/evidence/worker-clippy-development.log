@@ -1,0 +1,26 @@
+   Compiling libc v0.2.191
+   Compiling getrandom v0.4.3
+    Checking rand_core v0.10.1
+   Compiling autocfg v1.5.1
+    Checking cpufeatures v0.3.1
+   Compiling crn-craft v0.2.0-dev.1 (/workspace/scratch/d05427e343fb/CRN-craft-parameters/crates/crn-craft)
+    Checking winnow v1.0.4
+    Checking chacha20 v0.10.2
+   Compiling num-traits v0.2.19
+    Checking rand v0.10.3
+    Checking rand_distr v0.6.0
+    Checking rebop v0.10.0
+    Checking crn-parameter-bench-worker v0.1.0 (/workspace/scratch/d05427e343fb/CRN-craft-parameters/validation/parameter-optimization/worker)
+error: unneeded unit expression
+   --> src/main.rs:256:25
+    |
+256 |                         ()
+    |                         ^^ help: remove the final `()`
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/master/index.html#unused_unit
+    = note: `-D clippy::unused-unit` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::unused_unit)]`
+
+error: could not compile `crn-parameter-bench-worker` (bin "crn-parameter-bench-worker") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `crn-parameter-bench-worker` (bin "crn-parameter-bench-worker" test) due to 1 previous error

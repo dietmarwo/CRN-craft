@@ -1,0 +1,13 @@
+python/crn_craft/__init__.py:219:14: UP038 Use `X | Y` in `isinstance` call instead of `(X, Y)`
+    |
+217 |                 raise invalid("parameter names do not match template")
+218 |             values = [values[name] for name in self.parameter_names]
+219 |         elif isinstance(values, (str, bytes, bytearray)):
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ UP038
+220 |             raise invalid("parameter values must be a numeric sequence or mapping")
+221 |         else:
+    |
+    = help: Convert to `X | Y`
+
+Found 1 error.
+No fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).

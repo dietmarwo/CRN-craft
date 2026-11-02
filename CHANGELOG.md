@@ -2,6 +2,11 @@
 
 ## [Unreleased] — alternative exact SSA methods and the Julia-gap campaign (`0.2.0-dev.1`)
 
+### Added: reusable parameter bindings and generated kernels (imported, by Astra)
+
+- `parameters::ParameterTemplate` (Rust) and `crn.prepare_parameters` (Python) compile a model's topology once and bind parameter vectors or exact name maps per candidate; each binding keeps byte snapshots for replay. Optional `codegen::mass_action_source` / `crn.mass_action_kernel_source` emit a Rust propensity kernel for `ssa::execute_with_kernel`, guarded by `CompiledNetwork::topology_sha256`. Results are byte-identical to fresh preparation. See `docs/reusable-parameters.md` and the optimization comparison with rebop.
+- Review fixes: generated kernels fall back to the new `CompiledNetwork::propensity_in_scheduler_state` instead of the state-scanning `propensity` (a 1,500-reaction review model went from about 40 s to 4.2 s with `direct`); ordinary preparation again checks admission before compiling the dependency graph (`CRN-E060` before `CRN-E040`, as before the import); binding mismatches are `CRN-E014` with missing and unknown names, invalid Python seeds `CRN-E020`; Python `bind` rejects sets and turns float overflow into `CrnError`.
+
 ### Measured: fast mode versus Julia at one and eight threads
 
 - `docs/comparison-julia-8-threads.md`: same-host measurement of the ten `fast` configurations against five JumpProcesses 10.0.1 methods on W1–W7, original and 256-path batches, at one and eight workers (2,240 timed observations; 6,514 terminal-marginal checks passed). Geometric mean of best fast / best Julia: 0.69x (original) and 1.04x (256 paths) at eight workers; 1.15x and 1.12x at one worker (derived on import from the same observations), replacing the earlier serial projection of 1.02x. The harness and raw evidence were not part of the import; all summary statistics were recomputed from the reported observations.

@@ -67,6 +67,32 @@ def main():
                 ).hexdigest(),
             }
         )
+    # Parameter search reuses topology while each candidate keeps full replay inputs.
+    parameter_request = crn.ssa_spec(m, fast=True, end=2.0, replicates=8, keep=8)
+    template = crn.prepare_parameters(m, parameter_request)
+    values = [x * 1.2 for x in template.default_values]
+    bound = template.bind(
+        dict(zip(template.parameter_names, values, strict=True)), seed=5012
+    )
+    require(
+        bound.simulate() == crn.simulate_ssa(bound.model_bytes, bound.request_bytes),
+        "parameter binding replay",
+    )
+    require(
+        template.simulate(values, seed=5012) == bound.simulate(),
+        "repeated parameter binding",
+    )
+    try:
+        template.bind([True] * len(values))
+    except crn.CrnError:
+        pass
+    else:
+        raise RuntimeError("boolean parameter was accepted")
+    require(
+        crn.mass_action_kernel_source(m).startswith("// Generated"),
+        "AOT source interface",
+    )
+    rows.append({"check": "reusable_parameters_and_codegen", "passed": True})
     for invalid in [b'{"name":"a","name":"b"}', b'{"schema":"crn-craft.model/99"}']:
         require(not crn.check(invalid)["valid"], "strict binding parser")
     rows.append({"check": "strict_inputs", "passed": True})

@@ -1,0 +1,23 @@
+{
+  "note": "Dependency-cache-warm package rebuilds; whole three-model bundle plus arithmetic guard. No clean-machine installation claim.",
+  "workers": {
+    "dynamic": {
+      "binary": "/tmp/crn-parameters-target/parameter-worker-binaries/dynamic",
+      "compilation_seconds": 1.7951423630001955,
+      "sha256": "5f2de46ef2644538897681e684b8d5a2ade28f1263019d0104ebec163f3ba167",
+      "feature": null
+    },
+    "generated": {
+      "binary": "/tmp/crn-parameters-target/parameter-worker-binaries/generated",
+      "compilation_seconds": 6.156131491996348,
+      "sha256": "0b54373f455472122079d35b866e846f788f8492dee0ce92f3d8f2f340379282",
+      "feature": "generated"
+    },
+    "rebop_macro": {
+      "binary": "/tmp/crn-parameters-target/parameter-worker-binaries/rebop_macro",
+      "compilation_seconds": 2.248677138995845,
+      "sha256": "24d07cbd83693ba28170e5cac8b384d2ea6dd4cb079d62c5a19defea9c58abf1",
+      "feature": "rebop-macro"
+    }
+  }
+}

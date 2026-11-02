@@ -6,6 +6,7 @@ use crate::validate::validate_model;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
 
 pub const MAX_DEPENDENCY_EDGES: usize = 1_000_000;
 
@@ -31,13 +32,14 @@ pub struct ReactionStructure {
 
 #[derive(Debug, Clone)]
 pub struct CompiledNetwork {
-    species: Vec<String>,
-    initial: Vec<i64>,
-    limits: Vec<Option<i64>>,
-    reactions: Vec<ReactionStructure>,
+    species: Arc<Vec<String>>,
+    initial: Arc<Vec<i64>>,
+    limits: Arc<Vec<Option<i64>>>,
+    reactions: Arc<Vec<ReactionStructure>>,
     rates: Vec<CompiledRate>,
-    dependencies: Vec<Vec<usize>>,
+    dependencies: Arc<Vec<Vec<usize>>>,
     warnings: Vec<Diagnostic>,
+    topology_hash: Arc<str>,
 }
 
 impl CompiledNetwork {
@@ -76,46 +78,13 @@ impl CompiledNetwork {
         let mut hill_laws = 0;
         for (id, reaction) in model.reactions.iter().enumerate() {
             let reactants = sparse(&reaction.reactants);
-            let rate = match &reaction.rate {
-                Rate::MassAction { coefficient } => {
-                    let c = resolve(coefficient);
-                    CompiledRate::MassAction(c, MassKernel::compile(c, &reactants))
-                }
-                Rate::HillActivation {
-                    regulator,
-                    vmax,
-                    basal,
-                    k,
-                    n,
-                }
-                | Rate::HillRepression {
-                    regulator,
-                    vmax,
-                    basal,
-                    k,
-                    n,
-                } => CompiledRate::Hill {
-                    regulator: indices[regulator.as_str()],
-                    vmax: resolve(vmax),
-                    basal: resolve(basal),
-                    k: resolve(k),
-                    n: resolve(n),
-                    repression: matches!(reaction.rate, Rate::HillRepression { .. }),
-                    memo: {
-                        hill_laws += 1;
-                        (hill_laws <= crate::rates::MEMO_LAWS).then(Default::default)
-                    },
-                },
-                Rate::MichaelisMenten {
-                    substrate,
-                    vmax,
-                    km,
-                } => CompiledRate::MichaelisMenten {
-                    substrate: indices[substrate.as_str()],
-                    vmax: resolve(vmax),
-                    km: resolve(km),
-                },
-            };
+            let rate = compile_rate(
+                &reaction.rate,
+                &reactants,
+                &indices,
+                &resolve,
+                &mut hill_laws,
+            );
             let products = sparse(&reaction.products);
             let mut changes = BTreeMap::new();
             for term in &reactants {
@@ -170,14 +139,81 @@ impl CompiledNetwork {
             dependencies.push(affected.into_iter().collect());
         }
         Ok(Self {
-            species: model.species.iter().map(|s| s.name.clone()).collect(),
-            initial: model.species.iter().map(|s| s.initial_count).collect(),
-            limits: model.species.iter().map(|s| s.population_limit).collect(),
-            reactions,
+            species: Arc::new(model.species.iter().map(|s| s.name.clone()).collect()),
+            initial: Arc::new(model.species.iter().map(|s| s.initial_count).collect()),
+            limits: Arc::new(model.species.iter().map(|s| s.population_limit).collect()),
+            reactions: Arc::new(reactions),
             rates,
-            dependencies,
+            dependencies: Arc::new(dependencies),
             warnings,
+            topology_hash: topology_sha256(model).into(),
         })
+    }
+
+    /// Rebind values to the template's unchanged topology. Callers in this crate
+    /// obtain `model` by replacing only the parameter map of a validated model.
+    pub(crate) fn rebind(&self, model: &Model) -> Result<Self, Vec<Diagnostic>> {
+        let warnings = validate_model(model);
+        if warnings.iter().any(|d| d.severity == Severity::Error) {
+            return Err(warnings);
+        }
+        let indices = self
+            .species
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (s.as_str(), i))
+            .collect();
+        let resolve = |value: &Scalar| match value {
+            Scalar::Literal(x) => *x,
+            Scalar::Parameter(name) => model.parameters[name],
+        };
+        let mut hill_laws = 0;
+        let rates = model
+            .reactions
+            .iter()
+            .zip(self.reactions.iter())
+            .map(|(r, structure)| {
+                compile_rate(
+                    &r.rate,
+                    &structure.reactants,
+                    &indices,
+                    &resolve,
+                    &mut hill_laws,
+                )
+            })
+            .collect();
+        Ok(Self {
+            species: Arc::clone(&self.species),
+            initial: Arc::clone(&self.initial),
+            limits: Arc::clone(&self.limits),
+            reactions: Arc::clone(&self.reactions),
+            dependencies: Arc::clone(&self.dependencies),
+            rates,
+            warnings,
+            topology_hash: Arc::clone(&self.topology_hash),
+        })
+    }
+
+    /// Stable identity of structure, literals and fixed populations, with named
+    /// parameter values removed. It guards optional generated propensity code.
+    pub fn topology_sha256(&self) -> &str {
+        &self.topology_hash
+    }
+
+    /// Runtime coefficient access for model-specific mass-action kernels.
+    #[inline]
+    pub fn mass_action_coefficient(&self, reaction: usize) -> Option<f64> {
+        match self.rates.get(reaction)? {
+            CompiledRate::MassAction(c, _) => Some(*c),
+            _ => None,
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn shares_structure(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.reactions, &other.reactions)
+            && Arc::ptr_eq(&self.dependencies, &other.dependencies)
+            && Arc::ptr_eq(&self.species, &other.species)
     }
 
     pub fn species(&self) -> &[String] {
@@ -221,7 +257,7 @@ impl CompiledNetwork {
 
     pub fn named_state(&self, counts: &BTreeMap<String, i64>) -> Result<Vec<i64>, Diagnostic> {
         let mut result = Vec::with_capacity(self.species.len());
-        for name in &self.species {
+        for name in self.species.iter() {
             let count = counts.get(name).ok_or_else(|| {
                 Diagnostic::error(
                     "CRN-E041",
@@ -250,7 +286,7 @@ impl CompiledNetwork {
         self.validate_state(state)?;
         self.rates
             .iter()
-            .zip(&self.reactions)
+            .zip(self.reactions.iter())
             .enumerate()
             .map(|(i, (rate, structure))| rate.evaluate(state, &structure.reactants, i))
             .collect()
@@ -258,6 +294,22 @@ impl CompiledNetwork {
 
     pub fn propensity(&self, reaction: usize, state: &[i64]) -> Result<f64, Diagnostic> {
         self.validate_state(state)?;
+        self.propensity_in_valid_state(reaction, state)
+    }
+
+    /// For [`crate::ssa::PropensityKernel`] implementations: the engine only
+    /// passes states built from `initial_counts` and checked `fire_reaction`
+    /// updates, so the O(species) state scan of [`Self::propensity`] is
+    /// skipped. The length is still checked; callers must not pass negative
+    /// counts.
+    pub fn propensity_in_scheduler_state(
+        &self,
+        reaction: usize,
+        state: &[i64],
+    ) -> Result<f64, Diagnostic> {
+        if state.len() != self.species.len() {
+            return self.propensity(reaction, state);
+        }
         self.propensity_in_valid_state(reaction, state)
     }
 
@@ -335,6 +387,65 @@ impl CompiledNetwork {
             state[term.species] += term.coefficient;
         }
         Ok(())
+    }
+}
+
+/// Fingerprint of fixed topology, literals, initial populations and limits.
+/// It does not cover the CRN-craft version: regenerate kernels after upgrading.
+pub fn topology_sha256(model: &Model) -> String {
+    let mut shape = model.clone();
+    for value in shape.parameters.values_mut() {
+        *value = 0.0;
+    }
+    crate::sha256(&serde_json::to_vec(&shape).expect("validated finite model"))
+}
+
+fn compile_rate(
+    law: &Rate,
+    reactants: &[Term],
+    indices: &BTreeMap<&str, usize>,
+    resolve: &impl Fn(&Scalar) -> f64,
+    hill_laws: &mut usize,
+) -> CompiledRate {
+    match law {
+        Rate::MassAction { coefficient } => {
+            let c = resolve(coefficient);
+            CompiledRate::MassAction(c, MassKernel::compile(c, reactants))
+        }
+        Rate::HillActivation {
+            regulator,
+            vmax,
+            basal,
+            k,
+            n,
+        }
+        | Rate::HillRepression {
+            regulator,
+            vmax,
+            basal,
+            k,
+            n,
+        } => CompiledRate::Hill {
+            regulator: indices[regulator.as_str()],
+            vmax: resolve(vmax),
+            basal: resolve(basal),
+            k: resolve(k),
+            n: resolve(n),
+            repression: matches!(law, Rate::HillRepression { .. }),
+            memo: {
+                *hill_laws += 1;
+                (*hill_laws <= crate::rates::MEMO_LAWS).then(Default::default)
+            },
+        },
+        Rate::MichaelisMenten {
+            substrate,
+            vmax,
+            km,
+        } => CompiledRate::MichaelisMenten {
+            substrate: indices[substrate.as_str()],
+            vmax: resolve(vmax),
+            km: resolve(km),
+        },
     }
 }
 

@@ -406,11 +406,16 @@ form reads the generator sequentially once per series term. Tau's cost before
 P19 was proportional to the leap means; after, it is proportional to the
 number of leaps.
 
-External reference (P10 source, M4a harness, same host): rebop 0.10.0 through
-its Python API was 1.7 times faster than CRN-craft core time on the
-two-channel workload and 6.0 times slower on the sparse 66-reaction workload;
-those runs include rebop's Python and xarray overhead and use independent
-random streams. They were not repeated for the final source.
+External reference (final source, M4a harness `compare_references.py`, same
+host, five repeats, 64 paths to t = 100): rebop 0.10.0 through its Python API
+took 39 ms on the two-channel workload against 62 ms of CRN-craft core time
+(`simulate`) and 68 ms (`simulate-cached`), so rebop is about 1.6 times
+faster there; on the sparse 66-reaction workload it took 2.21 s against
+0.61 s (`simulate`, 3.6 times slower) and 0.19 s (`simulate-cached`, 11.8
+times slower). The rebop times include its Python and result-array overhead,
+CRN-craft core times include the ordered statistics, and the two use
+independent random streams, so this is a cost comparison, not a path
+comparison. Reports: `validation/campaign/p11-p20/cumulative/rebop-*.json`.
 
 ### 7.4 Memory
 

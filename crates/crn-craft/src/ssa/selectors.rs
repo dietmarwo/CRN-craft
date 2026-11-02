@@ -54,52 +54,101 @@ impl Default for Node {
         }
     }
 }
+fn leaf(rate: f64, minimum_positive: f64) -> Node {
+    Node {
+        sum: rate,
+        minimum: minimum_positive,
+        bad: !rate.is_finite()
+            || rate < 0.0
+            || minimum_positive <= 0.0
+            || minimum_positive.is_nan(),
+    }
+}
+fn parent(a: Node, b: Node) -> Node {
+    let sum = a.sum + b.sum;
+    Node {
+        sum,
+        minimum: a.minimum.min(b.minimum),
+        bad: a.bad
+            || b.bad
+            || !sum.is_finite()
+            || (a.sum > 0.0 && sum <= b.sum)
+            || (b.sum > 0.0 && sum <= a.sum),
+    }
+}
 
 /// Pairwise sums rebuild the ancestor chain; no accumulated add/subtract drift.
+///
+/// Only the sums are maintained per node. `total` must decide exactly as a
+/// tree that also carries per-node minima and loss flags (`Node`): reject an
+/// invalid leaf, a non-finite sum, a pairwise addition that loses a positive
+/// operand, or a smallest positive leaf below 2^-53 of the total. `floor` never
+/// exceeds a current positive leaf or leaf minimum. When it is at least 2^-52
+/// of a normal total, every positive pairwise operand exceeds half an ulp of
+/// any sum (all sums are at most the total), so no addition can lose it, and
+/// the resolution test passes; otherwise the checked tree is evaluated in full.
 #[derive(Default)]
 pub(super) struct RateTree {
-    nodes: Vec<Node>,
+    sums: Vec<f64>,
+    minima: Vec<f64>,
     base: usize,
     len: usize,
+    invalid: usize,
+    floor: f64,
+    checked: Vec<Node>,
 }
 impl RateTree {
     pub(super) fn reset(&mut self, count: usize) {
         self.len = count;
         self.base = count.max(1).next_power_of_two();
-        self.nodes.resize(self.base * 2, Node::default());
-        self.nodes.fill(Node::default());
+        self.sums.resize(self.base * 2, 0.0);
+        self.sums.fill(0.0);
+        self.minima.resize(self.base, f64::INFINITY);
+        self.minima.fill(f64::INFINITY);
+        self.invalid = 0;
+        self.floor = f64::INFINITY;
     }
     pub(super) fn get(&self, index: usize) -> f64 {
-        self.nodes[self.base + index].sum
+        self.sums[self.base + index]
     }
     pub(super) fn set(&mut self, index: usize, rate: f64, minimum_positive: f64) {
         let mut i = self.base + index;
-        self.nodes[i] = Node {
-            sum: rate,
-            minimum: minimum_positive,
-            bad: !rate.is_finite()
-                || rate < 0.0
-                || minimum_positive <= 0.0
-                || minimum_positive.is_nan(),
-        };
+        self.invalid -= usize::from(leaf(self.sums[i], self.minima[index]).bad);
+        self.invalid += usize::from(leaf(rate, minimum_positive).bad);
+        self.sums[i] = rate;
+        self.minima[index] = minimum_positive;
+        let positive = if rate > 0.0 { rate } else { f64::INFINITY };
+        self.floor = self.floor.min(positive.min(minimum_positive));
         while i > 1 {
             i /= 2;
-            let a = self.nodes[2 * i];
-            let b = self.nodes[2 * i + 1];
-            let sum = a.sum + b.sum;
-            self.nodes[i] = Node {
-                sum,
-                minimum: a.minimum.min(b.minimum),
-                bad: a.bad
-                    || b.bad
-                    || !sum.is_finite()
-                    || (a.sum > 0.0 && sum <= b.sum)
-                    || (b.sum > 0.0 && sum <= a.sum),
-            };
+            self.sums[i] = self.sums[2 * i] + self.sums[2 * i + 1];
         }
     }
-    pub(super) fn total(&self) -> Result<f64, Diagnostic> {
-        let root = self.nodes[1];
+    pub(super) fn total(&mut self) -> Result<f64, Diagnostic> {
+        let root = self.sums[1];
+        if self.invalid == 0 && root.is_normal() && self.floor >= root * (1.0 / (1u64 << 52) as f64)
+        {
+            return Ok(root);
+        }
+        self.checked_total()
+    }
+    #[cold]
+    fn checked_total(&mut self) -> Result<f64, Diagnostic> {
+        let base = self.base;
+        self.checked.resize(2 * base, Node::default());
+        for i in 0..base {
+            self.checked[base + i] = leaf(self.sums[base + i], self.minima[i]);
+        }
+        for i in (1..base).rev() {
+            self.checked[i] = parent(self.checked[2 * i], self.checked[2 * i + 1]);
+        }
+        let root = self.checked[1];
+        debug_assert_eq!(root.sum.to_bits(), self.sums[1].to_bits());
+        let positive = (0..base)
+            .map(|i| self.sums[base + i])
+            .filter(|&rate| rate > 0.0)
+            .fold(root.minimum, f64::min);
+        self.floor = positive;
         if root.bad
             || (root.minimum.is_finite() && root.minimum / root.sum < 1.0 / (1u64 << 53) as f64)
         {
@@ -316,6 +365,107 @@ mod tests {
             assert!(top >= x && top / 2.0 <= x);
         }
     }
+    /// The previous implementation: every node carries its checked state.
+    struct Reference {
+        nodes: Vec<Node>,
+        base: usize,
+    }
+    impl Reference {
+        fn new(count: usize) -> Self {
+            let base = count.max(1).next_power_of_two();
+            Self {
+                nodes: vec![Node::default(); 2 * base],
+                base,
+            }
+        }
+        fn set(&mut self, index: usize, rate: f64, minimum_positive: f64) {
+            let mut i = self.base + index;
+            self.nodes[i] = leaf(rate, minimum_positive);
+            while i > 1 {
+                i /= 2;
+                self.nodes[i] = parent(self.nodes[2 * i], self.nodes[2 * i + 1]);
+            }
+        }
+        fn total(&self) -> Option<f64> {
+            let root = self.nodes[1];
+            (!(root.bad
+                || (root.minimum.is_finite()
+                    && root.minimum / root.sum < 1.0 / (1u64 << 53) as f64)))
+                .then_some(root.sum)
+        }
+    }
+
+    #[test]
+    fn lazily_checked_tree_decides_exactly_like_the_fully_checked_tree() {
+        let mut rng = crate::sampling::stream(4242, 31);
+        let specials = [
+            0.0,
+            f64::MIN_POSITIVE,
+            f64::from_bits(1),
+            1.0,
+            1.0 + f64::EPSILON,
+            0.5 * f64::EPSILON,
+            f64::EPSILON,
+            2.0f64.powi(-53),
+            f64::MAX,
+            f64::INFINITY,
+            f64::NAN,
+            -1.0,
+            1e-300,
+            1e300,
+        ];
+        let rate_of_index = |index: usize| (index + 1) as f64;
+        let (mut accepted, mut rejected) = (0, 0);
+        for case in 0..400 {
+            let count = 1 + (rng.next_u64() % 40) as usize;
+            let mut tree = RateTree::default();
+            tree.reset(count);
+            let mut reference = Reference::new(count);
+            for _ in 0..200 {
+                let index = (rng.next_u64() % count as u64) as usize;
+                let word = rng.next_u64();
+                let wild = case % 4 == 0;
+                let span: u64 = if case % 5 == 0 { 120 } else { 40 };
+                let scale = 2.0f64.powi(-(case % 3) * 330);
+                let rate = match word % 8 {
+                    0 if wild => specials[(word >> 8) as usize % specials.len()],
+                    0 => rate_of_index(index) * scale,
+                    1 => 0.0,
+                    // Wide dynamic ranges, sometimes beyond 53-bit resolution.
+                    2 | 3 => {
+                        f64::from_bits(0x3ff0_0000_0000_0000 + (word >> 12))
+                            * 2.0f64.powi(((word >> 3) % span) as i32 - span as i32 / 2)
+                            * scale
+                    }
+                    _ => (word >> 11) as f64 / (1u64 << 53) as f64 * 10.0 * scale,
+                };
+                // Mostly the rate itself; sometimes a smaller or odd bound.
+                let minimum = match (word >> 60) % 6 {
+                    0 => rate * 0.25,
+                    1 if wild => specials[(word >> 20) as usize % specials.len()],
+                    _ if rate > 0.0 => rate,
+                    _ => f64::INFINITY,
+                };
+                tree.set(index, rate, minimum);
+                reference.set(index, rate, minimum);
+                let expected = reference.total();
+                match (tree.total(), expected) {
+                    (Ok(a), Some(b)) => {
+                        assert_eq!(a.to_bits(), b.to_bits());
+                        accepted += 1;
+                    }
+                    (Err(_), None) => rejected += 1,
+                    (a, b) => panic!("case {case}: {a:?} versus {b:?}"),
+                }
+                assert_eq!(tree.get(index).to_bits(), rate.to_bits());
+            }
+        }
+        assert!(
+            accepted > 20_000 && rejected > 20_000,
+            "{accepted} {rejected}"
+        );
+    }
+
     #[test]
     fn tree_rebuilds_without_incremental_cancellation_drift() {
         let mut tree = RateTree::default();

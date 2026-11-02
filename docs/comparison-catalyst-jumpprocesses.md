@@ -28,6 +28,14 @@ Julia was faster.
 | W6 | CRN RSSACR · ziggurat | 0.0874 | Julia RSSACR | 0.0396 | 2.21× | 6.71× |
 | W7 | CRN RSSACR · ziggurat | 0.0238 | Julia RSSACR | 0.0133 | 1.79× | 1.63× |
 
+**Measured with `fast` (2 November 2026).** A direct same-host rerun with
+`fast` engines and five Julia methods at one and eight workers is in
+[fast mode versus Julia at one and eight threads](comparison-julia-8-threads.md).
+Geometric mean of the best fast method's time over Julia's best: 0.69× at
+eight workers and 1.15× at one worker on the original batches; 1.04× and 1.12×
+on 256-path batches. It supersedes the projection below, which is kept as
+recorded.
+
 **Update with `fast` (projected, not remeasured).** Comparisons now time
 CRN-craft with the opt-in `fast` switch, which emulates JumpProcesses' policy
 (Xoshiro256++, running totals without loss or resolution checks, batched stop

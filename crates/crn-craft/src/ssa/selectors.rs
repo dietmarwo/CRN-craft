@@ -248,6 +248,31 @@ fn ceiling(group: usize) -> f64 {
     }
 }
 
+/// Buckets up to this size take the member and the acceptance uniform from one
+/// random word. Lemire's product `w*n` gives the member in its high 64 bits;
+/// after his rejection step, the low 64 bits are, given the member, uniform on
+/// a lattice of spacing n/2^64 <= 2^-54. Their top 53 bits are the acceptance
+/// uniform, so the acceptance probability errs by at most 2^-53 + 2^-54.
+const JOINT_MEMBERS: usize = 1024;
+fn joint(
+    members: &[usize],
+    bound: f64,
+    rng: &mut impl RngCore,
+    draws: &mut Draws,
+) -> Result<(usize, f64), Bail> {
+    let n = members.len() as u64;
+    let cutoff = n.wrapping_neg() % n;
+    loop {
+        let product = u128::from(draws.word(rng)?) * u128::from(n);
+        let low = product as u64;
+        if low >= cutoff {
+            let uniform = crate::sampling::uniform_closed_open(low);
+            return Ok((members[(product >> 64) as usize], uniform * bound));
+        }
+        draws.poll()?;
+    }
+}
+
 #[derive(Default)]
 pub(super) struct Composition {
     groups: Vec<Vec<usize>>,
@@ -363,9 +388,13 @@ impl Composition {
                 .get(k)
                 .ok_or_else(|| numeric("composition group selection failed"))?;
             let members = &self.groups[id];
-            let index = members[draws.index(rng, members.len())?];
             let bound = ceiling(id);
-            let threshold = draws.closed(rng)? * bound;
+            let (index, threshold) = if members.len() <= JOINT_MEMBERS {
+                joint(members, bound, rng, draws)?
+            } else {
+                let index = members[draws.index(rng, members.len())?];
+                (index, draws.closed(rng)? * bound)
+            };
             if threshold >= bound {
                 return Err(numeric("composition acceptance rounded to its bound").into());
             }

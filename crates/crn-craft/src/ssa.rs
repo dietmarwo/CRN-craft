@@ -584,11 +584,17 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<SsaResult, Diag
     let algorithm = prepared.request.method.algorithm();
     let Method::Ssa { waiting_time, .. } = prepared.request.method;
     let sampler = format!(
-        "chacha8-u53/{}/{}/1",
+        "chacha8-u53/{}/{}/{}",
         algorithm.name(),
         match waiting_time {
             WaitingTime::Inverse => "inverse",
             WaitingTime::Ziggurat => "ziggurat256-julia",
+        },
+        // Version 2: composition draws member and acceptance from one word.
+        if matches!(algorithm, Algorithm::DirectCr | Algorithm::RssaCr) {
+            2
+        } else {
+            1
         }
     );
     let (simulation, metrics) = simulation::execute_paths::<Workspace, Work, _>(

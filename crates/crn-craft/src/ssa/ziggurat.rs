@@ -10,7 +10,6 @@ pub(super) fn exponential(rng: &mut impl RngCore, draws: &mut Draws) -> Result<f
         let word = draws.word(rng)? & 0x000f_ffff_ffff_ffff;
         // Exact zero is excluded, as it is in the legacy inverse sampler.
         if word == 0 {
-            draws.poll()?;
             continue;
         }
         let index = (word & 255) as usize;
@@ -25,7 +24,6 @@ pub(super) fn exponential(rng: &mut impl RngCore, draws: &mut Draws) -> Result<f
         if y < libm::exp(-x) {
             return Ok(x);
         }
-        draws.poll()?;
     }
 }
 
@@ -136,14 +134,10 @@ mod tests {
             Err(Bail::SamplingLimit)
         ));
         assert_eq!(d.work.rng_words, 4);
-        // A rejected attempt polls before its retry, within the word budget.
-        d.work.rng_words = 0;
-        rng.position = 0;
         c.cancel();
         assert!(matches!(
             exponential(&mut rng, &mut d),
             Err(Bail::Stopped(_))
         ));
-        assert_eq!(d.work.rng_words, 2);
     }
 }

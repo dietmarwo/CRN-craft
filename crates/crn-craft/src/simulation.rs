@@ -158,9 +158,6 @@ impl<'a> Poller<'a> {
             stopped: None,
         }
     }
-    /// The common no-stop path is inlined into the event loops; clock, file and
-    /// integration checks stay out of line at their amortized stride.
-    #[inline]
     pub(crate) fn poll(&mut self) -> Option<Stop> {
         #[cfg(test)]
         self.control.polls.fetch_add(1, Ordering::Relaxed);
@@ -179,11 +176,6 @@ impl<'a> Poller<'a> {
             self.countdown = self.countdown.saturating_sub(1);
             return None;
         }
-        self.checkpoint()
-    }
-    #[cold]
-    #[inline(never)]
-    fn checkpoint(&mut self) -> Option<Stop> {
         self.countdown = CLOCK_POLL_STRIDE - 1;
         if self.control.external_stop.as_ref().is_some_and(|f| f()) {
             self.control.cancel();

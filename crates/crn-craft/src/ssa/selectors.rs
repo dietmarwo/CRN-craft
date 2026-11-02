@@ -96,6 +96,7 @@ pub(super) struct RateTree {
     invalid: usize,
     floor: f64,
     checked: Vec<Node>,
+    level: Vec<usize>,
 }
 impl RateTree {
     pub(super) fn reset(&mut self, count: usize) {
@@ -111,18 +112,73 @@ impl RateTree {
     pub(super) fn get(&self, index: usize) -> f64 {
         self.sums[self.base + index]
     }
-    pub(super) fn set(&mut self, index: usize, rate: f64, minimum_positive: f64) {
-        let mut i = self.base + index;
+    /// Writes one leaf; its ancestors are stale until `rebuild` covers it.
+    pub(super) fn set_leaf(&mut self, index: usize, rate: f64, minimum_positive: f64) {
+        let i = self.base + index;
         self.invalid -= usize::from(leaf(self.sums[i], self.minima[index]).bad);
         self.invalid += usize::from(leaf(rate, minimum_positive).bad);
         self.sums[i] = rate;
         self.minima[index] = minimum_positive;
         let positive = if rate > 0.0 { rate } else { f64::INFINITY };
         self.floor = self.floor.min(positive.min(minimum_positive));
+    }
+    fn chain(&mut self, index: usize) {
+        let mut i = self.base + index;
         while i > 1 {
             i /= 2;
             self.sums[i] = self.sums[2 * i] + self.sums[2 * i + 1];
         }
+    }
+    #[cfg(test)]
+    pub(super) fn set(&mut self, index: usize, rate: f64, minimum_positive: f64) {
+        self.set_leaf(index, rate, minimum_positive);
+        self.chain(index);
+    }
+    pub(super) fn rebuild_all(&mut self) {
+        for i in (1..self.base).rev() {
+            self.sums[i] = self.sums[2 * i] + self.sums[2 * i + 1];
+        }
+    }
+    /// Recomputes every ancestor of the given leaves once, a level at a time.
+    /// Each node is the sum of its two children, so the result equals one
+    /// `set` per leaf. Ascending leaves keep each level free of duplicates.
+    pub(super) fn rebuild(&mut self, leaves: &[usize]) {
+        if leaves.len() <= 4 {
+            for &k in leaves {
+                self.chain(k);
+            }
+            return;
+        }
+        if 2 * leaves.len() >= self.len {
+            self.rebuild_all();
+            return;
+        }
+        let mut level = std::mem::take(&mut self.level);
+        level.clear();
+        for &k in leaves {
+            let p = (self.base + k) / 2;
+            if level.last() != Some(&p) {
+                level.push(p);
+            }
+        }
+        loop {
+            for &i in &level {
+                self.sums[i] = self.sums[2 * i] + self.sums[2 * i + 1];
+            }
+            if level.first() == Some(&1) {
+                break;
+            }
+            let mut kept = 0;
+            for k in 0..level.len() {
+                let p = level[k] / 2;
+                if kept == 0 || level[kept - 1] != p {
+                    level[kept] = p;
+                    kept += 1;
+                }
+            }
+            level.truncate(kept);
+        }
+        self.level = level;
     }
     pub(super) fn total(&mut self) -> Result<f64, Diagnostic> {
         let root = self.sums[1];
@@ -464,6 +520,32 @@ mod tests {
             accepted > 20_000 && rejected > 20_000,
             "{accepted} {rejected}"
         );
+    }
+
+    #[test]
+    fn batched_ancestor_rebuilds_equal_one_update_per_leaf() {
+        let mut rng = crate::sampling::stream(4242, 32);
+        for count in [1, 2, 3, 5, 8, 9, 31, 64, 100, 257] {
+            let (mut single, mut batched) = (RateTree::default(), RateTree::default());
+            single.reset(count);
+            batched.reset(count);
+            for _ in 0..200 {
+                let mut leaves: Vec<usize> = (0..count)
+                    .filter(|_| rng.next_u64() % (1 + count as u64 / 4) == 0)
+                    .collect();
+                if rng.next_u64() % 5 == 0 {
+                    leaves = (0..count).collect();
+                }
+                for &k in &leaves {
+                    let rate = (rng.next_u64() >> 11) as f64 / (1u64 << 40) as f64;
+                    single.set(k, rate, if rate > 0.0 { rate } else { f64::INFINITY });
+                    batched.set_leaf(k, rate, if rate > 0.0 { rate } else { f64::INFINITY });
+                }
+                batched.rebuild(&leaves);
+                let bits = |t: &RateTree| t.sums.iter().map(|x| x.to_bits()).collect::<Vec<_>>();
+                assert_eq!(bits(&single), bits(&batched), "{count} {leaves:?}");
+            }
+        }
     }
 
     #[test]

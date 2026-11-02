@@ -425,11 +425,14 @@ fn path<const MODE: u8, const ZIG: bool>(
                     if MODE >= 2 {
                         space
                             .tree
-                            .set(rx, a, if a > 0.0 { a } else { f64::INFINITY });
+                            .set_leaf(rx, a, if a > 0.0 { a } else { f64::INFINITY });
                         if MODE == 2 {
                             space.composition.update(rx, a)?;
                         }
                     }
+                }
+                if MODE >= 2 {
+                    space.tree.rebuild(affected);
                 }
                 if MODE == 1 {
                     if let Some(&first) = affected.first() {
@@ -452,11 +455,14 @@ fn path<const MODE: u8, const ZIG: bool>(
                     if MODE >= 2 {
                         space
                             .tree
-                            .set(rx, a, if a > 0.0 { a } else { f64::INFINITY });
+                            .set_leaf(rx, a, if a > 0.0 { a } else { f64::INFINITY });
                         if MODE == 2 {
                             space.composition.update(rx, a)?;
                         }
                     }
+                }
+                if MODE >= 2 {
+                    space.tree.rebuild_all();
                 }
                 if MODE == 0 {
                     total = sampling::total_with_prefix(&space.rates, &mut space.prefix)?;

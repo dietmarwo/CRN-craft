@@ -1,0 +1,114 @@
+{
+  "passed": true,
+  "rows": [
+    {
+      "check": "independent_DOP853",
+      "error": 9.963124044060353e-12,
+      "model": "immigration-death",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 7.048543223926862e-10,
+      "model": "immigration-death",
+      "parameter": "birth",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 1.7868130427956898e-08,
+      "model": "immigration-death",
+      "parameter": "death",
+      "passed": true
+    },
+    {
+      "check": "analytic_linear",
+      "error": 1.2600231968917797e-10,
+      "model": "immigration-death",
+      "passed": true
+    },
+    {
+      "check": "independent_DOP853",
+      "error": 9.481871871571965e-11,
+      "model": "enzyme-mechanism",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 7.363549684166027e-09,
+      "model": "enzyme-mechanism",
+      "parameter": "kcat",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 8.723238775405879e-09,
+      "model": "enzyme-mechanism",
+      "parameter": "koff",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 2.413622994778106e-05,
+      "model": "enzyme-mechanism",
+      "parameter": "kon",
+      "passed": true
+    },
+    {
+      "check": "independent_DOP853",
+      "error": 7.722210633619733e-10,
+      "model": "repressilator",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 3.1531703914566833e-09,
+      "model": "repressilator",
+      "parameter": "K",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 8.973592979799605e-10,
+      "model": "repressilator",
+      "parameter": "alpha",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 1.4437767073508942e-08,
+      "model": "repressilator",
+      "parameter": "alpha0",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 9.159053187852333e-09,
+      "model": "repressilator",
+      "parameter": "beta",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 1.4021149585818904e-07,
+      "model": "repressilator",
+      "parameter": "gamma_m",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 3.066150769350079e-08,
+      "model": "repressilator",
+      "parameter": "gamma_p",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 1.4475394797490738e-08,
+      "model": "repressilator",
+      "parameter": "n",
+      "passed": true
+    }
+  ],
+  "schema": "crn-craft.ode-validation/0.1"
+}

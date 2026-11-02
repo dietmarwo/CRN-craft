@@ -1,0 +1,386 @@
+{
+  "passed": true,
+  "rows": [
+    {
+      "check": "independent_DOP853",
+      "error": 9.963124044060353e-12,
+      "model": "immigration-death",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 7.048543223926862e-10,
+      "model": "immigration-death",
+      "parameter": "birth",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 1.7868130427956898e-08,
+      "model": "immigration-death",
+      "parameter": "death",
+      "passed": true
+    },
+    {
+      "check": "analytic_linear",
+      "error": 1.2600231968917797e-10,
+      "model": "immigration-death",
+      "passed": true
+    },
+    {
+      "check": "independent_DOP853",
+      "error": 9.481871871571965e-11,
+      "model": "enzyme-mechanism",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 7.363549684166027e-09,
+      "model": "enzyme-mechanism",
+      "parameter": "kcat",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 8.723238775405879e-09,
+      "model": "enzyme-mechanism",
+      "parameter": "koff",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 2.413622994778106e-05,
+      "model": "enzyme-mechanism",
+      "parameter": "kon",
+      "passed": true
+    },
+    {
+      "check": "independent_DOP853",
+      "error": 7.722210633619733e-10,
+      "model": "repressilator",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 3.1531703914566833e-09,
+      "model": "repressilator",
+      "parameter": "K",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 8.973592979799605e-10,
+      "model": "repressilator",
+      "parameter": "alpha",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 1.4437767073508942e-08,
+      "model": "repressilator",
+      "parameter": "alpha0",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 9.159053187852333e-09,
+      "model": "repressilator",
+      "parameter": "beta",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 1.4021149585818904e-07,
+      "model": "repressilator",
+      "parameter": "gamma_m",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 3.066150769350079e-08,
+      "model": "repressilator",
+      "parameter": "gamma_p",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity",
+      "error": 1.4475394797490738e-08,
+      "model": "repressilator",
+      "parameter": "n",
+      "passed": true
+    },
+    {
+      "check": "independent_DOP853",
+      "error": 1.7603923119224748e-09,
+      "model": "dimerization",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity_relative_step",
+      "error": 8.275666418567738e-09,
+      "model": "dimerization",
+      "parameter": "c",
+      "passed": true
+    },
+    {
+      "check": "analytic_dimerization_A1_equals_50",
+      "error": 6.946287101072812e-09,
+      "model": "dimerization",
+      "passed": true
+    },
+    {
+      "check": "analytic_dimerization_values",
+      "error": 1.7603993462955711e-09,
+      "model": "dimerization",
+      "passed": true
+    },
+    {
+      "check": "analytic_dimerization_sensitivity",
+      "error": 8.780491725701723e-10,
+      "model": "dimerization",
+      "passed": true
+    },
+    {
+      "check": "independent_DOP853",
+      "error": 4.570401143223773e-10,
+      "model": "hill-constant",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity_relative_step",
+      "error": 2.9481129341928607e-09,
+      "model": "hill-constant",
+      "parameter": "K",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity_relative_step",
+      "error": 4.489650543765495e-10,
+      "model": "hill-constant",
+      "parameter": "b",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity_relative_step",
+      "error": 7.6082828484045e-09,
+      "model": "hill-constant",
+      "parameter": "g",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity_relative_step",
+      "error": 1.6285328116940916e-09,
+      "model": "hill-constant",
+      "parameter": "n",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity_relative_step",
+      "error": 4.568178890156642e-10,
+      "model": "hill-constant",
+      "parameter": "v",
+      "passed": true
+    },
+    {
+      "check": "analytic_hill_activation",
+      "error": 5.15402216048667e-10,
+      "model": "hill-constant",
+      "passed": true
+    },
+    {
+      "check": "analytic_hill_repression",
+      "error": 5.15404325829166e-10,
+      "model": "hill-constant",
+      "passed": true
+    },
+    {
+      "check": "independent_DOP853",
+      "error": 1.2247123901109264e-10,
+      "model": "hill-dynamic",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity_relative_step",
+      "error": 8.728067379948357e-09,
+      "model": "hill-dynamic",
+      "parameter": "K",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity_relative_step",
+      "error": 5.762275656628901e-10,
+      "model": "hill-dynamic",
+      "parameter": "b",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity_relative_step",
+      "error": 8.881784197001252e-09,
+      "model": "hill-dynamic",
+      "parameter": "c",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity_relative_step",
+      "error": 1.0505108782865591e-08,
+      "model": "hill-dynamic",
+      "parameter": "g",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity_relative_step",
+      "error": 2.525032249435816e-09,
+      "model": "hill-dynamic",
+      "parameter": "gr",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity_relative_step",
+      "error": 1.649314476064752e-08,
+      "model": "hill-dynamic",
+      "parameter": "kr",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity_relative_step",
+      "error": 6.4502536645250075e-09,
+      "model": "hill-dynamic",
+      "parameter": "n",
+      "passed": true
+    },
+    {
+      "check": "forward_sensitivity_relative_step",
+      "error": 7.539404656142779e-10,
+      "model": "hill-dynamic",
+      "parameter": "v",
+      "passed": true
+    },
+    {
+      "atol": 1e-12,
+      "check": "analytic_decay_through_zero",
+      "error": 1.2030499021257113e-13,
+      "exit": 0,
+      "model": "decay",
+      "passed": true,
+      "rtol": 1e-10,
+      "times": [
+        0.0,
+        20.0,
+        40.0
+      ]
+    },
+    {
+      "atol": 1e-08,
+      "check": "analytic_decay_through_zero",
+      "error": 3.35919445099375e-09,
+      "exit": 0,
+      "model": "decay",
+      "passed": true,
+      "rtol": 1e-06,
+      "times": [
+        0.0,
+        20.0,
+        40.0
+      ]
+    },
+    {
+      "atol": 1e-12,
+      "check": "analytic_decay_through_zero",
+      "error": 7.787580355018684e-14,
+      "exit": 0,
+      "model": "decay",
+      "passed": true,
+      "rtol": 1e-10,
+      "times": [
+        0.0,
+        100.0,
+        1000.0
+      ]
+    },
+    {
+      "atol": 1e-08,
+      "check": "analytic_decay_through_zero",
+      "error": 1.3440979320212776e-08,
+      "exit": 0,
+      "model": "decay",
+      "passed": true,
+      "rtol": 1e-06,
+      "times": [
+        0.0,
+        100.0,
+        1000.0
+      ]
+    },
+    {
+      "atol": 1e-12,
+      "check": "analytic_decay_through_zero",
+      "error": 7.750721321933537e-13,
+      "exit": 0,
+      "model": "decay",
+      "passed": true,
+      "rtol": 1e-10,
+      "times": [
+        0.0,
+        1000.0,
+        10000.0
+      ]
+    },
+    {
+      "atol": 1e-08,
+      "check": "analytic_decay_through_zero",
+      "error": 1.34409794459028e-08,
+      "exit": 0,
+      "model": "decay",
+      "passed": true,
+      "rtol": 1e-06,
+      "times": [
+        0.0,
+        1000.0,
+        10000.0
+      ]
+    },
+    {
+      "check": "long_horizon_DOP853_and_conservation",
+      "conservation_drift": 1.3216094885137863e-12,
+      "error": 1.55911652974713e-13,
+      "exit": 0,
+      "horizon": 1000.0,
+      "model": "enzyme-mechanism",
+      "passed": true
+    },
+    {
+      "check": "long_horizon_DOP853_and_conservation",
+      "conservation_drift": 5.542233338928781e-13,
+      "error": 1.7520372305734888e-11,
+      "exit": 0,
+      "horizon": 200.0,
+      "model": "michaelis-menten",
+      "passed": true
+    },
+    {
+      "check": "population_limit_at_save_time",
+      "code": "CRN-E044",
+      "exit": 1,
+      "passed": true
+    },
+    {
+      "check": "population_limit_between_save_times",
+      "code": "CRN-E044",
+      "exit": 1,
+      "passed": true
+    },
+    {
+      "check": "huge_time_no_panic",
+      "code": "CRN-E080",
+      "exit": 1,
+      "passed": true
+    },
+    {
+      "check": "kinetics_diagnostic_retained",
+      "code": "CRN-E080",
+      "exit": 1,
+      "passed": true
+    }
+  ],
+  "schema": "crn-craft.ode-validation/0.1"
+}

@@ -1,0 +1,27 @@
+   Compiling crn-diffsol v0.1.0 (/home/claude/scratch/crn5/ode-fix/repo/integrations/diffsol)
+    Finished `release` profile [optimized] target(s) in 2.20s
+     Running unittests src/main.rs (/home/claude/scratch/crn5/ode-fix/target/release/deps/crn_diffsol-e4f0ffc5a4f1a831)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cli.rs (/home/claude/scratch/crn5/ode-fix/target/release/deps/cli-eb9964d4eeaac1bd)
+
+running 6 tests
+test dimerization_uses_the_macroscopic_factorial_convention ... ok
+test hill_activation_and_repression_match_closed_forms ... ok
+test huge_times_and_evaluation_failures_return_diagnostics ... ok
+test decay_through_zero_matches_the_exact_exponential ... ok
+test population_limit_is_a_safety_stop_with_a_diagnostic ... ok
+test long_horizon_enzyme_and_michaelis_menten_complete_and_conserve ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/kinetics.rs (/home/claude/scratch/crn5/ode-fix/target/release/deps/kinetics-e668a4b7ebf57b40)
+
+running 2 tests
+test mass_action_right_hand_side_uses_powers_over_factorials ... ok
+test state_and_parameter_jacobians_match_central_differences_at_distinct_states ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

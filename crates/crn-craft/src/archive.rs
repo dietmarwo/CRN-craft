@@ -169,6 +169,24 @@ pub fn simulate_files(
     output: &Path,
     control: &Control,
 ) -> ArchiveReport {
+    simulate_using(model_path, run_path, output, control, false)
+}
+/// Optional dependency-cached execution of the same Direct stochastic contract.
+pub fn simulate_cached_files(
+    model_path: &Path,
+    run_path: &Path,
+    output: &Path,
+    control: &Control,
+) -> ArchiveReport {
+    simulate_using(model_path, run_path, output, control, true)
+}
+fn simulate_using(
+    model_path: &Path,
+    run_path: &Path,
+    output: &Path,
+    control: &Control,
+    cached: bool,
+) -> ArchiveReport {
     let action = (|| -> Result<ArchiveReport, Vec<Diagnostic>> {
         let model = crate::read_document(model_path).map_err(|e| vec![e])?;
         let run = crate::read_document(run_path).map_err(|e| vec![e])?;
@@ -194,7 +212,12 @@ pub fn simulate_files(
         fs::create_dir(output).map_err(|e| vec![io_error(e)])?;
         write_new(&output.join("model.json"), &model).map_err(|e| vec![e])?;
         write_new(&output.join("run.json"), &run).map_err(|e| vec![e])?;
-        let mut simulation = simulation::execute(&prepared, control).map_err(|e| vec![e])?;
+        let mut simulation = if cached {
+            simulation::execute_cached(&prepared, control)
+        } else {
+            simulation::execute(&prepared, control)
+        }
+        .map_err(|e| vec![e])?;
         simulation.provenance.executable_sha256 = executable_hash();
         let provenance = encoded(&simulation.provenance, 8192).map_err(|e| vec![e])?;
         let total_limit = prepared

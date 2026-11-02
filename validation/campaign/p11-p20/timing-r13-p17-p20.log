@@ -1,0 +1,35 @@
+start load 0.57 0.83 0.96 1/101 7242
+W1 1.008 [0.998, 1.017] identical
+W2 1.010 [1.009, 1.014] identical
+W3 1.002 [1.001, 1.003] identical
+W4 1.031 [1.028, 1.039] identical
+{"targets": ["W1"], "targets_gained": [], "frozen_regressions": [], "accepted": false}
+W8a 1.245 [1.231, 1.254] identical
+W8b 1.140 [1.129, 1.19] identical
+W1 0.987 [0.98, 1.001] identical
+W2 0.988 [0.985, 0.989] identical
+W3 1.002 [1.001, 1.008] identical
+W4 0.995 [0.983, 0.999] identical
+{"targets": ["W8a", "W8b"], "targets_gained": ["W8a", "W8b"], "frozen_regressions": [], "accepted": true}
+P18 before: /home/claude/scratch/crn5/bins/p17/crn-craft
+W8a 1.218 [1.16, 1.229] identical
+W8b 1.723 [1.582, 1.741] identical
+W1 0.996 [0.978, 1.001] identical
+W2 1.007 [1.004, 1.013] identical
+W3 0.998 [0.992, 1.006] identical
+W4 1.008 [1.007, 1.017] identical
+{"targets": ["W8a", "W8b"], "targets_gained": ["W8a", "W8b"], "frozen_regressions": [], "accepted": true}
+W9 312.315 [296.081, 329.711] changed
+W1 1.016 [1.01, 1.018] identical
+W2 1.003 [0.997, 1.004] identical
+W3 1.001 [0.985, 1.028] identical
+W4 1.006 [1.004, 1.019] identical
+{"targets": ["W9"], "targets_gained": ["W9"], "frozen_regressions": [], "accepted": true}
+W6 0.989 [0.987, 1.001] identical
+W1 0.994 [0.982, 1.004] identical
+W2 0.996 [0.992, 1.001] identical
+W3 0.990 [0.981, 1.0] identical
+W4 1.007 [0.988, 1.014] identical
+{"targets": ["W6"], "targets_gained": [], "frozen_regressions": [], "accepted": false}
+end load 0.98 0.92 0.98 1/98 7757
+ALL-DONE

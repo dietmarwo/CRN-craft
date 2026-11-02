@@ -1,0 +1,7 @@
+Processing /tmp/crn-campaign-final-dist/crn_craft-0.2.0.dev1-cp310-abi3-manylinux_2_34_x86_64.whl
+Installing collected packages: crn-craft
+  Attempting uninstall: crn-craft
+    Found existing installation: crn-craft 0.2.0.dev1
+    Uninstalling crn-craft-0.2.0.dev1:
+      Successfully uninstalled crn-craft-0.2.0.dev1
+Successfully installed crn-craft-0.2.0.dev1

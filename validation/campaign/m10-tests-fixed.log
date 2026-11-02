@@ -1,0 +1,43 @@
+   Compiling crn-craft v0.2.0-dev.1 (/workspace/scratch/d05427e343fb/CRN-craft-campaign/crates/crn-craft)
+    Finished `release` profile [optimized] target(s) in 1.53s
+     Running unittests src/lib.rs (/tmp/crn-campaign-target/release/deps/crn_craft-b94f017b3c4f4cd0)
+
+running 4 tests
+test simulation::tests::encoded_budget_checks_exact_boundary_without_allocating_payload ... ok
+test simulation::tests::event_exactly_at_horizon_is_included_and_consumes_two_words ... ok
+test simulation::tests::open_uniform_rejects_zero_and_never_returns_one ... ok
+test simulation::tests::cancel_file_checks_are_rate_limited ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/archives.rs (/tmp/crn-campaign-target/release/deps/archives-1e54226592735487)
+
+running 10 tests
+test incorrect_path_or_output_reservation_leaves_no_archive ... ok
+test checksum_and_completion_hash_are_checked_independently_of_json_semantics ... FAILED
+test oversized_archive_payload_is_rejected_before_reading ... ok
+test interrupted_or_tampered_archives_are_never_accepted ... ok
+test duplicate_keys_and_manifest_entries_fail_even_with_matching_marker ... ok
+test completed_archive_preserves_inputs_and_byte_budget_and_refuses_overwrite ... ok
+test archive_symlinks_are_rejected ... ok
+test refreshed_hashes_do_not_hide_false_accounting_or_statistics ... ok
+test cancellation_and_event_limits_have_complete_archives_but_incomplete_ensembles ... ok
+test refreshed_hashes_do_not_hide_inconsistent_partial_evidence_or_budget ... ok
+
+failures:
+
+---- checksum_and_completion_hash_are_checked_independently_of_json_semantics stdout ----
+
+thread 'checksum_and_completion_hash_are_checked_independently_of_json_semantics' panicked at crates/crn-craft/tests/archives.rs:123:5:
+assertion `left == right` failed
+  left: 405
+ right: 410
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    checksum_and_completion_hash_are_checked_independently_of_json_semantics
+
+test result: FAILED. 9 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+error: test failed, to rerun pass `-p crn-craft --test archives`

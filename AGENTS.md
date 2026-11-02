@@ -1,6 +1,6 @@
 # Working on CRN-craft
 
-- Read README.md and docs/ai-context.md. The current implementation is M2: Direct SSA, ordered ensembles, budgets/cancellation and verifiable archives, alongside the reviewed M1 analysis/exporters. Read docs/direct-ssa.md and docs/archive-contract.md.
+- Read README.md and docs/ai-context.md. The current implementation includes the M3–M10 campaign and ten performance experiments. Read docs/campaign/README.md, docs/direct-ssa.md and docs/archive-contract.md. Optional workspaces have their own lockfiles/MSRVs; keep them out of the default dependency gate.
 - The numerical engine must remain independent of job/campaign infrastructure.
 - Preserve strict input handling and stable diagnostic codes. Unknown fields and duplicate JSON keys must never be ignored.
 - Generate schemas from Rust types. A delivered contract shape change requires a new version and migration notes.

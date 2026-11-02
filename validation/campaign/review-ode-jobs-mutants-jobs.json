@@ -1,0 +1,52 @@
+{
+  "J1_penalty_sum_over_paths": {
+    "check_jobs_exit": 1,
+    "error_tail": [
+      "RuntimeError: objective_values_match_independent_recomputation failed; retained report"
+    ],
+    "failed_rows": [
+      "objective_values_match_independent_recomputation"
+    ],
+    "killed": true
+  },
+  "J2_species_index_hard_coded_0": {
+    "check_jobs_exit": 1,
+    "error_tail": [
+      "RuntimeError: objective_values_match_independent_recomputation failed; retained report"
+    ],
+    "failed_rows": [
+      "objective_values_match_independent_recomputation"
+    ],
+    "killed": true
+  },
+  "J3_initial_state_included": {
+    "check_jobs_exit": 1,
+    "error_tail": [
+      "RuntimeError: objective_values_match_independent_recomputation failed; retained report"
+    ],
+    "failed_rows": [
+      "objective_values_match_independent_recomputation"
+    ],
+    "killed": true
+  },
+  "J4_seed_set_default_search_seed": {
+    "check_jobs_exit": 1,
+    "error_tail": [
+      "RuntimeError: required_parameters_rejected_when_missing failed; retained report"
+    ],
+    "failed_rows": [
+      "required_parameters_rejected_when_missing"
+    ],
+    "killed": true
+  },
+  "J5_loss_summed_over_seeds": {
+    "check_jobs_exit": 1,
+    "error_tail": [
+      "RuntimeError: objective_values_match_independent_recomputation failed; retained report"
+    ],
+    "failed_rows": [
+      "objective_values_match_independent_recomputation"
+    ],
+    "killed": true
+  }
+}

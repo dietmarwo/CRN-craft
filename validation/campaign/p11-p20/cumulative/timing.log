@@ -1,0 +1,58 @@
+start load 0.58 0.91 0.97 1/95 8690
+W1 1.146 [0.952, 1.387] identical
+W2 1.058 [1.054, 1.078] identical
+W3 1.023 [0.994, 1.033] identical
+W4 1.063 [1.054, 1.136] identical
+W5 1.030 [1.018, 1.063] identical
+W6 1.025 [1.013, 1.047] identical
+W7 1.038 [0.998, 1.083] identical
+{"targets": ["W1", "W2", "W3", "W4"], "targets_gained": ["W2", "W4"], "frozen_regressions": [], "accepted": true}
+W1 1.123 [1.085, 1.154] identical
+W2 1.714 [1.679, 1.735] identical
+W3 1.043 [1.043, 1.05] identical
+W4 1.037 [1.027, 1.057] identical
+W5 1.052 [1.046, 1.053] identical
+W6 1.059 [1.051, 1.061] identical
+W7 0.988 [0.955, 1.024] identical
+{"targets": ["W1", "W2", "W3", "W4"], "targets_gained": ["W1", "W2", "W3", "W4"], "frozen_regressions": [], "accepted": true}
+Traceback (most recent call last):
+  File "/home/claude/crn-craft/validation/benchmark_iterations.py", line 393, in <module>
+    main()
+    ~~~~^^
+  File "/home/claude/crn-craft/validation/benchmark_iterations.py", line 369, in main
+    report["workloads"][name] = measure(
+                                ~~~~~~~^
+        name,
+        ^^^^^
+    ...<5 lines>...
+        args.metric,
+        ^^^^^^^^^^^^
+    )
+    ^
+  File "/home/claude/crn-craft/validation/benchmark_iterations.py", line 315, in measure
+    raise RuntimeError(f"{name}: numerical payload changed")
+RuntimeError: W8a: numerical payload changed
+start load 0.17 0.63 0.86 1/97 9353
+W8a 1.424 [1.413, 1.444] changed
+W8b 2.340 [2.22, 2.396] changed
+{"targets": ["W8a", "W8b"], "targets_gained": ["W8a", "W8b"], "frozen_regressions": [], "accepted": true}
+W9 335.291 [314.461, 343.045] changed
+{"targets": ["W9"], "targets_gained": ["W9"], "frozen_regressions": [], "accepted": true}
+W1 1.647 [1.429, 1.663] identical
+W2 1.974 [1.956, 1.989] identical
+W3 1.418 [1.404, 1.426] identical
+W4 1.369 [1.32, 1.392] identical
+W5 1.424 [1.4, 1.438] identical
+W6 1.401 [1.396, 1.414] identical
+W7 19.860 [18.566, 20.815] identical
+{"targets": ["W1", "W2", "W3", "W4"], "targets_gained": ["W1", "W2", "W3", "W4"], "frozen_regressions": [], "accepted": true}
+W1 1.014 [0.999, 1.029] identical
+W2 3.256 [3.241, 3.264] identical
+W3 2.141 [2.047, 2.197] identical
+W4 1.176 [1.164, 1.275] identical
+W5 2.136 [2.121, 2.206] identical
+W6 2.127 [2.115, 2.223] identical
+W7 0.974 [0.949, 1.022] identical
+{"targets": ["W1", "W2", "W3", "W4"], "targets_gained": ["W2", "W3", "W4"], "frozen_regressions": [], "accepted": true}
+end load 0.97 0.82 0.91 1/98 9890
+ALL-DONE

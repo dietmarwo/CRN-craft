@@ -1,0 +1,3894 @@
+{
+  "jobs": [
+    {
+      "key": "base",
+      "manifest": {
+        "artifacts": {
+          "results": "results.jsonl"
+        },
+        "completed_tasks": 2,
+        "elapsed_seconds": 0.027277253,
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 2,
+          "failed_evaluations": 0
+        },
+        "payload_schema": "fcmaes.evaluate/1",
+        "requested_tasks": 2,
+        "results": [
+          {
+            "elapsed_seconds": 0.00131653,
+            "outcome": {
+              "claim": "feasible",
+              "details": {
+                "constraints": "none declared; penalties inside the objective are not checked",
+                "problem": "app.crn.fit-moments"
+              },
+              "evidence": {
+                "checks": [
+                  "objective",
+                  "bounds"
+                ],
+                "level": "rechecked"
+              },
+              "feasible": true,
+              "objective": 0.22882894033866294,
+              "termination": "evaluated",
+              "x": [
+                1.0986122886681098,
+                -0.2231435513142097
+              ]
+            },
+            "spec_digest": "3231a058f5b661eedae615f0c253e262cec43f56cdcdd198ca9d097df0229867",
+            "task_id": 0,
+            "work": {
+              "cancelled_evaluations": 0,
+              "evaluations": 1,
+              "failed_evaluations": 0
+            }
+          },
+          {
+            "elapsed_seconds": 0.001279686,
+            "outcome": {
+              "claim": "feasible",
+              "details": {
+                "constraints": "none declared; penalties inside the objective are not checked",
+                "problem": "app.crn.fit-moments"
+              },
+              "evidence": {
+                "checks": [
+                  "objective",
+                  "bounds"
+                ],
+                "level": "rechecked"
+              },
+              "feasible": true,
+              "objective": 0.4318410010009489,
+              "termination": "evaluated",
+              "x": [
+                0.5,
+                -0.5
+              ]
+            },
+            "spec_digest": "3231a058f5b661eedae615f0c253e262cec43f56cdcdd198ca9d097df0229867",
+            "task_id": 1,
+            "work": {
+              "cancelled_evaluations": 0,
+              "evaluations": 1,
+              "failed_evaluations": 0
+            }
+          }
+        ],
+        "runner": {
+          "accounting_complete": true,
+          "artifact_index": {
+            "results": {
+              "bytes": 1380,
+              "description": "The result journal: one checked record per completed task",
+              "file": "results.jsonl",
+              "format": "records",
+              "sha256": "dcd8681de24ca40d3c042b37a8bc59170171ebedfcf6f7ebc3e61a0098e25861"
+            }
+          },
+          "attempt_id": "cae662172fd450bb0cd710a769079c05",
+          "build": {
+            "engine_version": "0.2.1",
+            "job_api_version": "0.4.0"
+          },
+          "profile": "optimization.runner/0.1",
+          "recovery": "journal_only_no_resume",
+          "resources": {
+            "cpu_slots": 1,
+            "inner_threads": 1,
+            "outer_workers": 1
+          },
+          "spec_digest": "3231a058f5b661eedae615f0c253e262cec43f56cdcdd198ca9d097df0229867",
+          "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+        },
+        "schema_version": "optimization.result/0.2",
+        "status": "completed",
+        "work": {
+          "cancelled_evaluations": 0,
+          "evaluations": 2,
+          "failed_evaluations": 0
+        },
+        "worker": "crn"
+      },
+      "parameters": {
+        "replicates": 64,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "response": {
+        "artifact_index": {
+          "results": {
+            "bytes": 1380,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records"
+          }
+        },
+        "boot_id": "890d996f-0983-4eb5-9924-f157cfe619e3",
+        "completed_tasks": 2,
+        "directory": "/tmp/crn-jobs-tfo4sor6/node/jobs/cae662172fd450bb0cd710a769079c05",
+        "finished_at": 1793560764.5758173,
+        "id": "cae662172fd450bb0cd710a769079c05",
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 2,
+          "failed_evaluations": 0
+        },
+        "queue_seconds": 0.000694654,
+        "requested_tasks": 2,
+        "started_at": 1793560764.5477097,
+        "state": "completed",
+        "submitted_at": 1793560764.5440426,
+        "unit": null
+      }
+    },
+    {
+      "key": "held_out",
+      "manifest": {
+        "artifacts": {
+          "results": "results.jsonl"
+        },
+        "completed_tasks": 2,
+        "elapsed_seconds": 0.027885654,
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 2,
+          "failed_evaluations": 0
+        },
+        "payload_schema": "fcmaes.evaluate/1",
+        "requested_tasks": 2,
+        "results": [
+          {
+            "elapsed_seconds": 0.002555315,
+            "outcome": {
+              "claim": "feasible",
+              "details": {
+                "constraints": "none declared; penalties inside the objective are not checked",
+                "problem": "app.crn.fit-moments"
+              },
+              "evidence": {
+                "checks": [
+                  "objective",
+                  "bounds"
+                ],
+                "level": "rechecked"
+              },
+              "feasible": true,
+              "objective": 0.09584389270010833,
+              "termination": "evaluated",
+              "x": [
+                1.0986122886681098,
+                -0.2231435513142097
+              ]
+            },
+            "spec_digest": "3cd98df8d9b9bf137528abd9a9a45a27e585b054f1849153f0a25122935e48d2",
+            "task_id": 0,
+            "work": {
+              "cancelled_evaluations": 0,
+              "evaluations": 1,
+              "failed_evaluations": 0
+            }
+          },
+          {
+            "elapsed_seconds": 0.002695312,
+            "outcome": {
+              "claim": "feasible",
+              "details": {
+                "constraints": "none declared; penalties inside the objective are not checked",
+                "problem": "app.crn.fit-moments"
+              },
+              "evidence": {
+                "checks": [
+                  "objective",
+                  "bounds"
+                ],
+                "level": "rechecked"
+              },
+              "feasible": true,
+              "objective": 0.5858898763300532,
+              "termination": "evaluated",
+              "x": [
+                0.5,
+                -0.5
+              ]
+            },
+            "spec_digest": "3cd98df8d9b9bf137528abd9a9a45a27e585b054f1849153f0a25122935e48d2",
+            "task_id": 1,
+            "work": {
+              "cancelled_evaluations": 0,
+              "evaluations": 1,
+              "failed_evaluations": 0
+            }
+          }
+        ],
+        "runner": {
+          "accounting_complete": true,
+          "artifact_index": {
+            "results": {
+              "bytes": 1381,
+              "description": "The result journal: one checked record per completed task",
+              "file": "results.jsonl",
+              "format": "records",
+              "sha256": "f023906a2ce0e30a22aa02e7f06329923af1ba7feefb8269a1fa153b1ea77359"
+            }
+          },
+          "attempt_id": "78e937783a0e639de2573495542b03af",
+          "build": {
+            "engine_version": "0.2.1",
+            "job_api_version": "0.4.0"
+          },
+          "profile": "optimization.runner/0.1",
+          "recovery": "journal_only_no_resume",
+          "resources": {
+            "cpu_slots": 1,
+            "inner_threads": 1,
+            "outer_workers": 1
+          },
+          "spec_digest": "3cd98df8d9b9bf137528abd9a9a45a27e585b054f1849153f0a25122935e48d2",
+          "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+        },
+        "schema_version": "optimization.result/0.2",
+        "status": "completed",
+        "work": {
+          "cancelled_evaluations": 0,
+          "evaluations": 2,
+          "failed_evaluations": 0
+        },
+        "worker": "crn"
+      },
+      "parameters": {
+        "replicates": 64,
+        "seed_set": [
+          20261201,
+          20261202
+        ]
+      },
+      "response": {
+        "artifact_index": {
+          "results": {
+            "bytes": 1381,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records"
+          }
+        },
+        "boot_id": "890d996f-0983-4eb5-9924-f157cfe619e3",
+        "completed_tasks": 2,
+        "directory": "/tmp/crn-jobs-tfo4sor6/node/jobs/78e937783a0e639de2573495542b03af",
+        "finished_at": 1793560764.6727743,
+        "id": "78e937783a0e639de2573495542b03af",
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 2,
+          "failed_evaluations": 0
+        },
+        "queue_seconds": 0.000817535,
+        "requested_tasks": 2,
+        "started_at": 1793560764.6438763,
+        "state": "completed",
+        "submitted_at": 1793560764.6389863,
+        "unit": null
+      }
+    },
+    {
+      "key": "event_limit",
+      "manifest": {
+        "artifacts": {
+          "results": "results.jsonl"
+        },
+        "completed_tasks": 2,
+        "elapsed_seconds": 0.028767919,
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 2,
+          "failed_evaluations": 2
+        },
+        "payload_schema": "fcmaes.evaluate/1",
+        "requested_tasks": 2,
+        "results": [
+          {
+            "elapsed_seconds": 0.001424369,
+            "outcome": {
+              "claim": "none",
+              "details": {
+                "constraints": "none declared; penalties inside the objective are not checked",
+                "error": "incomplete CRN objective: EventLimit",
+                "problem": "app.crn.fit-moments"
+              },
+              "evidence": {
+                "checks": [],
+                "level": "claimed"
+              },
+              "feasible": false,
+              "objective": null,
+              "termination": "evaluated",
+              "x": [
+                1.0986122886681098,
+                -0.2231435513142097
+              ]
+            },
+            "spec_digest": "bf8afe2e44222e2c46d7a1b0fced3820929dd9bb47184f29fa0418f624c75520",
+            "task_id": 0,
+            "work": {
+              "cancelled_evaluations": 0,
+              "evaluations": 1,
+              "failed_evaluations": 1
+            }
+          },
+          {
+            "elapsed_seconds": 0.001172228,
+            "outcome": {
+              "claim": "none",
+              "details": {
+                "constraints": "none declared; penalties inside the objective are not checked",
+                "error": "incomplete CRN objective: EventLimit",
+                "problem": "app.crn.fit-moments"
+              },
+              "evidence": {
+                "checks": [],
+                "level": "claimed"
+              },
+              "feasible": false,
+              "objective": null,
+              "termination": "evaluated",
+              "x": [
+                0.5,
+                -0.5
+              ]
+            },
+            "spec_digest": "bf8afe2e44222e2c46d7a1b0fced3820929dd9bb47184f29fa0418f624c75520",
+            "task_id": 1,
+            "work": {
+              "cancelled_evaluations": 0,
+              "evaluations": 1,
+              "failed_evaluations": 1
+            }
+          }
+        ],
+        "runner": {
+          "accounting_complete": true,
+          "artifact_index": {
+            "results": {
+              "bytes": 1396,
+              "description": "The result journal: one checked record per completed task",
+              "file": "results.jsonl",
+              "format": "records",
+              "sha256": "1729185c52f9eab4b9e76484ba5847a295e0622bc436870673ed5660eba6bfdf"
+            }
+          },
+          "attempt_id": "39bd50a50fd8ea3572481bf6b5ea99ee",
+          "build": {
+            "engine_version": "0.2.1",
+            "job_api_version": "0.4.0"
+          },
+          "profile": "optimization.runner/0.1",
+          "recovery": "journal_only_no_resume",
+          "resources": {
+            "cpu_slots": 1,
+            "inner_threads": 1,
+            "outer_workers": 1
+          },
+          "spec_digest": "bf8afe2e44222e2c46d7a1b0fced3820929dd9bb47184f29fa0418f624c75520",
+          "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+        },
+        "schema_version": "optimization.result/0.2",
+        "status": "completed",
+        "work": {
+          "cancelled_evaluations": 0,
+          "evaluations": 2,
+          "failed_evaluations": 2
+        },
+        "worker": "crn"
+      },
+      "parameters": {
+        "max_events": 1,
+        "replicates": 64,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "response": {
+        "artifact_index": {
+          "results": {
+            "bytes": 1396,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records"
+          }
+        },
+        "boot_id": "890d996f-0983-4eb5-9924-f157cfe619e3",
+        "completed_tasks": 2,
+        "directory": "/tmp/crn-jobs-tfo4sor6/node/jobs/39bd50a50fd8ea3572481bf6b5ea99ee",
+        "finished_at": 1793560764.765019,
+        "id": "39bd50a50fd8ea3572481bf6b5ea99ee",
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 2,
+          "failed_evaluations": 2
+        },
+        "queue_seconds": 0.000689857,
+        "requested_tasks": 2,
+        "started_at": 1793560764.7351108,
+        "state": "completed",
+        "submitted_at": 1793560764.7310388,
+        "unit": null
+      }
+    },
+    {
+      "key": "8_retry",
+      "manifest": {
+        "artifacts": {
+          "results": "results.jsonl"
+        },
+        "completed_tasks": 1,
+        "elapsed_seconds": 0.029748909,
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 32,
+          "evaluations": 32,
+          "failed_evaluations": 0,
+          "validation_evaluations": 1
+        },
+        "payload_schema": "fcmaes.retry/1",
+        "requested_tasks": 1,
+        "results": [
+          {
+            "elapsed_seconds": 0.009116563,
+            "outcome": {
+              "claim": "best_found",
+              "details": {
+                "cancelled_evaluations": 0,
+                "evaluation_limit_mode": "hard",
+                "failed_evaluations": 0,
+                "failures": {},
+                "global_optimum_certified": false,
+                "requested_evaluations": 32,
+                "run_seed": 7179163421162001120
+              },
+              "evidence": {
+                "checks": [
+                  "objective",
+                  "bounds"
+                ],
+                "level": "rechecked"
+              },
+              "feasible": true,
+              "objective": 0.1139865825351167,
+              "termination": "evaluation_limit",
+              "x": [
+                1.0341963098984173,
+                -0.029193794960284514
+              ]
+            },
+            "spec_digest": "a58ac8e9782a4f02eeeaa04374152f93025a8d66f9dd72af18495cd814bf118b",
+            "task_id": 0,
+            "work": {
+              "cancelled_evaluations": 0,
+              "cancelled_validation_evaluations": 0,
+              "evaluation_attempts": 32,
+              "evaluations": 32,
+              "failed_evaluations": 0,
+              "validation_evaluations": 1
+            }
+          }
+        ],
+        "runner": {
+          "accounting_complete": true,
+          "artifact_index": {
+            "results": {
+              "bytes": 895,
+              "description": "The result journal: one checked record per completed task",
+              "file": "results.jsonl",
+              "format": "records",
+              "sha256": "1842a67f9d7a1ba93cdc16a47ceabc401d3dd04c69b8db8fa7c2f2b3cff72475"
+            }
+          },
+          "attempt_id": "7755c0ac2ad6276aa3f299db7f130701",
+          "build": {
+            "engine_version": "0.2.1",
+            "job_api_version": "0.4.0"
+          },
+          "profile": "optimization.runner/0.1",
+          "recovery": "journal_only_no_resume",
+          "resources": {
+            "cpu_slots": 1,
+            "inner_threads": 1,
+            "outer_workers": 1
+          },
+          "spec_digest": "a58ac8e9782a4f02eeeaa04374152f93025a8d66f9dd72af18495cd814bf118b",
+          "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+        },
+        "schema_version": "optimization.result/0.2",
+        "status": "completed",
+        "work": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 32,
+          "evaluations": 32,
+          "failed_evaluations": 0,
+          "validation_evaluations": 1
+        },
+        "worker": "crn"
+      },
+      "parameters": {
+        "replicates": 8,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "response": {
+        "artifact_index": {
+          "results": {
+            "bytes": 895,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records"
+          }
+        },
+        "boot_id": "890d996f-0983-4eb5-9924-f157cfe619e3",
+        "completed_tasks": 1,
+        "directory": "/tmp/crn-jobs-tfo4sor6/node/jobs/7755c0ac2ad6276aa3f299db7f130701",
+        "finished_at": 1793560764.8573382,
+        "id": "7755c0ac2ad6276aa3f299db7f130701",
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 32,
+          "evaluations": 32,
+          "failed_evaluations": 0,
+          "validation_evaluations": 1
+        },
+        "queue_seconds": 0.000808952,
+        "requested_tasks": 1,
+        "started_at": 1793560764.8265831,
+        "state": "completed",
+        "submitted_at": 1793560764.8218799,
+        "unit": null
+      }
+    },
+    {
+      "key": "8_surrogate",
+      "manifest": {
+        "artifacts": {
+          "results": "results.jsonl",
+          "surrogate-0": "surrogate-0.jsonl",
+          "surrogate-observations-0": "surrogate-observations-0.json"
+        },
+        "completed_tasks": 1,
+        "elapsed_seconds": 0.123410121,
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 32,
+          "evaluations": 32,
+          "failed_evaluations": 0,
+          "model_fits": 10,
+          "validation_evaluations": 1
+        },
+        "payload_schema": "fcmaes.surrogate/1",
+        "requested_tasks": 1,
+        "results": [
+          {
+            "elapsed_seconds": 0.089887331,
+            "outcome": {
+              "claim": "best_found",
+              "details": {
+                "artifacts": {
+                  "log": "surrogate-0",
+                  "warm_start": "surrogate-observations-0"
+                },
+                "batch_strategy": "kriging_believer",
+                "cancelled_evaluations": 0,
+                "dropped_warm_points": 0,
+                "evaluation_attempts": 32,
+                "evaluation_seconds_sum": 0.012594658,
+                "evaluation_threads": 1,
+                "evaluations": 32,
+                "failed_evaluations": 0,
+                "fit_evaluations": 137,
+                "global_optimum_certified": false,
+                "last_hyperparameters": {
+                  "lengthscales": [
+                    0.053801049690852504,
+                    0.4625765571524219
+                  ]
+                },
+                "log_file": "surrogate-0.jsonl",
+                "method": "gp",
+                "model_fallbacks": 0,
+                "model_fits": 10,
+                "profile_version": "0.1.0",
+                "proposal_seconds": 0.008996141,
+                "recheck": "exact agreement",
+                "reported_objective": null,
+                "run_seed": 7179163421162001120,
+                "schedule": "synchronous",
+                "validation_cancelled": false,
+                "warm_start_file": "surrogate-observations-0.json",
+                "warm_start_points": 0
+              },
+              "evidence": {
+                "checks": [
+                  "objective",
+                  "bounds"
+                ],
+                "level": "rechecked"
+              },
+              "feasible": true,
+              "objective": 0.0666288390744337,
+              "termination": "evaluation_limit",
+              "x": [
+                0.6784747388042165,
+                -1.6123257896771372
+              ]
+            },
+            "spec_digest": "abd89cdd728991fbe2160265116d5f7f122b3c095a554278fef7bd1716934639",
+            "task_id": 0,
+            "work": {
+              "cancelled_evaluations": 0,
+              "cancelled_validation_evaluations": 0,
+              "evaluation_attempts": 32,
+              "evaluations": 32,
+              "failed_evaluations": 0,
+              "model_fits": 10,
+              "validation_evaluations": 1
+            }
+          }
+        ],
+        "runner": {
+          "accounting_complete": true,
+          "artifact_index": {
+            "results": {
+              "bytes": 1555,
+              "description": "The result journal: one checked record per completed task",
+              "file": "results.jsonl",
+              "format": "records",
+              "sha256": "80f3f5d5a7dfa2f154a521c934848d4ccc2946ea0564e40b6efaaae198f18e8b"
+            },
+            "surrogate-0": {
+              "bytes": 39796,
+              "description": "Evaluation trace: header, starts, proposals, completions, cancellations, recheck",
+              "file": "surrogate-0.jsonl",
+              "format": "records",
+              "sha256": "ee8b77f7a40cc46e495097dc807b56414fa955c628ad4ba5e7bb8bdd6f4281c3",
+              "task_id": 0
+            },
+            "surrogate-observations-0": {
+              "bytes": 6604,
+              "description": "Observations snapshot: the warm_start input of a later job",
+              "file": "surrogate-observations-0.json",
+              "format": "json",
+              "sha256": "981c012dd9a01adb10324af799b4a561e5d1e44ed84a196dd7bc0ce31368b326",
+              "task_id": 0
+            }
+          },
+          "attempt_id": "780fe77a66e89c808b8e39112f56d18c",
+          "build": {
+            "engine_version": "0.2.1",
+            "job_api_version": "0.4.0"
+          },
+          "profile": "optimization.runner/0.1",
+          "recovery": "journal_only_no_resume",
+          "resources": {
+            "cpu_slots": 1,
+            "inner_threads": 1,
+            "outer_workers": 1
+          },
+          "spec_digest": "abd89cdd728991fbe2160265116d5f7f122b3c095a554278fef7bd1716934639",
+          "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+        },
+        "schema_version": "optimization.result/0.2",
+        "status": "completed",
+        "work": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 32,
+          "evaluations": 32,
+          "failed_evaluations": 0,
+          "model_fits": 10,
+          "validation_evaluations": 1
+        },
+        "worker": "crn"
+      },
+      "parameters": {
+        "replicates": 8,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "response": {
+        "artifact_index": {
+          "results": {
+            "bytes": 1555,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records"
+          },
+          "surrogate-0": {
+            "bytes": 39796,
+            "description": "Evaluation trace: header, starts, proposals, completions, cancellations, recheck",
+            "file": "surrogate-0.jsonl",
+            "format": "records",
+            "task_id": 0
+          },
+          "surrogate-observations-0": {
+            "bytes": 6604,
+            "description": "Observations snapshot: the warm_start input of a later job",
+            "file": "surrogate-observations-0.json",
+            "format": "json",
+            "task_id": 0
+          }
+        },
+        "boot_id": "890d996f-0983-4eb5-9924-f157cfe619e3",
+        "completed_tasks": 1,
+        "directory": "/tmp/crn-jobs-tfo4sor6/node/jobs/780fe77a66e89c808b8e39112f56d18c",
+        "finished_at": 1793560765.1036818,
+        "id": "780fe77a66e89c808b8e39112f56d18c",
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 32,
+          "evaluations": 32,
+          "failed_evaluations": 0,
+          "model_fits": 10,
+          "validation_evaluations": 1
+        },
+        "queue_seconds": 0.000924452,
+        "requested_tasks": 1,
+        "started_at": 1793560764.9787476,
+        "state": "completed",
+        "submitted_at": 1793560764.9728906,
+        "unit": null
+      }
+    },
+    {
+      "key": "64_retry",
+      "manifest": {
+        "artifacts": {
+          "results": "results.jsonl"
+        },
+        "completed_tasks": 1,
+        "elapsed_seconds": 0.078709074,
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 32,
+          "evaluations": 32,
+          "failed_evaluations": 0,
+          "validation_evaluations": 1
+        },
+        "payload_schema": "fcmaes.retry/1",
+        "requested_tasks": 1,
+        "results": [
+          {
+            "elapsed_seconds": 0.047077272,
+            "outcome": {
+              "claim": "best_found",
+              "details": {
+                "cancelled_evaluations": 0,
+                "evaluation_limit_mode": "hard",
+                "failed_evaluations": 0,
+                "failures": {},
+                "global_optimum_certified": false,
+                "requested_evaluations": 32,
+                "run_seed": 7179163421162001120
+              },
+              "evidence": {
+                "checks": [
+                  "objective",
+                  "bounds"
+                ],
+                "level": "rechecked"
+              },
+              "feasible": true,
+              "objective": 0.12590789125953208,
+              "termination": "evaluation_limit",
+              "x": [
+                0.8556482005340942,
+                -0.9479702157103809
+              ]
+            },
+            "spec_digest": "79264216984acab6af45822233f82bb96be25a1a928f67359a9194e404479d38",
+            "task_id": 0,
+            "work": {
+              "cancelled_evaluations": 0,
+              "cancelled_validation_evaluations": 0,
+              "evaluation_attempts": 32,
+              "evaluations": 32,
+              "failed_evaluations": 0,
+              "validation_evaluations": 1
+            }
+          }
+        ],
+        "runner": {
+          "accounting_complete": true,
+          "artifact_index": {
+            "results": {
+              "bytes": 894,
+              "description": "The result journal: one checked record per completed task",
+              "file": "results.jsonl",
+              "format": "records",
+              "sha256": "b207f296f36981262e1fbd736bbc23c83d410dc0f5ad644ea10464031df42e40"
+            }
+          },
+          "attempt_id": "01fd52d37193b85dc8b08d257a27619c",
+          "build": {
+            "engine_version": "0.2.1",
+            "job_api_version": "0.4.0"
+          },
+          "profile": "optimization.runner/0.1",
+          "recovery": "journal_only_no_resume",
+          "resources": {
+            "cpu_slots": 1,
+            "inner_threads": 1,
+            "outer_workers": 1
+          },
+          "spec_digest": "79264216984acab6af45822233f82bb96be25a1a928f67359a9194e404479d38",
+          "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+        },
+        "schema_version": "optimization.result/0.2",
+        "status": "completed",
+        "work": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 32,
+          "evaluations": 32,
+          "failed_evaluations": 0,
+          "validation_evaluations": 1
+        },
+        "worker": "crn"
+      },
+      "parameters": {
+        "replicates": 64,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "response": {
+        "artifact_index": {
+          "results": {
+            "bytes": 894,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records"
+          }
+        },
+        "boot_id": "890d996f-0983-4eb5-9924-f157cfe619e3",
+        "completed_tasks": 1,
+        "directory": "/tmp/crn-jobs-tfo4sor6/node/jobs/01fd52d37193b85dc8b08d257a27619c",
+        "finished_at": 1793560765.2659063,
+        "id": "01fd52d37193b85dc8b08d257a27619c",
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 32,
+          "evaluations": 32,
+          "failed_evaluations": 0,
+          "validation_evaluations": 1
+        },
+        "queue_seconds": 0.001488373,
+        "requested_tasks": 1,
+        "started_at": 1793560765.1862254,
+        "state": "completed",
+        "submitted_at": 1793560765.1763058,
+        "unit": null
+      }
+    },
+    {
+      "key": "64_surrogate",
+      "manifest": {
+        "artifacts": {
+          "results": "results.jsonl",
+          "surrogate-0": "surrogate-0.jsonl",
+          "surrogate-observations-0": "surrogate-observations-0.json"
+        },
+        "completed_tasks": 1,
+        "elapsed_seconds": 0.150074044,
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 32,
+          "evaluations": 32,
+          "failed_evaluations": 0,
+          "model_fits": 10,
+          "validation_evaluations": 1
+        },
+        "payload_schema": "fcmaes.surrogate/1",
+        "requested_tasks": 1,
+        "results": [
+          {
+            "elapsed_seconds": 0.124156419,
+            "outcome": {
+              "claim": "best_found",
+              "details": {
+                "artifacts": {
+                  "log": "surrogate-0",
+                  "warm_start": "surrogate-observations-0"
+                },
+                "batch_strategy": "kriging_believer",
+                "cancelled_evaluations": 0,
+                "dropped_warm_points": 0,
+                "evaluation_attempts": 32,
+                "evaluation_seconds_sum": 0.04246473300000001,
+                "evaluation_threads": 1,
+                "evaluations": 32,
+                "failed_evaluations": 0,
+                "fit_evaluations": 98,
+                "global_optimum_certified": false,
+                "last_hyperparameters": {
+                  "lengthscales": [
+                    0.1812468937745666,
+                    0.41435206923164947
+                  ]
+                },
+                "log_file": "surrogate-0.jsonl",
+                "method": "gp",
+                "model_fallbacks": 0,
+                "model_fits": 10,
+                "profile_version": "0.1.0",
+                "proposal_seconds": 0.008006777,
+                "recheck": "exact agreement",
+                "reported_objective": null,
+                "run_seed": 7179163421162001120,
+                "schedule": "synchronous",
+                "validation_cancelled": false,
+                "warm_start_file": "surrogate-observations-0.json",
+                "warm_start_points": 0
+              },
+              "evidence": {
+                "checks": [
+                  "objective",
+                  "bounds"
+                ],
+                "level": "rechecked"
+              },
+              "feasible": true,
+              "objective": 0.024171657941344304,
+              "termination": "evaluation_limit",
+              "x": [
+                0.9259044755562333,
+                -0.32615796809863706
+              ]
+            },
+            "spec_digest": "4bf185f67a0a6d980cc8cf4f8fe3b7fa57458b30c1a72ccdc8e3473ed7ecf2b0",
+            "task_id": 0,
+            "work": {
+              "cancelled_evaluations": 0,
+              "cancelled_validation_evaluations": 0,
+              "evaluation_attempts": 32,
+              "evaluations": 32,
+              "failed_evaluations": 0,
+              "model_fits": 10,
+              "validation_evaluations": 1
+            }
+          }
+        ],
+        "runner": {
+          "accounting_complete": true,
+          "artifact_index": {
+            "results": {
+              "bytes": 1564,
+              "description": "The result journal: one checked record per completed task",
+              "file": "results.jsonl",
+              "format": "records",
+              "sha256": "c491078a6c54e6cce2c3e5e440c717846fac415a45114700f01f8def073526f8"
+            },
+            "surrogate-0": {
+              "bytes": 40082,
+              "description": "Evaluation trace: header, starts, proposals, completions, cancellations, recheck",
+              "file": "surrogate-0.jsonl",
+              "format": "records",
+              "sha256": "d8fb0f0cac0fea8de84e6ba7a7b1c235dfbcf52ed8504bc6e8d5e59e05a1e8a4",
+              "task_id": 0
+            },
+            "surrogate-observations-0": {
+              "bytes": 6700,
+              "description": "Observations snapshot: the warm_start input of a later job",
+              "file": "surrogate-observations-0.json",
+              "format": "json",
+              "sha256": "fb36e2ac729ef1985fc718cca2a5dff2e0990afcf2616f507f1890f34b7ed1fb",
+              "task_id": 0
+            }
+          },
+          "attempt_id": "214ed4676cf07b95c194e9e7b08eec4a",
+          "build": {
+            "engine_version": "0.2.1",
+            "job_api_version": "0.4.0"
+          },
+          "profile": "optimization.runner/0.1",
+          "recovery": "journal_only_no_resume",
+          "resources": {
+            "cpu_slots": 1,
+            "inner_threads": 1,
+            "outer_workers": 1
+          },
+          "spec_digest": "4bf185f67a0a6d980cc8cf4f8fe3b7fa57458b30c1a72ccdc8e3473ed7ecf2b0",
+          "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+        },
+        "schema_version": "optimization.result/0.2",
+        "status": "completed",
+        "work": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 32,
+          "evaluations": 32,
+          "failed_evaluations": 0,
+          "model_fits": 10,
+          "validation_evaluations": 1
+        },
+        "worker": "crn"
+      },
+      "parameters": {
+        "replicates": 64,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "response": {
+        "artifact_index": {
+          "results": {
+            "bytes": 1564,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records"
+          },
+          "surrogate-0": {
+            "bytes": 40082,
+            "description": "Evaluation trace: header, starts, proposals, completions, cancellations, recheck",
+            "file": "surrogate-0.jsonl",
+            "format": "records",
+            "task_id": 0
+          },
+          "surrogate-observations-0": {
+            "bytes": 6700,
+            "description": "Observations snapshot: the warm_start input of a later job",
+            "file": "surrogate-observations-0.json",
+            "format": "json",
+            "task_id": 0
+          }
+        },
+        "boot_id": "890d996f-0983-4eb5-9924-f157cfe619e3",
+        "completed_tasks": 1,
+        "directory": "/tmp/crn-jobs-tfo4sor6/node/jobs/214ed4676cf07b95c194e9e7b08eec4a",
+        "finished_at": 1793560765.4781265,
+        "id": "214ed4676cf07b95c194e9e7b08eec4a",
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 32,
+          "evaluations": 32,
+          "failed_evaluations": 0,
+          "model_fits": 10,
+          "validation_evaluations": 1
+        },
+        "queue_seconds": 0.00062406,
+        "requested_tasks": 1,
+        "started_at": 1793560765.3268955,
+        "state": "completed",
+        "submitted_at": 1793560765.3229132,
+        "unit": null
+      }
+    },
+    {
+      "key": "validation_8_retry",
+      "manifest": {
+        "artifacts": {
+          "results": "results.jsonl"
+        },
+        "completed_tasks": 1,
+        "elapsed_seconds": 0.027511067,
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "payload_schema": "fcmaes.evaluate/1",
+        "requested_tasks": 1,
+        "results": [
+          {
+            "elapsed_seconds": 0.008262936,
+            "outcome": {
+              "claim": "feasible",
+              "details": {
+                "constraints": "none declared; penalties inside the objective are not checked",
+                "problem": "app.crn.fit-moments"
+              },
+              "evidence": {
+                "checks": [
+                  "objective",
+                  "bounds"
+                ],
+                "level": "rechecked"
+              },
+              "feasible": true,
+              "objective": 0.054585383911201935,
+              "termination": "evaluated",
+              "x": [
+                1.0341963098984173,
+                -0.029193794960284514
+              ]
+            },
+            "spec_digest": "da1ec503e12f2c9b56389ee1cbd77f6e146ba5d81cdf92260419f3fde80ee476",
+            "task_id": 0,
+            "work": {
+              "cancelled_evaluations": 0,
+              "evaluations": 1,
+              "failed_evaluations": 0
+            }
+          }
+        ],
+        "runner": {
+          "accounting_complete": true,
+          "artifact_index": {
+            "results": {
+              "bytes": 709,
+              "description": "The result journal: one checked record per completed task",
+              "file": "results.jsonl",
+              "format": "records",
+              "sha256": "60b7f8a78bb53e6b5c7f69c7aa53a028b6c1d444f6e811818e1b0139cd5266df"
+            }
+          },
+          "attempt_id": "77ff3a5762c725d94cd73bf28ab153fb",
+          "build": {
+            "engine_version": "0.2.1",
+            "job_api_version": "0.4.0"
+          },
+          "profile": "optimization.runner/0.1",
+          "recovery": "journal_only_no_resume",
+          "resources": {
+            "cpu_slots": 1,
+            "inner_threads": 1,
+            "outer_workers": 1
+          },
+          "spec_digest": "da1ec503e12f2c9b56389ee1cbd77f6e146ba5d81cdf92260419f3fde80ee476",
+          "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+        },
+        "schema_version": "optimization.result/0.2",
+        "status": "completed",
+        "work": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "worker": "crn"
+      },
+      "parameters": {
+        "replicates": 256,
+        "seed_set": [
+          20261250,
+          20261251
+        ]
+      },
+      "response": {
+        "artifact_index": {
+          "results": {
+            "bytes": 709,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records"
+          }
+        },
+        "boot_id": "890d996f-0983-4eb5-9924-f157cfe619e3",
+        "completed_tasks": 1,
+        "directory": "/tmp/crn-jobs-tfo4sor6/node/jobs/77ff3a5762c725d94cd73bf28ab153fb",
+        "finished_at": 1793560765.5739293,
+        "id": "77ff3a5762c725d94cd73bf28ab153fb",
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "queue_seconds": 0.00067224,
+        "requested_tasks": 1,
+        "started_at": 1793560765.5452275,
+        "state": "completed",
+        "submitted_at": 1793560765.5411541,
+        "unit": null
+      }
+    },
+    {
+      "key": "validation_8_surrogate",
+      "manifest": {
+        "artifacts": {
+          "results": "results.jsonl"
+        },
+        "completed_tasks": 1,
+        "elapsed_seconds": 0.038082243,
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "payload_schema": "fcmaes.evaluate/1",
+        "requested_tasks": 1,
+        "results": [
+          {
+            "elapsed_seconds": 0.012362065,
+            "outcome": {
+              "claim": "feasible",
+              "details": {
+                "constraints": "none declared; penalties inside the objective are not checked",
+                "problem": "app.crn.fit-moments"
+              },
+              "evidence": {
+                "checks": [
+                  "objective",
+                  "bounds"
+                ],
+                "level": "rechecked"
+              },
+              "feasible": true,
+              "objective": 0.055807673693005724,
+              "termination": "evaluated",
+              "x": [
+                0.6784747388042165,
+                -1.6123257896771372
+              ]
+            },
+            "spec_digest": "177ec45deca9fefa39612639f81e55ea1b8ab34a7a0351126373bd72a290e6a9",
+            "task_id": 0,
+            "work": {
+              "cancelled_evaluations": 0,
+              "evaluations": 1,
+              "failed_evaluations": 0
+            }
+          }
+        ],
+        "runner": {
+          "accounting_complete": true,
+          "artifact_index": {
+            "results": {
+              "bytes": 707,
+              "description": "The result journal: one checked record per completed task",
+              "file": "results.jsonl",
+              "format": "records",
+              "sha256": "0d5b6eae103df179c338cbf19dc1ec442a1859e076f2b79c9227a40c7a3fc476"
+            }
+          },
+          "attempt_id": "7332f9e951c673a0be93d68acfa0220a",
+          "build": {
+            "engine_version": "0.2.1",
+            "job_api_version": "0.4.0"
+          },
+          "profile": "optimization.runner/0.1",
+          "recovery": "journal_only_no_resume",
+          "resources": {
+            "cpu_slots": 1,
+            "inner_threads": 1,
+            "outer_workers": 1
+          },
+          "spec_digest": "177ec45deca9fefa39612639f81e55ea1b8ab34a7a0351126373bd72a290e6a9",
+          "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+        },
+        "schema_version": "optimization.result/0.2",
+        "status": "completed",
+        "work": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "worker": "crn"
+      },
+      "parameters": {
+        "replicates": 256,
+        "seed_set": [
+          20261250,
+          20261251
+        ]
+      },
+      "response": {
+        "artifact_index": {
+          "results": {
+            "bytes": 707,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records"
+          }
+        },
+        "boot_id": "890d996f-0983-4eb5-9924-f157cfe619e3",
+        "completed_tasks": 1,
+        "directory": "/tmp/crn-jobs-tfo4sor6/node/jobs/7332f9e951c673a0be93d68acfa0220a",
+        "finished_at": 1793560765.6821856,
+        "id": "7332f9e951c673a0be93d68acfa0220a",
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "queue_seconds": 0.000682936,
+        "requested_tasks": 1,
+        "started_at": 1793560765.643044,
+        "state": "completed",
+        "submitted_at": 1793560765.638598,
+        "unit": null
+      }
+    },
+    {
+      "key": "validation_64_retry",
+      "manifest": {
+        "artifacts": {
+          "results": "results.jsonl"
+        },
+        "completed_tasks": 1,
+        "elapsed_seconds": 0.037755481,
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "payload_schema": "fcmaes.evaluate/1",
+        "requested_tasks": 1,
+        "results": [
+          {
+            "elapsed_seconds": 0.009882331,
+            "outcome": {
+              "claim": "feasible",
+              "details": {
+                "constraints": "none declared; penalties inside the objective are not checked",
+                "problem": "app.crn.fit-moments"
+              },
+              "evidence": {
+                "checks": [
+                  "objective",
+                  "bounds"
+                ],
+                "level": "rechecked"
+              },
+              "feasible": true,
+              "objective": 0.06690450917762938,
+              "termination": "evaluated",
+              "x": [
+                0.8556482005340942,
+                -0.9479702157103809
+              ]
+            },
+            "spec_digest": "566f0a06b19a1524559359c447333af9252c6e9a3e07bbaf408740746f83cf1f",
+            "task_id": 0,
+            "work": {
+              "cancelled_evaluations": 0,
+              "evaluations": 1,
+              "failed_evaluations": 0
+            }
+          }
+        ],
+        "runner": {
+          "accounting_complete": true,
+          "artifact_index": {
+            "results": {
+              "bytes": 706,
+              "description": "The result journal: one checked record per completed task",
+              "file": "results.jsonl",
+              "format": "records",
+              "sha256": "bcb845855a5a53013c7faa225fa500345a04bc843357f7761fbb6db05552671f"
+            }
+          },
+          "attempt_id": "0ebd685dc578dec5a93e88dc95bbe59c",
+          "build": {
+            "engine_version": "0.2.1",
+            "job_api_version": "0.4.0"
+          },
+          "profile": "optimization.runner/0.1",
+          "recovery": "journal_only_no_resume",
+          "resources": {
+            "cpu_slots": 1,
+            "inner_threads": 1,
+            "outer_workers": 1
+          },
+          "spec_digest": "566f0a06b19a1524559359c447333af9252c6e9a3e07bbaf408740746f83cf1f",
+          "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+        },
+        "schema_version": "optimization.result/0.2",
+        "status": "completed",
+        "work": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "worker": "crn"
+      },
+      "parameters": {
+        "replicates": 256,
+        "seed_set": [
+          20261250,
+          20261251
+        ]
+      },
+      "response": {
+        "artifact_index": {
+          "results": {
+            "bytes": 706,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records"
+          }
+        },
+        "boot_id": "890d996f-0983-4eb5-9924-f157cfe619e3",
+        "completed_tasks": 1,
+        "directory": "/tmp/crn-jobs-tfo4sor6/node/jobs/0ebd685dc578dec5a93e88dc95bbe59c",
+        "finished_at": 1793560765.787289,
+        "id": "0ebd685dc578dec5a93e88dc95bbe59c",
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "queue_seconds": 0.000686241,
+        "requested_tasks": 1,
+        "started_at": 1793560765.7485497,
+        "state": "completed",
+        "submitted_at": 1793560765.744023,
+        "unit": null
+      }
+    },
+    {
+      "key": "validation_64_surrogate",
+      "manifest": {
+        "artifacts": {
+          "results": "results.jsonl"
+        },
+        "completed_tasks": 1,
+        "elapsed_seconds": 0.02808006,
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "payload_schema": "fcmaes.evaluate/1",
+        "requested_tasks": 1,
+        "results": [
+          {
+            "elapsed_seconds": 0.00804248,
+            "outcome": {
+              "claim": "feasible",
+              "details": {
+                "constraints": "none declared; penalties inside the objective are not checked",
+                "problem": "app.crn.fit-moments"
+              },
+              "evidence": {
+                "checks": [
+                  "objective",
+                  "bounds"
+                ],
+                "level": "rechecked"
+              },
+              "feasible": true,
+              "objective": 0.02597667156830599,
+              "termination": "evaluated",
+              "x": [
+                0.9259044755562333,
+                -0.32615796809863706
+              ]
+            },
+            "spec_digest": "989da412ef5c61b8789e70c6184c3670da83842b519a148e702260200d816900",
+            "task_id": 0,
+            "work": {
+              "cancelled_evaluations": 0,
+              "evaluations": 1,
+              "failed_evaluations": 0
+            }
+          }
+        ],
+        "runner": {
+          "accounting_complete": true,
+          "artifact_index": {
+            "results": {
+              "bytes": 706,
+              "description": "The result journal: one checked record per completed task",
+              "file": "results.jsonl",
+              "format": "records",
+              "sha256": "e767ece61e18e75cb758a48f0d42eb1d7f477e6d63f2244d9a347355bd95a1a2"
+            }
+          },
+          "attempt_id": "163380821f1f692060138043c77b2f9b",
+          "build": {
+            "engine_version": "0.2.1",
+            "job_api_version": "0.4.0"
+          },
+          "profile": "optimization.runner/0.1",
+          "recovery": "journal_only_no_resume",
+          "resources": {
+            "cpu_slots": 1,
+            "inner_threads": 1,
+            "outer_workers": 1
+          },
+          "spec_digest": "989da412ef5c61b8789e70c6184c3670da83842b519a148e702260200d816900",
+          "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+        },
+        "schema_version": "optimization.result/0.2",
+        "status": "completed",
+        "work": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "worker": "crn"
+      },
+      "parameters": {
+        "replicates": 256,
+        "seed_set": [
+          20261250,
+          20261251
+        ]
+      },
+      "response": {
+        "artifact_index": {
+          "results": {
+            "bytes": 706,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records"
+          }
+        },
+        "boot_id": "890d996f-0983-4eb5-9924-f157cfe619e3",
+        "completed_tasks": 1,
+        "directory": "/tmp/crn-jobs-tfo4sor6/node/jobs/163380821f1f692060138043c77b2f9b",
+        "finished_at": 1793560765.8788238,
+        "id": "163380821f1f692060138043c77b2f9b",
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "queue_seconds": 0.000864464,
+        "requested_tasks": 1,
+        "started_at": 1793560765.849711,
+        "state": "completed",
+        "submitted_at": 1793560765.8451672,
+        "unit": null
+      }
+    },
+    {
+      "key": "threads1",
+      "manifest": {
+        "artifacts": {
+          "results": "results.jsonl",
+          "surrogate-0": "surrogate-0.jsonl",
+          "surrogate-observations-0": "surrogate-observations-0.json"
+        },
+        "completed_tasks": 1,
+        "elapsed_seconds": 0.059226818,
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 8,
+          "evaluations": 8,
+          "failed_evaluations": 0,
+          "model_fits": 2,
+          "validation_evaluations": 1
+        },
+        "payload_schema": "fcmaes.surrogate/1",
+        "requested_tasks": 1,
+        "results": [
+          {
+            "elapsed_seconds": 0.032409525,
+            "outcome": {
+              "claim": "best_found",
+              "details": {
+                "artifacts": {
+                  "log": "surrogate-0",
+                  "warm_start": "surrogate-observations-0"
+                },
+                "batch_strategy": "kriging_believer",
+                "cancelled_evaluations": 0,
+                "dropped_warm_points": 0,
+                "evaluation_attempts": 8,
+                "evaluation_seconds_sum": 0.011380368,
+                "evaluation_threads": 1,
+                "evaluations": 8,
+                "failed_evaluations": 0,
+                "fit_evaluations": 17,
+                "global_optimum_certified": false,
+                "last_hyperparameters": {
+                  "lengthscales": [
+                    0.13140410848685488,
+                    0.7736983867465582
+                  ]
+                },
+                "log_file": "surrogate-0.jsonl",
+                "method": "gp",
+                "model_fallbacks": 0,
+                "model_fits": 2,
+                "profile_version": "0.1.0",
+                "proposal_seconds": 0.000735294,
+                "recheck": "exact agreement",
+                "reported_objective": null,
+                "run_seed": 7179163421162001120,
+                "schedule": "synchronous",
+                "validation_cancelled": false,
+                "warm_start_file": "surrogate-observations-0.json",
+                "warm_start_points": 0
+              },
+              "evidence": {
+                "checks": [
+                  "objective",
+                  "bounds"
+                ],
+                "level": "rechecked"
+              },
+              "feasible": true,
+              "objective": 0.1065752039664288,
+              "termination": "evaluation_limit",
+              "x": [
+                0.7454537521168039,
+                -0.8758921406218139
+              ]
+            },
+            "spec_digest": "c77046e31f4fe69fdebeb8b2071ba9aaf4baeea39e180a0d7add9594d50616a9",
+            "task_id": 0,
+            "work": {
+              "cancelled_evaluations": 0,
+              "cancelled_validation_evaluations": 0,
+              "evaluation_attempts": 8,
+              "evaluations": 8,
+              "failed_evaluations": 0,
+              "model_fits": 2,
+              "validation_evaluations": 1
+            }
+          }
+        ],
+        "runner": {
+          "accounting_complete": true,
+          "artifact_index": {
+            "results": {
+              "bytes": 1547,
+              "description": "The result journal: one checked record per completed task",
+              "file": "results.jsonl",
+              "format": "records",
+              "sha256": "e696206ff1d9a25d2d021bcef4b35b01178d4aa66ee001eced027f3308dfdbde"
+            },
+            "surrogate-0": {
+              "bytes": 10928,
+              "description": "Evaluation trace: header, starts, proposals, completions, cancellations, recheck",
+              "file": "surrogate-0.jsonl",
+              "format": "records",
+              "sha256": "e0d9691abd039e85bf7a67255107eab1d85bddf5adf1742c98b58afa62fdf6df",
+              "task_id": 0
+            },
+            "surrogate-observations-0": {
+              "bytes": 2148,
+              "description": "Observations snapshot: the warm_start input of a later job",
+              "file": "surrogate-observations-0.json",
+              "format": "json",
+              "sha256": "329669b91c3147c3898f629e9f0506f3ac9a0050b367f1be32027f1426213434",
+              "task_id": 0
+            }
+          },
+          "attempt_id": "d68b47417ae615d790d74644407ec807",
+          "build": {
+            "engine_version": "0.2.1",
+            "job_api_version": "0.4.0"
+          },
+          "profile": "optimization.runner/0.1",
+          "recovery": "journal_only_no_resume",
+          "resources": {
+            "cpu_slots": 1,
+            "inner_threads": 1,
+            "outer_workers": 1
+          },
+          "spec_digest": "c77046e31f4fe69fdebeb8b2071ba9aaf4baeea39e180a0d7add9594d50616a9",
+          "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+        },
+        "schema_version": "optimization.result/0.2",
+        "status": "completed",
+        "work": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 8,
+          "evaluations": 8,
+          "failed_evaluations": 0,
+          "model_fits": 2,
+          "validation_evaluations": 1
+        },
+        "worker": "crn"
+      },
+      "parameters": {
+        "replicates": 64,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "response": {
+        "artifact_index": {
+          "results": {
+            "bytes": 1547,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records"
+          },
+          "surrogate-0": {
+            "bytes": 10928,
+            "description": "Evaluation trace: header, starts, proposals, completions, cancellations, recheck",
+            "file": "surrogate-0.jsonl",
+            "format": "records",
+            "task_id": 0
+          },
+          "surrogate-observations-0": {
+            "bytes": 2148,
+            "description": "Observations snapshot: the warm_start input of a later job",
+            "file": "surrogate-observations-0.json",
+            "format": "json",
+            "task_id": 0
+          }
+        },
+        "boot_id": "890d996f-0983-4eb5-9924-f157cfe619e3",
+        "completed_tasks": 1,
+        "directory": "/tmp/crn-jobs-tfo4sor6/node/jobs/d68b47417ae615d790d74644407ec807",
+        "finished_at": 1793560766.005107,
+        "id": "d68b47417ae615d790d74644407ec807",
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 8,
+          "evaluations": 8,
+          "failed_evaluations": 0,
+          "model_fits": 2,
+          "validation_evaluations": 1
+        },
+        "queue_seconds": 0.000817565,
+        "requested_tasks": 1,
+        "started_at": 1793560765.9449515,
+        "state": "completed",
+        "submitted_at": 1793560765.9397182,
+        "unit": null
+      }
+    },
+    {
+      "key": "threads8",
+      "manifest": {
+        "artifacts": {
+          "results": "results.jsonl",
+          "surrogate-0": "surrogate-0.jsonl",
+          "surrogate-observations-0": "surrogate-observations-0.json"
+        },
+        "completed_tasks": 1,
+        "elapsed_seconds": 0.060002121,
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 8,
+          "evaluations": 8,
+          "failed_evaluations": 0,
+          "model_fits": 2,
+          "validation_evaluations": 1
+        },
+        "payload_schema": "fcmaes.surrogate/1",
+        "requested_tasks": 1,
+        "results": [
+          {
+            "elapsed_seconds": 0.030929598,
+            "outcome": {
+              "claim": "best_found",
+              "details": {
+                "artifacts": {
+                  "log": "surrogate-0",
+                  "warm_start": "surrogate-observations-0"
+                },
+                "batch_strategy": "kriging_believer",
+                "cancelled_evaluations": 0,
+                "dropped_warm_points": 0,
+                "evaluation_attempts": 8,
+                "evaluation_seconds_sum": 0.008386055,
+                "evaluation_threads": 8,
+                "evaluations": 8,
+                "failed_evaluations": 0,
+                "fit_evaluations": 17,
+                "global_optimum_certified": false,
+                "last_hyperparameters": {
+                  "lengthscales": [
+                    0.13140410848685488,
+                    0.7736983867465582
+                  ]
+                },
+                "log_file": "surrogate-0.jsonl",
+                "method": "gp",
+                "model_fallbacks": 0,
+                "model_fits": 2,
+                "profile_version": "0.1.0",
+                "proposal_seconds": 0.001094112,
+                "recheck": "exact agreement",
+                "reported_objective": null,
+                "run_seed": 7179163421162001120,
+                "schedule": "synchronous",
+                "validation_cancelled": false,
+                "warm_start_file": "surrogate-observations-0.json",
+                "warm_start_points": 0
+              },
+              "evidence": {
+                "checks": [
+                  "objective",
+                  "bounds"
+                ],
+                "level": "rechecked"
+              },
+              "feasible": true,
+              "objective": 0.1065752039664288,
+              "termination": "evaluation_limit",
+              "x": [
+                0.7454537521168039,
+                -0.8758921406218139
+              ]
+            },
+            "spec_digest": "36b7e641add6c3f6debfdecc0e15b95330e2f4823e57e72b363fd088e8b212e2",
+            "task_id": 0,
+            "work": {
+              "cancelled_evaluations": 0,
+              "cancelled_validation_evaluations": 0,
+              "evaluation_attempts": 8,
+              "evaluations": 8,
+              "failed_evaluations": 0,
+              "model_fits": 2,
+              "validation_evaluations": 1
+            }
+          }
+        ],
+        "runner": {
+          "accounting_complete": true,
+          "artifact_index": {
+            "results": {
+              "bytes": 1547,
+              "description": "The result journal: one checked record per completed task",
+              "file": "results.jsonl",
+              "format": "records",
+              "sha256": "a9a633f85766554dab28cb08c8004bd1f46d6bfeab2c666220e8b0ad53b0953c"
+            },
+            "surrogate-0": {
+              "bytes": 10931,
+              "description": "Evaluation trace: header, starts, proposals, completions, cancellations, recheck",
+              "file": "surrogate-0.jsonl",
+              "format": "records",
+              "sha256": "33cb0dd6f21910ec70fc067b0fe624a486e18b1258836fd57456af4370d883af",
+              "task_id": 0
+            },
+            "surrogate-observations-0": {
+              "bytes": 2148,
+              "description": "Observations snapshot: the warm_start input of a later job",
+              "file": "surrogate-observations-0.json",
+              "format": "json",
+              "sha256": "329669b91c3147c3898f629e9f0506f3ac9a0050b367f1be32027f1426213434",
+              "task_id": 0
+            }
+          },
+          "attempt_id": "da774643f29bc8578e740291bcb74de5",
+          "build": {
+            "engine_version": "0.2.1",
+            "job_api_version": "0.4.0"
+          },
+          "profile": "optimization.runner/0.1",
+          "recovery": "journal_only_no_resume",
+          "resources": {
+            "cpu_slots": 8,
+            "inner_threads": 8,
+            "outer_workers": 1
+          },
+          "spec_digest": "36b7e641add6c3f6debfdecc0e15b95330e2f4823e57e72b363fd088e8b212e2",
+          "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+        },
+        "schema_version": "optimization.result/0.2",
+        "status": "completed",
+        "work": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 8,
+          "evaluations": 8,
+          "failed_evaluations": 0,
+          "model_fits": 2,
+          "validation_evaluations": 1
+        },
+        "worker": "crn"
+      },
+      "parameters": {
+        "replicates": 64,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "response": {
+        "artifact_index": {
+          "results": {
+            "bytes": 1547,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records"
+          },
+          "surrogate-0": {
+            "bytes": 10931,
+            "description": "Evaluation trace: header, starts, proposals, completions, cancellations, recheck",
+            "file": "surrogate-0.jsonl",
+            "format": "records",
+            "task_id": 0
+          },
+          "surrogate-observations-0": {
+            "bytes": 2148,
+            "description": "Observations snapshot: the warm_start input of a later job",
+            "file": "surrogate-observations-0.json",
+            "format": "json",
+            "task_id": 0
+          }
+        },
+        "boot_id": "890d996f-0983-4eb5-9924-f157cfe619e3",
+        "completed_tasks": 1,
+        "directory": "/tmp/crn-jobs-tfo4sor6/node/jobs/da774643f29bc8578e740291bcb74de5",
+        "finished_at": 1793560766.1309867,
+        "id": "da774643f29bc8578e740291bcb74de5",
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "cancelled_validation_evaluations": 0,
+          "evaluation_attempts": 8,
+          "evaluations": 8,
+          "failed_evaluations": 0,
+          "model_fits": 2,
+          "validation_evaluations": 1
+        },
+        "queue_seconds": 0.000937571,
+        "requested_tasks": 1,
+        "started_at": 1793560766.0700164,
+        "state": "completed",
+        "submitted_at": 1793560766.064739,
+        "unit": null
+      }
+    },
+    {
+      "key": "ring",
+      "manifest": {
+        "artifacts": {
+          "results": "results.jsonl"
+        },
+        "completed_tasks": 1,
+        "elapsed_seconds": 0.080129634,
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "payload_schema": "fcmaes.evaluate/1",
+        "requested_tasks": 1,
+        "results": [
+          {
+            "elapsed_seconds": 0.058435658,
+            "outcome": {
+              "claim": "feasible",
+              "details": {
+                "constraints": "none declared; penalties inside the objective are not checked",
+                "problem": "app.crn.circuit-score"
+              },
+              "evidence": {
+                "checks": [
+                  "objective",
+                  "bounds"
+                ],
+                "level": "rechecked"
+              },
+              "feasible": true,
+              "objective": 12.481837148859997,
+              "termination": "evaluated",
+              "x": [
+                5.375278407684165,
+                0.0
+              ]
+            },
+            "spec_digest": "34aed98d04d80a72dc8b9a76c92bfd96e37841508d43f8f0b63cb19b0c269e3e",
+            "task_id": 0,
+            "work": {
+              "cancelled_evaluations": 0,
+              "evaluations": 1,
+              "failed_evaluations": 0
+            }
+          }
+        ],
+        "runner": {
+          "accounting_complete": true,
+          "artifact_index": {
+            "results": {
+              "bytes": 690,
+              "description": "The result journal: one checked record per completed task",
+              "file": "results.jsonl",
+              "format": "records",
+              "sha256": "611a18288bfbe948af87cc86958ecafa3f5894e03f2595885103da217399ecf8"
+            }
+          },
+          "attempt_id": "16b974583155fdcb11fb6832a37be09c",
+          "build": {
+            "engine_version": "0.2.1",
+            "job_api_version": "0.4.0"
+          },
+          "profile": "optimization.runner/0.1",
+          "recovery": "journal_only_no_resume",
+          "resources": {
+            "cpu_slots": 1,
+            "inner_threads": 1,
+            "outer_workers": 1
+          },
+          "spec_digest": "34aed98d04d80a72dc8b9a76c92bfd96e37841508d43f8f0b63cb19b0c269e3e",
+          "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+        },
+        "schema_version": "optimization.result/0.2",
+        "status": "completed",
+        "work": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "worker": "crn"
+      },
+      "parameters": {
+        "parameter_names": [
+          "alpha",
+          "gamma_m"
+        ],
+        "replicates": 8,
+        "seed_set": [
+          20261210,
+          20261211
+        ]
+      },
+      "response": {
+        "artifact_index": {
+          "results": {
+            "bytes": 690,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records"
+          }
+        },
+        "boot_id": "890d996f-0983-4eb5-9924-f157cfe619e3",
+        "completed_tasks": 1,
+        "directory": "/tmp/crn-jobs-tfo4sor6/node/jobs/16b974583155fdcb11fb6832a37be09c",
+        "finished_at": 1793560766.2726817,
+        "id": "16b974583155fdcb11fb6832a37be09c",
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "queue_seconds": 0.000849112,
+        "requested_tasks": 1,
+        "started_at": 1793560766.1917405,
+        "state": "completed",
+        "submitted_at": 1793560766.1879957,
+        "unit": null
+      }
+    },
+    {
+      "key": "broken_ring",
+      "manifest": {
+        "artifacts": {
+          "results": "results.jsonl"
+        },
+        "completed_tasks": 1,
+        "elapsed_seconds": 0.361164839,
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "payload_schema": "fcmaes.evaluate/1",
+        "requested_tasks": 1,
+        "results": [
+          {
+            "elapsed_seconds": 0.337349222,
+            "outcome": {
+              "claim": "feasible",
+              "details": {
+                "constraints": "none declared; penalties inside the objective are not checked",
+                "problem": "app.crn.circuit-score"
+              },
+              "evidence": {
+                "checks": [
+                  "objective",
+                  "bounds"
+                ],
+                "level": "rechecked"
+              },
+              "feasible": true,
+              "objective": 3844.5150174972764,
+              "termination": "evaluated",
+              "x": [
+                5.375278407684165,
+                0.0
+              ]
+            },
+            "spec_digest": "2b827d9973e62edac5853c55590169c3116dad44e255d8f85c31ea2df1df7860",
+            "task_id": 0,
+            "work": {
+              "cancelled_evaluations": 0,
+              "evaluations": 1,
+              "failed_evaluations": 0
+            }
+          }
+        ],
+        "runner": {
+          "accounting_complete": true,
+          "artifact_index": {
+            "results": {
+              "bytes": 690,
+              "description": "The result journal: one checked record per completed task",
+              "file": "results.jsonl",
+              "format": "records",
+              "sha256": "ee3cce9b8f17e6aa87e1464436a0a20b710f9b72b535c11e335c0dfb3c481e98"
+            }
+          },
+          "attempt_id": "ab3636fa21ac413bda82976ba0153fd7",
+          "build": {
+            "engine_version": "0.2.1",
+            "job_api_version": "0.4.0"
+          },
+          "profile": "optimization.runner/0.1",
+          "recovery": "journal_only_no_resume",
+          "resources": {
+            "cpu_slots": 1,
+            "inner_threads": 1,
+            "outer_workers": 1
+          },
+          "spec_digest": "2b827d9973e62edac5853c55590169c3116dad44e255d8f85c31ea2df1df7860",
+          "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+        },
+        "schema_version": "optimization.result/0.2",
+        "status": "completed",
+        "work": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "worker": "crn"
+      },
+      "parameters": {
+        "parameter_names": [
+          "alpha",
+          "gamma_m"
+        ],
+        "replicates": 8,
+        "seed_set": [
+          20261210,
+          20261211
+        ]
+      },
+      "response": {
+        "artifact_index": {
+          "results": {
+            "bytes": 690,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records"
+          }
+        },
+        "boot_id": "890d996f-0983-4eb5-9924-f157cfe619e3",
+        "completed_tasks": 1,
+        "directory": "/tmp/crn-jobs-tfo4sor6/node/jobs/ab3636fa21ac413bda82976ba0153fd7",
+        "finished_at": 1793560766.6972537,
+        "id": "ab3636fa21ac413bda82976ba0153fd7",
+        "known_work_lower_bound": {
+          "cancelled_evaluations": 0,
+          "evaluations": 1,
+          "failed_evaluations": 0
+        },
+        "queue_seconds": 0.000688485,
+        "requested_tasks": 1,
+        "started_at": 1793560766.335018,
+        "state": "completed",
+        "submitted_at": 1793560766.3311348,
+        "unit": null
+      }
+    }
+  ],
+  "manifests": [
+    {
+      "artifacts": {
+        "results": "results.jsonl"
+      },
+      "completed_tasks": 2,
+      "elapsed_seconds": 0.028767919,
+      "known_work_lower_bound": {
+        "cancelled_evaluations": 0,
+        "evaluations": 2,
+        "failed_evaluations": 2
+      },
+      "payload_schema": "fcmaes.evaluate/1",
+      "requested_tasks": 2,
+      "results": [
+        {
+          "elapsed_seconds": 0.001424369,
+          "outcome": {
+            "claim": "none",
+            "details": {
+              "constraints": "none declared; penalties inside the objective are not checked",
+              "error": "incomplete CRN objective: EventLimit",
+              "problem": "app.crn.fit-moments"
+            },
+            "evidence": {
+              "checks": [],
+              "level": "claimed"
+            },
+            "feasible": false,
+            "objective": null,
+            "termination": "evaluated",
+            "x": [
+              1.0986122886681098,
+              -0.2231435513142097
+            ]
+          },
+          "spec_digest": "bf8afe2e44222e2c46d7a1b0fced3820929dd9bb47184f29fa0418f624c75520",
+          "task_id": 0,
+          "work": {
+            "cancelled_evaluations": 0,
+            "evaluations": 1,
+            "failed_evaluations": 1
+          }
+        },
+        {
+          "elapsed_seconds": 0.001172228,
+          "outcome": {
+            "claim": "none",
+            "details": {
+              "constraints": "none declared; penalties inside the objective are not checked",
+              "error": "incomplete CRN objective: EventLimit",
+              "problem": "app.crn.fit-moments"
+            },
+            "evidence": {
+              "checks": [],
+              "level": "claimed"
+            },
+            "feasible": false,
+            "objective": null,
+            "termination": "evaluated",
+            "x": [
+              0.5,
+              -0.5
+            ]
+          },
+          "spec_digest": "bf8afe2e44222e2c46d7a1b0fced3820929dd9bb47184f29fa0418f624c75520",
+          "task_id": 1,
+          "work": {
+            "cancelled_evaluations": 0,
+            "evaluations": 1,
+            "failed_evaluations": 1
+          }
+        }
+      ],
+      "runner": {
+        "accounting_complete": true,
+        "artifact_index": {
+          "results": {
+            "bytes": 1396,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records",
+            "sha256": "1729185c52f9eab4b9e76484ba5847a295e0622bc436870673ed5660eba6bfdf"
+          }
+        },
+        "attempt_id": "39bd50a50fd8ea3572481bf6b5ea99ee",
+        "build": {
+          "engine_version": "0.2.1",
+          "job_api_version": "0.4.0"
+        },
+        "profile": "optimization.runner/0.1",
+        "recovery": "journal_only_no_resume",
+        "resources": {
+          "cpu_slots": 1,
+          "inner_threads": 1,
+          "outer_workers": 1
+        },
+        "spec_digest": "bf8afe2e44222e2c46d7a1b0fced3820929dd9bb47184f29fa0418f624c75520",
+        "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+      },
+      "schema_version": "optimization.result/0.2",
+      "status": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 2,
+        "failed_evaluations": 2
+      },
+      "worker": "crn"
+    },
+    {
+      "artifacts": {
+        "results": "results.jsonl",
+        "surrogate-0": "surrogate-0.jsonl",
+        "surrogate-observations-0": "surrogate-observations-0.json"
+      },
+      "completed_tasks": 1,
+      "elapsed_seconds": 0.060002121,
+      "known_work_lower_bound": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 8,
+        "evaluations": 8,
+        "failed_evaluations": 0,
+        "model_fits": 2,
+        "validation_evaluations": 1
+      },
+      "payload_schema": "fcmaes.surrogate/1",
+      "requested_tasks": 1,
+      "results": [
+        {
+          "elapsed_seconds": 0.030929598,
+          "outcome": {
+            "claim": "best_found",
+            "details": {
+              "artifacts": {
+                "log": "surrogate-0",
+                "warm_start": "surrogate-observations-0"
+              },
+              "batch_strategy": "kriging_believer",
+              "cancelled_evaluations": 0,
+              "dropped_warm_points": 0,
+              "evaluation_attempts": 8,
+              "evaluation_seconds_sum": 0.008386055,
+              "evaluation_threads": 8,
+              "evaluations": 8,
+              "failed_evaluations": 0,
+              "fit_evaluations": 17,
+              "global_optimum_certified": false,
+              "last_hyperparameters": {
+                "lengthscales": [
+                  0.13140410848685488,
+                  0.7736983867465582
+                ]
+              },
+              "log_file": "surrogate-0.jsonl",
+              "method": "gp",
+              "model_fallbacks": 0,
+              "model_fits": 2,
+              "profile_version": "0.1.0",
+              "proposal_seconds": 0.001094112,
+              "recheck": "exact agreement",
+              "reported_objective": null,
+              "run_seed": 7179163421162001120,
+              "schedule": "synchronous",
+              "validation_cancelled": false,
+              "warm_start_file": "surrogate-observations-0.json",
+              "warm_start_points": 0
+            },
+            "evidence": {
+              "checks": [
+                "objective",
+                "bounds"
+              ],
+              "level": "rechecked"
+            },
+            "feasible": true,
+            "objective": 0.1065752039664288,
+            "termination": "evaluation_limit",
+            "x": [
+              0.7454537521168039,
+              -0.8758921406218139
+            ]
+          },
+          "spec_digest": "36b7e641add6c3f6debfdecc0e15b95330e2f4823e57e72b363fd088e8b212e2",
+          "task_id": 0,
+          "work": {
+            "cancelled_evaluations": 0,
+            "cancelled_validation_evaluations": 0,
+            "evaluation_attempts": 8,
+            "evaluations": 8,
+            "failed_evaluations": 0,
+            "model_fits": 2,
+            "validation_evaluations": 1
+          }
+        }
+      ],
+      "runner": {
+        "accounting_complete": true,
+        "artifact_index": {
+          "results": {
+            "bytes": 1547,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records",
+            "sha256": "a9a633f85766554dab28cb08c8004bd1f46d6bfeab2c666220e8b0ad53b0953c"
+          },
+          "surrogate-0": {
+            "bytes": 10931,
+            "description": "Evaluation trace: header, starts, proposals, completions, cancellations, recheck",
+            "file": "surrogate-0.jsonl",
+            "format": "records",
+            "sha256": "33cb0dd6f21910ec70fc067b0fe624a486e18b1258836fd57456af4370d883af",
+            "task_id": 0
+          },
+          "surrogate-observations-0": {
+            "bytes": 2148,
+            "description": "Observations snapshot: the warm_start input of a later job",
+            "file": "surrogate-observations-0.json",
+            "format": "json",
+            "sha256": "329669b91c3147c3898f629e9f0506f3ac9a0050b367f1be32027f1426213434",
+            "task_id": 0
+          }
+        },
+        "attempt_id": "da774643f29bc8578e740291bcb74de5",
+        "build": {
+          "engine_version": "0.2.1",
+          "job_api_version": "0.4.0"
+        },
+        "profile": "optimization.runner/0.1",
+        "recovery": "journal_only_no_resume",
+        "resources": {
+          "cpu_slots": 8,
+          "inner_threads": 8,
+          "outer_workers": 1
+        },
+        "spec_digest": "36b7e641add6c3f6debfdecc0e15b95330e2f4823e57e72b363fd088e8b212e2",
+        "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+      },
+      "schema_version": "optimization.result/0.2",
+      "status": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 8,
+        "evaluations": 8,
+        "failed_evaluations": 0,
+        "model_fits": 2,
+        "validation_evaluations": 1
+      },
+      "worker": "crn"
+    },
+    {
+      "artifacts": {
+        "results": "results.jsonl"
+      },
+      "completed_tasks": 1,
+      "elapsed_seconds": 0.080129634,
+      "known_work_lower_bound": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      },
+      "payload_schema": "fcmaes.evaluate/1",
+      "requested_tasks": 1,
+      "results": [
+        {
+          "elapsed_seconds": 0.058435658,
+          "outcome": {
+            "claim": "feasible",
+            "details": {
+              "constraints": "none declared; penalties inside the objective are not checked",
+              "problem": "app.crn.circuit-score"
+            },
+            "evidence": {
+              "checks": [
+                "objective",
+                "bounds"
+              ],
+              "level": "rechecked"
+            },
+            "feasible": true,
+            "objective": 12.481837148859997,
+            "termination": "evaluated",
+            "x": [
+              5.375278407684165,
+              0.0
+            ]
+          },
+          "spec_digest": "34aed98d04d80a72dc8b9a76c92bfd96e37841508d43f8f0b63cb19b0c269e3e",
+          "task_id": 0,
+          "work": {
+            "cancelled_evaluations": 0,
+            "evaluations": 1,
+            "failed_evaluations": 0
+          }
+        }
+      ],
+      "runner": {
+        "accounting_complete": true,
+        "artifact_index": {
+          "results": {
+            "bytes": 690,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records",
+            "sha256": "611a18288bfbe948af87cc86958ecafa3f5894e03f2595885103da217399ecf8"
+          }
+        },
+        "attempt_id": "16b974583155fdcb11fb6832a37be09c",
+        "build": {
+          "engine_version": "0.2.1",
+          "job_api_version": "0.4.0"
+        },
+        "profile": "optimization.runner/0.1",
+        "recovery": "journal_only_no_resume",
+        "resources": {
+          "cpu_slots": 1,
+          "inner_threads": 1,
+          "outer_workers": 1
+        },
+        "spec_digest": "34aed98d04d80a72dc8b9a76c92bfd96e37841508d43f8f0b63cb19b0c269e3e",
+        "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+      },
+      "schema_version": "optimization.result/0.2",
+      "status": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      },
+      "worker": "crn"
+    },
+    {
+      "artifacts": {
+        "results": "results.jsonl"
+      },
+      "completed_tasks": 1,
+      "elapsed_seconds": 0.027511067,
+      "known_work_lower_bound": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      },
+      "payload_schema": "fcmaes.evaluate/1",
+      "requested_tasks": 1,
+      "results": [
+        {
+          "elapsed_seconds": 0.008262936,
+          "outcome": {
+            "claim": "feasible",
+            "details": {
+              "constraints": "none declared; penalties inside the objective are not checked",
+              "problem": "app.crn.fit-moments"
+            },
+            "evidence": {
+              "checks": [
+                "objective",
+                "bounds"
+              ],
+              "level": "rechecked"
+            },
+            "feasible": true,
+            "objective": 0.054585383911201935,
+            "termination": "evaluated",
+            "x": [
+              1.0341963098984173,
+              -0.029193794960284514
+            ]
+          },
+          "spec_digest": "da1ec503e12f2c9b56389ee1cbd77f6e146ba5d81cdf92260419f3fde80ee476",
+          "task_id": 0,
+          "work": {
+            "cancelled_evaluations": 0,
+            "evaluations": 1,
+            "failed_evaluations": 0
+          }
+        }
+      ],
+      "runner": {
+        "accounting_complete": true,
+        "artifact_index": {
+          "results": {
+            "bytes": 709,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records",
+            "sha256": "60b7f8a78bb53e6b5c7f69c7aa53a028b6c1d444f6e811818e1b0139cd5266df"
+          }
+        },
+        "attempt_id": "77ff3a5762c725d94cd73bf28ab153fb",
+        "build": {
+          "engine_version": "0.2.1",
+          "job_api_version": "0.4.0"
+        },
+        "profile": "optimization.runner/0.1",
+        "recovery": "journal_only_no_resume",
+        "resources": {
+          "cpu_slots": 1,
+          "inner_threads": 1,
+          "outer_workers": 1
+        },
+        "spec_digest": "da1ec503e12f2c9b56389ee1cbd77f6e146ba5d81cdf92260419f3fde80ee476",
+        "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+      },
+      "schema_version": "optimization.result/0.2",
+      "status": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      },
+      "worker": "crn"
+    },
+    {
+      "artifacts": {
+        "results": "results.jsonl"
+      },
+      "completed_tasks": 1,
+      "elapsed_seconds": 0.029748909,
+      "known_work_lower_bound": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 32,
+        "evaluations": 32,
+        "failed_evaluations": 0,
+        "validation_evaluations": 1
+      },
+      "payload_schema": "fcmaes.retry/1",
+      "requested_tasks": 1,
+      "results": [
+        {
+          "elapsed_seconds": 0.009116563,
+          "outcome": {
+            "claim": "best_found",
+            "details": {
+              "cancelled_evaluations": 0,
+              "evaluation_limit_mode": "hard",
+              "failed_evaluations": 0,
+              "failures": {},
+              "global_optimum_certified": false,
+              "requested_evaluations": 32,
+              "run_seed": 7179163421162001120
+            },
+            "evidence": {
+              "checks": [
+                "objective",
+                "bounds"
+              ],
+              "level": "rechecked"
+            },
+            "feasible": true,
+            "objective": 0.1139865825351167,
+            "termination": "evaluation_limit",
+            "x": [
+              1.0341963098984173,
+              -0.029193794960284514
+            ]
+          },
+          "spec_digest": "a58ac8e9782a4f02eeeaa04374152f93025a8d66f9dd72af18495cd814bf118b",
+          "task_id": 0,
+          "work": {
+            "cancelled_evaluations": 0,
+            "cancelled_validation_evaluations": 0,
+            "evaluation_attempts": 32,
+            "evaluations": 32,
+            "failed_evaluations": 0,
+            "validation_evaluations": 1
+          }
+        }
+      ],
+      "runner": {
+        "accounting_complete": true,
+        "artifact_index": {
+          "results": {
+            "bytes": 895,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records",
+            "sha256": "1842a67f9d7a1ba93cdc16a47ceabc401d3dd04c69b8db8fa7c2f2b3cff72475"
+          }
+        },
+        "attempt_id": "7755c0ac2ad6276aa3f299db7f130701",
+        "build": {
+          "engine_version": "0.2.1",
+          "job_api_version": "0.4.0"
+        },
+        "profile": "optimization.runner/0.1",
+        "recovery": "journal_only_no_resume",
+        "resources": {
+          "cpu_slots": 1,
+          "inner_threads": 1,
+          "outer_workers": 1
+        },
+        "spec_digest": "a58ac8e9782a4f02eeeaa04374152f93025a8d66f9dd72af18495cd814bf118b",
+        "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+      },
+      "schema_version": "optimization.result/0.2",
+      "status": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 32,
+        "evaluations": 32,
+        "failed_evaluations": 0,
+        "validation_evaluations": 1
+      },
+      "worker": "crn"
+    },
+    {
+      "artifacts": {
+        "results": "results.jsonl"
+      },
+      "completed_tasks": 1,
+      "elapsed_seconds": 0.191944554,
+      "known_work_lower_bound": {
+        "cancelled_evaluations": 1,
+        "evaluations": 0,
+        "failed_evaluations": 0
+      },
+      "payload_schema": "fcmaes.evaluate/1",
+      "requested_tasks": 1,
+      "results": [
+        {
+          "elapsed_seconds": 0.164174366,
+          "outcome": {
+            "claim": "none",
+            "details": {
+              "error": "cancelled",
+              "problem": "app.crn.fit-moments"
+            },
+            "evidence": {
+              "checks": [],
+              "level": "claimed"
+            },
+            "feasible": null,
+            "objective": null,
+            "termination": "cancelled",
+            "x": [
+              1.0986122886681098,
+              -0.2231435513142097
+            ]
+          },
+          "spec_digest": "16d1c929ea10c989cd394fc49cd27e13f7bf2a03a9a6aa1e673a139f0cc69720",
+          "task_id": 0,
+          "work": {
+            "cancelled_evaluations": 1,
+            "evaluations": 0,
+            "failed_evaluations": 0
+          }
+        }
+      ],
+      "runner": {
+        "accounting_complete": true,
+        "artifact_index": {
+          "results": {
+            "bytes": 603,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records",
+            "sha256": "0cfd84ca6f618e507e3937a05d9e4e37d54c57a9542a3166df94ba1a081bd44e"
+          }
+        },
+        "attempt_id": "393c03f1a290f15a471d868f272a5011",
+        "build": {
+          "engine_version": "0.2.1",
+          "job_api_version": "0.4.0"
+        },
+        "profile": "optimization.runner/0.1",
+        "recovery": "journal_only_no_resume",
+        "resources": {
+          "cpu_slots": 1,
+          "inner_threads": 1,
+          "outer_workers": 1
+        },
+        "spec_digest": "16d1c929ea10c989cd394fc49cd27e13f7bf2a03a9a6aa1e673a139f0cc69720",
+        "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+      },
+      "schema_version": "optimization.result/0.2",
+      "status": "timed_out",
+      "work": {
+        "cancelled_evaluations": 1,
+        "evaluations": 0,
+        "failed_evaluations": 0
+      },
+      "worker": "crn"
+    },
+    {
+      "artifacts": {
+        "results": "results.jsonl"
+      },
+      "completed_tasks": 1,
+      "elapsed_seconds": 0.078709074,
+      "known_work_lower_bound": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 32,
+        "evaluations": 32,
+        "failed_evaluations": 0,
+        "validation_evaluations": 1
+      },
+      "payload_schema": "fcmaes.retry/1",
+      "requested_tasks": 1,
+      "results": [
+        {
+          "elapsed_seconds": 0.047077272,
+          "outcome": {
+            "claim": "best_found",
+            "details": {
+              "cancelled_evaluations": 0,
+              "evaluation_limit_mode": "hard",
+              "failed_evaluations": 0,
+              "failures": {},
+              "global_optimum_certified": false,
+              "requested_evaluations": 32,
+              "run_seed": 7179163421162001120
+            },
+            "evidence": {
+              "checks": [
+                "objective",
+                "bounds"
+              ],
+              "level": "rechecked"
+            },
+            "feasible": true,
+            "objective": 0.12590789125953208,
+            "termination": "evaluation_limit",
+            "x": [
+              0.8556482005340942,
+              -0.9479702157103809
+            ]
+          },
+          "spec_digest": "79264216984acab6af45822233f82bb96be25a1a928f67359a9194e404479d38",
+          "task_id": 0,
+          "work": {
+            "cancelled_evaluations": 0,
+            "cancelled_validation_evaluations": 0,
+            "evaluation_attempts": 32,
+            "evaluations": 32,
+            "failed_evaluations": 0,
+            "validation_evaluations": 1
+          }
+        }
+      ],
+      "runner": {
+        "accounting_complete": true,
+        "artifact_index": {
+          "results": {
+            "bytes": 894,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records",
+            "sha256": "b207f296f36981262e1fbd736bbc23c83d410dc0f5ad644ea10464031df42e40"
+          }
+        },
+        "attempt_id": "01fd52d37193b85dc8b08d257a27619c",
+        "build": {
+          "engine_version": "0.2.1",
+          "job_api_version": "0.4.0"
+        },
+        "profile": "optimization.runner/0.1",
+        "recovery": "journal_only_no_resume",
+        "resources": {
+          "cpu_slots": 1,
+          "inner_threads": 1,
+          "outer_workers": 1
+        },
+        "spec_digest": "79264216984acab6af45822233f82bb96be25a1a928f67359a9194e404479d38",
+        "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+      },
+      "schema_version": "optimization.result/0.2",
+      "status": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 32,
+        "evaluations": 32,
+        "failed_evaluations": 0,
+        "validation_evaluations": 1
+      },
+      "worker": "crn"
+    },
+    {
+      "artifacts": {
+        "results": "results.jsonl",
+        "surrogate-0": "surrogate-0.jsonl",
+        "surrogate-observations-0": "surrogate-observations-0.json"
+      },
+      "completed_tasks": 1,
+      "elapsed_seconds": 0.059226818,
+      "known_work_lower_bound": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 8,
+        "evaluations": 8,
+        "failed_evaluations": 0,
+        "model_fits": 2,
+        "validation_evaluations": 1
+      },
+      "payload_schema": "fcmaes.surrogate/1",
+      "requested_tasks": 1,
+      "results": [
+        {
+          "elapsed_seconds": 0.032409525,
+          "outcome": {
+            "claim": "best_found",
+            "details": {
+              "artifacts": {
+                "log": "surrogate-0",
+                "warm_start": "surrogate-observations-0"
+              },
+              "batch_strategy": "kriging_believer",
+              "cancelled_evaluations": 0,
+              "dropped_warm_points": 0,
+              "evaluation_attempts": 8,
+              "evaluation_seconds_sum": 0.011380368,
+              "evaluation_threads": 1,
+              "evaluations": 8,
+              "failed_evaluations": 0,
+              "fit_evaluations": 17,
+              "global_optimum_certified": false,
+              "last_hyperparameters": {
+                "lengthscales": [
+                  0.13140410848685488,
+                  0.7736983867465582
+                ]
+              },
+              "log_file": "surrogate-0.jsonl",
+              "method": "gp",
+              "model_fallbacks": 0,
+              "model_fits": 2,
+              "profile_version": "0.1.0",
+              "proposal_seconds": 0.000735294,
+              "recheck": "exact agreement",
+              "reported_objective": null,
+              "run_seed": 7179163421162001120,
+              "schedule": "synchronous",
+              "validation_cancelled": false,
+              "warm_start_file": "surrogate-observations-0.json",
+              "warm_start_points": 0
+            },
+            "evidence": {
+              "checks": [
+                "objective",
+                "bounds"
+              ],
+              "level": "rechecked"
+            },
+            "feasible": true,
+            "objective": 0.1065752039664288,
+            "termination": "evaluation_limit",
+            "x": [
+              0.7454537521168039,
+              -0.8758921406218139
+            ]
+          },
+          "spec_digest": "c77046e31f4fe69fdebeb8b2071ba9aaf4baeea39e180a0d7add9594d50616a9",
+          "task_id": 0,
+          "work": {
+            "cancelled_evaluations": 0,
+            "cancelled_validation_evaluations": 0,
+            "evaluation_attempts": 8,
+            "evaluations": 8,
+            "failed_evaluations": 0,
+            "model_fits": 2,
+            "validation_evaluations": 1
+          }
+        }
+      ],
+      "runner": {
+        "accounting_complete": true,
+        "artifact_index": {
+          "results": {
+            "bytes": 1547,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records",
+            "sha256": "e696206ff1d9a25d2d021bcef4b35b01178d4aa66ee001eced027f3308dfdbde"
+          },
+          "surrogate-0": {
+            "bytes": 10928,
+            "description": "Evaluation trace: header, starts, proposals, completions, cancellations, recheck",
+            "file": "surrogate-0.jsonl",
+            "format": "records",
+            "sha256": "e0d9691abd039e85bf7a67255107eab1d85bddf5adf1742c98b58afa62fdf6df",
+            "task_id": 0
+          },
+          "surrogate-observations-0": {
+            "bytes": 2148,
+            "description": "Observations snapshot: the warm_start input of a later job",
+            "file": "surrogate-observations-0.json",
+            "format": "json",
+            "sha256": "329669b91c3147c3898f629e9f0506f3ac9a0050b367f1be32027f1426213434",
+            "task_id": 0
+          }
+        },
+        "attempt_id": "d68b47417ae615d790d74644407ec807",
+        "build": {
+          "engine_version": "0.2.1",
+          "job_api_version": "0.4.0"
+        },
+        "profile": "optimization.runner/0.1",
+        "recovery": "journal_only_no_resume",
+        "resources": {
+          "cpu_slots": 1,
+          "inner_threads": 1,
+          "outer_workers": 1
+        },
+        "spec_digest": "c77046e31f4fe69fdebeb8b2071ba9aaf4baeea39e180a0d7add9594d50616a9",
+        "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+      },
+      "schema_version": "optimization.result/0.2",
+      "status": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 8,
+        "evaluations": 8,
+        "failed_evaluations": 0,
+        "model_fits": 2,
+        "validation_evaluations": 1
+      },
+      "worker": "crn"
+    },
+    {
+      "artifacts": {
+        "results": "results.jsonl"
+      },
+      "completed_tasks": 1,
+      "elapsed_seconds": 0.02808006,
+      "known_work_lower_bound": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      },
+      "payload_schema": "fcmaes.evaluate/1",
+      "requested_tasks": 1,
+      "results": [
+        {
+          "elapsed_seconds": 0.00804248,
+          "outcome": {
+            "claim": "feasible",
+            "details": {
+              "constraints": "none declared; penalties inside the objective are not checked",
+              "problem": "app.crn.fit-moments"
+            },
+            "evidence": {
+              "checks": [
+                "objective",
+                "bounds"
+              ],
+              "level": "rechecked"
+            },
+            "feasible": true,
+            "objective": 0.02597667156830599,
+            "termination": "evaluated",
+            "x": [
+              0.9259044755562333,
+              -0.32615796809863706
+            ]
+          },
+          "spec_digest": "989da412ef5c61b8789e70c6184c3670da83842b519a148e702260200d816900",
+          "task_id": 0,
+          "work": {
+            "cancelled_evaluations": 0,
+            "evaluations": 1,
+            "failed_evaluations": 0
+          }
+        }
+      ],
+      "runner": {
+        "accounting_complete": true,
+        "artifact_index": {
+          "results": {
+            "bytes": 706,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records",
+            "sha256": "e767ece61e18e75cb758a48f0d42eb1d7f477e6d63f2244d9a347355bd95a1a2"
+          }
+        },
+        "attempt_id": "163380821f1f692060138043c77b2f9b",
+        "build": {
+          "engine_version": "0.2.1",
+          "job_api_version": "0.4.0"
+        },
+        "profile": "optimization.runner/0.1",
+        "recovery": "journal_only_no_resume",
+        "resources": {
+          "cpu_slots": 1,
+          "inner_threads": 1,
+          "outer_workers": 1
+        },
+        "spec_digest": "989da412ef5c61b8789e70c6184c3670da83842b519a148e702260200d816900",
+        "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+      },
+      "schema_version": "optimization.result/0.2",
+      "status": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      },
+      "worker": "crn"
+    },
+    {
+      "artifacts": {
+        "results": "results.jsonl"
+      },
+      "completed_tasks": 1,
+      "elapsed_seconds": 0.038082243,
+      "known_work_lower_bound": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      },
+      "payload_schema": "fcmaes.evaluate/1",
+      "requested_tasks": 1,
+      "results": [
+        {
+          "elapsed_seconds": 0.012362065,
+          "outcome": {
+            "claim": "feasible",
+            "details": {
+              "constraints": "none declared; penalties inside the objective are not checked",
+              "problem": "app.crn.fit-moments"
+            },
+            "evidence": {
+              "checks": [
+                "objective",
+                "bounds"
+              ],
+              "level": "rechecked"
+            },
+            "feasible": true,
+            "objective": 0.055807673693005724,
+            "termination": "evaluated",
+            "x": [
+              0.6784747388042165,
+              -1.6123257896771372
+            ]
+          },
+          "spec_digest": "177ec45deca9fefa39612639f81e55ea1b8ab34a7a0351126373bd72a290e6a9",
+          "task_id": 0,
+          "work": {
+            "cancelled_evaluations": 0,
+            "evaluations": 1,
+            "failed_evaluations": 0
+          }
+        }
+      ],
+      "runner": {
+        "accounting_complete": true,
+        "artifact_index": {
+          "results": {
+            "bytes": 707,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records",
+            "sha256": "0d5b6eae103df179c338cbf19dc1ec442a1859e076f2b79c9227a40c7a3fc476"
+          }
+        },
+        "attempt_id": "7332f9e951c673a0be93d68acfa0220a",
+        "build": {
+          "engine_version": "0.2.1",
+          "job_api_version": "0.4.0"
+        },
+        "profile": "optimization.runner/0.1",
+        "recovery": "journal_only_no_resume",
+        "resources": {
+          "cpu_slots": 1,
+          "inner_threads": 1,
+          "outer_workers": 1
+        },
+        "spec_digest": "177ec45deca9fefa39612639f81e55ea1b8ab34a7a0351126373bd72a290e6a9",
+        "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+      },
+      "schema_version": "optimization.result/0.2",
+      "status": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      },
+      "worker": "crn"
+    },
+    {
+      "artifacts": {
+        "results": "results.jsonl"
+      },
+      "completed_tasks": 2,
+      "elapsed_seconds": 0.027277253,
+      "known_work_lower_bound": {
+        "cancelled_evaluations": 0,
+        "evaluations": 2,
+        "failed_evaluations": 0
+      },
+      "payload_schema": "fcmaes.evaluate/1",
+      "requested_tasks": 2,
+      "results": [
+        {
+          "elapsed_seconds": 0.00131653,
+          "outcome": {
+            "claim": "feasible",
+            "details": {
+              "constraints": "none declared; penalties inside the objective are not checked",
+              "problem": "app.crn.fit-moments"
+            },
+            "evidence": {
+              "checks": [
+                "objective",
+                "bounds"
+              ],
+              "level": "rechecked"
+            },
+            "feasible": true,
+            "objective": 0.22882894033866294,
+            "termination": "evaluated",
+            "x": [
+              1.0986122886681098,
+              -0.2231435513142097
+            ]
+          },
+          "spec_digest": "3231a058f5b661eedae615f0c253e262cec43f56cdcdd198ca9d097df0229867",
+          "task_id": 0,
+          "work": {
+            "cancelled_evaluations": 0,
+            "evaluations": 1,
+            "failed_evaluations": 0
+          }
+        },
+        {
+          "elapsed_seconds": 0.001279686,
+          "outcome": {
+            "claim": "feasible",
+            "details": {
+              "constraints": "none declared; penalties inside the objective are not checked",
+              "problem": "app.crn.fit-moments"
+            },
+            "evidence": {
+              "checks": [
+                "objective",
+                "bounds"
+              ],
+              "level": "rechecked"
+            },
+            "feasible": true,
+            "objective": 0.4318410010009489,
+            "termination": "evaluated",
+            "x": [
+              0.5,
+              -0.5
+            ]
+          },
+          "spec_digest": "3231a058f5b661eedae615f0c253e262cec43f56cdcdd198ca9d097df0229867",
+          "task_id": 1,
+          "work": {
+            "cancelled_evaluations": 0,
+            "evaluations": 1,
+            "failed_evaluations": 0
+          }
+        }
+      ],
+      "runner": {
+        "accounting_complete": true,
+        "artifact_index": {
+          "results": {
+            "bytes": 1380,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records",
+            "sha256": "dcd8681de24ca40d3c042b37a8bc59170171ebedfcf6f7ebc3e61a0098e25861"
+          }
+        },
+        "attempt_id": "cae662172fd450bb0cd710a769079c05",
+        "build": {
+          "engine_version": "0.2.1",
+          "job_api_version": "0.4.0"
+        },
+        "profile": "optimization.runner/0.1",
+        "recovery": "journal_only_no_resume",
+        "resources": {
+          "cpu_slots": 1,
+          "inner_threads": 1,
+          "outer_workers": 1
+        },
+        "spec_digest": "3231a058f5b661eedae615f0c253e262cec43f56cdcdd198ca9d097df0229867",
+        "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+      },
+      "schema_version": "optimization.result/0.2",
+      "status": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 2,
+        "failed_evaluations": 0
+      },
+      "worker": "crn"
+    },
+    {
+      "artifacts": {
+        "results": "results.jsonl"
+      },
+      "completed_tasks": 1,
+      "elapsed_seconds": 0.037755481,
+      "known_work_lower_bound": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      },
+      "payload_schema": "fcmaes.evaluate/1",
+      "requested_tasks": 1,
+      "results": [
+        {
+          "elapsed_seconds": 0.009882331,
+          "outcome": {
+            "claim": "feasible",
+            "details": {
+              "constraints": "none declared; penalties inside the objective are not checked",
+              "problem": "app.crn.fit-moments"
+            },
+            "evidence": {
+              "checks": [
+                "objective",
+                "bounds"
+              ],
+              "level": "rechecked"
+            },
+            "feasible": true,
+            "objective": 0.06690450917762938,
+            "termination": "evaluated",
+            "x": [
+              0.8556482005340942,
+              -0.9479702157103809
+            ]
+          },
+          "spec_digest": "566f0a06b19a1524559359c447333af9252c6e9a3e07bbaf408740746f83cf1f",
+          "task_id": 0,
+          "work": {
+            "cancelled_evaluations": 0,
+            "evaluations": 1,
+            "failed_evaluations": 0
+          }
+        }
+      ],
+      "runner": {
+        "accounting_complete": true,
+        "artifact_index": {
+          "results": {
+            "bytes": 706,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records",
+            "sha256": "bcb845855a5a53013c7faa225fa500345a04bc843357f7761fbb6db05552671f"
+          }
+        },
+        "attempt_id": "0ebd685dc578dec5a93e88dc95bbe59c",
+        "build": {
+          "engine_version": "0.2.1",
+          "job_api_version": "0.4.0"
+        },
+        "profile": "optimization.runner/0.1",
+        "recovery": "journal_only_no_resume",
+        "resources": {
+          "cpu_slots": 1,
+          "inner_threads": 1,
+          "outer_workers": 1
+        },
+        "spec_digest": "566f0a06b19a1524559359c447333af9252c6e9a3e07bbaf408740746f83cf1f",
+        "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+      },
+      "schema_version": "optimization.result/0.2",
+      "status": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      },
+      "worker": "crn"
+    },
+    {
+      "artifacts": {
+        "results": "results.jsonl"
+      },
+      "completed_tasks": 1,
+      "elapsed_seconds": 0.361164839,
+      "known_work_lower_bound": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      },
+      "payload_schema": "fcmaes.evaluate/1",
+      "requested_tasks": 1,
+      "results": [
+        {
+          "elapsed_seconds": 0.337349222,
+          "outcome": {
+            "claim": "feasible",
+            "details": {
+              "constraints": "none declared; penalties inside the objective are not checked",
+              "problem": "app.crn.circuit-score"
+            },
+            "evidence": {
+              "checks": [
+                "objective",
+                "bounds"
+              ],
+              "level": "rechecked"
+            },
+            "feasible": true,
+            "objective": 3844.5150174972764,
+            "termination": "evaluated",
+            "x": [
+              5.375278407684165,
+              0.0
+            ]
+          },
+          "spec_digest": "2b827d9973e62edac5853c55590169c3116dad44e255d8f85c31ea2df1df7860",
+          "task_id": 0,
+          "work": {
+            "cancelled_evaluations": 0,
+            "evaluations": 1,
+            "failed_evaluations": 0
+          }
+        }
+      ],
+      "runner": {
+        "accounting_complete": true,
+        "artifact_index": {
+          "results": {
+            "bytes": 690,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records",
+            "sha256": "ee3cce9b8f17e6aa87e1464436a0a20b710f9b72b535c11e335c0dfb3c481e98"
+          }
+        },
+        "attempt_id": "ab3636fa21ac413bda82976ba0153fd7",
+        "build": {
+          "engine_version": "0.2.1",
+          "job_api_version": "0.4.0"
+        },
+        "profile": "optimization.runner/0.1",
+        "recovery": "journal_only_no_resume",
+        "resources": {
+          "cpu_slots": 1,
+          "inner_threads": 1,
+          "outer_workers": 1
+        },
+        "spec_digest": "2b827d9973e62edac5853c55590169c3116dad44e255d8f85c31ea2df1df7860",
+        "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+      },
+      "schema_version": "optimization.result/0.2",
+      "status": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      },
+      "worker": "crn"
+    },
+    {
+      "artifacts": {
+        "results": "results.jsonl",
+        "surrogate-0": "surrogate-0.jsonl",
+        "surrogate-observations-0": "surrogate-observations-0.json"
+      },
+      "completed_tasks": 1,
+      "elapsed_seconds": 0.123410121,
+      "known_work_lower_bound": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 32,
+        "evaluations": 32,
+        "failed_evaluations": 0,
+        "model_fits": 10,
+        "validation_evaluations": 1
+      },
+      "payload_schema": "fcmaes.surrogate/1",
+      "requested_tasks": 1,
+      "results": [
+        {
+          "elapsed_seconds": 0.089887331,
+          "outcome": {
+            "claim": "best_found",
+            "details": {
+              "artifacts": {
+                "log": "surrogate-0",
+                "warm_start": "surrogate-observations-0"
+              },
+              "batch_strategy": "kriging_believer",
+              "cancelled_evaluations": 0,
+              "dropped_warm_points": 0,
+              "evaluation_attempts": 32,
+              "evaluation_seconds_sum": 0.012594658,
+              "evaluation_threads": 1,
+              "evaluations": 32,
+              "failed_evaluations": 0,
+              "fit_evaluations": 137,
+              "global_optimum_certified": false,
+              "last_hyperparameters": {
+                "lengthscales": [
+                  0.053801049690852504,
+                  0.4625765571524219
+                ]
+              },
+              "log_file": "surrogate-0.jsonl",
+              "method": "gp",
+              "model_fallbacks": 0,
+              "model_fits": 10,
+              "profile_version": "0.1.0",
+              "proposal_seconds": 0.008996141,
+              "recheck": "exact agreement",
+              "reported_objective": null,
+              "run_seed": 7179163421162001120,
+              "schedule": "synchronous",
+              "validation_cancelled": false,
+              "warm_start_file": "surrogate-observations-0.json",
+              "warm_start_points": 0
+            },
+            "evidence": {
+              "checks": [
+                "objective",
+                "bounds"
+              ],
+              "level": "rechecked"
+            },
+            "feasible": true,
+            "objective": 0.0666288390744337,
+            "termination": "evaluation_limit",
+            "x": [
+              0.6784747388042165,
+              -1.6123257896771372
+            ]
+          },
+          "spec_digest": "abd89cdd728991fbe2160265116d5f7f122b3c095a554278fef7bd1716934639",
+          "task_id": 0,
+          "work": {
+            "cancelled_evaluations": 0,
+            "cancelled_validation_evaluations": 0,
+            "evaluation_attempts": 32,
+            "evaluations": 32,
+            "failed_evaluations": 0,
+            "model_fits": 10,
+            "validation_evaluations": 1
+          }
+        }
+      ],
+      "runner": {
+        "accounting_complete": true,
+        "artifact_index": {
+          "results": {
+            "bytes": 1555,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records",
+            "sha256": "80f3f5d5a7dfa2f154a521c934848d4ccc2946ea0564e40b6efaaae198f18e8b"
+          },
+          "surrogate-0": {
+            "bytes": 39796,
+            "description": "Evaluation trace: header, starts, proposals, completions, cancellations, recheck",
+            "file": "surrogate-0.jsonl",
+            "format": "records",
+            "sha256": "ee8b77f7a40cc46e495097dc807b56414fa955c628ad4ba5e7bb8bdd6f4281c3",
+            "task_id": 0
+          },
+          "surrogate-observations-0": {
+            "bytes": 6604,
+            "description": "Observations snapshot: the warm_start input of a later job",
+            "file": "surrogate-observations-0.json",
+            "format": "json",
+            "sha256": "981c012dd9a01adb10324af799b4a561e5d1e44ed84a196dd7bc0ce31368b326",
+            "task_id": 0
+          }
+        },
+        "attempt_id": "780fe77a66e89c808b8e39112f56d18c",
+        "build": {
+          "engine_version": "0.2.1",
+          "job_api_version": "0.4.0"
+        },
+        "profile": "optimization.runner/0.1",
+        "recovery": "journal_only_no_resume",
+        "resources": {
+          "cpu_slots": 1,
+          "inner_threads": 1,
+          "outer_workers": 1
+        },
+        "spec_digest": "abd89cdd728991fbe2160265116d5f7f122b3c095a554278fef7bd1716934639",
+        "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+      },
+      "schema_version": "optimization.result/0.2",
+      "status": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 32,
+        "evaluations": 32,
+        "failed_evaluations": 0,
+        "model_fits": 10,
+        "validation_evaluations": 1
+      },
+      "worker": "crn"
+    },
+    {
+      "artifacts": {
+        "results": "results.jsonl"
+      },
+      "completed_tasks": 2,
+      "elapsed_seconds": 0.027885654,
+      "known_work_lower_bound": {
+        "cancelled_evaluations": 0,
+        "evaluations": 2,
+        "failed_evaluations": 0
+      },
+      "payload_schema": "fcmaes.evaluate/1",
+      "requested_tasks": 2,
+      "results": [
+        {
+          "elapsed_seconds": 0.002555315,
+          "outcome": {
+            "claim": "feasible",
+            "details": {
+              "constraints": "none declared; penalties inside the objective are not checked",
+              "problem": "app.crn.fit-moments"
+            },
+            "evidence": {
+              "checks": [
+                "objective",
+                "bounds"
+              ],
+              "level": "rechecked"
+            },
+            "feasible": true,
+            "objective": 0.09584389270010833,
+            "termination": "evaluated",
+            "x": [
+              1.0986122886681098,
+              -0.2231435513142097
+            ]
+          },
+          "spec_digest": "3cd98df8d9b9bf137528abd9a9a45a27e585b054f1849153f0a25122935e48d2",
+          "task_id": 0,
+          "work": {
+            "cancelled_evaluations": 0,
+            "evaluations": 1,
+            "failed_evaluations": 0
+          }
+        },
+        {
+          "elapsed_seconds": 0.002695312,
+          "outcome": {
+            "claim": "feasible",
+            "details": {
+              "constraints": "none declared; penalties inside the objective are not checked",
+              "problem": "app.crn.fit-moments"
+            },
+            "evidence": {
+              "checks": [
+                "objective",
+                "bounds"
+              ],
+              "level": "rechecked"
+            },
+            "feasible": true,
+            "objective": 0.5858898763300532,
+            "termination": "evaluated",
+            "x": [
+              0.5,
+              -0.5
+            ]
+          },
+          "spec_digest": "3cd98df8d9b9bf137528abd9a9a45a27e585b054f1849153f0a25122935e48d2",
+          "task_id": 1,
+          "work": {
+            "cancelled_evaluations": 0,
+            "evaluations": 1,
+            "failed_evaluations": 0
+          }
+        }
+      ],
+      "runner": {
+        "accounting_complete": true,
+        "artifact_index": {
+          "results": {
+            "bytes": 1381,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records",
+            "sha256": "f023906a2ce0e30a22aa02e7f06329923af1ba7feefb8269a1fa153b1ea77359"
+          }
+        },
+        "attempt_id": "78e937783a0e639de2573495542b03af",
+        "build": {
+          "engine_version": "0.2.1",
+          "job_api_version": "0.4.0"
+        },
+        "profile": "optimization.runner/0.1",
+        "recovery": "journal_only_no_resume",
+        "resources": {
+          "cpu_slots": 1,
+          "inner_threads": 1,
+          "outer_workers": 1
+        },
+        "spec_digest": "3cd98df8d9b9bf137528abd9a9a45a27e585b054f1849153f0a25122935e48d2",
+        "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+      },
+      "schema_version": "optimization.result/0.2",
+      "status": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 2,
+        "failed_evaluations": 0
+      },
+      "worker": "crn"
+    },
+    {
+      "artifacts": {
+        "results": "results.jsonl",
+        "surrogate-0": "surrogate-0.jsonl",
+        "surrogate-observations-0": "surrogate-observations-0.json"
+      },
+      "completed_tasks": 1,
+      "elapsed_seconds": 0.150074044,
+      "known_work_lower_bound": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 32,
+        "evaluations": 32,
+        "failed_evaluations": 0,
+        "model_fits": 10,
+        "validation_evaluations": 1
+      },
+      "payload_schema": "fcmaes.surrogate/1",
+      "requested_tasks": 1,
+      "results": [
+        {
+          "elapsed_seconds": 0.124156419,
+          "outcome": {
+            "claim": "best_found",
+            "details": {
+              "artifacts": {
+                "log": "surrogate-0",
+                "warm_start": "surrogate-observations-0"
+              },
+              "batch_strategy": "kriging_believer",
+              "cancelled_evaluations": 0,
+              "dropped_warm_points": 0,
+              "evaluation_attempts": 32,
+              "evaluation_seconds_sum": 0.04246473300000001,
+              "evaluation_threads": 1,
+              "evaluations": 32,
+              "failed_evaluations": 0,
+              "fit_evaluations": 98,
+              "global_optimum_certified": false,
+              "last_hyperparameters": {
+                "lengthscales": [
+                  0.1812468937745666,
+                  0.41435206923164947
+                ]
+              },
+              "log_file": "surrogate-0.jsonl",
+              "method": "gp",
+              "model_fallbacks": 0,
+              "model_fits": 10,
+              "profile_version": "0.1.0",
+              "proposal_seconds": 0.008006777,
+              "recheck": "exact agreement",
+              "reported_objective": null,
+              "run_seed": 7179163421162001120,
+              "schedule": "synchronous",
+              "validation_cancelled": false,
+              "warm_start_file": "surrogate-observations-0.json",
+              "warm_start_points": 0
+            },
+            "evidence": {
+              "checks": [
+                "objective",
+                "bounds"
+              ],
+              "level": "rechecked"
+            },
+            "feasible": true,
+            "objective": 0.024171657941344304,
+            "termination": "evaluation_limit",
+            "x": [
+              0.9259044755562333,
+              -0.32615796809863706
+            ]
+          },
+          "spec_digest": "4bf185f67a0a6d980cc8cf4f8fe3b7fa57458b30c1a72ccdc8e3473ed7ecf2b0",
+          "task_id": 0,
+          "work": {
+            "cancelled_evaluations": 0,
+            "cancelled_validation_evaluations": 0,
+            "evaluation_attempts": 32,
+            "evaluations": 32,
+            "failed_evaluations": 0,
+            "model_fits": 10,
+            "validation_evaluations": 1
+          }
+        }
+      ],
+      "runner": {
+        "accounting_complete": true,
+        "artifact_index": {
+          "results": {
+            "bytes": 1564,
+            "description": "The result journal: one checked record per completed task",
+            "file": "results.jsonl",
+            "format": "records",
+            "sha256": "c491078a6c54e6cce2c3e5e440c717846fac415a45114700f01f8def073526f8"
+          },
+          "surrogate-0": {
+            "bytes": 40082,
+            "description": "Evaluation trace: header, starts, proposals, completions, cancellations, recheck",
+            "file": "surrogate-0.jsonl",
+            "format": "records",
+            "sha256": "d8fb0f0cac0fea8de84e6ba7a7b1c235dfbcf52ed8504bc6e8d5e59e05a1e8a4",
+            "task_id": 0
+          },
+          "surrogate-observations-0": {
+            "bytes": 6700,
+            "description": "Observations snapshot: the warm_start input of a later job",
+            "file": "surrogate-observations-0.json",
+            "format": "json",
+            "sha256": "fb36e2ac729ef1985fc718cca2a5dff2e0990afcf2616f507f1890f34b7ed1fb",
+            "task_id": 0
+          }
+        },
+        "attempt_id": "214ed4676cf07b95c194e9e7b08eec4a",
+        "build": {
+          "engine_version": "0.2.1",
+          "job_api_version": "0.4.0"
+        },
+        "profile": "optimization.runner/0.1",
+        "recovery": "journal_only_no_resume",
+        "resources": {
+          "cpu_slots": 1,
+          "inner_threads": 1,
+          "outer_workers": 1
+        },
+        "spec_digest": "4bf185f67a0a6d980cc8cf4f8fe3b7fa57458b30c1a72ccdc8e3473ed7ecf2b0",
+        "worker_digest": "f27c492821117ee59c562619655fdd1e113e92ddd4a03100c25c8bd681875856"
+      },
+      "schema_version": "optimization.result/0.2",
+      "status": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 32,
+        "evaluations": 32,
+        "failed_evaluations": 0,
+        "model_fits": 10,
+        "validation_evaluations": 1
+      },
+      "worker": "crn"
+    }
+  ],
+  "passed": true,
+  "protocol_pins": {
+    "fcmaes": "583f33a9a815ede0e1115c8ddd69029a874593f9",
+    "runner": "cc6b03d594f73d1f3b38f088e7e3bd8663814d75",
+    "worker_SDK": "602d31afacf8bd2ecb0b0e941d18bd8e2821c1e3"
+  },
+  "rows": [
+    {
+      "check": "active_deadline",
+      "passed": true,
+      "state": "timed_out"
+    },
+    {
+      "check": "existing_command_protocol",
+      "passed": true,
+      "response": {
+        "boot_id": "890d996f-0983-4eb5-9924-f157cfe619e3",
+        "directory": "/tmp/crn-jobs-tfo4sor6/node/jobs/48a7b54000dfcb5816472dc2086b4c7b",
+        "finished_at": 1793560766.9720068,
+        "id": "48a7b54000dfcb5816472dc2086b4c7b",
+        "kind": "command",
+        "queue_seconds": 0.000639642,
+        "started_at": 1793560766.953184,
+        "state": "completed",
+        "submitted_at": 1793560766.9492176,
+        "unit": null
+      }
+    },
+    {
+      "check": "worker_protocol_and_profiles",
+      "passed": true,
+      "runs": 15
+    },
+    {
+      "check": "incomplete_rejected_exact_budget_rechecks_thread_identity",
+      "passed": true
+    }
+  ],
+  "schema": "crn-craft.jobs-validation/0.1"
+}

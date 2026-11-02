@@ -1,0 +1,141 @@
+{
+  "dsmts": {
+    "hashes": {
+      "dsmts-001-01-mean.csv": "6bdab8e581369ec44c0c8fc28c117ef43da340181887ed3d450d76b86c89ecad",
+      "dsmts-001-01-sd.csv": "e29532bccd304b00ad36b723c235383947b5dea5a799c19d1290d1a7dbd5af1b",
+      "dsmts-001-01.mod": "e18aa8f969bbc37331a129f0944268aac818371ed1bfa6d36b600b9919de5374",
+      "dsmts-002-01-mean.csv": "45d22d7d00313bd97323f8697c9198f9dd19ae422cdb3202729c9fce9f261137",
+      "dsmts-002-01-sd.csv": "ae703911c7dc38dc291db3ecbe363833434f686ec700fb9843e3c87ad1d7ecaa",
+      "dsmts-002-01.mod": "300f4bc239b6351b8d3e8513f6be3732e1b046696477f9819d76dc46662a7249"
+    },
+    "license": "LGPL; external validation inputs only, not copied into the MIT engine",
+    "repository": "https://github.com/darrenjw/dsmts",
+    "revision": "e79fd58e94757fb39926c6373297c1f2a1845894"
+  },
+  "passed": true,
+  "rows": [
+    {
+      "check": "independent_matrix_exponential",
+      "max_error": 8.604228440844963e-15,
+      "name": "F1_dimerization",
+      "passed": true,
+      "result_sha256": "f3c43cb7918b8f0c9bc822ee773c5a1895196d71fd1586c6ea40a76aff4b7c57",
+      "states": 11
+    },
+    {
+      "check": "independent_matrix_exponential",
+      "max_error": 1.304512053934559e-15,
+      "name": "F2_heterodimer",
+      "passed": true,
+      "result_sha256": "df20c6848a37b6385d3b494fd924ded76fb55043848d43df3e4909da856a3523",
+      "states": 11
+    },
+    {
+      "check": "independent_matrix_exponential",
+      "max_error": 3.608224830031759e-16,
+      "name": "F3_hill_mm",
+      "passed": true,
+      "result_sha256": "8d8426e7eefb9d5dd5ef950d8e74aa743d166d70bdfe77089e18ae6af8a11529",
+      "states": 31
+    },
+    {
+      "check": "independent_matrix_exponential",
+      "max_error": 4.066191827689636e-14,
+      "name": "F4_open_annihilation",
+      "passed": true,
+      "result_sha256": "af8f5f245a6d4d60edc4bdebbf0e52cecc0788af18efc94fb25d0300f22356c8",
+      "states": 81
+    },
+    {
+      "check": "independent_matrix_exponential",
+      "max_error": 1.1275702593849246e-15,
+      "name": "DSMTS_001_01",
+      "passed": true,
+      "result_sha256": "77f1126c6b41d6f78f6a73d2f501a1047c7991d13d83f624ff99a2d1c5c3f3da",
+      "states": 601
+    },
+    {
+      "check": "analytic_moments",
+      "mean_error": 0.0,
+      "name": "DSMTS_001_01",
+      "passed": true,
+      "time": 0.0,
+      "variance_error": 0.0
+    },
+    {
+      "check": "analytic_moments",
+      "mean_error": 1.1368683772161603e-13,
+      "name": "DSMTS_001_01",
+      "passed": true,
+      "time": 0.5,
+      "variance_error": 1.4207302001523203e-11
+    },
+    {
+      "check": "analytic_moments",
+      "mean_error": 3.552713678800501e-13,
+      "name": "DSMTS_001_01",
+      "passed": true,
+      "time": 2.0,
+      "variance_error": 4.2881254103122046e-11
+    },
+    {
+      "check": "analytic_moments",
+      "mean_error": 2.3732127374387346e-12,
+      "name": "DSMTS_001_01",
+      "passed": true,
+      "time": 10.0,
+      "variance_error": 2.4070345716609154e-10
+    },
+    {
+      "check": "independent_matrix_exponential",
+      "max_error": 7.771561172376096e-16,
+      "name": "DSMTS_002_01",
+      "passed": true,
+      "result_sha256": "d8b072e86bd5e71d2c4473f0262c877009d3731273c3bb3e1fe966034cae4c52",
+      "states": 151
+    },
+    {
+      "check": "analytic_moments",
+      "mean_error": 0.0,
+      "name": "DSMTS_002_01",
+      "passed": true,
+      "time": 0.0,
+      "variance_error": 0.0
+    },
+    {
+      "check": "analytic_moments",
+      "mean_error": 1.3322676295501878e-15,
+      "name": "DSMTS_002_01",
+      "passed": true,
+      "time": 0.5,
+      "variance_error": 2.9976021664879227e-15
+    },
+    {
+      "check": "analytic_moments",
+      "mean_error": 3.774758283725532e-15,
+      "name": "DSMTS_002_01",
+      "passed": true,
+      "time": 2.0,
+      "variance_error": 2.6645352591003757e-15
+    },
+    {
+      "check": "analytic_moments",
+      "mean_error": 4.440892098500626e-14,
+      "name": "DSMTS_002_01",
+      "passed": true,
+      "time": 10.0,
+      "variance_error": 2.0872192862952943e-13
+    },
+    {
+      "check": "upstream_rounded_mean",
+      "name": "001",
+      "passed": true
+    },
+    {
+      "check": "upstream_rounded_mean",
+      "name": "002",
+      "passed": true
+    }
+  ],
+  "schema": "crn-craft.fsp-validation/0.1"
+}

@@ -1,0 +1,58 @@
+[
+  {
+    "check": "final-contracts",
+    "exit_code": 0
+  },
+  {
+    "check": "final-contracts-optimized",
+    "exit_code": 0
+  },
+  {
+    "check": "final-network",
+    "exit_code": 0
+  },
+  {
+    "check": "final-network-optimized",
+    "exit_code": 0
+  },
+  {
+    "check": "final-structure",
+    "exit_code": 0
+  },
+  {
+    "check": "final-structure-optimized",
+    "exit_code": 0
+  },
+  {
+    "check": "final-ssa",
+    "exit_code": 0
+  },
+  {
+    "check": "final-ssa-optimized",
+    "exit_code": 0
+  },
+  {
+    "check": "final-cme",
+    "exit_code": 0
+  },
+  {
+    "check": "final-cme-optimized",
+    "exit_code": 0
+  },
+  {
+    "check": "final-fsp",
+    "exit_code": 0
+  },
+  {
+    "check": "final-fsp-optimized",
+    "exit_code": 0
+  },
+  {
+    "check": "final-tau",
+    "exit_code": 0
+  },
+  {
+    "check": "final-tau-optimized",
+    "exit_code": 0
+  }
+]

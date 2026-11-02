@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "last_runtime_source_commit": "70a5d642f789b657bcd150dba6c32167a9d6df23",
+  "final_sdist_non_documentation_files_identical_to_tested_rebuild": 92,
+  "artifacts": {
+    "crn_craft-0.2.0.dev1-cp310-abi3-manylinux_2_34_x86_64.whl": {
+      "bytes": 1036342,
+      "sha256": "8fbde027c5f54761a53f5ae565d580875c76b92d4e62c3f9590dbcf2f1d21572"
+    },
+    "crn_craft-0.2.0.dev1.tar.gz": {
+      "bytes": 129196,
+      "sha256": "7922dfbb7c26e8a11047f98e229ee5970881fb3cbf804667159fbd360a8712bd"
+    }
+  },
+  "installed_acceptance": "parity-installed.json",
+  "rebuilt_sdist_installed_acceptance": "parity-sdist-installed.json",
+  "source_identity": "parity-source-identity.json"
+}

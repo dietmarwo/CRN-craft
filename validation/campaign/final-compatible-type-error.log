@@ -1,0 +1,11 @@
+   Compiling crn-craft v0.2.0-dev.1 (/workspace/scratch/d05427e343fb/CRN-craft-campaign/crates/crn-craft)
+error[E0282]: type annotations needed
+   --> crates/crn-craft/src/simulation.rs:370:39
+    |
+370 |                 for (i, &reaction) in network.dependencies()[changed].iter().enumerate() {
+    |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ cannot infer type
+
+For more information about this error, try `rustc --explain E0282`.
+error: could not compile `crn-craft` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `crn-craft` (lib test) due to 1 previous error

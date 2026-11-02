@@ -54,6 +54,9 @@ def main():
         "analysis",
         "analysis-v1",
         "export",
+        "fsp-result",
+        "tau-request",
+        "tau-result",
     ):
         code, schema = invoke("describe", kind)
         Draft7Validator.check_schema(schema)
@@ -76,8 +79,11 @@ def main():
             "export",
             "simulate",
             "verify",
+            "simulate-cached",
+            "fsp",
+            "tau",
         ]
-        and capabilities["schema"] == "crn-craft.describe/0.4",
+        and capabilities["schema"] == "crn-craft.describe/0.5",
     )
 
     examples = ROOT / "models/examples"
@@ -105,6 +111,7 @@ def main():
         supported = path.name in (
             "enzyme-mechanism.model.json",
             "immigration-death.model.json",
+            "vilar-noise.model.json",
         )
         record(
             f"export_{path.name}",
@@ -183,7 +190,7 @@ def main():
                 and any(d["code"] == expected_code for d in report["diagnostics"]),
             )
 
-    for command in ("run", "fsp", "report"):
+    for command in ("run", "report"):
         code, report = invoke(command)
         record(
             f"unimplemented_{command}_fails",

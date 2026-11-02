@@ -1,0 +1,72 @@
+{
+  "horizon": 100.0,
+  "replicates": 64,
+  "rows": [
+    {
+      "CRN_core_seconds": [
+        0.134040375,
+        0.150848783,
+        0.13230765,
+        0.129339555,
+        0.129273706
+      ],
+      "comparison_limit": "reference includes Python/xarray overhead; CRN core includes statistics; CRN process costs are in baseline report",
+      "gillespy2_NumPySSA_seconds": [
+        5.620106399001088,
+        5.417029898999317,
+        5.207196889999977,
+        5.2899081140003545,
+        5.328986575001181
+      ],
+      "rebop_dynamic_python_seconds": [
+        0.05125883700020495,
+        0.060889905000294675,
+        0.05505631199957861,
+        0.045333959998970386,
+        0.04993343800015282
+      ],
+      "rebop_over_CRN": 0.3874215663282127,
+      "work": "64 complete trajectories, [0,100] output, independent reference event counts not instrumented",
+      "workload": "two_channel"
+    },
+    {
+      "CRN_core_seconds": [
+        1.4374775020000001,
+        1.481035276,
+        1.469451238,
+        1.409534249,
+        1.453817919
+      ],
+      "comparison_limit": "reference includes Python/xarray overhead; CRN core includes statistics; CRN process costs are in baseline report",
+      "gillespy2_NumPySSA_seconds": [
+        30.354246435001187,
+        28.552969345999372,
+        29.106154429000526,
+        29.731125120999423,
+        28.83273863500108
+      ],
+      "rebop_dynamic_python_seconds": [
+        1.8531644209997467,
+        1.7608100379984535,
+        1.8526442820002558,
+        1.839066014999844,
+        1.8893690559998504
+      ],
+      "rebop_over_CRN": 1.2743303393003893,
+      "work": "64 complete trajectories, [0,100] output, independent reference event counts not instrumented",
+      "workload": "sparse_66"
+    }
+  ],
+  "schema": "crn-craft.reference-cost/0.1",
+  "seed_policy": "CRN root seed 4242 streams; references per-replicate seeds 4242+i; independent samples",
+  "unavailable": [
+    {
+      "name": "Julia JumpProcesses/FiniteStateProjection",
+      "reason": "Julia runtime not installed; no measured comparison"
+    }
+  ],
+  "versions": {
+    "gillespy2": "1.8.3",
+    "rebop": "0.10.0"
+  }
+}

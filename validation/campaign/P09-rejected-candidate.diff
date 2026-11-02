@@ -1,0 +1,128 @@
+diff --git a/crates/crn-craft/src/network.rs b/crates/crn-craft/src/network.rs
+index 6d8a451..a20a613 100644
+--- a/crates/crn-craft/src/network.rs
++++ b/crates/crn-craft/src/network.rs
+@@ -1,7 +1,7 @@
+ //! Immutable, validated indexed representation and checked reaction operations.
+ use crate::contracts::{Model, Rate, Scalar};
+ use crate::diagnostic::{Diagnostic, Severity, pointer};
+-use crate::rates::CompiledRate;
++use crate::rates::{CompiledRate, HillRate};
+ use crate::validate::validate_model;
+ use schemars::JsonSchema;
+ use serde::{Deserialize, Serialize};
+@@ -86,14 +86,20 @@ impl CompiledNetwork {
+                     basal,
+                     k,
+                     n,
+-                } => CompiledRate::Hill {
++                } => CompiledRate::Hill(Box::new(HillRate {
+                     regulator: indices[regulator.as_str()],
+                     vmax: resolve(vmax),
+                     basal: resolve(basal),
+                     k: resolve(k),
++                    log_k: libm::log(resolve(k)),
++                    log_vmax: if resolve(vmax) > 0.0 {
++                        libm::log(resolve(vmax))
++                    } else {
++                        0.0
++                    },
+                     n: resolve(n),
+                     repression: matches!(reaction.rate, Rate::HillRepression { .. }),
+-                },
++                })),
+                 Rate::MichaelisMenten {
+                     substrate,
+                     vmax,
+diff --git a/crates/crn-craft/src/rates.rs b/crates/crn-craft/src/rates.rs
+index fdb7d00..405d39d 100644
+--- a/crates/crn-craft/src/rates.rs
++++ b/crates/crn-craft/src/rates.rs
+@@ -5,14 +5,7 @@ use crate::network::Term;
+ #[derive(Debug, Clone)]
+ pub(crate) enum CompiledRate {
+     MassAction(f64),
+-    Hill {
+-        regulator: usize,
+-        vmax: f64,
+-        basal: f64,
+-        k: f64,
+-        n: f64,
+-        repression: bool,
+-    },
++    Hill(Box<HillRate>),
+     MichaelisMenten {
+         substrate: usize,
+         vmax: f64,
+@@ -20,6 +13,18 @@ pub(crate) enum CompiledRate {
+     },
+ }
+ 
++#[derive(Debug, Clone, Copy)]
++pub(crate) struct HillRate {
++    pub regulator: usize,
++    pub vmax: f64,
++    pub basal: f64,
++    pub k: f64,
++    pub log_k: f64,
++    pub log_vmax: f64,
++    pub n: f64,
++    pub repression: bool,
++}
++
+ fn range_error(reaction: usize, reason: &str) -> Diagnostic {
+     Diagnostic::error(
+         "CRN-E042",
+@@ -33,7 +38,7 @@ impl CompiledRate {
+     pub(crate) fn extra_read(&self) -> Option<usize> {
+         match self {
+             Self::MassAction(_) => None,
+-            Self::Hill { regulator, .. } => Some(*regulator),
++            Self::Hill(hill) => Some(hill.regulator),
+             Self::MichaelisMenten { substrate, .. } => Some(*substrate),
+         }
+     }
+@@ -55,14 +60,17 @@ impl CompiledRate {
+             Self::MassAction(coefficient) => {
+                 return mass_action(coefficient, state, reactants, reaction);
+             }
+-            Self::Hill {
+-                regulator,
+-                vmax,
+-                basal,
+-                k,
+-                n,
+-                repression,
+-            } => {
++            Self::Hill(ref hill) => {
++                let HillRate {
++                    regulator,
++                    vmax,
++                    basal,
++                    k,
++                    log_k,
++                    log_vmax,
++                    n,
++                    repression,
++                } = **hill;
+                 let x = state[regulator] as f64;
+                 if x == 0.0 {
+                     (
+@@ -77,7 +85,7 @@ impl CompiledRate {
+                     let log_ratio = if relative.abs() <= 0.5 {
+                         libm::log1p(relative)
+                     } else {
+-                        libm::log(x) - libm::log(k)
++                        libm::log(x) - log_k
+                     };
+                     let odds = n * log_ratio;
+                     let t = if repression { odds } else { -odds };
+@@ -90,7 +98,7 @@ impl CompiledRate {
+                     let induced = if log_fraction >= -700.0 {
+                         vmax * libm::exp(log_fraction)
+                     } else {
+-                        libm::exp(libm::log(vmax) + log_fraction)
++                        libm::exp(log_vmax + log_fraction)
+                     };
+                     (basal + induced, true)
+                 }

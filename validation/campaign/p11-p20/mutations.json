@@ -1,0 +1,441 @@
+{
+  "schema": "crn-craft.mutation-check/0.1",
+  "baseline_passed": true,
+  "mutations": [
+    {
+      "mutation": "missing_binomial_divisor",
+      "file": "crates/crn-craft/src/rates.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test high_order_and_small_coefficient_do_not_overflow_intermediates ... FAILED"
+      ]
+    },
+    {
+      "mutation": "wrong_product_sign",
+      "file": "crates/crn-craft/src/network.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test simulation::tests::cancel_file_checks_are_rate_limited ... FAILED",
+        "test network::tests::an_unenabled_channel_is_a_disabled_reaction_not_a_population_stop ... FAILED",
+        "test simulation::tests::event_exactly_at_horizon_is_included_and_consumes_two_words ... FAILED",
+        "test simulation::tests::the_event_loop_polls_once_per_event_for_small_networks ... FAILED"
+      ]
+    },
+    {
+      "mutation": "missing_custom_rate_read",
+      "file": "crates/crn-craft/src/network.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test dependency_graph_includes_custom_reads_and_gate_reads ... FAILED"
+      ]
+    },
+    {
+      "mutation": "missing_reactant_gate",
+      "file": "crates/crn-craft/src/rates.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test many_snapshots_respect_the_output_budget ... FAILED",
+        "test binomial_decay_and_large_lambda_t ... FAILED",
+        "test omitted_weight_is_summed_not_cancelled_and_stays_below_the_tail_bound ... FAILED",
+        "test the_tail_bound_bounds_the_missing_mass_at_a_loose_tolerance ... FAILED"
+      ]
+    },
+    {
+      "mutation": "hill_without_log1p_near_threshold",
+      "file": "crates/crn-craft/src/rates.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test hill_near_threshold_uses_log1p_not_a_difference_of_logs ... FAILED"
+      ]
+    },
+    {
+      "mutation": "bound_not_divided_by_weight",
+      "file": "crates/crn-craft/src/conservation.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test weighted_nonnegative_law_divides_its_bound_by_the_weight ... FAILED"
+      ]
+    },
+    {
+      "mutation": "binomial_without_symmetry",
+      "file": "crates/crn-craft/src/rates.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test high_order_reactant_uses_binomial_symmetry ... FAILED"
+      ]
+    },
+    {
+      "mutation": "cone_missing_positive_contribution",
+      "file": "crates/crn-craft/src/cone.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test known_enzyme_laws_and_bounds_are_found ... FAILED"
+      ]
+    },
+    {
+      "mutation": "cone_without_adjacency",
+      "file": "crates/crn-craft/src/cone.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test adjacency_excludes_nonextreme_combination ... FAILED"
+      ]
+    },
+    {
+      "mutation": "cone_bound_without_weight",
+      "file": "crates/crn-craft/src/cone.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test combined_rays_are_reduced_to_primitive_coefficients ... FAILED",
+        "test review_counterexample_gets_complete_bounds_and_suppresses_growth_warning ... FAILED",
+        "test weighted_cone_bounds_use_integer_division ... FAILED"
+      ]
+    },
+    {
+      "mutation": "linkage_reversed_outgoing",
+      "file": "crates/crn-craft/src/linkage.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test linkage_classes_join_converging_reactions ... FAILED",
+        "test linkage_components_direction_and_terminal_classes ... FAILED",
+        "test linkage_walk_is_iterative_for_long_chain ... FAILED"
+      ]
+    },
+    {
+      "mutation": "complex_identity_ignores_weight",
+      "file": "crates/crn-craft/src/linkage.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test weak_reversibility_empty_null_and_positive_deficiency ... FAILED"
+      ]
+    },
+    {
+      "mutation": "export_without_homodimer_factor",
+      "file": "crates/crn-craft/src/export.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test export_halves_homodimer_and_uses_safe_aliases_unit_volume ... FAILED",
+        "test export_rejects_inexact_subnormal_halving_but_accepts_exact_boundary ... FAILED"
+      ]
+    },
+    {
+      "mutation": "analysis_drops_fallback_bounds",
+      "file": "crates/crn-craft/src/analysis.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test cone_failure_preserves_exact_linear_analysis_and_fallback_bound ... FAILED"
+      ]
+    },
+    {
+      "mutation": "cone_rays_not_primitive",
+      "file": "crates/crn-craft/src/cone.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test combined_rays_are_reduced_to_primitive_coefficients ... FAILED"
+      ]
+    },
+    {
+      "mutation": "cone_initial_ray_cap_ignored",
+      "file": "crates/crn-craft/src/cone.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test initial_orthant_rays_respect_a_lower_ray_cap ... FAILED"
+      ]
+    },
+    {
+      "mutation": "linkage_directed_edges_only",
+      "file": "crates/crn-craft/src/linkage.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test linkage_classes_join_converging_reactions ... FAILED"
+      ]
+    },
+    {
+      "mutation": "ssa_wait_wrong_scale",
+      "file": "crates/crn-craft/src/sampling.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test simulation::tests::the_event_loop_polls_once_per_event_for_small_networks ... FAILED",
+        "test simulation::tests::cancel_file_checks_are_rate_limited ... FAILED"
+      ]
+    },
+    {
+      "mutation": "ssa_selection_wrong_boundary",
+      "file": "crates/crn-craft/src/sampling.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test sampling::tests::binary_search_selects_the_linear_scan_channel_at_exact_boundaries ... FAILED"
+      ]
+    },
+    {
+      "mutation": "ssa_reuses_replicate_stream",
+      "file": "crates/crn-craft/src/sampling.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test cached_direct_matches_direct_on_every_termination ... FAILED",
+        "test cached_direct_matches_direct_with_partial_resumption_and_failures ... FAILED",
+        "test chacha8_matches_independent_scalar_known_answers_across_blocks_and_streams ... FAILED",
+        "test fixed_work_payload_is_identical_at_one_two_and_eight_threads ... FAILED",
+        "test mixed_completion_never_reports_conditional_ensemble_statistics ... FAILED"
+      ]
+    },
+    {
+      "mutation": "ssa_save_before_equal_event",
+      "file": "crates/crn-craft/src/simulation.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test simulation::tests::event_exactly_at_horizon_is_included_and_consumes_two_words ... FAILED"
+      ]
+    },
+    {
+      "mutation": "ssa_event_cap_off_by_one",
+      "file": "crates/crn-craft/src/simulation.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test cancellation_and_event_limits_have_complete_archives_but_incomplete_ensembles ... FAILED",
+        "test refreshed_hashes_do_not_hide_inconsistent_partial_evidence_or_budget ... FAILED"
+      ]
+    },
+    {
+      "mutation": "ssa_biased_variance",
+      "file": "crates/crn-craft/src/simulation.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test archive_symlinks_are_rejected ... FAILED",
+        "test completed_archive_preserves_inputs_and_byte_budget_and_refuses_overwrite ... FAILED",
+        "test checksum_and_completion_hash_are_checked_independently_of_json_semantics ... FAILED",
+        "test duplicate_keys_and_manifest_entries_fail_even_with_matching_marker ... FAILED",
+        "test interrupted_or_tampered_archives_are_never_accepted ... FAILED",
+        "test oversized_archive_payload_is_rejected_before_reading ... FAILED",
+        "test refreshed_hashes_do_not_hide_false_accounting_or_statistics ... FAILED"
+      ]
+    },
+    {
+      "mutation": "ssa_conditional_statistics",
+      "file": "crates/crn-craft/src/simulation.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test mixed_completion_never_reports_conditional_ensemble_statistics ... FAILED"
+      ]
+    },
+    {
+      "mutation": "archive_ignores_payload_digest",
+      "file": "crates/crn-craft/src/archive.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test checksum_and_completion_hash_are_checked_independently_of_json_semantics ... FAILED"
+      ]
+    },
+    {
+      "mutation": "archive_ignores_completion_digest",
+      "file": "crates/crn-craft/src/archive.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test checksum_and_completion_hash_are_checked_independently_of_json_semantics ... FAILED"
+      ]
+    },
+    {
+      "mutation": "ssa_poller_skips_first_check",
+      "file": "crates/crn-craft/src/simulation.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test cancellation_and_wall_time_account_for_every_unstarted_replicate ... FAILED",
+        "test existing_cancel_file_stops_every_worker_before_any_replicate_starts ... FAILED"
+      ]
+    },
+    {
+      "mutation": "ssa_cancel_file_interval_inverted",
+      "file": "crates/crn-craft/src/simulation.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test simulation::tests::cancel_file_checks_are_rate_limited ... FAILED"
+      ]
+    },
+    {
+      "mutation": "ssa_extra_retained_trajectory",
+      "file": "crates/crn-craft/src/simulation.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test refreshed_hashes_do_not_hide_inconsistent_partial_evidence_or_budget ... FAILED",
+        "test legacy_memory_admission_uses_small_queue_fallback_and_remains_verifiable ... FAILED"
+      ]
+    },
+    {
+      "mutation": "ssa_accepts_lost_positive_increment",
+      "file": "crates/crn-craft/src/sampling.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test sampling::tests::binary_search_matches_the_linear_scan_on_random_rates ... FAILED"
+      ]
+    },
+    {
+      "mutation": "prefix_sum_accepts_lost_positive_increment",
+      "file": "crates/crn-craft/src/sampling.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test sampling::tests::binary_search_matches_the_linear_scan_on_random_rates ... FAILED",
+        "test sampling::tests::resumed_totals_equal_full_passes_after_suffix_changes ... FAILED"
+      ]
+    },
+    {
+      "mutation": "resumed_sum_accepts_lost_positive_increment",
+      "file": "crates/crn-craft/src/sampling.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test sampling::tests::resumed_totals_equal_full_passes_after_suffix_changes ... FAILED"
+      ]
+    },
+    {
+      "mutation": "ssa_accepts_zero_wait",
+      "file": "crates/crn-craft/src/sampling.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test lost_channel_and_underflowed_wait_fail_at_the_sampler_boundary ... FAILED"
+      ]
+    },
+    {
+      "mutation": "archive_ignores_byte_budget",
+      "file": "crates/crn-craft/src/archive.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test refreshed_hashes_do_not_hide_inconsistent_partial_evidence_or_budget ... FAILED"
+      ]
+    },
+    {
+      "mutation": "archive_ignores_unstarted_record_rules",
+      "file": "crates/crn-craft/src/archive.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test refreshed_hashes_do_not_hide_inconsistent_partial_evidence_or_budget ... FAILED"
+      ]
+    },
+    {
+      "mutation": "archive_ignores_initial_state",
+      "file": "crates/crn-craft/src/archive.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test refreshed_hashes_do_not_hide_inconsistent_partial_evidence_or_budget ... FAILED"
+      ]
+    },
+    {
+      "mutation": "archive_accepts_state_after_stop_time",
+      "file": "crates/crn-craft/src/archive.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test refreshed_hashes_do_not_hide_inconsistent_partial_evidence_or_budget ... FAILED"
+      ]
+    },
+    {
+      "mutation": "cached_dependency_updates_removed",
+      "file": "crates/crn-craft/src/simulation.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test simulation::tests::the_event_loop_polls_once_per_event_for_small_networks ... FAILED"
+      ]
+    },
+    {
+      "mutation": "minimum_resolution_check_removed",
+      "file": "crates/crn-craft/src/sampling.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test sampling::tests::the_resolution_check_uses_the_smallest_positive_rate ... FAILED"
+      ]
+    },
+    {
+      "mutation": "fsp_reflects_sink",
+      "file": "crates/crn-craft/src/fsp.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test leakage_is_not_reflected_or_double_counted ... FAILED"
+      ]
+    },
+    {
+      "mutation": "fsp_wrong_sparse_orientation",
+      "file": "crates/crn-craft/src/fsp.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test fsp::tests::the_gathered_product_and_fused_sum_match_the_row_product_bit_for_bit ... FAILED"
+      ]
+    },
+    {
+      "mutation": "fsp_tail_bound_zeroed",
+      "file": "crates/crn-craft/src/fsp.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test binomial_decay_and_large_lambda_t ... FAILED",
+        "test omitted_weight_is_summed_not_cancelled_and_stays_below_the_tail_bound ... FAILED",
+        "test the_tail_bound_bounds_the_missing_mass_at_a_loose_tolerance ... FAILED"
+      ]
+    },
+    {
+      "mutation": "tau_claims_exact",
+      "file": "crates/crn-craft/src/tau.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test approximate_assessment_nonnegative_repeatability_and_limits ... FAILED"
+      ]
+    },
+    {
+      "mutation": "tau_proposal_event_cap_removed",
+      "file": "crates/crn-craft/src/tau.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test approximate_assessment_nonnegative_repeatability_and_limits ... FAILED"
+      ]
+    },
+    {
+      "mutation": "kinetics_parameter_derivative_zeroed",
+      "file": "crates/crn-craft/src/kinetics.rs",
+      "caught_by_test_failure": true,
+      "exit_code": 101,
+      "failed_tests": [
+        "test analytic_state_and_parameter_derivatives_match_independent_central_differences ... FAILED"
+      ]
+    }
+  ],
+  "caught": 45,
+  "total": 45
+}

@@ -611,7 +611,7 @@ fn fsp_options_initial_state_and_method_incompatibility() {
 }
 
 #[test]
-fn description_distinguishes_direct_ssa_from_unimplemented_fsp() {
+fn description_distinguishes_exact_implemented_and_experimental_methods() {
     let value = describe();
     assert_eq!(value["simulation_available"], true);
     assert_eq!(
@@ -623,12 +623,24 @@ fn description_distinguishes_direct_ssa_from_unimplemented_fsp() {
             "analyze-v1",
             "export",
             "simulate",
-            "verify"
+            "verify",
+            "simulate-cached",
+            "fsp",
+            "tau"
         ])
     );
     assert_eq!(value["aggregators"][0]["status"], "implemented");
-    assert_eq!(value["methods"][1]["status"], "contract_only");
-    for kind in ["model", "run", "result", "check"] {
+    assert_eq!(value["methods"][1]["status"], "implemented");
+    assert_eq!(value["methods"][2]["status"], "experimental_approximation");
+    for kind in [
+        "model",
+        "run",
+        "result",
+        "check",
+        "fsp-result",
+        "tau-request",
+        "tau-result",
+    ] {
         assert!(schema(kind).unwrap().is_object());
     }
     assert!(schema("unknown").is_none());

@@ -2,7 +2,9 @@
 
 Native Rust foundations for well-mixed chemical reaction networks, designed for reproducible simulation and optimization workflows.
 
-**Current status: iteration 4 / M2 (`0.1.0-dev.4`).** Direct SSA now executes the existing mass-action, Hill and Michaelis–Menten models. It provides pinned random streams, ordered parallel ensembles, mean/sample variance, execution limits and verifiable archives. Network/conservation/linkage analysis and elementary GillesPy2 export remain available. FSP, ODE, optimization and SBML execution are later milestones. A successful simulation is not biological validation.
+**Current status: remaining-milestone campaign (`0.2.0-dev.1`).** Native Direct and exact dependency-cached SSA, sparse FSP and explicitly approximate Poisson leaps execute. Optional Python bindings, trajectory diagnostics, pinned fcmaes job applications, diffsol BDF/forward sensitivities, global-to-SQP fitting and explicit SBML/BioNetGen import subsets are included. The default Rust engine remains independent of Python, jobs and ODE dependencies. A successful numerical run is not biological validation.
+
+Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/architecture.md), the [technical report](docs/technical-report.md) (design, validation and measured performance), [the campaign guide](docs/campaign/README.md), [measured milestone results](docs/campaign/) and `crn-craft describe`. Legacy input/result/archive contracts remain available; new approximate/FSP results use distinct schemas.
 
 ## Quick start
 
@@ -46,8 +48,10 @@ cargo test --release --workspace --locked
 | Models | Immigration–death; explicit enzyme mechanism; reduced Michaelis–Menten; complete three-gene repressilator |
 | Simulator | Direct SSA; pinned ChaCha8 streams; deterministic ordered ensembles; mean/sample variance/mean SE; event, population, wall-time and output limits; cooperative cancellation |
 | Results | Exact input snapshots, complete replicate accounting, checksummed archives and a marker written last; independent verifier |
-| Other run contracts | Bounded FSP requests; FSP execution remains unavailable |
-| Evidence | Rust regression tests, 13 invalid fixtures, independent exact/Decimal oracle for 200 seeded networks, 300-network exact cone/graph oracle with five targeted models, 35 source mutations against a passing baseline, three 100,000-path analytic campaigns, four 100,000-path exact master-equation checks of second-order, Hill and Michaelis–Menten channels, thread identity and real GillesPy2 exporter checks, schema and dependency gates |
+| FSP | Reachable sparse projection, escaping sink, stable split uniformization, separate leakage/series/roundoff accounting |
+| Experimental approximation | Checked Poisson leaps, critical Direct fallback, own approximate result schema |
+| Optional applications | Python diagnostics/importers; native fcmaes worker; diffsol BDF and sensitivities; global-to-SQP fitting |
+| Evidence | Rust regression tests, 13 invalid fixtures, independent exact/Decimal oracle for 200 seeded networks, 300-network exact cone/graph oracle with five targeted models, 45 source mutations against a passing baseline, three 100,000-path analytic campaigns, four 100,000-path exact master-equation checks of second-order, Hill and Michaelis–Menten channels, thread identity and real GillesPy2 exporter checks, schema and dependency gates |
 | Documentation | Revised plan, diagnostics, rate conventions, statistical policy, extension/model-card templates and agent guide |
 
 Unknown fields and duplicate JSON keys are errors. Names are unique ASCII identifiers. Counts are checked i64 values. Rate parameters have finite domains. Custom rates are complete propensities, with separate reactant-availability gates. No extra mass-action factor is applied to a custom law.
@@ -99,14 +103,20 @@ python3 -m venv .venv-reference
 .venv-reference/bin/python -O validation/check_export.py
 ```
 
-All eleven schema snapshots are compared with the CLI. Model/run/check/state, analysis 0.2, legacy analysis 0.1 and export 0.1 remain unchanged. Reserved result 0.1 is retained as `result-v1`; real simulation results use 0.2. Archive and archive-check are 0.1; discovery is 0.4. Strict parsers and semantic checks remain mandatory. The optional exporter checker runs a short GillesPy2 smoke test; the independent SSA campaign validates CRN-craft against declared analytic distributions, and `check_cme.py` against exact master-equation laws for nonlinear and custom rates.
+The eleven original schema snapshots are preserved, and three new native schemas are compared with the CLI. Model/run/check/state, analysis 0.2, legacy analysis 0.1 and export 0.1 remain unchanged. Reserved result 0.1 is retained as `result-v1`; real simulation results use 0.2. Archive and archive-check are 0.1; discovery is 0.5. Strict parsers and semantic checks remain mandatory. The optional exporter checker runs a short GillesPy2 smoke test; the independent SSA campaign validates CRN-craft against declared analytic distributions, and `check_cme.py` against exact master-equation laws for nonlinear and custom rates.
 
 GitHub Actions is configured for fmt, clippy and release tests on Rust 1.85.0, 1.88.0 and stable; dependency, schema/CLI and independent network/structure/SSA/CME checks normally and under Python `-O` with identical reports; source mutation checks; and contract/network/structure/SSA/archive tests with `core.autocrlf=true`. See [iteration 4 evidence](validation/iteration-04/RESULTS.md) for executed local checks. The default build has no C/C++ simulator, Julia or Python runtime dependency. It pins pure-Rust libm for rate evaluation. Python is only needed for independent acceptance checks.
 
-## Next work
+## Campaign and remaining validation
 
-[The revised plan](docs/implementation-plan-2026-11-01.md) tracks completed M0–M2. **Next is M3**: FSP with separate leakage/error accounting, independent checks and selected DSMTS fixtures. M4a then measures pinned simulator quality/cost on the same host. M5 adds bindings and the circuit application. There is no measured competitive performance-gap claim yet.
+The functional M3–M10 work and ten performance iterations are documented in
+[docs/campaign](docs/campaign/README.md), with predeclared gates and retained failures
+under validation/campaign. Optional integrations have independent lockfiles/MSRVs.
+Publishing, multi-platform wheel acceptance, a Julia reference run and broad biological
+behavioral validation remain owner/platform-specific work. The circuit demonstrations
+are labelled synthetic; detector diagnostics do not establish universal sensitivity.
 
-The ecosystem boundary remains: CRN-craft supplies numerical models; fcmaes searches parameters; optimization-jobs executes jobs; experiment-craft coordinates campaigns. Their integrations remain later milestones and are not dependencies of the core project.
+The ecosystem boundary remains: CRN-craft supplies numerical models; fcmaes searches
+parameters; optimization-jobs executes jobs; experiment-craft coordinates campaigns.
 
 Read [the agent context](docs/ai-context.md), [contract details](docs/contracts.md), [diagnostics](docs/diagnostics.md), [archive contract](docs/archive-contract.md) and [release instructions](RELEASING.md) before extending the project. License: MIT; dependencies retain their respective licenses.

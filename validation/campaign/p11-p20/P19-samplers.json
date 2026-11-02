@@ -1,0 +1,25 @@
+{
+  "exact_mean": 10000.0,
+  "exact_variance": 9999.546000702376,
+  "ks_critical_alpha_0_001": 0.04359157733881077,
+  "passed": true,
+  "paths_per_sampler": 4000,
+  "samplers": {
+    "after": {
+      "algorithm": "adaptive_explicit_poisson_cgp_reject_halve_direct_fallback/0.3",
+      "mean": 10002.33225,
+      "mean_z_vs_exact": 1.4750778991817717,
+      "variance": 17385.800810140034,
+      "variance_ratio_vs_exact": 1.738659016011211
+    },
+    "before": {
+      "algorithm": "adaptive_explicit_poisson_cgp_reject_halve_direct_fallback/0.2",
+      "mean": 10003.166,
+      "mean_z_vs_exact": 2.002399669336239,
+      "variance": 16254.013947486872,
+      "variance_ratio_vs_exact": 1.6254751912081986
+    }
+  },
+  "schema": "crn-craft.tau-sampler-comparison/0.1",
+  "two_sample_ks": 0.014500000000000013
+}

@@ -1,0 +1,34 @@
+{
+  "schema": "crn-craft.model/0.1",
+  "name": "dimerization",
+  "convention": "stochastic_counts",
+  "omega": 1.0,
+  "parameters": {
+    "c": 0.01
+  },
+  "species": [
+    {
+      "name": "A",
+      "initial_count": 100
+    },
+    {
+      "name": "B",
+      "initial_count": 0
+    }
+  ],
+  "reactions": [
+    {
+      "name": "dimerize",
+      "reactants": {
+        "A": 2
+      },
+      "products": {
+        "B": 1
+      },
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "c"
+      }
+    }
+  ]
+}

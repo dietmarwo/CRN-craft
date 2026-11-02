@@ -1,0 +1,94 @@
+{
+  "after": [
+    {
+      "core_seconds": 0.064841505,
+      "events": 639890,
+      "numerical_sha256": "2a4e5d983163124b706990ff4fdaf39f21f649e29a0eb09f6ac95afbfee57077",
+      "process_seconds": 0.07297249100156478
+    },
+    {
+      "core_seconds": 0.066431848,
+      "events": 639890,
+      "numerical_sha256": "2a4e5d983163124b706990ff4fdaf39f21f649e29a0eb09f6ac95afbfee57077",
+      "process_seconds": 0.07964623000225401
+    },
+    {
+      "core_seconds": 0.057835992,
+      "events": 639890,
+      "numerical_sha256": "2a4e5d983163124b706990ff4fdaf39f21f649e29a0eb09f6ac95afbfee57077",
+      "process_seconds": 0.06575264200000674
+    },
+    {
+      "core_seconds": 0.082079296,
+      "events": 639890,
+      "numerical_sha256": "2a4e5d983163124b706990ff4fdaf39f21f649e29a0eb09f6ac95afbfee57077",
+      "process_seconds": 0.08982971099976567
+    },
+    {
+      "core_seconds": 0.061281283,
+      "events": 639890,
+      "numerical_sha256": "2a4e5d983163124b706990ff4fdaf39f21f649e29a0eb09f6ac95afbfee57077",
+      "process_seconds": 0.06942926500050817
+    },
+    {
+      "core_seconds": 0.058299555,
+      "events": 639890,
+      "numerical_sha256": "2a4e5d983163124b706990ff4fdaf39f21f649e29a0eb09f6ac95afbfee57077",
+      "process_seconds": 0.06747849000021233
+    },
+    {
+      "core_seconds": 0.062631169,
+      "events": 639890,
+      "numerical_sha256": "2a4e5d983163124b706990ff4fdaf39f21f649e29a0eb09f6ac95afbfee57077",
+      "process_seconds": 0.07127360300000873
+    }
+  ],
+  "before": [
+    {
+      "core_seconds": 0.067672343,
+      "events": 639890,
+      "numerical_sha256": "2a4e5d983163124b706990ff4fdaf39f21f649e29a0eb09f6ac95afbfee57077",
+      "process_seconds": 0.0766971970006125
+    },
+    {
+      "core_seconds": 0.073237517,
+      "events": 639890,
+      "numerical_sha256": "2a4e5d983163124b706990ff4fdaf39f21f649e29a0eb09f6ac95afbfee57077",
+      "process_seconds": 0.08132700199712417
+    },
+    {
+      "core_seconds": 0.06799383,
+      "events": 639890,
+      "numerical_sha256": "2a4e5d983163124b706990ff4fdaf39f21f649e29a0eb09f6ac95afbfee57077",
+      "process_seconds": 0.0750878239996382
+    },
+    {
+      "core_seconds": 0.074659552,
+      "events": 639890,
+      "numerical_sha256": "2a4e5d983163124b706990ff4fdaf39f21f649e29a0eb09f6ac95afbfee57077",
+      "process_seconds": 0.0820813280006405
+    },
+    {
+      "core_seconds": 0.091989422,
+      "events": 639890,
+      "numerical_sha256": "2a4e5d983163124b706990ff4fdaf39f21f649e29a0eb09f6ac95afbfee57077",
+      "process_seconds": 0.10004016599850729
+    },
+    {
+      "core_seconds": 0.075247699,
+      "events": 639890,
+      "numerical_sha256": "2a4e5d983163124b706990ff4fdaf39f21f649e29a0eb09f6ac95afbfee57077",
+      "process_seconds": 0.08399738700245507
+    },
+    {
+      "core_seconds": 0.098362779,
+      "events": 639890,
+      "numerical_sha256": "2a4e5d983163124b706990ff4fdaf39f21f649e29a0eb09f6ac95afbfee57077",
+      "process_seconds": 0.10610961000202224
+    }
+  ],
+  "identical": true,
+  "paired_median_speedup": 1.1756317761438242,
+  "secondary_control": true,
+  "topology": "M3 dimer, larger initial conservation class for timing"
+}

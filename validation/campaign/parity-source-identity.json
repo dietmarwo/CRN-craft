@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "sdist_checked_files": [
+    "python/crn_craft/__init__.py",
+    "python/crn_craft/importers.py",
+    "python/crn_craft/observables.py",
+    "python/crn_craft/__main__.py",
+    "bindings/python/src/lib.rs",
+    "bindings/python/Cargo.lock",
+    "Cargo.lock",
+    "crates/crn-craft/src/simulation.rs"
+  ],
+  "wheel_all_python_files_identical": true,
+  "wheel_sha256": "8fbde027c5f54761a53f5ae565d580875c76b92d4e62c3f9590dbcf2f1d21572"
+}

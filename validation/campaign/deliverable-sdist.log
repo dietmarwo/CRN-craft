@@ -1,0 +1,17 @@
+🍹 Building a mixed python/rust project
+🔗 Found pyo3 bindings with abi3 support
+From `cargo package --list --allow-dirty --manifest-path /workspace/scratch/d05427e343fb/CRN-craft-campaign/crates/crn-craft/Cargo.toml`:
+warning: manifest has no documentation, homepage or repository.
+See https://doc.rust-lang.org/cargo/reference/manifest.html#package-metadata for more info.
+From `cargo package --list --allow-dirty --manifest-path /workspace/scratch/d05427e343fb/CRN-craft-campaign/bindings/python/Cargo.toml`:
+warning: manifest has no description, documentation, homepage or repository.
+See https://doc.rust-lang.org/cargo/reference/manifest.html#package-metadata for more info.
+📦 Including files matching "Cargo.lock"
+📦 Including files matching "Cargo.toml"
+📦 Including files matching "LICENSE"
+📦 Including files matching "crates/**/*"
+📦 Including files matching "schemas/**/*"
+📦 Including files matching "models/**/*"
+📦 Including files matching "docs/campaign/**/*"
+📦 Including files matching "validation/rng-vectors.json"
+📦 Built source distribution to /tmp/crn-campaign-ready-dist/crn_craft-0.2.0.dev1.tar.gz

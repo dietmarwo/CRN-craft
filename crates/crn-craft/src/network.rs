@@ -274,7 +274,21 @@ impl CompiledNetwork {
                 "Select a channel with a positive propensity and sufficient reactants.",
             ));
         }
-        let changes = &self.reactions[reaction].net_changes;
+        self.fire_enabled_reaction(reaction, state)
+    }
+
+    /// Internal primitive: caller established a positive channel in a valid state.
+    /// Updates remain checked and transactional, including all population limits.
+    pub(crate) fn fire_enabled_reaction(
+        &self,
+        reaction: usize,
+        state: &mut [i64],
+    ) -> Result<(), Diagnostic> {
+        let changes = &self
+            .reactions
+            .get(reaction)
+            .ok_or_else(|| index_error(reaction))?
+            .net_changes;
         // Validate all updates first: an overflow/limit error cannot partially mutate state.
         for term in changes {
             let next = state[term.species]
@@ -287,7 +301,17 @@ impl CompiledNetwork {
                         "Stop before exceeding the supported count range.",
                     )
                 })?;
-            if next < 0 || self.limits[term.species].is_some_and(|limit| next > limit) {
+            // A negative count means the channel was not enabled: a scheduler
+            // defect, reported as such and never as a population-limit stop.
+            if next < 0 {
+                return Err(Diagnostic::error(
+                    "CRN-E043",
+                    &format!("/reactions/{reaction}"),
+                    "reaction would make a count negative; it is disabled at this state",
+                    "Select a channel with a positive propensity and sufficient reactants.",
+                ));
+            }
+            if self.limits[term.species].is_some_and(|limit| next > limit) {
                 return Err(Diagnostic::error(
                     "CRN-E044",
                     &pointer("/counts", &self.species[term.species]),
@@ -310,4 +334,28 @@ fn index_error(reaction: usize) -> Diagnostic {
         "reaction index out of range",
         "Use an index from the model's reaction declaration order.",
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_unenabled_channel_is_a_disabled_reaction_not_a_population_stop() {
+        let model: Model = serde_json::from_value(serde_json::json!({"schema":"crn-craft.model/0.1","name":"gate","convention":"stochastic_counts","omega":1.0,"parameters":{},
+            "species":[{"name":"X","initial_count":1,"population_limit":5}],
+            "reactions":[{"name":"pair","reactants":{"X":2},"products":{},"rate":{"kind":"mass_action","coefficient":1.0}},
+                {"name":"grow","reactants":{},"products":{"X":1},"rate":{"kind":"mass_action","coefficient":1.0}}]})).unwrap();
+        let network = CompiledNetwork::compile(&model).unwrap();
+        let mut state = vec![1];
+        let error = network.fire_enabled_reaction(0, &mut state).unwrap_err();
+        assert_eq!(error.code, "CRN-E043");
+        assert!(!error.message.contains("safety limit"));
+        assert_eq!(state, vec![1]);
+        let mut full = vec![5];
+        let error = network.fire_enabled_reaction(1, &mut full).unwrap_err();
+        assert_eq!(error.code, "CRN-E044");
+        assert!(error.message.contains("safety limit"));
+        assert_eq!(full, vec![5]);
+    }
 }

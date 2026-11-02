@@ -8,12 +8,15 @@ pub mod conservation;
 pub mod contracts;
 pub mod diagnostic;
 pub mod export;
+pub mod fsp;
+pub mod kinetics;
 pub mod linkage;
 pub mod network;
 mod rates;
 pub mod sampling;
 pub mod simulation;
 pub mod strict_json;
+pub mod tau;
 pub mod validate;
 
 pub use analysis::{AnalysisReport, analyze_bytes};
@@ -235,20 +238,25 @@ pub fn schema(kind: &str) -> Option<Value> {
         "analysis" => serde_json::to_value(schema_for!(AnalysisReport)).ok(),
         "analysis-v1" => serde_json::to_value(schema_for!(analysis_v1::AnalysisReport)).ok(),
         "export" => serde_json::to_value(schema_for!(export::ExportReport)).ok(),
+        "tau-request" => serde_json::to_value(schema_for!(tau::Request)).ok(),
+        "tau-result" => serde_json::to_value(schema_for!(tau::TauResult)).ok(),
+        "fsp-result" => serde_json::to_value(schema_for!(fsp::FspResult)).ok(),
         _ => None,
     }
 }
 
 pub fn describe() -> Value {
     json!({
-        "schema": "crn-craft.describe/0.4", "version": env!("CARGO_PKG_VERSION"), "milestone": "M2",
-        "commands": ["describe", "check", "analyze", "analyze-v1", "export", "simulate", "verify"], "simulation_available": true,
+        "schema": "crn-craft.describe/0.5", "version": env!("CARGO_PKG_VERSION"), "milestone": "M10",
+        "commands": ["describe", "check", "analyze", "analyze-v1", "export", "simulate", "verify", "simulate-cached", "fsp", "tau"], "simulation_available": true,
         "aggregators": [{"name": "direct", "status": "implemented", "implementation_milestone": "M2"}],
-        "methods": [{"name": "ssa", "status": "implemented"}, {"name": "fsp", "status": "contract_only"}],
+        "methods": [{"name": "ssa", "status": "implemented"}, {"name": "fsp", "status": "implemented"}, {"name": "tau", "status": "experimental_approximation"}],
         "sampler": sampling::SAMPLER,
+        "implementation_variants": ["direct", "dependency_cached_direct"],
+        "optional_integrations": {"python":"bindings/python", "jobs":"integrations/jobs", "ode_bdf_sensitivities":"integrations/diffsol"},
         "rate_laws": ["mass_action", "hill_activation", "hill_repression", "michaelis_menten"],
         "reference_exporters": [{"target":"gillespy2", "version": export::GILLESPY2_VERSION, "subset":"elementary_mass_action", "maximum_reactant_order":2}],
-        "rate_evaluation_available": true, "observables": [],
+        "rate_evaluation_available": true, "observables": ["python_trajectory_autocorrelation_spectrum", "python_interval_censored_first_passage"],
         "model_cards": ["docs/model-cards/rate-laws.md", "docs/model-cards/direct.md"],
         "limits": {"document_bytes": strict_json::MAX_DOCUMENT_BYTES, "json_depth": strict_json::MAX_JSON_DEPTH,
             "species": validate::MAX_SPECIES, "parameters": validate::MAX_PARAMETERS,

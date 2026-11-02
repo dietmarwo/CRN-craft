@@ -1,0 +1,144 @@
+    Updating git repository `https://github.com/dietmarwo/fcmaes-rust`
+    Updating git repository `https://github.com/dietmarwo/optimization-jobs`
+    Updating crates.io index
+    Blocking waiting for file lock on package cache
+     Locking 98 packages to latest Rust 1.88 compatible versions
+      Adding generic-array v0.14.7 (available: v0.14.9)
+      Adding libm v0.2.15 (available: v0.2.16)
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+ Downloading crates ...
+  Downloaded bitflags v2.13.2
+  Downloaded tempfile v3.27.0
+  Downloaded num-integer v0.1.47
+  Downloaded utf8parse v0.2.2
+  Downloaded num-complex v0.4.6
+  Downloaded crossbeam-epoch v0.9.21
+  Downloaded is_terminal_polyfill v1.70.2
+  Downloaded approx v0.5.1
+  Downloaded anstyle v1.0.14
+  Downloaded wide v0.7.33
+  Downloaded strsim v0.11.1
+  Downloaded matrixmultiply v0.3.11
+  Downloaded rawpointer v0.2.1
+  Downloaded bytemuck v1.25.2
+  Downloaded rand_distr v0.4.3
+  Downloaded anstyle-parse v1.0.0
+  Downloaded getrandom v0.4.3
+  Downloaded clap v4.6.7
+  Downloaded fastrand v2.5.0
+  Downloaded simba v0.9.1
+  Downloaded crossbeam-deque v0.8.8
+  Downloaded rayon-core v1.13.0
+  Downloaded autocfg v1.5.1
+  Downloaded nalgebra v0.33.3
+  Downloaded num-traits v0.2.19
+  Downloaded crossbeam-utils v0.8.23
+  Downloaded colorchoice v1.0.5
+  Downloaded clap_derive v4.6.7
+  Downloaded clap_builder v4.6.7
+  Downloaded num-bigint v0.4.8
+  Downloaded safe_arch v0.7.4
+  Downloaded rand v0.8.8
+  Downloaded rayon v1.12.0
+  Downloaded fs2 v0.4.3
+  Downloaded either v1.19.0
+  Downloaded clap_lex v1.1.1
+  Downloaded anstream v1.0.0
+  Downloaded nalgebra-macros v0.2.2
+  Downloaded getrandom v0.2.17
+  Downloaded errno v0.3.14
+  Downloaded rand_pcg v0.3.1
+  Downloaded paste v1.0.15
+  Downloaded rustix v1.1.6
+  Downloaded num-rational v0.4.2
+  Downloaded anstyle-query v1.1.5
+  Downloaded linux-raw-sys v0.12.1
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling libc v0.2.191
+   Compiling autocfg v1.5.1
+   Compiling cfg-if v1.0.5
+   Compiling libm v0.2.15
+   Compiling typenum v1.20.1
+   Compiling version_check v0.9.5
+   Compiling serde_core v1.0.229
+   Compiling zerocopy v0.8.63
+   Compiling num-traits v0.2.19
+   Compiling generic-array v0.14.7
+   Compiling zmij v1.0.23
+   Compiling crossbeam-utils v0.8.23
+   Compiling itoa v1.0.18
+   Compiling crossbeam-epoch v0.9.21
+   Compiling serde_json v1.0.154
+   Compiling serde v1.0.229
+   Compiling syn v3.0.9
+   Compiling syn v2.0.119
+   Compiling getrandom v0.2.17
+   Compiling rand_core v0.6.4
+   Compiling memchr v2.8.3
+   Compiling bytemuck v1.25.2
+   Compiling crossbeam-deque v0.8.8
+   Compiling paste v1.0.15
+   Compiling safe_arch v0.7.4
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling matrixmultiply v0.3.11
+   Compiling rayon-core v1.13.0
+   Compiling wide v0.7.33
+   Compiling digest v0.10.7
+   Compiling approx v0.5.1
+   Compiling num-integer v0.1.47
+   Compiling num-complex v0.4.6
+   Compiling rawpointer v0.2.1
+   Compiling utf8parse v0.2.2
+   Compiling cpufeatures v0.2.17
+   Compiling sha2 v0.10.9
+   Compiling anstyle-parse v1.0.0
+   Compiling num-rational v0.4.2
+   Compiling serde_derive v1.0.229
+   Compiling ppv-lite86 v0.2.21
+   Compiling simba v0.9.1
+   Compiling rand_chacha v0.3.1
+   Compiling nalgebra-macros v0.2.2
+   Compiling either v1.19.0
+   Compiling colorchoice v1.0.5
+   Compiling is_terminal_polyfill v1.70.2
+   Compiling rand v0.8.8
+   Compiling anstyle-query v1.1.5
+   Compiling getrandom v0.4.3
+   Compiling anstyle v1.0.14
+   Compiling rustix v1.1.6
+   Compiling anstream v1.0.0
+   Compiling rayon v1.12.0
+   Compiling rand_pcg v0.3.1
+   Compiling rand_distr v0.4.3
+   Compiling fs2 v0.4.3
+   Compiling strsim v0.11.1
+   Compiling bitflags v2.13.2
+   Compiling heck v0.5.0
+   Compiling clap_lex v1.1.1
+   Compiling linux-raw-sys v0.12.1
+   Compiling clap_builder v4.6.7
+   Compiling clap_derive v4.6.7
+   Compiling serde_derive_internals v0.29.1
+   Compiling once_cell v1.21.4
+   Compiling fcmaes-native-worker v0.1.0 (https://github.com/dietmarwo/fcmaes-rust?rev=583f33a9a815ede0e1115c8ddd69029a874593f9#583f33a9)
+   Compiling fastrand v2.5.0
+   Compiling schemars v0.8.22
+   Compiling schemars_derive v0.8.22
+   Compiling optimization-job-api v0.4.0 (https://github.com/dietmarwo/optimization-jobs?rev=602d31afacf8bd2ecb0b0e941d18bd8e2821c1e3#602d31af)
+   Compiling dyn-clone v1.0.20
+   Compiling crn-craft v0.1.0-dev.4 (/workspace/scratch/d05427e343fb/CRN-craft-campaign/crates/crn-craft)
+   Compiling fcmaes-gtop v0.2.1 (https://github.com/dietmarwo/fcmaes-rust?rev=583f33a9a815ede0e1115c8ddd69029a874593f9#583f33a9)
+   Compiling serde_path_to_error v0.1.20
+   Compiling tempfile v3.27.0
+   Compiling clap v4.6.7
+   Compiling optimization-runner v0.4.0 (https://github.com/dietmarwo/optimization-jobs?rev=602d31afacf8bd2ecb0b0e941d18bd8e2821c1e3#602d31af)
+   Compiling nalgebra v0.33.3
+   Compiling fcmaes-core v0.2.1 (https://github.com/dietmarwo/fcmaes-rust?rev=583f33a9a815ede0e1115c8ddd69029a874593f9#583f33a9)
+   Compiling fcmaes-surrogate v0.1.0 (https://github.com/dietmarwo/fcmaes-rust?rev=583f33a9a815ede0e1115c8ddd69029a874593f9#583f33a9)
+   Compiling fcmaes-job-worker v0.2.1 (https://github.com/dietmarwo/fcmaes-rust?rev=583f33a9a815ede0e1115c8ddd69029a874593f9#583f33a9)
+   Compiling crn-job-worker v0.1.0 (/workspace/scratch/d05427e343fb/CRN-craft-campaign/integrations/jobs)
+    Finished `release` profile [optimized] target(s) in 43.66s

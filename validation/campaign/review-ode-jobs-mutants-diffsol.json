@@ -1,0 +1,192 @@
+{
+  "D1_transposed_state_jacobian": {
+    "cargo_test_exit": 101,
+    "check_ode_error_tail": [
+      "RuntimeError: ODE numerical gate failed; retained report"
+    ],
+    "check_ode_exit": 1,
+    "check_ode_failed_rows": [
+      "dimerization:analytic_dimerization_sensitivity",
+      "dimerization:forward_sensitivity_relative_step:c",
+      "enzyme-mechanism:forward_sensitivity:kcat",
+      "enzyme-mechanism:forward_sensitivity:koff",
+      "enzyme-mechanism:forward_sensitivity:kon",
+      "enzyme-mechanism:long_horizon_DOP853_and_conservation",
+      "hill-constant:forward_sensitivity_relative_step:K",
+      "hill-constant:forward_sensitivity_relative_step:g",
+      "hill-constant:forward_sensitivity_relative_step:n",
+      "hill-constant:forward_sensitivity_relative_step:v",
+      "hill-dynamic:forward_sensitivity_relative_step:K",
+      "hill-dynamic:forward_sensitivity_relative_step:b",
+      "hill-dynamic:forward_sensitivity_relative_step:c",
+      "hill-dynamic:forward_sensitivity_relative_step:g",
+      "hill-dynamic:forward_sensitivity_relative_step:gr",
+      "hill-dynamic:forward_sensitivity_relative_step:kr",
+      "hill-dynamic:forward_sensitivity_relative_step:n",
+      "hill-dynamic:forward_sensitivity_relative_step:v",
+      "repressilator:forward_sensitivity:K",
+      "repressilator:forward_sensitivity:alpha",
+      "repressilator:forward_sensitivity:alpha0",
+      "repressilator:forward_sensitivity:beta",
+      "repressilator:forward_sensitivity:gamma_m",
+      "repressilator:forward_sensitivity:gamma_p",
+      "repressilator:forward_sensitivity:n"
+    ],
+    "failed_tests": [
+      "dimerization_uses_the_macroscopic_factorial_convention",
+      "long_horizon_enzyme_and_michaelis_menten_complete_and_conserve"
+    ],
+    "killed": true
+  },
+  "D2_no_clamp_negative_trial_states_fail": {
+    "cargo_test_exit": 101,
+    "check_ode_error_tail": [
+      "RuntimeError: ODE numerical gate failed; retained report"
+    ],
+    "check_ode_exit": 1,
+    "check_ode_failed_rows": [
+      "decay:analytic_decay_through_zero",
+      "enzyme-mechanism:long_horizon_DOP853_and_conservation",
+      "michaelis-menten:long_horizon_DOP853_and_conservation"
+    ],
+    "failed_tests": [
+      "decay_through_zero_matches_the_exact_exponential",
+      "long_horizon_enzyme_and_michaelis_menten_complete_and_conserve"
+    ],
+    "killed": true
+  },
+  "K1_no_factorial_convention": {
+    "cargo_test_exit": 101,
+    "check_ode_error_tail": [
+      "RuntimeError: ODE numerical gate failed; retained report"
+    ],
+    "check_ode_exit": 1,
+    "check_ode_failed_rows": [
+      "dimerization:analytic_dimerization_A1_equals_50",
+      "dimerization:analytic_dimerization_sensitivity",
+      "dimerization:analytic_dimerization_values",
+      "dimerization:forward_sensitivity_relative_step:c",
+      "dimerization:independent_DOP853",
+      "hill-dynamic:forward_sensitivity_relative_step:K",
+      "hill-dynamic:forward_sensitivity_relative_step:b",
+      "hill-dynamic:forward_sensitivity_relative_step:c",
+      "hill-dynamic:forward_sensitivity_relative_step:g",
+      "hill-dynamic:forward_sensitivity_relative_step:gr",
+      "hill-dynamic:forward_sensitivity_relative_step:kr",
+      "hill-dynamic:forward_sensitivity_relative_step:n",
+      "hill-dynamic:forward_sensitivity_relative_step:v",
+      "hill-dynamic:independent_DOP853"
+    ],
+    "failed_tests": [
+      "dimerization_uses_the_macroscopic_factorial_convention"
+    ],
+    "killed": true
+  },
+  "K2_wrong_species_in_partial": {
+    "cargo_test_exit": 101,
+    "check_ode_error_tail": [
+      "RuntimeError: ODE numerical gate failed; retained report"
+    ],
+    "check_ode_exit": 1,
+    "check_ode_failed_rows": [
+      "enzyme-mechanism:forward_sensitivity:kcat",
+      "enzyme-mechanism:forward_sensitivity:koff",
+      "enzyme-mechanism:forward_sensitivity:kon",
+      "hill-dynamic:forward_sensitivity_relative_step:K",
+      "hill-dynamic:forward_sensitivity_relative_step:b",
+      "hill-dynamic:forward_sensitivity_relative_step:c",
+      "hill-dynamic:forward_sensitivity_relative_step:g",
+      "hill-dynamic:forward_sensitivity_relative_step:gr",
+      "hill-dynamic:forward_sensitivity_relative_step:kr",
+      "hill-dynamic:forward_sensitivity_relative_step:n",
+      "hill-dynamic:forward_sensitivity_relative_step:v"
+    ],
+    "failed_tests": [
+      "state_and_parameter_jacobians_match_central_differences_at_distinct_states"
+    ],
+    "killed": true
+  },
+  "K3_activation_derivative_sign": {
+    "cargo_test_exit": 101,
+    "check_ode_error_tail": [
+      "RuntimeError: ODE numerical gate failed; retained report"
+    ],
+    "check_ode_exit": 1,
+    "check_ode_failed_rows": [
+      "hill-constant:analytic_hill_activation",
+      "hill-constant:forward_sensitivity_relative_step:K",
+      "hill-constant:forward_sensitivity_relative_step:n",
+      "hill-dynamic:forward_sensitivity_relative_step:K",
+      "hill-dynamic:forward_sensitivity_relative_step:gr",
+      "hill-dynamic:forward_sensitivity_relative_step:kr",
+      "hill-dynamic:forward_sensitivity_relative_step:n"
+    ],
+    "failed_tests": [
+      "hill_activation_and_repression_match_closed_forms"
+    ],
+    "killed": true
+  },
+  "K7_activation_repression_swapped": {
+    "cargo_test_exit": 101,
+    "check_ode_error_tail": [
+      "RuntimeError: ODE numerical gate failed; retained report"
+    ],
+    "check_ode_exit": 1,
+    "check_ode_failed_rows": [
+      "hill-constant:analytic_hill_activation",
+      "hill-constant:analytic_hill_repression",
+      "hill-constant:forward_sensitivity_relative_step:K",
+      "hill-constant:forward_sensitivity_relative_step:g",
+      "hill-constant:forward_sensitivity_relative_step:n",
+      "hill-constant:forward_sensitivity_relative_step:v",
+      "hill-constant:independent_DOP853",
+      "hill-dynamic:forward_sensitivity_relative_step:K",
+      "hill-dynamic:forward_sensitivity_relative_step:b",
+      "hill-dynamic:forward_sensitivity_relative_step:c",
+      "hill-dynamic:forward_sensitivity_relative_step:g",
+      "hill-dynamic:forward_sensitivity_relative_step:gr",
+      "hill-dynamic:forward_sensitivity_relative_step:kr",
+      "hill-dynamic:forward_sensitivity_relative_step:n",
+      "hill-dynamic:forward_sensitivity_relative_step:v",
+      "hill-dynamic:independent_DOP853",
+      "repressilator:forward_sensitivity:K",
+      "repressilator:forward_sensitivity:alpha",
+      "repressilator:forward_sensitivity:alpha0",
+      "repressilator:forward_sensitivity:beta",
+      "repressilator:forward_sensitivity:gamma_m",
+      "repressilator:forward_sensitivity:gamma_p",
+      "repressilator:forward_sensitivity:n",
+      "repressilator:independent_DOP853"
+    ],
+    "failed_tests": [
+      "hill_activation_and_repression_match_closed_forms"
+    ],
+    "killed": true
+  },
+  "K8_activation_value_as_repression": {
+    "cargo_test_exit": 101,
+    "check_ode_error_tail": [
+      "RuntimeError: ODE numerical gate failed; retained report"
+    ],
+    "check_ode_exit": 1,
+    "check_ode_failed_rows": [
+      "hill-constant:analytic_hill_activation",
+      "hill-constant:forward_sensitivity_relative_step:g",
+      "hill-constant:forward_sensitivity_relative_step:v",
+      "hill-constant:independent_DOP853",
+      "hill-dynamic:forward_sensitivity_relative_step:K",
+      "hill-dynamic:forward_sensitivity_relative_step:b",
+      "hill-dynamic:forward_sensitivity_relative_step:c",
+      "hill-dynamic:forward_sensitivity_relative_step:g",
+      "hill-dynamic:forward_sensitivity_relative_step:gr",
+      "hill-dynamic:forward_sensitivity_relative_step:kr",
+      "hill-dynamic:forward_sensitivity_relative_step:n",
+      "hill-dynamic:forward_sensitivity_relative_step:v",
+      "hill-dynamic:independent_DOP853"
+    ],
+    "failed_tests": [
+      "hill_activation_and_repression_match_closed_forms"
+    ],
+    "killed": true
+  }
+}

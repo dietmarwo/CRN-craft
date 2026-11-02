@@ -1,0 +1,14 @@
+{
+  "checks": [
+    "native_API_exact_identity",
+    "discovery",
+    "installed_CLI_and_archive",
+    "FSP",
+    "tau",
+    "importer",
+    "observables"
+  ],
+  "package_path": "/tmp/crn-campaign-installed/lib/python3.12/site-packages/crn_craft/__init__.py",
+  "passed": true,
+  "schema": "crn-craft.installed-validation/0.1"
+}

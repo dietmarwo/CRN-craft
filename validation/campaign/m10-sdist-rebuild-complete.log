@@ -1,0 +1,8 @@
+📦 Including license file `LICENSE`
+🍹 Building a mixed python/rust project
+🔗 Found pyo3 bindings with abi3 support
+🐍 Not using a specific python interpreter
+   Compiling crn-craft v0.2.0-dev.1 (/tmp/crn-campaign-sdist-full-check/crn_craft-0.2.0.dev1/crates/crn-craft)
+   Compiling crn-craft-python v0.2.0-dev.1 (/tmp/crn-campaign-sdist-full-check/crn_craft-0.2.0.dev1/bindings/python)
+    Finished `release` profile [optimized] target(s) in 7.62s
+📦 Built wheel for abi3 Python ≥ 3.10 to /tmp/crn-campaign-sdist-complete-wheels/crn_craft-0.2.0.dev1-cp310-abi3-manylinux_2_34_x86_64.whl

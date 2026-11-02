@@ -1,0 +1,58 @@
+[
+  {
+    "check": "verified-contracts",
+    "exit_code": 0
+  },
+  {
+    "check": "verified-contracts-optimized",
+    "exit_code": 0
+  },
+  {
+    "check": "verified-network",
+    "exit_code": 0
+  },
+  {
+    "check": "verified-network-optimized",
+    "exit_code": 0
+  },
+  {
+    "check": "verified-structure",
+    "exit_code": 0
+  },
+  {
+    "check": "verified-structure-optimized",
+    "exit_code": 0
+  },
+  {
+    "check": "verified-ssa",
+    "exit_code": 0
+  },
+  {
+    "check": "verified-ssa-optimized",
+    "exit_code": 0
+  },
+  {
+    "check": "verified-cme",
+    "exit_code": 0
+  },
+  {
+    "check": "verified-cme-optimized",
+    "exit_code": 0
+  },
+  {
+    "check": "verified-fsp",
+    "exit_code": 0
+  },
+  {
+    "check": "verified-fsp-optimized",
+    "exit_code": 0
+  },
+  {
+    "check": "verified-tau",
+    "exit_code": 0
+  },
+  {
+    "check": "verified-tau-optimized",
+    "exit_code": 0
+  }
+]

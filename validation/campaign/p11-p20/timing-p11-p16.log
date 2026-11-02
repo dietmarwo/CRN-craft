@@ -1,0 +1,39 @@
+W1 1.052 [1.034, 1.058] identical
+W2 1.011 [0.994, 1.018] identical
+W3 0.997 [0.992, 1.001] identical
+W4 0.997 [0.963, 1.014] identical
+{"targets": ["W2", "W4"], "targets_gained": [], "frozen_regressions": [], "accepted": false}
+W1 1.048 [1.046, 1.053] identical
+W2 1.073 [1.07, 1.107] identical
+W3 0.988 [0.971, 1.036] identical
+W4 1.003 [0.987, 1.018] identical
+{"targets": ["W2", "W4"], "targets_gained": ["W2"], "frozen_regressions": [], "accepted": true}
+W1 0.992 [0.922, 1.02] identical
+W2 1.589 [1.584, 1.678] identical
+W3 1.039 [1.025, 1.042] identical
+W4 1.021 [1.01, 1.042] identical
+{"targets": ["W2", "W4"], "targets_gained": ["W2"], "frozen_regressions": [], "accepted": true}
+W1 0.927 [0.916, 0.945] identical
+W2 0.968 [0.952, 0.989] identical
+W3 0.990 [0.981, 1.001] identical
+W4 1.008 [0.984, 1.023] identical
+{"targets": ["W3", "W4"], "targets_gained": [], "frozen_regressions": ["W1"], "accepted": false}
+W1 1.095 [1.082, 1.132] identical
+W2 1.042 [1.036, 1.051] identical
+W3 1.030 [1.017, 1.069] identical
+W4 1.022 [0.992, 1.034] identical
+{"targets": ["W1", "W3"], "targets_gained": ["W1"], "frozen_regressions": [], "accepted": true}
+W1 1.026 [0.96, 1.313] identical
+W2 0.999 [0.991, 1.017] identical
+W3 0.999 [0.968, 1.019] identical
+W4 1.013 [1.003, 1.022] identical
+W5 1.005 [0.998, 1.006] identical
+W6 1.003 [0.991, 1.006] identical
+{"targets": ["W5", "W6"], "targets_gained": [], "frozen_regressions": [], "accepted": false}
+W1 1.011 [1.002, 1.018] identical
+W2 1.002 [0.974, 1.108] identical
+W3 1.000 [0.996, 1.006] identical
+W4 0.971 [0.957, 1.059] identical
+W7 1.041 [1.003, 1.075] identical
+{"targets": ["W7"], "targets_gained": ["W7"], "frozen_regressions": [], "accepted": true}
+ALL-DONE

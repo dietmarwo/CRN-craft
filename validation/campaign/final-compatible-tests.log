@@ -1,0 +1,217 @@
+   Compiling crn-craft v0.2.0-dev.1 (/workspace/scratch/d05427e343fb/CRN-craft-campaign/crates/crn-craft)
+   Compiling crn-craft-cli v0.2.0-dev.1 (/workspace/scratch/d05427e343fb/CRN-craft-campaign/crates/crn-craft-cli)
+    Finished `release` profile [optimized] target(s) in 11.29s
+     Running unittests src/lib.rs (/tmp/crn-campaign-target/release/deps/crn_craft-b94f017b3c4f4cd0)
+
+running 4 tests
+test simulation::tests::open_uniform_rejects_zero_and_never_returns_one ... ok
+test simulation::tests::encoded_budget_checks_exact_boundary_without_allocating_payload ... ok
+test simulation::tests::event_exactly_at_horizon_is_included_and_consumes_two_words ... ok
+test simulation::tests::cancel_file_checks_are_rate_limited ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/archives.rs (/tmp/crn-campaign-target/release/deps/archives-1e54226592735487)
+
+running 11 tests
+test incorrect_path_or_output_reservation_leaves_no_archive ... ok
+test completed_archive_preserves_inputs_and_byte_budget_and_refuses_overwrite ... ok
+test duplicate_keys_and_manifest_entries_fail_even_with_matching_marker ... ok
+test interrupted_or_tampered_archives_are_never_accepted ... ok
+test checksum_and_completion_hash_are_checked_independently_of_json_semantics ... ok
+test oversized_archive_payload_is_rejected_before_reading ... ok
+test archive_symlinks_are_rejected ... ok
+test cancellation_and_event_limits_have_complete_archives_but_incomplete_ensembles ... ok
+test refreshed_hashes_do_not_hide_inconsistent_partial_evidence_or_budget ... ok
+test refreshed_hashes_do_not_hide_false_accounting_or_statistics ... ok
+test legacy_memory_admission_uses_small_queue_fallback_and_remains_verifiable ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.58s
+
+     Running tests/contracts.rs (/tmp/crn-campaign-target/release/deps/contracts-475a0acca43f8db5)
+
+running 35 tests
+test byte_hash_known_answer ... ok
+test check_report_is_deterministic ... ok
+test all_rate_law_domains_and_species_reads_checked ... ok
+test duplicate_reaction_names_rejected ... ok
+test absorbing_model_with_no_reactions_is_valid ... ok
+test budget_and_replication_errors_are_pinned ... ok
+test duplicate_keys_at_all_depths_and_escaped_spellings_rejected ... ok
+test excessive_depth_is_rejected_without_stack_overflow ... ok
+test formatting_changes_model_identity ... ok
+test all_example_models_and_run_references_pass ... ok
+test finite_and_positive_domains_checked_for_typed_callers ... ok
+test fsp_allows_physically_unbounded_model_with_finite_truncation ... ok
+test fsp_options_initial_state_and_method_incompatibility ... ok
+test full_repressilator_has_three_modules ... ok
+test initial_state_must_lie_within_population_limits_and_fsp_bounds ... ok
+test i64_overflow_and_fractional_counts_rejected ... ok
+test invalid_identifier_and_namespace_collision ... ok
+test nesting_limit_boundary_matches_its_documentation ... ok
+test output_budget_minimum_matches_the_documented_formula ... ok
+test output_selection_errors_are_pinned ... ok
+test malformed_trailing_non_json_and_non_utf8_rejected ... ok
+test negative_fixture_manifest_pins_codes_and_paths ... ok
+test invalid_relative_paths_and_hashes_rejected ... ok
+test roundtrip_preserves_integer_counts_above_double_precision ... ok
+test unknown_fields_rejected_in_every_model_object ... ok
+test time_grid_errors_are_pinned ... ok
+test unknown_fields_rejected_in_every_run_object ... ok
+test population_limit_is_checked_separately ... ok
+test warnings_do_not_make_valid_models_invalid_or_prove_growth ... ok
+test wrong_version_is_not_silently_upgraded ... ok
+test unsupported_run_versions_methods_and_aggregators_rejected ... ok
+test zero_and_oversized_stoichiometry_rejected ... ok
+test description_distinguishes_exact_implemented_and_experimental_methods ... ok
+test oversized_document_rejected_before_parsing ... ok
+test decimal_literals_parse_to_correctly_rounded_doubles ... ok
+
+test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/fsp.rs (/tmp/crn-campaign-target/release/deps/fsp-e51e6d342ffd1aa8)
+
+running 3 tests
+test leakage_is_not_reflected_or_double_counted ... ok
+test capacity_cancellation_bounds_and_null_reaction ... ok
+test binomial_decay_and_large_lambda_t ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/kinetics.rs (/tmp/crn-campaign-target/release/deps/kinetics-72ea93a1a32ee7ff)
+
+running 1 test
+test analytic_state_and_parameter_derivatives_match_independent_central_differences ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/network.rs (/tmp/crn-campaign-target/release/deps/network-d4cc381d9c26c1b4)
+
+running 33 tests
+test compile_rejects_invalid_typed_model_before_indexing ... ok
+test analysis_failure_and_state_identity_are_honest ... ok
+test compiled_parameters_do_not_follow_later_model_edits ... ok
+test conservation_overflow_never_reports_partial_basis ... ok
+test count_overflow_is_transactional ... ok
+test count_updates_remain_exact_above_two_to_the_53 ... ok
+test empty_network_has_complete_identity_conservation_basis ... ok
+test custom_constant_rate_still_requires_all_reactants ... ok
+test dependency_graph_includes_custom_reads_and_gate_reads ... ok
+test full_rank_network_has_no_conservation_basis ... ok
+test high_order_and_small_coefficient_do_not_overflow_intermediates ... ok
+test high_order_reactant_uses_binomial_symmetry ... ok
+test heterodimer_all_count_pairs_exact ... ok
+test hill_complement_and_zero_regulator ... ok
+test hill_extreme_parameters_and_tails_are_checked ... ok
+test hill_near_threshold_uses_log1p_not_a_difference_of_logs ... ok
+test homodimer_all_counts_exact ... ok
+test indexed_columns_follow_declaration_order_and_have_correct_signs ... ok
+test mass_action_true_overflow_is_coded_and_bounded_in_work ... ok
+test mm_avoids_multiplication_overflow_and_reports_underflow ... ok
+test known_enzyme_laws_and_bounds_are_found ... ok
+test named_state_requires_exact_species_set ... ok
+test no_change_reaction_invalidates_no_propensity ... ok
+test population_limit_is_transactional ... ok
+test representable_subnormal_source_rate_is_kept ... ok
+test signed_law_does_not_prove_individual_count_bounds ... ok
+test state_domains_checked_before_evaluation ... ok
+test steep_hill_preserves_near_equal_arguments ... ok
+test weighted_nonnegative_law_divides_its_bound_by_the_weight ... ok
+test zero_rate_and_invalid_indices_cannot_fire ... ok
+test unavailable_gate_prevents_evaluating_overflowing_custom_rate ... ok
+test conservation_size_limit_is_honest ... ok
+test dependency_edge_limit_is_explicit ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/ssa.rs (/tmp/crn-campaign-target/release/deps/ssa-50b6df7243defd3f)
+
+running 20 tests
+test absorption_zero_rates_and_single_replicate_se ... ok
+test event_cap_partial_paths_and_no_conditional_statistics ... ok
+test chacha8_matches_independent_scalar_known_answers_across_blocks_and_streams ... ok
+test cancellation_and_wall_time_account_for_every_unstarted_replicate ... ok
+test external_checkpoint_interrupts_active_cached_and_direct_work ... ok
+test lost_channel_and_underflowed_wait_fail_at_the_sampler_boundary ... ok
+test null_reactions_count_as_events_and_respect_event_cap ... ok
+test retained_trajectories_are_exactly_the_first_requested_ids ... ok
+test population_stop_and_integer_overflow_preserve_old_counts ... ok
+test sampler_endpoints_waits_selection_and_precision_failures ... ok
+test mixed_completion_never_reports_conditional_ensemble_statistics ... ok
+test statistics_match_retained_integer_paths_and_unbiased_variance ... ok
+test underflow_and_dynamic_range_errors_are_not_disabled_channels ... ok
+test unreasonable_memory_work_and_fsp_requests_fail_before_execution ... ok
+test save_density_does_not_change_events_or_common_states ... ok
+test existing_cancel_file_stops_every_worker_before_any_replicate_starts ... ok
+test fixed_work_payload_is_identical_at_one_two_and_eight_threads ... ok
+test live_serialized_output_cap_keeps_ledger_and_discards_statistics ... ok
+test cancel_file_created_during_a_run_stops_all_workers ... ok
+test cached_direct_matches_all_rate_laws_and_thread_counts ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/structure.rs (/tmp/crn-campaign-target/release/deps/structure-974b32b99a5b5d2f)
+
+running 22 tests
+test adjacency_excludes_nonextreme_combination ... ok
+test combined_rays_are_reduced_to_primitive_coefficients ... ok
+test duplicate_reversed_and_null_constraints_preserve_rays ... ok
+test cone_failure_preserves_exact_linear_analysis_and_fallback_bound ... ok
+test cone_ray_cap_counts_intermediate_rays_without_partial_results ... ok
+test export_halves_homodimer_and_uses_safe_aliases_unit_volume ... ok
+test export_rejects_inexact_subnormal_halving_but_accepts_exact_boundary ... ok
+test cone_work_cap_has_exact_boundary_and_is_clamped ... ok
+test export_validates_typed_contract_and_exact_float_count_boundary ... ok
+test export_rejects_unsupported_semantics_before_emitting_code ... ok
+test cone_arithmetic_and_total_overflow_are_explicit ... ok
+test initial_orthant_rays_respect_a_lower_ray_cap ... ok
+test linkage_classes_join_converging_reactions ... ok
+test linkage_components_direction_and_terminal_classes ... ok
+test linkage_keeps_catalysts_stoichiometry_empty_complex_and_zero_channels ... ok
+test supplied_state_does_not_change_initial_class_bounds ... ok
+test weak_reversibility_empty_null_and_positive_deficiency ... ok
+test weighted_cone_bounds_use_integer_division ... ok
+test review_counterexample_gets_complete_bounds_and_suppresses_growth_warning ... ok
+test zero_cone_and_empty_network_are_distinguished ... ok
+test cone_size_caps_include_both_boundaries ... ok
+test linkage_walk_is_iterative_for_long_chain ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/tau.rs (/tmp/crn-campaign-target/release/deps/tau-bc5cc1478b256ab5)
+
+running 2 tests
+test critical_homodimer_never_passes_the_last_reachable_count ... ok
+test approximate_assessment_nonnegative_repeatability_and_limits ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/tmp/crn-campaign-target/release/deps/crn_craft-c589043514c60526)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/cli.rs (/tmp/crn-campaign-target/release/deps/cli-745d25e98ee8fcd7)
+
+running 11 tests
+test analyze_supports_named_state_and_reports_real_capabilities ... ok
+test different_file_with_identical_bytes_is_not_the_referenced_path ... ok
+test legacy_analysis_retains_version_and_common_payload ... ok
+test reference_is_relative_to_run_directory_not_working_directory ... ok
+test cli_description_and_example_check ... ok
+test export_cli_is_json_and_rejects_unsupported_or_missing_inputs ... ok
+test symlink_outside_run_directory_rejected_even_when_hash_matches ... ok
+test cli_errors_are_json_and_exit_one ... ok
+test analyze_state_errors_remain_coded_json ... ok
+test cli_negative_fixtures_have_expected_exit_code_and_fields ... ok
+test simulate_exits_zero_only_for_a_complete_ensemble_and_verify_for_valid_archives ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+   Doc-tests crn_craft
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

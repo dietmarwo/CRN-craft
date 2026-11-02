@@ -23,8 +23,9 @@ jobs:
       - run: cargo +${{ matrix.toolchain }} test --release --workspace --locked
   contracts:
     runs-on: ubuntu-latest
-    # 35 mutants took 16 minutes on a two-CPU host.
-    timeout-minutes: 40
+    # Mutation gate: the reviewed 35, 8 campaign mutants and the lost-increment
+    # check in the prefix-sum and resumed-sum passes added by P11/P12.
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -53,6 +54,10 @@ jobs:
       - run: python validation/check_cme.py --output cme.json
       - run: python -O validation/check_cme.py --output cme-optimized.json
       - run: diff cme.json cme-optimized.json
+      - run: python validation/check_ssa.py --command simulate-cached --output cached-ssa.json
+      - run: diff ssa.json cached-ssa.json
+      - run: python validation/check_cme.py --command simulate-cached --output cached-cme.json
+      - run: diff cme.json cached-cme.json
       - run: python validation/mutation_check.py --output mutations.json
   reference-export:
     runs-on: ubuntu-latest
@@ -67,6 +72,44 @@ jobs:
       - run: python validation/check_export.py --output export.json
       - run: python -O validation/check_export.py --output export-optimized.json
       - run: diff export.json export-optimized.json
+      - name: Pin external DSMTS validation inputs
+        run: |
+          git clone https://github.com/darrenjw/dsmts "$RUNNER_TEMP/dsmts"
+          git -C "$RUNNER_TEMP/dsmts" checkout --detach e79fd58e94757fb39926c6373297c1f2a1845894
+      - run: python validation/check_fsp.py --binary target/release/crn-craft --dsmts "$RUNNER_TEMP/dsmts" --output fsp.json
+      - run: python -O validation/check_fsp.py --binary target/release/crn-craft --dsmts "$RUNNER_TEMP/dsmts" --output fsp-optimized.json
+      - run: diff fsp.json fsp-optimized.json
+      - run: python validation/check_tau.py --binary target/release/crn-craft --output tau.json
+      - run: python -O validation/check_tau.py --binary target/release/crn-craft --output tau-optimized.json
+      - run: diff tau.json tau-optimized.json
+  python:
+    # The wheel, its console scripts and the Python-level checks.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install maturin==1.9.6 numpy==2.3.5
+      - run: cargo build --release --workspace --locked
+      - run: maturin build --release --locked --out dist
+      - run: python -m pip install dist/*.whl
+      - run: python validation/check_python.py --binary target/release/crn-craft --output python.json
+      - run: python -O validation/check_python.py --binary target/release/crn-craft --output python-optimized.json
+      - run: diff python.json python-optimized.json
+      - run: python validation/check_importers.py --output importers.json
+      - run: python -O validation/check_importers.py --output importers-optimized.json
+      - run: diff importers.json importers-optimized.json
+      - run: python validation/check_tutorial.py --binary target/release/crn-craft --output tutorial.json
+      - run: python -O validation/check_tutorial.py --binary target/release/crn-craft --output tutorial-optimized.json
+      - run: diff tutorial.json tutorial-optimized.json
+      - name: Installed-package acceptance outside the source tree
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -I "$GITHUB_WORKSPACE/validation/check_installed.py" --output installed.json
+          python -I -O "$GITHUB_WORKSPACE/validation/check_installed.py" --output installed-optimized.json
+          diff installed.json installed-optimized.json
   line-endings:
     # Model hashes cover exact bytes; a Windows-style checkout must keep them.
     runs-on: ubuntu-latest
@@ -78,7 +121,7 @@ jobs:
           git config core.autocrlf true
           git rm -q -r --cached .
           git reset -q --hard
-          converted=$(git ls-files --eol | grep -v -e 'w/lf' -e 'w/none' || true)
+          converted=$(git ls-files --eol | grep -v -e 'w/lf' -e 'w/none' -e 'attr/-text' || true)
           if [ -n "$converted" ]; then
             echo "Files without LF line endings after an autocrlf checkout:"
             echo "$converted"

@@ -1,0 +1,1 @@
+{"iteration": "P09", "speedups": {"circuit_12": 1.023131335460706, "dense_66": 0.9952414978393114, "sparse_66": 0.9858534019711264, "two_channel": 0.9721416442481439}, "identical": true}

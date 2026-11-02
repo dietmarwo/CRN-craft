@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "source_required_files": [
+    "LICENSE",
+    "Cargo.lock",
+    "crates/crn-craft-cli/Cargo.toml",
+    "models/examples/repressilator.model.json",
+    "validation/rng-vectors.json"
+  ],
+  "wheel_licenses": [
+    "crn_craft-0.2.0.dev1.dist-info/licenses/LICENSE"
+  ],
+  "wheel": "crn_craft-0.2.0.dev1-cp310-abi3-manylinux_2_34_x86_64.whl",
+  "sdist": "crn_craft-0.2.0.dev1.tar.gz"
+}

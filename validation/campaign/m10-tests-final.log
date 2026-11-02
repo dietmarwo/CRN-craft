@@ -1,0 +1,84 @@
+   Compiling crn-craft v0.2.0-dev.1 (/workspace/scratch/d05427e343fb/CRN-craft-campaign/crates/crn-craft)
+    Finished `release` profile [optimized] target(s) in 1.43s
+     Running unittests src/lib.rs (/tmp/crn-campaign-target/release/deps/crn_craft-b94f017b3c4f4cd0)
+
+running 4 tests
+test simulation::tests::open_uniform_rejects_zero_and_never_returns_one ... ok
+test simulation::tests::encoded_budget_checks_exact_boundary_without_allocating_payload ... ok
+test simulation::tests::event_exactly_at_horizon_is_included_and_consumes_two_words ... ok
+test simulation::tests::cancel_file_checks_are_rate_limited ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/archives.rs (/tmp/crn-campaign-target/release/deps/archives-1e54226592735487)
+
+running 10 tests
+test incorrect_path_or_output_reservation_leaves_no_archive ... ok
+test archive_symlinks_are_rejected ... ok
+test checksum_and_completion_hash_are_checked_independently_of_json_semantics ... ok
+test interrupted_or_tampered_archives_are_never_accepted ... ok
+test completed_archive_preserves_inputs_and_byte_budget_and_refuses_overwrite ... ok
+test duplicate_keys_and_manifest_entries_fail_even_with_matching_marker ... ok
+test oversized_archive_payload_is_rejected_before_reading ... ok
+test refreshed_hashes_do_not_hide_false_accounting_or_statistics ... ok
+test cancellation_and_event_limits_have_complete_archives_but_incomplete_ensembles ... ok
+test refreshed_hashes_do_not_hide_inconsistent_partial_evidence_or_budget ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/contracts.rs (/tmp/crn-campaign-target/release/deps/contracts-475a0acca43f8db5)
+
+running 35 tests
+test byte_hash_known_answer ... ok
+test absorbing_model_with_no_reactions_is_valid ... ok
+test check_report_is_deterministic ... ok
+test duplicate_keys_at_all_depths_and_escaped_spellings_rejected ... ok
+test excessive_depth_is_rejected_without_stack_overflow ... ok
+test all_rate_law_domains_and_species_reads_checked ... ok
+test duplicate_reaction_names_rejected ... ok
+test budget_and_replication_errors_are_pinned ... ok
+test formatting_changes_model_identity ... ok
+test fsp_allows_physically_unbounded_model_with_finite_truncation ... ok
+test finite_and_positive_domains_checked_for_typed_callers ... ok
+test fsp_options_initial_state_and_method_incompatibility ... ok
+test all_example_models_and_run_references_pass ... ok
+test full_repressilator_has_three_modules ... ok
+test i64_overflow_and_fractional_counts_rejected ... ok
+test initial_state_must_lie_within_population_limits_and_fsp_bounds ... ok
+test invalid_identifier_and_namespace_collision ... ok
+test malformed_trailing_non_json_and_non_utf8_rejected ... ok
+test output_selection_errors_are_pinned ... ok
+test output_budget_minimum_matches_the_documented_formula ... ok
+test nesting_limit_boundary_matches_its_documentation ... ok
+test invalid_relative_paths_and_hashes_rejected ... ok
+test population_limit_is_checked_separately ... ok
+test negative_fixture_manifest_pins_codes_and_paths ... ok
+test roundtrip_preserves_integer_counts_above_double_precision ... ok
+test warnings_do_not_make_valid_models_invalid_or_prove_growth ... ok
+test unknown_fields_rejected_in_every_model_object ... ok
+test unsupported_run_versions_methods_and_aggregators_rejected ... ok
+test unknown_fields_rejected_in_every_run_object ... ok
+test time_grid_errors_are_pinned ... ok
+test wrong_version_is_not_silently_upgraded ... ok
+test zero_and_oversized_stoichiometry_rejected ... ok
+test description_distinguishes_direct_ssa_from_unimplemented_fsp ... FAILED
+test oversized_document_rejected_before_parsing ... ok
+test decimal_literals_parse_to_correctly_rounded_doubles ... ok
+
+failures:
+
+---- description_distinguishes_direct_ssa_from_unimplemented_fsp stdout ----
+
+thread 'description_distinguishes_direct_ssa_from_unimplemented_fsp' panicked at crates/crn-craft/tests/contracts.rs:617:5:
+assertion `left == right` failed
+  left: Array [String("describe"), String("check"), String("analyze"), String("analyze-v1"), String("export"), String("simulate"), String("verify"), String("simulate-cached"), String("fsp"), String("tau")]
+ right: Array [String("describe"), String("check"), String("analyze"), String("analyze-v1"), String("export"), String("simulate"), String("verify")]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    description_distinguishes_direct_ssa_from_unimplemented_fsp
+
+test result: FAILED. 34 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+error: test failed, to rerun pass `-p crn-craft --test contracts`

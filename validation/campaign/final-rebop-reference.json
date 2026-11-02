@@ -1,0 +1,60 @@
+{
+  "horizon": 100.0,
+  "replicates": 64,
+  "rows": [
+    {
+      "CRN_core_seconds": [
+        0.085034362,
+        0.083949713,
+        0.085145577,
+        0.094768839,
+        0.087535038
+      ],
+      "comparison_limit": "reference includes Python/xarray overhead; CRN core includes statistics; CRN process costs are in baseline report",
+      "gillespy2_NumPySSA_seconds": [],
+      "rebop_dynamic_python_seconds": [
+        0.046730165002372814,
+        0.04880911800137255,
+        0.0471089029997529,
+        0.05196542900011991,
+        0.05836283800090314
+      ],
+      "rebop_over_CRN": 0.5732431409957155,
+      "work": "64 complete trajectories, [0,100] output, independent reference event counts not instrumented",
+      "workload": "two_channel"
+    },
+    {
+      "CRN_core_seconds": [
+        0.296368967,
+        0.310952534,
+        0.305765251,
+        0.305195473,
+        0.297231438
+      ],
+      "comparison_limit": "reference includes Python/xarray overhead; CRN core includes statistics; CRN process costs are in baseline report",
+      "gillespy2_NumPySSA_seconds": [],
+      "rebop_dynamic_python_seconds": [
+        1.7739906460010388,
+        1.8623825879985816,
+        1.7552677460007544,
+        1.8421315089981363,
+        1.8739185439990251
+      ],
+      "rebop_over_CRN": 6.035907056190628,
+      "work": "64 complete trajectories, [0,100] output, independent reference event counts not instrumented",
+      "workload": "sparse_66"
+    }
+  ],
+  "schema": "crn-craft.reference-cost/0.1",
+  "seed_policy": "CRN root seed 4242 streams; references per-replicate seeds 4242+i; independent samples",
+  "unavailable": [
+    {
+      "name": "Julia JumpProcesses/FiniteStateProjection",
+      "reason": "Julia runtime not installed; no measured comparison"
+    }
+  ],
+  "versions": {
+    "gillespy2": "1.8.3",
+    "rebop": "0.10.0"
+  }
+}

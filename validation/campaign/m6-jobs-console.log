@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/workspace/scratch/d05427e343fb/CRN-craft-campaign/validation/check_jobs.py", line 72, in <module>
+    if __name__=='__main__': main()
+                             ^^^^^^
+  File "/workspace/scratch/d05427e343fb/CRN-craft-campaign/validation/check_jobs.py", line 42, in main
+    evaluate=next(x for x in examples if x['profile']=='fcmaes.evaluate/1')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+StopIteration

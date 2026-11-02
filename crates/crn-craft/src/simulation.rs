@@ -121,8 +121,12 @@ pub struct Simulation {
 pub struct Control {
     cancelled: AtomicBool,
     pub cancel_file: Option<PathBuf>,
+    /// Optional integration checkpoint. Invoked at the amortized clock stride.
+    pub external_stop: Option<Box<dyn Fn() -> bool + Send + Sync>>,
     #[cfg(test)]
     file_checks: std::sync::atomic::AtomicU64,
+    #[cfg(test)]
+    polls: std::sync::atomic::AtomicU64,
 }
 impl Control {
     /// Requests cancellation. Observing the cancel file sets the same flag.
@@ -135,7 +139,7 @@ impl Control {
 /// microsecond and the clock tens of nanoseconds, against roughly a hundred
 /// nanoseconds per event for small models, so both are amortized. The first
 /// poll of each worker reads both, and a stop, once observed, is kept.
-struct Poller<'a> {
+pub(crate) struct Poller<'a> {
     control: &'a Control,
     start: Instant,
     wall: Option<f64>,
@@ -144,7 +148,7 @@ struct Poller<'a> {
     stopped: Option<Stop>,
 }
 impl<'a> Poller<'a> {
-    fn new(control: &'a Control, start: Instant, wall: Option<f64>) -> Self {
+    pub(crate) fn new(control: &'a Control, start: Instant, wall: Option<f64>) -> Self {
         Self {
             control,
             start,
@@ -154,7 +158,9 @@ impl<'a> Poller<'a> {
             stopped: None,
         }
     }
-    fn poll(&mut self) -> Option<Stop> {
+    pub(crate) fn poll(&mut self) -> Option<Stop> {
+        #[cfg(test)]
+        self.control.polls.fetch_add(1, Ordering::Relaxed);
         if self.stopped.is_some() {
             return self.stopped;
         }
@@ -162,11 +168,20 @@ impl<'a> Poller<'a> {
             self.stopped = Some(Stop::Cancelled);
             return self.stopped;
         }
-        if self.countdown > 0 || (self.wall.is_none() && self.control.cancel_file.is_none()) {
+        if self.countdown > 0
+            || (self.wall.is_none()
+                && self.control.cancel_file.is_none()
+                && self.control.external_stop.is_none())
+        {
             self.countdown = self.countdown.saturating_sub(1);
             return None;
         }
         self.countdown = CLOCK_POLL_STRIDE - 1;
+        if self.control.external_stop.as_ref().is_some_and(|f| f()) {
+            self.control.cancel();
+            self.stopped = Some(Stop::Cancelled);
+            return self.stopped;
+        }
         let now = Instant::now();
         if let Some(path) = &self.control.cancel_file {
             if self
@@ -210,6 +225,7 @@ pub struct Prepared {
     pub(crate) run_hash: String,
     pub(crate) workers: usize,
     pub(crate) workspace: u64,
+    pub(crate) queue_capacity: usize,
     input_bytes: u64,
 }
 
@@ -233,12 +249,26 @@ pub fn prepare(model_bytes: &[u8], run_bytes: &[u8]) -> Result<Prepared, Vec<Dia
         .min(count as usize);
     let cells = (model.species.len() as u128) * run.time.save_times.len() as u128;
     // Conservative allocation reservation, not a claim to cap allocator/OS RSS.
-    let workspace = (cells * 8 + run.time.save_times.len() as u128 * 24)
-        * (3 * workers as u128 + u128::from(run.outputs.keep_trajectories))
-        + cells * 24
-        + u128::from(count) * 1024
-        + workers as u128 * (2 * 1024 * 1024 + model.reactions.len() as u128 * 8)
-        + 32 * 1024 * 1024;
+    let reserve = |buffers_per_worker: u128| {
+        (cells * 8 + run.time.save_times.len() as u128 * 24)
+            * (buffers_per_worker * workers as u128 + u128::from(run.outputs.keep_trajectories))
+            + cells * 24
+            + u128::from(count) * 1024
+            + workers as u128 * (2 * 1024 * 1024 + model.reactions.len() as u128 * 8)
+            + 32 * 1024 * 1024
+    };
+    // Preserve legacy admission and archive verification near the memory cap.
+    let enlarged = reserve(6);
+    let queue_capacity = if workers > 1 && enlarged <= u128::from(MAX_WORKSPACE_BYTES) {
+        4
+    } else {
+        1
+    };
+    let workspace = if queue_capacity == 4 {
+        enlarged
+    } else {
+        reserve(3)
+    };
     let evidence_reserve = model_bytes.len() as u128
         + run_bytes.len() as u128
         + 16_384
@@ -268,27 +298,65 @@ pub fn prepare(model_bytes: &[u8], run_bytes: &[u8]) -> Result<Prepared, Vec<Dia
         run_hash: sha256(run_bytes),
         workers,
         workspace: workspace as u64,
+        queue_capacity,
         input_bytes: (model_bytes.len() + run_bytes.len()) as u64,
     })
 }
 
 struct PathResult {
     record: Replicate,
-    counts: Vec<Vec<i64>>,
+    /// Saved states, one row of `species` counts per saved point.
+    counts: Vec<i64>,
 }
 
-fn trajectory(prepared: &Prepared, id: u64, poller: &mut Poller) -> PathResult {
+/// Per-worker buffers reused across replicates. Each path resets what it reads.
+#[derive(Default)]
+struct Workspace {
+    state: Vec<i64>,
+    rates: Vec<f64>,
+    prefix: Vec<f64>,
+    minima: Vec<f64>,
+}
+
+fn trajectory(
+    prepared: &Prepared,
+    id: u64,
+    poller: &mut Poller,
+    cached: bool,
+    work: &mut Workspace,
+) -> PathResult {
     let run = &prepared.run;
     let mut rng = sampling::stream(run.ensemble.as_ref().unwrap().root_seed, id);
-    path_with_rng(&prepared.network, run, id, poller, &mut rng)
+    path_with_rng_mode(&prepared.network, run, id, poller, &mut rng, cached, work)
 }
 
+#[cfg(test)]
 fn path_with_rng(
     network: &CompiledNetwork,
     run: &Run,
     id: u64,
     poller: &mut Poller,
     rng: &mut impl RngCore,
+) -> PathResult {
+    path_with_rng_mode(
+        network,
+        run,
+        id,
+        poller,
+        rng,
+        false,
+        &mut Workspace::default(),
+    )
+}
+
+fn path_with_rng_mode(
+    network: &CompiledNetwork,
+    run: &Run,
+    id: u64,
+    poller: &mut Poller,
+    rng: &mut impl RngCore,
+    cached: bool,
+    work: &mut Workspace,
 ) -> PathResult {
     let mut record = Replicate {
         id,
@@ -299,11 +367,18 @@ fn path_with_rng(
         saved_points: 0,
         diagnostic: None,
     };
-    let mut counts = Vec::new();
-    let mut state = network.initial_counts().to_vec();
+    let mut state = std::mem::take(&mut work.state);
+    state.clear();
+    state.extend_from_slice(network.initial_counts());
+    let mut counts = Vec::with_capacity(run.time.save_times.len() * state.len());
     let mut time = 0.0;
     let mut save = 0;
-    let mut rates = Vec::with_capacity(network.reactions().len());
+    // The first event recomputes every rate and running sum before use.
+    let mut rates = std::mem::take(&mut work.rates);
+    let mut prefix = std::mem::take(&mut work.prefix);
+    let mut minima = std::mem::take(&mut work.minima);
+    let mut total = 0.0;
+    let mut previous: Option<usize> = None;
     let outcome = (|| -> Result<Stop, Diagnostic> {
         if let Some(stop) = poller.poll() {
             return Ok(stop);
@@ -314,7 +389,7 @@ fn path_with_rng(
                 if let Some(stop) = poller.poll() {
                     return Ok(stop);
                 }
-                counts.push(state.clone());
+                counts.extend_from_slice(&state);
                 save += 1;
             }
             if time == run.time.end {
@@ -326,23 +401,46 @@ fn path_with_rng(
             if record.events >= run.budget.max_events_per_replicate.unwrap() {
                 return Ok(Stop::EventLimit);
             }
-            rates.clear();
-            for reaction in 0..network.reactions().len() {
-                if reaction % 64 == 0 {
-                    if let Some(stop) = poller.poll() {
-                        return Ok(stop);
+            if let (true, Some(changed)) = (cached, previous) {
+                let affected = &network.dependencies()[changed];
+                for (i, &reaction) in affected.iter().enumerate() {
+                    // The event's poll above covers the first 64 channels.
+                    if i > 0 && i % 64 == 0 {
+                        if let Some(stop) = poller.poll() {
+                            return Ok(stop);
+                        }
                     }
+                    rates[reaction] = network.propensity_in_valid_state(reaction, &state)?;
                 }
-                rates.push(network.propensity_in_valid_state(reaction, &state)?);
+                // Dependencies are sorted: running sums before the first one are unchanged.
+                if let Some(&lowest) = affected.first() {
+                    total = sampling::resume_total(&rates, &mut prefix, &mut minima, lowest)?;
+                }
+            } else {
+                rates.clear();
+                for reaction in 0..network.reactions().len() {
+                    if reaction > 0 && reaction % 64 == 0 {
+                        if let Some(stop) = poller.poll() {
+                            return Ok(stop);
+                        }
+                    }
+                    rates.push(network.propensity_in_valid_state(reaction, &state)?);
+                }
+                total = if cached {
+                    prefix.resize(rates.len(), 0.0);
+                    minima.resize(rates.len(), 0.0);
+                    sampling::resume_total(&rates, &mut prefix, &mut minima, 0)?
+                } else {
+                    sampling::total_with_prefix(&rates, &mut prefix)?
+                };
             }
-            let total = sampling::total_propensity(&rates)?;
             if total == 0.0 {
                 // Absorption consumes no RNG and retains the state to the horizon.
                 while save < run.time.save_times.len() {
                     if let Some(stop) = poller.poll() {
                         return Ok(stop);
                     }
-                    counts.push(state.clone());
+                    counts.extend_from_slice(&state);
                     save += 1;
                 }
                 time = run.time.end;
@@ -355,28 +453,26 @@ fn path_with_rng(
                 if let Some(stop) = poller.poll() {
                     return Ok(stop);
                 }
-                counts.push(state.clone());
+                counts.extend_from_slice(&state);
                 save += 1;
             }
             if next > run.time.end {
                 time = run.time.end;
                 return Ok(Stop::Completed);
             }
-            if let Some(stop) = poller.poll() {
-                return Ok(stop);
-            }
-            let channel = sampling::select_channel(
-                &rates,
+            let channel = sampling::select_from_prefix(
+                &prefix,
                 total,
                 sampling::uniform_closed_open(rng.next_u64()),
             )?;
-            if let Err(error) = network.fire_reaction(channel, &mut state) {
+            if let Err(error) = network.fire_enabled_reaction(channel, &mut state) {
                 if error.code == "CRN-E044" && error.message.contains("safety limit") {
                     record.diagnostic = Some(error);
                     return Ok(Stop::PopulationLimit);
                 }
                 return Err(error);
             }
+            previous = Some(channel);
             time = next;
             record.events += 1;
         }
@@ -388,17 +484,29 @@ fn path_with_rng(
             record.diagnostic = Some(error);
         }
     }
-    record.stop_time = time.max(
-        counts
-            .len()
-            .checked_sub(1)
-            .map_or(0.0, |i| run.time.save_times[i]),
-    );
-    record.saved_points = counts.len();
+    record.stop_time = time.max(save.checked_sub(1).map_or(0.0, |i| run.time.save_times[i]));
+    record.saved_points = save;
+    *work = Workspace {
+        state,
+        rates,
+        prefix,
+        minima,
+    };
     PathResult { record, counts }
 }
 
 pub fn execute(prepared: &Prepared, control: &Control) -> Result<Simulation, Diagnostic> {
+    execute_inner(prepared, control, false)
+}
+/// Exact Direct with dependency invalidation; identical sum/selection order and streams.
+pub fn execute_cached(prepared: &Prepared, control: &Control) -> Result<Simulation, Diagnostic> {
+    execute_inner(prepared, control, true)
+}
+fn execute_inner(
+    prepared: &Prepared,
+    control: &Control,
+    cached: bool,
+) -> Result<Simulation, Diagnostic> {
     let start = Instant::now();
     let run = &prepared.run;
     let ensemble = run.ensemble.as_ref().unwrap();
@@ -409,46 +517,68 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<Simulation, Dia
     let mut completed = 0;
     let mut records = Vec::with_capacity(ensemble.replicates as usize);
     let mut kept = Vec::new();
-    std::thread::scope(|scope| -> Result<(), Diagnostic> {
-        let mut receivers = Vec::new();
-        for worker in 0..prepared.workers {
-            let (tx, rx) = mpsc::sync_channel(1);
-            receivers.push(rx);
-            std::thread::Builder::new()
-                .name(format!("crn-{worker}"))
-                .spawn_scoped(scope, move || {
-                    let mut poller = Poller::new(control, start, run.budget.wall_time_s);
-                    for id in (worker as u64..ensemble.replicates).step_by(prepared.workers) {
-                        if tx.send(trajectory(prepared, id, &mut poller)).is_err() {
-                            break;
-                        }
-                    }
-                })
-                .map_err(|e| execution_error(format!("cannot start worker: {e}")))?;
-        }
-        // Per-worker bounded queues prevent an arbitrarily large reorder buffer.
-        for id in 0..ensemble.replicates {
-            let path = receivers[id as usize % prepared.workers]
-                .recv()
-                .map_err(|e| execution_error(format!("worker did not return a trajectory: {e}")))?;
+    {
+        let mut consume = |id: u64, path: PathResult| {
             if path.record.termination == Stop::Completed {
                 completed += 1;
-                for (i, count) in path.counts.iter().flatten().enumerate() {
+                for (i, count) in path.counts.iter().enumerate() {
                     let delta = *count as f64 - mean[i];
                     mean[i] += delta / completed as f64;
                     m2[i] += delta * (*count as f64 - mean[i]);
                 }
             }
             if id < run.outputs.keep_trajectories {
-                kept.push(Trajectory {
-                    id,
-                    counts: path.counts,
-                });
+                let counts = if n_species == 0 {
+                    vec![Vec::new(); path.record.saved_points]
+                } else {
+                    path.counts.chunks(n_species).map(<[i64]>::to_vec).collect()
+                };
+                kept.push(Trajectory { id, counts });
             }
             records.push(path.record);
+        };
+        if prepared.workers == 1 {
+            let mut poller = Poller::new(control, start, run.budget.wall_time_s);
+            let mut work = Workspace::default();
+            for id in 0..ensemble.replicates {
+                consume(id, trajectory(prepared, id, &mut poller, cached, &mut work));
+            }
+        } else {
+            std::thread::scope(|scope| -> Result<(), Diagnostic> {
+                let mut receivers = Vec::new();
+                for worker in 0..prepared.workers {
+                    let (tx, rx) = mpsc::sync_channel(prepared.queue_capacity);
+                    receivers.push(rx);
+                    std::thread::Builder::new()
+                        .name(format!("crn-{worker}"))
+                        .spawn_scoped(scope, move || {
+                            let mut poller = Poller::new(control, start, run.budget.wall_time_s);
+                            let mut work = Workspace::default();
+                            for id in (worker as u64..ensemble.replicates).step_by(prepared.workers)
+                            {
+                                if tx
+                                    .send(trajectory(prepared, id, &mut poller, cached, &mut work))
+                                    .is_err()
+                                {
+                                    break;
+                                }
+                            }
+                        })
+                        .map_err(|e| execution_error(format!("cannot start worker: {e}")))?;
+                }
+                // Per-worker bounded queues prevent an arbitrarily large reorder buffer.
+                for id in 0..ensemble.replicates {
+                    let path = receivers[id as usize % prepared.workers]
+                        .recv()
+                        .map_err(|e| {
+                            execution_error(format!("worker did not return a trajectory: {e}"))
+                        })?;
+                    consume(id, path);
+                }
+                Ok(())
+            })?;
         }
-        Ok(())
-    })?;
+    }
     let termination = records
         .iter()
         .map(|r| r.termination)
@@ -643,7 +773,8 @@ mod tests {
         );
         assert_eq!(path.record.termination, Stop::Completed);
         assert_eq!(path.record.events, 1);
-        assert_eq!(path.counts, vec![vec![0], vec![1]]);
+        assert_eq!(path.counts, vec![0, 1]);
+        assert_eq!(path.record.saved_points, 2);
         assert_eq!(rng.index, 2);
     }
     #[test]
@@ -680,6 +811,69 @@ mod tests {
             "{checks} cancel-file checks in {elapsed:?} for {} events",
             path.record.events
         );
+    }
+    #[test]
+    fn the_event_loop_polls_once_per_event_for_small_networks() {
+        let model=serde_json::to_vec(&json!({"schema":"crn-craft.model/0.1","name":"polls","convention":"stochastic_counts","omega":1.0,"parameters":{},
+            "species":[{"name":"X","initial_count":0}],"reactions":[{"name":"birth","reactants":{},"products":{"X":1},"rate":{"kind":"mass_action","coefficient":100.0}},
+            {"name":"death","reactants":{"X":1},"products":{},"rate":{"kind":"mass_action","coefficient":1.0}}]})).unwrap();
+        let run=serde_json::to_vec(&json!({"schema":"crn-craft.run/0.1","model":{"path":"model.json","sha256":sha256(&model)},"method":{"kind":"ssa","aggregator":"direct"},
+            "ensemble":{"replicates":1,"root_seed":3},"time":{"end":10.0,"save_times":[0.0,5.0,10.0]},"outputs":{"statistics":["mean"],"keep_trajectories":0},
+            "budget":{"max_events_per_replicate":1000000,"threads":1,"max_output_bytes":100000}})).unwrap();
+        let prepared = prepare(&model, &run).unwrap();
+        for cached in [false, true] {
+            let control = Control::default();
+            let path = path_with_rng_mode(
+                &prepared.network,
+                &prepared.run,
+                0,
+                &mut Poller::new(&control, Instant::now(), None),
+                &mut sampling::stream(3, 0),
+                cached,
+                &mut Workspace::default(),
+            );
+            assert_eq!(path.record.termination, Stop::Completed);
+            assert!(path.record.events > 1000);
+            let polls = control.polls.load(Ordering::Relaxed);
+            // One per event, one per saved point, the first and the final loop.
+            assert!(
+                polls <= path.record.events + 3 + 2,
+                "{polls} polls for {} events",
+                path.record.events
+            );
+        }
+    }
+    #[test]
+    fn reused_workspaces_reproduce_fresh_paths() {
+        // Paths end in different states and some absorb early, so a stale
+        // state, rate or running sum would change a later replicate.
+        let model=serde_json::to_vec(&json!({"schema":"crn-craft.model/0.1","name":"reuse","convention":"stochastic_counts","omega":1.0,"parameters":{},
+            "species":[{"name":"X","initial_count":5},{"name":"Y","initial_count":0}],"reactions":[
+            {"name":"convert","reactants":{"X":1},"products":{"Y":1},"rate":{"kind":"mass_action","coefficient":1.5}},
+            {"name":"pair","reactants":{"Y":2},"products":{"X":1},"rate":{"kind":"mass_action","coefficient":0.7}},
+            {"name":"lose","reactants":{"Y":1},"products":{},"rate":{"kind":"mass_action","coefficient":0.2}}]})).unwrap();
+        let run=serde_json::to_vec(&json!({"schema":"crn-craft.run/0.1","model":{"path":"model.json","sha256":sha256(&model)},"method":{"kind":"ssa","aggregator":"direct"},
+            "ensemble":{"replicates":40,"root_seed":11},"time":{"end":6.0,"save_times":[0.0,1.0,3.0,6.0]},"outputs":{"statistics":["mean"],"keep_trajectories":40},
+            "budget":{"max_events_per_replicate":100000,"threads":1,"max_output_bytes":1000000}})).unwrap();
+        let prepared = prepare(&model, &run).unwrap();
+        for cached in [false, true] {
+            let ensemble = execute_inner(&prepared, &Control::default(), cached).unwrap();
+            let control = Control::default();
+            for (id, kept) in ensemble.result.trajectories.iter().enumerate() {
+                let fresh = path_with_rng_mode(
+                    &prepared.network,
+                    &prepared.run,
+                    id as u64,
+                    &mut Poller::new(&control, Instant::now(), None),
+                    &mut sampling::stream(11, id as u64),
+                    cached,
+                    &mut Workspace::default(),
+                );
+                let rows: Vec<Vec<i64>> = fresh.counts.chunks(2).map(<[i64]>::to_vec).collect();
+                assert_eq!(kept.counts, rows, "replicate {id}");
+                assert_eq!(ensemble.result.replicates[id].events, fresh.record.events);
+            }
+        }
     }
     #[test]
     fn encoded_budget_checks_exact_boundary_without_allocating_payload() {

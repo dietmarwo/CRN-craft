@@ -1,0 +1,7 @@
+Processing /tmp/crn-campaign-wheels-final/crn_craft-0.2.0.dev1-cp310-abi3-manylinux_2_34_x86_64.whl
+Collecting numpy==2.3.5
+  Downloading numpy-2.3.5-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (62 kB)
+Downloading numpy-2.3.5-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.6 MB)
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.6/16.6 MB 38.9 MB/s eta 0:00:00
+Installing collected packages: numpy, crn-craft
+Successfully installed crn-craft-0.2.0.dev1 numpy-2.3.5

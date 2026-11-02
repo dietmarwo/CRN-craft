@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "/workspace/scratch/d05427e343fb/CRN-craft-campaign/validation/check_jobs.py", line 73, in <module>
+    if __name__=='__main__': main()
+                             ^^^^^^
+  File "/workspace/scratch/d05427e343fb/CRN-craft-campaign/validation/check_jobs.py", line 57, in main
+    execute(folder,s)
+  File "/workspace/scratch/d05427e343fb/CRN-craft-campaign/validation/check_jobs.py", line 36, in execute
+    path=folder/'job.json';path.write_text(json.dumps(s));invoke(*prefix,'validate','--spec',path)
+                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/scratch/d05427e343fb/CRN-craft-campaign/validation/check_jobs.py", line 21, in invoke
+    require(proc.returncode==expected,f'exit {proc.returncode}: {proc.stdout.decode()} {proc.stderr.decode()}')
+  File "/workspace/scratch/d05427e343fb/CRN-craft-campaign/validation/check_jobs.py", line 12, in require
+    if not value: raise RuntimeError(message)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: exit 2:  {"error":{"code":"invalid_job","message":"worker validation failed: {\"error\":{\"code\":\"worker_error\",\"message\":\"unknown field `evaluation_budget`, expected one of `problem`, `seed`, `evaluations`, `runs`, `concurrent`, `evaluation_threads`, `parameters`, `log_scale`, `target`, `recheck_best`, `warm_start`\"}}\n","retryable":false}}
+

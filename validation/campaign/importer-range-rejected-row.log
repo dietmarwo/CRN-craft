@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/workspace/scratch/d05427e343fb/CRN-craft-campaign/validation/check_importers.py", line 159, in <module>
+    main()
+  File "/workspace/scratch/d05427e343fb/CRN-craft-campaign/validation/check_importers.py", line 146, in main
+    raise RuntimeError("accepted " + name)
+RuntimeError: accepted coefficient_underflow

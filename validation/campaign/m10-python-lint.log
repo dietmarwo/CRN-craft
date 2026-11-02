@@ -1,0 +1,73 @@
+python/crn_craft/importers.py:388:46: UP038 Use `X | Y` in `isinstance` call instead of `(X, Y)`
+    |
+386 |         if isinstance(node, ast.Name) and node.id in parameters:
+387 |             return parameters[node.id]
+388 |         if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
+    |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ UP038
+389 |             return (
+390 |                 -visit(node.operand)
+    |
+    = help: Convert to `X | Y`
+
+validation/check_importers.py:13:1: E402 Module level import not at top of file
+   |
+11 |     0, str(Path(__file__).resolve().parents[1] / "python/crn_craft")
+12 | )
+13 | from crn_craft.importers import ImportFailure, import_bng_net, import_sbml
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E402
+14 |
+15 | SBML = b"""<sbml xmlns="http://www.sbml.org/sbml/level3/version2/core" level="3" version="2"><model id="Dimer" substanceUnits="item" t…
+   |
+
+validation/check_ode.py:88:34: B023 Function definition does not bind loop variable `model`
+   |
+86 |             y0 = [s["initial_count"] for s in model["species"]]
+87 |             ref = solve_ivp(
+88 |                 lambda t, y: rhs(model, y),
+   |                                  ^^^^^ B023
+89 |                 [0.0, times[-1]],
+90 |                 y0,
+   |
+
+validation/check_ode.py:116:38: B023 Function definition does not bind loop variable `model`
+    |
+114 |                 model["parameters"][parameter] = original + h
+115 |                 a = solve_ivp(
+116 |                     lambda t, y: rhs(model, y),
+    |                                      ^^^^^ B023
+117 |                     [0.0, times[-1]],
+118 |                     y0,
+    |
+
+validation/check_ode.py:126:38: B023 Function definition does not bind loop variable `model`
+    |
+124 |                 model["parameters"][parameter] = original - h
+125 |                 b = solve_ivp(
+126 |                     lambda t, y: rhs(model, y),
+    |                                      ^^^^^ B023
+127 |                     [0.0, times[-1]],
+128 |                     y0,
+    |
+
+validation/compare_references.py:62:17: B023 Function definition does not bind loop variable `reb`
+   |
+60 |         def run_reb():
+61 |             for i in range(64):
+62 |                 reb.run(
+   |                 ^^^ B023
+63 |                     {s["name"]: s["initial_count"] for s in model["species"]},
+64 |                     100.0,
+   |
+
+validation/compare_references.py:63:61: B023 Function definition does not bind loop variable `model`
+   |
+61 |             for i in range(64):
+62 |                 reb.run(
+63 |                     {s["name"]: s["initial_count"] for s in model["species"]},
+   |                                                             ^^^^^ B023
+64 |                     100.0,
+65 |                     1,
+   |
+
+Found 9 errors (2 fixed, 7 remaining).
+No fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).

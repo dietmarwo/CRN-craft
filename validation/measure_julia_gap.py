@@ -3,14 +3,16 @@
 Build `cargo build --release --example bench_ssa` at two commits and copy each
 binary aside, then:
 
-    python validation/measure_julia_gap.py pair --before OLD --after NEW \
-        --output pair.json
-    python validation/measure_julia_gap.py project pair.json
+    python validation/measure_julia_gap.py chain base=OLD a01=NEW1 a02=NEW2 \
+        --output chain.json
+    python validation/measure_julia_gap.py project chain.json
 
-`pair` alternates parent and candidate binaries per round on W1-W7 of the
-acceleration report and records every timed repeat, the event count and the
-result digest. `project` multiplies the report's CRN prepared medians (another
-host) by the measured paired speedups and divides by Julia's fastest median.
+`chain` times every binary in each round on W1-W7 of the acceleration report,
+rotating the order between rounds, and records every timed repeat, the event
+count and the result digests. Each commit is paired with its parent within
+the same rounds; the first-to-last pair gives the cumulative speedup.
+`project` multiplies the report's CRN prepared medians (another host) by the
+cumulative speedups and divides by Julia's fastest median.
 That projection is not a Julia measurement; see
 docs/decisions/julia-gap-2026-11-02.md.
 """
@@ -60,65 +62,84 @@ def bench(binary, workload, method, wait, repeats):
     return json.loads(output)
 
 
-def pair(args):
+def chain(args):
+    names = [b.split("=", 1)[0] for b in args.binaries]
+    paths = {b.split("=", 1)[0]: Path(b.split("=", 1)[1]) for b in args.binaries}
     methods = [m for m in METHODS if not args.methods or m[0] in args.methods]
-    report = {"protocol": "docs/decisions/julia-gap-2026-11-02.md", "rows": {}}
+    report = {"protocol": "docs/decisions/julia-gap-2026-11-02.md", "order": names}
+    report["rows"] = {}
     for workload in args.workloads:
         for method, wait in methods:
-            row = {
-                "before": [],
-                "after": [],
-                "digests": {},
-                "numerical": {},
-                "events": {},
-            }
+            seconds = {name: [] for name in names}
+            digests = {name: set() for name in names}
+            numerical = {name: set() for name in names}
+            events = {}
             for round_index in range(args.rounds):
-                order = [("before", args.before), ("after", args.after)]
+                # Rotate, and reverse every other round, so no commit always runs first.
+                order = (
+                    names[round_index % len(names) :]
+                    + names[: round_index % len(names)]
+                )
                 if round_index % 2:
                     order.reverse()
-                for label, binary in order:
-                    result = bench(binary, workload, method, wait, args.repeats)
-                    row[label].append(result["seconds"])
-                    row["digests"].setdefault(label, set()).add(result["digest"])
-                    numerical = result.get("numerical_digest", result["digest"])
-                    row["numerical"].setdefault(label, set()).add(numerical)
-                    row["events"][label] = result["events"]
-            medians = {
-                k: [statistics.median(r) for r in row[k]] for k in ("before", "after")
-            }
-            ratios = [
-                b / a for b, a in zip(medians["before"], medians["after"], strict=True)
-            ]
-            for field in ("digests", "numerical"):
-                row[field] = {k: sorted(v) for k, v in row[field].items()}
-            row["identical"] = len(set().union(*map(set, row["digests"].values()))) == 1
-            row["numerically_identical"] = (
-                len(set().union(*map(set, row["numerical"].values()))) == 1
-            )
-            row["ratios"] = ratios
-            row["speedup"] = statistics.median(ratios)
-            row["rounds_faster"] = sum(r > 1.0 for r in ratios)
+                for name in order:
+                    result = bench(paths[name], workload, method, wait, args.repeats)
+                    seconds[name].append(result["seconds"])
+                    digests[name].add(result["digest"])
+                    numerical[name].add(
+                        result.get("numerical_digest", result["digest"])
+                    )
+                    events[name] = result["events"]
+            medians = {k: [statistics.median(r) for r in v] for k, v in seconds.items()}
+            steps = {}
+            for parent, child in [
+                *zip(names, names[1:], strict=False),
+                (names[0], names[-1]),
+            ]:
+                ratios = [
+                    b / a for b, a in zip(medians[parent], medians[child], strict=True)
+                ]
+                steps[f"{parent}->{child}"] = {
+                    "ratios": ratios,
+                    "speedup": statistics.median(ratios),
+                    "rounds_faster": sum(r > 1.0 for r in ratios),
+                    "identical": digests[parent] == digests[child]
+                    and len(digests[child]) == 1,
+                    "numerically_identical": numerical[parent] == numerical[child]
+                    and len(numerical[child]) == 1,
+                }
             key = f"{workload}/{method}/{wait}"
-            report["rows"][key] = row
-            print(
-                f"{key:30s} before {statistics.median(medians['before']):.4f} "
-                f"after {statistics.median(medians['after']):.4f} "
-                f"speedup {row['speedup']:.3f} ({row['rounds_faster']}/{args.rounds}) "
-                + (
-                    "identical"
-                    if row["identical"]
-                    else "same numbers, work changed"
-                    if row["numerically_identical"]
-                    else "CHANGED"
-                ),
-                flush=True,
-            )
-    if args.output:
-        args.output.write_text(json.dumps(report, indent=1) + "\n")
+            report["rows"][key] = {
+                "seconds": seconds,
+                "events": events,
+                "digests": {k: sorted(v) for k, v in digests.items()},
+                "numerical": {k: sorted(v) for k, v in numerical.items()},
+                "steps": steps,
+            }
+            cells = []
+            for label, step in steps.items():
+                flag = (
+                    ""
+                    if step["identical"]
+                    else "~"
+                    if step["numerically_identical"]
+                    else "!"
+                )
+                cells.append(
+                    f"{label} {step['speedup']:.3f}({step['rounds_faster']}){flag}"
+                )
+            print(f"{key:30s} " + " ".join(cells), flush=True)
+            if args.output:
+                args.output.write_text(json.dumps(report, indent=1) + "\n")
 
 
 def project(args):
-    measured = json.loads(args.pair.read_text())["rows"]
+    report = json.loads(args.chain.read_text())
+    first, last = report["order"][0], report["order"][-1]
+    measured = {
+        key: {"speedup": row["steps"][f"{first}->{last}"]["speedup"]}
+        for key, row in report["rows"].items()
+    }
     comparison = json.loads((EVIDENCE / "julia-comparison.json").read_text())
     rows, gaps = [], []
     for workload in WORKLOADS:
@@ -158,18 +179,19 @@ def project(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
-    paired = commands.add_parser("pair")
-    paired.add_argument("--before", type=Path, required=True)
-    paired.add_argument("--after", type=Path, required=True)
-    paired.add_argument("--workloads", nargs="+", default=list(WORKLOADS))
-    paired.add_argument("--methods", nargs="+")
-    paired.add_argument("--repeats", type=int, default=3)
-    paired.add_argument("--rounds", type=int, default=5)
-    paired.add_argument("--output", type=Path)
+    chained = commands.add_parser("chain")
+    chained.add_argument(
+        "binaries", nargs="+", help="NAME=PATH, oldest commit first (at least two)"
+    )
+    chained.add_argument("--workloads", nargs="+", default=list(WORKLOADS))
+    chained.add_argument("--methods", nargs="+")
+    chained.add_argument("--repeats", type=int, default=3)
+    chained.add_argument("--rounds", type=int, default=5)
+    chained.add_argument("--output", type=Path)
     projected = commands.add_parser("project")
-    projected.add_argument("pair", type=Path)
+    projected.add_argument("chain", type=Path)
     args = parser.parse_args()
-    {"pair": pair, "project": project}[args.command](args)
+    {"chain": chain, "project": project}[args.command](args)
     return 0
 
 

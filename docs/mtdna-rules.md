@@ -139,13 +139,27 @@ result = candidate.simulate()
 print(result.metadata["sampler"], result.metadata["stopped_replicates"])
 ```
 
-Tau follows the species drift and variance step selection of Cao,
-Gillespie and Petzold. The expression-rate heuristic uses g=2 and falls
-back to exact steps for a submolecule allowance. Low populations,
-including creation into a rare class, are treated as critical.
-Unacceptable proposals halve the step before an exact fallback.
+Tau follows the step selection of Cao, Gillespie and Petzold. The species
+drift and variance bound uses g=2 for expression rates and falls back to
+exact steps for a submolecule allowance. A propensity condition bounds the
+mean and spread of every rate change by ε·a_j, using first differences
+a_j(x + ν_k) − a_j(x), so rates that read global observables such as the
+vacancy K − N are controlled directly. If one firing moves a rate by more
+than ε·a_j, the step is exact. Low populations, creation into a rare class
+and channels that ten firings could switch off are critical and fire at
+most once per leap. Unacceptable proposals halve the step before an exact
+fallback. The cost per step grows with the square of the channel count.
+In the fixed-population model at K = 1000 the vacancy holds only a few
+places, so this rule runs exact events and tau gives no speedup there; the
+review gate at K = 1000 found no multi-firing leaps. Leaps occur when every
+rate changes slowly, as in the high-copy immigration/death gate.
 Binomial splitting recomputes the replication rates after degradation
-and groups competing replication outcomes per parent. Java's hourly
+and groups competing replication outcomes per parent. Each parent's
+outcome probabilities are the competing-risk values (a/Λ)(1 − e^(−Λ·dt/n))
+with rates frozen over the step. Steps lie on the fixed lattice k·step;
+reports between lattice points hold the last step's state, so the report
+grid does not change the path. Frozen rates can put N a few molecules
+above K. Java's hourly
 implementation groups simultaneous new mutants differently and keeps
 clone identities. Both approximate methods report aggregate firings at
 leap boundaries, with their own sampler identities. DOI

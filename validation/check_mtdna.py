@@ -610,6 +610,55 @@ def check_leaps(binary, folder, rows):
     print("checked high-copy leaps", flush=True)
 
 
+def check_tau_production(binary, folder, rows, summaries):
+    """Review gate declared in docs/decisions/mtdna-a0-a6-2026-11-03.md."""
+    model = read_model("mtdna-three-class.rules.json")
+    model["parameters"]["mu"] = 3e-3
+    times = [0.0, 250.0, 500.0, 1000.0]
+    n = 2048
+    bound = 2 * math.sqrt(math.log(2 * 9 / ALPHA) / (2 * n))
+    method = {"kind": "tau", "epsilon": 0.01}
+    exact, exact_result = sample(
+        binary, folder, model, method="static_direct", n=n, times=times, seed=SEED + 40
+    )
+    leaps, leap_result = sample(
+        binary, folder, model, method=method, n=n, times=times, seed=SEED + 41
+    )
+    for key in ("N", "wild_type", "mutants"):
+        a = column(leaps, leap_result, key)
+        b = column(exact, exact_result, key)
+        for j, time in enumerate(times[1:], start=1):
+            row(
+                rows,
+                f"tau-production/0.01/{key}/{time}",
+                cdf_distance(a[:, j], b[:, j]),
+                bound,
+            )
+    over = float(column(leaps, leap_result, "N").max()) - 1000.0
+    row(rows, "tau-production/0.01/capacity", max(over, 0.0), 0.0)
+    _, logged = sample(
+        binary,
+        folder,
+        model,
+        method=method,
+        n=16,
+        times=times,
+        seed=SEED + 42,
+        log={"max_entries": 6000},
+    )
+    entries = [e for o in logged["observations"] for e in o["log"]]
+    summaries["production"] = {
+        "paths": n,
+        "events_exact": int(exact_result["events"]),
+        "events_tau": int(leap_result["events"]),
+        "logged_entries": len(entries),
+        "multi_firing_leaps": sum(
+            1 for e in entries if sum(k for _, k in e["firings"]) > 1
+        ),
+    }
+    print("checked tau at production copy number", flush=True)
+
+
 def network_sample(binary, folder, model, times):
     path = folder / "network.model.json"
     path.write_text(json.dumps(model))
@@ -711,6 +760,7 @@ def main():
             check_specialized(args.binary, folder, report["checks"])
             check_atp(args.binary, folder, report["checks"])
             check_leaps(args.binary, folder, report["checks"])
+            check_tau_production(args.binary, folder, report["checks"], report["tau"])
             check_clocks(args.binary, folder, report["checks"])
         report["passed"] = all(
             r["passed"] or not r["required"] for r in report["checks"]

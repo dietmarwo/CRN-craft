@@ -1012,8 +1012,8 @@ pub fn execute_with_observer<O: EventObserver>(
             Method::StaticDirect {} | Method::MtdnaDirect {} => "chacha8-u53/rules-static-direct/1",
             Method::NextReaction {} => "chacha8-u53/rules-next-reaction/1",
             Method::Thinning {} => "chacha8-u53/rules-atp-thinning/1",
-            Method::Tau { .. } => "chacha8-u53/rules-approximate-cgp-poisson/1",
-            Method::Binomial { .. } => "chacha8-u53/rules-approximate-binomial-split/1",
+            Method::Tau { .. } => "chacha8-u53/rules-approximate-cgp-poisson/2",
+            Method::Binomial { .. } => "chacha8-u53/rules-approximate-binomial-split/2",
         }
         .into(),
         root_seed: request.ensemble.root_seed,

@@ -427,3 +427,64 @@ fn atp_depletion_far_from_time_zero_reaches_the_zero_crossing() {
         assert!(r.stop_time > 300.0);
     }
 }
+
+fn leap_run(model: &Value, method: Value, replicates: u64, end: f64, times: &[f64]) -> RulesResult {
+    let bytes = serde_json::to_vec(model).unwrap();
+    let mut req = request_v(V02, &bytes, replicates, end, times);
+    req["method"] = method;
+    solve_values(model, &req)
+}
+
+#[test]
+fn tau_leaps_respect_the_vacancy_capacity() {
+    // Exact SSA never exceeds K; species-only step control let leaps overfill
+    // the vacancy because the rate depends on K - N, not on each count.
+    let model = three_class();
+    let times: Vec<f64> = (0..=100).map(|i| f64::from(i) * 10.0).collect();
+    let result = leap_run(
+        &model,
+        json!({"kind": "tau", "epsilon": 0.01}),
+        8,
+        1000.0,
+        &times,
+    );
+    let n = result.observables.iter().position(|o| o == "N").unwrap();
+    let worst = result
+        .paths
+        .iter()
+        .flat_map(|p| p.values.iter().map(|row| row[n]))
+        .fold(0.0, f64::max);
+    assert!(worst <= 1000.0, "tau reached N = {worst} above K = 1000");
+}
+
+#[test]
+fn binomial_steps_use_competing_risk_probabilities() {
+    // Pure degradation at rate 1 over one unit step: E[n] = 1000 / e.
+    let model = with_parameters(&[("delta", 1.0), ("sw", 0.0), ("sm", 0.0)]);
+    let result = leap_run(
+        &model,
+        json!({"kind": "binomial", "step": 1.0}),
+        64,
+        1.0,
+        &[0.0, 1.0],
+    );
+    let n = result.observables.iter().position(|o| o == "N").unwrap();
+    let mean = result.paths.iter().map(|p| p.values[1][n]).sum::<f64>() / 64.0;
+    let exact = 1000.0 * (-1.0f64).exp();
+    assert!((mean - exact).abs() < 10.0, "mean {mean}, expected {exact}");
+}
+
+#[test]
+fn binomial_steps_do_not_depend_on_the_report_grid() {
+    let model = with_parameters(&[("mu", 3e-3)]);
+    let method = json!({"kind": "binomial", "step": 1.0});
+    let aligned = leap_run(&model, method.clone(), 6, 4.0, &[0.0, 1.0, 2.0, 3.0, 4.0]);
+    let offset = leap_run(&model, method, 6, 4.0, &[0.0, 0.5, 1.5, 2.5, 4.0]);
+    for (a, b) in aligned.paths.iter().zip(&offset.paths) {
+        assert_eq!(a.values[4], b.values[4], "final state depends on the grid");
+        // Reports between lattice points hold the last step's state.
+        assert_eq!(b.values[1], a.values[0]);
+        assert_eq!(b.values[2], a.values[1]);
+        assert_eq!(b.values[3], a.values[2]);
+    }
+}

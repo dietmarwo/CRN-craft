@@ -20,7 +20,7 @@ Every diagnostic contains `severity`, `code`, `path`, `message`, `hint`. Paths u
 | CRN-E022 | Unsafe/non-relative path, missing target or mismatch with supplied model | Put the model below the run directory and pass that file |
 | CRN-E023 | Missing/invalid FSP bounds, capacity or tolerance | Supply a finite truncation containing the initial state |
 | CRN-E030 | Input/output filesystem or stream failure | Supply a readable regular file or writable output stream |
-| CRN-E031 | Unsupported command or wrong arguments | Use `--help`; describe/check/analyze/analyze-v1/export execute in M1b |
+| CRN-E031 | Unsupported command or wrong arguments | Use `--help` for the command list |
 | CRN-E040 | Dependency graph exceeds 1000000 edges | Reduce network coupling or size; edges are never silently dropped |
 | CRN-E041 | Invalid state length, missing/extra name, count or safety limit | Provide all species with valid non-negative i64 counts |
 | CRN-E042 | Evaluated rate overflows, is non-finite/negative, or a positive rate becomes zero | Revise/rescale the model; do not treat underflow as an absorbing channel |
@@ -51,6 +51,7 @@ State paths such as `/counts/A` refer to the supplied state, while rate and reac
 | CRN-E062 | Invalid exponential wait or stagnant/nonfinite event time | Rescale rates/time; do not clip or force time forward |
 | CRN-E064 | Actual serialized output exceeds the cap | Increase max_output_bytes; optional numerical output is removed and accounting retained when it fits |
 | CRN-E065 | Archive I/O, integrity, size or relational failure | Preserve evidence; use a new output directory and verify the complete file set |
+| CRN-E067 | Sampling-word budget exhausted in an alternative SSA method (`ssa`; recorded as `event_limit` for that replicate) | Increase max_sampling_steps_per_replicate; incomplete ensembles withhold statistics |
 
 CRN-E042 remains a numerical failure for positive-to-zero propensity underflow.
 CRN-E044 retains its checked update meaning: population-limit attempts stop
@@ -76,7 +77,12 @@ The experimental rules engine for dynamic, attributed species
 input and the read error `CRN-E030`, and has its own codes: `CRN-R010` names,
 `CRN-R011` unknown types, `CRN-R012` expressions and scopes, `CRN-R013` rule
 shapes and product attributes, `CRN-R014` initial state, `CRN-R015` model
-limits, `CRN-R020` run requests, `CRN-R030` numerical failures during a
-replicate, `CRN-R031` weights below 53-bit resolution, `CRN-R040`–`CRN-R045`
-event, sampling, instance, wall-time, cancellation and output limits, and the
-warning `CRN-R050` for an incomplete ensemble.
+limits, `CRN-R020` run requests (including method, tracker, log and version
+gates and a generated-kernel fingerprint mismatch), `CRN-R030` numerical
+failures during a replicate, `CRN-R031` weights below 53-bit resolution (in
+the tree a rule or instance weight; in Static Direct and its fallbacks a
+channel below 2⁻⁵³ of the total, so use `tree` or rescale),
+`CRN-R040`–`CRN-R045` event, sampling, instance, wall-time, cancellation and
+output limits, and the warnings `CRN-R050` for an incomplete ensemble and
+`CRN-R051` for a requested specialization that did not apply (an
+`mtdna_direct` fallback or ineligible `sparse_trackers`).

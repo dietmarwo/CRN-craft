@@ -1,6 +1,6 @@
 # Input and analysis contracts in M1b
 
-Canonical definitions are `crates/crn-craft/src/contracts.rs`, `analysis.rs` and their referenced types, plus eight generated files in `schemas/`. `describe` includes all schemas and capability status. Syntax/shape validation precedes semantic checks. Generated schemas express selected local bounds; Rust adds constraints that schemas do not fully express.
+Canonical definitions are `crates/crn-craft/src/contracts.rs`, `analysis.rs` and their referenced types, plus the generated files in `schemas/` (20 at present). `describe` includes all schemas and capability status. Syntax/shape validation precedes semantic checks. Generated schemas express selected local bounds; Rust adds constraints that schemas do not fully express.
 
 ## Model
 
@@ -60,10 +60,12 @@ Discovery advances to `crn-craft.describe/0.3`, adding the legacy-analysis/expor
 `verify DIRECTORY` checks its archive. The original model/run shapes remain
 0.1. Result 0.2 replaces the never-emitted reserved result for actual execution;
 `describe result-v1` retains its old schema. Archive and archive-check begin at
-0.1; discovery is 0.8 (`alternative_exact_ssa` lists the `ssa-run`/`ssa-result`
-methods, the three accepted request versions and the `fast` default of each:
-none in 0.1, off in 0.2, on in 0.3; the top-level `aggregators` list still
-describes legacy Direct only). FSP stays `contract_only`. Existing check/analysis/export
+0.1; discovery is 0.10, or 0.11 from the native CLI (`alternative_exact_ssa`
+lists the `ssa-run`/`ssa-result` methods, the four accepted request versions
+and the `fast` default of each: none in 0.1, off in 0.2, on in 0.3 and 0.4,
+where `next_reaction` runs the checked policy only; the top-level
+`aggregators` list still describes legacy Direct only). FSP executes via
+`fsp`. Existing check/analysis/export
 reports remain unchanged; query discovery for current executable methods.
 
 New runtime limits supplement input-domain validation. Invalid/unsupported

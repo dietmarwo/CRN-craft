@@ -1,259 +1,204 @@
 # CRN-craft architecture
 
-CRN-craft simulates and analyzes well-mixed chemical reaction networks. It is
-built around one idea: every numerical answer must be traceable to exact input
-bytes and reproducible bit for bit, and anything that is not exact must say so
-in its own schema. This page describes how the pieces fit together; the
-[technical report](technical-report.md) adds the numerical methods, the
-validation evidence and the performance measurements.
+CRN-craft has two Rust engines for well-mixed stochastic chemistry. The
+fixed-network engine works with species and reactions declared in advance.
+The rules engine also supports attributed instances whose identities and
+population can change during a run. Both bind a request to its exact model
+bytes and return structured diagnostics, termination and reproducibility
+metadata. The [technical report](technical-report.md) covers the numerical
+methods and validation evidence.
 
-## Layers
+## Package boundaries
 
 ```mermaid
 flowchart TB
-  subgraph Interfaces
-    CLI["crn-craft CLI<br/>(crates/crn-craft-cli)"]
-    PY["Python package crn_craft<br/>(python/ + bindings/python, PyO3)"]
-    JOBS["fcmaes job worker<br/>(integrations/jobs)"]
-    ODE["crn-diffsol BDF + sensitivities<br/>(integrations/diffsol)"]
-  end
-  subgraph Core["Core library (crates/crn-craft, no Python or job dependency)"]
-    C["contracts + strict_json<br/>typed documents, duplicate-key rejection"]
-    V["validate / check<br/>diagnostics with codes and JSON paths"]
-    N["CompiledNetwork<br/>indices, sparse stoichiometry, dependencies, checked updates"]
-    R["rates / kinetics<br/>propensities and ODE kinetics"]
-    S["sampling<br/>ChaCha8 streams, strict ordered sums, channel selection"]
-    D["simulation<br/>Direct and cached Direct, ensembles, budgets"]
-    F["fsp<br/>finite state projection"]
-    T["tau<br/>approximate Poisson leaps"]
-    A["archive<br/>sealed result directories, verifier"]
-    AN["analysis<br/>conservation, cones, linkage"]
-    X["export<br/>GillesPy2 source"]
-  end
-  CLI --> V & D & F & T & A & AN & X
-  PY --> V & D & F & T & A & AN
-  JOBS --> D
-  ODE --> R
-  C --> V --> N
-  N --> R
-  N --> D & F & T & AN
-  S --> D & T
-  D --> A
+  CLI["Native CLI"] --> Core["crn-craft: fixed-network engine"]
+  CLI --> Rules["crn-craft-rules: attributed-rules engine"]
+  Py["Python and PyO3"] --> Core
+  Py --> Rules
+  Rules -->|"shared primitives"| Core
+  Jobs["integrations: jobs, diffsol"] -.-> Core
 ```
 
-The core library is a single crate with no dependency on Python, job
-infrastructure or ODE solvers. Its dependencies are pinned to exact versions:
-serde and serde_json (with correctly rounded float parsing), schemars for
-generated schemas, sha2, libm (portable math functions), and rand_chacha /
-rand_core for the random streams. Unsafe code is forbidden in every crate.
+| Component | Responsibility |
+| --- | --- |
+| `crates/crn-craft` | Fixed-network contracts and solvers, compiled stoichiometry and rates, sampling, analysis, export and sealed archives. It also provides the primitives the rules engine reuses: diagnostics, strict JSON parsing, shared contract types, the Ziggurat exponential and indexed reaction clocks. |
+| `crates/crn-craft-rules` | Attributed rules: dynamic (tree) and lowered (static) execution, rule observations, the specialized `mtdna_direct` sampler and generated rules kernels. |
+| `crates/crn-craft-cli` | Dispatches both engines, emits Rust-generated JSON schemas and verifies archives. |
+| `bindings/python` and `python/crn_craft` | Expose prepared execution, Python-friendly results, importers and trajectory analysis. The numerical loops run in Rust. |
+| `integrations/jobs` and `integrations/diffsol` | Optional fcmaes job objectives and deterministic BDF integration with forward sensitivities. They have separate workspaces and lockfiles. |
 
-Optional pieces live in separate workspaces with their own lockfiles, so they
-cannot change the core's dependency set: the PyO3 binding (`bindings/python`),
-the fcmaes worker (`integrations/jobs`, Rust 1.88) and the diffsol integration
-(`integrations/diffsol`, Rust 1.89).
+The numerical crates have no dependency on Python, job infrastructure or
+diffsol.
 
-## Documents and contracts
+## Contracts and preparation
 
-All inputs and outputs are versioned JSON documents whose Rust types are the
-source of truth; `crn-craft describe KIND` prints the JSON Schema generated
-from those types.
+Rust types define the JSON schemas. Strict parsing rejects duplicate keys and
+unknown fields. A present optional field must hold a value; `null` is
+rejected. Validation checks names, finite inputs, limits and method
+compatibility. File-based requests bind the model by a relative path and
+SHA-256. Preparation builds immutable execution data and checks memory and
+output budgets. `crn-craft describe` lists the supported methods, and
+`crn-craft describe KIND` prints one schema.
 
-| Document | Schema | Produced by |
-|---|---|---|
-| Model | `crn-craft.model/0.1` | user |
-| Run | `crn-craft.run/0.1` | user (binds a model by path and SHA-256) |
-| Check report | `crn-craft.check/0.1` | `check` |
-| Analysis | `crn-craft.analysis/0.2` (and legacy 0.1) | `analyze` |
-| SSA result | `crn-craft.result/0.2` (the 0.1 schema stays available) | `simulate`, `simulate-cached` |
-| Archive check | `crn-craft.archive-check/0.1` | `simulate`, `verify` |
-| FSP result | `crn-craft.fsp-result/0.1` | `fsp` |
-| Tau request / result | `crn-craft.tau-request/0.1`, `crn-craft.tau-result/0.1` | `tau` |
-| Alternative exact SSA | `crn-craft.ssa-run/0.1`, `0.2` (adds `method.fast`, default false) or `0.3` (default true) → `crn-craft.ssa-result/0.1`, `0.2` or `0.3` | `ssa`; [methods, bounds and `fast`](alternative-ssa.md) |
-| Rules engine (experimental) | `crn-craft.rules-model/0.1`, `rules-check/0.1`, `rules-run/0.1` → `rules-result/0.1` | `rules-check`, `rules`; [language reference](rules-language.md) |
-| Discovery | `crn-craft.describe/0.10` (core and Python); the native CLI reports `0.11`, which adds `dynamic_species` and the rules commands | `describe` |
+| Entry point | Request and result |
+| --- | --- |
+| `check`, `analyze`, `export` | Fixed-network model `model/0.1`. Check emits `check/0.1`; analysis emits `analysis/0.2`, with `analyze-v1` for the legacy `0.1`; export emits the supported GillesPy2 subset. |
+| `simulate`, `simulate-cached` | Fixed-network `run/0.1` → `result/0.2` in a sealed archive. |
+| `ssa` | Alternative exact `ssa-run/0.1` through `0.4` → the matching `ssa-result` version. `0.4` is `0.3` plus the `next_reaction` aggregator. |
+| `fsp`, `tau` | FSP emits `fsp-result/0.1`. Fixed-network tau uses `tau-request/0.1` → `tau-result/0.1`. |
+| `rules-check`, `rules` | Attributed `rules-model/0.1`, or `0.2` with the ATP block. Check emits `rules-check/0.1`. Rules-run `0.1` emits rules-result `0.1`. Rules-run `0.2` (method, trackers, event log), `0.3` (`mtdna_direct`) and `0.4` (Static Direct options) emit rules-result `0.2`. |
+| `describe` | The core and Python emit `describe/0.10`. The native CLI emits `describe/0.11`, which adds `dynamic_species` and the rules commands. Python's `crn_craft.rules.describe()` returns the rules discovery entry. |
 
-Parsing is strict: `strict_json` rejects duplicate keys before serde sees
-them, every struct denies unknown fields, numbers must be finite, and a
-contract change requires a new schema version. A run's model reference is a
-path relative to the run file plus the SHA-256 of the model's exact bytes;
-`check` rejects a mismatch (`CRN-E021`), so a result can never be attributed
-to a model that was edited afterwards.
+Schema names in the table use the `crn-craft.` prefix. See
+[fixed-network contracts](contracts.md), [alternative SSA](alternative-ssa.md),
+the [rules language](rules-language.md) and the
+[diagnostic codes](diagnostics.md).
 
-## From bytes to a compiled network
+## Fixed-network execution
 
-1. **Validate** (`validate`, `check_bytes`): structure, names, domains of
-   rate parameters, finite numbers, save grids, budgets and limits. Problems
-   become `Diagnostic { severity, code, path, message, hint }`; the codes are
-   stable and listed in [diagnostics](diagnostics.md).
-2. **Compile** (`CompiledNetwork::compile`): species and reactions become
-   indices; parameters are resolved into literal coefficients (`rates`); the
-   stoichiometry is stored sparsely as reactant terms and net changes; a
-   reaction-dependency graph records which propensities each reaction can
-   change (sorted, used by `simulate-cached`); availability gates record the
-   reactant counts each channel needs.
-3. **Prepare** (`simulation::prepare`): computes the worker count and an
-   explicit memory reservation from the published formula (save grid ×
-   species × buffers per worker, kept trajectories, per-worker scratch), and
-   admits the run only if it fits the workspace and output limits.
+`CompiledNetwork` resolves names and parameters, stores sparse reactants and
+net changes, and builds dependencies and availability checks. A reaction
+update is checked and transactional: overflow, a negative count or a
+population limit leaves the state unchanged.
 
-The compiled network is immutable. Firing a reaction is a checked,
-transactional update: overflow, a negative count (`CRN-E043`, a scheduler
-defect) or a population limit (`CRN-E044`, a normal stop) leaves the state
-unchanged.
+- **Archived Direct SSA.** `simulate` recomputes every propensity.
+  `simulate-cached` recomputes dependents and resumes ordered prefix sums at
+  the earliest changed channel. Both draw the same random words and produce
+  the same numbers. Strict summation detects lost increments and propensities
+  below the selector's resolution. [Direct SSA](direct-ssa.md)
+- **Alternative exact SSA.** `ssa` offers Direct, cached Direct, DirectCR,
+  SortingDirect, RSSACR and next reaction. The request version and method
+  control the waiting-time sampler and the numerical policy. `fast` defaults
+  to false in `0.2` and to true in `0.3` and `0.4`. Next reaction (`0.4`
+  only) runs the checked policy with inverse waits, so its `fast` defaults to
+  false and `fast: true` is rejected. [Alternative SSA](alternative-ssa.md)
+- **FSP and leaps.** FSP enumerates a bounded reachable state space,
+  propagates its distribution by uniformization, and reports leakage to an
+  absorbing sink and numerical error terms. Fixed-network tau uses adaptive
+  Poisson leaps with rejection, step reduction and an exact fallback where
+  needed. Its result is explicitly approximate.
+  [Technical report](technical-report.md)
+- **Analysis.** Conservation laws, nonnegative conservation cones and linkage
+  use the compiled network and have their own work limits. Deterministic
+  kinetics and analytic Jacobians serve the diffsol integration.
+  [Network API](network-api.md)
 
-## Exact simulation (Direct SSA)
+## Attributed rules execution
 
-`simulation` implements Gillespie's Direct method twice:
-
-- **`simulate`** recomputes every propensity after each event.
-- **`simulate-cached`** recomputes only the dependents of the fired reaction
-  and resumes the strict running sums from the lowest changed channel.
-
-Both make the same floating-point operations in the same order wherever they
-affect a decision, so they consume the same random words and choose the same
-channels; their results are byte-identical, and CI diffs them on the full
-validation campaigns.
-
-Per event, `sampling` provides:
-
-- **Strict ordered sums.** The total propensity is summed in channel order
-  while recording prefix sums. Each addition is checked: a positive rate that
-  does not change the running sum (lost increment) or a positive rate below
-  2^-53 of the total (the selection could never pick it) is a resolution
-  failure (`CRN-E061`), not a silent bias.
-- **Waiting time.** An open-interval uniform from the stream, mapped by
-  `-ln(u) / total`, with checks that the clock advances.
-- **Channel selection.** A second uniform scaled by the total, located by
-  binary search over the recorded prefix sums (P11), which returns exactly
-  the channel a linear scan would.
-
-Saved states are written into one flat buffer per path (P15), and per-worker
-buffers for state, rates, prefix sums and minima are reused across replicates
-(P16).
-
-### Ensembles, threads and determinism
+A rules model declares instance types, attributes, matching rules,
+observables and an optional stop expression. Preparation compiles
+expressions, initial instances, observation settings and the chosen method.
 
 ```mermaid
-flowchart LR
-  subgraph Workers
-    W0["worker 0<br/>replicates 0, k, 2k, …"]
-    W1["worker 1<br/>replicates 1, k+1, …"]
-    Wk["worker k-1"]
-  end
-  W0 -- "bounded queue (1 or 4)" --> M
-  W1 -- "bounded queue" --> M
-  Wk -- "bounded queue" --> M
-  M["main thread<br/>consumes replicate 0, 1, 2, … in order<br/>Welford mean / variance"] --> RES["result 0.2"]
+flowchart TB
+  P["Validated rules request"] --> T["Dynamic tree execution"]
+  P --> L["Closed model lowered to channels"]
+  L --> E["Exact static methods"]
+  L --> A["Approximate leaps"]
+  E --> O["Rule observations and ordered results"]
+  A --> O
+  T --> O
 ```
 
-Replicate *i* uses ChaCha8 stream *i* under a key that is the SHA-256 of a
-domain string and the root seed (`crn-craft.chacha8/0.1`; tau leaping has its
-own domain). Replicates are assigned round-robin to workers, each worker sends
-its paths through a bounded queue, and the main thread reduces them strictly in
-replicate order. The numerical result is therefore independent of the number
-of threads and of scheduling; only provenance (timings, worker count) differs.
+| Method | Execution and constraints |
+| --- | --- |
+| `tree` | The default dynamic Direct path. It keeps attributed instance state and supports changing instance identities and random product attributes. |
+| `static_direct` | Exact Direct on a closed set of instance tuples and indexed channels. Inverse waits and per-event tracker updates are the defaults. Every positive channel must be at least 2⁻⁵³ of the total (`CRN-R031`); the tree resolves rules and instances separately and can run such models. |
+| `next_reaction` | Exact Gibson–Bruck clocks on a lowered model. Dependency lists identify the clocks to update. |
+| `thinning` | Exact thinning for the ATP-coupled rules model, with the analytic ATP flow and a checked intensity envelope. |
+| `tau`, `binomial` | Approximate closed-model methods with their own sampler identities. Tau bounds both species and rate changes (Cao–Gillespie–Petzold) and takes exact steps where a leap would be inaccurate. Binomial uses competing-risk probabilities on a fixed step lattice and admits only single-parent unit births and deaths. |
+| `mtdna_direct` | Opt-in exact specialization for the fixed three-class mtDNA topology. If the model or its parameters cannot be certified, Static Direct runs, the result carries the Static Direct sampler identity and a `CRN-R051` warning gives the reason. |
 
-### Stopping, budgets and cancellation
+Static lowering fixes the channel order and builds rate, observable and stop
+dependencies. Static Direct caches rule rates and shared vacancy bases and
+recomputes only the rates a firing affects. The total and the resolution
+check still cover every rate, in a fixed order. Count updates keep the
+number of live instances incrementally. Observable refresh follows
+dependencies, and report-only observables that cannot overflow are computed
+at report times. These changes leave results byte-identical and also serve
+next reaction, thinning and the leap methods.
 
-A per-worker `Poller` amortizes the expensive checks: it reads the
-cancellation flag at every poll and the wall clock, cancel file and an optional
-external callback only every 64th poll (the file at most once per
-millisecond). A stop observed by any worker is shared through the `Control`
-flag. Each replicate records how it ended (`completed`, `event_limit`,
-`population_limit`, `wall_time_limit`, `cancelled`, `failed`), and the
-ensemble is `exact_ensemble` only if every replicate completed; otherwise the
-statistics are withheld and the assessment says `incomplete` or
-`failed_checks`. If the serialized result would exceed `max_output_bytes`,
-trajectories and statistics are dropped (`CRN-E064`) while the replicate
-accounting is kept.
+Stop and first-passage predicates run as deterministic bytecode. Optional
+trackers and logs record events. Reports are right-continuous: an event at a
+report time contributes the post-event state. A model stop holds the stopped
+state for later reports.
 
-The Python binding runs native calls on a helper thread and checks for Python
-signals every 50 ms, so Ctrl-C cancels a run through the same `Control`.
+Rules-run `0.4` lets Static Direct opt into Ziggurat waits and sparse
+tracking independently. Ziggurat waits change how the seeded stream is
+consumed. Sparse tracking integrates eligible single-class counts over their
+constant spans, which can change the last bits of an integral. If no tracker
+is eligible, the run reports the default identity and a `CRN-R051` warning.
+The result's sampler identity names the policy that ran.
+[Rules execution and options](mtdna-rules.md)
 
-## Archives
+## Prepared runs, parameter sweeps and kernels
 
-`archive` writes a **new** directory with six files: the exact `model.json`
-and `run.json` bytes, `result.json`, `provenance.json` (versions, toolchain,
-lockfile hash, executable hash, worker count, timing and memory
-reservation), `manifest.json` (path, length and SHA-256 of each payload) and
-`COMPLETE` (the manifest hash), written last and synced. The result is
-serialized once; the bytes that passed the output budget are the bytes
-written (P20).
+| Route | Reuse and binding |
+| --- | --- |
+| Fixed-network `ParameterTemplate` | Shares the compiled topology across candidate bindings. Each candidate validates its parameter values and produces a prepared SSA execution. |
+| Rules `Prepared.bind_parameters` | Creates a separate prepared candidate with the same run settings. It revalidates and lowers the model, because parameters can change attributes, projections and topology. The candidate's hashes cover the re-serialized model and request. |
+| Generated fixed-network kernel | A Rust propensity kernel that plugs into the fixed-network SSA scheduler, for the supported mass-action subset. Benchmark it before adopting it. |
+| Generated rules kernel | Ahead-of-time Rust for a lowered Static Direct model with constant or vacancy rates and weighted sums. It emits rate and projection code and static dependencies. Its fingerprint is the hash of the emitted source keyed by the model bytes, so another parameter set or a newer generator needs a regenerated kernel. The scheduler keeps selection, waits, budgets and reports, and results are byte-identical to the interpreter. Rust only. |
 
-`verify` never trusts the manifest: it reads files with size limits,
-recomputes hashes, re-validates the inputs, and checks the result's internal
-accounting (replicate ids, termination rules, event totals, assessment,
-trajectory counts) against the inputs. It establishes integrity and internal
-consistency, not authenticity or statistical correctness.
+The generated rules route is opt-in. In the contributor's eight-worker mtDNA
+measurement it was about 10% faster than the interpreter, and `mtdna_direct`
+remained about three times faster than the generic path. Use the
+[specialized kernel checklist](specialized-kernels.md) before introducing
+another kernel. See [reusable parameters](reusable-parameters.md) for the
+fixed-network Rust and Python interfaces.
 
-## Finite state projection
+## Parallelism, observations and evidence
 
-`fsp` enumerates the states reachable from the initial state within
-per-species bounds (breadth first, up to `max_states`), records the
-generator with every out-of-bounds transition sent to an absorbing sink, and
-propagates the probability vector by uniformization. Each save interval is
-split so that `lambda * dt <= 16`; the Poisson series is truncated when a tail
-bound falls below the per-step share of the tolerance. The generator is stored
-by column (P18), so each series term is a single gather-and-accumulate pass
-over contiguous memory. Leakage into the sink, the series tail bound, the
-omitted series weight and the floating-point residual are reported
-separately; probabilities are never renormalized.
+- **Fixed-network archive runs** assign replicate IDs round-robin and collect
+  results through bounded worker queues. The parent reduces in ascending ID
+  order.
+- **Rules ensembles** claim replicate IDs from a shared counter. A bounded
+  window limits how far workers can run ahead, and results still reduce in
+  ascending ID order. Rule observers run on the native workers. Events within
+  one replicate are ordered; callbacks from different replicates can
+  interleave. An observer that returns Continue leaves results unchanged.
+- **Replay** depends on the engine, sampler identity, seed and input bytes.
+  Completed numerical results do not depend on the worker count. A changed
+  request changes its hash. Timing, cancellation and wall-time limits can
+  change which work completes.
+- **Archives** belong to fixed-network `simulate` and `simulate-cached`. They
+  keep the exact model and request bytes with the result, provenance, a
+  manifest and a completion marker. The verifier checks integrity and
+  accounting. A complete archive can contain an incomplete simulation. The
+  `ssa` and `rules` entry points return standalone JSON results.
+  [Archive contract](archive-contract.md)
 
-## Approximate tau leaping
+## Budgets, cancellation and errors
 
-`tau` implements explicit Poisson leaping with the Cao–Gillespie–Petzold
-step-size rule (relative propensity change bounded by `epsilon`, with the
-`g_i` factors for higher-order reactions), rejection and halving of proposals
-that would make a count negative, and an exact Direct fallback for channels
-close to exhausting their reactants. Poisson variates with mean at most 16 use
-the multiplication method and larger means Hörmann's PTRS (P19). Results use
-the tau-result schema, `assessment: approximate_ensemble`, and can never be
-verified as exact archives.
+Every request states its budgets: events and sampling steps per replicate,
+instances for rules, threads, output bytes and an optional wall time.
+Workers poll cooperatively. The fixed-network `Poller` reads the
+cancellation flag at every poll and the wall clock, cancel file and optional
+callback at every 64th. The rules engine polls every 1,024 events.
 
-## Analysis
+Each replicate records how it ended, for example `completed`, `stopped`,
+`event_limit`, `cancelled` or `failed`. Ensemble statistics are withheld
+unless every replicate completed or stopped. A result that would exceed its
+output budget drops trajectories, statistics and, for rules, observations and
+retained instances, but keeps the replicate accounting. If even that does
+not fit, the call fails with a coded error.
 
-`analysis` combines `conservation` (an exact rational left-nullspace basis
-with checked i128 arithmetic), `cone` (extreme rays of the nonnegative
-conservation cone by bounded double description, which yield upper bounds for
-the initial conservation class) and `linkage` (complexes, linkage and strong
-linkage classes, terminal classes, deficiency and weak reversibility). Every
-algorithm has explicit size and work limits and reports `unavailable` rather
-than a partial answer presented as complete.
+Errors are `Diagnostic { severity, code, path, message, hint }` values with
+stable codes, listed in [diagnostics](diagnostics.md). They stay structured
+through Rust, the CLI and Python, where they surface as `CrnError`.
 
-## Python package
+Python runs native calls off the GIL and checks for signals every 50 ms, so
+Ctrl-C cancels through the same control. A rules callback that blocks also
+blocks Ctrl-C. Python exposes prepared fixed-network runs through
+`crn_craft` and prepared rules ensembles through `crn_craft.rules`, with
+parameter rebinding, native result columns, trackers, event logs and
+callbacks. [Python and rules examples](mtdna-rules.md)
 
-`bindings/python` is a thin PyO3 bridge exchanging JSON bytes with the core;
-all numerical semantics stay in Rust. `python/crn_craft` adds dictionaries in
-and out (`simulate`, `fsp`, `tau`, `check`, `analyze`, `run_spec`,
-`load_example`), `CrnError` with parsed diagnostics, trajectory observables
-(`oscillation`, `sampled_first_passage`), strict SBML and BioNetGen importers
-(`crn-craft-import`) and a Python command line with the same commands as the
-native one.
+## Changing the architecture
 
-## Integrations
-
-- **`integrations/jobs`** registers CRN objectives (`app.crn.fit-moments`,
-  `app.crn.circuit-score`) with the existing fcmaes job worker and its retry,
-  surrogate and evaluate profiles. Every candidate uses the declared seed set,
-  so optimizers compare candidates on common random numbers.
-- **`integrations/diffsol`** (`crn-diffsol`) integrates the deterministic
-  count kinetics with diffsol's BDF method and returns forward sensitivities
-  with respect to raw parameters, using analytic Jacobians from the core's
-  `kinetics` module.
-
-## Error model
-
-Errors are values, not panics: every fallible step returns diagnostics with a
-stable code (`CRN-Exxx` errors, `CRN-Wxxx` warnings), a JSON pointer, a
-message and a hint. Commands print JSON and exit 0 or 1; `simulate` exits 0
-only for a completed ensemble, `verify` exits 0 for any valid archive. The
-Python layer raises `CrnError(ValueError)` with the same diagnostics.
-
-## Extending
-
-New rate laws, methods or result fields go through the contract types first
-(with a new schema version), then validation and compilation, then the
-engines. `docs/extending.md` lists the steps and the evidence a change needs:
-tests that fail without it, the validation campaigns byte-identical where the
-change claims exactness, and a declared, paired measurement for performance
-claims.
+Start from the relevant contract and keep numerical execution independent of
+optional integrations. Preserve seeded replay when a change claims the same
+sampler identity. Version changes to the request shape or the sampler
+semantics. Use independent law checks for new numerical policies and matched
+workloads for performance claims. [Extension guide](extending.md)

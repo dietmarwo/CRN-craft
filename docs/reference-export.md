@@ -1,6 +1,6 @@
 # GillesPy2 reference export
 
-M1b exports model source for **GillesPy2 1.8.3**, with a runtime version guard. It is an optional reference tool; the Rust core does not import, link or execute GillesPy2. No CRN-craft simulator exists yet.
+M1b exports model source for **GillesPy2 1.8.3**, with a runtime version guard. It is an optional reference tool; the Rust core does not import, link or execute GillesPy2.
 
 ```bash
 cargo build --release --workspace --locked

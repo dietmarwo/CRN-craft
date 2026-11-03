@@ -1,9 +1,12 @@
 # Dynamic, attributed species: the rules language
 
-**Status:** experimental (K1). Contracts `crn-craft.rules-model/0.1`,
-`crn-craft.rules-check/0.1`, `crn-craft.rules-run/0.1`,
-`crn-craft.rules-result/0.1`; crate `crn-craft-rules`; CLI `rules-check` and
-`rules`. Protocol and gates: `docs/decisions/rules-k0-k1-2026-11-02.md`.
+**Status:** experimental. Contracts `crn-craft.rules-model/0.1` and `0.2`,
+`crn-craft.rules-check/0.1`, `crn-craft.rules-run/0.1` to `0.4`,
+`crn-craft.rules-result/0.1` and `0.2`; crate `crn-craft-rules`; CLI
+`rules-check` and `rules`; Python `crn_craft.rules`. This page describes the
+0.1 language and the `tree` method; [mtDNA ensembles](mtdna-rules.md) covers
+the other methods, trackers and later versions. Protocol and gates:
+`docs/decisions/rules-k0-k1-2026-11-02.md`.
 
 The network engine needs every species listed in advance. Some models cannot
 do that: each new mitochondrial mutant is its own clone, polymers have a
@@ -208,9 +211,9 @@ or stopped.
 | CRN-R013 | unsupported rule shape, missing or unknown attribute, bad `copy` |
 | CRN-R014 | invalid initial count or attribute |
 | CRN-R015 | model size limit |
-| CRN-R020 | invalid run request (hash, path, grid, ensemble, budget) |
+| CRN-R020 | invalid run request (hash, path, grid, ensemble, budget, method, tracker, log or version gate; generated-kernel fingerprint mismatch) |
 | CRN-R030 | negative or non-finite rate, factor, weight or product attribute; overflow |
-| CRN-R031 | weight below 53-bit resolution |
+| CRN-R031 | weight below 53-bit resolution (Static Direct: a channel below 2⁻⁵³ of the total) |
 | CRN-R040–R045 | event, sampling, instance (including a count above 2⁵³), wall-time, cancellation and output limits |
 | CRN-R050 | warning: incomplete ensemble, statistics withheld |
 | CRN-R051 | warning: a requested specialization did not apply (`mtdna_direct` could not certify the model and ran Static Direct, or `sparse_trackers` found no eligible tracker); the message gives the reason |
@@ -241,5 +244,5 @@ share one DKW family at alpha 0.001. Results: `validation/rules/RESULTS.md`.
 
 The mtDNA extension adds `crn_craft.rules`, event observation, fixed-channel
 Direct and next reaction, approximate leaps, and ATP thinning. See the
-[mtDNA rules guide](mtdna-rules.md) for the version 0.2 contracts, examples,
+[mtDNA rules guide](mtdna-rules.md) for rules-run/0.2–0.4, rules-result/0.2 and rules-model/0.2, examples,
 supported model shapes and validation commands.

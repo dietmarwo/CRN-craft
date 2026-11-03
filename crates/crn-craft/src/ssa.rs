@@ -22,9 +22,13 @@ use std::{collections::BTreeMap, path::Path, sync::Arc};
 pub enum RequestVersion {
     #[serde(rename = "crn-craft.ssa-run/0.1")]
     V01,
-    /// Adds the optional `method.fast` switch.
+    /// Adds the optional `method.fast` switch, default false.
     #[serde(rename = "crn-craft.ssa-run/0.2")]
     V02,
+    /// Same fields as 0.2; `method.fast` defaults to true. Set it to false for
+    /// the checked exact policy.
+    #[serde(rename = "crn-craft.ssa-run/0.3")]
+    V03,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ResultVersion {
@@ -33,6 +37,9 @@ pub enum ResultVersion {
     /// Answers an ssa-run/0.2 request; `method` may carry `fast: true`.
     #[serde(rename = "crn-craft.ssa-result/0.2")]
     V02,
+    /// Answers an ssa-run/0.3 request; `method.fast` is always present.
+    #[serde(rename = "crn-craft.ssa-result/0.3")]
+    V03,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -66,24 +73,57 @@ pub enum Method {
     Ssa {
         aggregator: Algorithm,
         waiting_time: WaitingTime,
-        /// ssa-run/0.2 only, default false. Emulates JumpProcesses.jl:
-        /// Xoshiro256++ words, running totals updated by `+= new - old`
-        /// without loss or 53-bit resolution checks, and stop polls per batch
-        /// of events instead of per random word. Selection stays exact for
-        /// the running totals; paths differ from the default and replay only
-        /// with `fast` set.
-        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-        fast: bool,
+        /// Not allowed in ssa-run/0.1; default false in 0.2 and true in 0.3.
+        /// Emulates JumpProcesses.jl: Xoshiro256++ words, running totals
+        /// updated by `+= new - old` without loss or 53-bit resolution
+        /// checks, and stop polls per batch of events instead of per random
+        /// word. Selection stays exact for the running totals; paths differ
+        /// from the checked policy and replay only with the same setting.
+        #[serde(
+            default,
+            deserialize_with = "present_bool",
+            skip_serializing_if = "Option::is_none"
+        )]
+        #[schemars(with = "bool")]
+        fast: Option<bool>,
     },
+}
+/// A present `fast` must be a boolean; `null` is rejected, not read as absent.
+fn present_bool<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<bool>, D::Error> {
+    bool::deserialize(d).map(Some)
 }
 impl Method {
     fn algorithm(self) -> Algorithm {
         let Self::Ssa { aggregator, .. } = self;
         aggregator
     }
+    /// The policy in force: an explicit value, else the version's default.
+    fn fast_for(self, version: RequestVersion) -> bool {
+        let Self::Ssa { fast, .. } = self;
+        fast.unwrap_or(version == RequestVersion::V03)
+    }
+    /// The resolved method as results echo it: 0.1/0.2 results carry `fast`
+    /// only when true (unchanged bytes); 0.3 results always carry it.
+    fn resolved(self, version: RequestVersion) -> Self {
+        let fast = self.fast_for(version);
+        let Self::Ssa {
+            aggregator,
+            waiting_time,
+            ..
+        } = self;
+        Self::Ssa {
+            aggregator,
+            waiting_time,
+            fast: if version == RequestVersion::V03 {
+                Some(fast)
+            } else {
+                fast.then_some(true)
+            },
+        }
+    }
     fn fast(self) -> bool {
         let Self::Ssa { fast, .. } = self;
-        fast
+        fast.unwrap_or(false)
     }
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -221,15 +261,17 @@ pub struct Prepared {
 }
 
 pub fn prepare(model: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec<Diagnostic>> {
-    let request: Request = crate::strict_json::parse(request_bytes).map_err(|e| vec![e])?;
-    if request.method.fast() && request.schema == RequestVersion::V01 {
+    let mut request: Request = crate::strict_json::parse(request_bytes).map_err(|e| vec![e])?;
+    if request.method.fast_for(request.schema) && request.schema == RequestVersion::V01 {
         return Err(vec![Diagnostic::error(
             "CRN-E020",
             "/method/fast",
-            "fast requires crn-craft.ssa-run/0.2",
-            "Set schema to crn-craft.ssa-run/0.2, or remove fast for the default exact policy.",
+            "fast requires crn-craft.ssa-run/0.2 or 0.3",
+            "Use crn-craft.ssa-run/0.3 (fast by default), or remove fast for the checked exact policy.",
         )]);
     }
+    // From here on `fast` is explicit wherever it applies.
+    request.method = request.method.resolved(request.schema);
     let legacy = serde_json::to_vec(&request.legacy())
         .map_err(|e| vec![simulation::execution_error(e.to_string())])?;
     let core = simulation::prepare(model, &legacy)?;
@@ -730,9 +772,9 @@ fn execute_inner<K: PropensityKernel>(
     kernel: &K,
 ) -> Result<SsaResult, Diagnostic> {
     let algorithm = prepared.request.method.algorithm();
-    let Method::Ssa {
-        waiting_time, fast, ..
-    } = prepared.request.method;
+    let Method::Ssa { waiting_time, .. } = prepared.request.method;
+    // Resolved at preparation: explicit for 0.3, present only when true before.
+    let fast = prepared.request.method.fast();
     let wait = match waiting_time {
         WaitingTime::Inverse => "inverse",
         WaitingTime::Ziggurat => "ziggurat256-julia",
@@ -810,6 +852,7 @@ fn execute_inner<K: PropensityKernel>(
         schema: match prepared.request.schema {
             RequestVersion::V01 => ResultVersion::V01,
             RequestVersion::V02 => ResultVersion::V02,
+            RequestVersion::V03 => ResultVersion::V03,
         },
         method: prepared.request.method,
         model_sha256: r.model_sha256,

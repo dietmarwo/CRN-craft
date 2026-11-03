@@ -34,19 +34,21 @@ crn-craft describe ssa-result
 crn-craft ssa model.json request.json [--cancel-file PATH]
 ```
 
-The request schema is `crn-craft.ssa-run/0.1` or `0.2`, and the result is
-`crn-craft.ssa-result/0.1` or `0.2` to match. These are standalone JSON results, not legacy sealed
+The request schema is `crn-craft.ssa-run/0.1`, `0.2` or `0.3`, and the result
+is `crn-craft.ssa-result/0.1`, `0.2` or `0.3` to match. `crn.ssa_spec` writes
+0.3. These are standalone JSON results, not legacy sealed
 archives. The command exits 0 only for a completed ensemble; incomplete runs
 exit 1 and withhold ensemble statistics. Unknown fields, duplicate keys and
 mismatched model references are rejected. `max_output_bytes` covers compact
 result JSON including its trailing newline. If even minimal diagnostic evidence
 cannot fit, execution returns a coded error instead of oversized evidence.
 
-### The `fast` switch and ssa-run/0.2
+### The `fast` switch
 
-`crn-craft.ssa-run/0.2` adds an optional `method.fast` boolean (default
-`false`). With `fast: true`, every method keeps its selection algorithm but
-emulates JumpProcesses.jl's numerical policy:
+`method.fast` is a boolean. It is not allowed in `crn-craft.ssa-run/0.1`,
+defaults to `false` in `0.2` and to `true` in `0.3`; `null` is rejected. With
+`fast: true`, every method keeps its selection algorithm but emulates
+JumpProcesses.jl's numerical policy:
 
 - random words come from Xoshiro256++, one state per replicate, seeded from a
   keyed ChaCha8 stream with its own domain (`crn-craft.xoshiro256pp-fast/0.1`),
@@ -71,19 +73,29 @@ comparisons (100,000 paths per fixture, family alpha 0.001); it passes with a
 largest CDF error of 0.00526 against the 0.00805 limit and rejects all 20 wrong
 laws (`validation/fast/fast-laws.json`).
 
-`fast` is off by default because the default's guarantees cannot be checked
-after the fact: a result does not reveal that a tiny channel lost its
-probability or that a total drifted. Use it for well-scaled models where speed
-matters, and for benchmarks against tools that make the same choices.
+`fast` is the default from `ssa-run/0.3` on because well-scaled models, the
+common case, sample the same law faster. Set `fast: false` for the checked
+policy when rates span many orders of magnitude, runs are very long, or a
+result must carry its guarantees: the checked policy rejects lost positive
+increments and channels below the 53-bit selection resolution, keeps totals
+free of drift and sees a cancellation before every random word. A fast result
+does not reveal that a tiny channel lost its probability or that a total
+drifted.
 
-**Migrating from ssa-run/0.1.** Nothing changes for existing requests: 0.1 is
-still accepted, rejects `fast`, and returns `crn-craft.ssa-result/0.1` with the
-same bytes as before. To use `fast`, set `schema` to `crn-craft.ssa-run/0.2`
-and add `"fast": true` to `method`; the result is then
-`crn-craft.ssa-result/0.2`, and its `method` echoes `fast: true` (omitted when
-false). `crn.ssa_spec(..., fast=True)` writes such a request; without `fast`
-it still writes 0.1. Discovery (`describe/0.7`) lists both request versions
-under `alternative_exact_ssa`.
+**Request versions.** All three versions are accepted, and earlier requests
+keep their meaning and result bytes:
+
+| Request | `fast` | Result | `method.fast` in the result |
+|---|---|---|---|
+| `crn-craft.ssa-run/0.1` | not allowed (checked) | `ssa-result/0.1` | absent |
+| `crn-craft.ssa-run/0.2` | default `false` | `ssa-result/0.2` | present only when true |
+| `crn-craft.ssa-run/0.3` | default `true` | `ssa-result/0.3` | always present |
+
+With the same policy, aggregator, waiting time and seed, the three versions
+give identical numbers. `crn.ssa_spec(...)` writes 0.3 with `fast` stated
+explicitly (`fast=False` for the checked policy). Discovery (`describe/0.8`,
+and `describe/0.9` from the native CLI) lists the three request versions and
+the default per version under `alternative_exact_ssa`.
 
 ## Methods and numerical policy
 

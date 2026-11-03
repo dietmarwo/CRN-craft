@@ -864,7 +864,7 @@ pub fn check_model_file(model_path: &Path) -> RulesCheck {
     }
 }
 
-/// Discovery entry for the native CLI's `describe` (`describe/0.8`).
+/// Discovery entry for the native CLI's `describe` (`describe/0.9`).
 pub fn describe() -> Value {
     serde_json::json!({
         "status": "experimental",

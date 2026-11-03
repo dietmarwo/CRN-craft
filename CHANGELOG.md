@@ -2,9 +2,16 @@
 
 ## [Unreleased] — alternative exact SSA methods and the Julia-gap campaign (`0.2.0-dev.1`)
 
-### Simulator optimization tutorials
+### Changed: `fast` is the default (`crn-craft.ssa-run/0.3`)
 
-- Added four simulator-owned optimization tutorials with native bindings, independent moment/BDF/generator/finite-state checks, disjoint validation and bounded smoke/study drivers; see [tutorials/optimization](tutorials/optimization/README.md).
+- New request version `crn-craft.ssa-run/0.3` with the same fields as 0.2; `method.fast` defaults to `true`. It answers with `crn-craft.ssa-result/0.3`, which always states `method.fast`. Set `"fast": false` for the checked exact policy (ChaCha8 words, lost-increment and 53-bit resolution checks, stop polls before every random word). `fast` must be a boolean; `null` is rejected.
+- `crn.ssa_spec` writes 0.3 requests and now defaults to `fast=True`; pass `fast=False` for the checked policy. Non-boolean values raise `TypeError`.
+- Migration: stored `ssa-run/0.1` and `0.2` requests keep their meaning and return the same bytes as before (0.1 rejects `fast`, 0.2 keeps it off unless set). Python callers that relied on the old default get different (equally exact) paths unless they pass `fast=False`; the checked replay evidence scripts now pass it explicitly. With the same seed, a 0.3 request with `fast` on reproduces a 0.2 request with `fast: true`, and a 0.3 request with `fast: false` reproduces a 0.1 request; only the schema strings, `method.fast` and `run_sha256` differ.
+- Discovery: core and Python `describe/0.8`, native CLI `describe/0.9`; `alternative_exact_ssa.fast` lists the default per request version.
+
+### Added: simulator optimization tutorials (contributed by Astra)
+
+- Four lessons in [tutorials/optimization](tutorials/optimization/README.md) with native bindings, independent moment, BDF, generator and finite-state checks, disjoint validation and bounded smoke and study presets.
 
 ### Added: dynamic, attributed species (experimental rules engine, K0/K1)
 

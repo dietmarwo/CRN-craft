@@ -58,7 +58,9 @@ def rust_job(engine, model, end, paths, seed, keep, boundary):
             return crn.prepare(model, request, cached=cached).simulate
         return lambda: crn.simulate(model, request, cached=cached)
     method, wait = engine.split("/")
-    request = crn.ssa_spec(model, aggregator=method, waiting_time=wait, **kwargs)
+    request = crn.ssa_spec(
+        model, aggregator=method, waiting_time=wait, fast=False, **kwargs
+    )
     if boundary == "prepared":
         return crn.prepare_ssa(model, request).simulate
     return lambda: crn.simulate_ssa(model, request)

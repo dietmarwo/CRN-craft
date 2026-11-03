@@ -268,3 +268,78 @@ fn fast_runs_still_honor_cancellation_and_sampling_budgets() {
         "cancelled"
     );
 }
+
+#[test]
+fn ssa_run_0_3_is_fast_by_default_and_matches_earlier_versions() {
+    let strip = |mut v: Value| {
+        let object = v.as_object_mut().unwrap();
+        object.remove("run_sha256");
+        object.remove("schema");
+        object["method"].as_object_mut().unwrap().remove("fast");
+        v
+    };
+    for algorithm in [
+        "direct",
+        "cached_direct",
+        "direct_cr",
+        "sorting_direct",
+        "rssa_cr",
+    ] {
+        for wait in ["inverse", "ziggurat"] {
+            let (m, mut r) = inputs(algorithm, 2);
+            r["method"]["waiting_time"] = json!(wait);
+            let checked_01 = solve(&m, &r);
+            r["schema"] = json!("crn-craft.ssa-run/0.2");
+            r["method"]["fast"] = json!(true);
+            let fast_02 = solve(&m, &r);
+            // 0.3 without `fast` is fast; the result states it explicitly.
+            r["schema"] = json!("crn-craft.ssa-run/0.3");
+            r["method"].as_object_mut().unwrap().remove("fast");
+            let default_03 = solve(&m, &r);
+            assert_eq!(default_03["schema"], "crn-craft.ssa-result/0.3");
+            assert_eq!(default_03["method"]["fast"], true);
+            r["method"]["fast"] = json!(true);
+            let explicit_03 = solve(&m, &r);
+            r["method"]["fast"] = json!(false);
+            let checked_03 = solve(&m, &r);
+            assert_eq!(checked_03["method"]["fast"], false);
+            assert!(
+                checked_03["sampler"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with("chacha8-u53/")
+            );
+            assert_eq!(
+                strip(default_03.clone()),
+                strip(fast_02),
+                "{algorithm}/{wait}"
+            );
+            assert_eq!(strip(default_03), strip(explicit_03), "{algorithm}/{wait}");
+            assert_eq!(strip(checked_03), strip(checked_01), "{algorithm}/{wait}");
+        }
+    }
+}
+
+#[test]
+fn fast_must_be_a_boolean() {
+    let (m, mut r) = inputs("direct", 1);
+    r["schema"] = json!("crn-craft.ssa-run/0.3");
+    for value in [json!(null), json!(1), json!("true")] {
+        r["method"]["fast"] = value.clone();
+        let errors = ssa::solve(&m, &serde_json::to_vec(&r).unwrap(), &Control::default())
+            .err()
+            .unwrap_or_else(|| panic!("fast = {value} accepted"));
+        assert!(
+            errors.iter().any(|d| d.code.starts_with("CRN-E00")),
+            "{errors:?}"
+        );
+    }
+    // ssa-run/0.1 still rejects fast; an explicit false keeps its meaning.
+    r["schema"] = json!("crn-craft.ssa-run/0.1");
+    r["method"]["fast"] = json!(true);
+    assert!(ssa::solve(&m, &serde_json::to_vec(&r).unwrap(), &Control::default()).is_err());
+    r["method"]["fast"] = json!(false);
+    let checked = solve(&m, &r);
+    assert_eq!(checked["schema"], "crn-craft.ssa-result/0.1");
+    assert!(checked["method"].get("fast").is_none());
+}

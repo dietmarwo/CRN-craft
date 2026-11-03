@@ -8,6 +8,10 @@ Native Rust foundations for well-mixed chemical reaction networks, designed for 
 
 Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/architecture.md), the [technical report](docs/technical-report.md) (design, validation and measured performance), the [comparison with GillesPy2](docs/comparison-gillespy2.md) and `crn-craft describe`. Every document is listed under [Documentation](#documentation). Legacy input/result/archive contracts remain available; new approximate/FSP results use distinct schemas.
 
+## Optimization tutorials
+
+The [four CRN optimization lessons](tutorials/optimization/README.md) cover reusable stochastic calibration, audited BDF sensitivities, oscillator Pareto/behavior searches, and bounded aggregation inference. Each has executable smoke/study presets, independent checks and held-out validation; the [shared catalog](https://github.com/dietmarwo/optimization-jobs/blob/main/tutorials/simulators/README.md) connects them to CFD and campaign lessons.
+
 ## Documentation
 
 **Start here**

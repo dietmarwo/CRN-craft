@@ -22,20 +22,24 @@ impl Path<'_> {
             self.poll()?;
             let flow = atp.flow(values);
             if !flow.source.is_finite() {
-                return Err(atp_error());
+                return Err(atp_error("nonfinite ATP forcing"));
             }
             let zero = flow.zero_time();
-            let limit = (self.end - *time).min(zero);
+            let remaining = self.end - *time;
+            let limit = remaining.min(zero).min(atp.envelope_span(&flow));
             if limit <= 0.0 {
                 if zero == 0.0 {
                     values[atp.index] = 0.0;
                     return Ok(Some(*time));
                 }
-                return Ok(None);
+                if remaining <= 0.0 {
+                    return Ok(None);
+                }
+                return Err(atp_error("ATP envelope interval cannot advance"));
             }
             let endpoint = flow.at(limit);
             if !endpoint.is_finite() {
-                return Err(atp_error());
+                return Err(atp_error("nonfinite ATP endpoint"));
             }
             let minimum = if limit == zero {
                 0.0
@@ -60,7 +64,7 @@ impl Path<'_> {
             }
             bound *= 1.0 + 16.0 * f64::EPSILON;
             if !bound.is_finite() {
-                return Err(atp_error());
+                return Err(atp_error("nonfinite thinning intensity"));
             }
             let dt = if bound > 0.0 {
                 -libm::log(words.open()?) / bound
@@ -68,11 +72,14 @@ impl Path<'_> {
                 f64::INFINITY
             };
             if dt >= limit {
-                let until = if limit == zero {
-                    (*time + limit).min(self.end)
-                } else {
+                let until = if limit == remaining {
                     self.end
+                } else {
+                    (*time + limit).min(self.end)
                 };
+                if until <= *time && limit != zero {
+                    return Err(atp_error("ATP envelope interval cannot advance"));
+                }
                 self.save_flow(out, values, atp.index, &flow, *time, until)?;
                 values[atp.index] = if limit == zero {
                     0.0
@@ -80,16 +87,24 @@ impl Path<'_> {
                     endpoint.max(0.0)
                 };
                 *time = until;
-                return Ok((limit == zero).then_some(until));
+                if limit == zero {
+                    return Ok(Some(until));
+                }
+                if until == self.end {
+                    return Ok(None);
+                }
+                continue;
             }
             let next = *time + dt;
             if next <= *time {
-                return Err(atp_error());
+                return Err(atp_error(format!(
+                    "ATP proposal clock cannot advance (dt={dt}, time={time})"
+                )));
             }
             self.save_flow(out, values, atp.index, &flow, *time, next)?;
             let level = flow.at(dt);
             if !level.is_finite() {
-                return Err(atp_error());
+                return Err(atp_error("nonfinite ATP at proposal"));
             }
             values[atp.index] = level.max(0.0);
             *time = next;
@@ -109,7 +124,9 @@ impl Path<'_> {
                 }
             }
             if total > bound {
-                return Err(atp_error());
+                return Err(atp_error(format!(
+                    "ATP intensity {total} exceeds envelope {bound}"
+                )));
             }
             if let Some(i) = selected {
                 self.apply_flat(net, i, counts, out)?;
@@ -140,7 +157,7 @@ impl Path<'_> {
             out.values[row..row + n].copy_from_slice(values);
             let value = flow.at(self.report_times[out.saved_points] - start);
             if !value.is_finite() {
-                return Err(atp_error());
+                return Err(atp_error("nonfinite ATP at report time"));
             }
             out.values[row + index] = value.max(0.0);
             out.saved_points += 1;
@@ -149,10 +166,6 @@ impl Path<'_> {
     }
 }
 
-fn atp_error() -> Halt {
-    numerical(
-        "/atp",
-        "ATP flow, bound, or clock exceeded numerical range",
-        "Rescale ATP coefficients, rates and time.",
-    )
+fn atp_error(message: impl Into<String>) -> Halt {
+    numerical("/atp", message, "Rescale ATP coefficients, rates and time.")
 }

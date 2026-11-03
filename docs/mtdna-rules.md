@@ -133,3 +133,8 @@ arrays for the bounded log. `result.tracker_columns(index)` exposes the
 scalar tracker summaries as arrays, with NaN for missing times or peaks.
 Ragged participant identities, leap multiplicities and episodes remain
 in `result.observations`.
+
+The ATP envelope limits each interval using the current ATP derivative
+and half the replication denominator. The derivative magnitude shrinks
+while counts stay fixed. This keeps the envelope tight near rapid changes
+and advances the analytic flow at each interval boundary.

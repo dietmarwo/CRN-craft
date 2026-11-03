@@ -182,8 +182,15 @@ impl Path<'_> {
                 })
                 .collect::<Vec<_>>()
         };
-        let reactants = participants(&c.reactants);
-        let products = participants(&c.products);
+        let (reactants, products) = if O::ENABLED
+            || monitor
+                .as_ref()
+                .is_some_and(|m| m.keeps_exact_event(c.rule))
+        {
+            (participants(&c.reactants), participants(&c.products))
+        } else {
+            (Vec::new(), Vec::new())
+        };
         let event = Event {
             replicate: self.id,
             time,

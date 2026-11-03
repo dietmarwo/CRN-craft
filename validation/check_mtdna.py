@@ -248,6 +248,13 @@ def check_tracking(binary, folder, rows):
     bare.pop("run_sha256")
     observed = one.pop("observations")
     require(one == bare, "tracking changed the numerical payload")
+    scalar_opts = {k: v for k, v in opts.items() if k != "log"}
+    _, scalar = sample(binary, folder, model, **scalar_opts, threads=1)
+    require(
+        [ob["trackers"] for ob in scalar["observations"]]
+        == [ob["trackers"] for ob in observed],
+        "scalar-only trackers differ",
+    )
     idx = one["observables"].index("mutants")
     total_idx = one["observables"].index("N")
     for observation in observed:

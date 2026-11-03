@@ -290,6 +290,12 @@ impl<'a> Monitor<'a> {
         }
     }
 
+    pub(crate) fn keeps_exact_event(&self, rule: usize) -> bool {
+        self.spec.log.as_ref().is_some_and(|(cap, rules)| {
+            self.output.log.len() < *cap && (rules.is_empty() || rules.contains(&rule))
+        })
+    }
+
     pub(crate) fn observe(&mut self, event: &Event<'_>, params: &[f64]) {
         let env = Env {
             params,

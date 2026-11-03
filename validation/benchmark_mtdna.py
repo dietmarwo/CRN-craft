@@ -309,6 +309,7 @@ def main():
                     seed=17,
                     threads=1,
                     method="static_direct",
+                    max_output_bytes=512 << 20,
                     **options,
                 )
                 observations = []
@@ -316,6 +317,12 @@ def main():
                     start = time.perf_counter()
                     out = prepared.simulate(callback=callback)
                     observations.append(time.perf_counter() - start)
+                if label == "tracker_log":
+                    require(
+                        sum(len(o["log"]) for o in out.observations)
+                        == out.metadata["events"],
+                        "observer benchmark truncated",
+                    )
                 row = {
                     "case": "observer_overhead",
                     "method": label,

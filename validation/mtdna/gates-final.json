@@ -565,35 +565,35 @@
     },
     {
       "test": "atp/poisson/0.25/1.0",
-      "distance": 0.00372440461826673,
+      "distance": 0.00384647493076673,
       "bound": 0.01197166016500961,
       "passed": true,
       "required": true
     },
     {
       "test": "atp/poisson/0.25/3.0",
-      "distance": 0.004318234478743355,
+      "distance": 0.005050656353743355,
       "bound": 0.01197166016500961,
       "passed": true,
       "required": true
     },
     {
       "test": "atp/poisson/2.0/0.5",
-      "distance": 0.002118617830799252,
+      "distance": 0.001508266268299252,
       "bound": 0.01197166016500961,
       "passed": true,
       "required": true
     },
     {
       "test": "atp/poisson/2.0/1.0",
-      "distance": 0.0038583815331799387,
+      "distance": 0.0027292311425549387,
       "bound": 0.01197166016500961,
       "passed": true,
       "required": true
     },
     {
       "test": "atp/poisson/2.0/3.0",
-      "distance": 0.004204863625594968,
+      "distance": 0.004507254945833317,
       "bound": 0.01197166016500961,
       "passed": true,
       "required": true

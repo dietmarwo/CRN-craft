@@ -928,17 +928,21 @@ impl Path<'_> {
             out.rule_events[r] += 1;
             state.refresh()?;
             let stopped = if O::ENABLED || monitor.is_some() {
-                let rs = rule
-                    .reactant_types
-                    .iter()
-                    .copied()
-                    .zip(&reactants)
-                    .map(|(t, a)| (t, a.as_slice()))
-                    .collect::<Vec<_>>();
-                let ps = products
-                    .iter()
-                    .map(|(t, a)| (*t, a.as_slice()))
-                    .collect::<Vec<_>>();
+                let participants =
+                    O::ENABLED || monitor.as_ref().is_some_and(|m| m.keeps_exact_event(r));
+                let (rs, ps) = if participants {
+                    let rs = rule
+                        .reactant_types
+                        .iter()
+                        .copied()
+                        .zip(&reactants)
+                        .map(|(t, a)| (t, a.as_slice()))
+                        .collect();
+                    let ps = products.iter().map(|(t, a)| (*t, a.as_slice())).collect();
+                    (rs, ps)
+                } else {
+                    (Vec::new(), Vec::new())
+                };
                 let event = Event {
                     replicate: self.id,
                     time: next,

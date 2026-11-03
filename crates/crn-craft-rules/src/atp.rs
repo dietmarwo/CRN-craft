@@ -89,6 +89,17 @@ impl Atp {
         }
     }
 
+    /// Bound the ATP change to half of the current denominator. The
+    /// magnitude of the flow derivative decreases on a fixed-count interval.
+    pub fn envelope_span(&self, flow: &Flow) -> f64 {
+        let slope = (flow.source - flow.decay * flow.atp).abs();
+        if slope > 0.0 {
+            (0.5 * flow.atp + 0.5 * self.scale) / slope
+        } else {
+            f64::INFINITY
+        }
+    }
+
     pub fn multiplier(&self, atp: f64) -> f64 {
         1.0 / (1.0 + atp / self.scale)
     }

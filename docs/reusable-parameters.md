@@ -41,8 +41,10 @@ The Rust API is `parameters::ParameterTemplate::{prepare, bind, bind_named}`;
 snapshots. Ordinary `ssa::execute` runs a binding. Template binding still clones
 and validates the candidate model and serializes auditable snapshots; it avoids
 rebuilding compiled topology/graphs, rather than eliminating all preparation.
-Request/result schemas and archive contracts are unchanged. Default checked
-semantics stay in force unless the supplied request explicitly selects `fast`.
+Request/result schemas and archive contracts are unchanged. The supplied
+request's own policy applies: ssa-run/0.3 and 0.4 requests (what
+`crn.ssa_spec` writes) default to `fast`, except `next_reaction`; pass
+`fast=False` for the checked policy.
 Completed streams/statistics remain independent of the worker count. Per-path
 RNG, selector, range-cache and population state are reset for every execution.
 

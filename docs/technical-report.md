@@ -7,6 +7,10 @@ performance of the exact and approximate solvers. Companion documents: the
 [architecture overview](architecture.md), the [tutorial](tutorial.md) and the
 performance declarations [P01–P10](campaign/performance.md) and
 [P11–P20](campaign/performance-p11-p20.md).
+**Later additions** are documented separately: the `ssa` command with six
+exact aggregators and the `fast` policy ([alternative SSA](alternative-ssa.md)),
+discovery 0.10 (0.11 from the native CLI), and the experimental rules engine
+([rules language](rules-language.md), [mtDNA ensembles](mtdna-rules.md)).
 
 ## 1. Summary
 

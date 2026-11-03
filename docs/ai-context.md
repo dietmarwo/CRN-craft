@@ -1,13 +1,19 @@
 # Agent context: CRN-craft campaign
 
-Start with README.md, docs/campaign/README.md and `crn-craft describe` (0.8; 0.9 from the native CLI).
+Start with README.md, docs/architecture.md, docs/campaign/README.md and `crn-craft describe` (0.10; 0.11 from the native CLI).
 Default engine MSRV is 1.85; Python/jobs/diffsol are isolated optional workspaces.
 Legacy exact SSA commands are simulate and simulate-cached, with unchanged original
 model/run/result/archive contracts. The separate ssa command implements Direct,
-cached Direct, DirectCR, SortingDirect and RSSACR with inverse or Ziggurat waits.
-Its `method.fast` policy is on by default in ssa-run/0.3 (what `crn.ssa_spec`
-writes); set `fast: false` for the checked policy. ssa-run/0.1 and 0.2 keep
-their checked defaults and result bytes.
+cached Direct, DirectCR, SortingDirect and RSSACR with inverse or Ziggurat waits,
+and next reaction (ssa-run/0.4, inverse waits, checked policy only). Its
+`method.fast` policy is on by default in ssa-run/0.3 and 0.4 (`crn.ssa_spec`
+writes 0.3, or 0.4 with `fast=False` for `next_reaction`); set `fast: false`
+for the checked policy. ssa-run/0.1 and 0.2 keep their checked defaults and
+result bytes.
+Dynamic attributed species use the experimental rules engine (crate
+crn-craft-rules, CLI rules-check and rules, Python crn_craft.rules): read
+docs/rules-language.md and docs/mtdna-rules.md, and docs/specialized-kernels.md
+before adding a model-specific rules kernel.
 Read docs/alternative-ssa.md and the five-step acceleration protocol before changes. FSP executes via fsp; tau is explicitly
 approximate and has separate request/result schemas. Optional crn-diffsol uses
 BDF and forward sensitivities with deterministic count kinetics, not exact

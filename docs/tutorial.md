@@ -469,6 +469,8 @@ another simulator (it never executes it):
 | Question | Method |
 |---|---|
 | Exact sample paths or ensemble statistics | `simulate` (or `simulate-cached` for networks with more than a few dozen reactions) |
+| Faster exact ensembles without an archive | `ssa` with `crn.ssa_spec` (DirectCR, SortingDirect, RSSACR or next reaction; `fast` by default) |
+| Species that appear and disappear, or attributed instances | the experimental `rules` engine and `crn_craft.rules` |
 | The exact distribution of a small system | `fsp` |
 | Large populations where exact simulation is too slow | `tau`, with `epsilon` below the relative fluctuation size, checked against `simulate` on a reduced case |
 | Deterministic dynamics and parameter sensitivities | the optional `crn-diffsol` integration |
@@ -504,5 +506,7 @@ Performance notes, from the measurements in the
   against GillesPy2's C++ and NumPy solvers.
 - [Direct SSA guide](direct-ssa.md), [archive contract](archive-contract.md),
   [diagnostics](diagnostics.md) and [contracts](contracts.md).
+- [Alternative exact SSA methods](alternative-ssa.md), the
+  [rules language](rules-language.md) and [mtDNA ensembles](mtdna-rules.md).
 - [Campaign guide](campaign/README.md) for the fcmaes worker, the ODE and
   sensitivity integration and the fitting example.

@@ -4,7 +4,7 @@
 
 Native Rust foundations for well-mixed chemical reaction networks, designed for reproducible simulation and optimization workflows.
 
-**Version 0.2.0.** Install the Python package with `pip install crn-craft` and the native CLI with `cargo install crn-craft-cli --locked`; the libraries are the crates `crn-craft` and `crn-craft-rules`. Optional integrations build from this repository. Native Direct, dependency-cached SSA, DirectCR, SortingDirect and RSSACR, sparse FSP and explicitly approximate Poisson leaps execute. Optional Python bindings, trajectory diagnostics, pinned fcmaes job applications, diffsol BDF/forward sensitivities, global-to-SQP fitting and explicit SBML/BioNetGen import subsets are included. The default Rust engine remains independent of Python, jobs and ODE dependencies. A successful numerical run is not biological validation.
+**Version 0.2.0.** Install the Python package with `pip install crn-craft` and the native CLI with `cargo install crn-craft-cli --locked`; the libraries are the crates `crn-craft` and `crn-craft-rules`. Optional integrations build from this repository. Native Direct, dependency-cached SSA, DirectCR, SortingDirect, RSSACR and next reaction, sparse FSP and explicitly approximate Poisson leaps execute, as does the experimental rules engine with Python ensembles. Optional Python bindings, trajectory diagnostics, pinned fcmaes job applications, diffsol BDF/forward sensitivities, global-to-SQP fitting and explicit SBML/BioNetGen import subsets are included. The default Rust engine remains independent of Python, jobs and ODE dependencies. A successful numerical run is not biological validation.
 
 Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/architecture.md), the [technical report](docs/technical-report.md) (design, validation and measured performance), the [comparison with GillesPy2](docs/comparison-gillespy2.md) and `crn-craft describe`. Every document is listed under [Documentation](#documentation). Legacy input/result/archive contracts remain available; new approximate/FSP results use distinct schemas.
 
@@ -17,7 +17,7 @@ The [four CRN optimization lessons](tutorials/optimization/README.md) cover reus
 **Start here**
 
 - [Tutorial](docs/tutorial.md): from a first model to exact ensembles, FSP, tau leaping and the Python interface, with screenshots and figures
-- [Architecture overview](docs/architecture.md): layers, contracts, engines, determinism, archives and integrations
+- [Architecture overview](docs/architecture.md): packages, contracts, both engines, parallelism, budgets and archives
 - [Technical report](docs/technical-report.md): numerical methods, validation evidence and measured performance
 - [Comparison with GillesPy2](docs/comparison-gillespy2.md): same models, timed against GillesPy2's C++ and NumPy solvers
 - [Alternative exact SSA methods](docs/alternative-ssa.md): versioned requests, prepared Python calls, bounded sampling and gated RSSACR bounds
@@ -29,6 +29,7 @@ The [four CRN optimization lessons](tutorials/optimization/README.md) cover reus
 - [Agent context](docs/ai-context.md): what an AI agent needs to use and extend CRN-craft
 - [Dynamic, attributed species (experimental)](docs/rules-language.md): rule-based models whose species appear and disappear (mtDNA clones, aggregation), with [K1 law gates](validation/rules/RESULTS.md)
 - [Three-class mtDNA ensembles](docs/mtdna-rules.md): parallel Python ensembles, event trackers and callbacks, Static Direct, a specialized fixed-population sampler, next reaction, approximate tau and binomial steps, and ATP-coupled thinning ([review log](docs/campaign/mtdna-a0-a6-review-log-2026-11-03.md))
+- [Rules kernel checklist](docs/specialized-kernels.md): when a model-specific rules kernel pays off, and generated rules kernels
 
 **Using CRN-craft**
 
@@ -64,7 +65,10 @@ The [four CRN optimization lessons](tutorials/optimization/README.md) cover reus
 - [Exact-SSA acceleration log](docs/campaign/ssa-acceleration-implementation-log-2026-11-02.md) and [Julia-gap campaign log](docs/campaign/julia-gap-implementation-log-2026-11-02.md)
 - [Ten further iterations implementation log](docs/campaign/julia-gap10-implementation-log-2026-11-02.md), [fixed protocol](docs/decisions/julia-gap10-2026-11-02.md) and [raw evidence](validation/julia-gap10/README.md)
 - [The `fast` switch: implementation log](docs/campaign/fast-implementation-log-2026-11-02.md), with evidence in `validation/fast/`
+- [Reusable parameters: implementation log](docs/campaign/reusable-parameters-implementation-log-2026-11-02.md) and [protocol](docs/decisions/reusable-parameters-2026-11-02.md)
 - [Rules engine K0/K1: implementation log](docs/campaign/rules-k1-implementation-log-2026-11-02.md), [protocol](docs/decisions/rules-k0-k1-2026-11-02.md) and [results](validation/rules/RESULTS.md)
+- [mtDNA A0–A6: implementation log](docs/campaign/mtdna-a0-a6-implementation-log-2026-11-03.md), [protocol](docs/decisions/mtdna-a0-a6-2026-11-03.md) and [review](docs/campaign/mtdna-a0-a6-review-log-2026-11-03.md)
+- [Faster generic rules (S1–S6): implementation log](docs/campaign/fast-generic-rules-implementation-log-2026-11-03.md) and [review](docs/campaign/fast-generic-rules-review-log-2026-11-03.md)
 
 **Plans and decisions**
 
@@ -145,10 +149,13 @@ Copy the returned digest into the corresponding run file. Do not assume that sem
 ## Exact SSA methods and the `fast` switch
 
 Besides the legacy `simulate`/`simulate-cached` archives, `crn-craft ssa MODEL REQUEST`
-runs five exact methods (`direct`, `cached_direct`, `direct_cr`, `sorting_direct`,
-`rssa_cr`) with inverse or Ziggurat waits; see [alternative exact SSA methods](docs/alternative-ssa.md).
-The switch `method.fast` selects between two numerical policies. It is **on by
-default** in `crn-craft.ssa-run/0.3` requests, which `crn.ssa_spec` writes:
+runs six exact methods (`direct`, `cached_direct`, `direct_cr`, `sorting_direct`,
+`rssa_cr` with inverse or Ziggurat waits, and `next_reaction` under `ssa-run/0.4`
+with inverse waits and the checked policy only); see
+[alternative exact SSA methods](docs/alternative-ssa.md). The switch `method.fast`
+selects between two numerical policies. It is **on by default** in
+`crn-craft.ssa-run/0.3` and `0.4` requests; `crn.ssa_spec` writes 0.3, or 0.4
+with `fast=False` for `next_reaction`:
 
 ```json
 "method": {"kind": "ssa", "aggregator": "direct_cr", "waiting_time": "ziggurat", "fast": true}
@@ -163,7 +170,7 @@ result = crn.simulate_ssa(model, request)
 `fast` emulates what JumpProcesses.jl (and GillesPy2) do; `fast: false` is the
 checked policy:
 
-| | `fast: false` (checked) | `fast: true` (default in 0.3) |
+| | `fast: false` (checked) | `fast: true` (default in 0.3 and 0.4) |
 |---|---|---|
 | Random words | ChaCha8, keyed per replicate | Xoshiro256++ per replicate (Julia's generator), seeded from its own keyed stream |
 | Totals | Exact pairwise tree or ordered sums, rebuilt without drift | Running totals updated by `+= new - old` (Direct: additions only), recomputed from the leaves every 65,536 updates |
@@ -176,7 +183,7 @@ networks (W1–W7, `validation/fast/fast-vs-default.json`) and passes its own
 210-comparison exact-law gate (100,000 paths per fixture). Its sampler identity
 is `xoshiro256pp-u53/<method>/<wait>/fast-1`, so its paths differ from the
 checked policy and replay only with the same setting. Results answer with
-`crn-craft.ssa-result/0.3` and always state `fast`.
+`crn-craft.ssa-result/0.3` (0.4 for 0.4 requests) and always state `fast`.
 
 **Why `fast` is the default, and when to turn it off.** Most models have
 well-scaled rates, where both policies sample the same law and `fast` is
@@ -265,6 +272,13 @@ python3 validation/mutation_check.py
 python3 validation/check_rules.py --output rules.json
 python3 -O validation/check_rules.py --output rules-optimized.json
 diff rules.json rules-optimized.json
+python3 validation/check_mtdna.py --binary target/release/crn-craft --output mtdna.json
+python3 -O validation/check_mtdna.py --binary target/release/crn-craft --output mtdna-optimized.json
+diff mtdna.json mtdna-optimized.json
+# After installing the wheel (maturin build --release --locked; pip install dist/*.whl):
+python3 validation/check_rules_python.py --output rules-python.json
+python3 -O validation/check_rules_python.py --output rules-python-optimized.json
+diff rules-python.json rules-python-optimized.json
 ```
 
 The optional real-reference checks use a separate Python environment:
@@ -276,7 +290,7 @@ python3 -m venv .venv-reference
 .venv-reference/bin/python -O validation/check_export.py
 ```
 
-The eleven original schema snapshots are preserved, and three new native schemas are compared with the CLI. Model/run/check/state, analysis 0.2, legacy analysis 0.1 and export 0.1 remain unchanged. Reserved result 0.1 is retained as `result-v1`; real simulation results use 0.2. Archive and archive-check are 0.1; discovery is 0.5. Strict parsers and semantic checks remain mandatory. The optional exporter checker runs a short GillesPy2 smoke test; the independent SSA campaign validates CRN-craft against declared analytic distributions, and `check_cme.py` against exact master-equation laws for nonlinear and custom rates.
+The eleven original schema snapshots are preserved, and nine further native schemas (fsp-result, tau-request, tau-result, ssa-run, ssa-result, rules-model, rules-check, rules-run, rules-result) are compared with the CLI. Model/run/check/state, analysis 0.2, legacy analysis 0.1 and export 0.1 remain unchanged. Reserved result 0.1 is retained as `result-v1`; real simulation results use 0.2. Archive and archive-check are 0.1; discovery is 0.10 (0.11 from the native CLI). Strict parsers and semantic checks remain mandatory. The optional exporter checker runs a short GillesPy2 smoke test; the independent SSA campaign validates CRN-craft against declared analytic distributions, and `check_cme.py` against exact master-equation laws for nonlinear and custom rates.
 
 GitHub Actions is configured for fmt, clippy and release tests on Rust 1.85.0, 1.88.0 and stable; dependency, schema/CLI and independent network/structure/SSA/CME checks normally and under Python `-O` with identical reports; source mutation checks; and contract/network/structure/SSA/archive tests with `core.autocrlf=true`. See [iteration 4 evidence](validation/iteration-04/RESULTS.md) for executed local checks. The default build has no C/C++ simulator, Julia or Python runtime dependency. It pins pure-Rust libm for rate evaluation. Python is only needed for independent acceptance checks.
 

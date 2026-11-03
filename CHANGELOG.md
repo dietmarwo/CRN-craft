@@ -49,10 +49,15 @@ iterations that make up this release follow.
 
 ### mtDNA ensembles and faster generic rules
 
+#### Changed: documentation for both engines
+
+- `docs/architecture.md` rewritten for the fixed-network and rules engines; discovery versions, method lists, diagnostics (`CRN-E067`, `CRN-R031`, `CRN-R051`) and status lines updated across README, AGENTS.md and docs/.
+- Fixed: `rules.ensemble` with trackers but no method raised `KeyError`.
+
 #### Changed: faster generic rules simulation (S1–S6)
 
 - Static Direct, next reaction, ATP thinning and the leap methods cache rule rates and shared vacancy bases, recompute only the channels and observables an event affects, defer report-only observables, keep the live-instance count incrementally and evaluate the stop and predicates from compiled bytecode. Existing requests return byte-identical results.
-- `rules-run/0.4` adds two opt-ins on `static_direct`: `waiting_time: "ziggurat"` and `sparse_trackers: true`. Each has its own sampler identity; the result stays `rules-result/0.2`.
+- `rules-run/0.4` adds two opt-ins on `static_direct`: `waiting_time: "ziggurat"` and `sparse_trackers: true`. Each has its own sampler identity; the result stays `rules-result/0.2`. If no tracker is eligible, `sparse_trackers` reports the default identity and `CRN-R051`.
 - `generate_rules_kernel` emits a Rust kernel for one closed model with constant or vacancy rates. `execute_with_rules_kernel` runs it under the Static Direct scheduler with byte-identical results. It refuses kernels generated for other model bytes or by another generator version, because the fingerprint covers the emitted source. Rust only; it is not available from Python.
 - [docs/specialized-kernels.md](docs/specialized-kernels.md): when a model-specific kernel is worth it, and the review checklist. Review log: [docs/campaign/fast-generic-rules-review-log-2026-11-03.md](docs/campaign/fast-generic-rules-review-log-2026-11-03.md).
 

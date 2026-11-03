@@ -179,6 +179,15 @@ def main():
         pass
     else:
         raise RuntimeError("fractional replicate count accepted")
+    # Trackers without a method run the tree under rules-run/0.2.
+    tree = rules.ensemble(
+        model,
+        end=3.0,
+        report_times=[0.0, 1.0, 3.0],
+        replicates=4,
+        trackers=[{"observable": "mutants"}],
+    ).simulate()
+    require(tree.metadata["termination"] == "completed", "trackers without method")
     try:
         actual.tracker_columns(1)
     except IndexError:
@@ -203,6 +212,7 @@ def main():
                     "generic Ziggurat sparse tracker callback replay",
                     "NumPy arguments and strict counts",
                     "tracker index bounds",
+                    "trackers without a method",
                 ],
             },
             indent=2,

@@ -1,7 +1,8 @@
 # Alternative exact SSA methods
 
-This extension implements DirectCR, SortingDirect and RSSACR, plus separately
-versioned inverse-transform and exponential Ziggurat waits. The original
+This extension implements DirectCR, SortingDirect, RSSACR and (ssa-run/0.4)
+Gibson–Bruck next reaction, plus separately versioned inverse-transform and
+exponential Ziggurat waits. The original
 `simulate` / `simulate-cached` commands and their model/run/result/archive
 formats and random streams remain unchanged.
 
@@ -113,8 +114,9 @@ versions and the default per version under `alternative_exact_ssa`.
 | `direct_cr` | Dependency updates, balanced totals, power-of-two composition/rejection |
 | `sorting_direct` | Dependency updates, balanced totals, linear search; fired channel moves one place forward |
 | `rssa_cr` | Bounded propensity envelopes, composition/rejection, and thinning; refresh only after leaving a population bracket |
+| `next_reaction` | Indexed heap of per-channel absolute clocks; the fired channel draws afresh and dependent clocks are rescaled or redrawn; inverse waits and checked policy, ssa-run/0.4 only |
 
-`waiting_time` is `inverse` or `ziggurat`. Each pair has its own sampler identifier.
+`waiting_time` is `inverse` or `ziggurat` (`next_reaction`: inverse only). Each pair has its own sampler identifier.
 The new Direct/cached inverse variants retain legacy paths; alternative selection
 or wait sampling changes random consumption. The Ziggurat table/algorithm is
 adapted from Julia 1.13.3 under MIT terms in [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md).

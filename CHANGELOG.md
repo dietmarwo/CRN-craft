@@ -2,6 +2,10 @@
 
 ## [Unreleased] — alternative exact SSA methods and the Julia-gap campaign (`0.2.0-dev.1`)
 
+### Simulator optimization tutorials
+
+- Added four simulator-owned optimization tutorials with native bindings, independent moment/BDF/generator/finite-state checks, disjoint validation and bounded smoke/study drivers; see [tutorials/optimization](tutorials/optimization/README.md).
+
 ### Added: dynamic, attributed species (experimental rules engine, K0/K1)
 
 - New crate `crn-craft-rules` and CLI commands `rules-check` and `rules`: species types with numeric attributes, instances created and removed on the fly, rule schemata over zero to two reactant patterns with product-form propensities, observables (`sum`, `distinct`, `max`, `min`), `new_id()` clones, random product attributes and stop conditions. Contracts `crn-craft.rules-model/0.1`, `rules-check/0.1`, `rules-run/0.1`, `rules-result/0.1`; the native CLI's discovery moves to `describe/0.8` (core and Python stay at 0.7). Reference: `docs/rules-language.md`.

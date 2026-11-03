@@ -26,3 +26,7 @@ Fixed-topology parameter searches can use the Rust/Python parameter template API
 read docs/reusable-parameters.md and docs/comparison-parameter-optimization.md.
 Optional generated mass-action propensities retain the existing checked solver;
 fast is still explicit and the dynamic numerical engine has no compiler dependency.
+
+## Optimization lessons
+
+Use [C1–C4](../tutorials/optimization/README.md) for runnable calibration, optional BDF/SQP fitting, native MODE/MAP-Elites oscillator searches, and bounded rules inference. These use library or command interfaces; no new stock worker profiles are implied. [Validation](../tutorials/optimization/VALIDATION.md) distinguishes completed checks from fitted-model quality.

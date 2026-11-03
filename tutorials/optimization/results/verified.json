@@ -1,0 +1,236 @@
+{
+  "scope": "Executed teaching workflows, not optimizer-performance or physical-validation claims.",
+  "environment": {
+    "python": "3.12.14",
+    "numpy": "2.3.5",
+    "scipy": "1.17.0",
+    "fcmaes-rust": "0.2.1",
+    "crn-craft": "0.2.0.dev1",
+    "lp-ip-craft": "0.29.0",
+    "sqp-craft": "0.17.0",
+    "rust-core": "1.88.0",
+    "rust-diffsol": "1.89.0"
+  },
+  "checks": {
+    "smoke": {
+      "C1": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "immigration-False-7001-fresh-bound-replay-and-moments",
+            "passed": true
+          },
+          {
+            "name": "binding-False-7001-fresh-bound-replay-and-moments",
+            "passed": true
+          }
+        ],
+        "source_sha256": {
+          "calibration.py": "b2ab7a16dba067205a11d84a111779966c063e0ef505e2d7cd1ccbdec39d3aa4",
+          "common.py": "9e8e117f00013cc6fadd6f600e21d2cbf33b5847d331d81fd730b7e0e31dc5c9",
+          "oscillators.py": "dd37cd0ae6ef9b30a49c307151e3b03c79a08390689d66ff585486d4fe54756f",
+          "rules.py": "fa1423445fc49cc4c7e94699dec0cb592a28539ed1e974b3eedd2ab071a76380",
+          "run.py": "cf0e561988e8eba53ea60f4ac34c20efb1d0a009fc0b5a34d20f62033f12baee",
+          "sensitivity.py": "56bfdd16ba3511772ee4f56e5cc51e32794e8b4fc96906f06dc97eb327754c7e",
+          "test_science.py": "066b4135f0e9322530e46a2fc49fe8b56845bc1782a1052e08c6bcd7ab0b9c92"
+        }
+      },
+      "C2": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "independent-integration-log-gradient-and-rank",
+            "passed": true
+          },
+          {
+            "name": "global-finite-fit-and-SSA-conservation",
+            "passed": true
+          },
+          {
+            "name": "multistart-finite-fit-and-SSA-conservation",
+            "passed": true
+          },
+          {
+            "name": "global-local-finite-fit-and-SSA-conservation",
+            "passed": true
+          }
+        ],
+        "source_sha256": {
+          "calibration.py": "b2ab7a16dba067205a11d84a111779966c063e0ef505e2d7cd1ccbdec39d3aa4",
+          "common.py": "9e8e117f00013cc6fadd6f600e21d2cbf33b5847d331d81fd730b7e0e31dc5c9",
+          "oscillators.py": "dd37cd0ae6ef9b30a49c307151e3b03c79a08390689d66ff585486d4fe54756f",
+          "rules.py": "fa1423445fc49cc4c7e94699dec0cb592a28539ed1e974b3eedd2ab071a76380",
+          "run.py": "cf0e561988e8eba53ea60f4ac34c20efb1d0a009fc0b5a34d20f62033f12baee",
+          "sensitivity.py": "56bfdd16ba3511772ee4f56e5cc51e32794e8b4fc96906f06dc97eb327754c7e",
+          "test_science.py": "066b4135f0e9322530e46a2fc49fe8b56845bc1782a1052e08c6bcd7ab0b9c92"
+        }
+      },
+      "C3": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "additive-generator-equivalence",
+            "passed": true
+          },
+          {
+            "name": "common-scoring-and-independent-backend-law-control",
+            "passed": true
+          },
+          {
+            "name": "mode-archive-holdout-and-distinct-vilar-control",
+            "passed": true
+          }
+        ],
+        "source_sha256": {
+          "calibration.py": "b2ab7a16dba067205a11d84a111779966c063e0ef505e2d7cd1ccbdec39d3aa4",
+          "common.py": "9e8e117f00013cc6fadd6f600e21d2cbf33b5847d331d81fd730b7e0e31dc5c9",
+          "oscillators.py": "8bf1e67766bd9b1f2eb2077763703cda33f68d6cee74817870c09e720c1a847f",
+          "rules.py": "fa1423445fc49cc4c7e94699dec0cb592a28539ed1e974b3eedd2ab071a76380",
+          "run.py": "cf0e561988e8eba53ea60f4ac34c20efb1d0a009fc0b5a34d20f62033f12baee",
+          "sensitivity.py": "56bfdd16ba3511772ee4f56e5cc51e32794e8b4fc96906f06dc97eb327754c7e",
+          "test_science.py": "9f2efd6cd6f621868202950a0aa1346ca04aeaea6c9c481021f140ccc0064e8a"
+        }
+      },
+      "C4": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "constant-mass-and-exact-law",
+            "passed": true
+          },
+          {
+            "name": "multiplicative-mass-and-exact-law",
+            "passed": true
+          }
+        ],
+        "source_sha256": {
+          "calibration.py": "b2ab7a16dba067205a11d84a111779966c063e0ef505e2d7cd1ccbdec39d3aa4",
+          "common.py": "9e8e117f00013cc6fadd6f600e21d2cbf33b5847d331d81fd730b7e0e31dc5c9",
+          "oscillators.py": "dd37cd0ae6ef9b30a49c307151e3b03c79a08390689d66ff585486d4fe54756f",
+          "rules.py": "fa1423445fc49cc4c7e94699dec0cb592a28539ed1e974b3eedd2ab071a76380",
+          "run.py": "cf0e561988e8eba53ea60f4ac34c20efb1d0a009fc0b5a34d20f62033f12baee",
+          "sensitivity.py": "56bfdd16ba3511772ee4f56e5cc51e32794e8b4fc96906f06dc97eb327754c7e",
+          "test_science.py": "066b4135f0e9322530e46a2fc49fe8b56845bc1782a1052e08c6bcd7ab0b9c92"
+        }
+      }
+    },
+    "study": {
+      "C1": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "immigration-False-7001-fresh-bound-replay-and-moments",
+            "passed": true
+          },
+          {
+            "name": "immigration-False-7002-fresh-bound-replay-and-moments",
+            "passed": true
+          },
+          {
+            "name": "immigration-False-7003-fresh-bound-replay-and-moments",
+            "passed": true
+          },
+          {
+            "name": "binding-False-7001-fresh-bound-replay-and-moments",
+            "passed": true
+          },
+          {
+            "name": "binding-False-7002-fresh-bound-replay-and-moments",
+            "passed": true
+          },
+          {
+            "name": "binding-False-7003-fresh-bound-replay-and-moments",
+            "passed": true
+          }
+        ],
+        "source_sha256": {
+          "calibration.py": "b2ab7a16dba067205a11d84a111779966c063e0ef505e2d7cd1ccbdec39d3aa4",
+          "common.py": "9e8e117f00013cc6fadd6f600e21d2cbf33b5847d331d81fd730b7e0e31dc5c9",
+          "oscillators.py": "dd37cd0ae6ef9b30a49c307151e3b03c79a08390689d66ff585486d4fe54756f",
+          "rules.py": "fa1423445fc49cc4c7e94699dec0cb592a28539ed1e974b3eedd2ab071a76380",
+          "run.py": "cf0e561988e8eba53ea60f4ac34c20efb1d0a009fc0b5a34d20f62033f12baee",
+          "sensitivity.py": "56bfdd16ba3511772ee4f56e5cc51e32794e8b4fc96906f06dc97eb327754c7e",
+          "test_science.py": "066b4135f0e9322530e46a2fc49fe8b56845bc1782a1052e08c6bcd7ab0b9c92"
+        }
+      },
+      "C2": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "independent-integration-log-gradient-and-rank",
+            "passed": true
+          },
+          {
+            "name": "global-finite-fit-and-SSA-conservation",
+            "passed": true
+          },
+          {
+            "name": "multistart-finite-fit-and-SSA-conservation",
+            "passed": true
+          },
+          {
+            "name": "global-local-finite-fit-and-SSA-conservation",
+            "passed": true
+          }
+        ],
+        "source_sha256": {
+          "calibration.py": "b2ab7a16dba067205a11d84a111779966c063e0ef505e2d7cd1ccbdec39d3aa4",
+          "common.py": "9e8e117f00013cc6fadd6f600e21d2cbf33b5847d331d81fd730b7e0e31dc5c9",
+          "oscillators.py": "dd37cd0ae6ef9b30a49c307151e3b03c79a08390689d66ff585486d4fe54756f",
+          "rules.py": "fa1423445fc49cc4c7e94699dec0cb592a28539ed1e974b3eedd2ab071a76380",
+          "run.py": "cf0e561988e8eba53ea60f4ac34c20efb1d0a009fc0b5a34d20f62033f12baee",
+          "sensitivity.py": "56bfdd16ba3511772ee4f56e5cc51e32794e8b4fc96906f06dc97eb327754c7e",
+          "test_science.py": "066b4135f0e9322530e46a2fc49fe8b56845bc1782a1052e08c6bcd7ab0b9c92"
+        }
+      },
+      "C3": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "additive-generator-equivalence",
+            "passed": true
+          },
+          {
+            "name": "common-scoring-and-independent-backend-law-control",
+            "passed": true
+          },
+          {
+            "name": "mode-archive-holdout-and-distinct-vilar-control",
+            "passed": true
+          }
+        ],
+        "source_sha256": {
+          "calibration.py": "b2ab7a16dba067205a11d84a111779966c063e0ef505e2d7cd1ccbdec39d3aa4",
+          "common.py": "9e8e117f00013cc6fadd6f600e21d2cbf33b5847d331d81fd730b7e0e31dc5c9",
+          "oscillators.py": "8bf1e67766bd9b1f2eb2077763703cda33f68d6cee74817870c09e720c1a847f",
+          "rules.py": "fa1423445fc49cc4c7e94699dec0cb592a28539ed1e974b3eedd2ab071a76380",
+          "run.py": "cf0e561988e8eba53ea60f4ac34c20efb1d0a009fc0b5a34d20f62033f12baee",
+          "sensitivity.py": "56bfdd16ba3511772ee4f56e5cc51e32794e8b4fc96906f06dc97eb327754c7e",
+          "test_science.py": "9f2efd6cd6f621868202950a0aa1346ca04aeaea6c9c481021f140ccc0064e8a"
+        }
+      },
+      "C4": {
+        "passed": true,
+        "checks": [
+          {
+            "name": "constant-mass-and-exact-law",
+            "passed": true
+          },
+          {
+            "name": "multiplicative-mass-and-exact-law",
+            "passed": true
+          }
+        ],
+        "source_sha256": {
+          "calibration.py": "b2ab7a16dba067205a11d84a111779966c063e0ef505e2d7cd1ccbdec39d3aa4",
+          "common.py": "9e8e117f00013cc6fadd6f600e21d2cbf33b5847d331d81fd730b7e0e31dc5c9",
+          "oscillators.py": "dd37cd0ae6ef9b30a49c307151e3b03c79a08390689d66ff585486d4fe54756f",
+          "rules.py": "fa1423445fc49cc4c7e94699dec0cb592a28539ed1e974b3eedd2ab071a76380",
+          "run.py": "cf0e561988e8eba53ea60f4ac34c20efb1d0a009fc0b5a34d20f62033f12baee",
+          "sensitivity.py": "56bfdd16ba3511772ee4f56e5cc51e32794e8b4fc96906f06dc97eb327754c7e",
+          "test_science.py": "066b4135f0e9322530e46a2fc49fe8b56845bc1782a1052e08c6bcd7ab0b9c92"
+        }
+      }
+    }
+  }
+}

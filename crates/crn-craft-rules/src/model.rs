@@ -23,6 +23,8 @@ pub const MAX_COUNT: u64 = 1 << 53;
 pub enum ModelVersion {
     #[serde(rename = "crn-craft.rules-model/0.1")]
     V01,
+    #[serde(rename = "crn-craft.rules-model/0.2")]
+    V02,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -44,6 +46,14 @@ pub struct Model {
     /// replicate is marked `stopped`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stop: Option<String>,
+    /// rules-model/0.2 only. `null` is rejected.
+    #[serde(
+        default,
+        deserialize_with = "crate::present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "crate::atp::AtpSpec")]
+    pub atp: Option<crate::atp::AtpSpec>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -218,6 +228,7 @@ pub(crate) struct Compiled {
     pub observables: Vec<ObservableInfo>,
     pub rules: Vec<RuleInfo>,
     pub stop: Option<Expr>,
+    pub atp: Option<crate::atp::Atp>,
 }
 
 const FUNCTIONS: [&str; 14] = [
@@ -841,6 +852,22 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
             "Keep initial attribute values below 2^53 - 1 when rules call new_id().",
         ));
     }
+    let atp = model.atp.as_ref().and_then(|spec| {
+        if model.schema == ModelVersion::V01 {
+            out.push(invalid("CRN-R015", "/atp", "ATP requires rules-model/0.2", "Select the 0.2 model contract."));
+            return None;
+        }
+        match crate::atp::Atp::compile(spec, &observables, &rules) {
+            Ok(atp) => {
+                observables.push(ObservableInfo { name: "ATP".into(), condition: None, weight: None, reduce: Reduce::Sum });
+                Some(atp)
+            }
+            Err(message) => {
+                out.push(invalid("CRN-R015", "/atp", message, "Use declared observable and replication-rule names with finite ATP parameters."));
+                None
+            }
+        }
+    });
     if out.is_empty() {
         Ok(Compiled {
             params,
@@ -851,6 +878,7 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
             observables,
             rules,
             stop,
+            atp,
         })
     } else {
         Err(out)

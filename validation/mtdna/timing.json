@@ -1,0 +1,270 @@
+{
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+  "crn_binary_sha256": "9b2c00f9c74339bc30f8c7442784029aa305ed95399d4f4647a57c34fa5dc070",
+  "cpu_quota": "800000 100000",
+  "rows": [
+    {
+      "case": "fixed_no_stop",
+      "method": "tree",
+      "cells": 200,
+      "threads": 1,
+      "seconds": 13.843010763000166,
+      "events": 29862599,
+      "events_per_second": 2157232.9539623894,
+      "stopped": 0
+    },
+    {
+      "case": "fixed_no_stop",
+      "method": "static_direct",
+      "cells": 200,
+      "threads": 1,
+      "seconds": 4.6343521270000565,
+      "events": 29862187,
+      "events_per_second": 6443659.476374449,
+      "stopped": 0
+    },
+    {
+      "case": "fixed_no_stop",
+      "method": "next_reaction",
+      "cells": 200,
+      "threads": 1,
+      "seconds": 5.551316955999937,
+      "events": 29862755,
+      "events_per_second": 5379400.102118821,
+      "stopped": 0
+    },
+    {
+      "case": "fixed_no_stop",
+      "method": "tree",
+      "cells": 200,
+      "threads": 20,
+      "seconds": 2.346559033000176,
+      "events": 29862599,
+      "events_per_second": 12726123.050831323,
+      "stopped": 0
+    },
+    {
+      "case": "fixed_no_stop",
+      "method": "static_direct",
+      "cells": 200,
+      "threads": 20,
+      "seconds": 0.7803189129999737,
+      "events": 29862187,
+      "events_per_second": 38269208.27177363,
+      "stopped": 0
+    },
+    {
+      "case": "fixed_no_stop",
+      "method": "next_reaction",
+      "cells": 200,
+      "threads": 20,
+      "seconds": 0.9613166459998865,
+      "events": 29862755,
+      "events_per_second": 31064431.396523975,
+      "stopped": 0
+    },
+    {
+      "case": "sparse_48",
+      "method": "static_direct",
+      "cells": 64,
+      "threads": 1,
+      "seconds": 1.181574739000098,
+      "events": 1225977,
+      "events_per_second": 1037578.8848003617,
+      "stopped": 0
+    },
+    {
+      "case": "sparse_48",
+      "method": "next_reaction",
+      "cells": 64,
+      "threads": 1,
+      "seconds": 0.18905001199982507,
+      "events": 1224253,
+      "events_per_second": 6475815.510665679,
+      "stopped": 0
+    },
+    {
+      "case": "fixed_no_stop_python",
+      "method": "static_direct",
+      "cells": 10000,
+      "threads": 20,
+      "seconds": 35.73077395200016,
+      "events": 1492964721,
+      "events_per_second": 41783721.869714096,
+      "numerical_sha256": "7b31a2ef130e7fca5ed00cd8dffd118005472f847c1d7d77ab8c20a7d724778f"
+    },
+    {
+      "case": "fixed_no_stop_python",
+      "method": "static_direct",
+      "cells": 10000,
+      "threads": 1,
+      "seconds": 219.25359646699962,
+      "events": 1492964721,
+      "events_per_second": 6809305.503112737,
+      "numerical_sha256": "7b31a2ef130e7fca5ed00cd8dffd118005472f847c1d7d77ab8c20a7d724778f"
+    },
+    {
+      "case": "observer_overhead",
+      "method": "bare",
+      "cells": 64,
+      "threads": 1,
+      "seconds": 0.002211824999903911,
+      "observations_seconds": [
+        0.0029075209999973595,
+        0.0020197659996483708,
+        0.002211824999903911
+      ],
+      "events": 12505
+    },
+    {
+      "case": "observer_overhead",
+      "method": "tracker_log",
+      "cells": 64,
+      "threads": 1,
+      "seconds": 0.15648300000020754,
+      "observations_seconds": [
+        0.21374955400006002,
+        0.15648300000020754,
+        0.14878904699980922
+      ],
+      "events": 12505
+    },
+    {
+      "case": "observer_overhead",
+      "method": "live_callback",
+      "cells": 64,
+      "threads": 1,
+      "seconds": 0.1104955579999114,
+      "observations_seconds": [
+        0.11818659099981232,
+        0.10546829099985189,
+        0.1104955579999114
+      ],
+      "events": 12505
+    },
+    {
+      "case": "fixed_cox_stop",
+      "method": "static_direct",
+      "cells": 10000,
+      "threads": 20,
+      "seconds": 54.22360051100031,
+      "events": 1431587716,
+      "events_per_second": 26401561.35905388,
+      "stopped": 1058
+    },
+    {
+      "case": "fixedPop",
+      "method": "java_ssa",
+      "cells": 10000,
+      "threads": 20,
+      "seconds": 14.794773406999866,
+      "totals": {
+        "nTakenOver": 1016,
+        "nCOXneg": 1016,
+        "swMutationEvents": 16975,
+        "smMutationEvents": 4277,
+        "swMutantsVanished": 16015,
+        "smMutantsVanished": 2849,
+        "nReplications": 718224417
+      },
+      "output_bytes": 6868641
+    },
+    {
+      "case": "fixedPop",
+      "method": "java_hourly",
+      "cells": 10000,
+      "threads": 20,
+      "seconds": 46.64698644700002,
+      "totals": {
+        "nTakenOver": 972,
+        "nCOXneg": 972,
+        "swMutationEvents": 17352,
+        "smMutationEvents": 4193,
+        "swMutantsVanished": 16379,
+        "smMutantsVanished": 2813,
+        "nReplications": 721104317
+      },
+      "output_bytes": 7067055
+    },
+    {
+      "case": "fixed_cox_stop_retuned",
+      "method": "static_direct",
+      "cells": 10000,
+      "threads": 20,
+      "seconds": 48.44819552100034,
+      "events": 1431587716,
+      "events_per_second": 29548834.597554088,
+      "stopped": 1058
+    },
+    {
+      "case": "variable_atp",
+      "method": "thinning",
+      "cells": 512,
+      "threads": 20,
+      "seconds": 2.8153371120001793,
+      "events": 77829452,
+      "events_per_second": 27644807.31925756,
+      "stopped": 60
+    },
+    {
+      "case": "variablePop",
+      "method": "java_ssa",
+      "cells": 512,
+      "threads": 20,
+      "seconds": 3.8957678110000415,
+      "totals": {
+        "nTakenOver": 63,
+        "nCOXneg": 63,
+        "swMutationEvents": 898,
+        "smMutationEvents": 225,
+        "swMutantsVanished": 841,
+        "smMutantsVanished": 146,
+        "nReplications": 40033872
+      },
+      "output_bytes": 407349
+    }
+  ],
+  "complete": true,
+  "java_source_sha256": "5f31ab5dc7d1e592e4db6d48fcdd318c03fe617d24f7e57e9751b45020c76c11",
+  "full_python_replay": true,
+  "fixed_cross_check": {
+    "takeover_crn": 1058,
+    "takeover_java": 1016,
+    "report_binned_passage_cdf_distance": 0.006499999999999999,
+    "bound": 0.0407284903724703,
+    "passed": true,
+    "mutations_crn": [
+      16936,
+      4166
+    ],
+    "mutations_java": [
+      16975,
+      4277
+    ],
+    "clone_extinctions_java": [
+      16015,
+      2849
+    ],
+    "class_extinctions_crn": [
+      14696,
+      2683
+    ]
+  },
+  "retimed_binary_sha256": "13c21226c8e1f9dbd39bdc2878b2cfd96e6108d2b457c923f48bff43e9270132",
+  "tracker_retime_matched_counts": true,
+  "atp_cross_check": {
+    "cells": 512,
+    "takeover_crn": 60,
+    "takeover_java": 63,
+    "mutations_crn": {
+      "mutation_mt": 919,
+      "mutation_mtAdv": 253
+    },
+    "mutations_java": [
+      898,
+      225
+    ],
+    "report_binned_passage_cdf_distance_descriptive": 0.0234375,
+    "boundary": "Java freezes propensities over its waiting interval, CRN uses continuous thinning."
+  }
+}

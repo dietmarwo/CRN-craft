@@ -45,9 +45,24 @@ name = "crn-craft-python"
 version = "0.2.0-dev.1"
 dependencies = [
  "crn-craft",
+ "crn-craft-rules",
  "pyo3",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "crn-craft-rules"
+version = "0.2.0-dev.1"
+dependencies = [
+ "crn-craft",
+ "libm",
+ "rand_chacha",
+ "rand_core",
+ "schemars",
+ "serde",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]

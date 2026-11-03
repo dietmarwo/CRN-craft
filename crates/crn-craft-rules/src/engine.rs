@@ -1,7 +1,17 @@
 //! Exact direct-method simulation of one replicate.
 
+#[path = "flat_path.rs"]
+mod flat_path;
+#[path = "leap.rs"]
+mod leap;
+#[path = "mtdna_path.rs"]
+mod mtdna_path;
+#[path = "thinning.rs"]
+mod thinning;
+
 use crate::expr::{Draw, Env};
 use crate::model::{Compiled, MAX_COUNT, Reduce, Shape, Source};
+use crate::observe::{Event, EventObserver, Monitor, Observation, ObserverAction, Spec};
 use crate::tree::{MaxTree, PairChoice, PairTree, SumTree};
 use crate::{Control, InstanceRecord, Termination};
 use crn_craft::diagnostic::Diagnostic;
@@ -12,7 +22,7 @@ use std::time::Instant;
 
 /// A positive weight below this fraction of its total cannot be resolved by a
 /// 53-bit uniform.
-const RESOLUTION: f64 = 1.0 / 9_007_199_254_740_992.0;
+pub(crate) const RESOLUTION: f64 = 1.0 / 9_007_199_254_740_992.0;
 const POLL_EVENTS: u64 = 1024;
 
 pub(crate) struct Limits {
@@ -34,15 +44,16 @@ pub(crate) struct PathOutput {
     /// report time × observable, row-major; rows past `saved_points` are 0.
     pub values: Vec<f64>,
     pub diagnostic: Option<Diagnostic>,
+    pub observation: Option<Observation>,
     pub instances: Option<Vec<InstanceRecord>>,
 }
 
-enum Halt {
+pub(crate) enum Halt {
     Limit(Termination, Diagnostic),
     Numerical(Diagnostic),
 }
 
-fn numerical(path: &str, message: impl Into<String>, hint: &str) -> Halt {
+pub(crate) fn numerical(path: &str, message: impl Into<String>, hint: &str) -> Halt {
     Halt::Numerical(Diagnostic::error("CRN-R030", path, message, hint))
 }
 
@@ -507,13 +518,33 @@ impl<'m> State<'m> {
     }
 }
 
-struct Words<'r, R: RngCore> {
+pub(crate) struct Words<'r, R: RngCore> {
     rng: &'r mut R,
     used: u64,
     max: u64,
 }
+#[cfg(test)]
+impl<'r, R: RngCore> Words<'r, R> {
+    pub(crate) fn for_test(rng: &'r mut R, max: u64) -> Self {
+        Self { rng, used: 0, max }
+    }
+}
+
 impl<R: RngCore> Words<'_, R> {
-    fn uniform(&mut self) -> Result<f64, Halt> {
+    pub(crate) fn open(&mut self) -> Result<f64, Halt> {
+        loop {
+            let u = self.uniform()?;
+            if u > 0.0 {
+                return Ok(u);
+            }
+        }
+    }
+
+    pub(crate) fn uniform(&mut self) -> Result<f64, Halt> {
+        Ok(uniform_closed_open(self.word()?))
+    }
+
+    pub(crate) fn word(&mut self) -> Result<u64, Halt> {
         if self.used >= self.max {
             return Err(Halt::Limit(
                 Termination::SamplingLimit,
@@ -526,7 +557,7 @@ impl<R: RngCore> Words<'_, R> {
             ));
         }
         self.used += 1;
-        Ok(uniform_closed_open(self.rng.next_u64()))
+        Ok(self.rng.next_u64())
     }
 }
 
@@ -537,10 +568,19 @@ pub(crate) struct Path<'a> {
     pub limits: &'a Limits,
     pub control: &'a Control,
     pub keep_instances: bool,
+    pub observations: &'a Spec,
+    pub id: u64,
+    pub flat: Option<&'a crate::flat::Network>,
+    pub mtdna: Option<&'a crate::mtdna::Kernel>,
+    pub method: crate::Method,
 }
 
 impl Path<'_> {
-    pub(crate) fn run<R: RngCore>(&self, rng: &mut R) -> PathOutput {
+    pub(crate) fn run<R: RngCore, O: EventObserver>(
+        &self,
+        rng: &mut R,
+        observer: &O,
+    ) -> PathOutput {
         let model = self.model;
         let n_obs = model.observables.len();
         let mut out = PathOutput {
@@ -554,25 +594,61 @@ impl Path<'_> {
             saved_points: 0,
             values: vec![0.0; self.report_times.len() * n_obs],
             diagnostic: None,
+            observation: None,
             instances: None,
         };
-        let mut state = State::new(model, self.limits.max_instances);
         let mut words = Words {
             rng,
             used: 0,
             max: self.limits.max_words,
         };
         let mut time = 0.0;
-        let result = self.simulate(&mut state, &mut words, &mut out, &mut time);
+        let mut monitor = self
+            .observations
+            .enabled()
+            .then(|| Monitor::new(self.observations, self.id));
+        let mut values = vec![0.0; n_obs];
+        let result = if let Some(network) = self.flat {
+            let mut counts = network.initial();
+            let result = self.simulate_flat(
+                network,
+                &mut counts,
+                &mut values,
+                &mut words,
+                &mut out,
+                &mut time,
+                &mut monitor,
+                observer,
+            );
+            if self.keep_instances {
+                out.instances = Some(network.instances(&counts));
+            }
+            result
+        } else {
+            let mut state = State::new(model, self.limits.max_instances);
+            let result = self.simulate(
+                &mut state,
+                &mut words,
+                &mut out,
+                &mut time,
+                &mut monitor,
+                observer,
+            );
+            out.peak_instances = state.peak;
+            out.created_instances = state.created;
+            if self.keep_instances {
+                out.instances = Some(state.instances());
+            }
+            values = state.values;
+            result
+        };
         out.rng_words = words.used;
-        out.peak_instances = state.peak;
-        out.created_instances = state.created;
         match result {
             Ok(stopped) => {
                 // The state is held to the end of the grid.
                 while out.saved_points < self.report_times.len() {
                     let row = out.saved_points * n_obs;
-                    out.values[row..row + n_obs].copy_from_slice(&state.values);
+                    out.values[row..row + n_obs].copy_from_slice(&values);
                     out.saved_points += 1;
                 }
                 if let Some(at) = stopped {
@@ -593,24 +669,43 @@ impl Path<'_> {
                 out.stop_time = time;
             }
         }
-        if self.keep_instances {
-            out.instances = Some(state.instances());
+        if let Some(observation) = monitor.and_then(|m| m.finish(out.stop_time)) {
+            if observation
+                .trackers
+                .iter()
+                .any(|t| !t.integral.is_finite() || !t.omitted_duration.is_finite())
+            {
+                out.termination = Termination::Failed;
+                out.diagnostic = Some(Diagnostic::error(
+                    "CRN-R030",
+                    "/trackers",
+                    "tracker integral or duration exceeds numerical range",
+                    "Rescale the observable or the time horizon.",
+                ));
+            } else {
+                out.observation = Some(observation);
+            }
         }
         out
     }
 
     fn stop_now(&self, state: &State) -> Result<bool, Halt> {
+        self.stop_values(&state.values)
+    }
+
+    fn stop_values(&self, values: &[f64]) -> Result<bool, Halt> {
         let Some(e) = self.model.stop.as_ref() else {
             return Ok(false);
         };
-        let value = e.eval(&state.global_env());
+        let value = e.eval(&Env {
+            params: &self.model.params,
+            observables: values,
+            attributes: [&[], &[]],
+        });
         if value.is_nan() {
             return Err(numerical(
                 "/stop",
-                format!(
-                    "stop condition is undefined (NaN) at observables {:?}",
-                    state.values
-                ),
+                format!("stop condition is undefined (NaN) at observables {values:?}"),
                 "Guard divisions so the stop condition is defined in every state.",
             ));
         }
@@ -645,12 +740,14 @@ impl Path<'_> {
 
     /// Returns the stop time if the stop condition fired.
     #[allow(clippy::too_many_lines, clippy::cast_precision_loss)]
-    fn simulate<R: RngCore>(
+    fn simulate<R: RngCore, O: EventObserver>(
         &self,
         state: &mut State,
         words: &mut Words<R>,
         out: &mut PathOutput,
         time: &mut f64,
+        monitor: &mut Option<Monitor<'_>>,
+        observer: &O,
     ) -> Result<Option<f64>, Halt> {
         let model = self.model;
         let n_obs = model.observables.len();
@@ -659,6 +756,9 @@ impl Path<'_> {
             state.add(*t, attrs, *count)?;
         }
         state.refresh()?;
+        if let Some(m) = monitor {
+            m.start(&model.params, &state.values);
+        }
         if self.stop_now(state)? {
             return Ok(Some(0.0));
         }
@@ -840,7 +940,39 @@ impl Path<'_> {
             out.events += 1;
             out.rule_events[r] += 1;
             state.refresh()?;
-            if self.stop_now(state)? {
+            let stopped = if O::ENABLED || monitor.is_some() {
+                let participants =
+                    O::ENABLED || monitor.as_ref().is_some_and(|m| m.keeps_exact_event(r));
+                let (rs, ps) = if participants {
+                    let rs = rule
+                        .reactant_types
+                        .iter()
+                        .copied()
+                        .zip(&reactants)
+                        .map(|(t, a)| (t, a.as_slice()))
+                        .collect();
+                    let ps = products.iter().map(|(t, a)| (*t, a.as_slice())).collect();
+                    (rs, ps)
+                } else {
+                    (Vec::new(), Vec::new())
+                };
+                let event = Event {
+                    replicate: self.id,
+                    time: next,
+                    rule: Some(r),
+                    reactants: &rs,
+                    products: &ps,
+                    observables: &state.values,
+                    firings: &[],
+                };
+                if let Some(m) = monitor {
+                    m.observe(&event, &model.params);
+                }
+                observer.on_event(&event) == ObserverAction::Stop
+            } else {
+                false
+            };
+            if stopped || self.stop_now(state)? {
                 return Ok(Some(next));
             }
         }

@@ -1,0 +1,30 @@
+{
+  "contracts": {
+    "normal_equals_optimized": true,
+    "sha256": "e789a98d10b5766ddaba192e58ec757306554f020284931c16e9024c147876fb"
+  },
+  "alternative_contracts": {
+    "normal_equals_optimized": true,
+    "sha256": "76c9f33c3c04447fa296aeec1832cb100cfa045cdc3e5fcf69688a3c42c98c80"
+  },
+  "legacy_rules": {
+    "normal_equals_optimized": true,
+    "sha256": "db061e517ccc7e9ab3c05a9e533567f96af4a04df79479c75aac6ba9ae876ca5"
+  },
+  "mtdna": {
+    "normal_equals_optimized": true,
+    "sha256": "a9573c2aaebeff6a55db5a4c03ede2503afb1df0028754cc1d6729bbeae127c5"
+  },
+  "dependency_audit": {
+    "normal_equals_optimized": true,
+    "sha256": "c18d4f0eda226dae4f1930ecf55212e17f1df060ee6dbc6546398b783ac6bc86"
+  },
+  "rules_python": {
+    "normal_equals_optimized": true,
+    "sha256": "11694b51a5edf3dcb41317a59a9a7d279fd3c1c157009ab8e52d0717285f8bae"
+  },
+  "rust_release_tests": {
+    "passed": 223,
+    "rust": "1.88.0"
+  }
+}

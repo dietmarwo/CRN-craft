@@ -96,6 +96,9 @@ jobs:
       - run: python validation/check_rules.py --output rules.json
       - run: python -O validation/check_rules.py --output rules-optimized.json
       - run: diff rules.json rules-optimized.json
+      - run: python validation/check_mtdna.py --binary target/release/crn-craft --output mtdna.json
+      - run: python -O validation/check_mtdna.py --binary target/release/crn-craft --output mtdna-optimized.json
+      - run: diff mtdna.json mtdna-optimized.json
   python:
     # The wheel, its console scripts and the Python-level checks.
     runs-on: ubuntu-latest
@@ -112,6 +115,9 @@ jobs:
       - run: python validation/check_python.py --binary target/release/crn-craft --output python.json
       - run: python -O validation/check_python.py --binary target/release/crn-craft --output python-optimized.json
       - run: diff python.json python-optimized.json
+      - run: python validation/check_rules_python.py --output rules-python.json
+      - run: python -O validation/check_rules_python.py --output rules-python-optimized.json
+      - run: diff rules-python.json rules-python-optimized.json
       - run: python validation/check_alternative_contracts.py --binary target/release/crn-craft --output alternative-contracts.json
       - run: python -O validation/check_alternative_contracts.py --binary target/release/crn-craft --output alternative-contracts-optimized.json
       - run: diff alternative-contracts.json alternative-contracts-optimized.json

@@ -213,6 +213,7 @@ or stopped.
 | CRN-R031 | weight below 53-bit resolution |
 | CRN-R040–R045 | event, sampling, instance (including a count above 2⁵³), wall-time, cancellation and output limits |
 | CRN-R050 | warning: incomplete ensemble, statistics withheld |
+| CRN-R051 | warning: `mtdna_direct` could not certify the model and ran Static Direct; the message gives the reason |
 
 ## Validation (K1)
 
@@ -225,10 +226,20 @@ share one DKW family at alpha 0.001. Results: `validation/rules/RESULTS.md`.
 
 ## Limits of 0.1
 
-- No time-dependent rates or ODE coupling (Kowald's variable-population model
-  with ATP needs these; planned as K2), no compartments.
+- No general time-dependent rates or ODE coupling. rules-model/0.2 adds one
+  case, the ATP flow of Kowald's variable-population model, solved with
+  exact thinning ([mtDNA ensembles](mtdna-rules.md)). No compartments.
 - Two different patterns over one type, three or more reactants, and counts
   inside expressions (largest clone *size*) are not supported yet.
-- No Python builder; models are JSON.
-- Performance is not yet benchmarked; propensities of all rules are
-  recomputed after every event, which suits models with few rules.
+- Models are JSON. `crn_craft.rules` prepares and runs ensembles from Python
+  ([mtDNA ensembles](mtdna-rules.md)).
+- The tree method recomputes the propensities of all rules after every
+  event, which suits models with few rules. Closed models can use the
+  static methods; benchmarks are in `validation/mtdna/`.
+
+## Prepared Python ensembles and static methods
+
+The mtDNA extension adds `crn_craft.rules`, event observation, fixed-channel
+Direct and next reaction, approximate leaps, and ATP thinning. See the
+[mtDNA rules guide](mtdna-rules.md) for the version 0.2 contracts, examples,
+supported model shapes and validation commands.

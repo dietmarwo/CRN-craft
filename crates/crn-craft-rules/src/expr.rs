@@ -124,6 +124,35 @@ fn uniform(word: u64) -> f64 {
 }
 
 impl Expr {
+    /// Recognize the guarded fixed-population takeover predicate.
+    pub(crate) fn fraction_stop(&self, total: usize, mutants: usize) -> Option<f64> {
+        let Node::Bin(Op::And, guard, predicate) = &self.root else {
+            return None;
+        };
+        let total = Node::Var(Slot::Observable(total));
+        let mutants = Node::Var(Slot::Observable(mutants));
+        let Node::Bin(Op::Gt, left, right) = guard.as_ref() else {
+            return None;
+        };
+        if **left != total || **right != Node::Num(0.0) {
+            return None;
+        }
+        let Node::Bin(Op::Ge, left, right) = predicate.as_ref() else {
+            return None;
+        };
+        let Node::Bin(Op::Mul, fraction, population) = right.as_ref() else {
+            return None;
+        };
+        match fraction.as_ref() {
+            Node::Num(f)
+                if **left == mutants && **population == total && (0.0..=1.0).contains(f) =>
+            {
+                Some(*f)
+            }
+            _ => None,
+        }
+    }
+
     pub(crate) fn parse(source: &str, scope: &Scope) -> Result<Self, String> {
         let tokens = lex(source)?;
         let mut parser = Parser {
@@ -537,9 +566,188 @@ impl Parser<'_, '_> {
     }
 }
 
+impl Expr {
+    /// Whether all inputs are available without a reactant or a random draw.
+    pub(crate) fn parameter_only(&self) -> bool {
+        fn check(node: &Node) -> bool {
+            match node {
+                Node::Num(_) | Node::Var(Slot::Param(_)) => true,
+                Node::Var(_) => false,
+                Node::Neg(a) | Node::Not(a) => check(a),
+                Node::Bin(_, a, b) => check(a) && check(b),
+                Node::Call(f, args) => {
+                    !matches!(
+                        f,
+                        Func::Bernoulli | Func::Choice | Func::Uniform | Func::Normal | Func::NewId
+                    ) && args.iter().all(check)
+                }
+            }
+        }
+        check(&self.root)
+    }
+
+    pub(crate) fn deterministic(&self) -> bool {
+        fn check(node: &Node) -> bool {
+            match node {
+                Node::Num(_) | Node::Var(_) => true,
+                Node::Neg(a) | Node::Not(a) => check(a),
+                Node::Bin(_, a, b) => check(a) && check(b),
+                Node::Call(f, args) => {
+                    !matches!(
+                        f,
+                        Func::Bernoulli | Func::Choice | Func::Uniform | Func::Normal | Func::NewId
+                    ) && args.iter().all(check)
+                }
+            }
+        }
+        check(&self.root)
+    }
+
+    pub(crate) fn reads(&self, flags: &mut [bool]) {
+        fn visit(node: &Node, flags: &mut [bool]) {
+            match node {
+                Node::Var(Slot::Observable(i)) => flags[*i] = true,
+                Node::Neg(a) | Node::Not(a) => visit(a, flags),
+                Node::Bin(_, a, b) => {
+                    visit(a, flags);
+                    visit(b, flags);
+                }
+                Node::Call(_, args) => {
+                    for arg in args {
+                        visit(arg, flags);
+                    }
+                }
+                Node::Num(_) | Node::Var(_) => {}
+            }
+        }
+        visit(&self.root, flags);
+    }
+
+    pub(crate) fn kernel(&self, params: &[f64]) -> RateKernel {
+        if self.parameter_only() {
+            return RateKernel::Constant(self.eval(&Env {
+                params,
+                observables: &[],
+                attributes: [&[], &[]],
+            }));
+        }
+        let mut root = &self.root;
+        let mut factors = Vec::new();
+        while let Node::Bin(Op::Mul, left, right) = root {
+            let right = Self {
+                root: (**right).clone(),
+            };
+            if !right.parameter_only() {
+                break;
+            }
+            factors.push(right.eval(&Env {
+                params,
+                observables: &[],
+                attributes: [&[], &[]],
+            }));
+            root = left;
+        }
+        let vacancy = || {
+            let Node::Bin(Op::Div, num, den) = root else {
+                return None;
+            };
+            let Node::Var(Slot::Observable(d)) = den.as_ref() else {
+                return None;
+            };
+            let Node::Call(Func::Max, args) = num.as_ref() else {
+                return None;
+            };
+            if args[0] != Node::Num(0.0) {
+                return None;
+            }
+            let Node::Bin(Op::Sub, k, n) = &args[1] else {
+                return None;
+            };
+            let Node::Var(Slot::Observable(n)) = n.as_ref() else {
+                return None;
+            };
+            let limit = Self {
+                root: (**k).clone(),
+            };
+            if !limit.parameter_only() {
+                return None;
+            }
+            let limit = limit.eval(&Env {
+                params,
+                observables: &[],
+                attributes: [&[], &[]],
+            });
+            if !limit.is_finite() {
+                return None;
+            }
+            factors.reverse();
+            Some(RateKernel::Vacancy {
+                limit,
+                count: *n,
+                denominator: *d,
+                factors,
+            })
+        };
+        if let Some(kernel) = vacancy() {
+            return kernel;
+        }
+        RateKernel::Expression(self.clone())
+    }
+}
+
+pub(crate) enum RateKernel {
+    Constant(f64),
+    Vacancy {
+        limit: f64,
+        count: usize,
+        denominator: usize,
+        factors: Vec<f64>,
+    },
+    Expression(Expr),
+}
+
+impl RateKernel {
+    pub(crate) fn eval(&self, env: &Env<'_>) -> f64 {
+        match self {
+            Self::Constant(value) => *value,
+            Self::Vacancy {
+                limit,
+                count,
+                denominator,
+                factors,
+            } => {
+                let base =
+                    (limit - env.observables[*count]).max(0.0) / env.observables[*denominator];
+                factors.iter().fold(base, |x, f| x * f)
+            }
+            Self::Expression(expr) => expr.eval(env),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn vacancy_kernel_keeps_undefined_limit_undefined() {
+        let params = BTreeMap::new();
+        let names = BTreeMap::from([("N".into(), 0), ("D".into(), 1)]);
+        let scope = Scope {
+            params: &params,
+            observables: Some(&names),
+            reactants: &[],
+            random: false,
+        };
+        let expr = Expr::parse("max(0, log(-1) - N) / D", &scope).unwrap();
+        let env = Env {
+            params: &[],
+            observables: &[1.0, 1.0],
+            attributes: [&[], &[]],
+        };
+        assert!(expr.eval(&env).is_nan());
+        assert!(expr.kernel(&[]).eval(&env).is_nan());
+    }
 
     fn eval(source: &str) -> f64 {
         let params = BTreeMap::from([("k".to_string(), 0usize)]);

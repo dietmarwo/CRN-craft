@@ -31,6 +31,38 @@
       ],
       "type": "object"
     },
+    "Episode": {
+      "additionalProperties": false,
+      "properties": {
+        "duration": {
+          "description": "Observed duration, including the observed part of an open episode.",
+          "format": "double",
+          "type": "number"
+        },
+        "end": {
+          "description": "Open at the end of observation when absent.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "peak": {
+          "format": "double",
+          "type": "number"
+        },
+        "start": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "duration",
+        "peak",
+        "start"
+      ],
+      "type": "object"
+    },
     "FinalInstances": {
       "additionalProperties": false,
       "properties": {
@@ -79,6 +111,104 @@
         "attributes",
         "count",
         "type_index"
+      ],
+      "type": "object"
+    },
+    "LogEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "firings": {
+          "items": {
+            "items": [
+              {
+                "format": "uint",
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "format": "uint64",
+                "minimum": 0.0,
+                "type": "integer"
+              }
+            ],
+            "maxItems": 2,
+            "minItems": 2,
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "observables": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "products": {
+          "items": {
+            "$ref": "#/definitions/InstanceRecord"
+          },
+          "type": "array"
+        },
+        "reactants": {
+          "items": {
+            "$ref": "#/definitions/InstanceRecord"
+          },
+          "type": "array"
+        },
+        "rule": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "time": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "firings",
+        "observables",
+        "products",
+        "reactants",
+        "time"
+      ],
+      "type": "object"
+    },
+    "Observation": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "log": {
+          "items": {
+            "$ref": "#/definitions/LogEntry"
+          },
+          "type": "array"
+        },
+        "omitted_log_entries": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "trackers": {
+          "items": {
+            "$ref": "#/definitions/TrackerResult"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "log",
+        "omitted_log_entries",
+        "trackers"
       ],
       "type": "object"
     },
@@ -190,7 +320,8 @@
     },
     "ResultVersion": {
       "enum": [
-        "crn-craft.rules-result/0.1"
+        "crn-craft.rules-result/0.1",
+        "crn-craft.rules-result/0.2"
       ],
       "type": "string"
     },
@@ -279,6 +410,91 @@
         }
       ]
     },
+    "TrackerResult": {
+      "additionalProperties": false,
+      "properties": {
+        "appearances": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "episodes": {
+          "items": {
+            "$ref": "#/definitions/Episode"
+          },
+          "type": "array"
+        },
+        "extinctions": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "first_passage": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "integral": {
+          "format": "double",
+          "type": "number"
+        },
+        "last_appearance": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "last_extinction": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "maximum": {
+          "format": "double",
+          "type": "number"
+        },
+        "minimum": {
+          "format": "double",
+          "type": "number"
+        },
+        "observable": {
+          "type": "string"
+        },
+        "omitted_duration": {
+          "format": "double",
+          "type": "number"
+        },
+        "omitted_episodes": {
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "omitted_peak": {
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "appearances",
+        "episodes",
+        "extinctions",
+        "integral",
+        "maximum",
+        "minimum",
+        "observable",
+        "omitted_duration",
+        "omitted_episodes"
+      ],
+      "type": "object"
+    },
     "TypeHeader": {
       "additionalProperties": false,
       "properties": {
@@ -328,6 +544,12 @@
     "observables": {
       "items": {
         "type": "string"
+      },
+      "type": "array"
+    },
+    "observations": {
+      "items": {
+        "$ref": "#/definitions/Observation"
       },
       "type": "array"
     },

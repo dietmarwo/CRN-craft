@@ -1,0 +1,211 @@
+{
+  "schema": "crn-craft.rules-model/0.1",
+  "name": "mtdna_three_class",
+  "description": "Three fixed mtDNA classes with the Kowald competition term and explicit mutation channels.",
+  "parameters": {
+    "K": 20,
+    "delta": 1.0,
+    "sw": 1.0,
+    "sm": 1.5,
+    "mu": 0.1,
+    "fracAdv": 0.5,
+    "w0": 20
+  },
+  "types": [
+    {
+      "name": "mtDNA",
+      "attributes": [
+        "clone",
+        "s",
+        "wt"
+      ]
+    }
+  ],
+  "initial": [
+    {
+      "type": "mtDNA",
+      "attributes": {
+        "clone": 0,
+        "s": "sw",
+        "wt": 1
+      },
+      "count": "w0"
+    }
+  ],
+  "observables": {
+    "N": {
+      "type": "mtDNA"
+    },
+    "wild_type": {
+      "type": "mtDNA",
+      "where": "x.wt == 1"
+    },
+    "mutants": {
+      "type": "mtDNA",
+      "where": "x.wt == 0"
+    },
+    "advantaged_mutants": {
+      "type": "mtDNA",
+      "where": "x.clone == 2"
+    },
+    "D": {
+      "type": "mtDNA",
+      "weight": "x.wt + sm * (1 - x.wt)"
+    },
+    "neutral_mutants": {
+      "type": "mtDNA",
+      "where": "x.clone == 1"
+    }
+  },
+  "rules": [
+    {
+      "name": "degradation_wt",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "where": "x.clone == 0"
+        }
+      ],
+      "rate": "delta",
+      "products": []
+    },
+    {
+      "name": "replication_wt",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "where": "x.clone == 0"
+        }
+      ],
+      "rate": "max(0, K - N) / D * (sw * (1 - mu))",
+      "products": [
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        },
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        }
+      ]
+    },
+    {
+      "name": "mutation_mt",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "where": "x.clone == 0"
+        }
+      ],
+      "rate": "max(0, K - N) / D * sw * mu * (1 - fracAdv)",
+      "products": [
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        },
+        {
+          "type": "mtDNA",
+          "attributes": {
+            "clone": 1,
+            "s": "sw",
+            "wt": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "mutation_mtAdv",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "where": "x.clone == 0"
+        }
+      ],
+      "rate": "max(0, K - N) / D * sw * mu * fracAdv",
+      "products": [
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        },
+        {
+          "type": "mtDNA",
+          "attributes": {
+            "clone": 2,
+            "s": "sm",
+            "wt": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "degradation_mt",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "where": "x.clone == 1"
+        }
+      ],
+      "rate": "delta",
+      "products": []
+    },
+    {
+      "name": "replication_mt",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "where": "x.clone == 1"
+        }
+      ],
+      "rate": "max(0, K - N) / D * (sw)",
+      "products": [
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        },
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        }
+      ]
+    },
+    {
+      "name": "degradation_mtAdv",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "where": "x.clone == 2"
+        }
+      ],
+      "rate": "delta",
+      "products": []
+    },
+    {
+      "name": "replication_mtAdv",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "where": "x.clone == 2"
+        }
+      ],
+      "rate": "max(0, K - N) / D * (sm)",
+      "products": [
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        },
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        }
+      ]
+    }
+  ]
+}

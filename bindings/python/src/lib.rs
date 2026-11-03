@@ -1,4 +1,6 @@
 //! Minimal JSON bridge; numerical semantics and validators live in the core.
+mod rules;
+
 use crn_craft::simulation::Control;
 use pyo3::{
     create_exception,
@@ -40,6 +42,15 @@ fn interruptible<T: Send + 'static>(
 ) -> PyResult<T> {
     let mut control = Control::default();
     control.cancel_file = cancel_file.map(PathBuf::from);
+    run_interruptible(py, control, Control::cancel, work)
+}
+
+fn run_interruptible<C: Send + Sync + 'static, T: Send + 'static>(
+    py: Python<'_>,
+    control: C,
+    cancel: fn(&C),
+    work: impl FnOnce(&C) -> T + Send + 'static,
+) -> PyResult<T> {
     let control = Arc::new(control);
     let shared = Arc::clone(&control);
     let (sender, mut receiver) = mpsc::channel();
@@ -62,7 +73,7 @@ fn interruptible<T: Send + 'static>(
             Err(mpsc::RecvTimeoutError::Timeout) => {
                 if signal.is_none() {
                     if let Err(error) = py.check_signals() {
-                        control.cancel();
+                        cancel(&control);
                         signal = Some(error);
                     }
                 }
@@ -307,6 +318,7 @@ fn fsp_json(
 #[pymodule]
 fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<ParameterTemplateRun>()?;
+    rules::register(module)?;
     module.add_class::<BoundParameterRun>()?;
     module.add_function(wrap_pyfunction!(prepare_parameters_json, module)?)?;
     module.add_function(wrap_pyfunction!(mass_action_kernel_source, module)?)?;
@@ -405,6 +417,7 @@ fn check_files_json(model: String, run: Option<String>) -> String {
 #[pyfunction]
 fn schema_json(kind: String) -> PyResult<String> {
     crn_craft::schema(&kind)
+        .or_else(|| crn_craft_rules::schema(&kind))
         .map(|v| v.to_string())
         .ok_or_else(|| PyValueError::new_err("unknown schema"))
 }

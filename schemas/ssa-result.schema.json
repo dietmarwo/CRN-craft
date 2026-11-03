@@ -8,7 +8,8 @@
         "cached_direct",
         "direct_cr",
         "sorting_direct",
-        "rssa_cr"
+        "rssa_cr",
+        "next_reaction"
       ],
       "type": "string"
     },
@@ -58,7 +59,7 @@
               "$ref": "#/definitions/Algorithm"
             },
             "fast": {
-              "description": "Not allowed in ssa-run/0.1; default false in 0.2 and true in 0.3. Emulates JumpProcesses.jl: Xoshiro256++ words, running totals updated by `+= new - old` without loss or 53-bit resolution checks, and stop polls per batch of events instead of per random word. Selection stays exact for the running totals; paths differ from the checked policy and replay only with the same setting.",
+              "description": "Not allowed in ssa-run/0.1; default false in 0.2 and true in 0.3 and 0.4, except for next reaction, which is checked only. Emulates JumpProcesses.jl: Xoshiro256++ words, running totals updated by `+= new - old` without loss or 53-bit resolution checks, and stop polls per batch of events instead of per random word. Selection stays exact for the running totals; paths differ from the checked policy and replay only with the same setting.",
               "type": "boolean"
             },
             "kind": {
@@ -152,6 +153,13 @@
           "description": "Answers an ssa-run/0.3 request; `method.fast` is always present.",
           "enum": [
             "crn-craft.ssa-result/0.3"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Answers an ssa-run/0.4 request; `method.fast` is always present.",
+          "enum": [
+            "crn-craft.ssa-result/0.4"
           ],
           "type": "string"
         }

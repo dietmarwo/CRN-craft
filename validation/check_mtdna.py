@@ -476,6 +476,15 @@ def check_specialized(binary, folder, rows):
     _, static = sample(binary, folder, model, **(options | {"method": "static_direct"}))
     fallback.pop("run_sha256")
     static.pop("run_sha256")
+    # The fallback states its reason; everything else is the static replay.
+    warnings = [d for d in fallback["diagnostics"] if d["code"] == "CRN-R051"]
+    require(
+        len(warnings) == 1 and "stop" in warnings[0]["message"],
+        "fallback reason missing",
+    )
+    fallback["diagnostics"] = [
+        d for d in fallback["diagnostics"] if d["code"] != "CRN-R051"
+    ]
     require(fallback == static, "unsupported stop changed static replay")
     row(rows, "mtdna_direct/replay-tracking-budgets-and-fallback", 0.0, 0.0)
     print("checked specialized mtDNA", flush=True)

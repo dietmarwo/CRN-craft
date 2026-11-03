@@ -333,6 +333,8 @@ impl Default for Method {
 pub struct Prepared {
     source: Model,
     mtdna: Option<mtdna::Kernel>,
+    /// Why `mtdna_direct` runs Static Direct instead, when it does.
+    mtdna_fallback: Option<&'static str>,
     compiled: model::Compiled,
     observations: observe::Spec,
     flat: Option<flat::Network>,
@@ -633,15 +635,19 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
             "Select tau or exact SSA for other channels.",
         )]);
     }
-    let mtdna = if request.method == Some(Method::MtdnaDirect {}) {
-        flat.as_ref()
-            .and_then(|net| mtdna::Kernel::compile(net, &compiled, &observations))
-    } else {
-        None
+    let (mtdna, mtdna_fallback) = match (request.method, flat.as_ref()) {
+        (Some(Method::MtdnaDirect {}), Some(net)) => {
+            match mtdna::Kernel::compile(net, &compiled, &observations) {
+                Ok(kernel) => (Some(kernel), None),
+                Err(reason) => (None, Some(reason)),
+            }
+        }
+        _ => (None, None),
     };
     Ok(Prepared {
         source: model,
         mtdna,
+        mtdna_fallback,
         compiled,
         flat,
         observations,
@@ -981,6 +987,14 @@ pub fn execute_with_observer<O: EventObserver>(
             "/replicates",
             "ensemble incomplete; statistics withheld",
             "See the per-replicate terminations and diagnostics.",
+        ));
+    }
+    if let Some(reason) = prepared.mtdna_fallback {
+        diagnostics.push(Diagnostic::warning(
+            "CRN-R051",
+            "/method",
+            format!("mtdna_direct ran Static Direct: {reason}"),
+            "The result is exact; check `sampler` before comparing replays.",
         ));
     }
     let mut result = RulesResult {

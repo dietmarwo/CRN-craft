@@ -89,14 +89,17 @@ Use `{"schema": "crn-craft.rules-run/0.3", "method": {"kind": "mtdna_direct"}}`
 in the corresponding request fields, or pass `method="mtdna_direct"` to
 `rules.ensemble`. The result uses the existing rules-result/0.2 shape.
 The sampler `chacha8-u53-ziggurat/rules-mtdna-direct/1` confirms that the
-specialization executed. The static sampler identity identifies a fallback.
+specialization executed. On a fallback the result carries the Static Direct
+sampler identity and a `CRN-R051` warning that names the reason.
 The same seed gives a different trajectory under the two samplers.
 Each sampler preserves its own completed numerical results across worker counts.
 
 Preparation verifies the lowered channels, unit state updates, constant
 degradation, common vacancy law, integer capacity up to 1,000,000 and a
-positive competition denominator. It certifies rate bounds and supports no stop or the guarded
-mutant fraction predicate shown above. Unsupported static models or parameter
+positive competition denominator. It certifies that in every reachable state
+each positive hazard is at least 16 × 2⁻⁵³ of the total, evaluated at the
+worst state (one vacancy, one molecule of the class). It supports no stop or
+the guarded mutant fraction predicate shown above. Unsupported static models or parameter
 ranges use Static Direct. Models with changing instance identities use
 `tree`. ATP requires `thinning`.
 

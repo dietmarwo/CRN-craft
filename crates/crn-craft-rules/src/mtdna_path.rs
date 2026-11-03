@@ -48,7 +48,8 @@ impl Path<'_> {
                 words.word()
             })? / rate;
             let next = *time + wait;
-            if !wait.is_finite() || next <= *time {
+            // An overflowing wait lies beyond the horizon, as in Static Direct.
+            if next.is_nan() || next <= *time {
                 return Err(numerical(
                     "/time",
                     "clock failed to advance",
@@ -117,12 +118,21 @@ impl Path<'_> {
             let channel = kernel.channels[slot];
             out.rule_events[net.channels[channel].rule] += 1;
             *time = next;
+            // Count trackers integrate between changes of their class whether
+            // or not an observer is attached, so observing cannot change them.
+            let counted = monitor.is_some() && kernel.count_trackers.is_some();
             let mut stopped = false;
-            if O::ENABLED || (monitor.is_some() && kernel.count_trackers.is_none()) {
+            if O::ENABLED || (monitor.is_some() && !counted) {
                 net.refresh(counts, values)?;
-                stopped = self.observe_flat(net, channel, values, next, monitor, observer);
-            } else if let (Some(m), Some(indices)) = (&mut *monitor, &kernel.count_trackers) {
+            }
+            if let (true, Some(m), Some(indices)) = (counted, &mut *monitor, &kernel.count_trackers)
+            {
                 m.observe_count(&indices[species], counts[species] as f64, next);
+                if O::ENABLED {
+                    stopped = self.observe_flat(net, channel, values, next, &mut None, observer);
+                }
+            } else if O::ENABLED || monitor.is_some() {
+                stopped = self.observe_flat(net, channel, values, next, monitor, observer);
             }
             if stopped
                 || kernel.threshold.is_some_and(|threshold| {

@@ -103,3 +103,186 @@ fn method_and_log_diagnostics_name_the_right_field() {
         Some(("CRN-R020".into(), "/event_log".into()))
     );
 }
+
+const V03: &str = "crn-craft.rules-run/0.3";
+const SPECIALIZED: &str = "chacha8-u53-ziggurat/rules-mtdna-direct/1";
+
+fn with_parameters(edit: &[(&str, f64)]) -> Value {
+    let mut model = three_class();
+    for (name, value) in edit {
+        model["parameters"][*name] = json!(*value);
+    }
+    model
+}
+
+fn solve_values(model: &Value, request: &Value) -> RulesResult {
+    solve(
+        &serde_json::to_vec(model).unwrap(),
+        &serde_json::to_vec(request).unwrap(),
+        &Control::default(),
+    )
+    .unwrap()
+}
+
+#[test]
+fn mtdna_infinite_wait_runs_to_the_horizon_like_static_direct() {
+    // A hazard so small that the unit exponential divided by it overflows.
+    let text = THREE_CLASS.replace("max(0, K - N) / D * (sm)", "max(0, K - N) / D * (sw)");
+    let mut model: Value = serde_json::from_str(&text).unwrap();
+    for (name, value) in [("K", 1.0), ("w0", 1.0), ("sw", 0.0), ("delta", 2.3e-308)] {
+        model["parameters"][name] = json!(value);
+    }
+    let bytes = serde_json::to_vec(&model).unwrap();
+    for method in ["mtdna_direct", "static_direct"] {
+        let mut req = request_v(V03, &bytes, 2000, 1.0, &[0.0, 1.0]);
+        req["method"] = json!({"kind": method});
+        let result = solve_values(&model, &req);
+        if method == "mtdna_direct" {
+            assert_eq!(result.sampler, SPECIALIZED);
+        }
+        assert!(
+            result
+                .replicates
+                .iter()
+                .all(|r| r.termination == Termination::Completed),
+            "{method} failed a path"
+        );
+    }
+}
+
+#[test]
+fn mtdna_certification_covers_realistic_parameters_and_explains_fallback() {
+    for edit in [
+        vec![],
+        vec![("K", 1e5), ("w0", 1e5)],
+        vec![("fracAdv", 1e-6)],
+        vec![("fracAdv", 0.0)],
+        vec![("mu", 1e-7)],
+    ] {
+        let model = with_parameters(&edit);
+        let prepared = prepare_with(&model, V03, |r| {
+            r["method"] = json!({"kind": "mtdna_direct"})
+        })
+        .unwrap();
+        assert!(prepared.mtdna.is_some(), "not certified: {edit:?}");
+    }
+    // A stop written in another form is not recognized; Static Direct runs and
+    // the result says why.
+    let mut model = three_class();
+    model["stop"] = json!("mutants >= N * 0.9 && N > 0");
+    let bytes = serde_json::to_vec(&model).unwrap();
+    let mut req = request_v(V03, &bytes, 4, 10.0, &[0.0, 10.0]);
+    req["method"] = json!({"kind": "mtdna_direct"});
+    let result = solve_values(&model, &req);
+    assert_eq!(result.sampler, "chacha8-u53/rules-static-direct/1");
+    let warning = result
+        .diagnostics
+        .iter()
+        .find(|d| d.code == "CRN-R051")
+        .expect("fallback warning");
+    assert!(warning.message.contains("stop"), "{}", warning.message);
+}
+
+struct Continue;
+impl observe::EventObserver for Continue {
+    fn on_event(&self, _: &observe::Event<'_>) -> observe::ObserverAction {
+        observe::ObserverAction::Continue
+    }
+}
+
+fn tracked_request(model: &Value, replicates: u64, threads: u32) -> Value {
+    let bytes = serde_json::to_vec(model).unwrap();
+    let mut req = request_v(
+        V03,
+        &bytes,
+        replicates,
+        2000.0,
+        &[0.0, 500.0, 1000.0, 2000.0],
+    );
+    req["method"] = json!({"kind": "mtdna_direct"});
+    req["budget"]["threads"] = json!(threads);
+    req["trackers"] = json!([
+        {"observable": "wild_type"},
+        {"observable": "neutral_mutants", "keep_episodes": 2},
+        {"observable": "advantaged_mutants"}
+    ]);
+    req
+}
+
+#[test]
+fn mtdna_continue_observer_and_threads_preserve_results() {
+    let mut model = with_parameters(&[("mu", 3e-3)]);
+    model["stop"] = json!("N > 0 && mutants >= 0.9 * N");
+    let bytes = serde_json::to_vec(&model).unwrap();
+    let req = tracked_request(&model, 24, 1);
+    let prepared = prepare(&bytes, &serde_json::to_vec(&req).unwrap()).unwrap();
+    assert!(prepared.mtdna.is_some());
+    let plain = execute(&prepared, &Control::default()).unwrap();
+    let observed = execute_with_observer(&prepared, &Control::default(), &Continue).unwrap();
+    assert!(
+        serde_json::to_vec(&plain).unwrap() == serde_json::to_vec(&observed).unwrap(),
+        "a Continue observer changed the result"
+    );
+    let mut many = solve_values(&model, &tracked_request(&model, 24, 3));
+    let mut one = plain;
+    one.run_sha256.clear();
+    many.run_sha256.clear();
+    assert!(
+        serde_json::to_vec(&one).unwrap() == serde_json::to_vec(&many).unwrap(),
+        "worker count changed the result"
+    );
+}
+
+#[test]
+fn mtdna_count_trackers_match_the_general_observation_path() {
+    // An event log forces the general per-event observer; counts, crossings
+    // and extrema must agree exactly, integrals to rounding.
+    let model = with_parameters(&[("mu", 3e-3)]);
+    let fast = solve_values(&model, &tracked_request(&model, 16, 2));
+    let mut req = tracked_request(&model, 16, 2);
+    req["event_log"] = json!({"max_entries": 0});
+    let general = solve_values(&model, &req);
+    assert_eq!(fast.sampler, SPECIALIZED);
+    assert_eq!(general.sampler, SPECIALIZED);
+    for (a, b) in fast.observations.iter().zip(&general.observations) {
+        for (x, y) in a.trackers.iter().zip(&b.trackers) {
+            assert_eq!(x.appearances, y.appearances);
+            assert_eq!(x.extinctions, y.extinctions);
+            assert_eq!(x.minimum.to_bits(), y.minimum.to_bits());
+            assert_eq!(x.maximum.to_bits(), y.maximum.to_bits());
+            assert!((x.integral - y.integral).abs() <= 1e-12 * x.integral.abs().max(1.0));
+        }
+    }
+}
+
+#[test]
+fn mtdna_stop_at_a_report_time_holds_the_state() {
+    let mut model = with_parameters(&[("mu", 3e-2)]);
+    model["stop"] = json!("N > 0 && mutants >= 0.9 * N");
+    let bytes = serde_json::to_vec(&model).unwrap();
+    for method in ["mtdna_direct", "static_direct"] {
+        let mut req = request_v(V03, &bytes, 32, 20000.0, &[0.0, 5000.0, 10000.0, 20000.0]);
+        req["method"] = json!({"kind": method});
+        let result = solve_values(&model, &req);
+        for r in &result.replicates {
+            if r.termination == Termination::Stopped {
+                let path = result.paths.iter().find(|p| p.id == r.id).unwrap();
+                let held = path.values.len() / 4;
+                let last = &path.values[path.values.len() - held..];
+                // Every report after the stop repeats the stopped state.
+                for (k, &t) in [0.0, 5000.0, 10000.0, 20000.0].iter().enumerate() {
+                    if t >= r.stop_time {
+                        assert_eq!(&path.values[k * held..(k + 1) * held], last, "{method}");
+                    }
+                }
+            }
+        }
+        assert!(
+            result
+                .replicates
+                .iter()
+                .any(|r| r.termination == Termination::Stopped),
+            "{method}: no takeover in the fixture"
+        );
+    }
+}

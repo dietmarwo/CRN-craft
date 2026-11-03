@@ -33,14 +33,23 @@ const SHAPES: [(usize, usize, i64); 8] = [
     (2, 2, 1),
 ];
 
+const TOPOLOGY: &str = "the model is not three classes with the eight fixed-population channels";
+const DEGRADATION: &str = "degradation is not one constant rate shared by all classes";
+const VACANCY: &str = "replication does not use one shared vacancy law max(0, K - N) / D";
+const CAPACITY: &str = "K is not an integer from 1 to 1,000,000 at or above the initial population";
+const PROJECTIONS: &str = "observables are not finite weighted sums of the three classes";
+const STOP: &str = "stop is neither absent nor the guarded mutant fraction";
+const RANGE: &str = "hazards span more than the certified floating-point range";
+
 impl Kernel {
+    /// Recognize the fixed three-class model, or say why Static Direct runs.
     pub(crate) fn compile(
         net: &Network,
         model: &Compiled,
         spec: &crate::observe::Spec,
-    ) -> Option<Self> {
+    ) -> Result<Self, &'static str> {
         if net.species.len() != 3 || net.channels.len() != SHAPES.len() {
-            return None;
+            return Err(TOPOLOGY);
         }
         // Identify the parent of both mutations, then the two destinations in
         // static species order. This is independent of model and rule names.
@@ -50,20 +59,29 @@ impl Kernel {
             .find_map(|c| match (&c.reactants[..], &c.changes[..]) {
                 ([parent], [(target, 1)]) if parent != target => Some(*parent),
                 _ => None,
-            })?;
+            })
+            .ok_or(TOPOLOGY)?;
         let mut order = (0..3).filter(|&i| i != wt);
-        let species = [wt, order.next()?, order.next()?];
+        let species = [
+            wt,
+            order.next().ok_or(TOPOLOGY)?,
+            order.next().ok_or(TOPOLOGY)?,
+        ];
         let mut channels = [0; 8];
         for (slot, (parent, target, change)) in SHAPES.into_iter().enumerate() {
-            channels[slot] = net.channels.iter().position(|c| {
-                c.reactants == [species[parent]]
-                    && c.changes == [(species[target], change)]
-                    && c.factor == 1.0
-            })?;
+            channels[slot] = net
+                .channels
+                .iter()
+                .position(|c| {
+                    c.reactants == [species[parent]]
+                        && c.changes == [(species[target], change)]
+                        && c.factor == 1.0
+                })
+                .ok_or(TOPOLOGY)?;
         }
         let rate = |slot: usize| &net.rates[net.channels[channels[slot]].rule];
         let RateKernel::Constant(delta) = *rate(DEATH[0]) else {
-            return None;
+            return Err(DEGRADATION);
         };
         if !delta.is_finite()
             || delta < 0.0
@@ -71,7 +89,7 @@ impl Kernel {
                 .into_iter()
                 .any(|i| !matches!(rate(i), RateKernel::Constant(d) if *d == delta))
         {
-            return None;
+            return Err(DEGRADATION);
         }
         let RateKernel::Vacancy {
             limit,
@@ -80,13 +98,13 @@ impl Kernel {
             ..
         } = *rate(BIRTH[0])
         else {
-            return None;
+            return Err(VACANCY);
         };
         if !(1.0..=1_000_000.0).contains(&limit)
             || limit.fract() != 0.0
             || net.species.iter().map(|s| s.initial).sum::<u64>() > limit as u64
         {
-            return None;
+            return Err(CAPACITY);
         }
         let projection = |index| {
             let (_, reduce, terms) = net.observables.iter().find(|(i, _, _)| *i == index)?;
@@ -100,25 +118,31 @@ impl Kernel {
                     .map_or(0.0, |&(_, w)| w)
             }))
         };
-        if projection(count)? != [1.0; 3] {
-            return None;
+        if projection(count).ok_or(VACANCY)? != [1.0; 3] {
+            return Err(VACANCY);
         }
-        let weights = projection(denominator)?;
+        let weights = projection(denominator).ok_or(VACANCY)?;
         if weights.iter().any(|w| !w.is_finite() || *w <= 0.0) {
-            return None;
+            return Err(VACANCY);
         }
         // Certify finite report projections even when they are not needed at
         // each event. Leave more general reductions to Static Direct.
         for &(i, _, _) in &net.observables {
-            if !(projection(i)?.iter().map(|w| w.abs()).sum::<f64>() * limit).is_finite() {
-                return None;
+            let weights = projection(i).ok_or(PROJECTIONS)?;
+            if !(weights.iter().map(|w| w.abs()).sum::<f64>() * limit).is_finite() {
+                return Err(PROJECTIONS);
             }
         }
         let threshold = if let Some(stop) = &model.stop {
-            let (mutants, _, _) = net.observables.iter().find(|(i, _, _)| {
-                projection(*i) == Some([0.0, 1.0, 1.0]) && stop.fraction_stop(count, *i).is_some()
-            })?;
-            Some(stop.fraction_stop(count, *mutants)?)
+            let (mutants, _, _) = net
+                .observables
+                .iter()
+                .find(|(i, _, _)| {
+                    projection(*i) == Some([0.0, 1.0, 1.0])
+                        && stop.fraction_stop(count, *i).is_some()
+                })
+                .ok_or(STOP)?;
+            Some(stop.fraction_stop(count, *mutants).ok_or(STOP)?)
         } else {
             None
         };
@@ -127,9 +151,10 @@ impl Kernel {
         let low = 1.0 / den_max;
         let high = limit / den_min;
         if low < f64::MIN_POSITIVE || high > f64::MAX / 16.0 || den_max > f64::MAX / 16.0 {
-            return None;
+            return Err(RANGE);
         }
-        let mut lower = if delta > 0.0 { delta } else { f64::INFINITY };
+        // Smallest positive coefficient of each replication outcome.
+        let mut smallest = f64::INFINITY;
         let mut coefficient = |slot| {
             let RateKernel::Vacancy {
                 limit: k,
@@ -138,15 +163,15 @@ impl Kernel {
                 factors,
             } = rate(slot)
             else {
-                return None;
+                return Err(VACANCY);
             };
             if (*k, *n, *d) != (limit, count, denominator) {
-                return None;
+                return Err(VACANCY);
             }
             let mut bounds = [low, high, 1.0];
             for &factor in factors {
                 if !factor.is_finite() || factor < 0.0 {
-                    return None;
+                    return Err(RANGE);
                 }
                 let positive = factor > 0.0 && bounds[0] > 0.0;
                 bounds = bounds.map(|x| x * factor);
@@ -154,16 +179,16 @@ impl Kernel {
                     || !bounds[2].is_finite()
                     || (positive && bounds[0].min(bounds[2]) < f64::MIN_POSITIVE)
                 {
-                    return None;
+                    return Err(RANGE);
                 }
             }
-            if bounds[0] > 0.0 {
-                lower = lower.min(bounds[0]);
+            if bounds[2] > 0.0 {
+                smallest = smallest.min(bounds[2]);
             }
             if !(bounds[1] * limit).is_finite() {
-                return None;
+                return Err(RANGE);
             }
-            Some(bounds[2])
+            Ok(bounds[2])
         };
         let plain = coefficient(BIRTH[0])?;
         let neutral = coefficient(MUTATION[0])?;
@@ -178,16 +203,31 @@ impl Kernel {
             .zip(weights)
             .map(|(rate, weight)| rate / weight)
             .fold(0.0, f64::max);
-        let upper = limit * (delta + max_birth);
-        // Reserve rounding margin for grouped cumulative thresholds and for
-        // reordering the folded products. Very stiff candidates fall back.
-        if !upper.is_finite()
-            || lower < (16.0 * RESOLUTION * upper).max(f64::MIN_POSITIVE)
+        let max_weight = weights.into_iter().fold(0.0, f64::max);
+        // Resolution is a property of one state: every positive hazard must be
+        // at least 16 * 2^-53 of the total in the same state. With N in the
+        // population, V = K - N >= 1 vacancies and D <= max_weight * N, a
+        // class with count n has replication hazard n * c * V / D and the
+        // total is at most N * delta + V * max_birth. The ratio for n = 1 is
+        // smallest at V = 1, so c / (K * max_weight * (K * delta + max_birth))
+        // bounds every replication outcome. A degradation hazard n * delta
+        // against a total of at most K * max(delta, max_birth) gives the
+        // other bound. The margin covers grouped thresholds and reordered
+        // products.
+        let total_rate = limit * delta + max_birth;
+        let floor = 16.0 * RESOLUTION;
+        let births_resolved =
+            !smallest.is_finite() || smallest / (limit * max_weight * total_rate) >= floor;
+        let deaths_resolved = delta == 0.0 || delta / (limit * delta.max(max_birth)) >= floor;
+        if !total_rate.is_finite()
+            || !(limit * delta.max(max_birth)).is_finite()
+            || !births_resolved
+            || !deaths_resolved
             || !birth[0].is_finite()
         {
-            return None;
+            return Err(RANGE);
         }
-        Some(Self {
+        Ok(Self {
             capacity: limit as u64,
             delta,
             weights,
@@ -217,7 +257,7 @@ mod tests {
         let model = crate::model::compile(&source).unwrap();
         let net = Network::compile(&model).unwrap();
         let spec = Spec::compile(&source, &model, &[], None).unwrap();
-        let kernel = Kernel::compile(&net, &model, &spec).unwrap();
+        let kernel = Kernel::compile(&net, &model, &spec).ok().unwrap();
         for classes in [
             [1000, 0, 0],
             [999, 0, 0],

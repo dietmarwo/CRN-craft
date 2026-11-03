@@ -213,6 +213,7 @@ or stopped.
 | CRN-R031 | weight below 53-bit resolution |
 | CRN-R040–R045 | event, sampling, instance (including a count above 2⁵³), wall-time, cancellation and output limits |
 | CRN-R050 | warning: incomplete ensemble, statistics withheld |
+| CRN-R051 | warning: `mtdna_direct` could not certify the model and ran Static Direct; the message gives the reason |
 
 ## Validation (K1)
 

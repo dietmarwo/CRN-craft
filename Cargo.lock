@@ -28,7 +28,7 @@ dependencies = [
 
 [[package]]
 name = "crn-craft"
-version = "0.2.0-dev.1"
+version = "0.2.0"
 dependencies = [
  "libm",
  "rand_chacha",
@@ -42,7 +42,7 @@ dependencies = [
 
 [[package]]
 name = "crn-craft-cli"
-version = "0.2.0-dev.1"
+version = "0.2.0"
 dependencies = [
  "crn-craft",
  "crn-craft-rules",
@@ -51,7 +51,7 @@ dependencies = [
 
 [[package]]
 name = "crn-craft-rules"
-version = "0.2.0-dev.1"
+version = "0.2.0"
 dependencies = [
  "crn-craft",
  "libm",

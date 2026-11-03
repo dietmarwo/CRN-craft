@@ -37,9 +37,15 @@ cargo build --release --workspace --locked
 ./target/release/crn-craft --help
 ```
 
-The Python package is an optional PyO3 extension built with maturin. It
-installs the `crn_craft` module and two console scripts, `crn-craft` (a
-Python front end with the same commands) and `crn-craft-import`:
+The Python package is an optional PyO3 extension. It installs the
+`crn_craft` module and two console scripts, `crn-craft` (a Python front end
+with the same commands) and `crn-craft-import`. Install a release from PyPI:
+
+```sh
+python -m pip install crn-craft
+```
+
+or build it from this checkout with maturin:
 
 ```sh
 python -m pip install maturin==1.9.6 numpy

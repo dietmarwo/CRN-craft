@@ -4,7 +4,7 @@
 
 Native Rust foundations for well-mixed chemical reaction networks, designed for reproducible simulation and optimization workflows.
 
-**Current status: remaining-milestone campaign (`0.2.0-dev.1`).** Native Direct, dependency-cached SSA, DirectCR, SortingDirect and RSSACR, sparse FSP and explicitly approximate Poisson leaps execute. Optional Python bindings, trajectory diagnostics, pinned fcmaes job applications, diffsol BDF/forward sensitivities, global-to-SQP fitting and explicit SBML/BioNetGen import subsets are included. The default Rust engine remains independent of Python, jobs and ODE dependencies. A successful numerical run is not biological validation.
+**Version 0.2.0.** The Python package is on PyPI (`pip install crn-craft`); the native CLI, rules engine and optional integrations build from this repository. Native Direct, dependency-cached SSA, DirectCR, SortingDirect and RSSACR, sparse FSP and explicitly approximate Poisson leaps execute. Optional Python bindings, trajectory diagnostics, pinned fcmaes job applications, diffsol BDF/forward sensitivities, global-to-SQP fitting and explicit SBML/BioNetGen import subsets are included. The default Rust engine remains independent of Python, jobs and ODE dependencies. A successful numerical run is not biological validation.
 
 Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/architecture.md), the [technical report](docs/technical-report.md) (design, validation and measured performance), the [comparison with GillesPy2](docs/comparison-gillespy2.md) and `crn-craft describe`. Every document is listed under [Documentation](#documentation). Legacy input/result/archive contracts remain available; new approximate/FSP results use distinct schemas.
 
@@ -282,7 +282,8 @@ GitHub Actions is configured for fmt, clippy and release tests on Rust 1.85.0, 1
 The functional M3–M10 work and ten performance iterations are documented in
 [docs/campaign](docs/campaign/README.md), with predeclared gates and retained failures
 under validation/campaign. Optional integrations have independent lockfiles/MSRVs.
-Publishing, multi-platform wheel acceptance, a Julia reference run and broad biological
+Release wheels pass the installed-package acceptance on Linux, Windows and macOS
+([RELEASING.md](RELEASING.md)); a Julia reference run and broad biological
 behavioral validation remain owner/platform-specific work. The circuit demonstrations
 are labelled synthetic; detector diagnostics do not establish universal sensitivity.
 

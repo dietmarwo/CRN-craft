@@ -1,0 +1,75 @@
+# CRN-craft
+
+![CRN-craft: chemical reaction networks in native Rust with stochastic simulation](https://raw.githubusercontent.com/dietmarwo/CRN-craft/main/docs/images/crn-craft-banner.jpg)
+
+Reproducible simulation and analysis of well-mixed chemical reaction networks,
+with a native Rust core. Models, requests and results are versioned JSON
+documents with strict input checks, explicit budgets and replayable seeds.
+
+```bash
+pip install crn-craft
+```
+
+Wheels for CPython 3.10 and newer (stable ABI) on Linux x86_64, Windows x64
+and macOS (x86_64 and arm64); other platforms build from the source
+distribution with a Rust toolchain.
+
+## Example
+
+Immigration–death (birth rate 4, death rate 0.2, starting from zero) has a
+Poisson law with mean `20 (1 - exp(-0.2 t))`: 12.64 at t = 5 and 17.29 at
+t = 10.
+
+```python
+import crn_craft as crn
+
+model = crn.load_example("immigration-death")
+request = crn.ssa_spec(
+    model, end=10.0, save_times=[0.0, 5.0, 10.0], replicates=1000, seed=1
+)
+result = crn.simulate_ssa(model, request)
+print(result["sampler"])
+print(result["statistics"]["mean"], result["statistics"]["mean_standard_error"])
+```
+
+```text
+xoshiro256pp-u53/direct_cr/inverse/fast-1
+[[0.0], [12.618], [17.22500000000001]] [[0.0], [0.10959967193421745], [0.13107843665743252]]
+```
+
+Both means lie within one standard error of the exact values. The same seed
+gives the same result on every run and for every thread count.
+
+## What is included
+
+- Exact stochastic simulation: `direct`, `cached_direct`, `direct_cr`,
+  `sorting_direct` and `rssa_cr`, with inverse or Ziggurat waiting times.
+  `fast` (the default) emulates JumpProcesses.jl; `fast=False` selects the
+  checked policy, which rejects lost increments and channels below the 53-bit
+  selection resolution.
+- Prepared simulations and reusable parameter templates for optimization
+  loops (`crn.prepare_ssa`, `crn.prepare_parameters`).
+- Sparse finite state projection (`crn.fsp`), explicitly approximate Poisson
+  leaping (`crn.tau`), network analysis and conservation checks.
+- Strict SBML and BioNetGen import subsets (`crn-craft-import`) and the
+  `crn-craft` command for archives, verification and export.
+- `pip install "crn-craft[fit]"` adds the pinned SciPy, fcmaes-rust and
+  SQP-craft versions used by the fitting examples.
+
+The rules engine for dynamic, attributed species, the optional diffsol BDF
+integrator with forward sensitivities and the job worker for
+[optimization-jobs](https://github.com/dietmarwo/optimization-jobs) are native
+programs built from the repository; they are not part of the wheel.
+
+## Documentation
+
+- [Repository and README](https://github.com/dietmarwo/CRN-craft)
+- [Tutorial](https://github.com/dietmarwo/CRN-craft/blob/main/docs/tutorial.md)
+- [Alternative exact SSA methods and the `fast` switch](https://github.com/dietmarwo/CRN-craft/blob/main/docs/alternative-ssa.md)
+- [Optimization tutorials C1–C4](https://github.com/dietmarwo/CRN-craft/blob/main/tutorials/optimization/README.md)
+- [Agent context](https://github.com/dietmarwo/CRN-craft/blob/main/docs/ai-context.md)
+- [Changelog](https://github.com/dietmarwo/CRN-craft/blob/main/CHANGELOG.md)
+
+A successful numerical run is not biological validation. MIT licensed; see
+[THIRD_PARTY_NOTICES.md](https://github.com/dietmarwo/CRN-craft/blob/main/THIRD_PARTY_NOTICES.md)
+for the Ziggurat tables adapted from Julia.

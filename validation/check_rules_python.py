@@ -129,6 +129,29 @@ def main():
             pass
         else:
             raise RuntimeError("invalid rules parameter accepted")
+    # NumPy scalars and arrays are accepted for the grid, counts and seeds;
+    # fractional counts are rejected rather than truncated.
+    grid = rules.ensemble(
+        model,
+        end=np.float64(3.0),
+        report_times=np.arange(4),
+        replicates=np.int64(4),
+        seed=np.uint64(7),
+        threads=np.int32(2),
+    )
+    require(grid.simulate().metadata["termination"] == "completed", "NumPy arguments")
+    try:
+        rules.ensemble(model, end=3.0, report_times=[0.0, 3.0], replicates=2.5)
+    except TypeError:
+        pass
+    else:
+        raise RuntimeError("fractional replicate count accepted")
+    try:
+        actual.tracker_columns(1)
+    except IndexError:
+        pass
+    else:
+        raise RuntimeError("tracker index beyond the requested trackers")
     args.output.write_text(
         json.dumps(
             {
@@ -144,6 +167,8 @@ def main():
                     "callback exception propagation",
                     "cancel file",
                     "specialized parameter bind, replay and rejection",
+                    "NumPy arguments and strict counts",
+                    "tracker index bounds",
                 ],
             },
             indent=2,

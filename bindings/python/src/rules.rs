@@ -57,7 +57,8 @@ struct PythonObserver<'a> {
 
 impl EventObserver for PythonObserver<'_> {
     fn on_event(&self, event: &Event<'_>) -> ObserverAction {
-        if self.control.is_cancelled() {
+        // The flag, not the cancel file: the engine polls the file itself.
+        if self.control.cancel_flagged() {
             return ObserverAction::Continue;
         }
         let result = Python::attach(|py| -> PyResult<bool> {

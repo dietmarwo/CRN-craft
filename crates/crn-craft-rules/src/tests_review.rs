@@ -488,3 +488,19 @@ fn binomial_steps_do_not_depend_on_the_report_grid() {
         assert_eq!(b.values[3], a.values[2]);
     }
 }
+
+#[test]
+fn the_cancel_flag_check_does_not_read_the_cancel_file() {
+    let dir = std::env::temp_dir().join(format!("crn-flag-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("cancel");
+    std::fs::write(&file, b"").unwrap();
+    let control = Control {
+        cancel_file: Some(file.clone()),
+        ..Control::default()
+    };
+    assert!(!control.cancel_flagged());
+    assert!(control.is_cancelled());
+    assert!(control.cancel_flagged());
+    std::fs::remove_dir_all(&dir).unwrap();
+}

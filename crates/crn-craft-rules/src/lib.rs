@@ -68,6 +68,11 @@ impl Control {
     pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::Relaxed);
     }
+    /// The in-memory flag only. Per-event callers use this to avoid a file
+    /// system check on every event; the engine polls the file separately.
+    pub fn cancel_flagged(&self) -> bool {
+        self.cancelled.load(Ordering::Relaxed)
+    }
     pub fn is_cancelled(&self) -> bool {
         if self.cancelled.load(Ordering::Relaxed) {
             return true;

@@ -643,13 +643,17 @@ impl Expr {
             if !limit.parameter_only() {
                 return None;
             }
+            let limit = limit.eval(&Env {
+                params,
+                observables: &[],
+                attributes: [&[], &[]],
+            });
+            if !limit.is_finite() {
+                return None;
+            }
             factors.reverse();
             Some(RateKernel::Vacancy {
-                limit: limit.eval(&Env {
-                    params,
-                    observables: &[],
-                    attributes: [&[], &[]],
-                }),
+                limit,
                 count: *n,
                 denominator: *d,
                 factors,
@@ -695,6 +699,26 @@ impl RateKernel {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn vacancy_kernel_keeps_undefined_limit_undefined() {
+        let params = BTreeMap::new();
+        let names = BTreeMap::from([("N".into(), 0), ("D".into(), 1)]);
+        let scope = Scope {
+            params: &params,
+            observables: Some(&names),
+            reactants: &[],
+            random: false,
+        };
+        let expr = Expr::parse("max(0, log(-1) - N) / D", &scope).unwrap();
+        let env = Env {
+            params: &[],
+            observables: &[1.0, 1.0],
+            attributes: [&[], &[]],
+        };
+        assert!(expr.eval(&env).is_nan());
+        assert!(expr.kernel(&[]).eval(&env).is_nan());
+    }
 
     fn eval(source: &str) -> f64 {
         let params = BTreeMap::from([("k".to_string(), 0usize)]);

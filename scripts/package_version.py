@@ -54,13 +54,19 @@ def python_spelling(cargo):
     return release if kind is None else f"{release}{PRE[kind]}{number}"
 
 
-versions = {
-    "Cargo.toml": python_spelling(table_version("Cargo.toml", "workspace.package")),
-    "bindings/python/Cargo.toml": python_spelling(
-        table_version("bindings/python/Cargo.toml", "package")
-    ),
-    "pyproject.toml": table_version("pyproject.toml", "project"),
-}
-if len(set(versions.values())) != 1:
-    sys.exit(f"version sources disagree: {versions}")
-print(versions["pyproject.toml"])
+def versions():
+    """The three version sources in Python's spelling; exits if they disagree."""
+    found = {
+        "Cargo.toml": python_spelling(table_version("Cargo.toml", "workspace.package")),
+        "bindings/python/Cargo.toml": python_spelling(
+            table_version("bindings/python/Cargo.toml", "package")
+        ),
+        "pyproject.toml": table_version("pyproject.toml", "project"),
+    }
+    if len(set(found.values())) != 1:
+        sys.exit(f"version sources disagree: {found}")
+    return found["pyproject.toml"]
+
+
+if __name__ == "__main__":
+    print(versions())

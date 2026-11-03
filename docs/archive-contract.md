@@ -10,6 +10,14 @@ for the current executable capability catalog.
 
 ## Files and completion
 
+For package builds, `cargo_lock_sha256` hashes the core crate's packaged
+Cargo.lock; for a checkout it hashes the root workspace Cargo.lock. The build
+script selects and fingerprints that file without reaching outside an extracted
+crate. Cargo normalization can change the hash between distribution forms.
+This records the distribution's dependency lock, not a downstream application's
+entire resolved dependency graph. Applications embedding the library should
+retain their own Cargo.lock and build identity alongside the archive.
+
 | File | Meaning |
 |---|---|
 | `model.json` | Exact consumed model bytes |

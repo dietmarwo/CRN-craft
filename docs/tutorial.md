@@ -37,6 +37,9 @@ cargo build --release --workspace --locked
 ./target/release/crn-craft --help
 ```
 
+A release of the command-line tool also installs from crates.io with
+`cargo install crn-craft-cli --locked` (the binary is `crn-craft`).
+
 The Python package is an optional PyO3 extension. It installs the
 `crn_craft` module and two console scripts, `crn-craft` (a Python front end
 with the same commands) and `crn-craft-import`. Install a release from PyPI:

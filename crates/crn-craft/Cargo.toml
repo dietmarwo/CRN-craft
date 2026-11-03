@@ -1,11 +1,19 @@
 [package]
 name = "crn-craft"
-description = "Checked Direct SSA and network analysis for well-mixed reaction networks"
+description = "Exact stochastic simulation (Direct, DirectCR, SortingDirect, RSSACR), FSP and analysis of well-mixed reaction networks"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-publish = false
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme = "README.md"
+include = ["src/**", "Cargo.toml", "Cargo.lock", "build.rs", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"]
+
+[build-dependencies]
+sha2.workspace = true
 
 [dependencies]
 serde.workspace = true

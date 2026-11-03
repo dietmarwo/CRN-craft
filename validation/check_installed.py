@@ -48,6 +48,17 @@ def require(v, m):
         raise RuntimeError(m)
 
 
+def python_spelling(cargo):
+    """Cargo's `0.3.0-dev.1` is Python's `0.3.0.dev1`; releases are equal."""
+    release, _, pre = cargo.partition("-")
+    if not pre:
+        return release
+    kind, _, number = pre.partition(".")
+    return (
+        release + {"dev": ".dev", "alpha": "a", "beta": "b", "rc": "rc"}[kind] + number
+    )
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--output", type=Path, required=True)
@@ -56,6 +67,10 @@ def main():
     cli, importer = script("crn-craft"), script("crn-craft-import")
     version = importlib.metadata.version("crn-craft")
     require(c.__version__ == version, "package __version__ matches metadata")
+    require(
+        python_spelling(c._native.__version__) == version,
+        "native extension and distribution versions agree",
+    )
     reported = subprocess.run([cli, "--version"], capture_output=True, check=False)
     require(
         reported.returncode == 0

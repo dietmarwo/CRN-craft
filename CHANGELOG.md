@@ -9,11 +9,12 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [0.2.0] - 2026-11-03
 
-The first release: the Python package `crn-craft` on PyPI, with abi3 wheels for
-CPython 3.10+ on Linux x86_64, Windows x64 and macOS x86_64/arm64 and a source
-distribution. The Rust crates stay unpublished (`publish = false`); the native
-CLI, the rules engine, the diffsol integration and the job worker build from
-this repository. The development iterations that make up this release follow.
+The first release: the crates `crn-craft`, `crn-craft-rules` and
+`crn-craft-cli` on crates.io and the Python package `crn-craft` on PyPI, with
+abi3 wheels for CPython 3.10+ on Linux x86_64, Windows x64 and macOS
+x86_64/arm64 and a source distribution. The Python bindings, the diffsol
+integration and the job worker stay source-only workspaces. The development
+iterations that make up this release follow.
 
 ### Highlights
 
@@ -30,10 +31,17 @@ this repository. The development iterations that make up this release follow.
   diffsol BDF with forward sensitivities; fcmaes job applications.
 - Optimization tutorials C1–C4 and measured comparisons with GillesPy2 and
   Catalyst/JumpProcesses.
-- PyPI packaging: `python-release.yml` builds and tests every wheel and the
-  source distribution with the installed-package acceptance and publishes a
-  `v*` tag through Trusted Publishing; `scripts/package_version.py` checks the
-  three version sources. The manual `wheels.yml` workflow it replaces is gone.
+- Packaging: `python-release.yml` builds and tests every wheel and the source
+  distribution with the installed-package acceptance and publishes a `v*` tag
+  to PyPI through Trusted Publishing; `publish-crates.yml` verifies the three
+  crates from their own archives and publishes them in dependency order.
+  `scripts/package_version.py` and `scripts/check_release.py` check versions,
+  crate metadata and lockfiles. The manual `wheels.yml` workflow is replaced.
+- Archives record `cargo_lock_sha256` from a build-script hash of the lockfile
+  (the packaged crate's own, or the checkout's root one) instead of
+  `include_bytes!` of a path outside the crate, which no packaged crate could
+  build. Checkout builds record the same hash as before; see
+  `docs/archive-contract.md`.
 
 ### Alternative exact SSA methods and the Julia-gap campaign (`0.2.0-dev.1`)
 

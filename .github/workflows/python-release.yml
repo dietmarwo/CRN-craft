@@ -19,6 +19,7 @@ on:
       - "python/**"
       - "bindings/python/**"
       - "scripts/package_version.py"
+      - "scripts/check_release.py"
       - "validation/check_installed.py"
   workflow_dispatch:
 
@@ -40,6 +41,7 @@ jobs:
       - name: Require consistent versions (and the tag to match them)
         shell: bash
         run: |
+          python scripts/check_release.py
           version="$(python scripts/package_version.py)"
           echo "version $version"
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then

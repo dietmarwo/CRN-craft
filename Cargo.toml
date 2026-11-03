@@ -7,6 +7,10 @@ version = "0.2.0"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT"
+repository = "https://github.com/dietmarwo/CRN-craft"
+homepage = "https://github.com/dietmarwo/CRN-craft"
+keywords = ["reaction-network", "gillespie", "ssa", "stochastic", "simulation"]
+categories = ["science", "simulation"]
 
 [workspace.dependencies]
 serde = { version = "=1.0.229", features = ["derive"] }
@@ -18,8 +22,8 @@ sha2 = "=0.10.9"
 libm = "=0.2.15"
 rand_chacha = { version = "=0.3.1", default-features = false, features = ["std"] }
 rand_core = { version = "=0.6.4", default-features = false }
-crn-craft = { path = "crates/crn-craft" }
-crn-craft-rules = { path = "crates/crn-craft-rules" }
+crn-craft = { path = "crates/crn-craft", version = "0.2.0" }
+crn-craft-rules = { path = "crates/crn-craft-rules", version = "0.2.0" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

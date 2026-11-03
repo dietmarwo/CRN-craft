@@ -197,3 +197,32 @@ candidate and Java inputs. The saved evidence is
 `validation/mtdna/java-gap.json`. The Java phase probe was built locally
 by timing from before pool creation to after all futures were collected.
 The end-to-end comparison used the original Java classes.
+
+### Generic Static Direct options
+
+Existing `static_direct` requests keep inverse-transform waits, the same
+sampler identity and per-event tracker integration. Rules-run/0.4 accepts
+two independent opt-ins in the method object.
+
+```json
+{
+  "kind": "static_direct",
+  "waiting_time": "ziggurat",
+  "sparse_trackers": true
+}
+```
+
+The Python rules helper selects rules-run/0.4 for this method dictionary.
+Rust callers constructing `Method::StaticDirect` use the struct variant
+with `waiting_time: None, sparse_trackers: None` for the previous defaults.
+The result still uses rules-result/0.2. Ziggurat changes the seeded stream
+consumption. Sparse tracking integrates each eligible unweighted single-class
+count over its constant spans. The integral can differ in the last bits
+from per-event integration. First-passage predicates and other projection
+families retain per-event observation. Attaching a Continue observer or an
+event log leaves the opt-in tracker policy consistent.
+
+Cached rates and dependency-aware projection refresh apply to the default
+path. Potentially overflowing report-only projections retain eager checks.
+See [the rules kernel review checklist](specialized-kernels.md) for the
+conditional Rust generator and its workload-specific adoption gate.

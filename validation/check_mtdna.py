@@ -48,7 +48,13 @@ def rules_files(
     path.write_text(json.dumps(model))
     kind = method.get("kind") if isinstance(method, dict) else method
     version = "0.1"
-    if kind == "mtdna_direct":
+    if (
+        kind == "static_direct"
+        and isinstance(method, dict)
+        and {"waiting_time", "sparse_trackers"} & method.keys()
+    ):
+        version = "0.4"
+    elif kind == "mtdna_direct":
         version = "0.3"
     elif method or trackers or log is not None:
         version = "0.2"
@@ -481,6 +487,63 @@ def check_specialized(binary, folder, rows):
     print("checked specialized mtDNA", flush=True)
 
 
+def check_generic_sampler(binary, folder, rows):
+    model = read_model("mtdna-three-class-cme.rules.json")
+    method = {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": True,
+    }
+    paths, result = sample(
+        binary, folder, model, method=method, seed=SEED + 4, trackers=[TRACKER]
+    )
+    require(
+        result["sampler"]
+        == "chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1",
+        "wrong generic sampler identity",
+    )
+    oracle, _ = law_mtdna(MTDNA, TIMES)
+    for key, law in oracle.items():
+        for j, t in enumerate(TIMES):
+            row(
+                rows,
+                f"cme/static-ziggurat/{key}/{t}",
+                integer_cdf(column(paths, result, key)[:, j], law[j]),
+                dkw(36),
+            )
+
+    model["stop"] = "N > 0 && mutants >= 0.5 * N"
+    trackers = [{"observable": "neutral_mutants"}, {"observable": "advantaged_mutants"}]
+    options = dict(method=method, trackers=trackers, seed=17, n=32)
+    _, one = sample(binary, folder, model, threads=1, **options)
+    _, eight = sample(binary, folder, model, threads=8, **options)
+    _, logged = sample(binary, folder, model, log={"max_entries": 512}, **options)
+    for result in (one, eight, logged):
+        result.pop("run_sha256")
+    require(one == eight, "generic opt-in worker replay")
+    for bare, log, replicate in zip(
+        one.pop("observations"),
+        logged.pop("observations"),
+        one["replicates"],
+        strict=True,
+    ):
+        require(bare["trackers"] == log["trackers"], "event log changed tracker output")
+        require(not log["omitted_log_entries"], "event log truncated")
+        for track in log["trackers"]:
+            index = logged["observables"].index(track["observable"])
+            value, last, integral = 0.0, 0.0, 0.0
+            for event in log["log"]:
+                integral += value * (event["time"] - last)
+                value, last = event["observables"][index], event["time"]
+            integral += value * (replicate["stop_time"] - last)
+            require(
+                math.isclose(track["integral"], integral, rel_tol=1e-12),
+                "log integral mismatch",
+            )
+    require(one == logged, "event log changed opt-in trajectories")
+    row(rows, "static-ziggurat/worker-replay-and-log-integrals", 0.0, 0.0)
+
+
 def poisson_cdf(mean, support=100):
     terms = [math.exp(-mean)]
     for k in range(1, support):
@@ -700,6 +763,7 @@ def main():
             check_mt(args.binary, folder, report["checks"], report["tau"])
             check_tracking(args.binary, folder, report["checks"])
             check_specialized(args.binary, folder, report["checks"])
+            check_generic_sampler(args.binary, folder, report["checks"])
             check_atp(args.binary, folder, report["checks"])
             check_leaps(args.binary, folder, report["checks"])
             check_clocks(args.binary, folder, report["checks"])

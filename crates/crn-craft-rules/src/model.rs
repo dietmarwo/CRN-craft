@@ -1,7 +1,7 @@
 //! `crn-craft.rules-model/0.1`: species types with numeric attributes, rule
 //! schemata, observables and an optional stop condition.
 
-use crate::expr::{Expr, Scope};
+use crate::expr::{Expr, Predicate, Scope};
 use crn_craft::diagnostic::Diagnostic;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -222,6 +222,7 @@ pub(crate) struct Compiled {
     pub observables: Vec<ObservableInfo>,
     pub rules: Vec<RuleInfo>,
     pub stop: Option<Expr>,
+    pub stop_program: Option<Predicate>,
     pub atp: Option<crate::atp::Atp>,
 }
 
@@ -863,6 +864,9 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
         }
     });
     if out.is_empty() {
+        let stop_program = stop
+            .as_ref()
+            .map(|e| Predicate::compile(e, observables.len()));
         Ok(Compiled {
             params,
             types,
@@ -871,6 +875,7 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
             classes,
             observables,
             rules,
+            stop_program,
             stop,
             atp,
         })

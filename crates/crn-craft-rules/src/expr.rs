@@ -260,21 +260,7 @@ fn eval_node<R: RngCore>(node: &Node, env: &Env, draw: &mut Option<Draw<R>>) -> 
                 _ => {}
             }
             let y = eval_node(b, env, draw);
-            match op {
-                Op::Add => x + y,
-                Op::Sub => x - y,
-                Op::Mul => x * y,
-                Op::Div => x / y,
-                Op::Pow => libm::pow(x, y),
-                Op::Eq => f64::from(u8::from(x == y)),
-                Op::Ne => f64::from(u8::from(x != y)),
-                Op::Lt => f64::from(u8::from(x < y)),
-                Op::Le => f64::from(u8::from(x <= y)),
-                Op::Gt => f64::from(u8::from(x > y)),
-                Op::Ge => f64::from(u8::from(x >= y)),
-                Op::And | Op::Or if y.is_nan() => y,
-                Op::And | Op::Or => flag(truth(y)),
-            }
+            eval_binary(*op, x, y)
         }
         Node::Call(f, args) => {
             if *f == Func::If {
@@ -317,15 +303,6 @@ fn eval_node<R: RngCore>(node: &Node, env: &Env, draw: &mut Option<Draw<R>>) -> 
                 d.rng.next_u64()
             };
             match f {
-                Func::Min | Func::Max if v[0].is_nan() || v[1].is_nan() => f64::NAN,
-                Func::Min => v[0].min(v[1]),
-                Func::Max => v[0].max(v[1]),
-                Func::Exp => libm::exp(v[0]),
-                Func::Log => libm::log(v[0]),
-                Func::Sqrt => libm::sqrt(v[0]),
-                Func::Abs => v[0].abs(),
-                Func::Floor => libm::floor(v[0]),
-                Func::Ceil => libm::ceil(v[0]),
                 Func::Bernoulli => f64::from(u8::from(uniform(word()) < v[0])),
                 Func::Uniform => v[0] + (v[1] - v[0]) * uniform(word()),
                 Func::Normal => {
@@ -338,9 +315,209 @@ fn eval_node<R: RngCore>(node: &Node, env: &Env, draw: &mut Option<Draw<R>>) -> 
                     let r = libm::sqrt(-2.0 * libm::log(u1));
                     v[0] + v[1] * r * libm::cos(2.0 * std::f64::consts::PI * u2)
                 }
-                Func::If | Func::NewId | Func::Choice => unreachable!(),
+                _ => deterministic_call(*f, v[0], v.get(1).copied().unwrap_or(0.0)),
             }
         }
+    }
+}
+
+fn eval_binary(op: Op, x: f64, y: f64) -> f64 {
+    match op {
+        Op::Add => x + y,
+        Op::Sub => x - y,
+        Op::Mul => x * y,
+        Op::Div => x / y,
+        Op::Pow => libm::pow(x, y),
+        Op::Eq => f64::from(u8::from(x == y)),
+        Op::Ne => f64::from(u8::from(x != y)),
+        Op::Lt => f64::from(u8::from(x < y)),
+        Op::Le => f64::from(u8::from(x <= y)),
+        Op::Gt => f64::from(u8::from(x > y)),
+        Op::Ge => f64::from(u8::from(x >= y)),
+        Op::And | Op::Or if y.is_nan() => y,
+        Op::And | Op::Or => flag(truth(y)),
+    }
+}
+fn deterministic_call(f: Func, x: f64, y: f64) -> f64 {
+    match f {
+        Func::Min | Func::Max if x.is_nan() || y.is_nan() => f64::NAN,
+        Func::Min => x.min(y),
+        Func::Max => x.max(y),
+        Func::Exp => libm::exp(x),
+        Func::Log => libm::log(x),
+        Func::Sqrt => libm::sqrt(x),
+        Func::Abs => x.abs(),
+        Func::Floor => libm::floor(x),
+        Func::Ceil => libm::ceil(x),
+        _ => unreachable!("non-arithmetic call"),
+    }
+}
+
+/// Deterministic predicate program. Random product expressions keep the tree
+/// evaluator so their draws and identity allocation retain evaluation order.
+#[derive(Debug)]
+pub(crate) struct Predicate {
+    code: Vec<Instruction>,
+    registers: usize,
+    reads: Vec<usize>,
+    fraction: Option<(usize, usize, f64)>,
+}
+
+#[derive(Debug)]
+enum Instruction {
+    Literal(usize, f64),
+    Load(usize, Slot),
+    Neg(usize, usize),
+    Not(usize, usize),
+    Binary(usize, Op, usize, usize),
+    Call(usize, Func, usize, usize),
+    Move(usize, usize),
+    Logic(usize, Op, usize, usize),
+    Branch(usize, usize, usize, usize),
+    Jump(usize),
+}
+
+impl Predicate {
+    pub(crate) fn compile(expr: &Expr, observable_count: usize) -> Self {
+        fn emit(node: &Node, code: &mut Vec<Instruction>, slots: &mut usize) -> usize {
+            use Instruction::*;
+            let dst = *slots;
+            *slots += 1;
+            let instruction = match node {
+                Node::Num(n) => Literal(dst, *n),
+                Node::Var(slot) => Load(dst, *slot),
+                Node::Neg(a) => Neg(dst, emit(a, code, slots)),
+                Node::Not(a) => Not(dst, emit(a, code, slots)),
+                Node::Bin(op, a, b) => {
+                    let a = emit(a, code, slots);
+                    if matches!(op, Op::And | Op::Or) {
+                        let at = code.len();
+                        code.push(Logic(dst, *op, a, 0));
+                        let b = emit(b, code, slots);
+                        code.push(Binary(dst, *op, a, b));
+                        code[at] = Logic(dst, *op, a, code.len());
+                        return dst;
+                    }
+                    Binary(dst, *op, a, emit(b, code, slots))
+                }
+                Node::Call(Func::If, args) => {
+                    let test = emit(&args[0], code, slots);
+                    let at = code.len();
+                    code.push(Branch(dst, test, 0, 0));
+                    let a = emit(&args[1], code, slots);
+                    code.push(Move(dst, a));
+                    let jump = code.len();
+                    code.push(Jump(0));
+                    let otherwise = code.len();
+                    let b = emit(&args[2], code, slots);
+                    code.push(Move(dst, b));
+                    code[at] = Branch(dst, test, otherwise, code.len());
+                    code[jump] = Jump(code.len());
+                    return dst;
+                }
+                Node::Call(f, args) => {
+                    let a = emit(&args[0], code, slots);
+                    let b = if args.len() == 2 {
+                        emit(&args[1], code, slots)
+                    } else {
+                        a
+                    };
+                    Call(dst, *f, a, b)
+                }
+            };
+            code.push(instruction);
+            dst
+        }
+        let mut reads = vec![false; observable_count];
+        expr.reads(&mut reads);
+        let reads: Vec<_> = reads
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, x)| x.then_some(i))
+            .collect();
+        // Fuse a common guarded fraction comparison without changing the
+        // multiplication or comparison order. Inputs are finite projections.
+        let fraction = if let &[a, b] = reads.as_slice() {
+            expr.fraction_stop(a, b)
+                .map(|f| (a, b, f))
+                .or_else(|| expr.fraction_stop(b, a).map(|f| (b, a, f)))
+        } else {
+            None
+        };
+        let mut code = Vec::new();
+        let mut slots = 0;
+        emit(&expr.root, &mut code, &mut slots);
+        Self {
+            code,
+            registers: slots,
+            reads,
+            fraction,
+        }
+    }
+
+    pub(crate) fn reads(&self, flags: &mut [bool]) {
+        for &i in &self.reads {
+            flags[i] = true;
+        }
+    }
+
+    pub(crate) fn eval(&self, env: &Env<'_>) -> f64 {
+        if let Some((total, part, fraction)) = self.fraction {
+            let n = env.observables[total];
+            return flag(n > 0.0 && env.observables[part] >= fraction * n);
+        }
+        let mut inline = [0.0; 32];
+        if self.registers <= inline.len() {
+            self.run(env, &mut inline)
+        } else {
+            self.run(env, &mut vec![0.0; self.registers])
+        }
+    }
+
+    fn run(&self, env: &Env<'_>, r: &mut [f64]) -> f64 {
+        use Instruction::*;
+        let mut pc = 0;
+        while let Some(i) = self.code.get(pc) {
+            pc += 1;
+            match *i {
+                Literal(d, x) => r[d] = x,
+                Load(d, Slot::Param(i)) => r[d] = env.params[i],
+                Load(d, Slot::Observable(i)) => r[d] = env.observables[i],
+                Load(d, Slot::Attribute { reactant, index }) => {
+                    r[d] = env.attributes[reactant][index]
+                }
+                Neg(d, a) => r[d] = -r[a],
+                Not(d, a) => {
+                    r[d] = if r[a].is_nan() {
+                        r[a]
+                    } else {
+                        flag(!truth(r[a]))
+                    }
+                }
+                Binary(d, op, a, b) => r[d] = eval_binary(op, r[a], r[b]),
+                Call(d, f, a, b) => r[d] = deterministic_call(f, r[a], r[b]),
+                Move(d, a) => r[d] = r[a],
+                Logic(d, op, a, end) => {
+                    if r[a].is_nan() {
+                        r[d] = r[a];
+                        pc = end;
+                    } else if (op == Op::And && !truth(r[a])) || (op == Op::Or && truth(r[a])) {
+                        r[d] = flag(op == Op::Or);
+                        pc = end;
+                    }
+                }
+                Branch(d, a, otherwise, end) => {
+                    if r[a].is_nan() {
+                        r[d] = r[a];
+                        pc = end;
+                    } else if !truth(r[a]) {
+                        pc = otherwise;
+                    }
+                }
+                Jump(end) => pc = end,
+            }
+        }
+        r[0]
     }
 }
 
@@ -728,6 +905,61 @@ impl RateKernel {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn predicate_bytecode_matches_tree() {
+        use rand_core::SeedableRng;
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(0x39);
+        fn expression(rng: &mut impl RngCore, depth: u8) -> String {
+            let draw = rng.next_u32();
+            if depth == 0 {
+                return ["x", "y", "0", "-0", "0/0", "1/0", "2"][(draw % 7) as usize].into();
+            }
+            let a = expression(rng, depth - 1);
+            let b = expression(rng, depth - 1);
+            match draw % 15 {
+                0 => format!("max(({a}),({b}))"),
+                1 => format!("min(({a}),({b}))"),
+                2 => format!("if(({a}),({b}),-({b}))"),
+                3 => format!("!({a})"),
+                k => {
+                    let op = ["+", "-", "*", "/", "^", "<", "!=", "&&", "||", ">=", "=="]
+                        [(k - 4) as usize];
+                    format!("({a}){op}({b})")
+                }
+            }
+        }
+        let names = BTreeMap::from([("x".into(), 0), ("y".into(), 1)]);
+        let scope = Scope {
+            params: &BTreeMap::new(),
+            observables: Some(&names),
+            reactants: &[],
+            random: false,
+        };
+        assert!(Expr::parse("choice(0.5, x, y)", &scope).is_err());
+        for _ in 0..512 {
+            let source = expression(&mut rng, 4);
+            let expr = Expr::parse(&source, &scope).unwrap();
+            let code = Predicate::compile(&expr, 2);
+            for values in [
+                [0.0, -0.0],
+                [-2.0, 2.0],
+                [f64::INFINITY, f64::NAN],
+                [1.0, 0.4],
+            ] {
+                let env = Env {
+                    params: &[],
+                    observables: &values,
+                    attributes: [&[], &[]],
+                };
+                let (a, b) = (expr.eval(&env), code.eval(&env));
+                assert!(
+                    a.to_bits() == b.to_bits() || (a.is_nan() && b.is_nan()),
+                    "{source}: {a:?} != {b:?}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn vacancy_kernel_keeps_undefined_limit_undefined() {

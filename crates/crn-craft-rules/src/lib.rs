@@ -14,6 +14,8 @@ pub mod atp;
 mod engine;
 mod expr;
 mod flat;
+mod generated;
+pub use generated::{RulesKernel, execute_with_rules_kernel, generate_rules_kernel};
 pub mod model;
 mod mtdna;
 pub mod observe;
@@ -91,6 +93,8 @@ pub enum RunVersion {
     V02,
     #[serde(rename = "crn-craft.rules-run/0.3")]
     V03,
+    #[serde(rename = "crn-craft.rules-run/0.4")]
+    V04,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -129,12 +133,24 @@ pub struct Budget {
     pub max_output_bytes: u64,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RulesWaitingTime {
+    Inverse,
+    Ziggurat,
+}
+
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Method {
     #[default]
     Tree,
-    StaticDirect,
+    StaticDirect {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        waiting_time: Option<RulesWaitingTime>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        sparse_trackers: Option<bool>,
+    },
     MtdnaDirect,
     NextReaction,
     Thinning,
@@ -354,11 +370,32 @@ fn validate_request(request: &RunRequest, model_sha256: &str) -> Vec<Diagnostic>
             "Select the version 0.2 request contract.",
         ));
     }
-    if request.method == Some(Method::MtdnaDirect) && request.schema != RunVersion::V03 {
+    if request.method == Some(Method::MtdnaDirect)
+        && !matches!(request.schema, RunVersion::V03 | RunVersion::V04)
+    {
         out.push(request_error(
             "/schema",
             "mtdna_direct requires rules-run/0.3",
             "Select the version 0.3 request contract.",
+        ));
+    }
+    if matches!(
+        request.method,
+        Some(
+            Method::StaticDirect {
+                waiting_time: Some(_),
+                ..
+            } | Method::StaticDirect {
+                sparse_trackers: Some(_),
+                ..
+            }
+        )
+    ) && request.schema != RunVersion::V04
+    {
+        out.push(request_error(
+            "/schema",
+            "Static Direct options require rules-run/0.4",
+            "Select the version 0.4 request contract.",
         ));
     }
     if request.trackers.len() > model::MAX_OBSERVABLES {
@@ -504,7 +541,7 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
         return Err(diagnostics);
     }
     let compiled = compiled.expect("compiled when valid");
-    let observations = observe::Spec::compile(
+    let mut observations = observe::Spec::compile(
         &model,
         &compiled,
         &request.trackers,
@@ -565,9 +602,9 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
             "Use thinning with an ATP rules model.",
         )]);
     }
-    let flat = match request.method.unwrap_or_default() {
+    let mut flat = match request.method.unwrap_or_default() {
         Method::Tree => None,
-        Method::StaticDirect
+        Method::StaticDirect { .. }
         | Method::MtdnaDirect
         | Method::NextReaction
         | Method::Thinning
@@ -588,6 +625,18 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
             "binomial splitting supports single-parent unit births and deaths",
             "Select tau or exact SSA for other channels.",
         )]);
+    }
+    if let Some(net) = &mut flat {
+        if matches!(
+            request.method,
+            Some(Method::StaticDirect {
+                sparse_trackers: Some(true),
+                ..
+            })
+        ) {
+            observations.enable_sparse(net);
+        }
+        net.plan_observables(&compiled, &observations);
     }
     let mtdna = if request.method == Some(Method::MtdnaDirect) {
         flat.as_ref()
@@ -789,6 +838,15 @@ pub fn execute_with_observer<O: EventObserver>(
     control: &Control,
     observer: &O,
 ) -> Result<RulesResult, Diagnostic> {
+    execute_inner(prepared, control, observer, None)
+}
+
+fn execute_inner<O: EventObserver>(
+    prepared: &Prepared,
+    control: &Control,
+    observer: &O,
+    generated: Option<&dyn RulesKernel>,
+) -> Result<RulesResult, Diagnostic> {
     let model = &prepared.compiled;
     let request = &prepared.request;
     let start = Instant::now();
@@ -854,6 +912,7 @@ pub fn execute_with_observer<O: EventObserver>(
                         keep_instances: id < keep_instances,
                         observations: &prepared.observations,
                         flat: prepared.flat.as_ref(),
+                        generated,
                         mtdna: prepared.mtdna.as_ref(),
                         method: request.method.unwrap_or_default(),
                         id,
@@ -942,7 +1001,7 @@ pub fn execute_with_observer<O: EventObserver>(
     let mut result = RulesResult {
         schema: match request.schema {
             RunVersion::V01 => ResultVersion::V01,
-            RunVersion::V02 | RunVersion::V03 => ResultVersion::V02,
+            RunVersion::V02 | RunVersion::V03 | RunVersion::V04 => ResultVersion::V02,
         },
         model_sha256: prepared.model_sha256.clone(),
         run_sha256: prepared.run_sha256.clone(),
@@ -951,7 +1010,21 @@ pub fn execute_with_observer<O: EventObserver>(
             Method::MtdnaDirect if prepared.mtdna.is_some() => {
                 "chacha8-u53-ziggurat/rules-mtdna-direct/1"
             }
-            Method::StaticDirect | Method::MtdnaDirect => "chacha8-u53/rules-static-direct/1",
+            Method::StaticDirect {
+                waiting_time: Some(RulesWaitingTime::Ziggurat),
+                sparse_trackers: Some(true),
+            } => "chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1",
+            Method::StaticDirect {
+                waiting_time: Some(RulesWaitingTime::Ziggurat),
+                ..
+            } => "chacha8-u53-ziggurat/rules-static-direct/1",
+            Method::StaticDirect {
+                sparse_trackers: Some(true),
+                ..
+            } => "chacha8-u53/rules-static-direct-sparse-trackers/1",
+            Method::StaticDirect { .. } | Method::MtdnaDirect => {
+                "chacha8-u53/rules-static-direct/1"
+            }
             Method::NextReaction => "chacha8-u53/rules-next-reaction/1",
             Method::Thinning => "chacha8-u53/rules-atp-thinning/1",
             Method::Tau { .. } => "chacha8-u53/rules-approximate-cgp-poisson/1",
@@ -1101,6 +1174,7 @@ pub fn describe() -> Value {
         "result": "crn-craft.rules-result/0.1",
         "extended_request": "crn-craft.rules-run/0.2",
         "extended_result": "crn-craft.rules-result/0.2",
+        "static_direct_options_request": "crn-craft.rules-run/0.4",
         "mtdna_direct_request": "crn-craft.rules-run/0.3",
         "methods": ["tree", "static_direct", "mtdna_direct", "next_reaction", "tau", "binomial", "thinning"],
         "python": "crn_craft.rules",

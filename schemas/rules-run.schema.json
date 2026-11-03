@@ -117,6 +117,22 @@
                 "static_direct"
               ],
               "type": "string"
+            },
+            "sparse_trackers": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "waiting_time": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/RulesWaitingTime"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           },
           "required": [
@@ -259,11 +275,19 @@
       ],
       "type": "object"
     },
+    "RulesWaitingTime": {
+      "enum": [
+        "inverse",
+        "ziggurat"
+      ],
+      "type": "string"
+    },
     "RunVersion": {
       "enum": [
         "crn-craft.rules-run/0.1",
         "crn-craft.rules-run/0.2",
-        "crn-craft.rules-run/0.3"
+        "crn-craft.rules-run/0.3",
+        "crn-craft.rules-run/0.4"
       ],
       "type": "string"
     },

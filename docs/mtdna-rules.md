@@ -244,7 +244,8 @@ The result still uses rules-result/0.2. Ziggurat changes the seeded stream
 consumption. Sparse tracking integrates each eligible unweighted single-class
 count over its constant spans. The integral can differ in the last bits
 from per-event integration. First-passage predicates and other projection
-families retain per-event observation. Attaching a Continue observer or an
+families retain per-event observation. If no tracker is eligible, the run
+reports the default sampler identity and a `CRN-R051` warning. Attaching a Continue observer or an
 event log leaves the opt-in tracker policy consistent.
 
 Cached rates and dependency-aware projection refresh apply to the default

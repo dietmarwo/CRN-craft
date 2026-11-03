@@ -1,0 +1,38 @@
+{
+  "description": "Review probe on a two-CPU host: three-class mtDNA, 128 cells, 25,920 h, 720 h reports, 90% takeover stop, two class trackers, one worker. Default Static Direct timed on main f255ee9 and on this branch in alternating order (three runs each). Single profiled runs of the generic opt-in path and mtdna_direct. Timing is host-specific.",
+  "platform": "Linux-6.18.44-fc-v230-x86_64-with-glibc2.39",
+  "default_static_direct_seconds": {
+    "main": [
+      3.52206039,
+      3.648735077,
+      3.708378322
+    ],
+    "branch": [
+      2.350495919,
+      2.370027641,
+      2.575908706
+    ]
+  },
+  "default_outputs_byte_identical": true,
+  "single_runs_seconds": {
+    "mtdna_direct": 0.756323178,
+    "static_direct_ziggurat_sparse": 2.071443114,
+    "static_direct_default": 2.741270754
+  },
+  "events": {
+    "mtdna_direct": 18418274,
+    "static_direct_ziggurat_sparse": 18440125,
+    "static_direct_default": 18355809
+  },
+  "gprofng_generic_top": [
+    "2.162 100.00  2.162 100.00   <Total>",
+    "0.721  33.33  0.721  33.33   <crn_craft_rules::flat::RateCache>::channel",
+    "0.400  18.52  0.610  28.24   crn_craft_rules::flat::direct_with::<rand_chacha::chacha::ChaCha8Rng, <crn_craft_rules::engine::Path>::simulate_flat<rand_chacha::chacha::ChaCha8Rng, crn_craft_rules::observe::NoObserver>::{closure#3}>",
+    "0.340  15.74  1.971  91.20   <crn_craft_rules::engine::Path>::run::<rand_chacha::chacha::ChaCha8Rng, crn_craft_rules::observe::NoObserver>",
+    "0.240  11.11  0.240  11.11   <crn_craft_rules::flat::Network>::refresh_indices::<core::iter::adapters::copied::Copied<core::slice::iter::Iter<usize>>>",
+    "0.090   4.17  0.090   4.17   <crn_craft_rules::flat::Network>::apply",
+    "0.080   3.70  0.080   3.70   rand_chacha::guts::refill_wide::impl_avx2",
+    "0.070   3.24  0.150   6.94   <crn_craft_rules::engine::Words<rand_chacha::chacha::ChaCha8Rng>>::word"
+  ],
+  "rules_replay_cases_identical_to_main": "96/96"
+}

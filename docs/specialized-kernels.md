@@ -45,8 +45,8 @@ hand-written kernel.
 A Rust caller can generate a kernel from a prepared Static Direct request.
 The generator covers constant and recognized vacancy rates and weighted sum
 projections. It emits shared vacancy expressions, per-channel arithmetic,
-static dependency sets, projection sums and a fingerprint of the model bytes
-and lowered channel order. Floating-point products and sums keep the
+static dependency sets, projection sums and a fingerprint: the SHA-256 of the
+emitted source, keyed by the model bytes. Floating-point products and sums keep the
 interpreter's order. The Static Direct scheduler handles state changes,
 selection, waits, budgets, reports and observation.
 
@@ -56,11 +56,24 @@ cargo run --release --locked -p crn-craft-rules --example generate_rules_kernel 
 
 Compile the resulting module into the Rust application and use
 `execute_with_rules_kernel(&prepared, &control, &GeneratedRulesKernel)`.
-The fingerprint rejects stale kernels when model bytes change, including
-parameter rebinding. A request may select inverse or Ziggurat waits using
+`execute_with_rules_kernel` regenerates the source and refuses a kernel
+whose fingerprint differs. That covers other model bytes, including parameter
+rebinding, and kernels compiled from an older generator. A request may select inverse or Ziggurat waits using
 the same compiled kernel. Build and benchmark each generated kernel against
 the interpreter under the same sampler. Python use would require a wheel
 built with the generated module and a binding to dispatch it.
 
-Run `validation/check_generated_rules.py` for the reproducible fixed mtDNA
-build, fingerprint rejection, raw replay comparisons and timed comparisons.
+`crates/crn-craft-rules/tests/generated_kernel.rs` runs a checked-in kernel
+for the three-class fixture under `cargo test`. It checks the generator's
+output against that source, byte-identical replay with both waiting-time
+policies and rejection of a kernel for other model bytes. After a generator
+change, regenerate the fixture with the example above. Run
+`validation/check_generated_rules.py` for a fresh build and timed
+comparisons.
+
+On a two-CPU host, profiling the generic path with Ziggurat waits and sparse
+trackers (128 cells, one worker, 18.4 million events) attributed 33% of the
+time to rate evaluation, 18% to selection with the per-event resolution check
+and 11% to observable refresh. That path took 2.07 s, against 0.76 s for
+`mtdna_direct`, whose resolution is certified once at preparation and whose
+selection is grouped.

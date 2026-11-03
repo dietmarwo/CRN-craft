@@ -6,8 +6,12 @@ import math
 import time
 import numpy as np
 from scipy.linalg import expm
+from scipy.optimize import minimize_scalar
 import fcmaes_rust
 from common import ROOT, arm_manifest, call_json, require, write
+
+
+START, LOWER, UPPER = 0.6, 0.05, 3.0  # rate search start and bounds
 
 
 def partitions(n, maximum=None):
@@ -54,6 +58,23 @@ def exact_law(monomers, rate, times, multiplicative=False):
             ]
         )
     return np.asarray(rows)
+
+
+def exact_optimum(monomers, target, times, multiplicative, lower, upper):
+    """Best rate of a kernel against the exact training law: the population
+    reference that the finite-path search approximates."""
+    answer = minimize_scalar(
+        lambda x: float(
+            np.mean(
+                (exact_law(monomers, np.exp(x), times, multiplicative) - target) ** 2
+            )
+        ),
+        bounds=(lower, upper),
+        method="bounded",
+        options=dict(xatol=1e-10),
+    )
+    require(answer.success, "exact-law reference optimization failed")
+    return float(np.exp(answer.x)), float(answer.fun)
 
 
 def empirical(result, monomers):
@@ -168,13 +189,21 @@ def run(args, report):
 
         answer = fcmaes_rust.optimize_bite(
             objective,
-            [math.log(0.6)],
-            [math.log(0.05)],
-            [math.log(3.0)],
+            [math.log(START)],
+            [math.log(LOWER)],
+            [math.log(UPPER)],
             seed=713,
             max_evaluations=budget,
         )
         rate = float(np.exp(answer[0][0]))
+        reference_rate, reference_loss = exact_optimum(
+            monomers,
+            target,
+            train_times,
+            multiplicative,
+            math.log(LOWER),
+            math.log(UPPER),
+        )
         seconds = time.perf_counter() - start
         held = simulate(rate, multiplicative, test_times, validation_paths, 9001)
         law = exact_law(monomers, rate, test_times, multiplicative)
@@ -188,6 +217,9 @@ def run(args, report):
             fitted_rate=rate,
             true_rate=truth,
             training_loss=answer[1],
+            best_is_start=bool(math.isclose(rate, START, rel_tol=1e-12)),
+            exact_law_optimal_rate=reference_rate,
+            exact_law_optimal_loss=reference_loss,
             actual_evaluations=len(calls),
             exact_heldout_prediction_mse=float(
                 np.mean((law - exact_law(monomers, truth, test_times)) ** 2)

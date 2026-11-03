@@ -54,7 +54,12 @@ the observables or times to be independent.
 
 This check validates sampling of the selected model. A different number in the
 summary, `exact_heldout_prediction_mse`, compares its exact predictions against
-the generating constant kernel. A wrong kernel can pass the simulator law
+the generating constant kernel. Each kernel also gets an independent reference:
+`exact_law_optimal_rate` and `exact_law_optimal_loss` minimize the same CDF loss
+against the exact law of that kernel instead of finite paths (about 1.2 with
+zero loss for the constant kernel, about 0.67 with loss 7.1e-3 for the
+multiplicative one). A fitted rate far from its reference, or `best_is_start`,
+means the search budget, not the kernel, decided the ranking. A wrong kernel can pass the simulator law
 check while making poor predictions. The tutorial reports the observed
 ranking; it does not make successful identification a condition for passing.
 

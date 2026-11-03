@@ -2,9 +2,11 @@
 
 import copy
 import json
+import subprocess
 import time
 import numpy as np
 from scipy.integrate import solve_ivp
+from scipy.optimize import brentq
 import crn_craft as crn
 import fcmaes_rust
 import sqp_craft as sqp
@@ -36,11 +38,56 @@ def independent(rates, times=TIMES):
     return result.y.T
 
 
+def identifiability(jac):
+    """Local identifiability of the log rates from scaled sensitivities.
+
+    The full observation has 36 rows, so its singular values and condition
+    number say how well both log rates are determined. The terminal product
+    alone is one row: rank one by dimension, with a null direction along which
+    the rates change without changing P(T) to first order.
+    """
+    full = (jac / SCALE[None, :, None]).reshape(-1, 2)
+    singular = np.linalg.svd(full, compute_uv=False)
+    terminal = jac[-1, 3, :]
+    return dict(
+        singular_values=singular,
+        condition_number=float(singular[0] / singular[-1]),
+        terminal_product_gradient=terminal,
+        terminal_null_direction=np.array([-terminal[1], terminal[0]])
+        / np.linalg.norm(terminal),
+    )
+
+
+def terminal_twin(truth, direction, step=0.3):
+    """A second rate pair with the same terminal product as the truth.
+
+    Step along the terminal null direction, then restore P(T) exactly by
+    solving for kcat with the independent integrator.
+    """
+    end = independent(truth)[-1, 3]
+    kon = float(np.log(truth[0]) + step * direction[0])
+    guess = float(np.log(truth[1]) + step * direction[1])
+    kcat = brentq(
+        lambda c: independent(np.exp([kon, c]))[-1, 3] - end,
+        guess - 2,
+        guess + 2,
+        xtol=1e-13,
+    )
+    twin = np.exp([kon, kcat])
+    return dict(
+        rates=twin,
+        terminal_product_difference=float(abs(independent(twin)[-1, 3] - end)),
+        full_observation_rmse=float(
+            np.sqrt(np.mean(((independent(twin) - independent(truth)) / SCALE) ** 2))
+        ),
+    )
+
+
 class Objective:
     def __init__(self, binary, model, folder, target, cap, rtol=1e-9):
         self.binary, self.model, self.folder = binary, model, folder
         self.target, self.cap, self.rtol = target, cap, rtol
-        self.calls, self.attempts, self.cache = 0, 0, None
+        self.calls, self.attempts, self.failures, self.cache = 0, 0, 0, None
         self.best, self.best_value = None, float("inf")
         folder.mkdir()
         write(
@@ -64,14 +111,21 @@ class Objective:
         write(self.folder / "model.json", model)
         self.calls += 1
         write(self.folder / f"{self.calls:04d}.model.json", model)
-        result = call_json(
-            [
-                self.binary.resolve(),
-                self.folder / "model.json",
-                self.folder / "request.json",
-            ],
-            30,
-        )
+        try:
+            result = call_json(
+                [
+                    self.binary.resolve(),
+                    self.folder / "model.json",
+                    self.folder / "request.json",
+                ],
+                30,
+            )
+        except (ValueError, OSError, subprocess.TimeoutExpired) as error:
+            # A failed native solve is an undefined point for the search; it
+            # stays counted and its model file stays on disk.
+            self.failures += 1
+            write(self.folder / f"{self.calls:04d}.error.json", dict(error=str(error)))
+            raise sqp.UndefinedPointError(str(error)) from None
         write(self.folder / f"{self.calls:04d}.result.json", result)
         order = [result["parameters"].index(n) for n in NAMES]
         values = np.asarray(result["values"])
@@ -141,18 +195,24 @@ def run(args, report):
         integration_error < 2e-6 and tightened_error < 2e-7,
         "BDF disagrees with independent ODE integration",
     )
+    identification = dict(audit_point=identifiability(jac))
+    identification["truth"] = identifiability(audit.evaluate(np.log(truth))[3])
     full_rank = int(np.linalg.matrix_rank((jac / SCALE[None, :, None]).reshape(-1, 2)))
-    terminal_rank = int(np.linalg.matrix_rank(jac[-1, 3:4, :]))
+    twin = terminal_twin(truth, identification["truth"]["terminal_null_direction"])
     require(
-        full_rank == 2 and terminal_rank == 1,
-        "identifiability rank demonstration failed",
+        full_rank == 2
+        and twin["terminal_product_difference"] < 1e-8
+        and twin["full_observation_rmse"] > 1e-3,
+        "identifiability demonstration failed",
     )
     report["audit"] = dict(
+        audit_point=np.exp(point),
         gradient_error=gradient_error,
         integration_error=integration_error,
         tightened_error=tightened_error,
         full_observation_rank=full_rank,
-        terminal_product_rank=terminal_rank,
+        local_identifiability=identification,
+        terminal_product_twin=twin,
         native_solves=audit.calls + tight.calls,
     )
     report["checks"].append(
@@ -244,6 +304,8 @@ def run(args, report):
                 np.mean(((independent(rates) - target) / SCALE) ** 2)
             ),
             native_solves=native_calls,
+            native_attempts=objective.attempts,
+            native_failures=objective.failures,
             requested_native_solve_cap=budget,
             status=status,
             search_seconds=search_seconds,
@@ -255,9 +317,15 @@ def run(args, report):
             ),
             validation_paths=stochastic["completed_replicates"],
             validation_events=stochastic["events"],
+            validation_sampler=stochastic["sampler"],
+            validation_request_schema=request["schema"],
         )
         report["arms"].append(row)
         arm_manifest(args.output, strategy, budget, native_calls, search_seconds, 7101)
+        identification["fitted-" + strategy] = identifiability(
+            audit.evaluate(np.log(rates))[3]
+        )
+        report["audit"]["native_solves"] = audit.calls + tight.calls
         report["checks"].append(
             dict(name=strategy + "-finite-fit-and-SSA-conservation", passed=True)
         )

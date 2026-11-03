@@ -11,7 +11,8 @@
 
 ### Added: simulator optimization tutorials (contributed by Astra)
 
-- Four lessons in [tutorials/optimization](tutorials/optimization/README.md) with native bindings, independent moment, BDF, generator and finite-state checks, disjoint validation and bounded smoke and study presets.
+- Four lessons in [tutorials/optimization](tutorials/optimization/README.md) with native bindings, independent moment, BDF, generator and finite-state checks, disjoint validation and bounded smoke and study presets. SSA runs use the default `fast` policy; C1's `--include-checked` adds a checked arm and every row records policy, sampler and request schema.
+- Review fixes: C3's cross-backend control uses its own seeds instead of the training seed that selected the design, a horizon whose spectral grid contains the 20-unit target period, and per-path oscillatory fractions; C1 records the training loss of the true rates and whether a fit stayed at its truth-derived start; C2 reports local condition numbers and a terminal-product twin instead of a dimension-bound rank, and treats failed native solves as undefined points; C4 reports each kernel's exact-law optimum. Options a chapter does not use are rejected, summaries carry a run state, and `results/verified.json` is written by `record.py` from complete runs. The C3 reference (fcmaes-rust `crn_reference`) takes the initial state from the request and rejects unknown fields.
 
 ### Added: dynamic, attributed species (experimental rules engine, K0/K1)
 

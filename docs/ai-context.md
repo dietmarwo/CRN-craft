@@ -32,4 +32,4 @@ policy choice; the dynamic numerical engine has no compiler dependency.
 
 ## Optimization lessons
 
-Use [C1–C4](../tutorials/optimization/README.md) for runnable calibration, optional BDF/SQP fitting, native MODE/MAP-Elites oscillator searches, and bounded rules inference. These use library or command interfaces; no new stock worker profiles are implied. [Validation](../tutorials/optimization/VALIDATION.md) distinguishes completed checks from fitted-model quality.
+Use [C1–C4](../tutorials/optimization/README.md) for runnable calibration, optional BDF/SQP fitting, native MODE/MAP-Elites oscillator searches, and bounded rules inference. These use library or command interfaces; no new stock worker profiles are implied. Their SSA runs use the default `fast` policy; C1's `--include-checked` adds a separate checked-policy arm. [Validation](../tutorials/optimization/VALIDATION.md) distinguishes completed checks from fitted-model quality.

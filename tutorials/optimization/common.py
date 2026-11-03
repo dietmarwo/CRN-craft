@@ -29,7 +29,7 @@ def plain(value):
         return plain(value.item())
     if isinstance(value, dict):
         return {str(k): plain(v) for k, v in value.items()}
-    if isinstance(value, (tuple, list)):
+    if isinstance(value, tuple | list):
         return [plain(v) for v in value]
     if isinstance(value, float) and not math.isfinite(value):
         return None
@@ -102,13 +102,15 @@ def arm_manifest(
     )
 
 
-def main(chapter, function):
+def main(chapter, function, options=None):
+    """Run one chapter; `options` adds the chapter's own command-line flags."""
     parser = argparse.ArgumentParser(description=function.__doc__)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--preset", choices=["smoke", "study"], default="smoke")
     parser.add_argument("--threads", type=int, default=1)
-    parser.add_argument("--include-fast", action="store_true")
     parser.add_argument("--seed-offset", type=int, default=0)
+    if options is not None:
+        options(parser)
     parser.add_argument(
         "--reference-binary",
         type=Path,
@@ -131,6 +133,7 @@ def main(chapter, function):
         schema_version="crn-craft.optimization-tutorial/0.1",
         chapter=chapter,
         preset=args.preset,
+        state="running",
         passed=False,
         checks=[],
         arms=[],
@@ -139,7 +142,7 @@ def main(chapter, function):
     try:
         report["versions"] = {
             name: importlib.metadata.version(name)
-            for name in ["crn-craft", "fcmaes-rust", "numpy"]
+            for name in ["crn-craft", "fcmaes-rust", "numpy", "scipy", "sqp-craft"]
         }
         report["source_sha256"] = {
             p.name: digest(p) for p in sorted(Path(__file__).parent.glob("*.py"))
@@ -153,6 +156,7 @@ def main(chapter, function):
     except Exception as error:
         report["error"] = f"{type(error).__name__}: {error}"
     finally:
+        report["state"] = "complete"
         report["total_seconds"] = time.perf_counter() - start
         write(args.output / "summary.json", report)
     print(

@@ -9,6 +9,17 @@ import fcmaes_rust
 from common import ROOT, arm_manifest, checked, require, write
 
 
+START, LOWER, UPPER = 1.25, 0.35, 2.5  # multiples of the true rates
+
+
+def options(parser):
+    parser.add_argument(
+        "--include-checked",
+        action="store_true",
+        help="add a separate arm with the checked exact policy (fast=False)",
+    )
+
+
 def binding_model():
     return dict(
         schema="crn-craft.model/0.1",
@@ -71,6 +82,12 @@ def run(args, report):
         optimizer_seeds=seeds,
         training_seed=77201,
         validation_seed=99173,
+        # One training sample serves every optimizer seed: the seeds replicate
+        # the search, not the data.
+        training_sample="one ensemble, seed 77201, shared by all optimizer seeds",
+        start_multiple_of_truth=START,
+        bounds_multiple_of_truth=[LOWER, UPPER],
+        policies=["fast", "checked"] if args.include_checked else ["fast"],
         event_cap_per_path=100000,
         threads=args.threads,
     )
@@ -87,7 +104,8 @@ def run(args, report):
         truth = np.array([model["parameters"][name] for name in names])
         target = moments(kind, truth, times)
         write(args.output / f"{kind}.model.json", model)
-        for fast in [False, True] if args.include_fast else [False]:
+        for fast in [True, False] if args.include_checked else [True]:
+            policy = "fast" if fast else "checked"
             setup = time.perf_counter()
             request = crn.ssa_spec(
                 model,
@@ -106,6 +124,15 @@ def run(args, report):
                 "parameter coordinate order changed",
             )
             setup_seconds = time.perf_counter() - setup
+            # The training loss of the true rates on the same sample tells
+            # overfitting apart from search failure.
+            at_truth = checked(template.simulate(truth))
+            require(
+                at_truth["method"]["fast"] is fast
+                and at_truth["schema"] == "crn-craft.ssa-result/0.3",
+                f"{kind}-{policy}: result does not state the requested policy",
+            )
+            truth_training_loss = loss(at_truth, target)
             for seed in seeds:
                 comparison = []
                 for route in ["fresh", "reusable"]:
@@ -150,11 +177,12 @@ def run(args, report):
                         return value
 
                     start = time.perf_counter()
+                    x0 = np.log(truth * START)
                     answer = fcmaes_rust.optimize_bite(
                         objective,
-                        np.log(truth * 1.25),
-                        np.log(truth * 0.35),
-                        np.log(truth * 2.5),
+                        x0,
+                        np.log(truth * LOWER),
+                        np.log(truth * UPPER),
                         seed=seed,
                         max_evaluations=budget,
                     )
@@ -199,7 +227,7 @@ def run(args, report):
                     require(
                         replay == repeat, "ordinary replay and reusable binding differ"
                     )
-                    tag = f"{kind}-{'fast' if fast else 'checked'}-{seed}-{route}"
+                    tag = f"{kind}-{policy}-{seed}-{route}"
                     write(args.output / f"{tag}.trace.json", trace)
                     validation_work = dict(
                         events=fitted["events"]
@@ -211,12 +239,21 @@ def run(args, report):
                     row = dict(
                         model=kind,
                         fast=fast,
+                        policy=policy,
+                        sampler=fitted["sampler"],
+                        request_schema=validation_request["schema"],
                         route=route,
                         seed=seed,
                         rates=np.exp(x),
                         truth=truth,
                         parameter_names=names,
                         training_loss=value,
+                        truth_training_loss=truth_training_loss,
+                        truth_training_work=dict(
+                            events=at_truth["events"],
+                            paths=at_truth["completed_replicates"],
+                        ),
+                        best_is_start=bool(np.allclose(x, x0, rtol=0, atol=1e-12)),
                         holdout_loss=loss(fitted, target),
                         truth_holdout_loss=loss(reference, target),
                         parameter_relative_error=float(
@@ -250,7 +287,7 @@ def run(args, report):
                 )
                 report["checks"].append(
                     dict(
-                        name=f"{kind}-{fast}-{seed}-fresh-bound-replay-and-moments",
+                        name=f"{kind}-{policy}-{seed}-fresh-bound-replay-and-moments",
                         passed=True,
                     )
                 )

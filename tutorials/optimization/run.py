@@ -14,4 +14,4 @@ module = __import__(
         chapter
     ]
 )
-raise SystemExit(main(chapter, module.run))
+raise SystemExit(main(chapter, module.run, getattr(module, "options", None)))

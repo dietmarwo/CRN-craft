@@ -9,6 +9,13 @@ from crn_craft.observables import oscillation
 import fcmaes_rust
 from common import ROOT, arm_manifest, call_json, checked, digest, require, write
 
+# Seeds: training paths select designs; validation, the cross-backend control
+# and the reference backend each use their own paths.
+TRAINING_SEED, VALIDATION_SEED, CONTROL_SEED, REFERENCE_SEED = 8101, 9101, 9201, 9301
+# 201 samples over 125 time units: after the 20% burn-in the retained window is
+# about 100.6, so the FFT resolves periods 100.6/k, including about 20.1 (k=5).
+HORIZON, SAMPLES, BURN = 125.0, 201, 0.2
+
 
 def network(edges=((2, 0, -1), (0, 1, -1), (1, 2, -1))):
     """One basal channel plus one Hill channel per edge preserves additive rates."""
@@ -99,8 +106,8 @@ def generator_check():
 def score(times, paths):
     metrics = []
     for values in paths:
-        diagnostic = oscillation(times, values[:, 0])
-        retained = values[int(len(times) * 0.2) :]
+        diagnostic = oscillation(times, values[:, 0], burn_fraction=BURN)
+        retained = values[int(len(times) * BURN) :]
         amplitude = float(
             np.quantile(retained[:, 0], 0.9) - np.quantile(retained[:, 0], 0.1)
         )
@@ -130,6 +137,11 @@ def score(times, paths):
     return objectives, descriptors, metrics
 
 
+def oscillatory_fraction(metrics):
+    """Share of paths classified oscillatory; descriptors average all paths."""
+    return float(np.mean([not m["failed"] for m in metrics])) if metrics else 0.0
+
+
 def nondominated(rows):
     return [
         r
@@ -153,33 +165,40 @@ def run(args, report):
         requested_per_search=budget,
         training_paths=training,
         validation_paths=validation,
-        training_seed=8101,
-        validation_seed=9101,
+        training_seed=TRAINING_SEED,
+        validation_seed=VALIDATION_SEED,
+        control_seed=CONTROL_SEED,
+        reference_seed=REFERENCE_SEED,
         max_events_per_path=200000,
         archive_descriptor_upper=[80, 80],
-        horizon=80,
-        sample_count=129,
+        horizon=HORIZON,
+        sample_count=SAMPLES,
+        burn_fraction=BURN,
+        resolvable_periods="retained window / k for k = 1, 2, ...; oscillatory needs k >= 3",
         threads=args.threads,
     )
     report["generator_max_error"] = generator_check()
     report["checks"].append(dict(name="additive-generator-equivalence", passed=True))
     model = network()
     write(args.output / "hill.model.json", model)
-    times = np.linspace(0, 80, 129).tolist()
+    times = np.linspace(0, HORIZON, SAMPLES).tolist()
     request = crn.ssa_spec(
         model,
         aggregator="cached_direct",
-        end=80,
+        end=HORIZON,
         save_times=times,
         replicates=training,
         keep=training,
-        seed=8101,
+        seed=TRAINING_SEED,
         threads=args.threads,
         max_events=200000,
     )
+    report["budgets"].update(
+        request_schema=request["schema"], fast=request["method"]["fast"]
+    )
     template = crn.prepare_parameters(model, request)
     test_request = copy.deepcopy(request)
-    test_request["ensemble"].update(replicates=validation, root_seed=9101)
+    test_request["ensemble"].update(replicates=validation, root_seed=VALIDATION_SEED)
     test_request["outputs"]["keep_trajectories"] = validation
     test_template = crn.prepare_parameters(model, test_request)
     records = []
@@ -204,8 +223,10 @@ def run(args, report):
             x=list(x),
             objectives=objectives,
             descriptors=descriptors,
+            oscillatory_fraction=oscillatory_fraction(metrics),
             metrics=metrics,
             valid=valid,
+            sampler=result.get("sampler"),
             termination=result["termination"],
             events=result["events"],
             requested_paths=result["requested_replicates"],
@@ -290,6 +311,17 @@ def run(args, report):
                     descriptors=descriptor.tolist(),
                 )
             )
+    # The archive keeps x and descriptors; look up each elite's training
+    # evaluation to report how many of its paths oscillate.
+    for elite in qd:
+        elite["oscillatory_fraction"] = next(
+            (
+                r["oscillatory_fraction"]
+                for r in records
+                if not r["holdout"] and np.array_equal(r["x"], elite["x"])
+            ),
+            None,
+        )
     validation_rows = []
     for origin, row in [("pareto", r) for r in selected] + [("archive", r) for r in qd]:
         held = evaluate(row["x"], True)
@@ -303,6 +335,8 @@ def run(args, report):
                 ),
                 training_niche=grid_niche(row["descriptors"]),
                 heldout_niche=grid_niche(held["descriptors"]),
+                training_oscillatory_fraction=row["oscillatory_fraction"],
+                heldout_oscillatory_fraction=held["oscillatory_fraction"],
                 niche_changed=grid_niche(row["descriptors"])
                 != grid_niche(held["descriptors"]),
             )
@@ -318,7 +352,7 @@ def run(args, report):
         "Vilar fixture identity changed",
     )
     vrequest = crn.ssa_spec(
-        vilar,
+        vilar,  # fast policy, the default
         aggregator="cached_direct",
         end=2,
         save_times=[0, 1, 2],
@@ -383,7 +417,8 @@ def backend_control(args, times, model, selected):
             edges=[(2, 0, -1), (0, 1, -1), (1, 2, -1)],
             times=times,
             paths=count,
-            seed=8101,
+            seed=REFERENCE_SEED,
+            initial=[s["initial_count"] for s in model["species"]],
             states=[[0, 0, 0], [8, 8, 8], [1, 40, 3]],
         )
         path = args.output / f"backend-{index}.request.json"
@@ -411,11 +446,11 @@ def backend_control(args, times, model, selected):
         m["parameters"] = parameters
         spec = crn.ssa_spec(
             m,
-            end=80,
+            end=times[-1],
             save_times=times,
             replicates=count,
             keep=count,
-            seed=8101,
+            seed=CONTROL_SEED,
             threads=args.threads,
             aggregator="cached_direct",
             max_events=200000,
@@ -423,8 +458,9 @@ def backend_control(args, times, model, selected):
         result = checked(crn.simulate_ssa(m, spec))
         paths = np.asarray([p["counts"] for p in result["trajectories"]])
         other = np.asarray(reference["paths"])
-        # Path-averaged counts, not 129 correlated samples treated as independent.
-        left, right = paths[:, 25:, :].mean(axis=1), other[:, 25:, :].mean(axis=1)
+        # Path-averaged counts, not correlated samples treated as independent.
+        burn = int(len(times) * BURN)
+        left, right = paths[:, burn:, :].mean(axis=1), other[:, burn:, :].mean(axis=1)
         se = np.sqrt(
             left.var(axis=0, ddof=1) / count + right.var(axis=0, ddof=1) / count
         )
@@ -438,6 +474,7 @@ def backend_control(args, times, model, selected):
                 crn_score=score(times, paths)[:2],
                 reference_score=score(times, other)[:2],
                 crn_events=result["events"],
+                crn_sampler=result["sampler"],
                 reference_event_count=None,
                 reference_backend=reference["backend"],
             )
@@ -445,5 +482,5 @@ def backend_control(args, times, model, selected):
     return dict(
         binary_sha256=digest(args.reference_binary),
         rows=rows,
-        scope="Same six-channel generator aggregated from CRN's nine channels; shared scoring, independent RNG streams, no path equality claim.",
+        scope="Same six-channel generator aggregated from CRN's nine channels; shared scoring. CRN runs its default fast policy (Xoshiro256++ per replicate, seeded from a keyed stream) on its own seed; the reference seeds SplitMix64 per path from another. Neither side reuses training or validation paths; no path equality claim.",
     )

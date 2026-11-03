@@ -1,8 +1,17 @@
 """Independent small references and negative acceptance controls (also under -O)."""
 
 import copy
+import json
+import math
+from pathlib import Path
+import tempfile
 import unittest
 import numpy as np
+import calibration
+import oscillators
+import record
+import rules
+import sensitivity
 from calibration import binding_model, moments
 from common import checked, require
 from oscillators import generator_check, grid_niche, nondominated, score
@@ -69,6 +78,74 @@ class ScienceChecks(unittest.TestCase):
         dominated = copy.deepcopy(good)
         dominated["objectives"] = [2, 3, 4]
         self.assertEqual(nondominated([bad, dominated, good]), [good])
+
+    def test_c3_control_paths_are_not_selection_paths(self):
+        seeds = [
+            oscillators.TRAINING_SEED,
+            oscillators.VALIDATION_SEED,
+            oscillators.CONTROL_SEED,
+            oscillators.REFERENCE_SEED,
+        ]
+        self.assertEqual(len(set(seeds)), 4)
+
+    def test_c3_target_period_is_on_the_spectral_grid(self):
+        n = oscillators.SAMPLES
+        retained = n - int(n * oscillators.BURN)
+        window = retained * oscillators.HORIZON / (n - 1)
+        # Oscillatory paths need k >= 3 cycles; the 20-unit target must be one.
+        nearest = min(abs(window / k - 20) for k in range(3, 20))
+        self.assertLess(nearest, 0.5)
+
+    def test_only_c1_accepts_a_policy_option(self):
+        self.assertTrue(callable(calibration.options))
+        for module in [sensitivity, oscillators, rules]:
+            self.assertFalse(hasattr(module, "options"))
+
+    def test_terminal_product_alone_cannot_separate_two_rate_pairs(self):
+        truth = np.array([1.0, 0.8])
+        twin = sensitivity.terminal_twin(truth, np.array([-0.98, 0.15]) / 0.9914)
+        self.assertLess(twin["terminal_product_difference"], 1e-8)
+        self.assertGreater(twin["full_observation_rmse"], 1e-3)
+        self.assertGreater(np.max(np.abs(twin["rates"] - truth)), 0.05)
+
+    def test_exact_law_reference_recovers_the_true_kernel_rate(self):
+        times = [0.15, 0.4]
+        target = exact_law(6, 1.2, times)
+        rate, loss = rules.exact_optimum(
+            6, target, times, False, math.log(0.05), math.log(3.0)
+        )
+        self.assertAlmostEqual(rate, 1.2, places=6)
+        self.assertLess(loss, 1e-12)
+
+    def test_verified_record_holds_only_complete_passed_runs(self):
+        verified = json.loads(
+            (Path(__file__).parent / "results/verified.json").read_text()
+        )
+        self.assertEqual(
+            verified["schema_version"], "crn-craft.optimization-record/0.1"
+        )
+        for preset in ["smoke", "study"]:
+            for name in record.CHAPTERS:
+                row = verified["presets"][preset][name]
+                self.assertIs(row["passed"], True)
+                self.assertTrue(row["checks"])
+                self.assertNotIn("source_sha256", row)
+            policies = {
+                a["policy"]: a["sampler"]
+                for a in verified["presets"][preset]["C1"]["results"]["arms"]
+            }
+            self.assertTrue(policies["fast"].startswith("xoshiro256pp"))
+            self.assertTrue(policies["checked"].startswith("chacha8"))
+
+    def test_record_refuses_an_incomplete_run(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp) / "C1"
+            folder.mkdir()
+            (folder / "summary.json").write_text(
+                json.dumps(dict(state="running", passed=False, preset="smoke"))
+            )
+            with self.assertRaisesRegex(ValueError, "C1.state"):
+                record.chapter(Path(temp), "C1")
 
 
 if __name__ == "__main__":

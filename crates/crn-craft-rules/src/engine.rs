@@ -2,6 +2,7 @@
 
 use crate::expr::{Draw, Env};
 use crate::model::{Compiled, MAX_COUNT, Reduce, Shape, Source};
+use crate::observe::{Event, EventObserver, Monitor, Observation, ObserverAction, Spec};
 use crate::tree::{MaxTree, PairChoice, PairTree, SumTree};
 use crate::{Control, InstanceRecord, Termination};
 use crn_craft::diagnostic::Diagnostic;
@@ -34,6 +35,7 @@ pub(crate) struct PathOutput {
     /// report time × observable, row-major; rows past `saved_points` are 0.
     pub values: Vec<f64>,
     pub diagnostic: Option<Diagnostic>,
+    pub observation: Option<Observation>,
     pub instances: Option<Vec<InstanceRecord>>,
 }
 
@@ -537,10 +539,16 @@ pub(crate) struct Path<'a> {
     pub limits: &'a Limits,
     pub control: &'a Control,
     pub keep_instances: bool,
+    pub observations: &'a Spec,
+    pub id: u64,
 }
 
 impl Path<'_> {
-    pub(crate) fn run<R: RngCore>(&self, rng: &mut R) -> PathOutput {
+    pub(crate) fn run<R: RngCore, O: EventObserver>(
+        &self,
+        rng: &mut R,
+        observer: &O,
+    ) -> PathOutput {
         let model = self.model;
         let n_obs = model.observables.len();
         let mut out = PathOutput {
@@ -554,6 +562,7 @@ impl Path<'_> {
             saved_points: 0,
             values: vec![0.0; self.report_times.len() * n_obs],
             diagnostic: None,
+            observation: None,
             instances: None,
         };
         let mut state = State::new(model, self.limits.max_instances);
@@ -563,7 +572,18 @@ impl Path<'_> {
             max: self.limits.max_words,
         };
         let mut time = 0.0;
-        let result = self.simulate(&mut state, &mut words, &mut out, &mut time);
+        let mut monitor = self
+            .observations
+            .enabled()
+            .then(|| Monitor::new(self.observations, self.id));
+        let result = self.simulate(
+            &mut state,
+            &mut words,
+            &mut out,
+            &mut time,
+            &mut monitor,
+            observer,
+        );
         out.rng_words = words.used;
         out.peak_instances = state.peak;
         out.created_instances = state.created;
@@ -593,6 +613,7 @@ impl Path<'_> {
                 out.stop_time = time;
             }
         }
+        out.observation = monitor.map(|m| m.finish(out.stop_time));
         if self.keep_instances {
             out.instances = Some(state.instances());
         }
@@ -645,12 +666,14 @@ impl Path<'_> {
 
     /// Returns the stop time if the stop condition fired.
     #[allow(clippy::too_many_lines, clippy::cast_precision_loss)]
-    fn simulate<R: RngCore>(
+    fn simulate<R: RngCore, O: EventObserver>(
         &self,
         state: &mut State,
         words: &mut Words<R>,
         out: &mut PathOutput,
         time: &mut f64,
+        monitor: &mut Option<Monitor<'_>>,
+        observer: &O,
     ) -> Result<Option<f64>, Halt> {
         let model = self.model;
         let n_obs = model.observables.len();
@@ -659,6 +682,9 @@ impl Path<'_> {
             state.add(*t, attrs, *count)?;
         }
         state.refresh()?;
+        if let Some(m) = monitor {
+            m.start(&model.params, &state.values);
+        }
         if self.stop_now(state)? {
             return Ok(Some(0.0));
         }
@@ -840,7 +866,35 @@ impl Path<'_> {
             out.events += 1;
             out.rule_events[r] += 1;
             state.refresh()?;
-            if self.stop_now(state)? {
+            let stopped = if O::ENABLED || monitor.is_some() {
+                let rs = rule
+                    .reactant_types
+                    .iter()
+                    .copied()
+                    .zip(&reactants)
+                    .map(|(t, a)| (t, a.as_slice()))
+                    .collect::<Vec<_>>();
+                let ps = products
+                    .iter()
+                    .map(|(t, a)| (*t, a.as_slice()))
+                    .collect::<Vec<_>>();
+                let event = Event {
+                    replicate: self.id,
+                    time: next,
+                    rule: Some(r),
+                    reactants: &rs,
+                    products: &ps,
+                    observables: &state.values,
+                    firings: &[],
+                };
+                if let Some(m) = monitor {
+                    m.observe(&event, &model.params);
+                }
+                observer.on_event(&event) == ObserverAction::Stop
+            } else {
+                false
+            };
+            if stopped || self.stop_now(state)? {
                 return Ok(Some(next));
             }
         }

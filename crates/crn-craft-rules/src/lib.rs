@@ -13,7 +13,9 @@
 mod engine;
 mod expr;
 pub mod model;
+pub mod observe;
 mod tree;
+use observe::{EventObserver, LogSpec, NoObserver, Observation, TrackerSpec};
 
 use crn_craft::contracts::{Ensemble, ModelRef, Statistic};
 use crn_craft::diagnostic::Diagnostic;
@@ -82,6 +84,8 @@ impl Control {
 pub enum RunVersion {
     #[serde(rename = "crn-craft.rules-run/0.1")]
     V01,
+    #[serde(rename = "crn-craft.rules-run/0.2")]
+    V02,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -129,6 +133,10 @@ pub struct RunRequest {
     pub ensemble: Ensemble,
     pub outputs: Outputs,
     pub budget: Budget,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub trackers: Vec<TrackerSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_log: Option<LogSpec>,
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +146,8 @@ pub struct RunRequest {
 pub enum ResultVersion {
     #[serde(rename = "crn-craft.rules-result/0.1")]
     V01,
+    #[serde(rename = "crn-craft.rules-result/0.2")]
+    V02,
 }
 
 #[derive(
@@ -251,12 +261,15 @@ pub struct RulesResult {
     /// Withheld unless every replicate completed or stopped.
     pub statistics: Option<Statistics>,
     pub diagnostics: Vec<Diagnostic>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub observations: Vec<Observation>,
 }
 
 // ---------------------------------------------------------------------------
 
 pub struct Prepared {
     compiled: model::Compiled,
+    observations: observe::Spec,
     request: RunRequest,
     model_sha256: String,
     run_sha256: String,
@@ -276,6 +289,22 @@ fn validate_request(request: &RunRequest, model_sha256: &str) -> Vec<Diagnostic>
             "/model/sha256",
             "model SHA-256 does not match the supplied model",
             "Recompute the hash of the exact model bytes.",
+        ));
+    }
+    if request.schema == RunVersion::V01
+        && (!request.trackers.is_empty() || request.event_log.is_some())
+    {
+        out.push(request_error(
+            "/schema",
+            "event observation requires rules-run/0.2",
+            "Select the version 0.2 request contract.",
+        ));
+    }
+    if request.trackers.len() > model::MAX_OBSERVABLES {
+        out.push(request_error(
+            "/trackers",
+            "too many trackers",
+            "Use at most 256 trackers.",
         ));
     }
     let time = &request.time;
@@ -413,15 +442,48 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
     if let Some(compiled) = compiled.as_ref().filter(|_| diagnostics.is_empty()) {
         diagnostics.extend(admission(compiled, &request));
     }
-    match compiled {
-        Some(compiled) if diagnostics.is_empty() => Ok(Prepared {
-            compiled,
-            request,
-            model_sha256,
-            run_sha256: crn_craft::sha256(request_bytes),
-        }),
-        _ => Err(diagnostics),
+    if !diagnostics.is_empty() {
+        return Err(diagnostics);
     }
+    let compiled = compiled.expect("compiled when valid");
+    let observations = observe::Spec::compile(
+        &model,
+        &compiled,
+        &request.trackers,
+        request.event_log.as_ref(),
+    )
+    .map_err(|e| {
+        vec![request_error(
+            "/trackers",
+            e,
+            "Use declared observable and rule names.",
+        )]
+    })?;
+    let attribute_count = compiled
+        .types
+        .iter()
+        .map(|t| t.attributes.len())
+        .max()
+        .unwrap_or(0);
+    let reservation = observations.reservation(
+        attribute_count,
+        compiled.observables.len(),
+        compiled.rules.len(),
+    ) * u128::from(request.ensemble.replicates);
+    if reservation > u128::from(MAX_WORKSPACE_BYTES.min(request.budget.max_output_bytes)) {
+        return Err(vec![request_error(
+            "/budget",
+            "observation reservation exceeds budget",
+            "Reduce event or episode retention or use fewer paths.",
+        )]);
+    }
+    Ok(Prepared {
+        compiled,
+        observations,
+        request,
+        model_sha256,
+        run_sha256: crn_craft::sha256(request_bytes),
+    })
 }
 
 fn workers(request: &RunRequest) -> u64 {
@@ -516,6 +578,7 @@ struct Reducer {
     next: u64,
     pending: BTreeMap<u64, engine::PathOutput>,
     records: Vec<Record>,
+    observations: Vec<Observation>,
     paths: Vec<PathSeries>,
     finals: Vec<FinalInstances>,
     samples: u64,
@@ -526,8 +589,11 @@ struct Reducer {
 
 impl Reducer {
     #[allow(clippy::cast_precision_loss)]
-    fn fold(&mut self, id: u64, path: engine::PathOutput, keep_paths: u64, columns: usize) {
+    fn fold(&mut self, id: u64, mut path: engine::PathOutput, keep_paths: u64, columns: usize) {
         self.records.push(record(id, &path));
+        if let Some(obs) = path.observation.take() {
+            self.observations.push(obs);
+        }
         if path.termination.complete() {
             self.samples += 1;
             let k = self.samples as f64;
@@ -587,6 +653,15 @@ fn statistics(wanted: &[Statistic], reducer: &Reducer, columns: usize) -> Statis
 /// not depend on the thread count.
 #[allow(clippy::missing_panics_doc, clippy::too_many_lines)]
 pub fn execute(prepared: &Prepared, control: &Control) -> Result<RulesResult, Diagnostic> {
+    execute_with_observer(prepared, control, &NoObserver)
+}
+
+/// Observe committed events on each native worker. Ordering is per replicate.
+pub fn execute_with_observer<O: EventObserver>(
+    prepared: &Prepared,
+    control: &Control,
+    observer: &O,
+) -> Result<RulesResult, Diagnostic> {
     let model = &prepared.compiled;
     let request = &prepared.request;
     let start = Instant::now();
@@ -613,6 +688,7 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<RulesResult, Di
         next: 0,
         pending: BTreeMap::new(),
         records: Vec::with_capacity(usize::try_from(n).unwrap_or(0)),
+        observations: Vec::new(),
         paths: Vec::new(),
         finals: Vec::new(),
         samples: 0,
@@ -649,8 +725,10 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<RulesResult, Di
                         limits: &limits,
                         control,
                         keep_instances: id < keep_instances,
+                        observations: &prepared.observations,
+                        id,
                     };
-                    let output = path.run(&mut stream(request.ensemble.root_seed, id));
+                    let output = path.run(&mut stream(request.ensemble.root_seed, id), observer);
                     let stop = matches!(
                         output.termination,
                         Termination::Cancelled | Termination::WallTimeLimit
@@ -732,7 +810,10 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<RulesResult, Di
         ));
     }
     let mut result = RulesResult {
-        schema: ResultVersion::V01,
+        schema: match request.schema {
+            RunVersion::V01 => ResultVersion::V01,
+            RunVersion::V02 => ResultVersion::V02,
+        },
         model_sha256: prepared.model_sha256.clone(),
         run_sha256: prepared.run_sha256.clone(),
         sampler: SAMPLER.into(),
@@ -764,12 +845,14 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<RulesResult, Di
         final_instances,
         statistics,
         diagnostics,
+        observations: reducer.observations,
     };
     let limit = request.budget.max_output_bytes.min(MAX_RESULT_BYTES);
     if !fits_json(&result, limit) {
         result.termination = Termination::OutputLimit;
         result.statistics = None;
         result.paths.clear();
+        result.observations.clear();
         result.final_instances.clear();
         result.diagnostics.push(Diagnostic::error(
             "CRN-R045",

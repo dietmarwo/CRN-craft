@@ -9,8 +9,15 @@ import numpy as np
 from . import _crn_error, _native, _path, model_bytes
 
 TERMINATIONS = (
-    "completed", "stopped", "event_limit", "sampling_limit", "instance_limit",
-    "wall_time_limit", "cancelled", "failed", "output_limit",
+    "completed",
+    "stopped",
+    "event_limit",
+    "sampling_limit",
+    "instance_limit",
+    "wall_time_limit",
+    "cancelled",
+    "failed",
+    "output_limit",
 )
 
 
@@ -38,24 +45,50 @@ class Result:
         self.records["rule_events"] = self.records["rule_events"].reshape(
             len(self.records["id"]), len(self.metadata["rules"])
         )
+        self.observations = self.metadata.get("observations", [])
         stats = self.metadata["statistics"]
-        self.statistics = None if stats is None else {
-            key: np.asarray(value) if isinstance(value, list) else value
-            for key, value in stats.items()
-        }
+        self.statistics = (
+            None
+            if stats is None
+            else {
+                key: np.asarray(value) if isinstance(value, list) else value
+                for key, value in stats.items()
+            }
+        )
 
 
 class PreparedEnsemble:
     def __init__(self, native):
         self._native = native
 
-    def simulate(self, *, cancel_file=None):
-        """Execute with native workers. Ctrl-C or cancel_file cancels the run."""
+    def simulate(
+        self, *, cancel_file=None, callback=None, batch_callback=None, batch_size=256
+    ):
+        """Run native workers.
+
+        A live callback(id, event) returning False stops that replicate.
+        Workers preserve per-replicate order. A batch_callback(id, events)
+        replays the retained log after execution and cannot affect the run.
+        """
+        if batch_size < 1:
+            raise ValueError("batch_size must be positive")
+
+        def dispatch(replicate, event):
+            return callback(replicate, json.loads(event))
+
         try:
-            metadata, columns = self._native.simulate(_path(cancel_file))
+            metadata, columns = self._native.simulate(
+                _path(cancel_file), None if callback is None else dispatch
+            )
         except _native.NativeError as error:
             raise _crn_error(error) from None
-        return Result(json.loads(metadata), columns)
+        result = Result(json.loads(metadata), columns)
+        if batch_callback is not None:
+            for observation in result.observations:
+                log = observation["log"]
+                for start in range(0, len(log), batch_size):
+                    batch_callback(observation["id"], log[start : start + batch_size])
+        return result
 
 
 def prepare(model, request):
@@ -69,16 +102,31 @@ def prepare(model, request):
 
 
 def ensemble(
-    model, *, end, report_times, replicates=1, seed=0, threads=1,
-    keep_paths=0, keep_instances=0, max_events=1_000_000,
-    max_sampling_steps=8_000_000, max_instances=100_000,
-    max_output_bytes=64 << 20, wall_time_s=None,
+    model,
+    *,
+    end,
+    report_times,
+    replicates=1,
+    seed=0,
+    threads=1,
+    keep_paths=0,
+    keep_instances=0,
+    max_events=1_000_000,
+    max_sampling_steps=8_000_000,
+    max_instances=100_000,
+    max_output_bytes=64 << 20,
+    wall_time_s=None,
+    trackers=(),
+    event_log=None,
 ):
     """Build and prepare a rules request with explicit work/output budgets."""
     data = model_bytes(model)
     request = {
         "schema": "crn-craft.rules-run/0.1",
-        "model": {"path": "model.rules.json", "sha256": hashlib.sha256(data).hexdigest()},
+        "model": {
+            "path": "model.rules.json",
+            "sha256": hashlib.sha256(data).hexdigest(),
+        },
         "time": {"end": end, "report_times": list(report_times)},
         "ensemble": {"replicates": replicates, "root_seed": seed},
         "outputs": {
@@ -95,4 +143,8 @@ def ensemble(
             "wall_time_s": wall_time_s,
         },
     }
+    if trackers or event_log is not None:
+        request["schema"] = "crn-craft.rules-run/0.2"
+        request["trackers"] = list(trackers)
+        request["event_log"] = event_log
     return prepare(data, request)

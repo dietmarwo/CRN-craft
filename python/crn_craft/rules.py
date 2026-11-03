@@ -118,6 +118,7 @@ def ensemble(
     wall_time_s=None,
     trackers=(),
     event_log=None,
+    method=None,
 ):
     """Build and prepare a rules request with explicit work/output budgets."""
     data = model_bytes(model)
@@ -143,8 +144,9 @@ def ensemble(
             "wall_time_s": wall_time_s,
         },
     }
-    if trackers or event_log is not None:
+    if trackers or event_log is not None or method is not None:
         request["schema"] = "crn-craft.rules-run/0.2"
         request["trackers"] = list(trackers)
         request["event_log"] = event_log
+        request["method"] = {"kind": method} if isinstance(method, str) else method
     return prepare(data, request)

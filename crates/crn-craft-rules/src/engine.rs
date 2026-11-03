@@ -1,5 +1,8 @@
 //! Exact direct-method simulation of one replicate.
 
+#[path = "flat_path.rs"]
+mod flat_path;
+
 use crate::expr::{Draw, Env};
 use crate::model::{Compiled, MAX_COUNT, Reduce, Shape, Source};
 use crate::observe::{Event, EventObserver, Monitor, Observation, ObserverAction, Spec};
@@ -13,7 +16,7 @@ use std::time::Instant;
 
 /// A positive weight below this fraction of its total cannot be resolved by a
 /// 53-bit uniform.
-const RESOLUTION: f64 = 1.0 / 9_007_199_254_740_992.0;
+pub(crate) const RESOLUTION: f64 = 1.0 / 9_007_199_254_740_992.0;
 const POLL_EVENTS: u64 = 1024;
 
 pub(crate) struct Limits {
@@ -39,12 +42,12 @@ pub(crate) struct PathOutput {
     pub instances: Option<Vec<InstanceRecord>>,
 }
 
-enum Halt {
+pub(crate) enum Halt {
     Limit(Termination, Diagnostic),
     Numerical(Diagnostic),
 }
 
-fn numerical(path: &str, message: impl Into<String>, hint: &str) -> Halt {
+pub(crate) fn numerical(path: &str, message: impl Into<String>, hint: &str) -> Halt {
     Halt::Numerical(Diagnostic::error("CRN-R030", path, message, hint))
 }
 
@@ -509,13 +512,13 @@ impl<'m> State<'m> {
     }
 }
 
-struct Words<'r, R: RngCore> {
+pub(crate) struct Words<'r, R: RngCore> {
     rng: &'r mut R,
     used: u64,
     max: u64,
 }
 impl<R: RngCore> Words<'_, R> {
-    fn uniform(&mut self) -> Result<f64, Halt> {
+    pub(crate) fn uniform(&mut self) -> Result<f64, Halt> {
         if self.used >= self.max {
             return Err(Halt::Limit(
                 Termination::SamplingLimit,
@@ -541,6 +544,8 @@ pub(crate) struct Path<'a> {
     pub keep_instances: bool,
     pub observations: &'a Spec,
     pub id: u64,
+    pub flat: Option<&'a crate::flat::Network>,
+    pub method: crate::Method,
 }
 
 impl Path<'_> {
@@ -565,7 +570,6 @@ impl Path<'_> {
             observation: None,
             instances: None,
         };
-        let mut state = State::new(model, self.limits.max_instances);
         let mut words = Words {
             rng,
             used: 0,
@@ -576,23 +580,48 @@ impl Path<'_> {
             .observations
             .enabled()
             .then(|| Monitor::new(self.observations, self.id));
-        let result = self.simulate(
-            &mut state,
-            &mut words,
-            &mut out,
-            &mut time,
-            &mut monitor,
-            observer,
-        );
+        let mut values = vec![0.0; n_obs];
+        let result = if let Some(network) = self.flat {
+            let mut counts = network.initial();
+            let result = self.simulate_flat(
+                network,
+                &mut counts,
+                &mut values,
+                &mut words,
+                &mut out,
+                &mut time,
+                &mut monitor,
+                observer,
+            );
+            if self.keep_instances {
+                out.instances = Some(network.instances(&counts));
+            }
+            result
+        } else {
+            let mut state = State::new(model, self.limits.max_instances);
+            let result = self.simulate(
+                &mut state,
+                &mut words,
+                &mut out,
+                &mut time,
+                &mut monitor,
+                observer,
+            );
+            out.peak_instances = state.peak;
+            out.created_instances = state.created;
+            if self.keep_instances {
+                out.instances = Some(state.instances());
+            }
+            values = state.values;
+            result
+        };
         out.rng_words = words.used;
-        out.peak_instances = state.peak;
-        out.created_instances = state.created;
         match result {
             Ok(stopped) => {
                 // The state is held to the end of the grid.
                 while out.saved_points < self.report_times.len() {
                     let row = out.saved_points * n_obs;
-                    out.values[row..row + n_obs].copy_from_slice(&state.values);
+                    out.values[row..row + n_obs].copy_from_slice(&values);
                     out.saved_points += 1;
                 }
                 if let Some(at) = stopped {
@@ -614,23 +643,28 @@ impl Path<'_> {
             }
         }
         out.observation = monitor.map(|m| m.finish(out.stop_time));
-        if self.keep_instances {
-            out.instances = Some(state.instances());
-        }
         out
     }
 
     fn stop_now(&self, state: &State) -> Result<bool, Halt> {
+        self.stop_values(&state.values)
+    }
+
+    fn stop_values(&self, values: &[f64]) -> Result<bool, Halt> {
         let Some(e) = self.model.stop.as_ref() else {
             return Ok(false);
         };
-        let value = e.eval(&state.global_env());
+        let value = e.eval(&Env {
+            params: &self.model.params,
+            observables: values,
+            attributes: [&[], &[]],
+        });
         if value.is_nan() {
             return Err(numerical(
                 "/stop",
                 format!(
                     "stop condition is undefined (NaN) at observables {:?}",
-                    state.values
+                    values
                 ),
                 "Guard divisions so the stop condition is defined in every state.",
             ));

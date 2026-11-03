@@ -12,6 +12,7 @@
 
 mod engine;
 mod expr;
+mod flat;
 pub mod model;
 pub mod observe;
 mod tree;
@@ -124,6 +125,14 @@ pub struct Budget {
     pub max_output_bytes: u64,
 }
 
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum Method {
+    #[default]
+    Tree,
+    StaticDirect,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RunRequest {
@@ -135,6 +144,8 @@ pub struct RunRequest {
     pub budget: Budget,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trackers: Vec<TrackerSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub method: Option<Method>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub event_log: Option<LogSpec>,
 }
@@ -270,6 +281,7 @@ pub struct RulesResult {
 pub struct Prepared {
     compiled: model::Compiled,
     observations: observe::Spec,
+    flat: Option<flat::Network>,
     request: RunRequest,
     model_sha256: String,
     run_sha256: String,
@@ -292,7 +304,7 @@ fn validate_request(request: &RunRequest, model_sha256: &str) -> Vec<Diagnostic>
         ));
     }
     if request.schema == RunVersion::V01
-        && (!request.trackers.is_empty() || request.event_log.is_some())
+        && (!request.trackers.is_empty() || request.event_log.is_some() || request.method.is_some())
     {
         out.push(request_error(
             "/schema",
@@ -477,8 +489,19 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
             "Reduce event or episode retention or use fewer paths.",
         )]);
     }
+    let flat = match request.method.unwrap_or_default() {
+        Method::Tree => None,
+        Method::StaticDirect => Some(flat::Network::compile(&compiled).map_err(|e| {
+            vec![request_error(
+                "/method",
+                e,
+                "Use a statically closed model or select tree Direct.",
+            )]
+        })?),
+    };
     Ok(Prepared {
         compiled,
+        flat,
         observations,
         request,
         model_sha256,
@@ -726,6 +749,8 @@ pub fn execute_with_observer<O: EventObserver>(
                         control,
                         keep_instances: id < keep_instances,
                         observations: &prepared.observations,
+                        flat: prepared.flat.as_ref(),
+                        method: request.method.unwrap_or_default(),
                         id,
                     };
                     let output = path.run(&mut stream(request.ensemble.root_seed, id), observer);
@@ -816,7 +841,11 @@ pub fn execute_with_observer<O: EventObserver>(
         },
         model_sha256: prepared.model_sha256.clone(),
         run_sha256: prepared.run_sha256.clone(),
-        sampler: SAMPLER.into(),
+        sampler: match request.method.unwrap_or_default() {
+            Method::Tree => SAMPLER,
+            Method::StaticDirect => "chacha8-u53/rules-static-direct/1",
+        }
+        .into(),
         root_seed: request.ensemble.root_seed,
         types: model
             .types

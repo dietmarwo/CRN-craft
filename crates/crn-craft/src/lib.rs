@@ -13,6 +13,8 @@ pub mod fsp;
 pub mod kinetics;
 pub mod linkage;
 pub mod network;
+#[doc(hidden)]
+pub mod next_reaction;
 pub mod parameters;
 mod rates;
 pub mod sampling;

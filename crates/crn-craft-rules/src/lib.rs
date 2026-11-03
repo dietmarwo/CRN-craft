@@ -131,6 +131,7 @@ pub enum Method {
     #[default]
     Tree,
     StaticDirect,
+    NextReaction,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -491,13 +492,15 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
     }
     let flat = match request.method.unwrap_or_default() {
         Method::Tree => None,
-        Method::StaticDirect => Some(flat::Network::compile(&compiled).map_err(|e| {
-            vec![request_error(
-                "/method",
-                e,
-                "Use a statically closed model or select tree Direct.",
-            )]
-        })?),
+        Method::StaticDirect | Method::NextReaction => {
+            Some(flat::Network::compile(&compiled).map_err(|e| {
+                vec![request_error(
+                    "/method",
+                    e,
+                    "Use a statically closed model or select tree Direct.",
+                )]
+            })?)
+        }
     };
     Ok(Prepared {
         compiled,
@@ -844,6 +847,7 @@ pub fn execute_with_observer<O: EventObserver>(
         sampler: match request.method.unwrap_or_default() {
             Method::Tree => SAMPLER,
             Method::StaticDirect => "chacha8-u53/rules-static-direct/1",
+            Method::NextReaction => "chacha8-u53/rules-next-reaction/1",
         }
         .into(),
         root_seed: request.ensemble.root_seed,

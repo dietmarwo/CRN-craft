@@ -128,7 +128,7 @@ def ssa_spec(
     if not isinstance(fast, bool):
         raise TypeError("fast must be True or False")
     request = run_spec(model, **kwargs)
-    request["schema"] = "crn-craft.ssa-run/0.3"
+    request["schema"] = "crn-craft.ssa-run/0.4" if aggregator == "next_reaction" else "crn-craft.ssa-run/0.3"
     request["method"] = {
         "kind": "ssa",
         "aggregator": aggregator,

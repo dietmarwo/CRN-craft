@@ -1,6 +1,7 @@
 //! Fixed-channel trajectory loop, with the same result and control accounting.
 use super::*;
 use crate::flat::{Network, check_instances, direct};
+use crn_craft::next_reaction::Clocks;
 
 impl Path<'_> {
     #[allow(clippy::too_many_arguments)]
@@ -16,7 +17,7 @@ impl Path<'_> {
         observer: &O,
     ) -> Result<Option<f64>, Halt> {
         self.poll()?;
-        debug_assert_eq!(self.method, crate::Method::StaticDirect);
+
         out.peak_instances = counts.iter().filter(|&&n| n > 0).count() as u64;
         check_instances(out.peak_instances, self.limits)?;
         net.refresh(counts, values)?;
@@ -27,6 +28,11 @@ impl Path<'_> {
             return Ok(Some(0.0));
         }
         let mut rates = vec![0.0; net.channels.len()];
+        let mut clocks = Clocks::default();
+        let mut previous = None;
+        if self.method == crate::Method::NextReaction {
+            clocks.reset(rates.len());
+        }
         loop {
             if out.events % POLL_EVENTS == 0 && out.events > 0 {
                 self.poll()?;
@@ -36,12 +42,46 @@ impl Path<'_> {
                 observables: values,
                 attributes: [&[], &[]],
             };
-            for (i, a) in rates.iter_mut().enumerate() {
-                *a = net.rate(i, counts, &env)?;
-            }
-            let Some((next, channel)) = direct(&rates, *time, words)? else {
+            let candidate = if self.method == crate::Method::NextReaction {
+                let mut update = |i, fired| {
+                    let rate = net.rate(i, counts, &env)?;
+                    let fresh = if clocks.needs_draw(i, rate, fired) {
+                        Some(-libm::log(1.0 - words.uniform()?))
+                    } else {
+                        None
+                    };
+                    if !clocks.update(i, rate, *time, fresh) {
+                        return Err(numerical(
+                            "/time",
+                            "reaction clock failed to advance",
+                            "Rescale rates and time.",
+                        ));
+                    }
+                    Ok(())
+                };
+                if let Some(i) = previous {
+                    update(i, true)?;
+                    for &j in &net.affected[i] {
+                        if i != j {
+                            update(j, false)?;
+                        }
+                    }
+                } else {
+                    for i in 0..rates.len() {
+                        update(i, false)?;
+                    }
+                }
+                clocks.next()
+            } else {
+                for (i, a) in rates.iter_mut().enumerate() {
+                    *a = net.rate(i, counts, &env)?;
+                }
+                direct(&rates, *time, words)?
+            };
+            let Some((next, channel)) = candidate else {
                 return Ok(None);
             };
+            previous = Some(channel);
             self.save_before(out, values, next);
             if next > self.end {
                 return Ok(None);

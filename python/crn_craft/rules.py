@@ -230,7 +230,7 @@ def ensemble(
         ):
             request["schema"] = "crn-craft.rules-run/0.3"
         elif (
-            isinstance(request["method"], dict)
+            isinstance(request.get("method"), dict)
             and request["method"].get("kind") == "static_direct"
             and {"waiting_time", "sparse_trackers"} & request["method"].keys()
         ):

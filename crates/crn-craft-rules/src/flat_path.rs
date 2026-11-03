@@ -41,6 +41,13 @@ impl Path<'_> {
                 atp, net, counts, values, words, out, time, monitor, observer,
             );
         }
+        if let Some(kernel) = self.mtdna {
+            let stopped = self.simulate_mtdna(
+                kernel, net, counts, values, words, out, time, monitor, observer,
+            )?;
+            net.refresh(counts, values)?;
+            return Ok(stopped);
+        }
         let mut rates = vec![0.0; net.channels.len()];
         let mut clocks = Clocks::default();
         let mut previous = None;

@@ -124,6 +124,35 @@ fn uniform(word: u64) -> f64 {
 }
 
 impl Expr {
+    /// Recognize the guarded fixed-population takeover predicate.
+    pub(crate) fn fraction_stop(&self, total: usize, mutants: usize) -> Option<f64> {
+        let Node::Bin(Op::And, guard, predicate) = &self.root else {
+            return None;
+        };
+        let total = Node::Var(Slot::Observable(total));
+        let mutants = Node::Var(Slot::Observable(mutants));
+        let Node::Bin(Op::Gt, left, right) = guard.as_ref() else {
+            return None;
+        };
+        if **left != total || **right != Node::Num(0.0) {
+            return None;
+        }
+        let Node::Bin(Op::Ge, left, right) = predicate.as_ref() else {
+            return None;
+        };
+        let Node::Bin(Op::Mul, fraction, population) = right.as_ref() else {
+            return None;
+        };
+        match fraction.as_ref() {
+            Node::Num(f)
+                if **left == mutants && **population == total && (0.0..=1.0).contains(f) =>
+            {
+                Some(*f)
+            }
+            _ => None,
+        }
+    }
+
     pub(crate) fn parse(source: &str, scope: &Scope) -> Result<Self, String> {
         let tokens = lex(source)?;
         let mut parser = Parser {

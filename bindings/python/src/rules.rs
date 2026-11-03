@@ -87,6 +87,17 @@ impl EventObserver for PythonObserver<'_> {
 
 #[pymethods]
 impl PreparedRules {
+    fn bind_parameters(
+        &self,
+        py: Python<'_>,
+        overrides: std::collections::BTreeMap<String, f64>,
+    ) -> PyResult<Self> {
+        let prepared = Arc::clone(&self.0);
+        py.detach(move || prepared.bind_parameters(&overrides))
+            .map(|p| Self(Arc::new(p)))
+            .map_err(|d| failure(&d))
+    }
+
     #[pyo3(signature = (cancel_file=None, callback=None))]
     fn simulate<'py>(
         &self,

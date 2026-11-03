@@ -15,6 +15,7 @@ mod engine;
 mod expr;
 mod flat;
 pub mod model;
+mod mtdna;
 pub mod observe;
 mod tree;
 use observe::{EventObserver, LogSpec, NoObserver, Observation, TrackerSpec};
@@ -88,6 +89,8 @@ pub enum RunVersion {
     V01,
     #[serde(rename = "crn-craft.rules-run/0.2")]
     V02,
+    #[serde(rename = "crn-craft.rules-run/0.3")]
+    V03,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -132,6 +135,7 @@ pub enum Method {
     #[default]
     Tree,
     StaticDirect,
+    MtdnaDirect,
     NextReaction,
     Thinning,
     Tau {
@@ -288,12 +292,41 @@ pub struct RulesResult {
 // ---------------------------------------------------------------------------
 
 pub struct Prepared {
+    source: Model,
+    mtdna: Option<mtdna::Kernel>,
     compiled: model::Compiled,
     observations: observe::Spec,
     flat: Option<flat::Network>,
     request: RunRequest,
     model_sha256: String,
     run_sha256: String,
+}
+
+impl Prepared {
+    /// Build an independently reusable candidate with the same run settings.
+    /// Rules parameters can affect attributes, projections and even topology,
+    /// so each candidate is revalidated and lowered once before simulation.
+    pub fn bind_parameters(
+        &self,
+        overrides: &BTreeMap<String, f64>,
+    ) -> Result<Self, Vec<Diagnostic>> {
+        let mut model = self.source.clone();
+        for (name, value) in overrides {
+            let Some(target) = model.parameters.get_mut(name).filter(|_| value.is_finite()) else {
+                return Err(vec![request_error(
+                    "/parameters",
+                    format!("unknown parameter or nonfinite value: {name}"),
+                    "Use declared parameter names and finite values.",
+                )]);
+            };
+            *target = *value;
+        }
+        let model_bytes = serde_json::to_vec(&model).expect("validated serializable model");
+        let mut request = self.request.clone();
+        request.model.sha256 = crn_craft::sha256(&model_bytes);
+        let request_bytes = serde_json::to_vec(&request).expect("validated serializable request");
+        prepare(&model_bytes, &request_bytes)
+    }
 }
 
 fn request_error(path: &str, message: impl Into<String>, hint: &str) -> Diagnostic {
@@ -319,6 +352,13 @@ fn validate_request(request: &RunRequest, model_sha256: &str) -> Vec<Diagnostic>
             "/schema",
             "event observation requires rules-run/0.2",
             "Select the version 0.2 request contract.",
+        ));
+    }
+    if request.method == Some(Method::MtdnaDirect) && request.schema != RunVersion::V03 {
+        out.push(request_error(
+            "/schema",
+            "mtdna_direct requires rules-run/0.3",
+            "Select the version 0.3 request contract.",
         ));
     }
     if request.trackers.len() > model::MAX_OBSERVABLES {
@@ -528,6 +568,7 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
     let flat = match request.method.unwrap_or_default() {
         Method::Tree => None,
         Method::StaticDirect
+        | Method::MtdnaDirect
         | Method::NextReaction
         | Method::Thinning
         | Method::Tau { .. }
@@ -548,7 +589,15 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
             "Select tau or exact SSA for other channels.",
         )]);
     }
+    let mtdna = if request.method == Some(Method::MtdnaDirect) {
+        flat.as_ref()
+            .and_then(|net| mtdna::Kernel::compile(net, &compiled, &observations))
+    } else {
+        None
+    };
     Ok(Prepared {
+        source: model,
+        mtdna,
         compiled,
         flat,
         observations,
@@ -805,6 +854,7 @@ pub fn execute_with_observer<O: EventObserver>(
                         keep_instances: id < keep_instances,
                         observations: &prepared.observations,
                         flat: prepared.flat.as_ref(),
+                        mtdna: prepared.mtdna.as_ref(),
                         method: request.method.unwrap_or_default(),
                         id,
                     };
@@ -892,13 +942,16 @@ pub fn execute_with_observer<O: EventObserver>(
     let mut result = RulesResult {
         schema: match request.schema {
             RunVersion::V01 => ResultVersion::V01,
-            RunVersion::V02 => ResultVersion::V02,
+            RunVersion::V02 | RunVersion::V03 => ResultVersion::V02,
         },
         model_sha256: prepared.model_sha256.clone(),
         run_sha256: prepared.run_sha256.clone(),
         sampler: match request.method.unwrap_or_default() {
             Method::Tree => SAMPLER,
-            Method::StaticDirect => "chacha8-u53/rules-static-direct/1",
+            Method::MtdnaDirect if prepared.mtdna.is_some() => {
+                "chacha8-u53-ziggurat/rules-mtdna-direct/1"
+            }
+            Method::StaticDirect | Method::MtdnaDirect => "chacha8-u53/rules-static-direct/1",
             Method::NextReaction => "chacha8-u53/rules-next-reaction/1",
             Method::Thinning => "chacha8-u53/rules-atp-thinning/1",
             Method::Tau { .. } => "chacha8-u53/rules-approximate-cgp-poisson/1",
@@ -1048,7 +1101,8 @@ pub fn describe() -> Value {
         "result": "crn-craft.rules-result/0.1",
         "extended_request": "crn-craft.rules-run/0.2",
         "extended_result": "crn-craft.rules-result/0.2",
-        "methods": ["tree", "static_direct", "next_reaction", "tau", "binomial", "thinning"],
+        "mtdna_direct_request": "crn-craft.rules-run/0.3",
+        "methods": ["tree", "static_direct", "mtdna_direct", "next_reaction", "tau", "binomial", "thinning"],
         "python": "crn_craft.rules",
         "approximate_methods": ["tau", "binomial"],
         "sampler": SAMPLER,

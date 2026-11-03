@@ -6,26 +6,40 @@ use super::{
 use rand_core::RngCore;
 
 pub(super) fn exponential(rng: &mut impl RngCore, draws: &mut Draws) -> Result<f64, Bail> {
-    loop {
-        let word = draws.word(rng)? & 0x000f_ffff_ffff_ffff;
-        // Exact zero is excluded, as it is in the legacy inverse sampler.
-        if word == 0 {
+    exponential_from_words(|retry| {
+        if retry {
             draws.retry()?;
-            continue;
         }
-        let index = (word & 255) as usize;
-        let x = word as f64 * WE[index];
-        if word < KE[index] {
-            return Ok(x);
+        draws.word(rng)
+    })
+}
+
+/// Draw a unit exponential. The caller accounts for each word and can poll
+/// for cancellation before a redraw following rejection (the flag is true).
+#[inline]
+pub fn exponential_from_words<E>(
+    mut next_word: impl FnMut(bool) -> Result<u64, E>,
+) -> Result<f64, E> {
+    let mut retry = false;
+    loop {
+        let word = next_word(retry)? & 0x000f_ffff_ffff_ffff;
+        // Exclude exact zero, as in the legacy inverse sampler.
+        if word != 0 {
+            let index = (word & 255) as usize;
+            let x = word as f64 * WE[index];
+            if word < KE[index] {
+                return Ok(x);
+            }
+            let u = crate::sampling::uniform_closed_open(next_word(false)?);
+            if index == 0 {
+                return Ok(R - libm::log1p(-u));
+            }
+            let y = (FE[index - 1] - FE[index]) * u + FE[index];
+            if y < libm::exp(-x) {
+                return Ok(x);
+            }
         }
-        if index == 0 {
-            return Ok(R - libm::log1p(-draws.closed(rng)?));
-        }
-        let y = (FE[index - 1] - FE[index]) * draws.closed(rng)? + FE[index];
-        if y < libm::exp(-x) {
-            return Ok(x);
-        }
-        draws.retry()?;
+        retry = true;
     }
 }
 

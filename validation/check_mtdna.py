@@ -28,8 +28,7 @@ def read_model(name):
     return json.loads((MODEL_DIR / name).read_bytes())
 
 
-def rules_run(
-    binary,
+def rules_files(
     folder,
     model,
     *,
@@ -43,14 +42,18 @@ def rules_run(
     log=None,
     max_events=1_000_000,
     max_sampling_steps=8_000_000,
-    cancel=None,
+    max_instances=100_000,
 ):
     path = folder / "model.rules.json"
     path.write_text(json.dumps(model))
+    kind = method.get("kind") if isinstance(method, dict) else method
+    version = "0.1"
+    if kind == "mtdna_direct":
+        version = "0.3"
+    elif method or trackers or log is not None:
+        version = "0.2"
     request = {
-        "schema": "crn-craft.rules-run/0.2"
-        if method or trackers or log is not None
-        else "crn-craft.rules-run/0.1",
+        "schema": f"crn-craft.rules-run/{version}",
         "model": {
             "path": path.name,
             "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
@@ -65,7 +68,7 @@ def rules_run(
         "budget": {
             "max_events_per_replicate": max_events,
             "max_sampling_steps_per_replicate": max_sampling_steps,
-            "max_instances": 100_000,
+            "max_instances": max_instances,
             "threads": threads,
             "max_output_bytes": 512 << 20,
         },
@@ -78,7 +81,11 @@ def rules_run(
         request["event_log"] = log
     run = folder / "request.json"
     run.write_text(json.dumps(request))
-    args = ["rules", path, run]
+    return path, run
+
+
+def rules_run(binary, folder, model, *, cancel=None, **kwargs):
+    args = ["rules", *rules_files(folder, model, **kwargs)]
     if cancel:
         args.extend(["--cancel-file", cancel])
     return invoke(binary, *args)
@@ -378,6 +385,102 @@ def check_tracking(binary, folder, rows):
     print("checked tracking and replay", flush=True)
 
 
+def check_specialized(binary, folder, rows):
+    model = read_model("mtdna-three-class-cme.rules.json")
+    specialized = "chacha8-u53-ziggurat/rules-mtdna-direct/1"
+    paths, result = sample(
+        binary,
+        folder,
+        model,
+        method="mtdna_direct",
+        seed=SEED + 4,
+        trackers=[TRACKER],
+    )
+    require(result["sampler"] == specialized, "specialized CME path fell back")
+    oracle, _ = law_mtdna(MTDNA, TIMES)
+    for key, law in oracle.items():
+        for j, t in enumerate(TIMES):
+            row(
+                rows,
+                f"cme/mtdna_direct/{key}/{t}",
+                integer_cdf(column(paths, result, key)[:, j], law[j]),
+                dkw(36),
+            )
+
+    model["stop"] = "N > 0 && mutants >= 0.5 * N"
+    trackers = [
+        {"observable": "neutral_mutants", "keep_episodes": 8},
+        {"observable": "advantaged_mutants", "keep_episodes": 8},
+    ]
+    options = dict(method="mtdna_direct", n=64, trackers=trackers, seed=17)
+    _, one = sample(binary, folder, model, threads=1, **options)
+    _, eight = sample(binary, folder, model, threads=8, **options)
+    _, logged = sample(binary, folder, model, log={"max_entries": 4}, **options)
+    for result in (one, eight, logged):
+        require(result["sampler"] == specialized, "specialized replay path fell back")
+        result.pop("run_sha256")
+    require(one == eight, "specialized 1/8-worker replay")
+    for sparse, dense in zip(
+        one.pop("observations"), logged.pop("observations"), strict=True
+    ):
+        require(dense["log"], "specialized event log empty")
+        for a, b in zip(sparse["trackers"], dense["trackers"], strict=True):
+            require(
+                math.isclose(a.pop("integral"), b.pop("integral"), rel_tol=1e-12),
+                "sparse tracker integral",
+            )
+            require(a == b, "sparse tracker transition mismatch")
+    require(one == logged, "observation changed specialized trajectories")
+
+    for limit, kwargs in (
+        ("event_limit", {"max_events": 1}),
+        ("sampling_limit", {"max_sampling_steps": 1}),
+        ("instance_limit", {"max_instances": 1}),
+    ):
+        code, limited = rules_run(binary, folder, model, **(options | kwargs))
+        require(
+            code == 1
+            and limited["termination"] == limit
+            and limited["statistics"] is None,
+            f"specialized {limit}",
+        )
+    flag = folder / "specialized-cancel"
+    flag.touch()
+    code, cancelled = rules_run(binary, folder, model, cancel=flag, **options)
+    require(
+        code == 1 and cancelled["termination"] == "cancelled",
+        "specialized cancellation",
+    )
+    require(one["stopped_replicates"] > 0, "specialized stop fixture did not stop")
+    for frac, disabled in [(0.0, "mutation_mtAdv"), (1.0, "mutation_mt")]:
+        model["parameters"].update(mu=1.0, fracAdv=frac)
+        _, edge = sample(binary, folder, model, **options)
+        require(edge["sampler"] == specialized, "probability endpoint fell back")
+        for key in (disabled, "replication_wt"):
+            i = edge["rules"].index(key)
+            require(
+                not any(r["rule_events"][i] for r in edge["replicates"]),
+                f"disabled channel fired: {key}",
+            )
+
+    # Arbitrary stops and uncertified bounds retain Static Direct semantics.
+    model["parameters"].update(mu=1e-20, fracAdv=0.5)
+    _, stiff = sample(binary, folder, model, times=[0.0, 1e-8], **options)
+    require(
+        stiff["sampler"] == "chacha8-u53/rules-static-direct/1",
+        "stiff rate should fall back",
+    )
+    model["parameters"]["mu"] = 0.1
+    model["stop"] = "mutants >= 2"
+    _, fallback = sample(binary, folder, model, **options)
+    _, static = sample(binary, folder, model, **(options | {"method": "static_direct"}))
+    fallback.pop("run_sha256")
+    static.pop("run_sha256")
+    require(fallback == static, "unsupported stop changed static replay")
+    row(rows, "mtdna_direct/replay-tracking-budgets-and-fallback", 0.0, 0.0)
+    print("checked specialized mtDNA", flush=True)
+
+
 def poisson_cdf(mean, support=100):
     terms = [math.exp(-mean)]
     for k in range(1, support):
@@ -596,6 +699,7 @@ def main():
             folder = Path(directory)
             check_mt(args.binary, folder, report["checks"], report["tau"])
             check_tracking(args.binary, folder, report["checks"])
+            check_specialized(args.binary, folder, report["checks"])
             check_atp(args.binary, folder, report["checks"])
             check_leaps(args.binary, folder, report["checks"])
             check_clocks(args.binary, folder, report["checks"])

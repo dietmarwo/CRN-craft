@@ -192,6 +192,25 @@ impl Spec {
         !self.trackers.is_empty() || self.log.is_some()
     }
 
+    /// Direct count trackers can integrate each constant span in one operation.
+    pub(crate) fn count_trackers(&self, net: &crate::flat::Network) -> Option<[Vec<usize>; 3]> {
+        if self.log.is_some() {
+            return None;
+        }
+        let mut by_species: [Vec<usize>; 3] = Default::default();
+        for (tracker, (_, index, predicate)) in self.trackers.iter().enumerate() {
+            let (_, reduce, terms) = net.observables.iter().find(|(i, _, _)| i == index)?;
+            if predicate.is_some() || !matches!(reduce, crate::model::Reduce::Sum) {
+                return None;
+            }
+            let &[(species, 1.0)] = terms.as_slice() else {
+                return None;
+            };
+            by_species[species].push(tracker);
+        }
+        Some(by_species)
+    }
+
     pub(crate) fn reservation(&self, attributes: usize, observables: usize, rules: usize) -> u128 {
         let trackers = self
             .trackers
@@ -209,10 +228,36 @@ impl Spec {
 struct Tracker {
     result: TrackerResult,
     value: f64,
+    last_time: f64,
     current: Option<Episode>,
 }
 
 impl Tracker {
+    fn update(&mut self, value: f64, time: f64, keep_episodes: usize) {
+        self.result.integral += self.value * (time - self.last_time);
+        if self.value <= 0.0 && value > 0.0 {
+            self.result.appearances += 1;
+            self.result.last_appearance = Some(time);
+            self.current = Some(Episode {
+                start: time,
+                end: None,
+                peak: value,
+                duration: 0.0,
+            });
+        } else if self.value > 0.0 && value <= 0.0 {
+            self.result.extinctions += 1;
+            self.result.last_extinction = Some(time);
+            self.close(time, true, keep_episodes);
+        }
+        if let Some(episode) = &mut self.current {
+            episode.peak = episode.peak.max(value);
+        }
+        self.result.minimum = self.result.minimum.min(value);
+        self.result.maximum = self.result.maximum.max(value);
+        self.value = value;
+        self.last_time = time;
+    }
+
     fn close(&mut self, time: f64, closed: bool, keep: usize) {
         if let Some(mut episode) = self.current.take() {
             episode.end = closed.then_some(time);
@@ -235,7 +280,6 @@ impl Tracker {
 pub(crate) struct Monitor<'a> {
     spec: &'a Spec,
     trackers: Vec<Tracker>,
-    last_time: f64,
     output: Observation,
 }
 
@@ -244,7 +288,6 @@ impl<'a> Monitor<'a> {
         Self {
             spec,
             trackers: Vec::new(),
-            last_time: 0.0,
             output: Observation {
                 id,
                 ..Observation::default()
@@ -280,6 +323,7 @@ impl<'a> Monitor<'a> {
                     omitted_peak: None,
                 },
                 value,
+                last_time: 0.0,
                 current: (value > 0.0).then_some(Episode {
                     start: 0.0,
                     end: None,
@@ -305,34 +349,13 @@ impl<'a> Monitor<'a> {
         for (tracker, (spec, index, predicate)) in self.trackers.iter_mut().zip(&self.spec.trackers)
         {
             let value = event.observables[*index];
-            tracker.result.integral += tracker.value * (event.time - self.last_time);
-            if tracker.value <= 0.0 && value > 0.0 {
-                tracker.result.appearances += 1;
-                tracker.result.last_appearance = Some(event.time);
-                tracker.current = Some(Episode {
-                    start: event.time,
-                    end: None,
-                    peak: value,
-                    duration: 0.0,
-                });
-            } else if tracker.value > 0.0 && value <= 0.0 {
-                tracker.result.extinctions += 1;
-                tracker.result.last_extinction = Some(event.time);
-                tracker.close(event.time, true, spec.keep_episodes);
-            }
-            if let Some(episode) = &mut tracker.current {
-                episode.peak = episode.peak.max(value);
-            }
-            tracker.result.minimum = tracker.result.minimum.min(value);
-            tracker.result.maximum = tracker.result.maximum.max(value);
+            tracker.update(value, event.time, spec.keep_episodes);
             if tracker.result.first_passage.is_none()
                 && predicate.as_ref().is_some_and(|p| truth(p.eval(&env)))
             {
                 tracker.result.first_passage = Some(event.time);
             }
-            tracker.value = value;
         }
-        self.last_time = event.time;
         if let Some((max, rules)) = &self.spec.log {
             if rules.is_empty()
                 || event.rule.is_some_and(|r| rules.contains(&r))
@@ -347,13 +370,19 @@ impl<'a> Monitor<'a> {
         }
     }
 
+    pub(crate) fn observe_count(&mut self, indices: &[usize], value: f64, time: f64) {
+        for &i in indices {
+            self.trackers[i].update(value, time, self.spec.trackers[i].0.keep_episodes);
+        }
+    }
+
     pub(crate) fn finish(mut self, time: f64) -> Observation {
         self.output.trackers = self
             .trackers
             .into_iter()
             .zip(&self.spec.trackers)
             .map(|(mut tracker, (spec, _, _))| {
-                tracker.result.integral += tracker.value * (time - self.last_time);
+                tracker.result.integral += tracker.value * (time - tracker.last_time);
                 tracker.close(time, false, spec.keep_episodes);
                 tracker.result
             })

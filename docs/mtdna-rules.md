@@ -70,6 +70,7 @@ request hash.
 | --- | --- |
 | `tree` | Exact Direct over dynamic attributed instances |
 | `static_direct` | Exact Direct over a closed set of tuples and fixed channels |
+| `mtdna_direct` | Exact grouped Direct for the fixed three-class vacancy model, with Static Direct fallback |
 | `next_reaction` | Gibson–Bruck indexed clocks over static channels |
 | `tau` with `epsilon` | Approximate adaptive Poisson leaps with competing critical events and exact fallback |
 | `binomial` with `step` | Approximate death-then-birth splitting for single-parent unit reactions |
@@ -81,6 +82,56 @@ channels. Random product attributes use the tree engine. Identical pairs
 in the static path require a single matching tuple. The network engine
 also exposes Gibson–Bruck under ssa-run/0.4, inverse waiting time and
 checked policy. Other SSA schemas retain their existing defaults.
+
+### Specialized fixed-population Direct
+
+Use `{"schema": "crn-craft.rules-run/0.3", "method": {"kind": "mtdna_direct"}}`
+in the corresponding request fields, or pass `method="mtdna_direct"` to
+`rules.ensemble`. The result uses the existing rules-result/0.2 shape.
+The sampler `chacha8-u53-ziggurat/rules-mtdna-direct/1` confirms that the
+specialization executed. The static sampler identity identifies a fallback.
+The same seed gives a different trajectory under the two samplers.
+Each sampler preserves its own completed numerical results across worker counts.
+
+Preparation verifies the lowered channels, unit state updates, constant
+degradation, common vacancy law, integer capacity up to 1,000,000 and a
+positive competition denominator. It certifies rate bounds and supports no stop or the guarded
+mutant fraction predicate shown above. Unsupported static models or parameter
+ranges use Static Direct. Models with changing instance identities use
+`tree`. ATP requires `thinning`.
+
+The kernel tracks the total population directly and computes the common
+vacancy factor once per event. It groups degradations and wild-type birth
+outcomes into cumulative intervals with each original reaction's hazard.
+Report observables are evaluated on demand. Simple single-class count trackers
+integrate between changes in that class. Last-bit rounding in integrals
+can differ from integration across every event. First-passage expressions,
+event logs and live callbacks retain the general observation path.
+The unit exponential uses the existing Julia-derived Ziggurat sampler.
+ChaCha8 streams, accounting and work budgets remain in use.
+
+A prepared template can bind an independent candidate without reconstructing
+the run request in Python. Each candidate validates and lowers the new
+parameter values once, since rules parameters can change attributes and
+topology. The resulting prepared kernel is reusable for subsequent calls.
+
+```python
+import json
+from crn_craft import rules
+
+model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
+model["stop"] = "N > 0 && mutants >= 0.9 * N"
+template = rules.ensemble(
+    model, end=25920.0, report_times=range(0, 25921, 720),
+    replicates=10_000, threads=8, seed=17, method="mtdna_direct",
+    keep_paths=10_000, max_output_bytes=512 << 20,
+    trackers=[{"observable": name} for name in
+              ("neutral_mutants", "advantaged_mutants")],
+)
+candidate = template.bind_parameters({"mu": 4e-5, "sm": 1.55})
+result = candidate.simulate()
+print(result.metadata["sampler"], result.metadata["stopped_replicates"])
+```
 
 Tau follows the species drift and variance step selection of Cao,
 Gillespie and Petzold. The expression-rate heuristic uses g=2 and falls
@@ -138,3 +189,11 @@ The ATP envelope limits each interval using the current ATP derivative
 and half the replication denominator. The derivative magnitude shrinks
 while counts stay fixed. This keeps the envelope tight near rapid changes
 and advances the analytic flow at each interval boundary.
+
+For the eight-worker comparison, build the optional phase-timing example
+with `cargo build --release --locked -p crn-craft-rules --example benchmark_rules`.
+Run `python validation/benchmark_mtdna_gap.py --help` for the baseline,
+candidate and Java inputs. The saved evidence is
+`validation/mtdna/java-gap.json`. The Java phase probe was built locally
+by timing from before pool creation to after all futures were collected.
+The end-to-end comparison used the original Java classes.

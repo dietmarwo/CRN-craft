@@ -99,6 +99,36 @@ def main():
         stopped.metadata["termination"] == "cancelled" and stopped.statistics is None,
         "cancel file failed",
     )
+    fixed = common | {"method": "mtdna_direct", "event_log": None}
+    template = rules.ensemble(model, threads=8, **fixed)
+    candidate = template.bind_parameters({"mu": 0.3, "sm": 1.8})
+    a = candidate.simulate()
+    b = candidate.simulate()
+    fresh = json.loads(model)
+    fresh["parameters"].update(mu=0.3, sm=1.8)
+    c = rules.ensemble(fresh, threads=8, **fixed).simulate()
+    require("ziggurat" in a.metadata["sampler"], "bound candidate fell back")
+    for key in a.records:
+        require(
+            a.records[key].tobytes()
+            == b.records[key].tobytes()
+            == c.records[key].tobytes(),
+            f"bound parameter replay mismatch: {key}",
+        )
+    require(a.observations == c.observations, "bound parameter observation mismatch")
+    require(
+        template.simulate().metadata["model_sha256"] != a.metadata["model_sha256"],
+        "binding overwrote the template",
+    )
+    from crn_craft import CrnError
+
+    for overrides in ({"unknown": 1.0}, {"mu": float("nan")}):
+        try:
+            template.bind_parameters(overrides)
+        except CrnError:
+            pass
+        else:
+            raise RuntimeError("invalid rules parameter accepted")
     args.output.write_text(
         json.dumps(
             {
@@ -113,6 +143,7 @@ def main():
                     "observer stop",
                     "callback exception propagation",
                     "cancel file",
+                    "specialized parameter bind, replay and rejection",
                 ],
             },
             indent=2,

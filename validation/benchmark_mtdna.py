@@ -51,13 +51,13 @@ def run_rules(binary, folder, rows, model, label, n, workers, method, **kwargs):
     return result
 
 
-def run_java(args, folder, rows, model, method, n):
+def run_java(args, folder, rows, model, method, n, workers=20):
     output = folder / "java.txt"
     command = [
         str(args.java),
         "-Xmx3g",
         "-Djava.awt.headless=true",
-        "-XX:ActiveProcessorCount=20",
+        f"-XX:ActiveProcessorCount={workers}",
         "-cp",
         args.java_classpath,
         "replViaTrans.replViaTrans",
@@ -98,11 +98,17 @@ def run_java(args, folder, rows, model, method, n):
         "case": model,
         "method": "java_" + method,
         "cells": n,
-        "threads": 20,
+        "threads": workers,
         "seconds": seconds,
         "totals": totals,
         "output_bytes": output.stat().st_size,
     }
+    probe = re.search(
+        r"^CRN_BENCH_JAVA_SIM_SECONDS=([0-9.Ee+-]+)$", result.stderr, re.M
+    )
+    if probe:
+        row["simulation_seconds"] = float(probe[1])
+        row["startup_and_output_seconds"] = seconds - row["simulation_seconds"]
     rows.append(row)
     print(json.dumps(row), flush=True)
     return totals, np.array([np.inf if x is None else x for x in passages])

@@ -112,6 +112,13 @@ class PreparedEnsemble:
     def __init__(self, native):
         self._native = native
 
+    def bind_parameters(self, overrides):
+        """Prepare an independent candidate with the same ensemble settings."""
+        try:
+            return PreparedEnsemble(self._native.bind_parameters(dict(overrides)))
+        except _native.NativeError as error:
+            raise _crn_error(error) from None
+
     def simulate(
         self, *, cancel_file=None, callback=None, batch_callback=None, batch_size=256
     ):
@@ -200,4 +207,9 @@ def ensemble(
         request["trackers"] = list(trackers)
         request["event_log"] = event_log
         request["method"] = {"kind": method} if isinstance(method, str) else method
+        if (
+            isinstance(request["method"], dict)
+            and request["method"].get("kind") == "mtdna_direct"
+        ):
+            request["schema"] = "crn-craft.rules-run/0.3"
     return prepare(data, request)

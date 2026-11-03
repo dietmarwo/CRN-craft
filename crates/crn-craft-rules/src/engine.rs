@@ -4,6 +4,8 @@
 mod flat_path;
 #[path = "leap.rs"]
 mod leap;
+#[path = "mtdna_path.rs"]
+mod mtdna_path;
 #[path = "thinning.rs"]
 mod thinning;
 
@@ -532,6 +534,10 @@ impl<R: RngCore> Words<'_, R> {
     }
 
     pub(crate) fn uniform(&mut self) -> Result<f64, Halt> {
+        Ok(uniform_closed_open(self.word()?))
+    }
+
+    pub(crate) fn word(&mut self) -> Result<u64, Halt> {
         if self.used >= self.max {
             return Err(Halt::Limit(
                 Termination::SamplingLimit,
@@ -544,7 +550,7 @@ impl<R: RngCore> Words<'_, R> {
             ));
         }
         self.used += 1;
-        Ok(uniform_closed_open(self.rng.next_u64()))
+        Ok(self.rng.next_u64())
     }
 }
 
@@ -558,6 +564,7 @@ pub(crate) struct Path<'a> {
     pub observations: &'a Spec,
     pub id: u64,
     pub flat: Option<&'a crate::flat::Network>,
+    pub mtdna: Option<&'a crate::mtdna::Kernel>,
     pub method: crate::Method,
 }
 

@@ -129,6 +129,21 @@
           "properties": {
             "kind": {
               "enum": [
+                "mtdna_direct"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
                 "next_reaction"
               ],
               "type": "string"
@@ -247,7 +262,8 @@
     "RunVersion": {
       "enum": [
         "crn-craft.rules-run/0.1",
-        "crn-craft.rules-run/0.2"
+        "crn-craft.rules-run/0.2",
+        "crn-craft.rules-run/0.3"
       ],
       "type": "string"
     },

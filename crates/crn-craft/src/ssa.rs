@@ -2,6 +2,7 @@
 mod bounds;
 mod selectors;
 mod ziggurat;
+pub use ziggurat::exponential_from_words;
 mod ziggurat_tables;
 
 use crate::{

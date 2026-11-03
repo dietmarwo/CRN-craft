@@ -137,7 +137,7 @@ impl Spec {
             reactants: &[],
             random: false,
         };
-        let trackers = trackers
+        let trackers: Vec<_> = trackers
             .iter()
             .map(|t| {
                 let index = *names
@@ -156,6 +156,19 @@ impl Spec {
                 Ok::<_, String>((t.clone(), index, predicate))
             })
             .collect::<Result<_, _>>()?;
+        if let Some(atp) = &compiled.atp {
+            for (_, index, predicate) in &trackers {
+                let mut flags = vec![false; compiled.observables.len()];
+                if let Some(expr) = predicate {
+                    expr.reads(&mut flags);
+                }
+                if *index == atp.index || flags[atp.index] {
+                    return Err(
+                        "trackers apply to event-driven observables; ATP is continuous".into(),
+                    );
+                }
+            }
+        }
         let log = log
             .map(|l| {
                 let indices = l

@@ -4,6 +4,8 @@
 mod flat_path;
 #[path = "leap.rs"]
 mod leap;
+#[path = "thinning.rs"]
+mod thinning;
 
 use crate::expr::{Draw, Env};
 use crate::model::{Compiled, MAX_COUNT, Reduce, Shape, Source};

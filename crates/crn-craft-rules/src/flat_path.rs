@@ -21,6 +21,9 @@ impl Path<'_> {
         out.peak_instances = counts.iter().filter(|&&n| n > 0).count() as u64;
         check_instances(out.peak_instances, self.limits)?;
         net.refresh(counts, values)?;
+        if let Some(atp) = &self.model.atp {
+            values[atp.index] = atp.initial;
+        }
         if let Some(m) = monitor {
             m.start(&self.model.params, values);
         }
@@ -32,6 +35,11 @@ impl Path<'_> {
             crate::Method::Tau { .. } | crate::Method::Binomial { .. }
         ) {
             return self.simulate_leaps(net, counts, values, words, out, time, monitor, observer);
+        }
+        if let Some(atp) = &self.model.atp {
+            return self.simulate_thinning(
+                atp, net, counts, values, words, out, time, monitor, observer,
+            );
         }
         let mut rates = vec![0.0; net.channels.len()];
         let mut clocks = Clocks::default();
@@ -92,21 +100,8 @@ impl Path<'_> {
             if next > self.end {
                 return Ok(None);
             }
-            self.check_events(out, 1)?;
-            let c = &net.channels[channel];
-            let created = c
-                .changes
-                .iter()
-                .filter(|&&(s, d)| d > 0 && counts[s] == 0)
-                .count() as u64;
-            net.apply(channel, counts, self.limits)?;
+            self.apply_flat(net, channel, counts, out)?;
             *time = next;
-            out.events += 1;
-            out.rule_events[c.rule] += 1;
-            out.created_instances += created;
-            out.peak_instances = out
-                .peak_instances
-                .max(counts.iter().filter(|&&n| n > 0).count() as u64);
             net.refresh(counts, values)?;
             if self.observe_flat(net, channel, values, next, monitor, observer)
                 || self.stop_values(values)?
@@ -142,7 +137,31 @@ impl Path<'_> {
         ))
     }
 
-    fn observe_flat<O: EventObserver>(
+    pub(super) fn apply_flat(
+        &self,
+        net: &Network,
+        channel: usize,
+        counts: &mut [u64],
+        out: &mut PathOutput,
+    ) -> Result<(), Halt> {
+        self.check_events(out, 1)?;
+        let c = &net.channels[channel];
+        let created = c
+            .changes
+            .iter()
+            .filter(|&&(s, d)| d > 0 && counts[s] == 0)
+            .count() as u64;
+        net.apply(channel, counts, self.limits)?;
+        out.events += 1;
+        out.rule_events[c.rule] += 1;
+        out.created_instances += created;
+        out.peak_instances = out
+            .peak_instances
+            .max(counts.iter().filter(|&&n| n > 0).count() as u64);
+        Ok(())
+    }
+
+    pub(super) fn observe_flat<O: EventObserver>(
         &self,
         net: &Network,
         channel: usize,

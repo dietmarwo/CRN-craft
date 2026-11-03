@@ -10,6 +10,7 @@
 //! Contracts: `crn-craft.rules-model/0.1`, `crn-craft.rules-run/0.1`,
 //! `crn-craft.rules-result/0.1`. See `docs/rules-language.md`.
 
+pub mod atp;
 mod engine;
 mod expr;
 mod flat;
@@ -132,6 +133,7 @@ pub enum Method {
     Tree,
     StaticDirect,
     NextReaction,
+    Thinning,
     Tau {
         epsilon: f64,
     },
@@ -515,10 +517,18 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
         }
         _ => {}
     }
+    if compiled.atp.is_some() != matches!(request.method, Some(Method::Thinning)) {
+        return Err(vec![request_error(
+            "/method",
+            "ATP models require the thinning method",
+            "Use thinning with an ATP rules model.",
+        )]);
+    }
     let flat = match request.method.unwrap_or_default() {
         Method::Tree => None,
         Method::StaticDirect
         | Method::NextReaction
+        | Method::Thinning
         | Method::Tau { .. }
         | Method::Binomial { .. } => Some(flat::Network::compile(&compiled).map_err(|e| {
             vec![request_error(
@@ -883,6 +893,7 @@ pub fn execute_with_observer<O: EventObserver>(
             Method::Tree => SAMPLER,
             Method::StaticDirect => "chacha8-u53/rules-static-direct/1",
             Method::NextReaction => "chacha8-u53/rules-next-reaction/1",
+            Method::Thinning => "chacha8-u53/rules-atp-thinning/1",
             Method::Tau { .. } => "chacha8-u53/rules-approximate-cgp-poisson/1",
             Method::Binomial { .. } => "chacha8-u53/rules-approximate-binomial-split/1",
         }
@@ -1024,9 +1035,15 @@ pub fn describe() -> Value {
         "crate": "crn-craft-rules",
         "commands": ["rules-check", "rules"],
         "model": "crn-craft.rules-model/0.1",
+        "accepted_models": ["crn-craft.rules-model/0.1","crn-craft.rules-model/0.2"],
         "check": "crn-craft.rules-check/0.1",
         "request": "crn-craft.rules-run/0.1",
         "result": "crn-craft.rules-result/0.1",
+        "extended_request": "crn-craft.rules-run/0.2",
+        "extended_result": "crn-craft.rules-result/0.2",
+        "methods": ["tree", "static_direct", "next_reaction", "tau", "binomial", "thinning"],
+        "python": "crn_craft.rules",
+        "approximate_methods": ["tau", "binomial"],
         "sampler": SAMPLER,
         "reference": "docs/rules-language.md",
         "limits": {

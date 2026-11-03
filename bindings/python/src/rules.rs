@@ -58,7 +58,7 @@ struct PythonObserver<'a> {
 impl EventObserver for PythonObserver<'_> {
     fn on_event(&self, event: &Event<'_>) -> ObserverAction {
         if self.control.is_cancelled() {
-            return ObserverAction::Stop;
+            return ObserverAction::Continue;
         }
         let result = Python::attach(|py| -> PyResult<bool> {
             let text = serde_json::to_string(&log_entry(event))

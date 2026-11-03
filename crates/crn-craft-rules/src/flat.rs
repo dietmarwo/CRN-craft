@@ -70,6 +70,9 @@ impl Network {
                 initial: *count,
             })
             .collect();
+        if species.len() > 256 {
+            return Err("static backend supports up to 256 instances".into());
+        }
         let env = Env {
             params: &model.params,
             observables: &[],
@@ -100,6 +103,9 @@ impl Network {
                         return Err("nonfinite fixed product attribute".into());
                     }
                     if slot(&species, p.type_id, &attrs).is_none() {
+                        if species.len() == 256 {
+                            return Err("static backend supports up to 256 instances".into());
+                        }
                         species.push(Species {
                             ty: p.type_id,
                             attrs,
@@ -212,6 +218,9 @@ impl Network {
         }
         let mut observables = Vec::new();
         for (o, info) in model.observables.iter().enumerate() {
+            if model.atp.as_ref().is_some_and(|atp| atp.index == o) {
+                continue;
+            }
             let mut terms = Vec::new();
             for (i, s) in species.iter().enumerate() {
                 if model.types[s.ty].observables.contains(&o) {

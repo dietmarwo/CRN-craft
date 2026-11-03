@@ -267,12 +267,11 @@ fn mtdna_stop_at_a_report_time_holds_the_state() {
         for r in &result.replicates {
             if r.termination == Termination::Stopped {
                 let path = result.paths.iter().find(|p| p.id == r.id).unwrap();
-                let held = path.values.len() / 4;
-                let last = &path.values[path.values.len() - held..];
+                let last = path.values.last().unwrap();
                 // Every report after the stop repeats the stopped state.
-                for (k, &t) in [0.0, 5000.0, 10000.0, 20000.0].iter().enumerate() {
+                for (row, &t) in path.values.iter().zip(&[0.0, 5000.0, 10000.0, 20000.0]) {
                     if t >= r.stop_time {
-                        assert_eq!(&path.values[k * held..(k + 1) * held], last, "{method}");
+                        assert_eq!(row, last, "{method}");
                     }
                 }
             }
@@ -354,5 +353,77 @@ fn replicates_that_fail_before_tracking_carry_no_partial_observation() {
             result.observations.iter().all(|o| o.trackers.len() == 2),
             "{method}: partial tracker list"
         );
+    }
+}
+
+const ATP: &str = include_str!("../../../models/rules/mtdna-three-class-atp.rules.json");
+
+fn atp_run(edit: &[(&str, f64)], replicates: u64, end: f64) -> RulesResult {
+    let mut model: Value = serde_json::from_str(ATP).unwrap();
+    for (key, value) in edit {
+        model["atp"][*key] = json!(*value);
+    }
+    let bytes = serde_json::to_vec(&model).unwrap();
+    let mut req = request_v(V02, &bytes, replicates, end, &[0.0, end / 2.0, end]);
+    req["method"] = json!({"kind": "thinning"});
+    solve_values(&model, &req)
+}
+
+#[test]
+fn atp_starting_at_zero_with_positive_forcing_rises_instead_of_stopping() {
+    // 1000 wild types: f * wt - v2 * N = 0.1 * 1000 - 0.01 * 1000 = 90 > 0.
+    let result = atp_run(&[("initial", 0.0)], 4, 10.0);
+    for r in &result.replicates {
+        assert_eq!(
+            r.termination,
+            Termination::Completed,
+            "stopped at {}",
+            r.stop_time
+        );
+        assert!(r.events > 0);
+    }
+    let atp = result.observables.len() - 1;
+    assert!(result.paths[0].values[1][atp] > 0.0);
+}
+
+#[test]
+fn atp_zero_time_survives_an_overflowing_ratio() {
+    let flow = atp::Flow {
+        atp: 1e300,
+        source: -1e-300,
+        decay: 1.0,
+    };
+    // ln(1 + v1 * A / -s) / v1 with the ratio far beyond f64::MAX.
+    let expected = 1e300f64.ln() + 1.0f64.ln() - 1e-300f64.ln();
+    assert!((flow.zero_time() - expected).abs() < 1e-9 * expected);
+    let rising = atp::Flow {
+        atp: 0.0,
+        source: 1.0,
+        decay: 0.5,
+    };
+    assert_eq!(rising.zero_time(), f64::INFINITY);
+}
+
+#[test]
+fn atp_depletion_far_from_time_zero_reaches_the_zero_crossing() {
+    // Falling ATP with a tiny scale: replication is off, N decays, and the
+    // maintenance use 1e-5 * N empties A0 = 3 near t = 700. The
+    // half-denominator cap then shrinks below the clock resolution.
+    let edit = [
+        ("initial", 3.0),
+        ("production", 0.0),
+        ("decay", 0.0),
+        ("maintenance", 1e-5),
+        ("scale", 1e-20),
+    ];
+    let result = atp_run(&edit, 4, 5000.0);
+    for r in &result.replicates {
+        assert_eq!(
+            r.termination,
+            Termination::Stopped,
+            "{:?}",
+            r.diagnostic.as_ref().map(|d| &d.message)
+        );
+        assert!(r.stop_time > 300.0);
     }
 }

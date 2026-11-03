@@ -160,7 +160,10 @@ The ATP fixture uses rules-model/0.2 with an `atp` block. Between events
 the solver integrates dA/dt = f × wt − v1 × A − v2 × N analytically.
 Selected replication rules are multiplied by c/(c+A). The minimum ATP
 over the fixed-count interval gives the thinning envelope. The solver
-reports ATP on the grid and stops at its zero crossing. The additional
+reports ATP on the grid and stops at its zero crossing. ATP at zero counts as
+depleted only if the forcing f × wt − v2 × N is not positive; with positive
+forcing it rises again. An ATP stop and a model `stop` both report `stopped`;
+ATP is zero on every report after an ATP stop. The additional
 ATP column is continuous. Event trackers are restricted to discrete
 observables and predicates that read those observables. The supplied Java
 SSA uses the same ATP flow but freezes rates over its sampled waiting

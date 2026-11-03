@@ -17,6 +17,8 @@ impl Path<'_> {
         monitor: &mut Option<Monitor<'_>>,
         observer: &O,
     ) -> Result<Option<f64>, Halt> {
+        let mut live = out.peak_instances;
+        let mut cache = net.rate_cache();
         let mut rates = vec![0.0; net.channels.len()];
         loop {
             self.poll()?;
@@ -59,9 +61,10 @@ impl Path<'_> {
                 observables: values,
                 attributes: [&[], &[]],
             };
+            cache.reset();
             let mut bound = 0.0;
             for (i, a) in rates.iter_mut().enumerate() {
-                *a = net.rate(i, counts, &env)?;
+                *a = cache.channel(net, i, counts, &env)?;
                 bound += *a
                     * if atp.coupled[net.channels[i].rule] {
                         upper
@@ -136,8 +139,8 @@ impl Path<'_> {
                 )));
             }
             if let Some(i) = selected {
-                self.apply_flat(net, i, counts, out)?;
-                net.refresh(counts, values)?;
+                self.apply_flat(net, i, counts, &mut live, out)?;
+                net.refresh_channel(i, counts, values, true)?;
                 if self.observe_flat(net, i, values, next, monitor, observer)
                     || self.stop_values(values)?
                 {

@@ -1,6 +1,6 @@
 //! Bounded, read-only event observation. Observation consumes no RNG words.
 use crate::InstanceRecord;
-use crate::expr::{Env, Expr, Scope};
+use crate::expr::{Env, Expr, Predicate, Scope};
 use crate::model::{Compiled, Model};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -25,6 +25,8 @@ pub struct Event<'a> {
 }
 
 pub trait EventObserver: Sync {
+    /// An observer that sets this to false is never called, and the engine
+    /// compiles the per-event observation away.
     const ENABLED: bool = true;
     fn on_event(&self, event: &Event<'_>) -> ObserverAction;
 }
@@ -107,8 +109,9 @@ pub struct Observation {
 }
 
 pub(crate) struct Spec {
-    trackers: Vec<(TrackerSpec, usize, Option<Expr>)>,
+    trackers: Vec<(TrackerSpec, usize, Option<Predicate>)>,
     log: Option<(usize, Vec<usize>)>,
+    sparse: Vec<bool>,
 }
 
 impl Spec {
@@ -151,6 +154,7 @@ impl Spec {
                             return Err("first passage expression exceeds length limit".into());
                         }
                         Expr::parse(p, &scope)
+                            .map(|e| Predicate::compile(&e, compiled.observables.len()))
                     })
                     .transpose()?;
                 Ok::<_, String>((t.clone(), index, predicate))
@@ -188,7 +192,48 @@ impl Spec {
             })
             .transpose()
             .map_err(|e| ("/event_log", e))?;
-        Ok(Self { trackers, log })
+        Ok(Self {
+            trackers,
+            log,
+            sparse: Vec::new(),
+        })
+    }
+
+    /// Whether any tracker integrates between class changes.
+    pub(crate) fn sparse_effective(&self) -> bool {
+        self.sparse.iter().any(|&v| v)
+    }
+
+    pub(crate) fn enable_sparse(&mut self, net: &crate::flat::Network) {
+        self.sparse = self
+            .trackers
+            .iter()
+            .map(|(_, index, predicate)| {
+                predicate.is_none()
+                    && net.observables.iter().any(|(i, reduce, terms)| {
+                        *i == *index
+                            && matches!(reduce, crate::model::Reduce::Sum)
+                            && matches!(terms.as_slice(), [(_, 1.0)])
+                    })
+            })
+            .collect();
+    }
+
+    pub(crate) fn sparse_observables(&self) -> Option<impl Iterator<Item = usize> + '_> {
+        (self.log.is_none() && !self.sparse.is_empty() && self.sparse.iter().all(|&v| v))
+            .then(|| self.trackers.iter().map(|(_, i, _)| *i))
+    }
+
+    pub(crate) fn reads(&self, flags: &mut [bool]) {
+        if self.log.is_some() {
+            flags.fill(true);
+        }
+        for (_, index, predicate) in &self.trackers {
+            flags[*index] = true;
+            if let Some(p) = predicate {
+                p.reads(flags);
+            }
+        }
     }
 
     pub(crate) fn enabled(&self) -> bool {
@@ -349,9 +394,16 @@ impl<'a> Monitor<'a> {
             observables: event.observables,
             attributes: [&[], &[]],
         };
-        for (tracker, (spec, index, predicate)) in self.trackers.iter_mut().zip(&self.spec.trackers)
+        for (i, (tracker, (spec, index, predicate))) in self
+            .trackers
+            .iter_mut()
+            .zip(&self.spec.trackers)
+            .enumerate()
         {
             let value = event.observables[*index];
+            if self.spec.sparse.get(i) == Some(&true) && value == tracker.value {
+                continue;
+            }
             tracker.update(value, event.time, spec.keep_episodes);
             if tracker.result.first_passage.is_none()
                 && predicate.as_ref().is_some_and(|p| truth(p.eval(&env)))

@@ -129,6 +129,39 @@ def main():
             pass
         else:
             raise RuntimeError("invalid rules parameter accepted")
+    fast = rules.ensemble(
+        model,
+        threads=8,
+        **(
+            common
+            | {
+                "method": {
+                    "kind": "static_direct",
+                    "waiting_time": "ziggurat",
+                    "sparse_trackers": True,
+                },
+                "trackers": [
+                    {"observable": "neutral_mutants"},
+                    {"observable": "advantaged_mutants"},
+                ],
+            }
+        ),
+    )
+    plain = fast.simulate()
+    observed = fast.simulate(callback=lambda _id, _event: True)
+    require(
+        plain.metadata == observed.metadata,
+        "generic Continue observer changed metadata",
+    )
+    require(
+        "static-direct-sparse-trackers" in plain.metadata["sampler"],
+        "generic opts missing",
+    )
+    for key in plain.records:
+        require(
+            plain.records[key].tobytes() == observed.records[key].tobytes(),
+            f"generic Continue observer changed {key}",
+        )
     # NumPy scalars and arrays are accepted for the grid, counts and seeds;
     # fractional counts are rejected rather than truncated.
     grid = rules.ensemble(
@@ -167,6 +200,7 @@ def main():
                     "callback exception propagation",
                     "cancel file",
                     "specialized parameter bind, replay and rejection",
+                    "generic Ziggurat sparse tracker callback replay",
                     "NumPy arguments and strict counts",
                     "tracker index bounds",
                 ],

@@ -27,6 +27,34 @@ pub(crate) struct Network {
     pub(crate) observables: Vec<Projection>,
     pub(crate) rates: Vec<RateKernel>,
     pub affected: Vec<Vec<usize>>,
+    plans: Vec<ChannelRate>,
+    shared_rates: usize,
+    vacancy_slots: Vec<Option<usize>>,
+    shared_vacancies: usize,
+    pub stop_affected: Vec<bool>,
+    pub observe_affected: Vec<bool>,
+    pub cold: Vec<usize>,
+    changed: Vec<Vec<usize>>,
+    hot_changed: Vec<Vec<usize>>,
+}
+
+enum Factor {
+    Constant(f64),
+    Vacancy {
+        slot: usize,
+        limit: f64,
+        count: usize,
+        denominator: usize,
+    },
+    General(Option<usize>),
+}
+
+struct ChannelRate {
+    factor: Factor,
+    reactants: [usize; 2],
+    arity: usize,
+    weight: f64,
+    rule: usize,
 }
 
 fn same(a: &[f64], b: &[f64]) -> bool {
@@ -268,16 +296,123 @@ impl Network {
                     .collect()
             })
             .collect();
+        let rates: Vec<_> = model
+            .rules
+            .iter()
+            .map(|r| r.rate.kernel(&model.params))
+            .collect();
+        let mut uses = vec![0usize; rates.len()];
+        for c in &channels {
+            uses[c.rule] += 1;
+        }
+        let mut shared_rates = 0;
+        let rate_slots: Vec<_> = uses
+            .iter()
+            .zip(&rates)
+            .map(|(&uses, rate)| {
+                (uses > 1 && !matches!(rate, RateKernel::Constant(_))).then(|| {
+                    let slot = shared_rates;
+                    shared_rates += 1;
+                    slot
+                })
+            })
+            .collect();
+        let mut groups = std::collections::BTreeMap::new();
+        for (rate, &uses) in rates.iter().zip(&uses) {
+            if uses > 0 {
+                if let RateKernel::Vacancy {
+                    limit,
+                    count,
+                    denominator,
+                    ..
+                } = rate
+                {
+                    *groups
+                        .entry((limit.to_bits(), *count, *denominator))
+                        .or_insert(0usize) += 1;
+                }
+            }
+        }
+        let slots: std::collections::BTreeMap<_, _> = groups
+            .into_iter()
+            .filter(|(_, n)| *n > 1)
+            .enumerate()
+            .map(|(i, (key, _))| (key, i))
+            .collect();
+        let plans = channels
+            .iter()
+            .map(|c| {
+                let factor = match &rates[c.rule] {
+                    RateKernel::Constant(k) => Factor::Constant(*k),
+                    RateKernel::Vacancy {
+                        limit,
+                        count,
+                        denominator,
+                        ..
+                    } => match slots.get(&(limit.to_bits(), *count, *denominator)) {
+                        Some(&slot) if uses[c.rule] == 1 => Factor::Vacancy {
+                            slot,
+                            limit: *limit,
+                            count: *count,
+                            denominator: *denominator,
+                        },
+                        _ => Factor::General(rate_slots[c.rule]),
+                    },
+                    _ => Factor::General(rate_slots[c.rule]),
+                };
+                let mut reactants = [0; 2];
+                reactants[..c.reactants.len()].copy_from_slice(&c.reactants);
+                ChannelRate {
+                    factor,
+                    reactants,
+                    arity: c.reactants.len(),
+                    weight: c.factor,
+                    rule: c.rule,
+                }
+            })
+            .collect();
+        let vacancy_slots = rates
+            .iter()
+            .map(|rate| match rate {
+                RateKernel::Vacancy {
+                    limit,
+                    count,
+                    denominator,
+                    ..
+                } => slots.get(&(limit.to_bits(), *count, *denominator)).copied(),
+                _ => None,
+            })
+            .collect();
+        let changed: Vec<Vec<usize>> = channels
+            .iter()
+            .map(|c| {
+                observables
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, (_, _, terms))| {
+                        terms
+                            .iter()
+                            .any(|&(s, _)| c.changes.iter().any(|&(x, _)| s == x))
+                            .then_some(i)
+                    })
+                    .collect()
+            })
+            .collect();
         Ok(Self {
             species,
             channels,
             observables,
-            rates: model
-                .rules
-                .iter()
-                .map(|r| r.rate.kernel(&model.params))
-                .collect(),
+            rates,
             affected,
+            plans,
+            shared_rates,
+            vacancy_slots,
+            shared_vacancies: slots.len(),
+            stop_affected: Vec::new(),
+            observe_affected: Vec::new(),
+            cold: Vec::new(),
+            hot_changed: changed.clone(),
+            changed,
         })
     }
 
@@ -285,9 +420,134 @@ impl Network {
         self.species.iter().map(|s| s.initial).collect()
     }
 
-    #[allow(clippy::cast_precision_loss)]
+    pub fn plan_observables(&mut self, model: &Compiled, spec: &crate::observe::Spec) {
+        let mut stop = vec![false; model.observables.len()];
+        if let Some(expr) = &model.stop_program {
+            expr.reads(&mut stop);
+        }
+        self.stop_affected = self
+            .changed
+            .iter()
+            .map(|row| row.iter().any(|&i| stop[self.observables[i].0]))
+            .collect();
+        self.observe_affected = if let Some(indices) = spec.sparse_observables() {
+            let tracked: Vec<_> = indices.collect();
+            self.changed
+                .iter()
+                .map(|row| {
+                    row.iter()
+                        .any(|&i| tracked.contains(&self.observables[i].0))
+                })
+                .collect()
+        } else {
+            vec![spec.enabled(); self.channels.len()]
+        };
+        let mut hot = stop;
+        spec.reads(&mut hot);
+        for rule in &model.rules {
+            rule.rate.reads(&mut hot);
+        }
+        let mut cold = vec![false; self.observables.len()];
+        if model.atp.is_none() {
+            for (i, (index, _, terms)) in self.observables.iter().enumerate() {
+                // Retain eager validation for any projection that might
+                // overflow. Summing up to 256 products leaves ample headroom.
+                if !hot[*index]
+                    && terms
+                        .iter()
+                        .all(|&(_, w)| w.abs() <= f64::MAX / (1024.0 * MAX_COUNT as f64))
+                {
+                    cold[i] = true;
+                    self.cold.push(i);
+                }
+            }
+        }
+        for row in &mut self.hot_changed {
+            row.retain(|&i| !cold[i]);
+        }
+    }
+
+    pub fn refresh_channel(
+        &self,
+        channel: usize,
+        counts: &[u64],
+        values: &mut [f64],
+        full: bool,
+    ) -> Result<(), Halt> {
+        let changed = if full {
+            &self.changed
+        } else {
+            &self.hot_changed
+        };
+        self.refresh_indices(changed[channel].iter().copied(), counts, values)
+    }
+
+    pub fn refresh_generated(
+        &self,
+        channel: usize,
+        counts: &[u64],
+        values: &mut [f64],
+        full: bool,
+        kernel: &dyn crate::RulesKernel,
+    ) -> Result<(), Halt> {
+        let changed = if full {
+            &self.changed
+        } else {
+            &self.hot_changed
+        };
+        for &i in &changed[channel] {
+            let value = kernel.projection(i, counts);
+            if !value.is_finite() {
+                return Err(numerical(
+                    "/observables",
+                    "observable overflows",
+                    "Rescale weights.",
+                ));
+            }
+            values[self.observables[i].0] = value;
+        }
+        Ok(())
+    }
+
+    pub fn rate_error(&self, channel: usize) -> Halt {
+        numerical(
+            &format!("/rules/{}/rate", self.channels[channel].rule),
+            "invalid fixed-channel propensity",
+            "Rates must be finite and nonnegative.",
+        )
+    }
+
+    pub fn refresh_cold(&self, counts: &[u64], values: &mut [f64]) -> Result<(), Halt> {
+        self.refresh_indices(self.cold.iter().copied(), counts, values)
+    }
+
+    pub fn refresh_changed(
+        &self,
+        changed: &[bool],
+        counts: &[u64],
+        values: &mut [f64],
+    ) -> Result<(), Halt> {
+        let indices = self
+            .observables
+            .iter()
+            .enumerate()
+            .filter_map(|(i, (_, _, terms))| terms.iter().any(|&(s, _)| changed[s]).then_some(i));
+        self.refresh_indices(indices, counts, values)
+    }
+
     pub fn refresh(&self, counts: &[u64], values: &mut [f64]) -> Result<(), Halt> {
-        for (i, reduce, terms) in &self.observables {
+        self.refresh_indices(0..self.observables.len(), counts, values)
+    }
+
+    #[allow(clippy::cast_precision_loss)]
+    fn refresh_indices(
+        &self,
+        indices: impl IntoIterator<Item = usize>,
+        counts: &[u64],
+        values: &mut [f64],
+    ) -> Result<(), Halt> {
+        for index in indices {
+            let (i, reduce, terms) = &self.observables[index];
             let value = match reduce {
                 Reduce::Sum => terms.iter().map(|&(s, w)| counts[s] as f64 * w).sum(),
                 Reduce::Distinct => terms
@@ -320,34 +580,28 @@ impl Network {
         Ok(())
     }
 
-    #[allow(clippy::cast_precision_loss)]
-    pub fn rate(&self, i: usize, counts: &[u64], env: &Env<'_>) -> Result<f64, Halt> {
-        let c = &self.channels[i];
-        let weight = match c.reactants.as_slice() {
-            [] => 1.0,
-            &[s] => counts[s] as f64,
-            &[s, t] if s == t => counts[s] as f64 * counts[s].saturating_sub(1) as f64 * 0.5,
-            &[s, t] => counts[s] as f64 * counts[t] as f64,
-            _ => unreachable!(),
-        };
-        if weight == 0.0 {
-            return Ok(0.0);
-        }
-        let value = self.rates[c.rule].eval(env) * (weight * c.factor);
-        if value.is_finite() && value >= 0.0 {
-            Ok(value)
-        } else {
-            Err(numerical(
-                &format!("/rules/{}/rate", c.rule),
-                "invalid fixed-channel propensity",
-                "Rates must be finite and nonnegative.",
-            ))
+    pub fn rate_cache(&self) -> RateCache {
+        RateCache {
+            rules: vec![f64::NAN; self.shared_rates],
+            vacancies: vec![f64::NAN; self.shared_vacancies],
         }
     }
 
-    pub fn apply(&self, i: usize, counts: &mut [u64], limits: &Limits) -> Result<(), Halt> {
+    #[cfg(test)]
+    pub fn rate(&self, i: usize, counts: &[u64], env: &Env<'_>) -> Result<f64, Halt> {
+        self.rate_cache().channel(self, i, counts, env)
+    }
+
+    pub fn apply(
+        &self,
+        i: usize,
+        counts: &mut [u64],
+        live: &mut u64,
+        limits: &Limits,
+    ) -> Result<u64, Halt> {
         let changes = &self.channels[i].changes;
-        let mut live = counts.iter().filter(|&&n| n > 0).count() as u64;
+        let mut next_live = *live;
+        let mut created = 0;
         for &(s, d) in changes {
             let next = counts[s]
                 .checked_add_signed(d)
@@ -359,13 +613,15 @@ impl Network {
                         "Reduce population.",
                     )
                 })?;
-            live = live + u64::from(next > 0) - u64::from(counts[s] > 0);
+            next_live = next_live + u64::from(next > 0) - u64::from(counts[s] > 0);
+            created += u64::from(next > 0 && counts[s] == 0);
         }
-        check_instances(live, limits)?;
+        check_instances(next_live, limits)?;
         for &(s, d) in changes {
             counts[s] = counts[s].checked_add_signed(d).expect("validated update");
         }
-        Ok(())
+        *live = next_live;
+        Ok(created)
     }
 
     pub fn instances(&self, counts: &[u64]) -> Vec<InstanceRecord> {
@@ -379,6 +635,99 @@ impl Network {
                 count: n,
             })
             .collect()
+    }
+}
+
+/// Lazy per-state global factors. A channel with no reactants available
+/// must still skip evaluating its global factor, even when another channel
+/// of the same rule is present in the network.
+pub(crate) struct RateCache {
+    rules: Vec<f64>,
+    vacancies: Vec<f64>,
+}
+
+impl RateCache {
+    pub fn reset(&mut self) {
+        self.rules.fill(f64::NAN);
+        self.vacancies.fill(f64::NAN);
+    }
+
+    fn rule(&mut self, net: &Network, rule: usize, slot: Option<usize>, env: &Env<'_>) -> f64 {
+        if let Some(i) = slot {
+            if !self.rules[i].is_nan() {
+                return self.rules[i];
+            }
+        }
+        let kernel = &net.rates[rule];
+        let value = if let Some(i) = net.vacancy_slots[rule] {
+            let RateKernel::Vacancy {
+                limit,
+                count,
+                denominator,
+                factors,
+            } = kernel
+            else {
+                unreachable!()
+            };
+            let base = &mut self.vacancies[i];
+            if base.is_nan() {
+                *base = (limit - env.observables[*count]).max(0.0) / env.observables[*denominator];
+            }
+            factors.iter().fold(*base, |x, f| x * f)
+        } else {
+            kernel.eval(env)
+        };
+        if let Some(i) = slot {
+            self.rules[i] = value;
+        }
+        value
+    }
+
+    #[allow(clippy::cast_precision_loss)]
+    pub fn channel(
+        &mut self,
+        net: &Network,
+        i: usize,
+        counts: &[u64],
+        env: &Env<'_>,
+    ) -> Result<f64, Halt> {
+        let c = &net.plans[i];
+        let [s, t] = c.reactants;
+        let weight = match c.arity {
+            0 => 1.0,
+            1 => counts[s] as f64,
+            _ if s == t => counts[s] as f64 * counts[s].saturating_sub(1) as f64 * 0.5,
+            _ => counts[s] as f64 * counts[t] as f64,
+        };
+        if weight == 0.0 {
+            return Ok(0.0);
+        }
+        let global = match c.factor {
+            Factor::Constant(k) => k,
+            Factor::Vacancy {
+                slot,
+                limit,
+                count,
+                denominator,
+            } => {
+                let base = &mut self.vacancies[slot];
+                if base.is_nan() {
+                    *base =
+                        (limit - env.observables[count]).max(0.0) / env.observables[denominator];
+                }
+                let RateKernel::Vacancy { factors, .. } = &net.rates[c.rule] else {
+                    unreachable!()
+                };
+                factors.iter().fold(*base, |x, f| x * f)
+            }
+            Factor::General(slot) => self.rule(net, c.rule, slot, env),
+        };
+        let value = global * (weight * c.weight);
+        if value.is_finite() && value >= 0.0 {
+            Ok(value)
+        } else {
+            Err(net.rate_error(i))
+        }
     }
 }
 
@@ -406,6 +755,18 @@ pub(crate) fn direct<R: RngCore>(
     time: f64,
     words: &mut Words<'_, R>,
 ) -> Result<Option<(f64, usize)>, Halt> {
+    direct_with(rates, time, words, |words, total| {
+        // Open uniform: u = 0 would give a zero wait. Other words are unchanged.
+        Ok(time - libm::log(1.0 - words.open()?) / total)
+    })
+}
+
+pub(crate) fn direct_with<R: RngCore>(
+    rates: &[f64],
+    time: f64,
+    words: &mut Words<'_, R>,
+    next_time: impl FnOnce(&mut Words<'_, R>, f64) -> Result<f64, Halt>,
+) -> Result<Option<(f64, usize)>, Halt> {
     let total: f64 = rates.iter().sum();
     if total == 0.0 {
         return Ok(None);
@@ -431,8 +792,7 @@ pub(crate) fn direct<R: RngCore>(
             "Rescale rates or populations.",
         ));
     }
-    // Open uniform: u = 0 would give a zero wait. Other words are unchanged.
-    let next = time - libm::log(1.0 - words.open()?) / total;
+    let next = next_time(words, total)?;
     if next <= time {
         return Err(numerical(
             "/time",

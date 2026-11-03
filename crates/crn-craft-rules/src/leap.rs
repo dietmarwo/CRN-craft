@@ -4,13 +4,15 @@
 //! section III with first differences (Gillespie & Petzold 2003,
 //! DOI 10.1063/1.1613254).
 use super::*;
-use crate::flat::{Network, check_instances, direct};
+use crate::flat::{Network, RateCache, check_instances, direct};
 use crate::model::MAX_COUNT;
 
 struct LeapWorkspace {
+    cache: RateCache,
     rates: Vec<f64>,
     critical: Vec<f64>,
     proposed: Vec<i128>,
+    changed: Vec<bool>,
     delta: Vec<(f64, f64)>,
     firings: Vec<u64>,
     remaining: Vec<u64>,
@@ -20,6 +22,8 @@ struct LeapWorkspace {
     change: Vec<(f64, f64, f64)>,
     shifted_counts: Vec<u64>,
     shifted_values: Vec<f64>,
+    /// Rate cache for the shifted state of one firing; reset per firing.
+    shifted_cache: RateCache,
     row: Vec<f64>,
 }
 
@@ -28,9 +32,11 @@ impl LeapWorkspace {
         let m = net.channels.len();
         let n = net.species.len();
         Self {
+            cache: net.rate_cache(),
             rates: vec![0.0; m],
             critical: vec![0.0; m],
             proposed: vec![0; n],
+            changed: vec![false; n],
             delta: vec![(0.0, 0.0); n],
             firings: vec![0; m],
             remaining: vec![0; n],
@@ -38,13 +44,15 @@ impl LeapWorkspace {
             change: vec![(0.0, 0.0, f64::INFINITY); m],
             shifted_counts: vec![0; n],
             shifted_values: Vec::new(),
+            shifted_cache: net.rate_cache(),
             row: Vec::new(),
         }
     }
 
     fn rates(&mut self, net: &Network, counts: &[u64], env: &Env<'_>) -> Result<(), Halt> {
+        self.cache.reset();
         for (i, a) in self.rates.iter_mut().enumerate() {
-            *a = net.rate(i, counts, env)?;
+            *a = self.cache.channel(net, i, counts, env)?;
         }
         Ok(())
     }
@@ -91,8 +99,12 @@ impl LeapWorkspace {
             observables: &self.shifted_values,
             attributes: [&[], &[]],
         };
+        self.shifted_cache.reset();
         for (j, f) in row.iter_mut().enumerate() {
-            *f = net.rate(j, &self.shifted_counts, &env)? - self.rates[j];
+            *f = self
+                .shifted_cache
+                .channel(net, j, &self.shifted_counts, &env)?
+                - self.rates[j];
         }
         Ok(())
     }
@@ -295,8 +307,11 @@ impl LeapWorkspace {
         self.remaining_probability.fill(1.0);
         self.split_phase(net, counts, dt, -1, words)?;
         let after: Vec<_> = self.proposed.iter().map(|&x| x as u64).collect();
-        let mut updated = vec![0.0; values.len()];
-        net.refresh(&after, &mut updated)?;
+        let mut updated = values.to_vec();
+        for ((changed, old), new) in self.changed.iter_mut().zip(counts).zip(&after) {
+            *changed = old != new;
+        }
+        net.refresh_changed(&self.changed, &after, &mut updated)?;
         self.rates(
             net,
             &after,
@@ -510,7 +525,8 @@ impl Path<'_> {
                 .zip(&work.proposed)
                 .filter(|&(&old, &n)| old == 0 && n > 0)
                 .count() as u64;
-            for (n, &v) in counts.iter_mut().zip(&work.proposed) {
+            for ((n, &v), changed) in counts.iter_mut().zip(&work.proposed).zip(&mut work.changed) {
+                *changed = *n != v as u64;
                 *n = v as u64;
             }
             *time = next;
@@ -519,7 +535,7 @@ impl Path<'_> {
             for (c, &k) in net.channels.iter().zip(&work.firings) {
                 out.rule_events[c.rule] += k;
             }
-            net.refresh(counts, values)?;
+            net.refresh_changed(&work.changed, counts, values)?;
             if events > 0 && (O::ENABLED || monitor.is_some()) {
                 let firings: Vec<_> = net
                     .channels
@@ -539,7 +555,7 @@ impl Path<'_> {
                 if let Some(m) = monitor {
                     m.observe(&event, &self.model.params);
                 }
-                if observer.on_event(&event) == ObserverAction::Stop {
+                if O::ENABLED && observer.on_event(&event) == ObserverAction::Stop {
                     return Ok(Some(next));
                 }
             }

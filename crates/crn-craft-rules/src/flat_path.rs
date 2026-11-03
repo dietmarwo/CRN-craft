@@ -1,6 +1,6 @@
 //! Fixed-channel trajectory loop, with the same result and control accounting.
 use super::*;
-use crate::flat::{Network, check_instances, direct};
+use crate::flat::{Network, check_instances, direct, direct_with};
 use crn_craft::next_reaction::Clocks;
 
 impl Path<'_> {
@@ -48,12 +48,21 @@ impl Path<'_> {
             net.refresh(counts, values)?;
             return Ok(stopped);
         }
+        let mut live = out.peak_instances;
+        let mut cache = net.rate_cache();
         let mut rates = vec![0.0; net.channels.len()];
         let mut clocks = Clocks::default();
         let mut previous = None;
         if matches!(self.method, crate::Method::NextReaction {}) {
             clocks.reset(rates.len());
         }
+        let ziggurat = matches!(
+            self.method,
+            crate::Method::StaticDirect {
+                waiting_time: Some(crate::RulesWaitingTime::Ziggurat),
+                ..
+            }
+        );
         loop {
             if out.events % POLL_EVENTS == 0 && out.events > 0 {
                 self.poll()?;
@@ -63,9 +72,10 @@ impl Path<'_> {
                 observables: values,
                 attributes: [&[], &[]],
             };
+            cache.reset();
             let candidate = if matches!(self.method, crate::Method::NextReaction {}) {
                 let mut update = |i, fired| {
-                    let rate = net.rate(i, counts, &env)?;
+                    let rate = cache.channel(net, i, counts, &env)?;
                     let fresh = if clocks.needs_draw(i, rate, fired) {
                         Some(-libm::log(1.0 - words.open()?))
                     } else {
@@ -94,26 +104,73 @@ impl Path<'_> {
                 }
                 clocks.next()
             } else {
-                for (i, a) in rates.iter_mut().enumerate() {
-                    *a = net.rate(i, counts, &env)?;
+                if let Some(kernel) = self.generated {
+                    kernel
+                        .rates(previous, counts, values, &mut rates)
+                        .map_err(|i| net.rate_error(i))?;
+                } else if let Some(channel) = previous {
+                    for &i in &net.affected[channel] {
+                        rates[i] = cache.channel(net, i, counts, &env)?;
+                    }
+                } else {
+                    for (i, rate) in rates.iter_mut().enumerate() {
+                        *rate = cache.channel(net, i, counts, &env)?;
+                    }
                 }
-                direct(&rates, *time, words)?
+                if ziggurat {
+                    direct_with(&rates, *time, words, |words, total| {
+                        let unit = crn_craft::ssa::exponential_from_words(|retry| {
+                            if retry {
+                                self.poll()?;
+                            }
+                            words.word()
+                        })?;
+                        Ok(*time + unit / total)
+                    })?
+                } else {
+                    direct(&rates, *time, words)?
+                }
             };
             let Some((next, channel)) = candidate else {
+                net.refresh_cold(counts, values)?;
                 return Ok(None);
             };
             previous = Some(channel);
-            self.save_before(out, values, next);
+            if out.saved_points < self.report_times.len()
+                && self.report_times[out.saved_points] < next
+            {
+                net.refresh_cold(counts, values)?;
+                self.save_before(out, values, next);
+            }
             if next > self.end {
+                net.refresh_cold(counts, values)?;
                 return Ok(None);
             }
-            self.apply_flat(net, channel, counts, out)?;
+            self.apply_flat(net, channel, counts, &mut live, out)?;
             *time = next;
-            net.refresh(counts, values)?;
-            if self.observe_flat(net, channel, values, next, monitor, observer)
-                || self.stop_values(values)?
+            if let Some(kernel) = self.generated {
+                net.refresh_generated(channel, counts, values, O::ENABLED, kernel)?;
+            } else {
+                net.refresh_channel(channel, counts, values, O::ENABLED)?;
+            }
+            if (O::ENABLED || net.observe_affected[channel])
+                && self.observe_flat(net, channel, values, next, monitor, observer)
             {
                 return Ok(Some(next));
+            }
+            if net.stop_affected[channel] {
+                match self.stop_values(values) {
+                    Ok(false) => {}
+                    Ok(true) => {
+                        net.refresh_cold(counts, values)?;
+                        return Ok(Some(next));
+                    }
+                    Err(_) => {
+                        // The diagnostic includes all projection values.
+                        net.refresh_cold(counts, values)?;
+                        self.stop_values(values)?;
+                    }
+                }
             }
         }
     }
@@ -149,22 +206,16 @@ impl Path<'_> {
         net: &Network,
         channel: usize,
         counts: &mut [u64],
+        live: &mut u64,
         out: &mut PathOutput,
     ) -> Result<(), Halt> {
         self.check_events(out, 1)?;
         let c = &net.channels[channel];
-        let created = c
-            .changes
-            .iter()
-            .filter(|&&(s, d)| d > 0 && counts[s] == 0)
-            .count() as u64;
-        net.apply(channel, counts, self.limits)?;
+        let created = net.apply(channel, counts, live, self.limits)?;
         out.events += 1;
         out.rule_events[c.rule] += 1;
         out.created_instances += created;
-        out.peak_instances = out
-            .peak_instances
-            .max(counts.iter().filter(|&&n| n > 0).count() as u64);
+        out.peak_instances = out.peak_instances.max(*live);
         Ok(())
     }
 
@@ -210,6 +261,6 @@ impl Path<'_> {
         if let Some(m) = monitor {
             m.observe(&event, &self.model.params);
         }
-        observer.on_event(&event) == ObserverAction::Stop
+        O::ENABLED && observer.on_event(&event) == ObserverAction::Stop
     }
 }

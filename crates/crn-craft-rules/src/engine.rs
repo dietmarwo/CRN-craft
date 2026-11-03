@@ -571,6 +571,7 @@ pub(crate) struct Path<'a> {
     pub observations: &'a Spec,
     pub id: u64,
     pub flat: Option<&'a crate::flat::Network>,
+    pub generated: Option<&'a dyn crate::RulesKernel>,
     pub mtdna: Option<&'a crate::mtdna::Kernel>,
     pub method: crate::Method,
 }
@@ -694,7 +695,7 @@ impl Path<'_> {
     }
 
     fn stop_values(&self, values: &[f64]) -> Result<bool, Halt> {
-        let Some(e) = self.model.stop.as_ref() else {
+        let Some(e) = self.model.stop_program.as_ref() else {
             return Ok(false);
         };
         let value = e.eval(&Env {
@@ -968,7 +969,7 @@ impl Path<'_> {
                 if let Some(m) = monitor {
                     m.observe(&event, &model.params);
                 }
-                observer.on_event(&event) == ObserverAction::Stop
+                O::ENABLED && observer.on_event(&event) == ObserverAction::Stop
             } else {
                 false
             };

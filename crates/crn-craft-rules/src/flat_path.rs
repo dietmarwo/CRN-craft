@@ -27,6 +27,12 @@ impl Path<'_> {
         if self.stop_values(values)? {
             return Ok(Some(0.0));
         }
+        if matches!(
+            self.method,
+            crate::Method::Tau { .. } | crate::Method::Binomial { .. }
+        ) {
+            return self.simulate_leaps(net, counts, values, words, out, time, monitor, observer);
+        }
         let mut rates = vec![0.0; net.channels.len()];
         let mut clocks = Clocks::default();
         let mut previous = None;
@@ -121,7 +127,7 @@ impl Path<'_> {
         }
     }
 
-    pub(super) fn check_events(&self, out: &PathOutput, events: u64) -> Result<(), Halt> {
+    pub(crate) fn check_events(&self, out: &PathOutput, events: u64) -> Result<(), Halt> {
         if events <= self.limits.max_events.saturating_sub(out.events) {
             return Ok(());
         }

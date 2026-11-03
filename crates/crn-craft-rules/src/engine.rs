@@ -2,6 +2,8 @@
 
 #[path = "flat_path.rs"]
 mod flat_path;
+#[path = "leap.rs"]
+mod leap;
 
 use crate::expr::{Draw, Env};
 use crate::model::{Compiled, MAX_COUNT, Reduce, Shape, Source};
@@ -518,6 +520,15 @@ pub(crate) struct Words<'r, R: RngCore> {
     max: u64,
 }
 impl<R: RngCore> Words<'_, R> {
+    pub(crate) fn open(&mut self) -> Result<f64, Halt> {
+        loop {
+            let u = self.uniform()?;
+            if u > 0.0 {
+                return Ok(u);
+            }
+        }
+    }
+
     pub(crate) fn uniform(&mut self) -> Result<f64, Halt> {
         if self.used >= self.max {
             return Err(Halt::Limit(

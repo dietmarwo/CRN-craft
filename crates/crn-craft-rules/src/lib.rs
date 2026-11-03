@@ -132,6 +132,12 @@ pub enum Method {
     Tree,
     StaticDirect,
     NextReaction,
+    Tau {
+        epsilon: f64,
+    },
+    Binomial {
+        step: f64,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -490,18 +496,47 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
             "Reduce event or episode retention or use fewer paths.",
         )]);
     }
+    match request.method {
+        Some(Method::Tau { epsilon })
+            if !epsilon.is_finite() || epsilon <= 0.0 || epsilon > 0.1 =>
+        {
+            return Err(vec![request_error(
+                "/method/epsilon",
+                "epsilon must be in (0, 0.1]",
+                "Set an explicit tolerance.",
+            )]);
+        }
+        Some(Method::Binomial { step }) if !step.is_finite() || step <= 0.0 => {
+            return Err(vec![request_error(
+                "/method/step",
+                "step must be finite and positive",
+                "Specify a fixed step.",
+            )]);
+        }
+        _ => {}
+    }
     let flat = match request.method.unwrap_or_default() {
         Method::Tree => None,
-        Method::StaticDirect | Method::NextReaction => {
-            Some(flat::Network::compile(&compiled).map_err(|e| {
-                vec![request_error(
-                    "/method",
-                    e,
-                    "Use a statically closed model or select tree Direct.",
-                )]
-            })?)
-        }
+        Method::StaticDirect
+        | Method::NextReaction
+        | Method::Tau { .. }
+        | Method::Binomial { .. } => Some(flat::Network::compile(&compiled).map_err(|e| {
+            vec![request_error(
+                "/method",
+                e,
+                "Use a statically closed model or select tree Direct.",
+            )]
+        })?),
     };
+    if matches!(request.method, Some(Method::Binomial { .. }))
+        && flat.as_ref().is_some_and(|n| !n.supports_binomial())
+    {
+        return Err(vec![request_error(
+            "/method",
+            "binomial splitting supports single-parent unit births and deaths",
+            "Select tau or exact SSA for other channels.",
+        )]);
+    }
     Ok(Prepared {
         compiled,
         flat,
@@ -848,6 +883,8 @@ pub fn execute_with_observer<O: EventObserver>(
             Method::Tree => SAMPLER,
             Method::StaticDirect => "chacha8-u53/rules-static-direct/1",
             Method::NextReaction => "chacha8-u53/rules-next-reaction/1",
+            Method::Tau { .. } => "chacha8-u53/rules-approximate-cgp-poisson/1",
+            Method::Binomial { .. } => "chacha8-u53/rules-approximate-binomial-split/1",
         }
         .into(),
         root_seed: request.ensemble.root_seed,

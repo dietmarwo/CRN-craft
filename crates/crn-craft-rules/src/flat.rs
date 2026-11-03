@@ -429,3 +429,13 @@ pub(crate) fn direct<R: RngCore>(
     }
     Ok(last.map(|i| (next, i)))
 }
+
+impl Network {
+    pub fn supports_binomial(&self) -> bool {
+        self.channels.iter().all(|c| {
+            c.reactants.len() == 1
+                && c.changes.len() == 1
+                && (c.changes[0] == (c.reactants[0], -1) || c.changes[0].1 == 1)
+        })
+    }
+}

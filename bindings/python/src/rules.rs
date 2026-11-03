@@ -125,6 +125,11 @@ impl PreparedRules {
 }
 
 #[pyfunction]
+fn describe_rules_json() -> String {
+    crn_craft_rules::describe().to_string()
+}
+
+#[pyfunction]
 fn check_rules_json(model: &[u8]) -> String {
     serde_json::to_string(&crn_craft_rules::check_model(model)).expect("serializable check")
 }
@@ -138,6 +143,7 @@ fn prepare_rules(py: Python<'_>, model: Vec<u8>, request: Vec<u8>) -> PyResult<P
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PreparedRules>()?;
+    module.add_function(wrap_pyfunction!(describe_rules_json, module)?)?;
     module.add_function(wrap_pyfunction!(check_rules_json, module)?)?;
     module.add_function(wrap_pyfunction!(prepare_rules, module)?)?;
     Ok(())

@@ -8,7 +8,8 @@
         "cached_direct",
         "direct_cr",
         "sorting_direct",
-        "rssa_cr"
+        "rssa_cr",
+        "next_reaction"
       ],
       "type": "string"
     },
@@ -148,7 +149,8 @@
       "oneOf": [
         {
           "enum": [
-            "crn-craft.ssa-run/0.1"
+            "crn-craft.ssa-run/0.1",
+            "crn-craft.ssa-run/0.4"
           ],
           "type": "string"
         },

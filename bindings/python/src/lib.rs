@@ -417,6 +417,7 @@ fn check_files_json(model: String, run: Option<String>) -> String {
 #[pyfunction]
 fn schema_json(kind: String) -> PyResult<String> {
     crn_craft::schema(&kind)
+        .or_else(|| crn_craft_rules::schema(&kind))
         .map(|v| v.to_string())
         .ok_or_else(|| PyValueError::new_err("unknown schema"))
 }

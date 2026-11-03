@@ -2,6 +2,58 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "definitions": {
+    "AtpSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "decay": {
+          "description": "First-order ATP consumption, v1.",
+          "format": "double",
+          "type": "number"
+        },
+        "initial": {
+          "format": "double",
+          "type": "number"
+        },
+        "maintenance": {
+          "description": "Maintenance per mtDNA molecule, v2.",
+          "format": "double",
+          "type": "number"
+        },
+        "production": {
+          "description": "Production per wild type, f.",
+          "format": "double",
+          "type": "number"
+        },
+        "replication_rules": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "scale": {
+          "description": "Replication multiplier is c / (c + ATP).",
+          "format": "double",
+          "type": "number"
+        },
+        "total": {
+          "type": "string"
+        },
+        "wild_type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "decay",
+        "initial",
+        "maintenance",
+        "production",
+        "replication_rules",
+        "scale",
+        "total",
+        "wild_type"
+      ],
+      "type": "object"
+    },
     "Initial": {
       "additionalProperties": false,
       "properties": {
@@ -33,7 +85,8 @@
     },
     "ModelVersion": {
       "enum": [
-        "crn-craft.rules-model/0.1"
+        "crn-craft.rules-model/0.1",
+        "crn-craft.rules-model/0.2"
       ],
       "type": "string"
     },
@@ -232,6 +285,16 @@
     }
   },
   "properties": {
+    "atp": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/AtpSpec"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "description": {
       "type": [
         "string",

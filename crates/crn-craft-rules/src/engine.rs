@@ -655,7 +655,24 @@ impl Path<'_> {
                 out.stop_time = time;
             }
         }
-        out.observation = monitor.map(|m| m.finish(out.stop_time));
+        if let Some(monitor) = monitor {
+            let observation = monitor.finish(out.stop_time);
+            if observation
+                .trackers
+                .iter()
+                .any(|t| !t.integral.is_finite() || !t.omitted_duration.is_finite())
+            {
+                out.termination = Termination::Failed;
+                out.diagnostic = Some(Diagnostic::error(
+                    "CRN-R030",
+                    "/trackers",
+                    "tracker integral or duration exceeds numerical range",
+                    "Rescale the observable or the time horizon.",
+                ));
+            } else {
+                out.observation = Some(observation);
+            }
+        }
         out
     }
 
@@ -675,10 +692,7 @@ impl Path<'_> {
         if value.is_nan() {
             return Err(numerical(
                 "/stop",
-                format!(
-                    "stop condition is undefined (NaN) at observables {:?}",
-                    values
-                ),
+                format!("stop condition is undefined (NaN) at observables {values:?}"),
                 "Guard divisions so the stop condition is defined in every state.",
             ));
         }

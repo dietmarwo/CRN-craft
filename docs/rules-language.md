@@ -232,3 +232,10 @@ share one DKW family at alpha 0.001. Results: `validation/rules/RESULTS.md`.
 - No Python builder; models are JSON.
 - Performance is not yet benchmarked; propensities of all rules are
   recomputed after every event, which suits models with few rules.
+
+## Prepared Python ensembles and static methods
+
+The mtDNA extension adds `crn_craft.rules`, event observation, fixed-channel
+Direct and next reaction, approximate leaps, and ATP thinning. See the
+[mtDNA rules guide](mtdna-rules.md) for the version 0.2 contracts, examples,
+supported model shapes and validation commands.

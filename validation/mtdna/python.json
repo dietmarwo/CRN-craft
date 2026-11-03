@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "checks": [
+    "1/20 typed column bytes",
+    "ordered statistics",
+    "read-only buffers",
+    "event and batch delivery",
+    "event and tracker array views",
+    "continue identity",
+    "observer stop",
+    "callback exception propagation",
+    "cancel file"
+  ]
+}

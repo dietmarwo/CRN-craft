@@ -70,6 +70,132 @@
       ],
       "type": "object"
     },
+    "LogSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "max_entries": {
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "rules": {
+          "default": [],
+          "description": "An empty list logs all rules. Leaps match any listed firing.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "max_entries"
+      ],
+      "type": "object"
+    },
+    "Method": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "tree"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "static_direct"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "next_reaction"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "thinning"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "epsilon": {
+              "format": "double",
+              "type": "number"
+            },
+            "kind": {
+              "enum": [
+                "tau"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "epsilon",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "enum": [
+                "binomial"
+              ],
+              "type": "string"
+            },
+            "step": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "kind",
+            "step"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "ModelRef": {
       "additionalProperties": false,
       "properties": {
@@ -120,7 +246,8 @@
     },
     "RunVersion": {
       "enum": [
-        "crn-craft.rules-run/0.1"
+        "crn-craft.rules-run/0.1",
+        "crn-craft.rules-run/0.2"
       ],
       "type": "string"
     },
@@ -153,6 +280,30 @@
         "report_times"
       ],
       "type": "object"
+    },
+    "TrackerSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "first_passage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "keep_episodes": {
+          "default": 0,
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "observable": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "observable"
+      ],
+      "type": "object"
     }
   },
   "properties": {
@@ -161,6 +312,26 @@
     },
     "ensemble": {
       "$ref": "#/definitions/Ensemble"
+    },
+    "event_log": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/LogSpec"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "method": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Method"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "model": {
       "$ref": "#/definitions/ModelRef"
@@ -173,6 +344,12 @@
     },
     "time": {
       "$ref": "#/definitions/Time"
+    },
+    "trackers": {
+      "items": {
+        "$ref": "#/definitions/TrackerSpec"
+      },
+      "type": "array"
     }
   },
   "required": [

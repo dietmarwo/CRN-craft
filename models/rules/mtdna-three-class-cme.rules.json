@@ -46,11 +46,15 @@
     },
     "advantaged_mutants": {
       "type": "mtDNA",
-      "where": "x.wt == 0 && x.s == sm"
+      "where": "x.clone == 2"
     },
     "D": {
       "type": "mtDNA",
       "weight": "x.wt + sm * (1 - x.wt)"
+    },
+    "neutral_mutants": {
+      "type": "mtDNA",
+      "where": "x.clone == 1"
     }
   },
   "rules": [

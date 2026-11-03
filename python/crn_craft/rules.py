@@ -21,6 +21,11 @@ TERMINATIONS = (
 )
 
 
+def describe():
+    """Return the native rules capabilities and limits."""
+    return json.loads(_native.describe_rules_json())
+
+
 def load(path):
     """Load and validate exact model bytes for reuse in multiple requests."""
     data = Path(path).read_bytes()
@@ -55,6 +60,52 @@ class Result:
                 for key, value in stats.items()
             }
         )
+
+    def event_columns(self, replicate):
+        """Return time, rule and observable arrays for a retained path log.
+
+        Rule index -1 denotes a leap. Participant identities and leap
+        multiplicities are available in the corresponding observation entries.
+        """
+        for observation in self.observations:
+            if observation["id"] == replicate:
+                entries = observation["log"]
+                return {
+                    "time": np.array([e["time"] for e in entries], dtype=np.float64),
+                    "rule": np.array(
+                        [-1 if e["rule"] is None else e["rule"] for e in entries],
+                        dtype=np.int64,
+                    ),
+                    "observables": np.array(
+                        [e["observables"] for e in entries], dtype=np.float64
+                    ).reshape(len(entries), len(self.metadata["observables"])),
+                }
+        raise KeyError(replicate)
+
+    def tracker_columns(self, index=0):
+        """Return scalar tracker fields as arrays for paths with that tracker."""
+        if index < 0:
+            raise ValueError("tracker index must be nonnegative")
+        rows = [
+            (ob["id"], ob["trackers"][index])
+            for ob in self.observations
+            if index < len(ob["trackers"])
+        ]
+        out = {"id": np.array([i for i, _ in rows], dtype=np.uint64)}
+        for key in ("appearances", "extinctions", "omitted_episodes"):
+            out[key] = np.array([t[key] for _, t in rows], dtype=np.uint64)
+        for key in (
+            "last_appearance",
+            "last_extinction",
+            "first_passage",
+            "minimum",
+            "maximum",
+            "integral",
+            "omitted_duration",
+            "omitted_peak",
+        ):
+            out[key] = np.array([t[key] for _, t in rows], dtype=np.float64)
+        return out
 
 
 class PreparedEnsemble:

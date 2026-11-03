@@ -19,10 +19,12 @@ pub(crate) struct Channel {
     factor: f64,
 }
 
+type Projection = (usize, Reduce, Vec<(usize, f64)>);
+
 pub(crate) struct Network {
     pub species: Vec<Species>,
     pub channels: Vec<Channel>,
-    observables: Vec<(usize, Reduce, Vec<(usize, f64)>)>,
+    observables: Vec<Projection>,
     rates: Vec<RateKernel>,
     pub affected: Vec<Vec<usize>>,
 }

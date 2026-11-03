@@ -1,0 +1,712 @@
+{
+  "paths": 32768,
+  "seed": 20261103,
+  "alpha": 0.001,
+  "checks": [
+    {
+      "test": "cme/clone/wild_type/1.0",
+      "distance": 0.0029284571732947073,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/clone/wild_type/3.0",
+      "distance": 0.004285120864583769,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/clone/wild_type/10.0",
+      "distance": 0.0055107117974257935,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/clone/mutants/1.0",
+      "distance": 0.0017248702034730057,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/clone/mutants/3.0",
+      "distance": 0.006666404124207048,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/clone/mutants/10.0",
+      "distance": 0.004912317797612864,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/clone/advantaged_mutants/1.0",
+      "distance": 0.005461876166694912,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/clone/advantaged_mutants/3.0",
+      "distance": 0.004685803404177014,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/clone/advantaged_mutants/10.0",
+      "distance": 0.005602109387229159,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/tree/wild_type/1.0",
+      "distance": 0.003742789684716752,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/tree/wild_type/3.0",
+      "distance": 0.0019440777516516183,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/tree/wild_type/10.0",
+      "distance": 0.0040153504693007935,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/tree/mutants/1.0",
+      "distance": 0.0012472017804832092,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/tree/mutants/3.0",
+      "distance": 0.003829160825804312,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/tree/mutants/10.0",
+      "distance": 0.004721632670741216,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/tree/advantaged_mutants/1.0",
+      "distance": 0.0017915744883341134,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/tree/advantaged_mutants/3.0",
+      "distance": 0.0048134630630422,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/tree/advantaged_mutants/10.0",
+      "distance": 0.004620303236093193,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static/wild_type/1.0",
+      "distance": 0.004930530502391672,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static/wild_type/3.0",
+      "distance": 0.004211207209273482,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static/wild_type/10.0",
+      "distance": 0.006474641758046573,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static/mutants/1.0",
+      "distance": 0.0032800126090269943,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static/mutants/3.0",
+      "distance": 0.006514707700804312,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static/mutants/10.0",
+      "distance": 0.005270653685084281,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static/advantaged_mutants/1.0",
+      "distance": 0.0017692492135699123,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static/advantaged_mutants/3.0",
+      "distance": 0.005741498247571641,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static/advantaged_mutants/10.0",
+      "distance": 0.004411923840354159,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/static/wild_type/1.0",
+      "distance": 0.00494384765625,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/static/wild_type/3.0",
+      "distance": 0.00482177734375,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/static/wild_type/10.0",
+      "distance": 0.00250244140625,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/static/mutants/1.0",
+      "distance": 0.003173828125,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/static/mutants/3.0",
+      "distance": 0.003997802734375,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/static/mutants/10.0",
+      "distance": 0.00408935546875,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/static/advantaged_mutants/1.0",
+      "distance": 0.003509521484375,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/static/advantaged_mutants/3.0",
+      "distance": 0.004302978515625,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/static/advantaged_mutants/10.0",
+      "distance": 0.008270263671875,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/next/wild_type/1.0",
+      "distance": 0.0024197978821489663,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/next/wild_type/3.0",
+      "distance": 0.0055540378596301565,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/next/wild_type/10.0",
+      "distance": 0.005152555507578427,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/next/mutants/1.0",
+      "distance": 0.005722672937848006,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/next/mutants/3.0",
+      "distance": 0.006577333314820688,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/next/mutants/10.0",
+      "distance": 0.0032449176376655453,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/next/advantaged_mutants/1.0",
+      "distance": 0.0019523546823199123,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/next/advantaged_mutants/3.0",
+      "distance": 0.007014849408678359,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/next/advantaged_mutants/10.0",
+      "distance": 0.005582920993515317,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/next/wild_type/1.0",
+      "distance": 0.002838134765625,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/next/wild_type/3.0",
+      "distance": 0.006256103515625,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/next/wild_type/10.0",
+      "distance": 0.009124755859375,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/next/mutants/1.0",
+      "distance": 0.005828857421875,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/next/mutants/3.0",
+      "distance": 0.010406494140625,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/next/mutants/10.0",
+      "distance": 0.00775146484375,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/next/advantaged_mutants/1.0",
+      "distance": 0.003692626953125,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/next/advantaged_mutants/3.0",
+      "distance": 0.010589599609375,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "two-sample/next/advantaged_mutants/10.0",
+      "distance": 0.00750732421875,
+      "bound": 0.026127435916918122,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "tau/0.03/wild_type/1.0",
+      "distance": 0.02850341796875,
+      "bound": 0.02646132324421969,
+      "passed": false,
+      "required": false
+    },
+    {
+      "test": "tau/0.03/wild_type/3.0",
+      "distance": 0.017425537109375,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": false
+    },
+    {
+      "test": "tau/0.03/wild_type/10.0",
+      "distance": 0.00506591796875,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": false
+    },
+    {
+      "test": "tau/0.03/mutants/1.0",
+      "distance": 0.003753662109375,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": false
+    },
+    {
+      "test": "tau/0.03/mutants/3.0",
+      "distance": 0.009918212890625,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": false
+    },
+    {
+      "test": "tau/0.03/mutants/10.0",
+      "distance": 0.006622314453125,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": false
+    },
+    {
+      "test": "tau/0.03/advantaged_mutants/1.0",
+      "distance": 0.002777099609375,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": false
+    },
+    {
+      "test": "tau/0.03/advantaged_mutants/3.0",
+      "distance": 0.004608154296875,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": false
+    },
+    {
+      "test": "tau/0.03/advantaged_mutants/10.0",
+      "distance": 0.00775146484375,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": false
+    },
+    {
+      "test": "tau/0.03/fraction",
+      "distance": 0.005462646484375,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": false
+    },
+    {
+      "test": "tau/0.03/takeover",
+      "distance": 0.004119873046875,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": false
+    },
+    {
+      "test": "tau/0.03/passage",
+      "distance": 0.016204833984375,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": false
+    },
+    {
+      "test": "tau/0.01/wild_type/1.0",
+      "distance": 0.028778076171875,
+      "bound": 0.02646132324421969,
+      "passed": false,
+      "required": true
+    },
+    {
+      "test": "tau/0.01/wild_type/3.0",
+      "distance": 0.014190673828125,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "tau/0.01/wild_type/10.0",
+      "distance": 0.007354736328125,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "tau/0.01/mutants/1.0",
+      "distance": 0.00225830078125,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "tau/0.01/mutants/3.0",
+      "distance": 0.00994873046875,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "tau/0.01/mutants/10.0",
+      "distance": 0.00677490234375,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "tau/0.01/advantaged_mutants/1.0",
+      "distance": 0.003936767578125,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "tau/0.01/advantaged_mutants/3.0",
+      "distance": 0.0054931640625,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "tau/0.01/advantaged_mutants/10.0",
+      "distance": 0.0054931640625,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "tau/0.01/fraction",
+      "distance": 0.007354736328125,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "tau/0.01/takeover",
+      "distance": 0.006011962890625,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "tau/0.01/passage",
+      "distance": 0.012908935546875,
+      "bound": 0.02646132324421969,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "events/exact-reconstruction-and-replay",
+      "distance": 0.0,
+      "bound": 0.0,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "atp/poisson/0.25/0.5",
+      "distance": 0.004541519566862995,
+      "bound": 0.01197166016500961,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "atp/poisson/0.25/1.0",
+      "distance": 0.00372440461826673,
+      "bound": 0.01197166016500961,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "atp/poisson/0.25/3.0",
+      "distance": 0.004318234478743355,
+      "bound": 0.01197166016500961,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "atp/poisson/2.0/0.5",
+      "distance": 0.002118617830799252,
+      "bound": 0.01197166016500961,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "atp/poisson/2.0/1.0",
+      "distance": 0.0038583815331799387,
+      "bound": 0.01197166016500961,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "atp/poisson/2.0/3.0",
+      "distance": 0.004204863625594968,
+      "bound": 0.01197166016500961,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "atp/deterministic-stop",
+      "distance": 0.0,
+      "bound": 0.0,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "clocks/rules/False/0.5",
+      "distance": 0.0028809219657927043,
+      "bound": 0.012405532383735441,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "clocks/network/False/0.5",
+      "distance": 0.0017753364718131603,
+      "bound": 0.012405532383735441,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "clocks/rules/False/1.0",
+      "distance": 0.003294338738257241,
+      "bound": 0.012405532383735441,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "clocks/network/False/1.0",
+      "distance": 0.004102666772724639,
+      "bound": 0.012405532383735441,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "clocks/rules/False/3.0",
+      "distance": 0.0033946314716206683,
+      "bound": 0.012405532383735441,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "clocks/network/False/3.0",
+      "distance": 0.002176513564956073,
+      "bound": 0.012405532383735441,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "clocks/rules/True/0.5",
+      "distance": 0.0013794965373665757,
+      "bound": 0.012405532383735441,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "clocks/network/True/0.5",
+      "distance": 0.0026612348186165757,
+      "bound": 0.012405532383735441,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "clocks/rules/True/1.0",
+      "distance": 0.003397414297307666,
+      "bound": 0.012405532383735441,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "clocks/network/True/1.0",
+      "distance": 0.005289504141057666,
+      "bound": 0.012405532383735441,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "clocks/rules/True/3.0",
+      "distance": 0.0022659681567087087,
+      "bound": 0.012405532383735441,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "clocks/network/True/3.0",
+      "distance": 0.002098731332267789,
+      "bound": 0.012405532383735441,
+      "passed": true,
+      "required": true
+    }
+  ],
+  "tau": {
+    "0.03": {
+      "mean_fraction": 0.7391245894093229,
+      "reference_mean_fraction": 0.7392507456602048,
+      "takeover": 0.533721923828125,
+      "reference_takeover": 0.52960205078125,
+      "first_passage_fraction": 0.900665283203125,
+      "reference_first_passage_fraction": 0.90069580078125
+    },
+    "0.01": {
+      "mean_fraction": 0.7424469191509668,
+      "reference_mean_fraction": 0.7392507456602048,
+      "takeover": 0.535614013671875,
+      "reference_takeover": 0.52960205078125,
+      "first_passage_fraction": 0.89910888671875,
+      "reference_first_passage_fraction": 0.90069580078125
+    }
+  },
+  "passed": false
+}

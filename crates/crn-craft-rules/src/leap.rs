@@ -99,7 +99,13 @@ impl LeapWorkspace {
         dt = dt.min(1.0e8 / noncritical);
         for (&n, &(drift, variance)) in counts.iter().zip(&self.delta) {
             // Expression rates use g=2 as the documented heuristic.
-            let scale = (epsilon * n as f64 / 2.0).max(1.0);
+            let scale = epsilon * n as f64 / 2.0;
+            // The CGP unit floor is a mass-action heuristic. For arbitrary
+            // expression rates, a submolecule allowance means a leap is
+            // unsuitable even if the reactant is above the critical cutoff.
+            if (drift != 0.0 || variance > 0.0) && scale < 1.0 {
+                return self.exact(net, counts, time, target, words);
+            }
             if drift != 0.0 {
                 dt = dt.min(scale / drift.abs());
             }
@@ -288,6 +294,7 @@ impl Path<'_> {
         observer: &O,
     ) -> Result<Option<f64>, Halt> {
         let mut work = LeapWorkspace::new(net);
+        let mut steps = 0;
         loop {
             self.poll()?;
             while out.saved_points < self.report_times.len()
@@ -301,6 +308,20 @@ impl Path<'_> {
             if *time >= self.end {
                 return Ok(None);
             }
+            // A zero-firing leap can advance without drawing a random
+            // word. Bound these iterations as well as the random draws.
+            if steps >= self.limits.max_words {
+                return Err(Halt::Limit(
+                    Termination::SamplingLimit,
+                    Diagnostic::error(
+                        "CRN-R041",
+                        "/budget/max_sampling_steps_per_replicate",
+                        "leap step limit reached",
+                        "Increase the sampling-step budget or step size.",
+                    ),
+                ));
+            }
+            steps += 1;
             let target = self
                 .report_times
                 .get(out.saved_points)

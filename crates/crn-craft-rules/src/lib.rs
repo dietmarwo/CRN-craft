@@ -460,9 +460,6 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
             None
         }
     };
-    if let Some(compiled) = compiled.as_ref().filter(|_| diagnostics.is_empty()) {
-        diagnostics.extend(admission(compiled, &request));
-    }
     if !diagnostics.is_empty() {
         return Err(diagnostics);
     }
@@ -497,6 +494,10 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
             "observation reservation exceeds budget",
             "Reduce event or episode retention or use fewer paths.",
         )]);
+    }
+    let diagnostics = admission(&compiled, &request, reservation);
+    if !diagnostics.is_empty() {
+        return Err(diagnostics);
     }
     match request.method {
         Some(Method::Tau { epsilon })
@@ -565,7 +566,11 @@ fn workers(request: &RunRequest) -> u64 {
 const WINDOW_PER_WORKER: u64 = 4;
 
 /// Workspace and output reservations from sizes alone, checked before any run.
-fn admission(model: &model::Compiled, request: &RunRequest) -> Vec<Diagnostic> {
+fn admission(
+    model: &model::Compiled,
+    request: &RunRequest,
+    observation_bytes: u128,
+) -> Vec<Diagnostic> {
     let n = u128::from(request.ensemble.replicates);
     let series = request.time.report_times.len() as u128 * model.observables.len() as u128 * 8;
     let record = 256 + 8 * model.rules.len() as u128;
@@ -579,8 +584,10 @@ fn admission(model: &model::Compiled, request: &RunRequest) -> Vec<Diagnostic> {
         * u128::from(request.budget.max_instances)
         * (8 * attributes + 48);
     let in_flight = u128::from(workers(request)) * u128::from(1 + WINDOW_PER_WORKER);
-    let workspace =
-        n * record + (in_flight + u128::from(request.outputs.keep_paths)) * series + instances;
+    let workspace = n * record
+        + (in_flight + u128::from(request.outputs.keep_paths)) * series
+        + instances
+        + observation_bytes;
     // Lower bound of the compact result: a record is at least 160 bytes.
     let evidence = n * 160;
     let mut out = Vec::new();

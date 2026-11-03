@@ -537,127 +537,6 @@ impl Parser<'_, '_> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn eval(source: &str) -> f64 {
-        let params = BTreeMap::from([("k".to_string(), 0usize)]);
-        let attrs = vec!["len".to_string(), "s".to_string()];
-        let reactants = [("x", attrs.as_slice())];
-        let scope = Scope {
-            params: &params,
-            observables: None,
-            reactants: &reactants,
-            random: false,
-        };
-        let e = Expr::parse(source, &scope).unwrap();
-        e.eval(&Env {
-            params: &[2.0],
-            observables: &[],
-            attributes: [&[3.0, 0.5], &[]],
-        })
-    }
-
-    #[test]
-    fn precedence_and_functions() {
-        assert_eq!(eval("1 + 2 * 3"), 7.0);
-        assert_eq!(eval("-2 ^ 2"), -4.0);
-        assert_eq!(eval("2 ^ 3 ^ 2"), 512.0);
-        assert_eq!(eval("k * x.len - x.s"), 5.5);
-        assert_eq!(eval("x.len >= 3 && x.s < 1"), 1.0);
-        assert_eq!(eval("!(x.len == 3) || 0"), 0.0);
-        assert_eq!(eval("if(x.len > 2, max(1, k), 7)"), 2.0);
-        assert_eq!(eval("0 && 1 / 0"), 0.0);
-        assert_eq!(eval("1.5e1 / 3"), 5.0);
-        // Undefined conditions stay undefined; min/max do not drop NaN.
-        assert!(eval("(0/0) && 1").is_nan());
-        assert!(eval("1 || (0/0)") == 1.0 && eval("0 || (0/0)").is_nan());
-        assert!(eval("!(0/0)").is_nan() && eval("if(0/0, 1, 2)").is_nan());
-        assert!(eval("max(0/0, 1)").is_nan() && eval("min(1, 0/0)").is_nan());
-    }
-
-    #[test]
-    fn names_and_random_functions_are_checked() {
-        let params = BTreeMap::from([("k".to_string(), 0usize)]);
-        let observables = BTreeMap::from([("N".to_string(), 0usize)]);
-        let attrs = vec!["len".to_string()];
-        let reactants = [("x", attrs.as_slice())];
-        let local = Scope {
-            params: &params,
-            observables: None,
-            reactants: &reactants,
-            random: false,
-        };
-        assert!(
-            Expr::parse("N", &local)
-                .unwrap_err()
-                .contains("unknown name")
-        );
-        assert!(
-            Expr::parse("x.size", &local)
-                .unwrap_err()
-                .contains("no attribute")
-        );
-        assert!(Expr::parse("y.len", &local).unwrap_err().contains("label"));
-        assert!(
-            Expr::parse("uniform(0, 1)", &local)
-                .unwrap_err()
-                .contains("random")
-        );
-        assert!(
-            Expr::parse("max(1)", &local)
-                .unwrap_err()
-                .contains("arguments")
-        );
-        assert!(Expr::parse("1 +", &local).is_err());
-        assert!(Expr::parse("(1", &local).is_err());
-        assert!(Expr::parse("1e999", &local).is_err());
-        assert!(Expr::parse("", &local).is_err());
-        let global = Scope {
-            params: &params,
-            observables: Some(&observables),
-            reactants: &[],
-            random: false,
-        };
-        assert!(Expr::parse("k * N", &global).is_ok());
-        assert!(Expr::parse("x.len", &global).is_err());
-    }
-
-    #[test]
-    fn random_draws_and_new_ids() {
-        let params = BTreeMap::new();
-        let scope = Scope {
-            params: &params,
-            observables: None,
-            reactants: &[],
-            random: true,
-        };
-        let id = Expr::parse("new_id()", &scope).unwrap();
-        let coin = Expr::parse("choice(0.25, 10, 20)", &scope).unwrap();
-        let mut rng = crate::stream(1, 2);
-        let (mut next, mut words, mut overflow) = (5.0, 0, false);
-        let env = Env {
-            params: &[],
-            observables: &[],
-            attributes: [&[], &[]],
-        };
-        let mut draw = Draw {
-            rng: &mut rng,
-            next_id: &mut next,
-            words: &mut words,
-            id_overflow: &mut overflow,
-        };
-        assert_eq!(id.eval_random(&env, &mut draw), 5.0);
-        assert_eq!(id.eval_random(&env, &mut draw), 6.0);
-        let tens = (0..4000)
-            .filter(|_| coin.eval_random(&env, &mut draw) == 10.0)
-            .count();
-        assert!((800..1200).contains(&tens), "{tens}");
-        assert_eq!(words, 4000);
-    }
-}
-
 impl Expr {
     /// Whether all inputs are available without a reactant or a random draw.
     pub(crate) fn parameter_only(&self) -> bool {
@@ -810,5 +689,126 @@ impl RateKernel {
             }
             Self::Expression(expr) => expr.eval(env),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn eval(source: &str) -> f64 {
+        let params = BTreeMap::from([("k".to_string(), 0usize)]);
+        let attrs = vec!["len".to_string(), "s".to_string()];
+        let reactants = [("x", attrs.as_slice())];
+        let scope = Scope {
+            params: &params,
+            observables: None,
+            reactants: &reactants,
+            random: false,
+        };
+        let e = Expr::parse(source, &scope).unwrap();
+        e.eval(&Env {
+            params: &[2.0],
+            observables: &[],
+            attributes: [&[3.0, 0.5], &[]],
+        })
+    }
+
+    #[test]
+    fn precedence_and_functions() {
+        assert_eq!(eval("1 + 2 * 3"), 7.0);
+        assert_eq!(eval("-2 ^ 2"), -4.0);
+        assert_eq!(eval("2 ^ 3 ^ 2"), 512.0);
+        assert_eq!(eval("k * x.len - x.s"), 5.5);
+        assert_eq!(eval("x.len >= 3 && x.s < 1"), 1.0);
+        assert_eq!(eval("!(x.len == 3) || 0"), 0.0);
+        assert_eq!(eval("if(x.len > 2, max(1, k), 7)"), 2.0);
+        assert_eq!(eval("0 && 1 / 0"), 0.0);
+        assert_eq!(eval("1.5e1 / 3"), 5.0);
+        // Undefined conditions stay undefined; min/max do not drop NaN.
+        assert!(eval("(0/0) && 1").is_nan());
+        assert!(eval("1 || (0/0)") == 1.0 && eval("0 || (0/0)").is_nan());
+        assert!(eval("!(0/0)").is_nan() && eval("if(0/0, 1, 2)").is_nan());
+        assert!(eval("max(0/0, 1)").is_nan() && eval("min(1, 0/0)").is_nan());
+    }
+
+    #[test]
+    fn names_and_random_functions_are_checked() {
+        let params = BTreeMap::from([("k".to_string(), 0usize)]);
+        let observables = BTreeMap::from([("N".to_string(), 0usize)]);
+        let attrs = vec!["len".to_string()];
+        let reactants = [("x", attrs.as_slice())];
+        let local = Scope {
+            params: &params,
+            observables: None,
+            reactants: &reactants,
+            random: false,
+        };
+        assert!(
+            Expr::parse("N", &local)
+                .unwrap_err()
+                .contains("unknown name")
+        );
+        assert!(
+            Expr::parse("x.size", &local)
+                .unwrap_err()
+                .contains("no attribute")
+        );
+        assert!(Expr::parse("y.len", &local).unwrap_err().contains("label"));
+        assert!(
+            Expr::parse("uniform(0, 1)", &local)
+                .unwrap_err()
+                .contains("random")
+        );
+        assert!(
+            Expr::parse("max(1)", &local)
+                .unwrap_err()
+                .contains("arguments")
+        );
+        assert!(Expr::parse("1 +", &local).is_err());
+        assert!(Expr::parse("(1", &local).is_err());
+        assert!(Expr::parse("1e999", &local).is_err());
+        assert!(Expr::parse("", &local).is_err());
+        let global = Scope {
+            params: &params,
+            observables: Some(&observables),
+            reactants: &[],
+            random: false,
+        };
+        assert!(Expr::parse("k * N", &global).is_ok());
+        assert!(Expr::parse("x.len", &global).is_err());
+    }
+
+    #[test]
+    fn random_draws_and_new_ids() {
+        let params = BTreeMap::new();
+        let scope = Scope {
+            params: &params,
+            observables: None,
+            reactants: &[],
+            random: true,
+        };
+        let id = Expr::parse("new_id()", &scope).unwrap();
+        let coin = Expr::parse("choice(0.25, 10, 20)", &scope).unwrap();
+        let mut rng = crate::stream(1, 2);
+        let (mut next, mut words, mut overflow) = (5.0, 0, false);
+        let env = Env {
+            params: &[],
+            observables: &[],
+            attributes: [&[], &[]],
+        };
+        let mut draw = Draw {
+            rng: &mut rng,
+            next_id: &mut next,
+            words: &mut words,
+            id_overflow: &mut overflow,
+        };
+        assert_eq!(id.eval_random(&env, &mut draw), 5.0);
+        assert_eq!(id.eval_random(&env, &mut draw), 6.0);
+        let tens = (0..4000)
+            .filter(|_| coin.eval_random(&env, &mut draw) == 10.0)
+            .count();
+        assert!((800..1200).contains(&tens), "{tens}");
+        assert_eq!(words, 4000);
     }
 }

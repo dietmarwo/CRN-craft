@@ -51,7 +51,7 @@ impl Path<'_> {
         let mut rates = vec![0.0; net.channels.len()];
         let mut clocks = Clocks::default();
         let mut previous = None;
-        if self.method == crate::Method::NextReaction {
+        if matches!(self.method, crate::Method::NextReaction {}) {
             clocks.reset(rates.len());
         }
         loop {
@@ -63,7 +63,7 @@ impl Path<'_> {
                 observables: values,
                 attributes: [&[], &[]],
             };
-            let candidate = if self.method == crate::Method::NextReaction {
+            let candidate = if matches!(self.method, crate::Method::NextReaction {}) {
                 let mut update = |i, fired| {
                     let rate = net.rate(i, counts, &env)?;
                     let fresh = if clocks.needs_draw(i, rate, fired) {

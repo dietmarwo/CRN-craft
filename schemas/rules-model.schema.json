@@ -286,14 +286,12 @@
   },
   "properties": {
     "atp": {
-      "anyOf": [
+      "allOf": [
         {
           "$ref": "#/definitions/AtpSpec"
-        },
-        {
-          "type": "null"
         }
-      ]
+      ],
+      "description": "rules-model/0.2 only. `null` is rejected."
     },
     "description": {
       "type": [

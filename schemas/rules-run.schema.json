@@ -330,24 +330,20 @@
       "$ref": "#/definitions/Ensemble"
     },
     "event_log": {
-      "anyOf": [
+      "allOf": [
         {
           "$ref": "#/definitions/LogSpec"
-        },
-        {
-          "type": "null"
         }
-      ]
+      ],
+      "description": "rules-run/0.2 and later. `null` is rejected."
     },
     "method": {
-      "anyOf": [
+      "allOf": [
         {
           "$ref": "#/definitions/Method"
-        },
-        {
-          "type": "null"
         }
-      ]
+      ],
+      "description": "rules-run/0.2 and later; absent selects `tree`. `null` is rejected."
     },
     "model": {
       "$ref": "#/definitions/ModelRef"
@@ -362,6 +358,7 @@
       "$ref": "#/definitions/Time"
     },
     "trackers": {
+      "description": "rules-run/0.2 and later. Not allowed in 0.1, even when empty.",
       "items": {
         "$ref": "#/definitions/TrackerSpec"
       },

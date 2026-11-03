@@ -203,12 +203,16 @@ def ensemble(
         },
     }
     if trackers or event_log is not None or method is not None:
+        # Present fields must hold values; omit the ones that were not given.
         request["schema"] = "crn-craft.rules-run/0.2"
-        request["trackers"] = list(trackers)
-        request["event_log"] = event_log
-        request["method"] = {"kind": method} if isinstance(method, str) else method
+        if trackers:
+            request["trackers"] = list(trackers)
+        if event_log is not None:
+            request["event_log"] = event_log
+        if method is not None:
+            request["method"] = {"kind": method} if isinstance(method, str) else method
         if (
-            isinstance(request["method"], dict)
+            isinstance(request.get("method"), dict)
             and request["method"].get("kind") == "mtdna_direct"
         ):
             request["schema"] = "crn-craft.rules-run/0.3"

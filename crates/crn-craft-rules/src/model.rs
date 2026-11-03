@@ -46,7 +46,13 @@ pub struct Model {
     /// replicate is marked `stopped`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stop: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// rules-model/0.2 only. `null` is rejected.
+    #[serde(
+        default,
+        deserialize_with = "crate::present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "crate::atp::AtpSpec")]
     pub atp: Option<crate::atp::AtpSpec>,
 }
 

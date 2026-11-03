@@ -506,9 +506,14 @@ def check_generic_sampler(binary, folder, rows):
     paths, result = sample(
         binary, folder, model, method=method, seed=SEED + 4, trackers=[TRACKER]
     )
+    # The first-passage tracker is not eligible for sparse integration, so
+    # the run is the Ziggurat default and says so; the law is the same.
     require(
-        result["sampler"]
-        == "chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1",
+        result["sampler"] == "chacha8-u53-ziggurat/rules-static-direct/1"
+        and any(
+            d["code"] == "CRN-R051" and "sparse_trackers" in d["message"]
+            for d in result["diagnostics"]
+        ),
         "wrong generic sampler identity",
     )
     oracle, _ = law_mtdna(MTDNA, TIMES)

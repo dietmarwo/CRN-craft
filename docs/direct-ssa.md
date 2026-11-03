@@ -2,8 +2,8 @@
 
 `0.1.0-dev.4` implements a time-homogeneous, well-mixed stochastic count
 process. Mass action, Hill and Michaelis–Menten use the existing validated
-propensity evaluator and reactant-availability gates. FSP remains a run
-contract. This is an exact **method**, with finite-precision arithmetic and
+propensity evaluator and reactant-availability gates. FSP executes separately
+via `fsp`. This is an exact **method**, with finite-precision arithmetic and
 Monte Carlo uncertainty; it is not a biological validation claim.
 
 ```bash

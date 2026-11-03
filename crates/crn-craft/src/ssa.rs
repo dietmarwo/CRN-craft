@@ -284,7 +284,7 @@ pub fn prepare(model: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec<Diagn
         return Err(vec![Diagnostic::error(
             "CRN-E020",
             "/method/fast",
-            "fast requires crn-craft.ssa-run/0.2 or 0.3",
+            "fast requires crn-craft.ssa-run/0.2 or later",
             "Use crn-craft.ssa-run/0.3 (fast by default), or remove fast for the checked exact policy.",
         )]);
     }

@@ -504,3 +504,60 @@ fn the_cancel_flag_check_does_not_read_the_cancel_file() {
     assert!(control.cancel_flagged());
     std::fs::remove_dir_all(&dir).unwrap();
 }
+
+#[test]
+fn a_disabled_observer_is_not_called_and_report_only_values_stay_fresh() {
+    // An observer that declares ENABLED = false was still called whenever
+    // trackers existed, and could stop a run whose report-only observables
+    // had not been refreshed.
+    struct QuietStop;
+    impl observe::EventObserver for QuietStop {
+        const ENABLED: bool = false;
+        fn on_event(&self, _: &observe::Event<'_>) -> observe::ObserverAction {
+            observe::ObserverAction::Stop
+        }
+    }
+    let model = json!({
+        "schema": "crn-craft.rules-model/0.1", "name": "q",
+        "types": [{"name": "X"}], "initial": [],
+        "observables": {"X": {"type": "X"}, "W": {"type": "X", "weight": "2.5"}},
+        "rules": [{"name": "birth", "reactants": [], "rate": "5", "products": [{"type": "X"}]}]
+    });
+    let bytes = serde_json::to_vec(&model).unwrap();
+    for method in ["tree", "static_direct", "next_reaction"] {
+        let mut req = request_v(V02, &bytes, 2, 2.0, &[0.0, 1.0, 2.0]);
+        req["method"] = json!({"kind": method});
+        req["trackers"] = json!([{"observable": "X"}]);
+        let prepared = prepare(&bytes, &serde_json::to_vec(&req).unwrap()).unwrap();
+        let plain = execute(&prepared, &Control::default()).unwrap();
+        let quiet = execute_with_observer(&prepared, &Control::default(), &QuietStop).unwrap();
+        assert!(
+            serde_json::to_vec(&plain).unwrap() == serde_json::to_vec(&quiet).unwrap(),
+            "{method}: a disabled observer changed the run"
+        );
+        let last = quiet.paths[0].values.last().unwrap();
+        assert_eq!(last[1] * 2.5, last[0], "{method}: held state {last:?}");
+    }
+}
+
+#[test]
+fn sparse_trackers_without_an_eligible_tracker_keep_the_default_identity() {
+    let model = three_class();
+    let bytes = serde_json::to_vec(&model).unwrap();
+    let mut req = request_v("crn-craft.rules-run/0.4", &bytes, 4, 50.0, &[0.0, 50.0]);
+    req["method"] = json!({"kind": "static_direct", "sparse_trackers": true});
+    // A first-passage predicate makes the only tracker ineligible.
+    req["trackers"] = json!([{"observable": "mutants", "first_passage": "mutants >= 2"}]);
+    let result = solve_values(&model, &req);
+    assert_eq!(result.sampler, "chacha8-u53/rules-static-direct/1");
+    let warning = result
+        .diagnostics
+        .iter()
+        .find(|d| d.code == "CRN-R051")
+        .expect("ineligible request not reported");
+    assert!(
+        warning.message.contains("sparse_trackers"),
+        "{}",
+        warning.message
+    );
+}

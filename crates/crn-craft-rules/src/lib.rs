@@ -373,6 +373,8 @@ pub struct Prepared {
     mtdna: Option<mtdna::Kernel>,
     /// Why `mtdna_direct` runs Static Direct instead, when it does.
     mtdna_fallback: Option<&'static str>,
+    /// `sparse_trackers` was requested but no tracker is eligible.
+    sparse_unused: bool,
     compiled: model::Compiled,
     observations: observe::Spec,
     flat: Option<flat::Network>,
@@ -694,6 +696,7 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
             "Select tau or exact SSA for other channels.",
         )]);
     }
+    let mut sparse_unused = false;
     if let Some(net) = &mut flat {
         if matches!(
             request.method,
@@ -703,6 +706,8 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
             })
         ) {
             observations.enable_sparse(net);
+            // No eligible tracker: the run is the default one and says so.
+            sparse_unused = !observations.sparse_effective();
         }
         net.plan_observables(&compiled, &observations);
     }
@@ -719,6 +724,7 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
         source: model,
         mtdna,
         mtdna_fallback,
+        sparse_unused,
         compiled,
         flat,
         observations,
@@ -1078,6 +1084,23 @@ fn execute_inner<O: EventObserver>(
             "The result is exact; check `sampler` before comparing replays.",
         ));
     }
+    if prepared.sparse_unused {
+        diagnostics.push(Diagnostic::warning(
+            "CRN-R051",
+            "/method/sparse_trackers",
+            "sparse_trackers changed nothing: no tracker is an unweighted single-class count without a first-passage predicate",
+            "Per-event integration ran; the sampler identity is the default one.",
+        ));
+    }
+    let method = match request.method.unwrap_or_default() {
+        Method::StaticDirect { waiting_time, .. } if prepared.sparse_unused => {
+            Method::StaticDirect {
+                waiting_time,
+                sparse_trackers: None,
+            }
+        }
+        method => method,
+    };
     let mut result = RulesResult {
         schema: match request.schema {
             RunVersion::V01 => ResultVersion::V01,
@@ -1085,7 +1108,7 @@ fn execute_inner<O: EventObserver>(
         },
         model_sha256: prepared.model_sha256.clone(),
         run_sha256: prepared.run_sha256.clone(),
-        sampler: match request.method.unwrap_or_default() {
+        sampler: match method {
             Method::Tree {} => SAMPLER,
             Method::MtdnaDirect {} if prepared.mtdna.is_some() => {
                 "chacha8-u53-ziggurat/rules-mtdna-direct/1"

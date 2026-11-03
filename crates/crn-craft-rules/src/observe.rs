@@ -25,6 +25,8 @@ pub struct Event<'a> {
 }
 
 pub trait EventObserver: Sync {
+    /// An observer that sets this to false is never called, and the engine
+    /// compiles the per-event observation away.
     const ENABLED: bool = true;
     fn on_event(&self, event: &Event<'_>) -> ObserverAction;
 }
@@ -195,6 +197,11 @@ impl Spec {
             log,
             sparse: Vec::new(),
         })
+    }
+
+    /// Whether any tracker integrates between class changes.
+    pub(crate) fn sparse_effective(&self) -> bool {
+        self.sparse.iter().any(|&v| v)
     }
 
     pub(crate) fn enable_sparse(&mut self, net: &crate::flat::Network) {

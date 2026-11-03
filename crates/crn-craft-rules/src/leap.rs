@@ -555,7 +555,7 @@ impl Path<'_> {
                 if let Some(m) = monitor {
                     m.observe(&event, &self.model.params);
                 }
-                if observer.on_event(&event) == ObserverAction::Stop {
+                if O::ENABLED && observer.on_event(&event) == ObserverAction::Stop {
                     return Ok(Some(next));
                 }
             }

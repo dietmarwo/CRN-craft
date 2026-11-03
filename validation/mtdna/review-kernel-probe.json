@@ -1,0 +1,62 @@
+{
+  "description": "Review regression probe: mtdna_direct at the reviewed head against the unreviewed patch head 6501319, 512 cells, 25,920 h, 720 h reports, 90% stop, two class trackers, one worker, alternating order. Timing is host-specific.",
+  "platform": "Linux-6.18.44-fc-v230-x86_64-with-glibc2.39",
+  "cpu_max": null,
+  "cells": 512,
+  "threads": 1,
+  "rows": [
+    {
+      "binary": "old",
+      "repeat": 0,
+      "seconds": 2.814607589999923,
+      "events": 74213626,
+      "stopped": 40,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1"
+    },
+    {
+      "binary": "new",
+      "repeat": 0,
+      "seconds": 2.656129281000176,
+      "events": 74213626,
+      "stopped": 40,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1"
+    },
+    {
+      "binary": "new",
+      "repeat": 1,
+      "seconds": 2.7513801199997943,
+      "events": 74213626,
+      "stopped": 40,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1"
+    },
+    {
+      "binary": "old",
+      "repeat": 1,
+      "seconds": 2.881859423000151,
+      "events": 74213626,
+      "stopped": 40,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1"
+    },
+    {
+      "binary": "old",
+      "repeat": 2,
+      "seconds": 2.698778361999757,
+      "events": 74213626,
+      "stopped": 40,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1"
+    },
+    {
+      "binary": "new",
+      "repeat": 2,
+      "seconds": 2.752945219999674,
+      "events": 74213626,
+      "stopped": 40,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1"
+    }
+  ],
+  "median_seconds": {
+    "old": 2.814607589999923,
+    "new": 2.7513801199997943
+  },
+  "byte_identical_output": true
+}

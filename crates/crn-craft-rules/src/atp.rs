@@ -129,7 +129,13 @@ impl Flow {
 
     pub fn zero_time(&self) -> f64 {
         if self.atp <= 0.0 {
-            return 0.0;
+            // At zero, the derivative is the source. Positive forcing lifts
+            // ATP; otherwise it stays depleted.
+            return if self.source > 0.0 {
+                f64::INFINITY
+            } else {
+                0.0
+            };
         }
         if self.source >= 0.0 {
             return f64::INFINITY;
@@ -141,8 +147,11 @@ impl Flow {
         let scaled = linear * self.decay;
         if scaled == 0.0 {
             linear
-        } else {
+        } else if scaled.is_finite() {
             libm::log1p(scaled) / self.decay
+        } else {
+            // log1p(x) = ln(x) to rounding for a ratio beyond f64::MAX.
+            (libm::log(self.atp) + libm::log(self.decay) - libm::log(-self.source)) / self.decay
         }
     }
 }

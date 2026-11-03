@@ -78,7 +78,10 @@ request hash.
 
 Static lowering evaluates local predicates and factors once and compiles
 constant and vacancy-rate kernels. It accepts up to 256 tuples and 4096
-channels. Random product attributes use the tree engine. Identical pairs
+channels. Static Direct and leap fallbacks select among all channels in one
+level, so every positive channel must be at least 2⁻⁵³ of the total
+(`CRN-R031`); the tree engine resolves rules and instances separately and can
+run such models. Random product attributes use the tree engine. Identical pairs
 in the static path require a single matching tuple. The network engine
 also exposes Gibson–Bruck under ssa-run/0.4, inverse waiting time and
 checked policy. Other SSA schemas retain their existing defaults.
@@ -89,14 +92,17 @@ Use `{"schema": "crn-craft.rules-run/0.3", "method": {"kind": "mtdna_direct"}}`
 in the corresponding request fields, or pass `method="mtdna_direct"` to
 `rules.ensemble`. The result uses the existing rules-result/0.2 shape.
 The sampler `chacha8-u53-ziggurat/rules-mtdna-direct/1` confirms that the
-specialization executed. The static sampler identity identifies a fallback.
+specialization executed. On a fallback the result carries the Static Direct
+sampler identity and a `CRN-R051` warning that names the reason.
 The same seed gives a different trajectory under the two samplers.
 Each sampler preserves its own completed numerical results across worker counts.
 
 Preparation verifies the lowered channels, unit state updates, constant
 degradation, common vacancy law, integer capacity up to 1,000,000 and a
-positive competition denominator. It certifies rate bounds and supports no stop or the guarded
-mutant fraction predicate shown above. Unsupported static models or parameter
+positive competition denominator. It certifies that in every reachable state
+each positive hazard is at least 16 × 2⁻⁵³ of the total, evaluated at the
+worst state (one vacancy, one molecule of the class). It supports no stop or
+the guarded mutant fraction predicate shown above. Unsupported static models or parameter
 ranges use Static Direct. Models with changing instance identities use
 `tree`. ATP requires `thinning`.
 
@@ -114,6 +120,8 @@ A prepared template can bind an independent candidate without reconstructing
 the run request in Python. Each candidate validates and lowers the new
 parameter values once, since rules parameters can change attributes and
 topology. The resulting prepared kernel is reusable for subsequent calls.
+A candidate's `model_sha256` and `run_sha256` hash the re-serialized bound
+model and request, not a file on disk; even an empty override changes them.
 
 ```python
 import json
@@ -133,13 +141,27 @@ result = candidate.simulate()
 print(result.metadata["sampler"], result.metadata["stopped_replicates"])
 ```
 
-Tau follows the species drift and variance step selection of Cao,
-Gillespie and Petzold. The expression-rate heuristic uses g=2 and falls
-back to exact steps for a submolecule allowance. Low populations,
-including creation into a rare class, are treated as critical.
-Unacceptable proposals halve the step before an exact fallback.
+Tau follows the step selection of Cao, Gillespie and Petzold. The species
+drift and variance bound uses g=2 for expression rates and falls back to
+exact steps for a submolecule allowance. A propensity condition bounds the
+mean and spread of every rate change by ε·a_j, using first differences
+a_j(x + ν_k) − a_j(x), so rates that read global observables such as the
+vacancy K − N are controlled directly. If one firing moves a rate by more
+than ε·a_j, the step is exact. Low populations, creation into a rare class
+and channels that ten firings could switch off are critical and fire at
+most once per leap. Unacceptable proposals halve the step before an exact
+fallback. The cost per step grows with the square of the channel count.
+In the fixed-population model at K = 1000 the vacancy holds only a few
+places, so this rule runs exact events and tau gives no speedup there; the
+review gate at K = 1000 found no multi-firing leaps. Leaps occur when every
+rate changes slowly, as in the high-copy immigration/death gate.
 Binomial splitting recomputes the replication rates after degradation
-and groups competing replication outcomes per parent. Java's hourly
+and groups competing replication outcomes per parent. Each parent's
+outcome probabilities are the competing-risk values (a/Λ)(1 − e^(−Λ·dt/n))
+with rates frozen over the step. Steps lie on the fixed lattice k·step;
+reports between lattice points hold the last step's state, so the report
+grid does not change the path. Frozen rates can put N a few molecules
+above K. Java's hourly
 implementation groups simultaneous new mutants differently and keeps
 clone identities. Both approximate methods report aggregate firings at
 leap boundaries, with their own sampler identities. DOI
@@ -154,7 +176,10 @@ The ATP fixture uses rules-model/0.2 with an `atp` block. Between events
 the solver integrates dA/dt = f × wt − v1 × A − v2 × N analytically.
 Selected replication rules are multiplied by c/(c+A). The minimum ATP
 over the fixed-count interval gives the thinning envelope. The solver
-reports ATP on the grid and stops at its zero crossing. The additional
+reports ATP on the grid and stops at its zero crossing. ATP at zero counts as
+depleted only if the forcing f × wt − v2 × N is not positive; with positive
+forcing it rises again. An ATP stop and a model `stop` both report `stopped`;
+ATP is zero on every report after an ATP stop. The additional
 ATP column is continuous. Event trackers are restricted to discrete
 observables and predicates that read those observables. The supplied Java
 SSA uses the same ATP flow but freezes rates over its sampled waiting

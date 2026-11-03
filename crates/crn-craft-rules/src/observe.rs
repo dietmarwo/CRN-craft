@@ -118,7 +118,7 @@ impl Spec {
         compiled: &Compiled,
         trackers: &[TrackerSpec],
         log: Option<&LogSpec>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, (&'static str, String)> {
         let names: BTreeMap<_, _> = compiled
             .observables
             .iter()
@@ -157,7 +157,8 @@ impl Spec {
                     .transpose()?;
                 Ok::<_, String>((t.clone(), index, predicate))
             })
-            .collect::<Result<_, _>>()?;
+            .collect::<Result<_, String>>()
+            .map_err(|e| ("/trackers", e))?;
         if let Some(atp) = &compiled.atp {
             for (_, index, predicate) in &trackers {
                 let mut flags = vec![false; compiled.observables.len()];
@@ -165,9 +166,10 @@ impl Spec {
                     expr.reads(&mut flags);
                 }
                 if *index == atp.index || flags[atp.index] {
-                    return Err(
+                    return Err((
+                        "/trackers",
                         "trackers apply to event-driven observables; ATP is continuous".into(),
-                    );
+                    ));
                 }
             }
         }
@@ -186,7 +188,8 @@ impl Spec {
                     .collect::<Result<_, _>>()?;
                 Ok::<_, String>((l.max_entries, indices))
             })
-            .transpose()?;
+            .transpose()
+            .map_err(|e| ("/event_log", e))?;
         Ok(Self {
             trackers,
             log,
@@ -421,7 +424,12 @@ impl<'a> Monitor<'a> {
         }
     }
 
-    pub(crate) fn finish(mut self, time: f64) -> Observation {
+    /// The path's observation, or none if it failed before tracking began
+    /// (initial state rejected or cancelled), so no partial list is emitted.
+    pub(crate) fn finish(mut self, time: f64) -> Option<Observation> {
+        if self.trackers.len() < self.spec.trackers.len() {
+            return None;
+        }
         self.output.trackers = self
             .trackers
             .into_iter()
@@ -432,7 +440,7 @@ impl<'a> Monitor<'a> {
                 tracker.result
             })
             .collect();
-        self.output
+        Some(self.output)
     }
 }
 

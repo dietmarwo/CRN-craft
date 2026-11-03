@@ -70,6 +70,11 @@ impl Control {
     pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::Relaxed);
     }
+    /// The in-memory flag only. Per-event callers use this to avoid a file
+    /// system check on every event; the engine polls the file separately.
+    pub fn cancel_flagged(&self) -> bool {
+        self.cancelled.load(Ordering::Relaxed)
+    }
     pub fn is_cancelled(&self) -> bool {
         if self.cancelled.load(Ordering::Relaxed) {
             return true;
@@ -140,20 +145,34 @@ pub enum RulesWaitingTime {
     Ziggurat,
 }
 
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Method {
-    #[default]
-    Tree,
+    // Empty struct variants, so `deny_unknown_fields` applies to every kind:
+    // serde ignores extra keys next to the tag of a unit variant.
+    Tree {},
     StaticDirect {
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        /// rules-run/0.4 and later; absent selects inverse waits. `null` is
+        /// rejected.
+        #[serde(
+            default,
+            deserialize_with = "present",
+            skip_serializing_if = "Option::is_none"
+        )]
+        #[schemars(with = "RulesWaitingTime")]
         waiting_time: Option<RulesWaitingTime>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
+        /// rules-run/0.4 and later. `null` is rejected.
+        #[serde(
+            default,
+            deserialize_with = "present",
+            skip_serializing_if = "Option::is_none"
+        )]
+        #[schemars(with = "bool")]
         sparse_trackers: Option<bool>,
     },
-    MtdnaDirect,
-    NextReaction,
-    Thinning,
+    MtdnaDirect {},
+    NextReaction {},
+    Thinning {},
     Tau {
         epsilon: f64,
     },
@@ -171,12 +190,48 @@ pub struct RunRequest {
     pub ensemble: Ensemble,
     pub outputs: Outputs,
     pub budget: Budget,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub trackers: Vec<TrackerSpec>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// rules-run/0.2 and later. Not allowed in 0.1, even when empty.
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "Vec<TrackerSpec>")]
+    pub trackers: Option<Vec<TrackerSpec>>,
+    /// rules-run/0.2 and later; absent selects `tree`. `null` is rejected.
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "Method")]
     pub method: Option<Method>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// rules-run/0.2 and later. `null` is rejected.
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "LogSpec")]
     pub event_log: Option<LogSpec>,
+}
+
+impl RunRequest {
+    /// The requested trackers; an absent list and an empty list are equal.
+    #[must_use]
+    pub fn trackers(&self) -> &[TrackerSpec] {
+        self.trackers.as_deref().unwrap_or(&[])
+    }
+}
+
+/// A present optional field must hold a value. `null` is rejected rather than
+/// read as absent, so a field's presence can be checked against the version.
+pub(crate) fn present<'de, D, T>(d: D) -> Result<Option<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    T::deserialize(d).map(Some)
 }
 
 // ---------------------------------------------------------------------------
@@ -305,11 +360,19 @@ pub struct RulesResult {
     pub observations: Vec<Observation>,
 }
 
+impl Default for Method {
+    fn default() -> Self {
+        Self::Tree {}
+    }
+}
+
 // ---------------------------------------------------------------------------
 
 pub struct Prepared {
     source: Model,
     mtdna: Option<mtdna::Kernel>,
+    /// Why `mtdna_direct` runs Static Direct instead, when it does.
+    mtdna_fallback: Option<&'static str>,
     compiled: model::Compiled,
     observations: observe::Spec,
     flat: Option<flat::Network>,
@@ -362,21 +425,21 @@ fn validate_request(request: &RunRequest, model_sha256: &str) -> Vec<Diagnostic>
         ));
     }
     if request.schema == RunVersion::V01
-        && (!request.trackers.is_empty() || request.event_log.is_some() || request.method.is_some())
+        && (request.trackers.is_some() || request.event_log.is_some() || request.method.is_some())
     {
         out.push(request_error(
             "/schema",
-            "event observation requires rules-run/0.2",
-            "Select the version 0.2 request contract.",
+            "trackers, method and event_log require rules-run/0.2",
+            "Select the version 0.2 request contract or remove these fields.",
         ));
     }
-    if request.method == Some(Method::MtdnaDirect)
+    if request.method == Some(Method::MtdnaDirect {})
         && !matches!(request.schema, RunVersion::V03 | RunVersion::V04)
     {
         out.push(request_error(
             "/schema",
-            "mtdna_direct requires rules-run/0.3",
-            "Select the version 0.3 request contract.",
+            "mtdna_direct requires rules-run/0.3 or later",
+            "Select the version 0.3 or 0.4 request contract.",
         ));
     }
     if matches!(
@@ -398,7 +461,7 @@ fn validate_request(request: &RunRequest, model_sha256: &str) -> Vec<Diagnostic>
             "Select the version 0.4 request contract.",
         ));
     }
-    if request.trackers.len() > model::MAX_OBSERVABLES {
+    if request.trackers().len() > model::MAX_OBSERVABLES {
         out.push(request_error(
             "/trackers",
             "too many trackers",
@@ -544,12 +607,12 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
     let mut observations = observe::Spec::compile(
         &model,
         &compiled,
-        &request.trackers,
+        request.trackers(),
         request.event_log.as_ref(),
     )
-    .map_err(|e| {
+    .map_err(|(path, e)| {
         vec![request_error(
-            "/trackers",
+            path,
             e,
             "Use declared observable and rule names.",
         )]
@@ -595,19 +658,24 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
         }
         _ => {}
     }
-    if compiled.atp.is_some() != matches!(request.method, Some(Method::Thinning)) {
+    if compiled.atp.is_some() != matches!(request.method, Some(Method::Thinning {})) {
+        let message = if compiled.atp.is_some() {
+            "ATP models require the thinning method"
+        } else {
+            "thinning requires an ATP rules model"
+        };
         return Err(vec![request_error(
             "/method",
-            "ATP models require the thinning method",
+            message,
             "Use thinning with an ATP rules model.",
         )]);
     }
     let mut flat = match request.method.unwrap_or_default() {
-        Method::Tree => None,
+        Method::Tree {} => None,
         Method::StaticDirect { .. }
-        | Method::MtdnaDirect
-        | Method::NextReaction
-        | Method::Thinning
+        | Method::MtdnaDirect {}
+        | Method::NextReaction {}
+        | Method::Thinning {}
         | Method::Tau { .. }
         | Method::Binomial { .. } => Some(flat::Network::compile(&compiled).map_err(|e| {
             vec![request_error(
@@ -638,15 +706,19 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
         }
         net.plan_observables(&compiled, &observations);
     }
-    let mtdna = if request.method == Some(Method::MtdnaDirect) {
-        flat.as_ref()
-            .and_then(|net| mtdna::Kernel::compile(net, &compiled, &observations))
-    } else {
-        None
+    let (mtdna, mtdna_fallback) = match (request.method, flat.as_ref()) {
+        (Some(Method::MtdnaDirect {}), Some(net)) => {
+            match mtdna::Kernel::compile(net, &compiled, &observations) {
+                Ok(kernel) => (Some(kernel), None),
+                Err(reason) => (None, Some(reason)),
+            }
+        }
+        _ => (None, None),
     };
     Ok(Prepared {
         source: model,
         mtdna,
+        mtdna_fallback,
         compiled,
         flat,
         observations,
@@ -998,6 +1070,14 @@ fn execute_inner<O: EventObserver>(
             "See the per-replicate terminations and diagnostics.",
         ));
     }
+    if let Some(reason) = prepared.mtdna_fallback {
+        diagnostics.push(Diagnostic::warning(
+            "CRN-R051",
+            "/method",
+            format!("mtdna_direct ran Static Direct: {reason}"),
+            "The result is exact; check `sampler` before comparing replays.",
+        ));
+    }
     let mut result = RulesResult {
         schema: match request.schema {
             RunVersion::V01 => ResultVersion::V01,
@@ -1006,8 +1086,8 @@ fn execute_inner<O: EventObserver>(
         model_sha256: prepared.model_sha256.clone(),
         run_sha256: prepared.run_sha256.clone(),
         sampler: match request.method.unwrap_or_default() {
-            Method::Tree => SAMPLER,
-            Method::MtdnaDirect if prepared.mtdna.is_some() => {
+            Method::Tree {} => SAMPLER,
+            Method::MtdnaDirect {} if prepared.mtdna.is_some() => {
                 "chacha8-u53-ziggurat/rules-mtdna-direct/1"
             }
             Method::StaticDirect {
@@ -1022,13 +1102,13 @@ fn execute_inner<O: EventObserver>(
                 sparse_trackers: Some(true),
                 ..
             } => "chacha8-u53/rules-static-direct-sparse-trackers/1",
-            Method::StaticDirect { .. } | Method::MtdnaDirect => {
+            Method::StaticDirect { .. } | Method::MtdnaDirect {} => {
                 "chacha8-u53/rules-static-direct/1"
             }
-            Method::NextReaction => "chacha8-u53/rules-next-reaction/1",
-            Method::Thinning => "chacha8-u53/rules-atp-thinning/1",
-            Method::Tau { .. } => "chacha8-u53/rules-approximate-cgp-poisson/1",
-            Method::Binomial { .. } => "chacha8-u53/rules-approximate-binomial-split/1",
+            Method::NextReaction {} => "chacha8-u53/rules-next-reaction/1",
+            Method::Thinning {} => "chacha8-u53/rules-atp-thinning/1",
+            Method::Tau { .. } => "chacha8-u53/rules-approximate-cgp-poisson/2",
+            Method::Binomial { .. } => "chacha8-u53/rules-approximate-binomial-split/2",
         }
         .into(),
         root_seed: request.ensemble.root_seed,
@@ -1161,7 +1241,7 @@ pub fn check_model_file(model_path: &Path) -> RulesCheck {
     }
 }
 
-/// Discovery entry for the native CLI's `describe` (`describe/0.9`).
+/// Discovery entry for the native CLI's `describe` (`describe/0.11`).
 pub fn describe() -> Value {
     serde_json::json!({
         "status": "experimental",
@@ -1205,3 +1285,5 @@ pub fn schema(kind: &str) -> Option<Value> {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_review;

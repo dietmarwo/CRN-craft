@@ -34,9 +34,9 @@ crn-craft describe ssa-result
 crn-craft ssa model.json request.json [--cancel-file PATH]
 ```
 
-The request schema is `crn-craft.ssa-run/0.1`, `0.2` or `0.3`, and the result
-is `crn-craft.ssa-result/0.1`, `0.2` or `0.3` to match. `crn.ssa_spec` writes
-0.3. These are standalone JSON results, not legacy sealed
+The request schema is `crn-craft.ssa-run/0.1`, `0.2`, `0.3` or `0.4`, and the
+result is `crn-craft.ssa-result/0.1`, `0.2`, `0.3` or `0.4` to match.
+`crn.ssa_spec` writes 0.3, or 0.4 for `next_reaction`. These are standalone JSON results, not legacy sealed
 archives. The command exits 0 only for a completed ensemble; incomplete runs
 exit 1 and withhold ensemble statistics. Unknown fields, duplicate keys and
 mismatched model references are rejected. `max_output_bytes` covers compact
@@ -46,7 +46,9 @@ cannot fit, execution returns a coded error instead of oversized evidence.
 ### The `fast` switch
 
 `method.fast` is a boolean. It is not allowed in `crn-craft.ssa-run/0.1`,
-defaults to `false` in `0.2` and to `true` in `0.3`; `null` is rejected. With
+defaults to `false` in `0.2` and to `true` in `0.3` and `0.4`; `null` is
+rejected. Next reaction (0.4 only) runs the checked policy, so its default is
+`false` and `fast: true` is rejected. With
 `fast: true`, every method keeps its selection algorithm but emulates
 JumpProcesses.jl's numerical policy:
 
@@ -82,7 +84,7 @@ free of drift and sees a cancellation before every random word. A fast result
 does not reveal that a tiny channel lost its probability or that a total
 drifted.
 
-**Request versions.** All three versions are accepted, and earlier requests
+**Request versions.** All four versions are accepted, and earlier requests
 keep their meaning and result bytes:
 
 | Request | `fast` | Result | `method.fast` in the result |
@@ -90,12 +92,17 @@ keep their meaning and result bytes:
 | `crn-craft.ssa-run/0.1` | not allowed (checked) | `ssa-result/0.1` | absent |
 | `crn-craft.ssa-run/0.2` | default `false` | `ssa-result/0.2` | present only when true |
 | `crn-craft.ssa-run/0.3` | default `true` | `ssa-result/0.3` | always present |
+| `crn-craft.ssa-run/0.4` | default `true`; `false` for `next_reaction` | `ssa-result/0.4` | always present |
 
-With the same policy, aggregator, waiting time and seed, the three versions
-give identical numbers. `crn.ssa_spec(...)` writes 0.3 with `fast` stated
-explicitly (`fast=False` for the checked policy). Discovery (`describe/0.8`,
-and `describe/0.9` from the native CLI) lists the three request versions and
-the default per version under `alternative_exact_ssa`.
+With the same policy, aggregator, waiting time and seed, the four versions
+give identical numbers. Version 0.4 adds the `next_reaction` aggregator
+(Gibson–Bruck, inverse waiting times, checked policy only) and is otherwise
+0.3. Requesting `next_reaction` under an earlier version, with `fast: true` or
+with Ziggurat waiting times returns CRN-E020 at the offending field.
+`crn.ssa_spec(...)` writes 0.3 with `fast` stated explicitly (`fast=False` for
+the checked policy), and 0.4 with `fast=False` for `next_reaction`. Discovery
+(`describe/0.10`, and `describe/0.11` from the native CLI) lists the request
+versions and the default per version under `alternative_exact_ssa`.
 
 ## Methods and numerical policy
 

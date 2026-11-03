@@ -53,7 +53,7 @@ impl Path<'_> {
         let mut rates = vec![0.0; net.channels.len()];
         let mut clocks = Clocks::default();
         let mut previous = None;
-        if self.method == crate::Method::NextReaction {
+        if matches!(self.method, crate::Method::NextReaction {}) {
             clocks.reset(rates.len());
         }
         let ziggurat = matches!(
@@ -73,11 +73,11 @@ impl Path<'_> {
                 attributes: [&[], &[]],
             };
             cache.reset();
-            let candidate = if self.method == crate::Method::NextReaction {
+            let candidate = if matches!(self.method, crate::Method::NextReaction {}) {
                 let mut update = |i, fired| {
                     let rate = cache.channel(net, i, counts, &env)?;
                     let fresh = if clocks.needs_draw(i, rate, fired) {
-                        Some(-libm::log(1.0 - words.uniform()?))
+                        Some(-libm::log(1.0 - words.open()?))
                     } else {
                         None
                     };

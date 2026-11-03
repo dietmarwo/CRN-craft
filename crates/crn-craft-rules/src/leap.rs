@@ -1,5 +1,8 @@
-//! CGP species-based adaptive Poisson leaps with one competing critical event.
-//! Cao, Gillespie & Petzold (2006), DOI 10.1063/1.2159468.
+//! CGP adaptive Poisson leaps with one competing critical event.
+//! Cao, Gillespie & Petzold (2006), DOI 10.1063/1.2159468: the species-based
+//! bound and, for expression rates, the propensity condition of their
+//! section III with first differences (Gillespie & Petzold 2003,
+//! DOI 10.1063/1.1613254).
 use super::*;
 use crate::flat::{Network, RateCache, check_instances, direct};
 use crate::model::MAX_COUNT;
@@ -14,6 +17,14 @@ struct LeapWorkspace {
     firings: Vec<u64>,
     remaining: Vec<u64>,
     remaining_probability: Vec<f64>,
+    /// Per channel: mean and variance of the rate change per unit time, and
+    /// the smallest nonzero change from one firing.
+    change: Vec<(f64, f64, f64)>,
+    shifted_counts: Vec<u64>,
+    shifted_values: Vec<f64>,
+    /// Rate cache for the shifted state of one firing; reset per firing.
+    shifted_cache: RateCache,
+    row: Vec<f64>,
 }
 
 impl LeapWorkspace {
@@ -30,6 +41,11 @@ impl LeapWorkspace {
             firings: vec![0; m],
             remaining: vec![0; n],
             remaining_probability: vec![1.0; n],
+            change: vec![(0.0, 0.0, f64::INFINITY); m],
+            shifted_counts: vec![0; n],
+            shifted_values: Vec::new(),
+            shifted_cache: net.rate_cache(),
+            row: Vec::new(),
         }
     }
 
@@ -61,11 +77,115 @@ impl LeapWorkspace {
             .all(|&x| (0..=i128::from(MAX_COUNT)).contains(&x))
     }
 
-    #[allow(clippy::cast_precision_loss)]
+    /// Rate changes a_j(x + nu_k) - a_j(x) of every channel j after one
+    /// firing of channel k, written to `row`. Rates may read global
+    /// observables, so these are first differences of the rates.
+    fn differences(
+        &mut self,
+        net: &Network,
+        counts: &[u64],
+        params: &[f64],
+        k: usize,
+        row: &mut [f64],
+    ) -> Result<(), Halt> {
+        self.shifted_counts.copy_from_slice(counts);
+        for &(s, d) in &net.channels[k].changes {
+            // An enabled channel has its reactants; products only grow.
+            self.shifted_counts[s] = self.shifted_counts[s].saturating_add_signed(d);
+        }
+        net.refresh(&self.shifted_counts, &mut self.shifted_values)?;
+        let env = Env {
+            params,
+            observables: &self.shifted_values,
+            attributes: [&[], &[]],
+        };
+        self.shifted_cache.reset();
+        for (j, f) in row.iter_mut().enumerate() {
+            *f = self
+                .shifted_cache
+                .channel(net, j, &self.shifted_counts, &env)?
+                - self.rates[j];
+        }
+        Ok(())
+    }
+
+    /// CGP criticality for rates: a channel is critical if ten firings of an
+    /// enabled channel can exhaust its rate, as a reactant count within ten
+    /// firings of zero makes a mass-action channel critical. Then the
+    /// largest step for which every channel's expected rate change and its
+    /// standard deviation stay within epsilon * a_j. Zero means that one
+    /// firing already exceeds that allowance.
+    fn propensity_step(
+        &mut self,
+        net: &Network,
+        counts: &[u64],
+        values: &[f64],
+        params: &[f64],
+        epsilon: f64,
+    ) -> Result<f64, Halt> {
+        let m = net.channels.len();
+        self.shifted_values.resize(values.len(), 0.0);
+        let mut row = std::mem::take(&mut self.row);
+        row.resize(m, 0.0);
+        for k in 0..m {
+            if self.rates[k] == 0.0 {
+                continue;
+            }
+            self.differences(net, counts, params, k, &mut row)?;
+            for (j, &f) in row.iter().enumerate() {
+                if f < 0.0 && self.rates[j] <= -10.0 * f {
+                    self.critical[j] = self.rates[j];
+                }
+            }
+        }
+        self.change.fill((0.0, 0.0, f64::INFINITY));
+        for k in 0..m {
+            let a_k = self.rates[k];
+            if a_k == 0.0 || self.critical[k] != 0.0 {
+                continue;
+            }
+            self.differences(net, counts, params, k, &mut row)?;
+            for (j, &f) in row.iter().enumerate() {
+                if f != 0.0 {
+                    let (mean, variance, floor) = &mut self.change[j];
+                    *mean += f * a_k;
+                    *variance += f * f * a_k;
+                    *floor = floor.min(f.abs());
+                }
+            }
+        }
+        self.row = row;
+        let mut dt = f64::INFINITY;
+        for (j, &(mean, variance, floor)) in self.change.iter().enumerate() {
+            if mean == 0.0 && variance == 0.0 {
+                continue;
+            }
+            // As for a submolecule species allowance: if one firing moves a
+            // rate by more than epsilon of itself, a frozen-rate leap is
+            // unsuitable, and the caller takes an exact step. The CGP floor
+            // c_j would accept such a change; for a vacancy rate with a few
+            // free places it biases the population (review attempt 1).
+            let allowance = epsilon * self.rates[j];
+            if allowance < floor {
+                return Ok(0.0);
+            }
+            if mean != 0.0 {
+                dt = dt.min(allowance / mean.abs());
+            }
+            if variance > 0.0 {
+                dt = dt.min(allowance * allowance / variance);
+            }
+        }
+        Ok(dt)
+    }
+
+    #[allow(clippy::cast_precision_loss, clippy::too_many_arguments)]
     fn tau<R: RngCore>(
         &mut self,
         net: &Network,
         counts: &[u64],
+        values: &[f64],
+        params: &[f64],
         time: f64,
         target: f64,
         epsilon: f64,
@@ -118,6 +238,10 @@ impl LeapWorkspace {
                 dt = dt.min(scale * scale / variance);
             }
         }
+        if dt < 1.0 / total {
+            return self.exact(net, counts, time, target, words);
+        }
+        dt = dt.min(self.propensity_step(net, counts, values, params, epsilon)?);
         if dt < 1.0 / total {
             return self.exact(net, counts, time, target, words);
         }
@@ -249,7 +373,10 @@ impl LeapWorkspace {
                     "Rescale rates.",
                 ));
             }
-            let probability = (total * dt / counts[s] as f64).min(1.0) * (a / total);
+            // Competing risks with rates frozen over the step: the parent's
+            // first event falls in the step with probability 1 - e^(-L dt),
+            // L its total per-parent rate, and is channel i with a / total.
+            let probability = -libm::expm1(-total * dt / counts[s] as f64) * (a / total);
             let available = self.remaining_probability[s];
             let conditional = if available > 0.0 {
                 (probability / available).min(1.0)
@@ -303,6 +430,7 @@ impl Path<'_> {
     ) -> Result<Option<f64>, Halt> {
         let mut work = LeapWorkspace::new(net);
         let mut steps = 0;
+        let mut lattice: u64 = 0;
         loop {
             self.poll()?;
             while out.saved_points < self.report_times.len()
@@ -345,11 +473,31 @@ impl Path<'_> {
                 },
             )?;
             let next = match self.method {
-                crate::Method::Tau { epsilon } => {
-                    work.tau(net, counts, *time, target, epsilon, words)?
-                }
+                crate::Method::Tau { epsilon } => work.tau(
+                    net,
+                    counts,
+                    values,
+                    &self.model.params,
+                    *time,
+                    target,
+                    epsilon,
+                    words,
+                )?,
                 crate::Method::Binomial { step } => {
-                    let next = (*time + step).min(target);
+                    // Steps lie on the lattice k * step, independent of the
+                    // report grid; a report between lattice points holds the
+                    // state of the last step.
+                    lattice += 1;
+                    #[allow(clippy::cast_precision_loss)]
+                    let next = (lattice as f64 * step).min(self.end);
+                    let n = values.len();
+                    while out.saved_points < self.report_times.len()
+                        && self.report_times[out.saved_points] < next
+                    {
+                        let offset = out.saved_points * n;
+                        out.values[offset..offset + n].copy_from_slice(values);
+                        out.saved_points += 1;
+                    }
                     work.binomial(net, counts, values, next - *time, &self.model.params, words)?;
                     next
                 }

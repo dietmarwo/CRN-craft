@@ -756,7 +756,8 @@ pub(crate) fn direct<R: RngCore>(
     words: &mut Words<'_, R>,
 ) -> Result<Option<(f64, usize)>, Halt> {
     direct_with(rates, time, words, |words, total| {
-        Ok(time - libm::log(1.0 - words.uniform()?) / total)
+        // Open uniform: u = 0 would give a zero wait. Other words are unchanged.
+        Ok(time - libm::log(1.0 - words.open()?) / total)
     })
 }
 
@@ -775,6 +776,16 @@ pub(crate) fn direct_with<R: RngCore>(
             .iter()
             .any(|&a| a > 0.0 && a < total * crate::engine::RESOLUTION)
     {
+        // Static channels are selected in one flat level; the tree engine
+        // resolves rules and instances separately and can still run.
+        if total.is_finite() {
+            return Err(Halt::Numerical(crn_craft::diagnostic::Diagnostic::error(
+                "CRN-R031",
+                "/rules",
+                "a positive channel is below 53-bit resolution of the total",
+                "Use the tree method or rescale rates.",
+            )));
+        }
         return Err(numerical(
             "/rules",
             "unresolvable total propensity",

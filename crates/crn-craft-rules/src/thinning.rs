@@ -28,7 +28,14 @@ impl Path<'_> {
             }
             let zero = flow.zero_time();
             let remaining = self.end - *time;
-            let limit = remaining.min(zero).min(atp.envelope_span(&flow));
+            let uncapped = remaining.min(zero);
+            // The span cap only tightens the envelope: on a monotone interval
+            // the endpoint minimum bounds the intensity for any length. Drop
+            // it when it is below the clock resolution at this time.
+            let mut limit = uncapped.min(atp.envelope_span(&flow));
+            if limit > 0.0 && *time + limit <= *time {
+                limit = uncapped;
+            }
             if limit <= 0.0 {
                 if zero == 0.0 {
                     values[atp.index] = 0.0;

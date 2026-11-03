@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import operator
 from pathlib import Path
 
 import numpy as np
@@ -83,14 +84,16 @@ class Result:
         raise KeyError(replicate)
 
     def tracker_columns(self, index=0):
-        """Return scalar tracker fields as arrays for paths with that tracker."""
+        """Return scalar tracker fields as arrays, one entry per observed path.
+
+        Paths that failed before tracking began carry no observation.
+        """
         if index < 0:
             raise ValueError("tracker index must be nonnegative")
-        rows = [
-            (ob["id"], ob["trackers"][index])
-            for ob in self.observations
-            if index < len(ob["trackers"])
-        ]
+        count = max((len(ob["trackers"]) for ob in self.observations), default=0)
+        if index >= count:
+            raise IndexError(f"tracker index {index} with {count} trackers")
+        rows = [(ob["id"], ob["trackers"][index]) for ob in self.observations]
         out = {"id": np.array([i for i, _ in rows], dtype=np.uint64)}
         for key in ("appearances", "extinctions", "omitted_episodes"):
             out[key] = np.array([t[key] for _, t in rows], dtype=np.uint64)
@@ -113,7 +116,11 @@ class PreparedEnsemble:
         self._native = native
 
     def bind_parameters(self, overrides):
-        """Prepare an independent candidate with the same ensemble settings."""
+        """Prepare an independent candidate with the same ensemble settings.
+
+        The candidate's model and run hashes cover the re-serialized bound
+        model and request, not the original file.
+        """
         try:
             return PreparedEnsemble(self._native.bind_parameters(dict(overrides)))
         except _native.NativeError as error:
@@ -124,9 +131,13 @@ class PreparedEnsemble:
     ):
         """Run native workers.
 
-        A live callback(id, event) returning False stops that replicate.
-        Workers preserve per-replicate order. A batch_callback(id, events)
-        replays the retained log after execution and cannot affect the run.
+        A live callback(id, event) returning False stops that replicate; any
+        other return value continues. Workers preserve per-replicate order,
+        and calls from different replicates interleave. An exception in the
+        callback cancels the run and is raised here; partial results are
+        discarded. A callback that blocks also blocks Ctrl-C. A
+        batch_callback(id, events) replays the retained log after execution
+        and cannot affect the run.
         """
         if batch_size < 1:
             raise ValueError("batch_size must be positive")
@@ -180,35 +191,41 @@ def ensemble(
 ):
     """Build and prepare a rules request with explicit work/output budgets."""
     data = model_bytes(model)
+    # NumPy scalars and arrays are converted; counts must be integral.
+    count = operator.index
     request = {
         "schema": "crn-craft.rules-run/0.1",
         "model": {
             "path": "model.rules.json",
             "sha256": hashlib.sha256(data).hexdigest(),
         },
-        "time": {"end": end, "report_times": list(report_times)},
-        "ensemble": {"replicates": replicates, "root_seed": seed},
+        "time": {"end": float(end), "report_times": [float(t) for t in report_times]},
+        "ensemble": {"replicates": count(replicates), "root_seed": count(seed)},
         "outputs": {
             "statistics": ["mean", "variance"],
-            "keep_paths": keep_paths,
-            "keep_instances": keep_instances,
+            "keep_paths": count(keep_paths),
+            "keep_instances": count(keep_instances),
         },
         "budget": {
-            "threads": threads,
-            "max_events_per_replicate": max_events,
-            "max_sampling_steps_per_replicate": max_sampling_steps,
-            "max_instances": max_instances,
-            "max_output_bytes": max_output_bytes,
-            "wall_time_s": wall_time_s,
+            "threads": count(threads),
+            "max_events_per_replicate": count(max_events),
+            "max_sampling_steps_per_replicate": count(max_sampling_steps),
+            "max_instances": count(max_instances),
+            "max_output_bytes": count(max_output_bytes),
+            "wall_time_s": None if wall_time_s is None else float(wall_time_s),
         },
     }
     if trackers or event_log is not None or method is not None:
+        # Present fields must hold values; omit the ones that were not given.
         request["schema"] = "crn-craft.rules-run/0.2"
-        request["trackers"] = list(trackers)
-        request["event_log"] = event_log
-        request["method"] = {"kind": method} if isinstance(method, str) else method
+        if trackers:
+            request["trackers"] = list(trackers)
+        if event_log is not None:
+            request["event_log"] = event_log
+        if method is not None:
+            request["method"] = {"kind": method} if isinstance(method, str) else method
         if (
-            isinstance(request["method"], dict)
+            isinstance(request.get("method"), dict)
             and request["method"].get("kind") == "mtdna_direct"
         ):
             request["schema"] = "crn-craft.rules-run/0.3"

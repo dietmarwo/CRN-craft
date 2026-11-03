@@ -688,6 +688,6 @@ fn unchanged_rate_is_rechecked_when_total_increases() {
             && rep
                 .diagnostic
                 .as_ref()
-                .is_some_and(|d| d.message.contains("unresolvable total propensity"))
+                .is_some_and(|d| d.code == "CRN-R031")
     }));
 }

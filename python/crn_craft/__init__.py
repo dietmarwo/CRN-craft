@@ -107,28 +107,40 @@ def prepare(model, run, *, cached=False):
         raise _crn_error(error) from None
 
 
+_DEFAULT_POLICY = object()
+
+
 def ssa_spec(
     model,
     *,
     aggregator="direct_cr",
     waiting_time="inverse",
     max_sampling_steps=1000000000,
-    fast=True,
+    fast=_DEFAULT_POLICY,
     **kwargs,
 ):
-    """Construct a ``crn-craft.ssa-run/0.3`` exact-SSA request bound to model bytes.
+    """Construct an exact-SSA request bound to model bytes.
 
-    ``fast`` (default ``True``) emulates JumpProcesses.jl: Xoshiro256++ words,
-    running totals without lost-increment or 53-bit resolution checks, and
-    stop polls per batch of events. ``fast=False`` selects the checked exact
-    policy (ChaCha8 words, both checks, stop polls before every random word),
-    whose paths equal those of ``crn-craft.ssa-run/0.1`` requests. The request
-    always states ``method.fast`` explicitly.
+    The request is ``crn-craft.ssa-run/0.3``, or ``0.4`` for
+    ``aggregator="next_reaction"``. ``fast`` (default ``True``) emulates
+    JumpProcesses.jl: Xoshiro256++ words, running totals without lost-increment
+    or 53-bit resolution checks, and stop polls per batch of events.
+    ``fast=False`` selects the checked exact policy (ChaCha8 words, both checks,
+    stop polls before every random word), whose paths equal those of
+    ``crn-craft.ssa-run/0.1`` requests. Next reaction runs only the checked
+    policy, so its default is ``False``. The request always states
+    ``method.fast`` explicitly.
     """
+    if fast is _DEFAULT_POLICY:
+        fast = aggregator != "next_reaction"
     if not isinstance(fast, bool):
         raise TypeError("fast must be True or False")
     request = run_spec(model, **kwargs)
-    request["schema"] = "crn-craft.ssa-run/0.4" if aggregator == "next_reaction" else "crn-craft.ssa-run/0.3"
+    request["schema"] = (
+        "crn-craft.ssa-run/0.4"
+        if aggregator == "next_reaction"
+        else "crn-craft.ssa-run/0.3"
+    )
     request["method"] = {
         "kind": "ssa",
         "aggregator": aggregator,

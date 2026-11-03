@@ -21,6 +21,17 @@ def require(value, message):
         raise RuntimeError(message)
 
 
+def equal_numbers(a, b):
+    """Results equal apart from the request identity and the echoed `fast`."""
+
+    def strip(r):
+        out = {k: v for k, v in r.items() if k not in ("schema", "run_sha256")}
+        out["method"] = {k: v for k, v in r["method"].items() if k != "fast"}
+        return out
+
+    return strip(a) == strip(b)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--binary", type=Path, required=True)
@@ -39,6 +50,19 @@ def main():
         mp = folder / "model.json"
         rp = folder / "request.json"
         mp.write_bytes(model)
+        default = crn.ssa_spec(model, end=1.0, save_times=[1.0])
+        require(
+            default["schema"] == "crn-craft.ssa-run/0.3"
+            and default["method"]["fast"] is True,
+            "ssa_spec defaults to fast",
+        )
+        for invalid in [None, 1, "true"]:
+            try:
+                crn.ssa_spec(model, end=1.0, save_times=[1.0], fast=invalid)
+            except TypeError:
+                pass
+            else:
+                raise RuntimeError(f"ssa_spec accepted fast={invalid!r}")
         for (algorithm, wait), fast in itertools.product(VARIANTS, (False, True)):
             request = crn.ssa_spec(
                 model,
@@ -59,13 +83,50 @@ def main():
             expected = crn.simulate_ssa(model, request)
             validators["ssa-result"].validate(expected)
             require(
-                expected["schema"].endswith("/0.2" if fast else "/0.1")
+                request["schema"] == "crn-craft.ssa-run/0.3"
+                and request["method"]["fast"] is fast
+                and expected["schema"] == "crn-craft.ssa-result/0.3"
                 and expected["sampler"].startswith(
                     "xoshiro256pp" if fast else "chacha8"
                 )
-                and expected["method"].get("fast", False) == fast,
+                and expected["method"]["fast"] is fast,
                 "fast identity",
             )
+
+            # Without `fast`, ssa-run/0.3 is fast. The same policy under 0.2
+            # (fast) or 0.1 (checked) gives the same numbers.
+            implicit = json.loads(json.dumps(request))
+            del implicit["method"]["fast"]
+            implicit_result = crn.simulate_ssa(model, implicit)
+            require(
+                implicit_result["method"]["fast"] is True
+                and equal_numbers(implicit_result, expected) == fast,
+                "ssa-run/0.3 default is fast",
+            )
+            earlier = json.loads(json.dumps(request))
+            if fast:
+                earlier["schema"] = "crn-craft.ssa-run/0.2"
+            else:
+                earlier["schema"] = "crn-craft.ssa-run/0.1"
+                del earlier["method"]["fast"]
+            earlier_result = crn.simulate_ssa(model, earlier)
+            validators["ssa-result"].validate(earlier_result)
+            require(
+                equal_numbers(earlier_result, expected)
+                and earlier_result["schema"]
+                == ("crn-craft.ssa-result/0.2" if fast else "crn-craft.ssa-result/0.1")
+                and earlier_result["method"].get("fast", False) is fast,
+                "earlier request versions",
+            )
+            for invalid in [None, 1, "true"]:
+                changed = json.loads(json.dumps(request))
+                changed["method"]["fast"] = invalid
+                try:
+                    crn.simulate_ssa(model, changed)
+                except crn.CrnError:
+                    pass
+                else:
+                    raise RuntimeError(f"fast={invalid!r} accepted")
             if fast:
                 old = dict(request, schema="crn-craft.ssa-run/0.1")
                 try:

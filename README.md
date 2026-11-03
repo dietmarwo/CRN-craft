@@ -142,20 +142,23 @@ Copy the returned digest into the corresponding run file. Do not assume that sem
 Besides the legacy `simulate`/`simulate-cached` archives, `crn-craft ssa MODEL REQUEST`
 runs five exact methods (`direct`, `cached_direct`, `direct_cr`, `sorting_direct`,
 `rssa_cr`) with inverse or Ziggurat waits; see [alternative exact SSA methods](docs/alternative-ssa.md).
-Requests with schema `crn-craft.ssa-run/0.2` accept one more switch, `method.fast`:
+The switch `method.fast` selects between two numerical policies. It is **on by
+default** in `crn-craft.ssa-run/0.3` requests, which `crn.ssa_spec` writes:
 
 ```json
 "method": {"kind": "ssa", "aggregator": "direct_cr", "waiting_time": "ziggurat", "fast": true}
 ```
 
 ```python
-request = crn.ssa_spec(model, aggregator="cached_direct", waiting_time="ziggurat", fast=True)
+request = crn.ssa_spec(model, aggregator="cached_direct", waiting_time="ziggurat")             # fast
+checked = crn.ssa_spec(model, aggregator="cached_direct", waiting_time="ziggurat", fast=False)  # checked
 result = crn.simulate_ssa(model, request)
 ```
 
-`fast` emulates what JumpProcesses.jl (and GillesPy2) do:
+`fast` emulates what JumpProcesses.jl (and GillesPy2) do; `fast: false` is the
+checked policy:
 
-| | `fast: false` (default) | `fast: true` |
+| | `fast: false` (checked) | `fast: true` (default in 0.3) |
 |---|---|---|
 | Random words | ChaCha8, keyed per replicate | Xoshiro256++ per replicate (Julia's generator), seeded from its own keyed stream |
 | Totals | Exact pairwise tree or ordered sums, rebuilt without drift | Running totals updated by `+= new - old` (Direct: additions only), recomputed from the leaves every 65,536 updates |
@@ -167,23 +170,28 @@ result = crn.simulate_ssa(model, request)
 networks (W1–W7, `validation/fast/fast-vs-default.json`) and passes its own
 210-comparison exact-law gate (100,000 paths per fixture). Its sampler identity
 is `xoshiro256pp-u53/<method>/<wait>/fast-1`, so its paths differ from the
-default and replay only with `fast` set. Results answer with
-`crn-craft.ssa-result/0.2`; 0.1 requests are still accepted and give the same
-bytes as before.
+checked policy and replay only with the same setting. Results answer with
+`crn-craft.ssa-result/0.3` and always state `fast`.
 
-**Why `fast` is off by default.** CRN-craft's default promises that a result is
-exact to the resolution of its 53-bit uniforms: no positive channel silently
-loses its probability to rounding, totals carry no accumulated drift, and a
-cancellation request is seen before the next random word is drawn. Without
-those checks, a model whose rates span more than about 16 orders of magnitude
-can silently never fire its smallest channels, and a running total can drift
-from the true sum over long runs. Neither is visible in a result, so the
-default keeps the checks and `fast` is an explicit choice for workloads whose
-rates are well scaled, such as large parameter scans or benchmarks.
+**Why `fast` is the default, and when to turn it off.** Most models have
+well-scaled rates, where both policies sample the same law and `fast` is
+1.09–4.3 times quicker; it is also the policy of the tools CRN-craft is
+compared with. Set `fast: false` when a model's rates span more than about 16
+orders of magnitude, when runs are very long, or when a result must carry the
+checked guarantees: no positive channel silently loses its probability to
+rounding, totals carry no accumulated drift, and a cancellation request is
+seen before the next random word is drawn. Without those checks a tiny channel
+can silently never fire and a running total can drift, and neither is visible
+in a result.
 
-**Benchmarks use `fast`.** Julia and GillesPy2 make none of these checks, so
-comparisons time CRN-craft with `fast: true` and report the checked default
-alongside. With `fast`, CRN-craft is 2.9–9.2 times faster than GillesPy2's C++
+**Earlier requests keep their meaning.** `crn-craft.ssa-run/0.1` has no `fast`
+and stays checked; `crn-craft.ssa-run/0.2` keeps `fast` off unless it is set.
+Both return the same bytes as before (`ssa-result/0.1` and `0.2`). The legacy
+`simulate`/`simulate-cached` archives always use checked Direct.
+
+**Benchmarks use `fast`.** Julia and GillesPy2 make none of the checked
+policy's checks, so comparisons time CRN-craft with `fast: true` and report the
+checked policy alongside. With `fast`, CRN-craft is 2.9–9.2 times faster than GillesPy2's C++
 solver on W1–W4 ([comparison](docs/comparison-gillespy2.md)). Measured directly
 against JumpProcesses.jl on one host ([comparison](docs/comparison-julia-8-threads.md)),
 the best fast method takes 0.69 times the time of Julia's best method at eight

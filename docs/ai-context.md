@@ -1,10 +1,13 @@
 # Agent context: CRN-craft campaign
 
-Start with README.md, docs/campaign/README.md and `crn-craft describe` (0.6).
+Start with README.md, docs/campaign/README.md and `crn-craft describe` (0.8; 0.9 from the native CLI).
 Default engine MSRV is 1.85; Python/jobs/diffsol are isolated optional workspaces.
 Legacy exact SSA commands are simulate and simulate-cached, with unchanged original
 model/run/result/archive contracts. The separate ssa command implements Direct,
 cached Direct, DirectCR, SortingDirect and RSSACR with inverse or Ziggurat waits.
+Its `method.fast` policy is on by default in ssa-run/0.3 (what `crn.ssa_spec`
+writes); set `fast: false` for the checked policy. ssa-run/0.1 and 0.2 keep
+their checked defaults and result bytes.
 Read docs/alternative-ssa.md and the five-step acceleration protocol before changes. FSP executes via fsp; tau is explicitly
 approximate and has separate request/result schemas. Optional crn-diffsol uses
 BDF and forward sensitivities with deterministic count kinetics, not exact
@@ -24,5 +27,5 @@ owner-controlled publishing remain additional validation work.
 
 Fixed-topology parameter searches can use the Rust/Python parameter template API;
 read docs/reusable-parameters.md and docs/comparison-parameter-optimization.md.
-Optional generated mass-action propensities retain the existing checked solver;
-fast is still explicit and the dynamic numerical engine has no compiler dependency.
+Optional generated mass-action propensities retain the existing solver and its
+policy choice; the dynamic numerical engine has no compiler dependency.

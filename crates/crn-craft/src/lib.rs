@@ -252,13 +252,13 @@ pub fn schema(kind: &str) -> Option<Value> {
 
 pub fn describe() -> Value {
     json!({
-        "schema": "crn-craft.describe/0.7", "version": env!("CARGO_PKG_VERSION"), "milestone": "SSA-acceleration",
+        "schema": "crn-craft.describe/0.8", "version": env!("CARGO_PKG_VERSION"), "milestone": "SSA-acceleration",
         "commands": ["describe", "check", "analyze", "analyze-v1", "export", "simulate", "verify", "simulate-cached", "fsp", "tau", "ssa"], "simulation_available": true,
         "aggregators": [{"name": "direct", "status": "implemented", "implementation_milestone": "M2"}],
         "methods": [{"name": "ssa", "status": "implemented"}, {"name": "fsp", "status": "implemented"}, {"name": "tau", "status": "experimental_approximation"}],
         "sampler": sampling::SAMPLER,
         "implementation_variants": ["direct", "dependency_cached_direct"],
-        "alternative_exact_ssa": {"request":"crn-craft.ssa-run/0.2", "result":"crn-craft.ssa-result/0.2", "accepted_requests":["crn-craft.ssa-run/0.1","crn-craft.ssa-run/0.2"], "aggregators":["direct","cached_direct","direct_cr","sorting_direct","rssa_cr"], "waiting_times":["inverse","ziggurat"], "fast":{"default":false, "requires":"crn-craft.ssa-run/0.2", "emulates":"JumpProcesses.jl 10.0.1: Xoshiro256++, running totals without loss or resolution checks, batched stop polls"}, "archive_format":null},
+        "alternative_exact_ssa": {"request":"crn-craft.ssa-run/0.3", "result":"crn-craft.ssa-result/0.3", "accepted_requests":["crn-craft.ssa-run/0.1","crn-craft.ssa-run/0.2","crn-craft.ssa-run/0.3"], "aggregators":["direct","cached_direct","direct_cr","sorting_direct","rssa_cr"], "waiting_times":["inverse","ziggurat"], "fast":{"default":true, "default_by_request":{"crn-craft.ssa-run/0.1":"unavailable","crn-craft.ssa-run/0.2":false,"crn-craft.ssa-run/0.3":true}, "checked_policy":"method.fast=false: ChaCha8 words, lost-increment and 53-bit resolution checks, stop polls before every random word", "emulates":"JumpProcesses.jl 10.0.1: Xoshiro256++, running totals without loss or resolution checks, batched stop polls"}, "archive_format":null},
         "optional_integrations": {"python":"bindings/python", "jobs":"integrations/jobs", "ode_bdf_sensitivities":"integrations/diffsol"},
         "rate_laws": ["mass_action", "hill_activation", "hill_repression", "michaelis_menten"],
         "reference_exporters": [{"target":"gillespy2", "version": export::GILLESPY2_VERSION, "subset":"elementary_mass_action", "maximum_reactant_order":2}],

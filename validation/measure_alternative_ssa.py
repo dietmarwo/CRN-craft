@@ -24,6 +24,7 @@ def main():
                     model,
                     aggregator=method,
                     waiting_time=wait,
+                    fast=False,
                     end=100.0,
                     save_times=[0.0, 100.0],
                     replicates=16,

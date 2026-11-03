@@ -116,7 +116,11 @@ class PreparedEnsemble:
         self._native = native
 
     def bind_parameters(self, overrides):
-        """Prepare an independent candidate with the same ensemble settings."""
+        """Prepare an independent candidate with the same ensemble settings.
+
+        The candidate's model and run hashes cover the re-serialized bound
+        model and request, not the original file.
+        """
         try:
             return PreparedEnsemble(self._native.bind_parameters(dict(overrides)))
         except _native.NativeError as error:

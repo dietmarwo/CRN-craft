@@ -120,6 +120,8 @@ A prepared template can bind an independent candidate without reconstructing
 the run request in Python. Each candidate validates and lowers the new
 parameter values once, since rules parameters can change attributes and
 topology. The resulting prepared kernel is reusable for subsequent calls.
+A candidate's `model_sha256` and `run_sha256` hash the re-serialized bound
+model and request, not a file on disk; even an empty override changes them.
 
 ```python
 import json

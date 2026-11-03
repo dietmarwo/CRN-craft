@@ -226,13 +226,16 @@ share one DKW family at alpha 0.001. Results: `validation/rules/RESULTS.md`.
 
 ## Limits of 0.1
 
-- No time-dependent rates or ODE coupling (Kowald's variable-population model
-  with ATP needs these; planned as K2), no compartments.
+- No general time-dependent rates or ODE coupling. rules-model/0.2 adds one
+  case, the ATP flow of Kowald's variable-population model, solved with
+  exact thinning ([mtDNA ensembles](mtdna-rules.md)). No compartments.
 - Two different patterns over one type, three or more reactants, and counts
   inside expressions (largest clone *size*) are not supported yet.
-- No Python builder; models are JSON.
-- Performance is not yet benchmarked; propensities of all rules are
-  recomputed after every event, which suits models with few rules.
+- Models are JSON. `crn_craft.rules` prepares and runs ensembles from Python
+  ([mtDNA ensembles](mtdna-rules.md)).
+- The tree method recomputes the propensities of all rules after every
+  event, which suits models with few rules. Closed models can use the
+  static methods; benchmarks are in `validation/mtdna/`.
 
 ## Prepared Python ensembles and static methods
 

@@ -21,11 +21,15 @@ iterations that make up this release follow.
 - Exact SSA: legacy checked Direct and dependency-cached Direct archives, and
   `direct`, `cached_direct`, `direct_cr`, `sorting_direct` and `rssa_cr` with
   inverse or Ziggurat waits (`crn-craft.ssa-run/0.3`), where `fast`, emulating
-  JumpProcesses.jl, is the default and `fast: false` the checked policy.
+  JumpProcesses.jl, is the default and `fast: false` the checked policy, plus
+  Gibson–Bruck next reaction (`crn-craft.ssa-run/0.4`, checked policy).
 - Sparse finite state projection, explicitly approximate Poisson leaping,
   network analysis with conservation laws and cone enumeration.
-- Experimental rules engine for dynamic, attributed species (native CLI),
-  with exact-law gates for mtDNA and aggregation models.
+- Experimental rules engine for dynamic, attributed species (native CLI and
+  Python `crn_craft.rules`), with exact-law gates for mtDNA and aggregation
+  models: parallel ensembles, event trackers and callbacks, Static Direct,
+  next reaction, a specialized fixed-population mtDNA sampler, approximate tau
+  and binomial steps, ATP-coupled thinning and generated Rust kernels.
 - Python bindings with prepared simulations, reusable parameter templates,
   trajectory diagnostics and strict SBML/BioNetGen import subsets; optional
   diffsol BDF with forward sensitivities; fcmaes job applications.
@@ -42,6 +46,25 @@ iterations that make up this release follow.
   `include_bytes!` of a path outside the crate, which no packaged crate could
   build. Checkout builds record the same hash as before; see
   `docs/archive-contract.md`.
+
+### mtDNA ensembles and faster generic rules
+
+#### Changed: faster generic rules simulation (S1–S6)
+
+- Static Direct, next reaction, ATP thinning and the leap methods cache rule rates and shared vacancy bases, recompute only the channels and observables an event affects, defer report-only observables, keep the live-instance count incrementally and evaluate the stop and predicates from compiled bytecode. Existing requests return byte-identical results.
+- `rules-run/0.4` adds two opt-ins on `static_direct`: `waiting_time: "ziggurat"` and `sparse_trackers: true`. Each has its own sampler identity; the result stays `rules-result/0.2`.
+- `generate_rules_kernel` emits a Rust kernel for one closed model with constant or vacancy rates. `execute_with_rules_kernel` runs it under the Static Direct scheduler with byte-identical results. It refuses kernels generated for other model bytes or by another generator version, because the fingerprint covers the emitted source. Rust only; it is not available from Python.
+- [docs/specialized-kernels.md](docs/specialized-kernels.md): when a model-specific kernel is worth it, and the review checklist. Review log: [docs/campaign/fast-generic-rules-review-log-2026-11-03.md](docs/campaign/fast-generic-rules-review-log-2026-11-03.md).
+
+#### Added: mtDNA ensembles, event observation and alternative rules methods (A0–A6)
+
+- Three-class mtDNA fixtures (`models/rules/mtdna-three-class*.rules.json`) with independent CME gates, and a usage guide in [docs/mtdna-rules.md](docs/mtdna-rules.md).
+- `crn_craft.rules`: prepared parallel rules ensembles from Python with read-only NumPy record columns, cooperative cancellation, budgets, `bind_parameters` candidates, live and batch event callbacks, trackers (crossings, episodes, extrema, integrals, first passage) and a bounded event log. The Rust `EventObserver` interface exposes the same committed events.
+- Rules methods: `static_direct`, `mtdna_direct` (exact grouped Direct for the fixed three-class model, with an explained Static Direct fallback, `CRN-R051`), `next_reaction` (Gibson–Bruck), approximate `tau` and `binomial`, and `thinning` for the ATP-coupled model (`rules-model/0.2` `atp` block).
+- Contracts: `rules-run/0.2` (method, trackers, event log) and `0.3` (adds `mtdna_direct`) answer with `rules-result/0.2`; `rules-model/0.2` adds `atp`. `rules-run/0.1`, `rules-model/0.1` and the tree method keep their meaning and result bytes, and reject the new fields even when empty or null. Network `ssa-run/0.4` is 0.3 plus the `next_reaction` aggregator (checked policy and inverse waits only) and answers with `ssa-result/0.4`.
+- Discovery: core and Python `describe/0.10`, native CLI `describe/0.11`, with the 0.4 request default and the rules methods.
+- Migration: stored requests of earlier versions are unchanged. `crn.ssa_spec(aggregator="next_reaction")` writes 0.4 with `fast=False`; other aggregators still get 0.3. A present `method`, `event_log`, `trackers` or `atp` must hold a value; `null` is rejected.
+- Review log: [docs/campaign/mtdna-a0-a6-review-log-2026-11-03.md](docs/campaign/mtdna-a0-a6-review-log-2026-11-03.md).
 
 ### Alternative exact SSA methods and the Julia-gap campaign (`0.2.0-dev.1`)
 

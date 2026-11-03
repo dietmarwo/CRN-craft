@@ -1,0 +1,8 @@
+{
+  "code": 0,
+  "terminations": {
+    "completed": 452,
+    "stopped": 60
+  },
+  "failures": []
+}

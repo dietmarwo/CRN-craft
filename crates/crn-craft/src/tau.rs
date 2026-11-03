@@ -115,15 +115,25 @@ fn poisson(mean: f64, rng: &mut impl RngCore, poller: &mut Poller) -> Result<u64
     if let Some(stop) = poller.poll() {
         return Err(error(format!("interrupted Poisson sampling: {stop:?}")));
     }
+    poisson_with(mean, || Ok(sampling::uniform_open(rng)))
+}
+
+/// Shared Poisson kernel. Callers validate the mean and supply open uniforms
+/// from their own budgeted sampler.
+#[doc(hidden)]
+pub fn poisson_with<E>(mean: f64, mut open: impl FnMut() -> Result<f64, E>) -> Result<u64, E> {
+    if mean == 0.0 {
+        return Ok(0);
+    }
     if mean > PTRS_MEAN {
-        return Ok(ptrs(mean, rng));
+        return ptrs(mean, open);
     }
     let threshold = libm::exp(-mean);
     let mut count = 0;
-    let mut product = sampling::uniform_open(rng);
+    let mut product = open()?;
     while product > threshold {
         count += 1;
-        product *= sampling::uniform_open(rng);
+        product *= open()?;
     }
     Ok(count)
 }
@@ -132,7 +142,7 @@ fn poisson(mean: f64, rng: &mut impl RngCore, poller: &mut Poller) -> Result<u64
 /// Uniforms are drawn from (0, 1), so `us` is positive and every logarithm is
 /// finite. Each pair of uniforms is accepted by the squeeze, rejected, or
 /// accepted by the exact log-density comparison.
-fn ptrs(mean: f64, rng: &mut impl RngCore) -> u64 {
+fn ptrs<E>(mean: f64, mut open: impl FnMut() -> Result<f64, E>) -> Result<u64, E> {
     let root = mean.sqrt();
     let b = 0.931 + 2.53 * root;
     let a = -0.059 + 0.02483 * b;
@@ -140,12 +150,12 @@ fn ptrs(mean: f64, rng: &mut impl RngCore) -> u64 {
     let v_r = 0.9277 - 3.6224 / (b - 2.0);
     let log_mean = mean.ln();
     loop {
-        let u = sampling::uniform_open(rng) - 0.5;
-        let v = sampling::uniform_open(rng);
+        let u = open()? - 0.5;
+        let v = open()?;
         let us = 0.5 - u.abs();
         let k = ((2.0 * a / us + b) * u + mean + 0.43).floor();
         if us >= 0.07 && v <= v_r {
-            return k as u64;
+            return Ok(k as u64);
         }
         if k < 0.0 || (us < 0.013 && v > us) {
             continue;
@@ -153,7 +163,7 @@ fn ptrs(mean: f64, rng: &mut impl RngCore) -> u64 {
         if v.ln() + inverse_alpha.ln() - (a / (us * us) + b).ln()
             <= -mean + k * log_mean - libm::lgamma(k + 1.0)
         {
-            return k as u64;
+            return Ok(k as u64);
         }
     }
 }

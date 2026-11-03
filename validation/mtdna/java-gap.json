@@ -1,0 +1,387 @@
+{
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+  "cpu_max": "800000 100000",
+  "binary_sha256": {
+    "static": "13c21226c8e1f9dbd39bdc2878b2cfd96e6108d2b457c923f48bff43e9270132",
+    "fused": "fce39662aa5e8c90b9832b9fe8c4d4fcef954225276f5ec865c775152bb96b27",
+    "lazy": "50cab8e99309e749f8e47e5ab68eec08a7b70e3fe315e297e8b6cc1bfe578d37",
+    "final": "1f6b13e34761d2c1ba3d4f05692f856bcc8dfc6f5c494b09cf84d45bdb2831d4",
+    "phases": "bab1d6883b75fa67ff2989eab4af5663cb643b122e117323fa733088f1717263"
+  },
+  "rows": [
+    {
+      "case": "fixedPop",
+      "method": "java_ssa",
+      "cells": 10000,
+      "threads": 8,
+      "seconds": 15.263113056000293,
+      "totals": {
+        "nTakenOver": 1016,
+        "nCOXneg": 1016,
+        "swMutationEvents": 16975,
+        "smMutationEvents": 4277,
+        "swMutantsVanished": 16015,
+        "smMutantsVanished": 2849,
+        "nReplications": 718224417
+      },
+      "output_bytes": 6868641
+    },
+    {
+      "case": "final",
+      "method": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "cells": 10000,
+      "threads": 8,
+      "seconds": 8.647985935999714,
+      "process_seconds": 8.320803054999487,
+      "decode_seconds": 0.3271828810002262,
+      "events": 1434907957,
+      "stopped": 1008,
+      "output_bytes": 20866304
+    },
+    {
+      "case": "static",
+      "method": "chacha8-u53/rules-static-direct/1",
+      "cells": 10000,
+      "threads": 8,
+      "seconds": 41.262143771999945,
+      "process_seconds": 40.93659488499998,
+      "decode_seconds": 0.3255488869999681,
+      "events": 1431587716,
+      "stopped": 1058,
+      "output_bytes": 20870381
+    },
+    {
+      "case": "static",
+      "method": "chacha8-u53/rules-static-direct/1",
+      "cells": 512,
+      "threads": 1,
+      "seconds": 13.173904253999353,
+      "process_seconds": 13.159190225000202,
+      "decode_seconds": 0.014714028999151196,
+      "events": 73298429,
+      "stopped": 53,
+      "output_bytes": 1080139
+    },
+    {
+      "case": "fused",
+      "method": "chacha8-u53/rules-mtdna-direct/1",
+      "cells": 512,
+      "threads": 1,
+      "seconds": 5.953680342999178,
+      "process_seconds": 5.939813729999514,
+      "decode_seconds": 0.01386661299966363,
+      "events": 73799876,
+      "stopped": 47,
+      "output_bytes": 1078600
+    },
+    {
+      "case": "lazy",
+      "method": "chacha8-u53/rules-mtdna-direct/1",
+      "cells": 512,
+      "threads": 1,
+      "seconds": 3.26433765999991,
+      "process_seconds": 3.250979405999715,
+      "decode_seconds": 0.013358254000195302,
+      "events": 73799876,
+      "stopped": 47,
+      "output_bytes": 1078600
+    },
+    {
+      "case": "final",
+      "method": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "cells": 512,
+      "threads": 1,
+      "seconds": 2.614954257000136,
+      "process_seconds": 2.601135406999674,
+      "decode_seconds": 0.01381885000046168,
+      "events": 74213626,
+      "stopped": 40,
+      "output_bytes": 1077176
+    },
+    {
+      "case": "fixedPop",
+      "method": "java_ssa",
+      "cells": 512,
+      "threads": 1,
+      "seconds": 4.358883920000153,
+      "totals": {
+        "nTakenOver": 57,
+        "nCOXneg": 57,
+        "swMutationEvents": 876,
+        "smMutationEvents": 219,
+        "swMutantsVanished": 826,
+        "smMutantsVanished": 141,
+        "nReplications": 36596325
+      },
+      "output_bytes": 356539
+    },
+    {
+      "case": "static",
+      "method": "chacha8-u53/rules-static-direct/1",
+      "cells": 512,
+      "threads": 8,
+      "seconds": 2.329828847000499,
+      "process_seconds": 2.3170118540001567,
+      "decode_seconds": 0.012816993000342336,
+      "events": 73298429,
+      "stopped": 53,
+      "output_bytes": 1080139
+    },
+    {
+      "case": "fused",
+      "method": "chacha8-u53/rules-mtdna-direct/1",
+      "cells": 512,
+      "threads": 8,
+      "seconds": 1.0023115230005715,
+      "process_seconds": 0.9894890530003977,
+      "decode_seconds": 0.01282247000017378,
+      "events": 73799876,
+      "stopped": 47,
+      "output_bytes": 1078600
+    },
+    {
+      "case": "lazy",
+      "method": "chacha8-u53/rules-mtdna-direct/1",
+      "cells": 512,
+      "threads": 8,
+      "seconds": 0.554589334999946,
+      "process_seconds": 0.5401698830000896,
+      "decode_seconds": 0.014419451999856392,
+      "events": 73799876,
+      "stopped": 47,
+      "output_bytes": 1078600
+    },
+    {
+      "case": "final",
+      "method": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "cells": 512,
+      "threads": 8,
+      "seconds": 0.6959264639999674,
+      "process_seconds": 0.4479978699991989,
+      "decode_seconds": 0.2479285940007685,
+      "events": 74213626,
+      "stopped": 40,
+      "output_bytes": 1077176
+    },
+    {
+      "case": "fixedPop",
+      "method": "java_ssa",
+      "cells": 512,
+      "threads": 8,
+      "seconds": 1.4423380589996668,
+      "totals": {
+        "nTakenOver": 57,
+        "nCOXneg": 57,
+        "swMutationEvents": 876,
+        "smMutationEvents": 219,
+        "swMutantsVanished": 826,
+        "smMutantsVanished": 141,
+        "nReplications": 36596325
+      },
+      "output_bytes": 356539
+    },
+    {
+      "case": "phases",
+      "method": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "cells": 10000,
+      "threads": 8,
+      "seconds": 7.940358613999706,
+      "process_seconds": 7.593269777999922,
+      "decode_seconds": 0.34708883599978435,
+      "events": 1434907957,
+      "stopped": 1008,
+      "output_bytes": 20866303,
+      "phases": {
+        "preparation": 0.000340733,
+        "simulation": 7.466362802,
+        "output": 0.098066828
+      }
+    },
+    {
+      "case": "fixedPop",
+      "method": "java_ssa",
+      "cells": 10000,
+      "threads": 8,
+      "seconds": 14.400522143000671,
+      "totals": {
+        "nTakenOver": 1016,
+        "nCOXneg": 1016,
+        "swMutationEvents": 16975,
+        "smMutationEvents": 4277,
+        "swMutantsVanished": 16015,
+        "smMutantsVanished": 2849,
+        "nReplications": 718224417
+      },
+      "output_bytes": 6868641,
+      "simulation_seconds": 13.586794498,
+      "startup_and_output_seconds": 0.8137276450006716
+    }
+  ],
+  "crn_law_cross_check": {
+    "familywise_alpha": 0.001,
+    "bound": 0.044912824692575466,
+    "distances": {
+      "N": 0.010099999999999998,
+      "wild_type": 0.011900000000000022,
+      "neutral_mutants": 0.007099999999999995,
+      "advantaged_mutants": 0.005499999999999949,
+      "mutants": 0.009099999999999997,
+      "first_passage": 0.0050000000000000044
+    },
+    "passed": true
+  },
+  "java_cross_check": {
+    "takeover_crn": 1008,
+    "takeover_java": 1016,
+    "report_binned_passage_cdf_distance": 0.0029,
+    "bound": 0.0407284903724703,
+    "passed": true,
+    "mutations_crn": [
+      17030,
+      4236
+    ],
+    "mutations_java": [
+      16975,
+      4277
+    ],
+    "clone_extinctions_java": [
+      16015,
+      2849
+    ],
+    "class_extinctions_crn": [
+      14884,
+      2770
+    ]
+  },
+  "pilot": {
+    "note": "All timing rows completed. Serializing the first NumPy boolean gate aborted the initial harness after those timings. Fixed and reran the gates.",
+    "rows": [
+      {
+        "case": "static",
+        "method": "chacha8-u53/rules-static-direct/1",
+        "cells": 10000,
+        "threads": 8,
+        "seconds": 45.53208349399938,
+        "process_seconds": 45.179587640000136,
+        "decode_seconds": 0.352495853999244,
+        "events": 1431587716,
+        "stopped": 1058,
+        "output_bytes": 20870381
+      },
+      {
+        "case": "final",
+        "method": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+        "cells": 10000,
+        "threads": 8,
+        "seconds": 8.585854890000519,
+        "process_seconds": 8.26652418499998,
+        "decode_seconds": 0.31933070500053873,
+        "events": 1434907957,
+        "stopped": 1008,
+        "output_bytes": 20866304
+      },
+      {
+        "case": "fixedPop",
+        "method": "java_ssa",
+        "cells": 10000,
+        "threads": 8,
+        "seconds": 14.464386600999205,
+        "totals": {
+          "nTakenOver": 1016,
+          "nCOXneg": 1016,
+          "swMutationEvents": 16975,
+          "smMutationEvents": 4277,
+          "swMutantsVanished": 16015,
+          "smMutantsVanished": 2849,
+          "nReplications": 718224417
+        },
+        "output_bytes": 6868641
+      }
+    ]
+  },
+  "packaged_binary_recheck": {
+    "case": "final",
+    "method": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+    "cells": 10000,
+    "threads": 8,
+    "seconds": 8.726276598999902,
+    "process_seconds": 8.362560539000697,
+    "decode_seconds": 0.36371605999920575,
+    "events": 1434907957,
+    "stopped": 1008,
+    "output_bytes": 20866304,
+    "static_phase_probe_512": {
+      "preparation": 0.00049923,
+      "simulation": 2.2640799449999998,
+      "output": 0.004532995,
+      "elapsed_with_decode": 2.3473583340000914
+    },
+    "binary_sha256": "bf5a85913f66fb66e45940970c1fd1561b6dff21010d540f3f5668209082e5af",
+    "512_cell_raw_result_sha256": "64baa982e1b99abc9c4eb75cdc9f3fa3951ee4d5d399137687cf3f531dc0af77"
+  },
+  "profiling": {
+    "description": "Single-worker 512-cell sampling. Intermediate Rust uses inverse waiting times before the shared Ziggurat change. Samples are approximate.",
+    "gprofng_static": [
+      "3.317 100.00  3.317 100.00   <Total>",
+      "0.641  19.33  0.807  24.32   crn_craft_rules::flat::Network::rate",
+      "0.469  14.13  0.469  14.13   crn_craft_rules::expr::eval_node",
+      "0.409  12.32  0.409  12.32   libm::math::log::log",
+      "0.393  11.84  2.600  78.39   crn_craft_rules::engine::Path::run",
+      "0.304   9.17  0.304   9.17   crn_craft_rules::flat::Network::refresh",
+      "0.288   8.69  0.797  24.02   crn_craft_rules::flat::direct",
+      "0.166   5.02  0.166   5.02   crn_craft_rules::observe::Monitor::observe",
+      "0.166   4.99  0.166   4.99   crn_craft_rules::expr::RateKernel::eval",
+      "0.088   2.65  0.156   4.69   crn_craft_rules::engine::flat_path::<impl crn_craft_rules::engine::Path>::apply_flat",
+      "0.086   2.58  0.439  13.23   crn_craft_rules::engine::Path::stop_values",
+      "0.068   2.04  0.068   2.04   crn_craft_rules::flat::Network::apply",
+      "0.067   2.01  0.067   2.01   crn_craft_rules::engine::flat_path::<impl crn_craft_rules::engine::Path>::save_before"
+    ],
+    "gprofng_lazy": [
+      "0.870 100.00  0.870 100.00   <Total>",
+      "0.406  46.62  0.867  99.66   crn_craft_rules::engine::mtdna_path::<impl crn_craft_rules::engine::Path>::simulate_mtdna",
+      "0.354  40.66  0.354  40.66   libm::math::log::log",
+      "0.057   6.53  0.057   6.53   rand_chacha::guts::refill_wide::impl_avx2",
+      "0.047   5.38  0.107  12.26   crn_craft_rules::engine::Words<R>::uniform",
+      "0.004   0.46  0.004   0.46   rand_chacha::guts::refill_wide",
+      "0.001   0.11  0.001   0.11   <static>@0xaaa3b (<libc.so.6>)",
+      "0.001   0.11  0.001   0.11   crn_craft_rules::observe::Tracker::update",
+      "0.001   0.11  0.002   0.23   malloc",
+      "0.      0.    0.002   0.23   <alloc::vec::Vec<T> as alloc::vec::spec_from_iter::SpecFromIter<T,I>>::from_iter",
+      "0.      0.    0.407  46.74   <static>@0x5115c (<libgp-collector.so>)",
+      "0.      0.    0.407  46.74   <static>@0x9c446 (<libc.so.6>)",
+      "0.      0.    0.407  46.74   core::ops::function::FnOnce::call_once{{vtable.shim}}"
+    ],
+    "gprofng_packaged": [
+      "0.824 100.00  0.824 100.00   <Total>",
+      "0.700  84.99  0.814  98.79   crn_craft_rules::engine::mtdna_path::<impl crn_craft_rules::engine::Path>::simulate_mtdna",
+      "0.067   8.11  0.067   8.11   rand_chacha::guts::refill_wide::impl_avx2",
+      "0.040   4.84  0.107  12.95   crn_craft_rules::engine::Words<R>::word",
+      "0.006   0.73  0.006   0.73   libm::math::exp::exp",
+      "0.006   0.73  0.006   0.73   rand_chacha::guts::refill_wide",
+      "0.002   0.24  0.002   0.24   <static>@0xaaa3b (<libc.so.6>)",
+      "0.001   0.12  0.001   0.12   <static>@0x188021 (<libc.so.6>)",
+      "0.001   0.12  0.001   0.12   libm::math::log1p::log1p",
+      "0.001   0.12  0.001   0.12   syscall",
+      "0.      0.    0.001   0.12   <core::iter::adapters::map::Map<I,F> as core::iter::traits::iterator::Iterator>::try_fold",
+      "0.      0.    0.693  84.14   <static>@0x5115c (<libgp-collector.so>)",
+      "0.      0.    0.693  84.14   <static>@0x9c446 (<libc.so.6>)"
+    ],
+    "java_jfr_samples": 407,
+    "java_ssa_line_counts": {
+      "1414": 174,
+      "1399": 128,
+      "1474": 34,
+      "1457": 33,
+      "1430": 10,
+      "1383": 6,
+      "1472": 2,
+      "1373": 1,
+      "1420": 1,
+      "1450": 1,
+      "1382": 1,
+      "1484": 1
+    }
+  },
+  "java_source_sha256": "5f31ab5dc7d1e592e4db6d48fcdd318c03fe617d24f7e57e9751b45020c76c11",
+  "java_runtime": "openjdk version \"25.0.5.0.3\" 2026-10-24 LTS"
+}

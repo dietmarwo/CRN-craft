@@ -28,6 +28,7 @@ The [four CRN optimization lessons](tutorials/optimization/README.md) cover reus
 - [Fast mode versus Julia at one and eight threads](docs/comparison-julia-8-threads.md): direct same-host measurement of `fast` against five JumpProcesses methods, 2,240 timed observations, scaling and replay checks
 - [Agent context](docs/ai-context.md): what an AI agent needs to use and extend CRN-craft
 - [Dynamic, attributed species (experimental)](docs/rules-language.md): rule-based models whose species appear and disappear (mtDNA clones, aggregation), with [K1 law gates](validation/rules/RESULTS.md)
+- [Three-class mtDNA ensembles](docs/mtdna-rules.md): parallel Python ensembles, event trackers and callbacks, Static Direct, a specialized fixed-population sampler, next reaction, approximate tau and binomial steps, and ATP-coupled thinning ([review log](docs/campaign/mtdna-a0-a6-review-log-2026-11-03.md))
 
 **Using CRN-craft**
 
@@ -229,9 +230,11 @@ crn-craft rules MODEL REQUEST [--cancel-file PATH]
 K1 passes 30 exact-law comparisons over 100,000 replicates each (Kowald's
 fixed-population mtDNA model, constant and multiplicative aggregation kernels,
 immigration–death and immigration–dimerization, the last also against the
-network engine) and rejects every wrong law it was given. Time-dependent rates
-and ODE coupling (Kowald's variable-population model), a Python builder and
-benchmarks are not done yet. See the [language reference](docs/rules-language.md).
+network engine) and rejects every wrong law it was given. The three-class mtDNA
+work adds the Python ensemble API, event observation, alternative methods and
+the ATP-coupled variable-population model with its own gates; see
+[docs/mtdna-rules.md](docs/mtdna-rules.md) and the
+[language reference](docs/rules-language.md).
 
 ## Developer checks
 

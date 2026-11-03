@@ -48,7 +48,7 @@ fn main() -> ExitCode {
         Some("describe") if args.len() == 1 => {
             // The native CLI adds the rules engine to the core description.
             let mut value = describe();
-            value["schema"] = "crn-craft.describe/0.9".into();
+            value["schema"] = "crn-craft.describe/0.11".into();
             if let Some(commands) = value["commands"].as_array_mut() {
                 commands.extend(["rules-check".into(), "rules".into()]);
             }

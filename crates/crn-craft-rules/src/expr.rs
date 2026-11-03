@@ -124,6 +124,35 @@ fn uniform(word: u64) -> f64 {
 }
 
 impl Expr {
+    /// Recognize the guarded fixed-population takeover predicate.
+    pub(crate) fn fraction_stop(&self, total: usize, mutants: usize) -> Option<f64> {
+        let Node::Bin(Op::And, guard, predicate) = &self.root else {
+            return None;
+        };
+        let total = Node::Var(Slot::Observable(total));
+        let mutants = Node::Var(Slot::Observable(mutants));
+        let Node::Bin(Op::Gt, left, right) = guard.as_ref() else {
+            return None;
+        };
+        if **left != total || **right != Node::Num(0.0) {
+            return None;
+        }
+        let Node::Bin(Op::Ge, left, right) = predicate.as_ref() else {
+            return None;
+        };
+        let Node::Bin(Op::Mul, fraction, population) = right.as_ref() else {
+            return None;
+        };
+        match fraction.as_ref() {
+            Node::Num(f)
+                if **left == mutants && **population == total && (0.0..=1.0).contains(f) =>
+            {
+                Some(*f)
+            }
+            _ => None,
+        }
+    }
+
     pub(crate) fn parse(source: &str, scope: &Scope) -> Result<Self, String> {
         let tokens = lex(source)?;
         let mut parser = Parser {
@@ -231,21 +260,7 @@ fn eval_node<R: RngCore>(node: &Node, env: &Env, draw: &mut Option<Draw<R>>) -> 
                 _ => {}
             }
             let y = eval_node(b, env, draw);
-            match op {
-                Op::Add => x + y,
-                Op::Sub => x - y,
-                Op::Mul => x * y,
-                Op::Div => x / y,
-                Op::Pow => libm::pow(x, y),
-                Op::Eq => f64::from(u8::from(x == y)),
-                Op::Ne => f64::from(u8::from(x != y)),
-                Op::Lt => f64::from(u8::from(x < y)),
-                Op::Le => f64::from(u8::from(x <= y)),
-                Op::Gt => f64::from(u8::from(x > y)),
-                Op::Ge => f64::from(u8::from(x >= y)),
-                Op::And | Op::Or if y.is_nan() => y,
-                Op::And | Op::Or => flag(truth(y)),
-            }
+            eval_binary(*op, x, y)
         }
         Node::Call(f, args) => {
             if *f == Func::If {
@@ -288,15 +303,6 @@ fn eval_node<R: RngCore>(node: &Node, env: &Env, draw: &mut Option<Draw<R>>) -> 
                 d.rng.next_u64()
             };
             match f {
-                Func::Min | Func::Max if v[0].is_nan() || v[1].is_nan() => f64::NAN,
-                Func::Min => v[0].min(v[1]),
-                Func::Max => v[0].max(v[1]),
-                Func::Exp => libm::exp(v[0]),
-                Func::Log => libm::log(v[0]),
-                Func::Sqrt => libm::sqrt(v[0]),
-                Func::Abs => v[0].abs(),
-                Func::Floor => libm::floor(v[0]),
-                Func::Ceil => libm::ceil(v[0]),
                 Func::Bernoulli => f64::from(u8::from(uniform(word()) < v[0])),
                 Func::Uniform => v[0] + (v[1] - v[0]) * uniform(word()),
                 Func::Normal => {
@@ -309,9 +315,209 @@ fn eval_node<R: RngCore>(node: &Node, env: &Env, draw: &mut Option<Draw<R>>) -> 
                     let r = libm::sqrt(-2.0 * libm::log(u1));
                     v[0] + v[1] * r * libm::cos(2.0 * std::f64::consts::PI * u2)
                 }
-                Func::If | Func::NewId | Func::Choice => unreachable!(),
+                _ => deterministic_call(*f, v[0], v.get(1).copied().unwrap_or(0.0)),
             }
         }
+    }
+}
+
+fn eval_binary(op: Op, x: f64, y: f64) -> f64 {
+    match op {
+        Op::Add => x + y,
+        Op::Sub => x - y,
+        Op::Mul => x * y,
+        Op::Div => x / y,
+        Op::Pow => libm::pow(x, y),
+        Op::Eq => f64::from(u8::from(x == y)),
+        Op::Ne => f64::from(u8::from(x != y)),
+        Op::Lt => f64::from(u8::from(x < y)),
+        Op::Le => f64::from(u8::from(x <= y)),
+        Op::Gt => f64::from(u8::from(x > y)),
+        Op::Ge => f64::from(u8::from(x >= y)),
+        Op::And | Op::Or if y.is_nan() => y,
+        Op::And | Op::Or => flag(truth(y)),
+    }
+}
+fn deterministic_call(f: Func, x: f64, y: f64) -> f64 {
+    match f {
+        Func::Min | Func::Max if x.is_nan() || y.is_nan() => f64::NAN,
+        Func::Min => x.min(y),
+        Func::Max => x.max(y),
+        Func::Exp => libm::exp(x),
+        Func::Log => libm::log(x),
+        Func::Sqrt => libm::sqrt(x),
+        Func::Abs => x.abs(),
+        Func::Floor => libm::floor(x),
+        Func::Ceil => libm::ceil(x),
+        _ => unreachable!("non-arithmetic call"),
+    }
+}
+
+/// Deterministic predicate program. Random product expressions keep the tree
+/// evaluator so their draws and identity allocation retain evaluation order.
+#[derive(Debug)]
+pub(crate) struct Predicate {
+    code: Vec<Instruction>,
+    registers: usize,
+    reads: Vec<usize>,
+    fraction: Option<(usize, usize, f64)>,
+}
+
+#[derive(Debug)]
+enum Instruction {
+    Literal(usize, f64),
+    Load(usize, Slot),
+    Neg(usize, usize),
+    Not(usize, usize),
+    Binary(usize, Op, usize, usize),
+    Call(usize, Func, usize, usize),
+    Move(usize, usize),
+    Logic(usize, Op, usize, usize),
+    Branch(usize, usize, usize, usize),
+    Jump(usize),
+}
+
+impl Predicate {
+    pub(crate) fn compile(expr: &Expr, observable_count: usize) -> Self {
+        fn emit(node: &Node, code: &mut Vec<Instruction>, slots: &mut usize) -> usize {
+            use Instruction::*;
+            let dst = *slots;
+            *slots += 1;
+            let instruction = match node {
+                Node::Num(n) => Literal(dst, *n),
+                Node::Var(slot) => Load(dst, *slot),
+                Node::Neg(a) => Neg(dst, emit(a, code, slots)),
+                Node::Not(a) => Not(dst, emit(a, code, slots)),
+                Node::Bin(op, a, b) => {
+                    let a = emit(a, code, slots);
+                    if matches!(op, Op::And | Op::Or) {
+                        let at = code.len();
+                        code.push(Logic(dst, *op, a, 0));
+                        let b = emit(b, code, slots);
+                        code.push(Binary(dst, *op, a, b));
+                        code[at] = Logic(dst, *op, a, code.len());
+                        return dst;
+                    }
+                    Binary(dst, *op, a, emit(b, code, slots))
+                }
+                Node::Call(Func::If, args) => {
+                    let test = emit(&args[0], code, slots);
+                    let at = code.len();
+                    code.push(Branch(dst, test, 0, 0));
+                    let a = emit(&args[1], code, slots);
+                    code.push(Move(dst, a));
+                    let jump = code.len();
+                    code.push(Jump(0));
+                    let otherwise = code.len();
+                    let b = emit(&args[2], code, slots);
+                    code.push(Move(dst, b));
+                    code[at] = Branch(dst, test, otherwise, code.len());
+                    code[jump] = Jump(code.len());
+                    return dst;
+                }
+                Node::Call(f, args) => {
+                    let a = emit(&args[0], code, slots);
+                    let b = if args.len() == 2 {
+                        emit(&args[1], code, slots)
+                    } else {
+                        a
+                    };
+                    Call(dst, *f, a, b)
+                }
+            };
+            code.push(instruction);
+            dst
+        }
+        let mut reads = vec![false; observable_count];
+        expr.reads(&mut reads);
+        let reads: Vec<_> = reads
+            .into_iter()
+            .enumerate()
+            .filter_map(|(i, x)| x.then_some(i))
+            .collect();
+        // Fuse a common guarded fraction comparison without changing the
+        // multiplication or comparison order. Inputs are finite projections.
+        let fraction = if let &[a, b] = reads.as_slice() {
+            expr.fraction_stop(a, b)
+                .map(|f| (a, b, f))
+                .or_else(|| expr.fraction_stop(b, a).map(|f| (b, a, f)))
+        } else {
+            None
+        };
+        let mut code = Vec::new();
+        let mut slots = 0;
+        emit(&expr.root, &mut code, &mut slots);
+        Self {
+            code,
+            registers: slots,
+            reads,
+            fraction,
+        }
+    }
+
+    pub(crate) fn reads(&self, flags: &mut [bool]) {
+        for &i in &self.reads {
+            flags[i] = true;
+        }
+    }
+
+    pub(crate) fn eval(&self, env: &Env<'_>) -> f64 {
+        if let Some((total, part, fraction)) = self.fraction {
+            let n = env.observables[total];
+            return flag(n > 0.0 && env.observables[part] >= fraction * n);
+        }
+        let mut inline = [0.0; 32];
+        if self.registers <= inline.len() {
+            self.run(env, &mut inline)
+        } else {
+            self.run(env, &mut vec![0.0; self.registers])
+        }
+    }
+
+    fn run(&self, env: &Env<'_>, r: &mut [f64]) -> f64 {
+        use Instruction::*;
+        let mut pc = 0;
+        while let Some(i) = self.code.get(pc) {
+            pc += 1;
+            match *i {
+                Literal(d, x) => r[d] = x,
+                Load(d, Slot::Param(i)) => r[d] = env.params[i],
+                Load(d, Slot::Observable(i)) => r[d] = env.observables[i],
+                Load(d, Slot::Attribute { reactant, index }) => {
+                    r[d] = env.attributes[reactant][index]
+                }
+                Neg(d, a) => r[d] = -r[a],
+                Not(d, a) => {
+                    r[d] = if r[a].is_nan() {
+                        r[a]
+                    } else {
+                        flag(!truth(r[a]))
+                    }
+                }
+                Binary(d, op, a, b) => r[d] = eval_binary(op, r[a], r[b]),
+                Call(d, f, a, b) => r[d] = deterministic_call(f, r[a], r[b]),
+                Move(d, a) => r[d] = r[a],
+                Logic(d, op, a, end) => {
+                    if r[a].is_nan() {
+                        r[d] = r[a];
+                        pc = end;
+                    } else if (op == Op::And && !truth(r[a])) || (op == Op::Or && truth(r[a])) {
+                        r[d] = flag(op == Op::Or);
+                        pc = end;
+                    }
+                }
+                Branch(d, a, otherwise, end) => {
+                    if r[a].is_nan() {
+                        r[d] = r[a];
+                        pc = end;
+                    } else if !truth(r[a]) {
+                        pc = otherwise;
+                    }
+                }
+                Jump(end) => pc = end,
+            }
+        }
+        r[0]
     }
 }
 
@@ -537,9 +743,243 @@ impl Parser<'_, '_> {
     }
 }
 
+impl Expr {
+    /// Whether all inputs are available without a reactant or a random draw.
+    pub(crate) fn parameter_only(&self) -> bool {
+        fn check(node: &Node) -> bool {
+            match node {
+                Node::Num(_) | Node::Var(Slot::Param(_)) => true,
+                Node::Var(_) => false,
+                Node::Neg(a) | Node::Not(a) => check(a),
+                Node::Bin(_, a, b) => check(a) && check(b),
+                Node::Call(f, args) => {
+                    !matches!(
+                        f,
+                        Func::Bernoulli | Func::Choice | Func::Uniform | Func::Normal | Func::NewId
+                    ) && args.iter().all(check)
+                }
+            }
+        }
+        check(&self.root)
+    }
+
+    pub(crate) fn deterministic(&self) -> bool {
+        fn check(node: &Node) -> bool {
+            match node {
+                Node::Num(_) | Node::Var(_) => true,
+                Node::Neg(a) | Node::Not(a) => check(a),
+                Node::Bin(_, a, b) => check(a) && check(b),
+                Node::Call(f, args) => {
+                    !matches!(
+                        f,
+                        Func::Bernoulli | Func::Choice | Func::Uniform | Func::Normal | Func::NewId
+                    ) && args.iter().all(check)
+                }
+            }
+        }
+        check(&self.root)
+    }
+
+    pub(crate) fn reads(&self, flags: &mut [bool]) {
+        fn visit(node: &Node, flags: &mut [bool]) {
+            match node {
+                Node::Var(Slot::Observable(i)) => flags[*i] = true,
+                Node::Neg(a) | Node::Not(a) => visit(a, flags),
+                Node::Bin(_, a, b) => {
+                    visit(a, flags);
+                    visit(b, flags);
+                }
+                Node::Call(_, args) => {
+                    for arg in args {
+                        visit(arg, flags);
+                    }
+                }
+                Node::Num(_) | Node::Var(_) => {}
+            }
+        }
+        visit(&self.root, flags);
+    }
+
+    pub(crate) fn kernel(&self, params: &[f64]) -> RateKernel {
+        if self.parameter_only() {
+            return RateKernel::Constant(self.eval(&Env {
+                params,
+                observables: &[],
+                attributes: [&[], &[]],
+            }));
+        }
+        let mut root = &self.root;
+        let mut factors = Vec::new();
+        while let Node::Bin(Op::Mul, left, right) = root {
+            let right = Self {
+                root: (**right).clone(),
+            };
+            if !right.parameter_only() {
+                break;
+            }
+            factors.push(right.eval(&Env {
+                params,
+                observables: &[],
+                attributes: [&[], &[]],
+            }));
+            root = left;
+        }
+        let vacancy = || {
+            let Node::Bin(Op::Div, num, den) = root else {
+                return None;
+            };
+            let Node::Var(Slot::Observable(d)) = den.as_ref() else {
+                return None;
+            };
+            let Node::Call(Func::Max, args) = num.as_ref() else {
+                return None;
+            };
+            if args[0] != Node::Num(0.0) {
+                return None;
+            }
+            let Node::Bin(Op::Sub, k, n) = &args[1] else {
+                return None;
+            };
+            let Node::Var(Slot::Observable(n)) = n.as_ref() else {
+                return None;
+            };
+            let limit = Self {
+                root: (**k).clone(),
+            };
+            if !limit.parameter_only() {
+                return None;
+            }
+            let limit = limit.eval(&Env {
+                params,
+                observables: &[],
+                attributes: [&[], &[]],
+            });
+            if !limit.is_finite() {
+                return None;
+            }
+            factors.reverse();
+            Some(RateKernel::Vacancy {
+                limit,
+                count: *n,
+                denominator: *d,
+                factors,
+            })
+        };
+        if let Some(kernel) = vacancy() {
+            return kernel;
+        }
+        RateKernel::Expression(self.clone())
+    }
+}
+
+pub(crate) enum RateKernel {
+    Constant(f64),
+    Vacancy {
+        limit: f64,
+        count: usize,
+        denominator: usize,
+        factors: Vec<f64>,
+    },
+    Expression(Expr),
+}
+
+impl RateKernel {
+    pub(crate) fn eval(&self, env: &Env<'_>) -> f64 {
+        match self {
+            Self::Constant(value) => *value,
+            Self::Vacancy {
+                limit,
+                count,
+                denominator,
+                factors,
+            } => {
+                let base =
+                    (limit - env.observables[*count]).max(0.0) / env.observables[*denominator];
+                factors.iter().fold(base, |x, f| x * f)
+            }
+            Self::Expression(expr) => expr.eval(env),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn predicate_bytecode_matches_tree() {
+        use rand_core::SeedableRng;
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(0x39);
+        fn expression(rng: &mut impl RngCore, depth: u8) -> String {
+            let draw = rng.next_u32();
+            if depth == 0 {
+                return ["x", "y", "0", "-0", "0/0", "1/0", "2"][(draw % 7) as usize].into();
+            }
+            let a = expression(rng, depth - 1);
+            let b = expression(rng, depth - 1);
+            match draw % 15 {
+                0 => format!("max(({a}),({b}))"),
+                1 => format!("min(({a}),({b}))"),
+                2 => format!("if(({a}),({b}),-({b}))"),
+                3 => format!("!({a})"),
+                k => {
+                    let op = ["+", "-", "*", "/", "^", "<", "!=", "&&", "||", ">=", "=="]
+                        [(k - 4) as usize];
+                    format!("({a}){op}({b})")
+                }
+            }
+        }
+        let names = BTreeMap::from([("x".into(), 0), ("y".into(), 1)]);
+        let scope = Scope {
+            params: &BTreeMap::new(),
+            observables: Some(&names),
+            reactants: &[],
+            random: false,
+        };
+        assert!(Expr::parse("choice(0.5, x, y)", &scope).is_err());
+        for _ in 0..512 {
+            let source = expression(&mut rng, 4);
+            let expr = Expr::parse(&source, &scope).unwrap();
+            let code = Predicate::compile(&expr, 2);
+            for values in [
+                [0.0, -0.0],
+                [-2.0, 2.0],
+                [f64::INFINITY, f64::NAN],
+                [1.0, 0.4],
+            ] {
+                let env = Env {
+                    params: &[],
+                    observables: &values,
+                    attributes: [&[], &[]],
+                };
+                let (a, b) = (expr.eval(&env), code.eval(&env));
+                assert!(
+                    a.to_bits() == b.to_bits() || (a.is_nan() && b.is_nan()),
+                    "{source}: {a:?} != {b:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn vacancy_kernel_keeps_undefined_limit_undefined() {
+        let params = BTreeMap::new();
+        let names = BTreeMap::from([("N".into(), 0), ("D".into(), 1)]);
+        let scope = Scope {
+            params: &params,
+            observables: Some(&names),
+            reactants: &[],
+            random: false,
+        };
+        let expr = Expr::parse("max(0, log(-1) - N) / D", &scope).unwrap();
+        let env = Env {
+            params: &[],
+            observables: &[1.0, 1.0],
+            attributes: [&[], &[]],
+        };
+        assert!(expr.eval(&env).is_nan());
+        assert!(expr.kernel(&[]).eval(&env).is_nan());
+    }
 
     fn eval(source: &str) -> f64 {
         let params = BTreeMap::from([("k".to_string(), 0usize)]);

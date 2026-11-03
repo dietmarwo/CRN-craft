@@ -1,0 +1,38 @@
+{
+  "code": 1,
+  "terminations": {
+    "completed": 452,
+    "stopped": 59,
+    "failed": 1
+  },
+  "failures": [
+    {
+      "created_instances": 2,
+      "diagnostic": {
+        "code": "CRN-R030",
+        "hint": "Rescale ATP coefficients, rates and time.",
+        "message": "ATP flow, bound, or clock exceeded numerical range",
+        "path": "/atp",
+        "severity": "error"
+      },
+      "events": 142229,
+      "id": 358,
+      "peak_instances": 3,
+      "rng_words": 575163,
+      "rule_events": [
+        31384,
+        33998,
+        1,
+        1,
+        153,
+        179,
+        20782,
+        55731
+      ],
+      "saved_points": 15,
+      "started": true,
+      "stop_time": 10338.779784963763,
+      "termination": "failed"
+    }
+  ]
+}

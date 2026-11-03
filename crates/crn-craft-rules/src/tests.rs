@@ -611,3 +611,83 @@ fn pair_selection_is_exact_for_heterogeneous_factors() {
     // 1/21 = 0.0476; 5 standard errors is 0.0052.
     assert!((p - 1.0 / 21.0).abs() < 0.0052, "{p}");
 }
+
+#[test]
+fn generic_sparse_tracking_is_independent_of_continue_observer() {
+    struct Continue;
+    impl EventObserver for Continue {
+        fn on_event(&self, _: &observe::Event<'_>) -> observe::ObserverAction {
+            observe::ObserverAction::Continue
+        }
+    }
+    let model = include_bytes!("../../../models/rules/mtdna-three-class-cme.rules.json");
+    let mut run = request(model, 16, 10.0, &[0.0, 1.0, 10.0]);
+    run["schema"] = json!("crn-craft.rules-run/0.4");
+    run["method"] =
+        json!({"kind": "static_direct", "waiting_time": "ziggurat", "sparse_trackers": true});
+    run["trackers"] =
+        json!([{"observable": "neutral_mutants"}, {"observable": "advantaged_mutants"}]);
+    let p = prepare(model, &serde_json::to_vec(&run).unwrap()).unwrap();
+    let control = Control::default();
+    let normal = execute(&p, &control).unwrap();
+    let observed = execute_with_observer(&p, &control, &Continue).unwrap();
+    assert!(normal.events > 0);
+    assert_eq!(
+        serde_json::to_vec(&normal).unwrap(),
+        serde_json::to_vec(&observed).unwrap()
+    );
+    run["schema"] = json!("crn-craft.rules-run/0.3");
+    assert!(prepare(model, &serde_json::to_vec(&run).unwrap()).is_err());
+}
+
+#[test]
+fn generic_ziggurat_infinite_wait_completes_horizon() {
+    let model = json!({
+        "schema": "crn-craft.rules-model/0.1", "name": "tiny",
+        "types": [{"name": "X"}], "initial": [],
+        "observables": {"X": {"type": "X"}},
+        "rules": [{"name": "birth", "reactants": [], "rate": "5e-324", "products": [{"type": "X"}]}]
+    });
+    let result = run_with(
+        &model,
+        |run| {
+            run["schema"] = json!("crn-craft.rules-run/0.4");
+            run["method"] = json!({"kind": "static_direct", "waiting_time": "ziggurat"});
+        },
+        &Control::default(),
+    )
+    .unwrap();
+    assert_eq!(result.termination, Termination::Completed);
+    assert_eq!(result.events, 0);
+    assert_eq!(result.paths[0].values, vec![vec![0.0]; 3]);
+}
+
+#[test]
+fn unchanged_rate_is_rechecked_when_total_increases() {
+    let model = json!({
+        "schema": "crn-craft.rules-model/0.1", "name": "stiff_after_birth",
+        "types": [{"name": "X"}], "initial": [],
+        "observables": {"X": {"type": "X"}},
+        "rules": [
+            {"name": "birth", "reactants": [], "rate": "1", "products": [{"type": "X"}]},
+            {"name": "rare", "reactants": [], "rate": "2e-16", "products": []},
+            {"name": "death", "reactants": [{"label": "x", "type": "X"}], "rate": "2", "products": []}
+        ]
+    });
+    let result = run_with(
+        &model,
+        |run| {
+            run["schema"] = json!("crn-craft.rules-run/0.2");
+            run["method"] = json!({"kind": "static_direct"});
+        },
+        &Control::default(),
+    )
+    .unwrap();
+    assert!(result.replicates.iter().any(|rep| {
+        rep.events == 1
+            && rep
+                .diagnostic
+                .as_ref()
+                .is_some_and(|d| d.code == "CRN-R031")
+    }));
+}

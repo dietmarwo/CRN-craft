@@ -2,6 +2,7 @@
 mod bounds;
 mod selectors;
 mod ziggurat;
+pub use ziggurat::exponential_from_words;
 mod ziggurat_tables;
 
 use crate::{
@@ -29,6 +30,11 @@ pub enum RequestVersion {
     /// the checked exact policy.
     #[serde(rename = "crn-craft.ssa-run/0.3")]
     V03,
+    /// Same fields and defaults as 0.3, plus the `next_reaction` aggregator.
+    /// Next reaction supports only the checked policy with inverse waiting
+    /// times, so its `method.fast` defaults to false and must not be true.
+    #[serde(rename = "crn-craft.ssa-run/0.4")]
+    V04,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ResultVersion {
@@ -40,6 +46,9 @@ pub enum ResultVersion {
     /// Answers an ssa-run/0.3 request; `method.fast` is always present.
     #[serde(rename = "crn-craft.ssa-result/0.3")]
     V03,
+    /// Answers an ssa-run/0.4 request; `method.fast` is always present.
+    #[serde(rename = "crn-craft.ssa-result/0.4")]
+    V04,
 }
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -49,6 +58,7 @@ pub enum Algorithm {
     DirectCr,
     SortingDirect,
     RssaCr,
+    NextReaction,
 }
 impl Algorithm {
     fn name(self) -> &'static str {
@@ -58,6 +68,7 @@ impl Algorithm {
             Self::DirectCr => "direct_cr",
             Self::SortingDirect => "sorting_direct",
             Self::RssaCr => "rssa_cr",
+            Self::NextReaction => "next_reaction",
         }
     }
 }
@@ -73,7 +84,8 @@ pub enum Method {
     Ssa {
         aggregator: Algorithm,
         waiting_time: WaitingTime,
-        /// Not allowed in ssa-run/0.1; default false in 0.2 and true in 0.3.
+        /// Not allowed in ssa-run/0.1; default false in 0.2 and true in 0.3
+        /// and 0.4, except for next reaction, which is checked only.
         /// Emulates JumpProcesses.jl: Xoshiro256++ words, running totals
         /// updated by `+= new - old` without loss or 53-bit resolution
         /// checks, and stop polls per batch of events instead of per random
@@ -99,11 +111,17 @@ impl Method {
     }
     /// The policy in force: an explicit value, else the version's default.
     fn fast_for(self, version: RequestVersion) -> bool {
-        let Self::Ssa { fast, .. } = self;
-        fast.unwrap_or(version == RequestVersion::V03)
+        let Self::Ssa {
+            fast, aggregator, ..
+        } = self;
+        fast.unwrap_or(match version {
+            RequestVersion::V01 | RequestVersion::V02 => false,
+            RequestVersion::V03 => true,
+            RequestVersion::V04 => aggregator != Algorithm::NextReaction,
+        })
     }
     /// The resolved method as results echo it: 0.1/0.2 results carry `fast`
-    /// only when true (unchanged bytes); 0.3 results always carry it.
+    /// only when true (unchanged bytes); 0.3 and 0.4 results always carry it.
     fn resolved(self, version: RequestVersion) -> Self {
         let fast = self.fast_for(version);
         let Self::Ssa {
@@ -114,7 +132,7 @@ impl Method {
         Self::Ssa {
             aggregator,
             waiting_time,
-            fast: if version == RequestVersion::V03 {
+            fast: if matches!(version, RequestVersion::V03 | RequestVersion::V04) {
                 Some(fast)
             } else {
                 fast.then_some(true)
@@ -270,12 +288,46 @@ pub fn prepare(model: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec<Diagn
             "Use crn-craft.ssa-run/0.3 (fast by default), or remove fast for the checked exact policy.",
         )]);
     }
+    if let Some(error) = next_reaction_error(&request) {
+        return Err(vec![error]);
+    }
     // From here on `fast` is explicit wherever it applies.
     request.method = request.method.resolved(request.schema);
     let legacy = serde_json::to_vec(&request.legacy())
         .map_err(|e| vec![simulation::execution_error(e.to_string())])?;
     let core = simulation::prepare(model, &legacy)?;
     finish_prepare(core, request, request_bytes, model.len(), None)
+}
+
+/// Next reaction is new in ssa-run/0.4 and runs the checked policy with
+/// inverse waiting times only.
+fn next_reaction_error(request: &Request) -> Option<Diagnostic> {
+    let Method::Ssa { waiting_time, .. } = request.method;
+    if request.method.algorithm() != Algorithm::NextReaction {
+        return None;
+    }
+    let (path, message, hint) = if request.schema != RequestVersion::V04 {
+        (
+            "/method/aggregator",
+            "next_reaction requires crn-craft.ssa-run/0.4",
+            "Select crn-craft.ssa-run/0.4 or another aggregator.",
+        )
+    } else if request.method.fast_for(request.schema) {
+        (
+            "/method/fast",
+            "next_reaction supports only the checked policy",
+            "Remove method.fast or set it to false.",
+        )
+    } else if waiting_time != WaitingTime::Inverse {
+        (
+            "/method/waiting_time",
+            "next_reaction requires inverse waiting times",
+            "Set method.waiting_time to inverse.",
+        )
+    } else {
+        return None;
+    };
+    Some(Diagnostic::error("CRN-E020", path, message, hint))
 }
 
 pub(crate) fn finish_prepare(
@@ -285,6 +337,10 @@ pub(crate) fn finish_prepare(
     model_len: usize,
     shared_readers: Option<Arc<Vec<Vec<usize>>>>,
 ) -> Result<Prepared, Vec<Diagnostic>> {
+    // Parameter binding reaches this point without `prepare`.
+    if let Some(error) = next_reaction_error(&request) {
+        return Err(vec![error]);
+    }
     // Additional selector and bounded-range buffers, conservatively reserved.
     let reactions = core.network.reactions().len() as u64;
     let species = core.network.species().len() as u64;
@@ -510,7 +566,7 @@ fn run_path<const MODE: u8, const ZIG: bool, const FAST: bool, R: RngCore, K: Pr
     space.rates.resize(n, 0.0);
     space.prefix.resize(n, 0.0);
     space.minima.resize(n, 0.0);
-    if MODE >= 2 {
+    if MODE >= 2 && MODE != 5 {
         space.tree.reset_fast(n, FAST);
         if MODE == 2 || MODE == 4 {
             space.composition.reset(n);
@@ -532,6 +588,10 @@ fn run_path<const MODE: u8, const ZIG: bool, const FAST: bool, R: RngCore, K: Pr
     let mut absorption_checked = false;
     let mut absorbed = false;
     let mut iterations: u64 = 0;
+    let mut clocks = crate::next_reaction::Clocks::default();
+    if MODE == 5 {
+        clocks.reset(n);
+    }
     let outcome = (|| -> Result<Stop, Bail> {
         draws.poll()?;
         record.started = true;
@@ -551,141 +611,183 @@ fn run_path<const MODE: u8, const ZIG: bool, const FAST: bool, R: RngCore, K: Pr
             if record.events >= run.budget.max_events_per_replicate.unwrap() {
                 return Ok(Stop::EventLimit);
             }
-            if MODE == 4 {
-                if !bounds_initialized || previous.is_some() {
-                    space.bounds.refresh(
-                        network,
-                        &prepared.readers,
-                        &prepared.bound_groups,
-                        state,
-                        previous.take(),
-                        &mut space.tree,
-                        &mut space.composition,
-                        &mut draws,
-                    )?;
-                    bounds_initialized = true;
-                }
-                if !absorption_checked && space.bounds.positive_lower == 0 {
-                    absorbed = true;
-                    for rx in 0..n {
-                        draws.poll()?;
-                        draws.work.propensity_evaluations += 1;
-                        if kernel.evaluate(network, rx, state)? > 0.0 {
-                            absorbed = false;
-                            break;
-                        }
-                    }
-                }
-                absorption_checked = true;
-            } else if MODE > 0 && previous.is_some() {
-                let affected = &network.dependencies()[previous.unwrap()];
-                for (k, &rx) in affected.iter().enumerate() {
-                    if k % 64 == 0 && (!FAST || k > 0) {
-                        draws.poll()?;
-                    }
+            let (next, channel) = if MODE == 5 {
+                let mut update = |rx, fired| -> Result<(), Bail> {
+                    draws.poll()?;
                     let a = kernel.evaluate(network, rx, state)?;
                     draws.work.propensity_evaluations += 1;
-                    space.rates[rx] = a;
-                    if MODE >= 2 {
-                        space
-                            .tree
-                            .set(rx, a, if a > 0.0 { a } else { f64::INFINITY });
-                        if MODE == 2 {
-                            space.composition.update(rx, a)?;
-                        }
+                    let fresh = if clocks.needs_draw(rx, a, fired) {
+                        Some(-libm::log(draws.open(&mut rng)?))
+                    } else {
+                        None
+                    };
+                    if !clocks.update(rx, a, time, fresh) {
+                        return Err(numeric("next reaction clock failed to advance").into());
                     }
-                }
-                if MODE == 1 {
-                    if let Some(&first) = affected.first() {
-                        total = if FAST {
-                            sampling::fast_prefix(&space.rates, &mut space.prefix, first)?
-                        } else {
-                            sampling::resume_total(
-                                &space.rates,
-                                &mut space.prefix,
-                                &mut space.minima,
-                                first,
-                            )?
-                        };
-                    }
-                }
-            } else {
-                for rx in 0..n {
-                    if rx % 64 == 0 {
-                        draws.poll()?;
-                    }
-                    let a = kernel.evaluate(network, rx, state)?;
-                    draws.work.propensity_evaluations += 1;
-                    space.rates[rx] = a;
-                    if MODE >= 2 {
-                        space
-                            .tree
-                            .set(rx, a, if a > 0.0 { a } else { f64::INFINITY });
-                        if MODE == 2 {
-                            space.composition.update(rx, a)?;
-                        }
-                    }
-                }
-                if FAST && MODE <= 1 {
-                    total = sampling::fast_prefix(&space.rates, &mut space.prefix, 0)?;
-                } else if MODE == 0 {
-                    total = sampling::total_with_prefix(&space.rates, &mut space.prefix)?;
-                } else if MODE == 1 {
-                    total = sampling::resume_total(
-                        &space.rates,
-                        &mut space.prefix,
-                        &mut space.minima,
-                        0,
-                    )?;
-                }
-            }
-            if MODE >= 2 {
-                total = if MODE == 4 && absorbed {
-                    0.0
-                } else {
-                    space.tree.total()?
+                    Ok(())
                 };
-            }
-            if total == 0.0 {
-                while save < run.time.save_times.len() {
+                if let Some(rx) = previous {
+                    update(rx, true)?;
+                    for &other in &network.dependencies()[rx] {
+                        if other != rx {
+                            update(other, false)?;
+                        }
+                    }
+                } else {
+                    for rx in 0..n {
+                        update(rx, false)?;
+                    }
+                }
+                let candidate = clocks.next();
+                let until = candidate.map_or(f64::INFINITY, |(t, _)| t);
+                while save < run.time.save_times.len() && run.time.save_times[save] < until {
                     draws.poll()?;
                     counts.extend_from_slice(state);
                     save += 1;
                 }
-                time = run.time.end;
-                return Ok(Stop::Completed);
-            }
-            let wait = if ZIG {
-                ziggurat::wait(total, &mut rng, &mut draws)?
+                if until > run.time.end {
+                    time = run.time.end;
+                    return Ok(Stop::Completed);
+                }
+                candidate.expect("finite clock")
             } else {
-                sampling::waiting_time(total, draws.open(&mut rng)?)?
-            };
-            let next = sampling::event_time(time, wait)?;
-            while save < run.time.save_times.len() && run.time.save_times[save] < next {
-                draws.poll()?;
-                counts.extend_from_slice(state);
-                save += 1;
-            }
-            if next > run.time.end {
-                time = run.time.end;
-                return Ok(Stop::Completed);
-            }
-            let channel = if MODE == 2 || MODE == 4 {
-                space
-                    .composition
-                    .sample(&space.tree, &mut rng, &mut draws)?
-            } else if MODE == 3 {
-                draws.work.proposals += 1;
-                selectors::sorting_sample(
-                    &mut space.order,
-                    &space.rates,
-                    total,
-                    &mut rng,
-                    &mut draws,
-                )?
-            } else {
-                draws.work.proposals += 1;
-                sampling::select_from_prefix(&space.prefix, total, draws.closed(&mut rng)?)?
+                if MODE == 4 {
+                    if !bounds_initialized || previous.is_some() {
+                        space.bounds.refresh(
+                            network,
+                            &prepared.readers,
+                            &prepared.bound_groups,
+                            state,
+                            previous.take(),
+                            &mut space.tree,
+                            &mut space.composition,
+                            &mut draws,
+                        )?;
+                        bounds_initialized = true;
+                    }
+                    if !absorption_checked && space.bounds.positive_lower == 0 {
+                        absorbed = true;
+                        for rx in 0..n {
+                            draws.poll()?;
+                            draws.work.propensity_evaluations += 1;
+                            if kernel.evaluate(network, rx, state)? > 0.0 {
+                                absorbed = false;
+                                break;
+                            }
+                        }
+                    }
+                    absorption_checked = true;
+                } else if MODE > 0 && previous.is_some() {
+                    let affected = &network.dependencies()[previous.unwrap()];
+                    for (k, &rx) in affected.iter().enumerate() {
+                        if k % 64 == 0 && (!FAST || k > 0) {
+                            draws.poll()?;
+                        }
+                        let a = kernel.evaluate(network, rx, state)?;
+                        draws.work.propensity_evaluations += 1;
+                        space.rates[rx] = a;
+                        if MODE >= 2 {
+                            space
+                                .tree
+                                .set(rx, a, if a > 0.0 { a } else { f64::INFINITY });
+                            if MODE == 2 {
+                                space.composition.update(rx, a)?;
+                            }
+                        }
+                    }
+                    if MODE == 1 {
+                        if let Some(&first) = affected.first() {
+                            total = if FAST {
+                                sampling::fast_prefix(&space.rates, &mut space.prefix, first)?
+                            } else {
+                                sampling::resume_total(
+                                    &space.rates,
+                                    &mut space.prefix,
+                                    &mut space.minima,
+                                    first,
+                                )?
+                            };
+                        }
+                    }
+                } else {
+                    for rx in 0..n {
+                        if rx % 64 == 0 {
+                            draws.poll()?;
+                        }
+                        let a = kernel.evaluate(network, rx, state)?;
+                        draws.work.propensity_evaluations += 1;
+                        space.rates[rx] = a;
+                        if MODE >= 2 {
+                            space
+                                .tree
+                                .set(rx, a, if a > 0.0 { a } else { f64::INFINITY });
+                            if MODE == 2 {
+                                space.composition.update(rx, a)?;
+                            }
+                        }
+                    }
+                    if FAST && MODE <= 1 {
+                        total = sampling::fast_prefix(&space.rates, &mut space.prefix, 0)?;
+                    } else if MODE == 0 {
+                        total = sampling::total_with_prefix(&space.rates, &mut space.prefix)?;
+                    } else if MODE == 1 {
+                        total = sampling::resume_total(
+                            &space.rates,
+                            &mut space.prefix,
+                            &mut space.minima,
+                            0,
+                        )?;
+                    }
+                }
+                if MODE >= 2 {
+                    total = if MODE == 4 && absorbed {
+                        0.0
+                    } else {
+                        space.tree.total()?
+                    };
+                }
+                if total == 0.0 {
+                    while save < run.time.save_times.len() {
+                        draws.poll()?;
+                        counts.extend_from_slice(state);
+                        save += 1;
+                    }
+                    time = run.time.end;
+                    return Ok(Stop::Completed);
+                }
+                let wait = if ZIG {
+                    ziggurat::wait(total, &mut rng, &mut draws)?
+                } else {
+                    sampling::waiting_time(total, draws.open(&mut rng)?)?
+                };
+                let next = sampling::event_time(time, wait)?;
+                while save < run.time.save_times.len() && run.time.save_times[save] < next {
+                    draws.poll()?;
+                    counts.extend_from_slice(state);
+                    save += 1;
+                }
+                if next > run.time.end {
+                    time = run.time.end;
+                    return Ok(Stop::Completed);
+                }
+                let channel = if MODE == 2 || MODE == 4 {
+                    space
+                        .composition
+                        .sample(&space.tree, &mut rng, &mut draws)?
+                } else if MODE == 3 {
+                    draws.work.proposals += 1;
+                    selectors::sorting_sample(
+                        &mut space.order,
+                        &space.rates,
+                        total,
+                        &mut rng,
+                        &mut draws,
+                    )?
+                } else {
+                    draws.work.proposals += 1;
+                    sampling::select_from_prefix(&space.prefix, total, draws.closed(&mut rng)?)?
+                };
+                (next, channel)
             };
             if MODE == 4 {
                 let upper = space.tree.get(channel);
@@ -818,6 +920,9 @@ fn execute_inner<K: PropensityKernel>(
             (Algorithm::DirectCr, WaitingTime::Ziggurat) => run!(2, true, id, poller, work),
             (Algorithm::SortingDirect, WaitingTime::Ziggurat) => run!(3, true, id, poller, work),
             (Algorithm::RssaCr, WaitingTime::Ziggurat) => run!(4, true, id, poller, work),
+            (Algorithm::NextReaction, _) => {
+                path::<5, false, false, _>(prepared, id, poller, work, kernel)
+            }
         },
     )?;
     let r = simulation.result;
@@ -853,6 +958,7 @@ fn execute_inner<K: PropensityKernel>(
             RequestVersion::V01 => ResultVersion::V01,
             RequestVersion::V02 => ResultVersion::V02,
             RequestVersion::V03 => ResultVersion::V03,
+            RequestVersion::V04 => ResultVersion::V04,
         },
         method: prepared.request.method,
         model_sha256: r.model_sha256,

@@ -83,7 +83,7 @@
               "$ref": "#/definitions/Algorithm"
             },
             "fast": {
-              "description": "Not allowed in ssa-run/0.1; default false in 0.2 and true in 0.3. Emulates JumpProcesses.jl: Xoshiro256++ words, running totals updated by `+= new - old` without loss or 53-bit resolution checks, and stop polls per batch of events instead of per random word. Selection stays exact for the running totals; paths differ from the checked policy and replay only with the same setting.",
+              "description": "Not allowed in ssa-run/0.1; default false in 0.2 and true in 0.3 and 0.4, except for next reaction, which is checked only. Emulates JumpProcesses.jl: Xoshiro256++ words, running totals updated by `+= new - old` without loss or 53-bit resolution checks, and stop polls per batch of events instead of per random word. Selection stays exact for the running totals; paths differ from the checked policy and replay only with the same setting.",
               "type": "boolean"
             },
             "kind": {
@@ -149,8 +149,7 @@
       "oneOf": [
         {
           "enum": [
-            "crn-craft.ssa-run/0.1",
-            "crn-craft.ssa-run/0.4"
+            "crn-craft.ssa-run/0.1"
           ],
           "type": "string"
         },
@@ -165,6 +164,13 @@
           "description": "Same fields as 0.2; `method.fast` defaults to true. Set it to false for the checked exact policy.",
           "enum": [
             "crn-craft.ssa-run/0.3"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Same fields and defaults as 0.3, plus the `next_reaction` aggregator. Next reaction supports only the checked policy with inverse waiting times, so its `method.fast` defaults to false and must not be true.",
+          "enum": [
+            "crn-craft.ssa-run/0.4"
           ],
           "type": "string"
         }

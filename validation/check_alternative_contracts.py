@@ -63,6 +63,18 @@ def main():
                 pass
             else:
                 raise RuntimeError(f"ssa_spec accepted fast={invalid!r}")
+        # Next reaction is checked only, so its default must be runnable.
+        nr = crn.ssa_spec(
+            model, aggregator="next_reaction", end=1.0, save_times=[0.0, 1.0]
+        )
+        require(
+            nr["schema"] == "crn-craft.ssa-run/0.4" and nr["method"]["fast"] is False,
+            "ssa_spec next_reaction defaults to the checked policy",
+        )
+        require(
+            crn.simulate_ssa(model, nr)["termination"] == "completed",
+            "default next_reaction request runs",
+        )
         for (algorithm, wait), fast in itertools.product(VARIANTS, (False, True)):
             request = crn.ssa_spec(
                 model,

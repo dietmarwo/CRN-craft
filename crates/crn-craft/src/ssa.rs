@@ -30,6 +30,9 @@ pub enum RequestVersion {
     /// the checked exact policy.
     #[serde(rename = "crn-craft.ssa-run/0.3")]
     V03,
+    /// Same fields and defaults as 0.3, plus the `next_reaction` aggregator.
+    /// Next reaction supports only the checked policy with inverse waiting
+    /// times, so its `method.fast` defaults to false and must not be true.
     #[serde(rename = "crn-craft.ssa-run/0.4")]
     V04,
 }
@@ -43,6 +46,7 @@ pub enum ResultVersion {
     /// Answers an ssa-run/0.3 request; `method.fast` is always present.
     #[serde(rename = "crn-craft.ssa-result/0.3")]
     V03,
+    /// Answers an ssa-run/0.4 request; `method.fast` is always present.
     #[serde(rename = "crn-craft.ssa-result/0.4")]
     V04,
 }
@@ -80,7 +84,8 @@ pub enum Method {
     Ssa {
         aggregator: Algorithm,
         waiting_time: WaitingTime,
-        /// Not allowed in ssa-run/0.1; default false in 0.2 and true in 0.3.
+        /// Not allowed in ssa-run/0.1; default false in 0.2 and true in 0.3
+        /// and 0.4, except for next reaction, which is checked only.
         /// Emulates JumpProcesses.jl: Xoshiro256++ words, running totals
         /// updated by `+= new - old` without loss or 53-bit resolution
         /// checks, and stop polls per batch of events instead of per random
@@ -106,11 +111,17 @@ impl Method {
     }
     /// The policy in force: an explicit value, else the version's default.
     fn fast_for(self, version: RequestVersion) -> bool {
-        let Self::Ssa { fast, .. } = self;
-        fast.unwrap_or(version == RequestVersion::V03)
+        let Self::Ssa {
+            fast, aggregator, ..
+        } = self;
+        fast.unwrap_or(match version {
+            RequestVersion::V01 | RequestVersion::V02 => false,
+            RequestVersion::V03 => true,
+            RequestVersion::V04 => aggregator != Algorithm::NextReaction,
+        })
     }
     /// The resolved method as results echo it: 0.1/0.2 results carry `fast`
-    /// only when true (unchanged bytes); 0.3 results always carry it.
+    /// only when true (unchanged bytes); 0.3 and 0.4 results always carry it.
     fn resolved(self, version: RequestVersion) -> Self {
         let fast = self.fast_for(version);
         let Self::Ssa {
@@ -277,12 +288,46 @@ pub fn prepare(model: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec<Diagn
             "Use crn-craft.ssa-run/0.3 (fast by default), or remove fast for the checked exact policy.",
         )]);
     }
+    if let Some(error) = next_reaction_error(&request) {
+        return Err(vec![error]);
+    }
     // From here on `fast` is explicit wherever it applies.
     request.method = request.method.resolved(request.schema);
     let legacy = serde_json::to_vec(&request.legacy())
         .map_err(|e| vec![simulation::execution_error(e.to_string())])?;
     let core = simulation::prepare(model, &legacy)?;
     finish_prepare(core, request, request_bytes, model.len(), None)
+}
+
+/// Next reaction is new in ssa-run/0.4 and runs the checked policy with
+/// inverse waiting times only.
+fn next_reaction_error(request: &Request) -> Option<Diagnostic> {
+    let Method::Ssa { waiting_time, .. } = request.method;
+    if request.method.algorithm() != Algorithm::NextReaction {
+        return None;
+    }
+    let (path, message, hint) = if request.schema != RequestVersion::V04 {
+        (
+            "/method/aggregator",
+            "next_reaction requires crn-craft.ssa-run/0.4",
+            "Select crn-craft.ssa-run/0.4 or another aggregator.",
+        )
+    } else if request.method.fast_for(request.schema) {
+        (
+            "/method/fast",
+            "next_reaction supports only the checked policy",
+            "Remove method.fast or set it to false.",
+        )
+    } else if waiting_time != WaitingTime::Inverse {
+        (
+            "/method/waiting_time",
+            "next_reaction requires inverse waiting times",
+            "Set method.waiting_time to inverse.",
+        )
+    } else {
+        return None;
+    };
+    Some(Diagnostic::error("CRN-E020", path, message, hint))
 }
 
 pub(crate) fn finish_prepare(
@@ -292,20 +337,9 @@ pub(crate) fn finish_prepare(
     model_len: usize,
     shared_readers: Option<Arc<Vec<Vec<usize>>>>,
 ) -> Result<Prepared, Vec<Diagnostic>> {
-    if request.method.algorithm() == Algorithm::NextReaction
-        && (request.schema != RequestVersion::V04
-            || request.method.fast()
-            || !matches!(
-                request.method,
-                Method::Ssa {
-                    waiting_time: WaitingTime::Inverse,
-                    ..
-                }
-            ))
-    {
-        return Err(vec![simulation::execution_error(
-            "next_reaction requires ssa-run/0.4, inverse waiting time, and checked policy",
-        )]);
+    // Parameter binding reaches this point without `prepare`.
+    if let Some(error) = next_reaction_error(&request) {
+        return Err(vec![error]);
     }
     // Additional selector and bounded-range buffers, conservatively reserved.
     let reactions = core.network.reactions().len() as u64;

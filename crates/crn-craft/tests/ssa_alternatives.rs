@@ -343,3 +343,83 @@ fn fast_must_be_a_boolean() {
     assert_eq!(checked["schema"], "crn-craft.ssa-result/0.1");
     assert!(checked["method"].get("fast").is_none());
 }
+
+fn prepare_error(m: &[u8], r: &Value) -> (String, String) {
+    let d = ssa::prepare(m, &serde_json::to_vec(r).unwrap())
+        .err()
+        .expect("request should be rejected");
+    (d[0].code.clone(), d[0].path.clone())
+}
+
+#[test]
+fn ssa_run_0_4_adds_next_reaction_and_keeps_the_0_3_defaults() {
+    let (m, mut r) = inputs("direct", 2);
+    // Existing aggregators: 0.4 is fast by default, exactly as 0.3.
+    r["schema"] = json!("crn-craft.ssa-run/0.3");
+    let mut v03 = solve(&m, &r);
+    r["schema"] = json!("crn-craft.ssa-run/0.4");
+    let mut v04 = solve(&m, &r);
+    assert_eq!(v04["method"]["fast"], json!(true));
+    assert_eq!(v04["schema"], json!("crn-craft.ssa-result/0.4"));
+    for v in [&mut v03, &mut v04] {
+        let o = v.as_object_mut().unwrap();
+        o.remove("run_sha256");
+        o.remove("schema");
+    }
+    assert_eq!(v03, v04);
+    // next_reaction is checked-only: absent fast resolves to false.
+    let (m, mut r) = inputs("next_reaction", 2);
+    r["schema"] = json!("crn-craft.ssa-run/0.4");
+    let nr = solve(&m, &r);
+    assert_eq!(nr["termination"], "completed");
+    assert_eq!(nr["method"]["fast"], json!(false));
+    // Rejections name the field and use the request-error code.
+    r["method"]["fast"] = json!(true);
+    assert_eq!(
+        prepare_error(&m, &r),
+        ("CRN-E020".into(), "/method/fast".into())
+    );
+    r["method"]["fast"] = json!(false);
+    r["method"]["waiting_time"] = json!("ziggurat");
+    assert_eq!(
+        prepare_error(&m, &r),
+        ("CRN-E020".into(), "/method/waiting_time".into())
+    );
+    r["method"]["waiting_time"] = json!("inverse");
+    for schema in [
+        "crn-craft.ssa-run/0.1",
+        "crn-craft.ssa-run/0.2",
+        "crn-craft.ssa-run/0.3",
+    ] {
+        r["schema"] = json!(schema);
+        r["method"].as_object_mut().unwrap().remove("fast");
+        assert_eq!(
+            prepare_error(&m, &r),
+            ("CRN-E020".into(), "/method/aggregator".into()),
+            "{schema}"
+        );
+    }
+}
+
+#[test]
+fn next_reaction_replays_across_threads() {
+    let (m, mut r) = inputs("next_reaction", 1);
+    r["schema"] = json!("crn-craft.ssa-run/0.4");
+    let mut one = solve(&m, &r);
+    r["budget"]["threads"] = json!(3);
+    let mut many = solve(&m, &r);
+    one.as_object_mut().unwrap().remove("run_sha256");
+    many.as_object_mut().unwrap().remove("run_sha256");
+    assert_eq!(one["termination"], "completed");
+    assert_eq!(one, many);
+}
+
+#[test]
+fn discovery_lists_the_0_4_default() {
+    let d = crn_craft::describe();
+    assert_eq!(d["schema"], "crn-craft.describe/0.10");
+    assert_eq!(
+        d["alternative_exact_ssa"]["fast"]["default_by_request"]["crn-craft.ssa-run/0.4"],
+        json!(true)
+    );
+}

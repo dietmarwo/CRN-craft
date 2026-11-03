@@ -523,12 +523,14 @@ pub(crate) struct Words<'r, R: RngCore> {
     used: u64,
     max: u64,
 }
+#[cfg(test)]
 impl<'r, R: RngCore> Words<'r, R> {
-    #[cfg(test)]
     pub(crate) fn for_test(rng: &'r mut R, max: u64) -> Self {
         Self { rng, used: 0, max }
     }
+}
 
+impl<R: RngCore> Words<'_, R> {
     pub(crate) fn open(&mut self) -> Result<f64, Halt> {
         loop {
             let u = self.uniform()?;

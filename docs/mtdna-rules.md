@@ -78,7 +78,10 @@ request hash.
 
 Static lowering evaluates local predicates and factors once and compiles
 constant and vacancy-rate kernels. It accepts up to 256 tuples and 4096
-channels. Random product attributes use the tree engine. Identical pairs
+channels. Static Direct and leap fallbacks select among all channels in one
+level, so every positive channel must be at least 2⁻⁵³ of the total
+(`CRN-R031`); the tree engine resolves rules and instances separately and can
+run such models. Random product attributes use the tree engine. Identical pairs
 in the static path require a single matching tuple. The network engine
 also exposes Gibson–Bruck under ssa-run/0.4, inverse waiting time and
 checked policy. Other SSA schemas retain their existing defaults.

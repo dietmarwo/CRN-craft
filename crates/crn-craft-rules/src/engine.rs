@@ -523,7 +523,12 @@ pub(crate) struct Words<'r, R: RngCore> {
     used: u64,
     max: u64,
 }
-impl<R: RngCore> Words<'_, R> {
+impl<'r, R: RngCore> Words<'r, R> {
+    #[cfg(test)]
+    pub(crate) fn for_test(rng: &'r mut R, max: u64) -> Self {
+        Self { rng, used: 0, max }
+    }
+
     pub(crate) fn open(&mut self) -> Result<f64, Halt> {
         loop {
             let u = self.uniform()?;
@@ -662,8 +667,7 @@ impl Path<'_> {
                 out.stop_time = time;
             }
         }
-        if let Some(monitor) = monitor {
-            let observation = monitor.finish(out.stop_time);
+        if let Some(observation) = monitor.and_then(|m| m.finish(out.stop_time)) {
             if observation
                 .trackers
                 .iter()

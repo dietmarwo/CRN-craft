@@ -67,7 +67,7 @@ impl Path<'_> {
                 let mut update = |i, fired| {
                     let rate = net.rate(i, counts, &env)?;
                     let fresh = if clocks.needs_draw(i, rate, fired) {
-                        Some(-libm::log(1.0 - words.uniform()?))
+                        Some(-libm::log(1.0 - words.open()?))
                     } else {
                         None
                     };

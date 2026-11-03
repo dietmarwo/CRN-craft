@@ -286,3 +286,73 @@ fn mtdna_stop_at_a_report_time_holds_the_state() {
         );
     }
 }
+
+/// Replays fixed words, then repeats the last one.
+struct Scripted(Vec<u64>, usize);
+impl rand_core::RngCore for Scripted {
+    fn next_u32(&mut self) -> u32 {
+        self.next_u64() as u32
+    }
+    fn next_u64(&mut self) -> u64 {
+        let w = self.0[self.1.min(self.0.len() - 1)];
+        self.1 += 1;
+        w
+    }
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        rand_core::impls::fill_bytes_via_next(self, dest);
+    }
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), rand_core::Error> {
+        self.fill_bytes(dest);
+        Ok(())
+    }
+}
+
+#[test]
+fn a_zero_uniform_does_not_fail_the_static_wait() {
+    // Word 0 maps to u = 0, which gave -log(1 - u) = 0 and a failed path.
+    let mut rng = Scripted(vec![0, 1 << 63, 1 << 62], 0);
+    let mut words = engine::Words::for_test(&mut rng, 16);
+    let drawn = flat::direct(&[1.0, 2.0], 0.0, &mut words);
+    let Ok(Some((next, _))) = drawn else {
+        panic!("zero uniform failed the draw");
+    };
+    assert!(next > 0.0 && next.is_finite());
+}
+
+#[test]
+fn static_resolution_failures_use_the_resolution_code() {
+    let mut rng = Scripted(vec![1 << 63], 0);
+    let mut words = engine::Words::for_test(&mut rng, 16);
+    let Err(engine::Halt::Numerical(d)) = flat::direct(&[1e9, 1e-9], 0.0, &mut words) else {
+        panic!("tiny channel accepted");
+    };
+    assert_eq!(d.code, "CRN-R031");
+}
+
+#[test]
+fn replicates_that_fail_before_tracking_carry_no_partial_observation() {
+    let mut model = three_class();
+    model["initial"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"type": "mtDNA", "attributes": {"clone": 1, "s": "sw", "wt": 0}, "count": 1}));
+    let bytes = serde_json::to_vec(&model).unwrap();
+    for method in ["tree", "static_direct"] {
+        let mut req = request_v(V02, &bytes, 3, 10.0, &[0.0, 10.0]);
+        req["method"] = json!({"kind": method});
+        req["budget"]["max_instances"] = json!(1);
+        req["trackers"] = json!([{"observable": "N"}, {"observable": "mutants"}]);
+        let result = solve_values(&model, &req);
+        assert!(
+            result
+                .replicates
+                .iter()
+                .all(|r| r.termination == Termination::InstanceLimit),
+            "{method}"
+        );
+        assert!(
+            result.observations.iter().all(|o| o.trackers.len() == 2),
+            "{method}: partial tracker list"
+        );
+    }
+}

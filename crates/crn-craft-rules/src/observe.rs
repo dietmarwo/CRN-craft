@@ -379,7 +379,12 @@ impl<'a> Monitor<'a> {
         }
     }
 
-    pub(crate) fn finish(mut self, time: f64) -> Observation {
+    /// The path's observation, or none if it failed before tracking began
+    /// (initial state rejected or cancelled), so no partial list is emitted.
+    pub(crate) fn finish(mut self, time: f64) -> Option<Observation> {
+        if self.trackers.len() < self.spec.trackers.len() {
+            return None;
+        }
         self.output.trackers = self
             .trackers
             .into_iter()
@@ -390,7 +395,7 @@ impl<'a> Monitor<'a> {
                 tracker.result
             })
             .collect();
-        self.output
+        Some(self.output)
     }
 }
 

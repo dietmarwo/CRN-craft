@@ -5,7 +5,13 @@
       "generated": false
     },
     {
+      "case": "dense",
+      "layout": "unrolled",
+      "generated": false
+    },
+    {
       "case": "mt",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 1,
       "termination": "completed",
@@ -13,6 +19,7 @@
     },
     {
       "case": "mt",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 8,
       "termination": "completed",
@@ -20,6 +27,7 @@
     },
     {
       "case": "mt",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -31,6 +39,7 @@
     },
     {
       "case": "mt",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -42,6 +51,7 @@
     },
     {
       "case": "stop",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 1,
       "termination": "completed",
@@ -49,6 +59,7 @@
     },
     {
       "case": "stop",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 8,
       "termination": "completed",
@@ -56,6 +67,7 @@
     },
     {
       "case": "stop",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -67,6 +79,7 @@
     },
     {
       "case": "stop",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -78,6 +91,7 @@
     },
     {
       "case": "trackers",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 1,
       "termination": "completed",
@@ -85,6 +99,7 @@
     },
     {
       "case": "trackers",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 8,
       "termination": "completed",
@@ -92,6 +107,7 @@
     },
     {
       "case": "trackers",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -103,6 +119,7 @@
     },
     {
       "case": "trackers",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -114,6 +131,7 @@
     },
     {
       "case": "log",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 1,
       "termination": "completed",
@@ -121,6 +139,7 @@
     },
     {
       "case": "log",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 8,
       "termination": "completed",
@@ -128,6 +147,7 @@
     },
     {
       "case": "log",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -139,6 +159,7 @@
     },
     {
       "case": "log",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -150,6 +171,7 @@
     },
     {
       "case": "sparse",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 1,
       "termination": "completed",
@@ -157,6 +179,7 @@
     },
     {
       "case": "sparse",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 8,
       "termination": "completed",
@@ -164,6 +187,7 @@
     },
     {
       "case": "sparse",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -175,6 +199,7 @@
     },
     {
       "case": "sparse",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -186,6 +211,7 @@
     },
     {
       "case": "immigration",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 1,
       "termination": "completed",
@@ -193,6 +219,7 @@
     },
     {
       "case": "immigration",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 8,
       "termination": "completed",
@@ -200,6 +227,7 @@
     },
     {
       "case": "immigration",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -211,6 +239,7 @@
     },
     {
       "case": "immigration",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -222,6 +251,7 @@
     },
     {
       "case": "small-stop",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 1,
       "termination": "completed",
@@ -229,6 +259,7 @@
     },
     {
       "case": "small-stop",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 8,
       "termination": "completed",
@@ -236,6 +267,7 @@
     },
     {
       "case": "small-stop",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -247,6 +279,7 @@
     },
     {
       "case": "small-stop",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -258,6 +291,7 @@
     },
     {
       "case": "cold-overflow",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 1,
       "termination": "failed",
@@ -265,6 +299,7 @@
     },
     {
       "case": "cold-overflow",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 8,
       "termination": "failed",
@@ -272,6 +307,7 @@
     },
     {
       "case": "cold-overflow",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -283,6 +319,7 @@
     },
     {
       "case": "cold-overflow",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -294,6 +331,7 @@
     },
     {
       "case": "stop-diagnostic",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 1,
       "termination": "failed",
@@ -301,6 +339,7 @@
     },
     {
       "case": "stop-diagnostic",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 8,
       "termination": "failed",
@@ -308,6 +347,7 @@
     },
     {
       "case": "stop-diagnostic",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -319,6 +359,7 @@
     },
     {
       "case": "stop-diagnostic",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -330,6 +371,7 @@
     },
     {
       "case": "resolution",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 1,
       "termination": "failed",
@@ -337,6 +379,7 @@
     },
     {
       "case": "resolution",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 8,
       "termination": "failed",
@@ -344,6 +387,7 @@
     },
     {
       "case": "resolution",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -355,6 +399,7 @@
     },
     {
       "case": "resolution",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -366,6 +411,7 @@
     },
     {
       "case": "instance",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 1,
       "termination": "instance_limit",
@@ -373,6 +419,7 @@
     },
     {
       "case": "instance",
+      "layout": "unrolled",
       "method": "static_direct",
       "workers": 8,
       "termination": "instance_limit",
@@ -380,6 +427,7 @@
     },
     {
       "case": "instance",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -391,6 +439,7 @@
     },
     {
       "case": "instance",
+      "layout": "unrolled",
       "method": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
@@ -398,6 +447,46 @@
       },
       "workers": 8,
       "termination": "instance_limit",
+      "identical": true
+    },
+    {
+      "case": "general-stop",
+      "layout": "unrolled",
+      "method": "static_direct",
+      "workers": 1,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "general-stop",
+      "layout": "unrolled",
+      "method": "static_direct",
+      "workers": 8,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "general-stop",
+      "layout": "unrolled",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 1,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "general-stop",
+      "layout": "unrolled",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 8,
+      "termination": "completed",
       "identical": true
     }
   ],
@@ -406,290 +495,530 @@
       "request": "generic",
       "backend": "interpreter",
       "repeat": 0,
-      "seconds": 2.2291521580000335,
+      "seconds": 1.9609630810000453,
       "events": 18440125
     },
     {
       "request": "generic",
       "backend": "kernel",
       "repeat": 0,
-      "seconds": 1.711857190000046,
+      "seconds": 1.9440421650001554,
       "events": 18440125
     },
     {
       "request": "generic",
-      "backend": "loop",
+      "backend": "unrolled",
       "repeat": 0,
-      "seconds": 0.9089318190003723,
+      "seconds": 1.0032166780001717,
       "events": 18440125
     },
     {
       "request": "generic",
-      "backend": "loop",
+      "backend": "unrolled",
       "repeat": 1,
-      "seconds": 0.9908170759999848,
+      "seconds": 0.8434992630000124,
       "events": 18440125
     },
     {
       "request": "generic",
       "backend": "kernel",
       "repeat": 1,
-      "seconds": 1.8231328550000399,
+      "seconds": 1.764766315000088,
       "events": 18440125
     },
     {
       "request": "generic",
       "backend": "interpreter",
       "repeat": 1,
-      "seconds": 2.101048381000055,
+      "seconds": 2.076939139999922,
       "events": 18440125
     },
     {
       "request": "generic",
       "backend": "interpreter",
       "repeat": 2,
-      "seconds": 1.9059374849998676,
+      "seconds": 1.937310515000263,
       "events": 18440125
     },
     {
       "request": "generic",
       "backend": "kernel",
       "repeat": 2,
-      "seconds": 1.6336061040001368,
+      "seconds": 1.723414362999847,
       "events": 18440125
     },
     {
       "request": "generic",
-      "backend": "loop",
+      "backend": "unrolled",
       "repeat": 2,
-      "seconds": 0.8349987950000468,
+      "seconds": 0.8772396659996957,
       "events": 18440125
     },
     {
       "request": "generic",
-      "backend": "loop",
+      "backend": "unrolled",
       "repeat": 3,
-      "seconds": 0.9589645609999025,
+      "seconds": 0.8463394430000335,
       "events": 18440125
     },
     {
       "request": "generic",
       "backend": "kernel",
       "repeat": 3,
-      "seconds": 1.8377173980002226,
+      "seconds": 1.6567440740000166,
       "events": 18440125
     },
     {
       "request": "generic",
       "backend": "interpreter",
       "repeat": 3,
-      "seconds": 2.005716764999761,
+      "seconds": 2.2627044629998636,
       "events": 18440125
     },
     {
       "request": "generic",
       "backend": "interpreter",
       "repeat": 4,
-      "seconds": 2.1901382719997855,
+      "seconds": 2.069813840000279,
       "events": 18440125
     },
     {
       "request": "generic",
       "backend": "kernel",
       "repeat": 4,
-      "seconds": 1.828989260999606,
+      "seconds": 1.6649996199998895,
       "events": 18440125
     },
     {
       "request": "generic",
-      "backend": "loop",
+      "backend": "unrolled",
       "repeat": 4,
-      "seconds": 0.8322710130000814,
+      "seconds": 0.8845868780003912,
       "events": 18440125
     },
     {
       "request": "default",
       "backend": "interpreter",
       "repeat": 0,
-      "seconds": 2.4582532979998177,
+      "seconds": 2.4897987259996626,
       "events": 18355809
     },
     {
       "request": "default",
       "backend": "kernel",
       "repeat": 0,
-      "seconds": 2.397415543000079,
+      "seconds": 2.312553909000144,
       "events": 18355809
     },
     {
       "request": "default",
-      "backend": "loop",
+      "backend": "unrolled",
       "repeat": 0,
-      "seconds": 1.4795755200002532,
+      "seconds": 1.241363509999701,
       "events": 18355809
     },
     {
       "request": "default",
-      "backend": "loop",
+      "backend": "unrolled",
       "repeat": 1,
-      "seconds": 1.3283142099999168,
+      "seconds": 1.2345936419997088,
       "events": 18355809
     },
     {
       "request": "default",
       "backend": "kernel",
       "repeat": 1,
-      "seconds": 2.2361481560001266,
+      "seconds": 2.272484919999897,
       "events": 18355809
     },
     {
       "request": "default",
       "backend": "interpreter",
       "repeat": 1,
-      "seconds": 2.445673288999842,
+      "seconds": 2.315888563000044,
       "events": 18355809
     },
     {
       "request": "default",
       "backend": "interpreter",
       "repeat": 2,
-      "seconds": 2.4489511840001796,
+      "seconds": 2.5162688069999604,
       "events": 18355809
     },
     {
       "request": "default",
       "backend": "kernel",
       "repeat": 2,
-      "seconds": 2.3255084289999104,
+      "seconds": 2.247033700999964,
       "events": 18355809
     },
     {
       "request": "default",
-      "backend": "loop",
+      "backend": "unrolled",
       "repeat": 2,
-      "seconds": 1.34791855200001,
+      "seconds": 1.3512861509998402,
       "events": 18355809
     },
     {
       "request": "default",
-      "backend": "loop",
+      "backend": "unrolled",
       "repeat": 3,
-      "seconds": 1.2753347759999087,
+      "seconds": 1.4739784399998825,
       "events": 18355809
     },
     {
       "request": "default",
       "backend": "kernel",
       "repeat": 3,
-      "seconds": 2.269124586000089,
+      "seconds": 2.210129236999819,
       "events": 18355809
     },
     {
       "request": "default",
       "backend": "interpreter",
       "repeat": 3,
-      "seconds": 2.5924597809998886,
+      "seconds": 2.4689319640001486,
       "events": 18355809
     },
     {
       "request": "default",
       "backend": "interpreter",
       "repeat": 4,
-      "seconds": 2.9431657860000087,
+      "seconds": 2.370365536999998,
       "events": 18355809
     },
     {
       "request": "default",
       "backend": "kernel",
       "repeat": 4,
-      "seconds": 2.583828208000341,
+      "seconds": 2.1065338930002326,
       "events": 18355809
     },
     {
       "request": "default",
-      "backend": "loop",
+      "backend": "unrolled",
       "repeat": 4,
-      "seconds": 1.3251075389998732,
+      "seconds": 1.2595072730000538,
       "events": 18355809
+    },
+    {
+      "request": "general-stop",
+      "backend": "interpreter",
+      "repeat": 0,
+      "seconds": 2.536979414000143,
+      "events": 18440125
+    },
+    {
+      "request": "general-stop",
+      "backend": "unrolled",
+      "repeat": 0,
+      "seconds": 0.8600701800000934,
+      "events": 18440125
+    },
+    {
+      "request": "general-stop",
+      "backend": "unrolled",
+      "repeat": 1,
+      "seconds": 1.0206777819998933,
+      "events": 18440125
+    },
+    {
+      "request": "general-stop",
+      "backend": "interpreter",
+      "repeat": 1,
+      "seconds": 2.410283629999867,
+      "events": 18440125
+    },
+    {
+      "request": "general-stop",
+      "backend": "interpreter",
+      "repeat": 2,
+      "seconds": 2.6254254250002305,
+      "events": 18440125
+    },
+    {
+      "request": "general-stop",
+      "backend": "unrolled",
+      "repeat": 2,
+      "seconds": 0.8905896129999746,
+      "events": 18440125
+    },
+    {
+      "request": "general-stop",
+      "backend": "unrolled",
+      "repeat": 3,
+      "seconds": 0.9278071740000087,
+      "events": 18440125
+    },
+    {
+      "request": "general-stop",
+      "backend": "interpreter",
+      "repeat": 3,
+      "seconds": 2.5711182559998633,
+      "events": 18440125
+    },
+    {
+      "request": "general-stop",
+      "backend": "interpreter",
+      "repeat": 4,
+      "seconds": 2.3451901130001716,
+      "events": 18440125
+    },
+    {
+      "request": "general-stop",
+      "backend": "unrolled",
+      "repeat": 4,
+      "seconds": 0.8637874200003353,
+      "events": 18440125
+    },
+    {
+      "request": "sparse",
+      "backend": "interpreter",
+      "repeat": 0,
+      "seconds": 0.2521667470000466,
+      "events": 1221781
+    },
+    {
+      "request": "sparse",
+      "backend": "unrolled",
+      "repeat": 0,
+      "seconds": 0.29297251800016966,
+      "events": 1221781
+    },
+    {
+      "request": "sparse",
+      "backend": "unrolled",
+      "repeat": 1,
+      "seconds": 0.24566299600019192,
+      "events": 1221781
+    },
+    {
+      "request": "sparse",
+      "backend": "interpreter",
+      "repeat": 1,
+      "seconds": 0.25290515400001823,
+      "events": 1221781
+    },
+    {
+      "request": "sparse",
+      "backend": "interpreter",
+      "repeat": 2,
+      "seconds": 0.23870040499969036,
+      "events": 1221781
+    },
+    {
+      "request": "sparse",
+      "backend": "unrolled",
+      "repeat": 2,
+      "seconds": 0.23871608899980856,
+      "events": 1221781
+    },
+    {
+      "request": "sparse",
+      "backend": "unrolled",
+      "repeat": 3,
+      "seconds": 0.2578627219995724,
+      "events": 1221781
+    },
+    {
+      "request": "sparse",
+      "backend": "interpreter",
+      "repeat": 3,
+      "seconds": 0.27446917499992196,
+      "events": 1221781
+    },
+    {
+      "request": "sparse",
+      "backend": "interpreter",
+      "repeat": 4,
+      "seconds": 0.22415798000020004,
+      "events": 1221781
+    },
+    {
+      "request": "sparse",
+      "backend": "unrolled",
+      "repeat": 4,
+      "seconds": 0.24488349800003562,
+      "events": 1221781
+    },
+    {
+      "request": "wide",
+      "backend": "interpreter",
+      "repeat": 0,
+      "seconds": 1.9783302230002846,
+      "events": 3138532
+    },
+    {
+      "request": "wide",
+      "backend": "unrolled",
+      "repeat": 0,
+      "seconds": 2.947637230000055,
+      "events": 3138532
+    },
+    {
+      "request": "wide",
+      "backend": "unrolled",
+      "repeat": 1,
+      "seconds": 2.834794537000107,
+      "events": 3138532
+    },
+    {
+      "request": "wide",
+      "backend": "interpreter",
+      "repeat": 1,
+      "seconds": 1.8932120619997477,
+      "events": 3138532
+    },
+    {
+      "request": "wide",
+      "backend": "interpreter",
+      "repeat": 2,
+      "seconds": 1.9628945290000956,
+      "events": 3138532
+    },
+    {
+      "request": "wide",
+      "backend": "unrolled",
+      "repeat": 2,
+      "seconds": 3.110342916999798,
+      "events": 3138532
+    },
+    {
+      "request": "wide",
+      "backend": "unrolled",
+      "repeat": 3,
+      "seconds": 2.9816999710001255,
+      "events": 3138532
+    },
+    {
+      "request": "wide",
+      "backend": "interpreter",
+      "repeat": 3,
+      "seconds": 2.0159165459999713,
+      "events": 3138532
+    },
+    {
+      "request": "wide",
+      "backend": "interpreter",
+      "repeat": 4,
+      "seconds": 2.370666942000298,
+      "events": 3138532
+    },
+    {
+      "request": "wide",
+      "backend": "unrolled",
+      "repeat": 4,
+      "seconds": 3.0032196669999394,
+      "events": 3138532
     },
     {
       "request": "special",
       "backend": "mtdna_direct",
       "repeat": 0,
-      "seconds": 0.6611675789999936,
+      "seconds": 0.7016468209999402,
       "events": 18418274
     },
     {
       "request": "special",
       "backend": "mtdna_direct",
       "repeat": 1,
-      "seconds": 0.7046030670003347,
+      "seconds": 0.7265635929998098,
       "events": 18418274
     },
     {
       "request": "special",
       "backend": "mtdna_direct",
       "repeat": 2,
-      "seconds": 0.6718507089999548,
+      "seconds": 0.7154493699999875,
       "events": 18418274
     },
     {
       "request": "special",
       "backend": "mtdna_direct",
       "repeat": 3,
-      "seconds": 0.6507527580001806,
+      "seconds": 0.6500340570000844,
       "events": 18418274
     },
     {
       "request": "special",
       "backend": "mtdna_direct",
       "repeat": 4,
-      "seconds": 0.6679239899999629,
+      "seconds": 0.6441595689998394,
       "events": 18418274
     }
   ],
-  "build_seconds": 18.66912463200015,
+  "build_seconds": 65.73689647300034,
   "fingerprint_rejected": true,
   "summary": {
     "generic/interpreter": {
-      "median_seconds": 2.101048381000055,
+      "median_seconds": 2.069813840000279,
       "events": 18440125,
-      "ns_per_event": 113.93894461127867
+      "ns_per_event": 112.24510896755196
     },
     "generic/kernel": {
-      "median_seconds": 1.8231328550000399,
+      "median_seconds": 1.723414362999847,
       "events": 18440125,
-      "ns_per_event": 98.86770588594382
+      "ns_per_event": 93.46001521138534
     },
-    "generic/loop": {
-      "median_seconds": 0.9089318190003723,
+    "generic/unrolled": {
+      "median_seconds": 0.8772396659996957,
       "events": 18440125,
-      "ns_per_event": 49.290979263989385
+      "ns_per_event": 47.5723275194553
     },
     "default/interpreter": {
-      "median_seconds": 2.4582532979998177,
+      "median_seconds": 2.4689319640001486,
       "events": 18355809,
-      "ns_per_event": 133.92236201628694
+      "ns_per_event": 134.50412150181714
     },
     "default/kernel": {
-      "median_seconds": 2.3255084289999104,
+      "median_seconds": 2.247033700999964,
       "events": 18355809,
-      "ns_per_event": 126.69059854566532
+      "ns_per_event": 122.41539999680558
     },
-    "default/loop": {
-      "median_seconds": 1.3283142099999168,
+    "default/unrolled": {
+      "median_seconds": 1.2595072730000538,
       "events": 18355809,
-      "ns_per_event": 72.3647870818397
+      "ns_per_event": 68.61627689632496
+    },
+    "general-stop/interpreter": {
+      "median_seconds": 2.536979414000143,
+      "events": 18440125,
+      "ns_per_event": 137.5792959104205
+    },
+    "general-stop/unrolled": {
+      "median_seconds": 0.8905896129999746,
+      "events": 18440125,
+      "ns_per_event": 48.29628936896982
+    },
+    "sparse/interpreter": {
+      "median_seconds": 0.2521667470000466,
+      "events": 1221781,
+      "ns_per_event": 206.39275533016686
+    },
+    "sparse/unrolled": {
+      "median_seconds": 0.24566299600019192,
+      "events": 1221781,
+      "ns_per_event": 201.06958284683748
+    },
+    "wide/interpreter": {
+      "median_seconds": 1.9783302230002846,
+      "events": 3138532,
+      "ns_per_event": 630.3361644871821
+    },
+    "wide/unrolled": {
+      "median_seconds": 2.9816999710001255,
+      "events": 3138532,
+      "ns_per_event": 950.0301322402083
     },
     "special/mtdna_direct": {
-      "median_seconds": 0.6679239899999629,
+      "median_seconds": 0.7016468209999402,
       "events": 18418274,
-      "ns_per_event": 36.264200977787766
+      "ns_per_event": 38.095145125973275
     }
   },
-  "loop_speedup_generic": 2.3115577396231464,
-  "loop_speedup_default": 1.850656478334273,
-  "loop_gap_to_mtdna_direct": 1.359218676682844,
+  "loop_speedup_generic": 2.359462208815575,
+  "loop_speedup_default": 1.9602363693536553,
+  "loop_gap_to_mtdna_direct": 1.248776644954175,
   "platform": "Linux-6.18.44-fc-v233-x86_64-with-glibc2.39",
-  "description": "validation/check_generated_loop.py on a two-CPU host at the branch head: replay of eleven supported cases (one refused) under default Static Direct and the Ziggurat and sparse-tracker options with one and eight workers, fingerprint rejection, and the 128-cell mtDNA probe timing. Timing is host-specific."
+  "description": "validation/check_generated_loop.py on a two-CPU host at the head of the follow-up branch: replay of the supported cases (the aggregation model and an oversized dense network refused) under default Static Direct and the Ziggurat and sparse-tracker options with one and eight workers, fingerprint rejection, and one-worker timing of the mtDNA probe, a non-fused stop, and the sparse and wide networks. Timing is host-specific."
 }

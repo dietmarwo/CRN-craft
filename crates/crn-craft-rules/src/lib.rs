@@ -19,6 +19,10 @@ mod generated_loop;
 pub use engine::{LoopHalt, LoopHost};
 pub use generated::{RulesKernel, execute_with_rules_kernel, generate_rules_kernel};
 pub use generated_loop::{RulesLoop, execute_with_rules_loop, generate_rules_loop};
+/// The math library emitted stop predicates call, so that a generated loop
+/// needs no dependency of its own.
+#[doc(hidden)]
+pub use libm;
 pub mod model;
 mod mtdna;
 pub mod observe;

@@ -750,6 +750,87 @@ impl Parser<'_, '_> {
 }
 
 impl Expr {
+    /// Rust source with the stop bytecode's semantics, for generated loops:
+    /// parameters are compiled in, observables are read from `values`, and
+    /// `pow`, `exp`, `log`, `sqrt`, `floor` and `ceil` call the re-exported
+    /// `libm`. `None` if the expression reads an attribute or draws.
+    pub(crate) fn rust_predicate(&self, params: &[f64]) -> Option<String> {
+        fn bits(x: f64) -> String {
+            format!("f64::from_bits({:#018x})", x.to_bits())
+        }
+        fn emit(node: &Node, params: &[f64]) -> Option<String> {
+            Some(match node {
+                Node::Num(x) => bits(*x),
+                Node::Var(Slot::Param(i)) => bits(params[*i]),
+                Node::Var(Slot::Observable(i)) => format!("values[{i}]"),
+                Node::Var(Slot::Attribute { .. }) => return None,
+                Node::Neg(a) => format!("(-{})", emit(a, params)?),
+                Node::Not(a) => format!(
+                    "{{ let a: f64 = {}; if a.is_nan() {{ a }} else {{ f64::from(u8::from(!(a != 0.0))) }} }}",
+                    emit(a, params)?
+                ),
+                Node::Bin(op @ (Op::And | Op::Or), a, b) => format!(
+                    "{{ let a: f64 = {}; if a.is_nan() {{ a }} else if {} {{ {} }} else {{ \
+                     let b: f64 = {}; if b.is_nan() {{ b }} else {{ f64::from(u8::from(b != 0.0)) }} }} }}",
+                    emit(a, params)?,
+                    if *op == Op::And {
+                        "!(a != 0.0)"
+                    } else {
+                        "a != 0.0"
+                    },
+                    if *op == Op::And { "0.0" } else { "1.0" },
+                    emit(b, params)?
+                ),
+                Node::Bin(op, a, b) => {
+                    let (a, b) = (emit(a, params)?, emit(b, params)?);
+                    let compare = |symbol: &str| format!("f64::from(u8::from({a} {symbol} {b}))");
+                    match op {
+                        Op::Add => format!("({a} + {b})"),
+                        Op::Sub => format!("({a} - {b})"),
+                        Op::Mul => format!("({a} * {b})"),
+                        Op::Div => format!("({a} / {b})"),
+                        Op::Pow => format!("crn_craft_rules::libm::pow({a}, {b})"),
+                        Op::Eq => compare("=="),
+                        Op::Ne => compare("!="),
+                        Op::Lt => compare("<"),
+                        Op::Le => compare("<="),
+                        Op::Gt => compare(">"),
+                        Op::Ge => compare(">="),
+                        Op::And | Op::Or => unreachable!("logic handled above"),
+                    }
+                }
+                Node::Call(Func::If, args) => format!(
+                    "{{ let t: f64 = {}; if t.is_nan() {{ t }} else if !(t != 0.0) {{ {} }} else {{ {} }} }}",
+                    emit(&args[0], params)?,
+                    emit(&args[2], params)?,
+                    emit(&args[1], params)?
+                ),
+                Node::Call(f @ (Func::Min | Func::Max), args) => format!(
+                    "{{ let x: f64 = {}; let y: f64 = {}; if x.is_nan() || y.is_nan() {{ f64::NAN }} else {{ x.{}(y) }} }}",
+                    emit(&args[0], params)?,
+                    emit(&args[1], params)?,
+                    if *f == Func::Min { "min" } else { "max" }
+                ),
+                Node::Call(Func::Abs, args) => format!("({}).abs()", emit(&args[0], params)?),
+                Node::Call(
+                    f @ (Func::Exp | Func::Log | Func::Sqrt | Func::Floor | Func::Ceil),
+                    args,
+                ) => {
+                    let name = match f {
+                        Func::Exp => "exp",
+                        Func::Log => "log",
+                        Func::Sqrt => "sqrt",
+                        Func::Floor => "floor",
+                        _ => "ceil",
+                    };
+                    format!("crn_craft_rules::libm::{name}({})", emit(&args[0], params)?)
+                }
+                Node::Call(_, _) => return None,
+            })
+        }
+        emit(&self.root, params)
+    }
+
     /// Whether all inputs are available without a reactant or a random draw.
     pub(crate) fn parameter_only(&self) -> bool {
         fn check(node: &Node) -> bool {

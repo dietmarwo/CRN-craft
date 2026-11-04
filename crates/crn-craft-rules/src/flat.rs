@@ -761,21 +761,47 @@ pub(crate) fn direct<R: RngCore>(
     })
 }
 
+/// From this many channels on, selection finds the smallest positive rate
+/// while summing instead of testing every rate in a second pass. Some
+/// positive rate is below the resolution floor exactly when the smallest
+/// one is, so the outcome is the same.
+pub(crate) const FUSED_SELECTION: usize = 32;
+
+/// The total in `Iterator::sum`'s order and the smallest positive rate
+/// (infinite if none is positive).
+fn fused_total(rates: &[f64]) -> (f64, f64) {
+    let mut total = -0.0;
+    let mut smallest = f64::INFINITY;
+    for &a in rates {
+        total += a;
+        if a > 0.0 && a < smallest {
+            smallest = a;
+        }
+    }
+    (total, smallest)
+}
+
 pub(crate) fn direct_with<R: RngCore>(
     rates: &[f64],
     time: f64,
     words: &mut Words<'_, R>,
     next_time: impl FnOnce(&mut Words<'_, R>, f64) -> Result<f64, Halt>,
 ) -> Result<Option<(f64, usize)>, Halt> {
-    let total: f64 = rates.iter().sum();
+    let (total, smallest) = if rates.len() >= FUSED_SELECTION {
+        fused_total(rates)
+    } else {
+        (rates.iter().sum::<f64>(), f64::NAN)
+    };
     if total == 0.0 {
         return Ok(None);
     }
-    if !total.is_finite()
-        || rates
-            .iter()
-            .any(|&a| a > 0.0 && a < total * crate::engine::RESOLUTION)
-    {
+    let floor = total * crate::engine::RESOLUTION;
+    let unresolved = if smallest.is_nan() {
+        rates.iter().any(|&a| a > 0.0 && a < floor)
+    } else {
+        smallest < floor
+    };
+    if !total.is_finite() || unresolved {
         // Static channels are selected in one flat level; the tree engine
         // resolves rules and instances separately and can still run.
         if total.is_finite() {

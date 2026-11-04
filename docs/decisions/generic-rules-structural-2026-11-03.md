@@ -156,3 +156,6 @@ Other models use generic Static Direct with the 0.4 opt-ins.
 
 Follow-up: the generated event loop is planned, measured and adopted in
 [generated-rules-loop-2026-11-03.md](generated-rules-loop-2026-11-03.md).
+
+T2a's fused selection was taken up for networks of at least 32 channels in
+[many-channel-selection-2026-11-04.md](many-channel-selection-2026-11-04.md).

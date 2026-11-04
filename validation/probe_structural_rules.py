@@ -29,6 +29,32 @@ def three_class():
     return model
 
 
+def wide():
+    """256 attributed instances that replicate and die: 512 channels."""
+    return {
+        "schema": "crn-craft.rules-model/0.1",
+        "name": "wide_256",
+        "types": [{"name": "A", "attributes": ["i"]}],
+        "initial": [
+            {"type": "A", "attributes": {"i": i}, "count": 8} for i in range(256)
+        ],
+        "rules": [
+            {
+                "name": "replication",
+                "reactants": [{"type": "A", "label": "x"}],
+                "rate": "1",
+                "products": [{"type": "A", "copy": "x"}, {"type": "A", "copy": "x"}],
+            },
+            {
+                "name": "death",
+                "reactants": [{"type": "A", "label": "x"}],
+                "rate": "1",
+                "products": [],
+            },
+        ],
+    }
+
+
 def sparse():
     model = {
         "schema": "crn-craft.rules-model/0.1",
@@ -101,6 +127,15 @@ WORK = {
         "crn-craft.rules-run/0.2",
         {"kind": "next_reaction"},
         64,
+        100.0,
+        [0.0, 50.0, 100.0],
+        (),
+    ),
+    "wide/default": (
+        wide,
+        "crn-craft.rules-run/0.2",
+        {"kind": "static_direct"},
+        8,
         100.0,
         [0.0, 50.0, 100.0],
         (),

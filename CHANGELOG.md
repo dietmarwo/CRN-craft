@@ -16,12 +16,32 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
   `execute` for every Static Direct request on the same model bytes. On the
   128-cell mtDNA probe it was 2.3× faster than the interpreter under
   Ziggurat waits and sparse trackers and within 1.36× of `mtdna_direct`.
-  New example `generate_rules_loop`, tests with nine checked-in loops and
+  New example `generate_rules_loop`, tests with ten checked-in loops and
   `validation/check_generated_loop.py`. See
   `docs/decisions/generated-rules-loop-2026-11-03.md`.
 
+### Changed
+
+- Generated rules loops emit every stop predicate, not only the guarded
+  fraction form, with the bytecode's semantics. An undefined value still
+  reaches the interpreter's diagnostic. With the stop
+  `N > 0 && mutants / N >= 0.9`, the mtDNA probe's loop went from 90 to
+  53 ns per event. Loops for models with a stop predicate must be
+  regenerated, because their emitted source and fingerprint change.
+- Static Direct finds the smallest positive rate while summing in networks
+  of at least 32 channels instead of testing every rate in a second pass.
+  Results are byte-identical; the 96- and 512-channel probe networks ran
+  1.25× and 1.34× faster. `validation/probe_structural_rules.py` gains the
+  512-channel workload.
+
 ### Validation
 
+- A compact, table-driven loop layout for densely coupled networks above
+  1 MiB replayed byte for byte but reached only 1.15× over the interpreter
+  on a 256-channel network (criterion 1.25×), and was not adopted. Fusing the
+  minimum into unrolled loops slowed them down. Both are recorded in
+  `validation/mtdna/generated-loop-followups.json`, with the compact patch
+  under `validation/mtdna/followup-attempts/`.
 - Recorded a loop of structural changes meant to close the gap between
   generic Static Direct and `mtdna_direct`: inline rate factors, a fused
   total and resolution check, exact incremental sum projections and a

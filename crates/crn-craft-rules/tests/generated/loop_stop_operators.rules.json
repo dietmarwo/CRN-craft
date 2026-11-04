@@ -1,0 +1,103 @@
+{
+  "schema": "crn-craft.rules-model/0.1",
+  "name": "loop_stop_operators",
+  "description": "Pairs with a stop predicate that uses every operator and function a stop may use.",
+  "parameters": {
+    "d": 0.3,
+    "p": 0.02,
+    "q": 0.01,
+    "e": 0.5
+  },
+  "types": [
+    {
+      "name": "A"
+    },
+    {
+      "name": "B"
+    }
+  ],
+  "initial": [
+    {
+      "type": "A",
+      "count": 40
+    }
+  ],
+  "observables": {
+    "nA": {
+      "type": "A"
+    },
+    "nB": {
+      "type": "B"
+    },
+    "w": {
+      "type": "B",
+      "weight": "2.5"
+    }
+  },
+  "rules": [
+    {
+      "name": "death_a",
+      "reactants": [
+        {
+          "type": "A",
+          "label": "x"
+        }
+      ],
+      "rate": "d",
+      "products": []
+    },
+    {
+      "name": "pair_aa",
+      "reactants": [
+        {
+          "type": "A",
+          "label": "x"
+        },
+        {
+          "type": "A",
+          "label": "y"
+        }
+      ],
+      "rate": "p",
+      "products": [
+        {
+          "type": "B"
+        }
+      ]
+    },
+    {
+      "name": "pair_ab",
+      "reactants": [
+        {
+          "type": "A",
+          "label": "x"
+        },
+        {
+          "type": "B",
+          "label": "y"
+        }
+      ],
+      "rate": "q",
+      "products": [
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        }
+      ]
+    },
+    {
+      "name": "death_b",
+      "reactants": [
+        {
+          "type": "B",
+          "label": "x"
+        }
+      ],
+      "rate": "e",
+      "products": []
+    }
+  ],
+  "stop": "!(nA > 3) || (max(nB, 2) ^ 1.5 > 40 && if(abs(nA - nB) < 2, sqrt(nA) >= floor(log(exp(2))) + ceil(0.5), min(nA, nB) == -(-1)) || w / 2.5 != nB)"
+}

@@ -1,10 +1,37 @@
 //! Optional AOT source generation; no compiler or dynamic loading in the engine.
+//!
+//! [`mass_action_source`] writes a Rust propensity kernel for one model's
+//! topology. Compile it into your own crate and pass it to
+//! [`crate::ssa::execute_with_kernel`]. The kernel is opt-in: benchmark it
+//! against the built-in evaluator before adopting it. See
+//! [docs/reusable-parameters.md](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reusable-parameters.md).
 use crate::{CompiledNetwork, contracts::Model, diagnostic::Diagnostic, network::Term};
 use std::fmt::Write;
 
 /// Emit one Rust module defining `GeneratedKernel`. Named coefficients are read
 /// from each bound network, so parameter optimization needs no recompilation.
 /// Custom laws are rejected; higher mass-action orders use the checked fallback.
+///
+/// The emitted `GeneratedKernel` implements [`crate::ssa::PropensityKernel`]
+/// and reports the [`CompiledNetwork::topology_sha256`] of this model, so
+/// [`crate::ssa::execute_with_kernel`] refuses it for any other topology.
+/// The fingerprint does not cover the CRN-craft version: regenerate after
+/// upgrading.
+///
+/// # Errors
+///
+/// Parse and validation diagnostics of the model, or `CRN-E020` at `/kernel`
+/// when a reaction does not use mass action.
+///
+/// ```
+/// let model = br#"{"schema": "crn-craft.model/0.1", "name": "decay",
+///   "convention": "stochastic_counts", "omega": 1.0, "parameters": {"k": 0.1},
+///   "species": [{"name": "A", "initial_count": 10}],
+///   "reactions": [{"name": "death", "reactants": {"A": 1}, "products": {},
+///                  "rate": {"kind": "mass_action", "coefficient": "k"}}]}"#;
+/// let source = crn_craft::codegen::mass_action_source(model).unwrap();
+/// assert!(source.contains("impl crn_craft::ssa::PropensityKernel for GeneratedKernel"));
+/// ```
 pub fn mass_action_source(model_bytes: &[u8]) -> Result<String, Vec<Diagnostic>> {
     let model: Model = crate::parse_model(model_bytes).map_err(|e| vec![e])?;
     let network = CompiledNetwork::compile(&model)?;

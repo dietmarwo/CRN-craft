@@ -1,35 +1,70 @@
 //! Small-network exact left-nullspace analysis. No floating-point rank decisions.
+//!
+//! [`analyze_conservation`] computes a basis of the linear conservation laws
+//! lᵀN = 0 of the species-by-reaction stoichiometric matrix N with checked
+//! `i128` integer elimination, and the per-species upper bounds that its
+//! non-negative rows imply for the initial conservation class. The basis is
+//! not the non-negative cone; see [`crate::cone`] for that. Networks above
+//! [`MAX_CONSERVATION_SPECIES`] or [`MAX_CONSERVATION_REACTIONS`] and
+//! overflowing arithmetic give an explicit status and a warning, never a
+//! partial basis.
 use crate::{diagnostic::Diagnostic, network::CompiledNetwork};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+// Docs written as `#[doc = concat!(..)]` reach rustdoc but not the generated
+// JSON Schema; see the note at the top of lib.rs.
+
+/// Most species exact conservation analysis accepts; beyond it the status is
+/// `size_limit` (`CRN-W010`).
 pub const MAX_CONSERVATION_SPECIES: usize = 64;
+/// Most reactions exact conservation analysis accepts; beyond it the status is
+/// `size_limit` (`CRN-W010`).
 pub const MAX_CONSERVATION_REACTIONS: usize = 256;
 
+/// Whether the linear conservation basis was computed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ConservationStatus {
+    #[doc = concat!("`exact`: a complete rational basis with verified integer residuals.")]
     Exact,
+    #[doc = concat!("`size_limit`: more than 64 species or 256 reactions; nothing is computed")]
+    #[doc = concat!("(`CRN-W010`).")]
     SizeLimit,
+    #[doc = concat!("`arithmetic_overflow`: checked `i128` arithmetic overflowed, or a basis")]
+    #[doc = concat!("row failed its residual check; nothing is reported (`CRN-W011`).")]
     ArithmeticOverflow,
 }
 
+/// One conservation law: integer weights l with lᵀN = 0, so the weighted total of counts
+/// never changes.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ConservationLaw {
     /// Primitive integer coefficients, encoded as strings to preserve i128 values.
+    /// One per species, in species order.
     pub coefficients: Vec<String>,
+    /// The conserved total lᵀx₀ at the initial counts, as a decimal integer string.
     pub initial_total: String,
 }
 
+/// Linear conservation laws of the network and the count bounds they prove.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ConservationReport {
+    #[doc = concat!("Whether the basis below is complete; inspect it before using the other fields.")]
     pub status: ConservationStatus,
+    /// Rank of the stoichiometric matrix N; absent unless the status is `exact`. An exact
+    /// basis has species − rank rows.
     pub rank: Option<usize>,
+    /// Basis of the rational conservation space, with non-negative rows exposed where a
+    /// simple combination allows it; empty unless the status is `exact`.
     pub basis: Vec<ConservationLaw>,
     /// Proven using non-negative basis rows only; None is not an unboundedness proof.
+    /// One entry per species: floor(initial_total / coefficient), minimized over the rows, as
+    /// a decimal string. It bounds the species in the initial conservation class only.
     pub initial_class_upper_bounds: Vec<Option<String>>,
+    /// `CRN-W010` or `CRN-W011` when the basis is unavailable.
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -213,6 +248,8 @@ fn expose_nonnegative_laws(basis: &mut [Vec<i128>]) -> Result<(), ()> {
     Ok(())
 }
 
+/// Computes the [`ConservationReport`] of a compiled network. Never fails:
+/// limits and overflow are reported in the status and diagnostics.
 pub fn analyze_conservation(network: &CompiledNetwork) -> ConservationReport {
     if network.species().len() > MAX_CONSERVATION_SPECIES
         || network.reactions().len() > MAX_CONSERVATION_REACTIONS

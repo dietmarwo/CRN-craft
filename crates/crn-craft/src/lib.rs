@@ -1,5 +1,142 @@
 #![forbid(unsafe_code)]
-//! CRN-craft M2: strict inputs, network analysis and Direct SSA.
+#![warn(missing_docs)]
+//! Exact stochastic simulation, finite state projection and analysis of
+//! well-mixed chemical reaction networks with fixed species and reactions.
+//!
+//! `crn-craft` is the fixed-network engine of
+//! [CRN-craft](https://github.com/dietmarwo/CRN-craft). Models, requests and
+//! results are versioned JSON documents whose schemas are generated from the
+//! Rust types in this crate. Inputs are read strictly (duplicate keys and
+//! unknown fields are errors), bound to their exact bytes by SHA-256 and
+//! validated with stable diagnostic codes. Every run states its budgets and
+//! seed and accounts for every replicate. Completed results replay exactly
+//! from the same input bytes, sampler and seed, whatever the thread count.
+//!
+//! # Status
+//!
+//! Implemented: strict contracts and validation, network analysis, Direct
+//! SSA with sealed archives, the alternative exact methods of [`ssa`]
+//! (Direct, cached Direct, DirectCR, SortingDirect, RSSACR and next
+//! reaction), finite state projection and reusable parameter templates.
+//! Beyond that:
+//!
+//! - [`tau`] leaping is experimental and explicitly approximate; its best
+//!   assessment is `approximate_ensemble`.
+//! - [`fsp`] reports its truncation and leakage terms separately; they are
+//!   estimates, not a certified floating-point error bound.
+//! - Generated propensity kernels ([`codegen`]) are opt-in; benchmark them
+//!   before adopting them.
+//! - [`kinetics`] serves the optional deterministic (ODE) integration, whose
+//!   solutions are not exact means of nonlinear stochastic models.
+//! - [`analysis_v1`] and the reserved [`contracts::RunResult`] envelope are
+//!   legacy contracts kept unchanged for existing consumers.
+//!
+//! A successful numerical run is not biological validation. Dynamic,
+//! attributed species are the separate, experimental
+//! [`crn-craft-rules`](https://crates.io/crates/crn-craft-rules) crate.
+//!
+//! # Quickstart
+//!
+//! Check a model, then simulate an ensemble with an exact method:
+//!
+//! ```
+//! use crn_craft::{check_bytes, sha256, simulation::Control, ssa};
+//!
+//! // Immigration–death: X is made at rate 4 and each molecule decays at rate 0.2.
+//! let model = br#"{
+//!   "schema": "crn-craft.model/0.1", "name": "immigration_death",
+//!   "convention": "stochastic_counts", "omega": 1.0,
+//!   "parameters": {"birth": 4.0, "death": 0.2},
+//!   "species": [{"name": "X", "initial_count": 0}],
+//!   "reactions": [
+//!     {"name": "birth", "reactants": {}, "products": {"X": 1},
+//!      "rate": {"kind": "mass_action", "coefficient": "birth"}},
+//!     {"name": "death", "reactants": {"X": 1}, "products": {},
+//!      "rate": {"kind": "mass_action", "coefficient": "death"}}]}"#;
+//! let report = check_bytes(model, None);
+//! assert!(report.valid, "{:?}", report.diagnostics);
+//!
+//! // The request binds the exact model bytes by SHA-256.
+//! let request = format!(r#"{{
+//!   "schema": "crn-craft.ssa-run/0.4",
+//!   "model": {{"path": "model.json", "sha256": "{}"}},
+//!   "method": {{"kind": "ssa", "aggregator": "direct", "waiting_time": "inverse"}},
+//!   "time": {{"end": 10.0, "save_times": [0.0, 5.0, 10.0]}},
+//!   "ensemble": {{"replicates": 32, "root_seed": 42}},
+//!   "outputs": {{"statistics": ["mean", "variance"], "keep_trajectories": 0}},
+//!   "budget": {{"max_events_per_replicate": 100000,
+//!              "max_sampling_steps_per_replicate": 1000000,
+//!              "threads": 1, "max_output_bytes": 1000000}}}}"#, sha256(model));
+//!
+//! let result = ssa::solve(model, request.as_bytes(), &Control::default()).unwrap();
+//! assert_eq!(result.termination, ssa::Termination::Completed);
+//! let mean = result.statistics.expect("every replicate completed").mean.unwrap();
+//! // mean[save time][species]; the exact mean at t = 10 is 20 (1 − e⁻²) ≈ 17.3.
+//! assert!((mean[2][0] - 17.3).abs() < 3.0);
+//! ```
+//!
+//! # Entry points
+//!
+//! | Task | API | Contracts (`crn-craft.` prefix omitted) |
+//! |---|---|---|
+//! | Read and validate inputs | [`parse_model`], [`parse_run`], [`check_bytes`], [`check_files`] | `model/0.1`, `run/0.1` → `check/0.1` |
+//! | Analyze structure and conservation | [`analyze_bytes`], [`analyze_files`], [`CompiledNetwork`] | `state/0.1` → `analysis/0.2` |
+//! | Direct SSA with sealed archives | [`archive::simulate_files`], [`archive::verify_archive`], [`simulation::simulate_bytes`] | `run/0.1` → `result/0.2`, `archive/0.1`, `archive-check/0.1` |
+//! | Alternative exact SSA | [`ssa::prepare`], [`ssa::execute`], [`ssa::solve`], [`ssa::solve_files`] | `ssa-run/0.1`–`0.4` → `ssa-result/0.1`–`0.4` |
+//! | Finite state projection | [`fsp::solve`] | `run/0.1` with `fsp` → `fsp-result/0.1` |
+//! | Approximate tau leaping (experimental) | [`tau::solve`], [`tau::solve_files`] | `tau-request/0.1` → `tau-result/0.1` |
+//! | Parameter sweeps and optimization | [`parameters::ParameterTemplate`], [`codegen::mass_action_source`], [`ssa::execute_with_kernel`] | `ssa-run` |
+//! | Reference export | [`export::export_gillespy2`], [`export_gillespy2_file`] | `export/0.1` |
+//! | Deterministic kinetics and Jacobians | [`kinetics::Kinetics`] | — |
+//! | Discovery | [`describe`], [`schema`] | `describe/0.10` |
+//!
+//! Lower-level building blocks are [`strict_json`], [`validate`],
+//! [`diagnostic`], [`sampling`], [`conservation`], [`cone`] and [`linkage`].
+//!
+//! # Errors, stops and cancellation
+//!
+//! Errors are [`diagnostic::Diagnostic`] values with a stable code (`CRN-E…`,
+//! warnings `CRN-W…`) and a JSON Pointer to the offending input, listed in
+//! [docs/diagnostics.md](https://github.com/dietmarwo/CRN-craft/blob/main/docs/diagnostics.md).
+//! Report-style functions ([`check_bytes`], [`analyze_bytes`],
+//! [`export::export_gillespy2`], [`archive::simulate_files`],
+//! [`archive::verify_archive`]) never fail; they return a report with a
+//! `valid` or `success` flag. In stochastic simulations, event, sampling,
+//! population and wall-time limits and cancellation are typed outcomes in
+//! each replicate's record, not errors; an exceeded output budget is the
+//! run-level outcome `output_limit`; and ensemble statistics are withheld
+//! unless every replicate completed. FSP has no replicates and fails with
+//! `CRN-E070` instead. Cancel a running call through [`simulation::Control`].
+//!
+//! # Related crates and documentation
+//!
+//! - [`crn-craft-rules`](https://crates.io/crates/crn-craft-rules): rules
+//!   engine for attributed species whose identities and numbers change.
+//! - [`crn-craft-cli`](https://crates.io/crates/crn-craft-cli): the
+//!   `crn-craft` command-line tool for both engines.
+//! - [`crn-craft` on PyPI](https://pypi.org/project/crn-craft/): Python
+//!   bindings with prepared runs, importers and trajectory analysis.
+//! - Repository documentation: the
+//!   [tutorial](https://github.com/dietmarwo/CRN-craft/blob/main/docs/tutorial.md),
+//!   [architecture](https://github.com/dietmarwo/CRN-craft/blob/main/docs/architecture.md),
+//!   [input contracts](https://github.com/dietmarwo/CRN-craft/blob/main/docs/contracts.md),
+//!   [Direct SSA](https://github.com/dietmarwo/CRN-craft/blob/main/docs/direct-ssa.md),
+//!   [alternative SSA](https://github.com/dietmarwo/CRN-craft/blob/main/docs/alternative-ssa.md),
+//!   [result and archive contract](https://github.com/dietmarwo/CRN-craft/blob/main/docs/archive-contract.md),
+//!   [network API](https://github.com/dietmarwo/CRN-craft/blob/main/docs/network-api.md),
+//!   [reusable parameters](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reusable-parameters.md)
+//!   and the [technical report](https://github.com/dietmarwo/CRN-craft/blob/main/docs/technical-report.md)
+//!   on numerical methods and validation.
+
+// Contributor note: doc comments on types that derive `JsonSchema` become
+// "description" entries in the generated schemas (`schemas/*.schema.json`,
+// `describe`). schemars moves a documented unit enum variant into its own
+// `oneOf` branch and wraps a documented field whose type is a schema
+// definition in `allOf`, which changes a delivered schema's shape. Such
+// items are documented with `#[doc = concat!("…")]`, which rustdoc reads and
+// schemars ignores. After editing docs on schema types, regenerate the
+// snapshots with `crn-craft describe KIND > schemas/KIND.schema.json` and
+// check that only descriptions changed.
 pub mod analysis;
 pub mod analysis_v1;
 pub mod archive;
@@ -36,15 +173,23 @@ use sha2::{Digest, Sha256};
 use std::io::Read;
 use std::path::Path;
 
+/// Result of `check`: whether a model, and optionally a run, passed parsing and validation.
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CheckReport {
+    /// Always `crn-craft.check/0.1`.
     pub schema: String,
+    /// True when no diagnostic has severity `error`.
     pub valid: bool,
+    /// Always `structural_and_domain_validation`: no rate is evaluated and nothing runs.
     pub scope: String,
+    /// Always false: a check report is not a simulation result.
     pub execution_available: bool,
+    /// SHA-256 of the exact model bytes; null only when an input file could not be read.
     pub model_sha256: Option<String>,
+    /// SHA-256 of the exact run bytes when a run was checked.
     pub run_sha256: Option<String>,
+    /// Parse errors (the first per document) and every validation error and warning.
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -60,6 +205,7 @@ impl CheckReport {
             diagnostics: Vec::new(),
         }
     }
+    /// An invalid report carrying one diagnostic, such as a read error (`CRN-E030`).
     pub fn from_error(diagnostic: Diagnostic) -> Self {
         let mut report = Self::new();
         report.diagnostics.push(diagnostic);
@@ -73,17 +219,45 @@ impl CheckReport {
     }
 }
 
+/// Lowercase hexadecimal SHA-256 of `bytes`: the digest every `sha256` field
+/// and model reference uses. Hash the exact file bytes, never re-serialized
+/// JSON.
 pub fn sha256(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
+/// Strictly parses a `crn-craft.model/0.1` document.
+///
+/// This checks syntax and shape only, not semantics: use [`check_bytes`], or
+/// [`CompiledNetwork::compile`], which always validates.
+///
+/// # Errors
+///
+/// The [`strict_json`] codes `CRN-E001` to `CRN-E004` and `CRN-E015`.
+///
+/// ```
+/// let duplicate = br#"{"schema": "crn-craft.model/0.1", "name": "m",
+///   "convention": "stochastic_counts", "omega": 1.0, "parameters": {"k": 1.0, "k": 2.0},
+///   "species": [{"name": "A", "initial_count": 1}], "reactions": []}"#;
+/// let error = crn_craft::parse_model(duplicate).unwrap_err();
+/// assert_eq!((error.code.as_str(), error.path.as_str()), ("CRN-E002", "/parameters/k"));
+/// ```
 pub fn parse_model(bytes: &[u8]) -> Result<Model, Diagnostic> {
     strict_json::parse(bytes)
 }
+/// Strictly parses a `crn-craft.run/0.1` document; like [`parse_model`], not
+/// semantic validation.
+///
+/// # Errors
+///
+/// The [`strict_json`] codes `CRN-E001` to `CRN-E004` and `CRN-E015`.
 pub fn parse_run(bytes: &[u8]) -> Result<Run, Diagnostic> {
     strict_json::parse(bytes)
 }
 
+/// Reads a model file and an optional `crn-craft.state/0.1` file, then runs
+/// [`analyze_bytes`]. Each must be a regular file of at most 16 MiB; read
+/// failures give a failed report with `CRN-E030` or `CRN-E004`.
 pub fn analyze_files(model_path: &Path, state_path: Option<&Path>) -> AnalysisReport {
     let model = match read_document(model_path) {
         Ok(bytes) => bytes,
@@ -97,6 +271,9 @@ pub fn analyze_files(model_path: &Path, state_path: Option<&Path>) -> AnalysisRe
 }
 
 /// Legacy M1a output and warning semantics, retained for existing consumers.
+///
+/// Like [`analyze_files`], but returns the `crn-craft.analysis/0.1` report
+/// of [`analysis_v1::analyze_bytes`].
 pub fn analyze_legacy_files(
     model_path: &Path,
     state_path: Option<&Path>,
@@ -112,6 +289,8 @@ pub fn analyze_legacy_files(
     analysis_v1::analyze_bytes(&model, state.as_deref())
 }
 
+/// Reads a model file and runs [`export::export_gillespy2`]; read failures
+/// give a failed report with `CRN-E030` or `CRN-E004`.
 pub fn export_gillespy2_file(model_path: &Path) -> export::ExportReport {
     match read_document(model_path) {
         Ok(bytes) => export::export_gillespy2(&bytes),
@@ -120,6 +299,23 @@ pub fn export_gillespy2_file(model_path: &Path) -> export::ExportReport {
 }
 
 /// Validate in-memory input bytes. Only check_files verifies model.path identity.
+///
+/// Parses the model and, if given, the run, then applies
+/// [`validate::validate_model`] and [`validate::validate_run`], which also
+/// requires the run's `model.sha256` to match `model_bytes`. Never fails:
+/// read the report's `valid` flag and diagnostics.
+///
+/// ```
+/// let model = br#"{"schema": "crn-craft.model/0.1", "name": "typo",
+///   "convention": "stochastic_counts", "omega": 1.0, "parameters": {},
+///   "species": [{"name": "A", "initial_count": 1}],
+///   "reactions": [{"name": "convert", "reactants": {"A": 1}, "products": {"B": 1},
+///                  "rate": {"kind": "mass_action", "coefficient": 1.0}}]}"#;
+/// let report = crn_craft::check_bytes(model, None);
+/// assert!(!report.valid);
+/// let error = &report.diagnostics[0];
+/// assert_eq!((error.code.as_str(), error.path.as_str()), ("CRN-E012", "/reactions/0/products/B"));
+/// ```
 pub fn check_bytes(model_bytes: &[u8], run_bytes: Option<&[u8]>) -> CheckReport {
     let mut report = CheckReport::new();
     report.model_sha256 = Some(sha256(model_bytes));
@@ -192,6 +388,11 @@ fn read_document(path: &Path) -> Result<Vec<u8>, Diagnostic> {
 
 /// Resolve model.path relative to RUN and require it to denote the supplied MODEL.
 /// A symlink is allowed only if its canonical target stays inside RUN's directory.
+///
+/// Reads both files (regular files of at most 16 MiB; otherwise `CRN-E030`
+/// or `CRN-E004`), runs [`check_bytes`] and adds `CRN-E022` at `/model/path`
+/// when the reference does not resolve to `model_path`. The check does not
+/// guard against a filesystem that changes concurrently.
 pub fn check_files(model_path: &Path, run_path: Option<&Path>) -> CheckReport {
     let model_bytes = match read_document(model_path) {
         Ok(x) => x,
@@ -230,6 +431,20 @@ pub fn check_files(model_path: &Path, run_path: Option<&Path>) -> CheckReport {
     report
 }
 
+/// The generated JSON Schema of one contract, as `crn-craft describe KIND`
+/// prints it, or `None` for an unknown kind.
+///
+/// Kinds: `model`, `run`, `result`, `result-v1`, `archive`, `archive-check`,
+/// `check`, `state`, `analysis`, `analysis-v1`, `export`, `tau-request`,
+/// `tau-result`, `fsp-result`, `ssa-run` and `ssa-result`. The `rules-*`
+/// kinds belong to `crn-craft-rules`.
+///
+/// ```
+/// let schema = crn_craft::schema("model").unwrap();
+/// assert_eq!(schema["title"], "Model");
+/// assert_eq!(schema["properties"]["schema"]["$ref"], "#/definitions/ModelVersion");
+/// assert!(crn_craft::schema("rules-model").is_none());
+/// ```
 pub fn schema(kind: &str) -> Option<Value> {
     match kind {
         "model" => serde_json::to_value(schema_for!(Model)).ok(),
@@ -252,6 +467,22 @@ pub fn schema(kind: &str) -> Option<Value> {
     }
 }
 
+/// The `crn-craft.describe/0.10` discovery document.
+///
+/// It lists the version, commands, methods with their status, sampler
+/// identities, the accepted `ssa-run` versions and their `fast` defaults,
+/// rate laws, exporters, optional integrations, input and execution limits,
+/// and the schemas of the eleven original contracts; [`schema`] returns the
+/// others. The native CLI reports `crn-craft.describe/0.11`, which adds the
+/// rules engine.
+///
+/// ```
+/// let description = crn_craft::describe();
+/// assert_eq!(description["schema"], "crn-craft.describe/0.10");
+/// assert_eq!(description["version"], env!("CARGO_PKG_VERSION"));
+/// assert!(description["commands"].as_array().unwrap().iter().any(|c| c == "ssa"));
+/// assert_eq!(description["limits"]["species"], 4096);
+/// ```
 pub fn describe() -> Value {
     json!({
         "schema": "crn-craft.describe/0.10", "version": env!("CARGO_PKG_VERSION"), "milestone": "SSA-acceleration",

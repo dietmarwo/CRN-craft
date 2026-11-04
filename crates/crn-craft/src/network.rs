@@ -1,4 +1,29 @@
 //! Immutable, validated indexed representation and checked reaction operations.
+//!
+//! [`CompiledNetwork::compile`] validates a [`Model`], resolves names and
+//! parameter values once and stores sparse stoichiometry, reads and
+//! propensity dependencies. Its operations use no random numbers, time or
+//! threads: evaluate propensities at a state and apply one reaction as a
+//! checked, transactional update. Species and reaction indices are
+//! zero-based declaration order. See
+//! [docs/network-api.md](https://github.com/dietmarwo/CRN-craft/blob/main/docs/network-api.md).
+//!
+//! ```
+//! use crn_craft::{CompiledNetwork, parse_model};
+//!
+//! let model = parse_model(br#"{"schema": "crn-craft.model/0.1", "name": "dimer",
+//!   "convention": "stochastic_counts", "omega": 1.0, "parameters": {"k": 0.5},
+//!   "species": [{"name": "A", "initial_count": 4}, {"name": "B", "initial_count": 0}],
+//!   "reactions": [{"name": "bind", "reactants": {"A": 2}, "products": {"B": 1},
+//!                  "rate": {"kind": "mass_action", "coefficient": "k"}}]}"#).unwrap();
+//! let network = CompiledNetwork::compile(&model).unwrap();
+//! let mut state = network.initial_counts().to_vec();
+//! // 2A -> B fires at c * binomial(4, 2) = 0.5 * 6.
+//! assert_eq!(network.propensities(&state).unwrap(), vec![3.0]);
+//! network.fire_reaction(0, &mut state).unwrap();
+//! assert_eq!(state, vec![2, 1]);
+//! assert_eq!(network.reactions()[0].net_changes[0].coefficient, -2);
+//! ```
 use crate::contracts::{Model, Rate, Scalar};
 use crate::diagnostic::{Diagnostic, Severity, pointer};
 use crate::rates::{CompiledRate, MassKernel};
@@ -8,21 +33,28 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
+/// Most propensity-dependency edges a compiled network may have; more is `CRN-E040`.
 pub const MAX_DEPENDENCY_EDGES: usize = 1_000_000;
 
 /// Sparse entry. Indices refer to the model's species declaration order.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Term {
+    /// Zero-based species index.
     pub species: usize,
+    /// Stoichiometric coefficient: positive on reactant and product sides, signed in net changes.
     pub coefficient: i64,
 }
 
+/// Indexed structure of one reaction, with terms sorted by species index.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ReactionStructure {
+    /// Reaction name from the model.
     pub name: String,
+    /// Consumed species and coefficients; they also gate the channel.
     pub reactants: Vec<Term>,
+    /// Produced species and coefficients.
     pub products: Vec<Term>,
     /// One stoichiometric matrix column: products minus reactants, zeros omitted.
     pub net_changes: Vec<Term>,
@@ -30,6 +62,13 @@ pub struct ReactionStructure {
     pub reads: Vec<usize>,
 }
 
+/// A validated model compiled to indexed, immutable form.
+///
+/// Built by [`CompiledNetwork::compile`], which always runs
+/// [`validate_model`] and keeps its warnings. Editing the source model later
+/// does not change a compiled network; compile again for other parameter
+/// values, or use [`crate::parameters::ParameterTemplate`] to rebind them
+/// while sharing the topology. Cloning is cheap: structure is shared.
 #[derive(Debug, Clone)]
 pub struct CompiledNetwork {
     species: Arc<Vec<String>>,
@@ -46,6 +85,13 @@ impl CompiledNetwork {
     pub(crate) fn compiled_rate(&self, reaction: usize) -> &CompiledRate {
         &self.rates[reaction]
     }
+    /// Validates `model` and compiles it.
+    ///
+    /// # Errors
+    ///
+    /// Every error diagnostic of [`validate_model`] (warnings alone do not
+    /// fail; they are kept in [`Self::warnings`]), or `CRN-E040` when the
+    /// dependency graph exceeds [`MAX_DEPENDENCY_EDGES`].
     pub fn compile(model: &Model) -> Result<Self, Vec<Diagnostic>> {
         let warnings = validate_model(model);
         if warnings.iter().any(|d| d.severity == Severity::Error) {
@@ -216,23 +262,38 @@ impl CompiledNetwork {
             && Arc::ptr_eq(&self.species, &other.species)
     }
 
+    /// Species names in declaration order; position `i` is species index `i`.
     pub fn species(&self) -> &[String] {
         &self.species
     }
+    /// Initial counts in species order.
     pub fn initial_counts(&self) -> &[i64] {
         &self.initial
     }
+    /// Indexed reaction structures in declaration order.
     pub fn reactions(&self) -> &[ReactionStructure] {
         &self.reactions
     }
     /// Propensity invalidation only. A scheduler must separately reschedule a fired channel.
+    ///
+    /// Entry `j` lists, sorted and without duplicates, the reactions whose
+    /// propensity can change when reaction `j` fires: those that read a
+    /// species `j` changes. A reaction with no net change has an empty list.
     pub fn dependencies(&self) -> &[Vec<usize>] {
         &self.dependencies
     }
+    /// Validation warnings of the source model, such as `CRN-W001`.
     pub fn warnings(&self) -> &[Diagnostic] {
         &self.warnings
     }
 
+    /// Checks that `state` has one count per species, none negative and none
+    /// above its `population_limit`.
+    ///
+    /// # Errors
+    ///
+    /// `CRN-E041` at `/counts` for a wrong length, or at `/counts/NAME` for
+    /// the first invalid count.
     pub fn validate_state(&self, state: &[i64]) -> Result<(), Diagnostic> {
         if state.len() != self.species.len() {
             return Err(Diagnostic::error(
@@ -255,6 +316,12 @@ impl CompiledNetwork {
         Ok(())
     }
 
+    /// Converts a map from every species name to its count into a state in
+    /// species order, then validates it with [`Self::validate_state`].
+    ///
+    /// # Errors
+    ///
+    /// `CRN-E041` for a missing or unknown name or an invalid count.
     pub fn named_state(&self, counts: &BTreeMap<String, i64>) -> Result<Vec<i64>, Diagnostic> {
         let mut result = Vec::with_capacity(self.species.len());
         for name in self.species.iter() {
@@ -282,6 +349,14 @@ impl CompiledNetwork {
         Ok(result)
     }
 
+    /// Every reaction's propensity at `state`, in reaction order, in events per second.
+    ///
+    /// A reaction whose reactants are not all available has propensity zero.
+    ///
+    /// # Errors
+    ///
+    /// `CRN-E041` for an invalid state; `CRN-E042` when a rate overflows, is
+    /// not finite or negative, or a positive rate underflows to zero.
     pub fn propensities(&self, state: &[i64]) -> Result<Vec<f64>, Diagnostic> {
         self.validate_state(state)?;
         self.rates
@@ -292,6 +367,11 @@ impl CompiledNetwork {
             .collect()
     }
 
+    /// The propensity of one reaction at `state`; see [`Self::propensities`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::propensities`], plus `CRN-E043` for an out-of-range index.
     pub fn propensity(&self, reaction: usize, state: &[i64]) -> Result<f64, Diagnostic> {
         self.validate_state(state)?;
         self.propensity_in_valid_state(reaction, state)
@@ -328,6 +408,15 @@ impl CompiledNetwork {
     }
 
     /// Apply one enabled reaction atomically. No RNG, elapsed time or scheduling.
+    ///
+    /// Every count update is checked before any is applied, so on error
+    /// `state` is unchanged.
+    ///
+    /// # Errors
+    ///
+    /// Errors of [`Self::propensity`]; `CRN-E043` when the reaction has zero
+    /// propensity or would make a count negative; `CRN-E044` when a count
+    /// would overflow `i64` or exceed its population limit.
     pub fn fire_reaction(&self, reaction: usize, state: &mut [i64]) -> Result<(), Diagnostic> {
         if self.propensity(reaction, state)? == 0.0 {
             return Err(Diagnostic::error(

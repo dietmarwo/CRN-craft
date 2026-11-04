@@ -1,4 +1,54 @@
 //! Versioned alternative exact SSA methods. Legacy Direct contracts are unchanged.
+//!
+//! The `ssa` entry point: a `crn-craft.ssa-run/0.1`–`0.4` [`Request`] selects
+//! an [`Algorithm`] (`direct`, `cached_direct`, `direct_cr`,
+//! `sorting_direct`, `rssa_cr`, and `next_reaction` from 0.4), a
+//! [`WaitingTime`] sampler and, from 0.2, the `fast` numerical policy.
+//! [`prepare`] validates the request against the model's exact bytes,
+//! [`execute`] runs it and returns the matching `ssa-result` version as an
+//! [`SsaResult`], a standalone JSON result rather than an archive.
+//! [`solve`] combines both, and [`solve_files`] also checks that the
+//! request's `model.path` names the model file.
+//!
+//! `fast` is not allowed in 0.1, defaults to false in 0.2 and to true in 0.3
+//! and 0.4, except for `next_reaction`, which runs the checked policy only.
+//! The checked policy uses ChaCha8 words and rejects lost increments and
+//! channels below 53-bit resolution; `fast` emulates JumpProcesses.jl with
+//! Xoshiro256++ words and running totals without those checks. Each
+//! combination has its own sampler identity, recorded in
+//! [`SsaResult::sampler`]. Every replicate also has a random-word budget
+//! (`max_sampling_steps_per_replicate`); exhausting it stops the replicate
+//! with `sampling_limit` and `CRN-E067`. See
+//! [docs/alternative-ssa.md](https://github.com/dietmarwo/CRN-craft/blob/main/docs/alternative-ssa.md).
+//!
+//! ```
+//! use crn_craft::{sha256, simulation::Control, ssa};
+//!
+//! let model = br#"{"schema": "crn-craft.model/0.1", "name": "birth_death",
+//!   "convention": "stochastic_counts", "omega": 1.0, "parameters": {},
+//!   "species": [{"name": "X", "initial_count": 0}],
+//!   "reactions": [
+//!     {"name": "make", "reactants": {}, "products": {"X": 1},
+//!      "rate": {"kind": "mass_action", "coefficient": 5.0}},
+//!     {"name": "decay", "reactants": {"X": 1}, "products": {},
+//!      "rate": {"kind": "mass_action", "coefficient": 1.0}}]}"#;
+//! let request = format!(r#"{{"schema": "crn-craft.ssa-run/0.3",
+//!   "model": {{"path": "model.json", "sha256": "{}"}},
+//!   "method": {{"kind": "ssa", "aggregator": "rssa_cr", "waiting_time": "inverse", "fast": false}},
+//!   "time": {{"end": 2.0, "save_times": [0.0, 1.0, 2.0]}},
+//!   "ensemble": {{"replicates": 8, "root_seed": 11}},
+//!   "outputs": {{"statistics": ["mean"], "keep_trajectories": 0}},
+//!   "budget": {{"max_events_per_replicate": 10000, "max_sampling_steps_per_replicate": 1000000,
+//!              "threads": 1, "max_output_bytes": 100000}}}}"#, sha256(model));
+//!
+//! let prepared = ssa::prepare(model, request.as_bytes()).unwrap();
+//! let result = ssa::execute(&prepared, &Control::default()).unwrap();
+//! assert_eq!(result.termination, ssa::Termination::Completed);
+//! assert_eq!(result.sampler, "chacha8-u53/rssa_cr/inverse/2");
+//! // A prepared request is immutable: running it again replays the same streams.
+//! let again = ssa::execute(&prepared, &Control::default()).unwrap();
+//! assert_eq!(result.replicates[3].events, again.replicates[3].events);
+//! ```
 mod bounds;
 mod selectors;
 mod ziggurat;
@@ -19,8 +69,13 @@ use selectors::{Composition, RateTree};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path, sync::Arc};
 
+// Docs written as `#[doc = concat!(..)]` reach rustdoc but not the generated
+// JSON Schema; see the note at the top of lib.rs.
+
+/// Schema tag of an alternative-SSA request; every version is still accepted.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum RequestVersion {
+    /// The first version; `method.fast` is not allowed and the checked policy runs.
     #[serde(rename = "crn-craft.ssa-run/0.1")]
     V01,
     /// Adds the optional `method.fast` switch, default false.
@@ -36,8 +91,10 @@ pub enum RequestVersion {
     #[serde(rename = "crn-craft.ssa-run/0.4")]
     V04,
 }
+/// Schema tag of an alternative-SSA result; it matches the request version.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ResultVersion {
+    /// Answers an ssa-run/0.1 request; `method` has no `fast` field.
     #[serde(rename = "crn-craft.ssa-result/0.1")]
     V01,
     /// Answers an ssa-run/0.2 request; `method` may carry `fast: true`.
@@ -50,14 +107,26 @@ pub enum ResultVersion {
     #[serde(rename = "crn-craft.ssa-result/0.4")]
     V04,
 }
+/// Exact event-selection algorithm. All sample the same law; they differ in cost and random-word use.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Algorithm {
+    #[doc = concat!("`direct`: full ordered propensity sum and binary search over prefix sums.")]
     Direct,
+    #[doc = concat!("`cached_direct`: recomputes only dependent propensities and resumes the prefix")]
+    #[doc = concat!("sums at the first changed channel.")]
     CachedDirect,
+    #[doc = concat!("`direct_cr`: dependency updates, balanced totals and power-of-two")]
+    #[doc = concat!("composition–rejection.")]
     DirectCr,
+    #[doc = concat!("`sorting_direct`: dependency updates and a linear search whose order moves a")]
+    #[doc = concat!("fired channel one place forward.")]
     SortingDirect,
+    #[doc = concat!("`rssa_cr`: propensity bounds over a population bracket, composition–rejection")]
+    #[doc = concat!("and thinning; bounds refresh only when the state leaves its bracket.")]
     RssaCr,
+    #[doc = concat!("`next_reaction`: an indexed heap of absolute per-channel clocks; ssa-run/0.4")]
+    #[doc = concat!("only, inverse waits and checked policy only.")]
     NextReaction,
 }
 impl Algorithm {
@@ -72,17 +141,26 @@ impl Algorithm {
         }
     }
 }
+/// Exponential waiting-time sampler.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum WaitingTime {
+    #[doc = concat!("`inverse`: −ln(U)/total with an open uniform U, as in the legacy Direct")]
+    #[doc = concat!("sampler.")]
     Inverse,
+    #[doc = concat!("`ziggurat`: the 256-layer exponential Ziggurat adapted from Julia's Random;")]
+    #[doc = concat!("it consumes the stream differently.")]
     Ziggurat,
 }
+/// Method of an alternative-SSA request, selected by `kind`.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Method {
+    /// `ssa`: an exact stochastic simulation algorithm with a waiting-time sampler and policy.
     Ssa {
+        #[doc = concat!("Event-selection algorithm.")]
         aggregator: Algorithm,
+        #[doc = concat!("Exponential sampler; `next_reaction` requires `inverse`.")]
         waiting_time: WaitingTime,
         /// Not allowed in ssa-run/0.1; default false in 0.2 and true in 0.3
         /// and 0.4, except for next reaction, which is checked only.
@@ -144,28 +222,42 @@ impl Method {
         fast.unwrap_or(false)
     }
 }
+/// Resource limits of an alternative-SSA request.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Budget {
+    /// Most events per replicate, ≥ 1; a replicate that reaches it stops with `event_limit`.
     pub max_events_per_replicate: u64,
     /// Includes every random word drawn by every rejection/tail loop.
+    /// A replicate that exhausts it stops with `sampling_limit` and `CRN-E067`.
     pub max_sampling_steps_per_replicate: u64,
+    /// Optional wall-clock limit in seconds, finite and positive, polled cooperatively.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wall_time_s: Option<f64>,
+    /// Worker allowance, 1–1024; at most 64 workers and no more than the replicates are used.
     #[schemars(range(min = 1, max = 1024))]
     pub threads: u32,
+    /// Byte budget of the compact result JSON with its trailing newline, also capped at 256 MiB.
     #[schemars(range(min = 1))]
     pub max_output_bytes: u64,
 }
+/// Alternative exact SSA request, bound to one model file by relative path and SHA-256.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Request {
+    #[doc = concat!("Request version, `crn-craft.ssa-run/0.1` to `0.4`.")]
     pub schema: RequestVersion,
+    #[doc = concat!("The model file this request belongs to.")]
     pub model: contracts::ModelRef,
+    #[doc = concat!("Algorithm, waiting-time sampler and policy.")]
     pub method: Method,
+    #[doc = concat!("Horizon and save grid, in seconds.")]
     pub time: contracts::TimeGrid,
+    #[doc = concat!("Replicate count and root seed.")]
     pub ensemble: contracts::Ensemble,
+    #[doc = concat!("Statistics and retained trajectories to report.")]
     pub outputs: contracts::Outputs,
+    #[doc = concat!("Event, sampling, time, thread and output limits.")]
     pub budget: Budget,
 }
 impl Request {
@@ -188,14 +280,22 @@ impl Request {
         }
     }
 }
+/// Work counters of a replicate or a whole run; for completed work they depend only on the
+/// inputs and seed.
 #[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Work {
+    /// 64-bit random words drawn, the quantity `max_sampling_steps_per_replicate` limits.
     pub rng_words: u64,
+    /// Channel selection attempts, including those composition–rejection rejected.
     pub proposals: u64,
+    /// Propensity evaluations by the scheduler.
     pub propensity_evaluations: u64,
+    /// `rssa_cr` propensity-bound refreshes.
     pub bound_updates: u64,
+    /// Times an `rssa_cr` bound fell back to the propensity at the current state.
     pub point_fallbacks: u64,
+    /// `rssa_cr` thinning rejections: the clock advanced but no reaction fired.
     pub rejected_candidates: u64,
 }
 impl Work {
@@ -208,18 +308,33 @@ impl Work {
         self.rejected_candidates += rhs.rejected_candidates;
     }
 }
+/// How a replicate, or the whole run, ended.
+///
+/// The declaration order is the aggregation priority: a run reports the
+/// largest replicate value, or `output_limit` when retained output was removed.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum Termination {
+    #[doc = concat!("`completed`: reached the horizon, or became absorbing and held its state.")]
     Completed,
+    #[doc = concat!("`event_limit`: executed `max_events_per_replicate` events.")]
     EventLimit,
+    #[doc = concat!("`sampling_limit`: drew `max_sampling_steps_per_replicate` random words")]
+    #[doc = concat!("(`CRN-E067`).")]
     SamplingLimit,
+    #[doc = concat!("`population_limit`: the next event would have exceeded a population limit and")]
+    #[doc = concat!("was not applied.")]
     PopulationLimit,
+    #[doc = concat!("`wall_time_limit`: `wall_time_s` elapsed.")]
     WallTimeLimit,
+    #[doc = concat!("`cancelled`: cancellation was requested.")]
     Cancelled,
+    #[doc = concat!("`failed`: a numerical or state-update check failed.")]
     Failed,
+    #[doc = concat!("`output_limit`: the result did not fit `max_output_bytes`, so trajectories and")]
+    #[doc = concat!("statistics were removed (`CRN-E064`). Run level only.")]
     OutputLimit,
 }
 fn termination(stop: Stop, diagnostic: Option<&Diagnostic>) -> Termination {
@@ -236,41 +351,78 @@ fn termination(stop: Stop, diagnostic: Option<&Diagnostic>) -> Termination {
         Stop::OutputLimit => Termination::OutputLimit,
     }
 }
+/// Accounting of one replicate; every requested id has exactly one record.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Record {
+    /// Replicate id, which also selects its random stream.
     pub id: u64,
+    /// False for a replicate that a stop prevented from starting.
     pub started: bool,
+    #[doc = concat!("How the replicate ended.")]
     pub termination: Termination,
+    /// Events executed; rejected candidates and refused updates are not counted.
     pub events: u64,
+    /// The latest certified time of the path in seconds; the horizon when completed.
     pub stop_time: f64,
+    /// Save times for which a state was recorded, a prefix of the save grid.
     pub saved_points: usize,
+    /// The diagnostic behind a `failed`, `population_limit` or `sampling_limit` stop.
     pub diagnostic: Option<Diagnostic>,
+    #[doc = concat!("Work counters of this replicate.")]
     pub work: Work,
 }
+/// Alternative exact SSA result: method, identities, replicate accounting, work, trajectories
+/// and statistics.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SsaResult {
+    #[doc = concat!("Matches the request version.")]
     pub schema: ResultVersion,
+    #[doc = concat!("The method that ran. From 0.3 `fast` is always present; in 0.1 and 0.2 it")]
+    #[doc = concat!("appears only when true.")]
     pub method: Method,
+    /// SHA-256 of the exact model bytes.
     pub model_sha256: String,
+    /// SHA-256 of the exact request bytes.
     pub run_sha256: String,
+    /// Sampler identity: `chacha8-u53/ALGORITHM/WAIT/N` for the checked policy, with N = 2 for
+    /// `direct_cr` and `rssa_cr` and 1 otherwise, and `xoshiro256pp-u53/ALGORITHM/WAIT/fast-1`
+    /// for `fast`; WAIT is `inverse` or `ziggurat256-julia`. Replay needs the same identity,
+    /// seed and input bytes.
     pub sampler: String,
+    /// Root seed from the request.
     pub root_seed: u64,
+    /// Species names in the order used by every count row.
     pub species: Vec<String>,
+    /// The request's save grid in seconds.
     pub save_times: Vec<f64>,
+    #[doc = concat!("Aggregate stop: the highest-priority replicate termination, or `output_limit`.")]
     pub termination: Termination,
+    #[doc = concat!("What the result may be used for; `exact_ensemble` only when every replicate")]
+    #[doc = concat!("completed.")]
     pub assessment: Assessment,
+    /// Replicates the request asked for.
     pub requested_replicates: u64,
+    /// Replicates that completed.
     pub completed_replicates: u64,
+    /// Events executed over all replicates.
     pub events: u64,
+    #[doc = concat!("Work counters summed over all replicates.")]
     pub work: Work,
+    /// One record per requested replicate, in id order.
     pub replicates: Vec<Record>,
+    /// Saved states of the first `keep_trajectories` replicates; empty when output was removed.
     pub trajectories: Vec<Trajectory>,
+    /// Requested statistics, present only when every replicate completed and output fit.
     pub statistics: Option<Statistics>,
+    /// Model warnings, plus `CRN-E064` when output was removed.
     pub diagnostics: Vec<Diagnostic>,
 }
 
+/// A validated, admitted alternative-SSA execution for [`execute`] or
+/// [`execute_with_kernel`]. Immutable: each execution restarts the same
+/// streams, and concurrent executions own separate state.
 pub struct Prepared {
     pub(crate) core: simulation::Prepared,
     pub(crate) request: Request,
@@ -278,6 +430,17 @@ pub struct Prepared {
     bound_groups: Vec<usize>,
 }
 
+/// Validates a request against the exact model bytes and admits it.
+///
+/// `model.path` is only syntax-checked; use [`solve_files`] to check that it
+/// names the model file.
+///
+/// # Errors
+///
+/// Strict-parse errors of the request; `CRN-E020` for `fast` in 0.1 or an
+/// invalid `next_reaction` combination (at the offending field); every
+/// [`crate::check_bytes`] error of the model and the run fields; and
+/// `CRN-E060` when the workspace or work accounting exceeds its limits.
 pub fn prepare(model: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec<Diagnostic>> {
     let mut request: Request = crate::strict_json::parse(request_bytes).map_err(|e| vec![e])?;
     if request.method.fast_for(request.schema) && request.schema == RequestVersion::V01 {
@@ -465,7 +628,11 @@ impl Draws<'_, '_> {
 /// every valid state, including gates, rounded arithmetic and diagnostics.
 /// Generated kernels are guarded by the fixed-topology fingerprint on execute.
 pub trait PropensityKernel: Sync {
+    /// The [`crate::CompiledNetwork::topology_sha256`] of the model the kernel was written for.
     fn topology_sha256(&self) -> &str;
+    /// The propensity of `reaction` at `state`, identical to
+    /// [`crate::CompiledNetwork::propensity_in_scheduler_state`], including its
+    /// errors.
     fn evaluate(
         &self,
         network: &crate::CompiledNetwork,
@@ -845,6 +1012,13 @@ fn run_path<const MODE: u8, const ZIG: bool, const FAST: bool, R: RngCore, K: Pr
     (PathResult { record, counts }, work)
 }
 
+/// Runs a prepared request with the built-in propensity evaluator.
+///
+/// # Errors
+///
+/// `CRN-E060` when a worker cannot start or even the replicate accounting
+/// exceeds `max_output_bytes`. Stops and numerical failures are reported
+/// per replicate.
 pub fn execute(prepared: &Prepared, control: &Control) -> Result<SsaResult, Diagnostic> {
     execute_inner(prepared, control, &DynamicKernel)
 }
@@ -852,6 +1026,11 @@ pub fn execute(prepared: &Prepared, control: &Control) -> Result<SsaResult, Diag
 /// Execute an optional trusted Rust kernel against its exact topology. As with
 /// custom Rust simulation code, callers must establish evaluator correctness;
 /// this fingerprint prevents accidental use with a different network.
+///
+/// # Errors
+///
+/// `CRN-E020` at `/kernel` when the kernel's fingerprint differs from the
+/// prepared network's, otherwise as [`execute`].
 pub fn execute_with_kernel<K: PropensityKernel>(
     prepared: &Prepared,
     control: &Control,
@@ -1003,6 +1182,11 @@ fn execute_inner<K: PropensityKernel>(
     }
     Ok(result)
 }
+/// [`prepare`] then [`execute`] on in-memory bytes.
+///
+/// # Errors
+///
+/// The errors of both steps.
 pub fn solve(
     model: &[u8],
     request: &[u8],
@@ -1010,6 +1194,15 @@ pub fn solve(
 ) -> Result<SsaResult, Vec<Diagnostic>> {
     execute(&prepare(model, request)?, control).map_err(|e| vec![e])
 }
+/// Reads both files, requires the request's `model.path`, resolved from the
+/// request's directory, to name `model_path` inside that directory, then
+/// calls [`solve`].
+///
+/// # Errors
+///
+/// `CRN-E030` or `CRN-E004` for unreadable or oversized files, strict-parse
+/// errors, `CRN-E022` when the reference does not name the model file, and
+/// the errors of [`solve`].
 pub fn solve_files(
     model_path: &Path,
     request_path: &Path,

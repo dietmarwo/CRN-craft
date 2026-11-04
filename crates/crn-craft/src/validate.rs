@@ -1,10 +1,30 @@
+//! Semantic validation of parsed models and runs.
+//!
+//! Parsing ([`crate::parse_model`], [`crate::parse_run`]) only checks JSON shape.
+//! These functions add the domain rules and return every finding at once, in
+//! a deterministic order; an empty list or warnings only means the input is
+//! usable. [`crate::check_bytes`] combines parsing and both checks.
+//! [`crate::network::CompiledNetwork::compile`] always runs [`validate_model`],
+//! also for models built directly in Rust.
+//!
+//! Model findings: `CRN-E004` (collection limits or no species), `CRN-E010`
+//! (identifiers), `CRN-E011` (duplicate names), `CRN-E012` (unknown species),
+//! `CRN-E013` (stoichiometry), `CRN-E014` (unknown parameter), `CRN-E015`
+//! (numeric domains), `CRN-E016` (counts and population limits) and the
+//! warnings `CRN-W001`–`CRN-W003`. Run findings: `CRN-E020` (time grid,
+//! budget, ensemble, outputs, method), `CRN-E021` (model hash), `CRN-E022`
+//! (model path) and `CRN-E023` (FSP truncation).
 use crate::contracts::*;
 use crate::diagnostic::{Diagnostic, pointer};
 use std::collections::{BTreeMap, BTreeSet};
 
+/// Most species a model may declare (`CRN-E004`); at least one is required.
 pub const MAX_SPECIES: usize = 4096;
+/// Most parameters a model may declare (`CRN-E004`).
 pub const MAX_PARAMETERS: usize = 16384;
+/// Most reactions a model may declare (`CRN-E004`); zero is allowed.
 pub const MAX_REACTIONS: usize = 65536;
+/// Most entries in `time.save_times` (`CRN-E020`); at least two are required.
 pub const MAX_SAVE_TIMES: usize = 1_000_000;
 
 fn identifier(name: &str) -> bool {
@@ -78,6 +98,16 @@ fn scalar(
 }
 
 /// Structural and domain checks only. Does not evaluate a propensity or prove boundedness.
+///
+/// Checks identifiers (1–64 ASCII letters, digits or underscores, not starting
+/// with a digit), unique names, a species/parameter namespace without
+/// collisions, known species and parameters, stoichiometry in 1..=2147483647,
+/// finite parameters, rate arguments in their domains (coefficients, `vmax`
+/// and `basal` non-negative; `k`, `km` and `n` positive), a finite positive
+/// `omega`, non-negative initial counts and population limits at least the
+/// initial count. Warns about species that some reaction net-produces but
+/// none net-consumes (`CRN-W001`), zero mass-action coefficients (`CRN-W002`)
+/// and reactions whose reactants equal their products (`CRN-W003`).
 pub fn validate_model(model: &Model) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     name_check(&model.name, "/name", &mut out);
@@ -281,6 +311,9 @@ pub fn validate_model(model: &Model) -> Vec<Diagnostic> {
     out
 }
 
+/// Whether `path` is a portable relative reference: non-empty, `/`-separated,
+/// with no empty, `.` or `..` component and no backslash, colon or NUL. This
+/// rejects absolute paths and drive prefixes. It does not touch the filesystem.
 pub fn valid_relative_path(path: &str) -> bool {
     !path.is_empty()
         && !path.contains(['\\', ':', '\0'])
@@ -289,6 +322,20 @@ pub fn valid_relative_path(path: &str) -> bool {
             .all(|part| !part.is_empty() && part != "." && part != "..")
 }
 
+/// Checks a run against its model and the SHA-256 of the model's exact bytes
+/// (`model_hash`, lowercase hexadecimal, as from [`crate::sha256`]).
+///
+/// Checks the model reference syntax and hash, the save grid (2 to
+/// [`MAX_SAVE_TIMES`] finite, strictly increasing times from 0 to `end`), the
+/// thread allowance (1–1024), a positive wall time if given, the output
+/// request and a minimum output budget of
+/// `8 * save_times * (1 + species * (statistics + kept_trajectories))` bytes.
+/// SSA runs need an ensemble, a positive event cap, at most `replicates`
+/// kept trajectories and two replicates for `variance`. FSP runs take no
+/// ensemble, event cap or trajectories, and need a bound for every species
+/// at least its initial count, `max_states >= 1` and `0 < tolerance < 1`.
+/// It does not check that `model.path` names the model file; use
+/// [`crate::check_files`] for that.
 pub fn validate_run(model: &Model, run: &Run, model_hash: &str) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     if !valid_relative_path(&run.model.path) {

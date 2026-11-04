@@ -1,0 +1,346 @@
+{
+  "description": "examples/mtdna/performance.py on a two-CPU Linux host (Python 3.13, crn-craft built from main ac91628). Three-class model with the takeover stop N > 0 && mutants >= 0.9 * N, 25,920 h, monthly reports, seed 17, two threads unless stated; medians of three runs, single runs for the tree method, tau, next reaction and the model section. Timing is host-specific.",
+  "sections": {
+    "copy": [
+      {
+        "case": "K 250 (500 cells, mtdna_direct)",
+        "seconds": 0.32641262200013443,
+        "all": [
+          0.28884551800001645,
+          0.32641262200013443,
+          0.45665622300020914
+        ],
+        "events": 18386135,
+        "cells": 500,
+        "stopped": 17,
+        "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+        "ns_per_event": 17.753194023656107
+      },
+      {
+        "case": "K 500 (500 cells, mtdna_direct)",
+        "seconds": 0.8380696820004232,
+        "all": [
+          0.7817889469997681,
+          0.8380696820004232,
+          0.8735333680006079
+        ],
+        "events": 36745813,
+        "cells": 500,
+        "stopped": 22,
+        "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+        "ns_per_event": 22.80721566836535
+      },
+      {
+        "case": "K 1000 (500 cells, mtdna_direct)",
+        "seconds": 1.6084054410002864,
+        "all": [
+          1.7015224309998302,
+          1.6084054410002864,
+          1.5261349060001521
+        ],
+        "events": 72424260,
+        "cells": 500,
+        "stopped": 40,
+        "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+        "ns_per_event": 22.208103210171377
+      },
+      {
+        "case": "K 2000 (500 cells, mtdna_direct)",
+        "seconds": 3.153909850999298,
+        "all": [
+          3.153909850999298,
+          3.3242591340003855,
+          3.0401491289994738
+        ],
+        "events": 139430043,
+        "cells": 500,
+        "stopped": 94,
+        "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+        "ns_per_event": 22.620016340375784
+      }
+    ],
+    "interfaces": [
+      {
+        "case": "interface CLI (1000 cells, mtdna_direct)",
+        "seconds": 2.9030413450000196,
+        "all": [
+          2.9804194540001845,
+          2.83537088400044,
+          2.9030413450000196
+        ]
+      },
+      {
+        "case": "interface Python (1000 cells, mtdna_direct)",
+        "seconds": 2.8115067059998182,
+        "all": [
+          2.988605641000504,
+          2.8115067059998182,
+          2.757727807000265
+        ],
+        "events": 143804795,
+        "cells": 1000,
+        "stopped": 94,
+        "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+        "ns_per_event": 19.550855074059374
+      },
+      {
+        "case": "bind_parameters per candidate",
+        "seconds": 0.0002775112000108493
+      },
+      {
+        "case": "fresh rules.ensemble per candidate",
+        "seconds": 0.0002896074499858514
+      }
+    ],
+    "methods": [
+      {
+        "case": "method tree (200 cells, trackers)",
+        "seconds": 8.076892388000488,
+        "all": [
+          8.076892388000488
+        ],
+        "events": 28790677,
+        "cells": 200,
+        "stopped": 19,
+        "sampler": "chacha8-u53/rules-direct/2",
+        "ns_per_event": 280.53846694888375
+      },
+      {
+        "case": "method static_direct (1000 cells, trackers)",
+        "seconds": 11.214366709000387,
+        "all": [
+          10.685781878999478,
+          11.214366709000387,
+          12.035619358000076
+        ],
+        "events": 143436887,
+        "cells": 1000,
+        "stopped": 99,
+        "sampler": "chacha8-u53/rules-static-direct/1",
+        "ns_per_event": 78.18328286084727
+      },
+      {
+        "case": "method static_direct ziggurat + sparse trackers (1000 cells, trackers)",
+        "seconds": 9.614795741999842,
+        "all": [
+          9.754628400000001,
+          9.614795741999842,
+          9.141210918999604
+        ],
+        "events": 143795432,
+        "cells": 1000,
+        "stopped": 97,
+        "sampler": "chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1",
+        "ns_per_event": 66.86440318910716
+      },
+      {
+        "case": "method mtdna_direct (1000 cells, trackers)",
+        "seconds": 2.912229624000247,
+        "all": [
+          2.8458924349997687,
+          2.9284423520002747,
+          2.912229624000247
+        ],
+        "events": 143804795,
+        "cells": 1000,
+        "stopped": 94,
+        "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+        "ns_per_event": 20.25126925705257
+      },
+      {
+        "case": "method next_reaction (1000 cells, trackers)",
+        "seconds": 15.41074886000024,
+        "all": [
+          15.41074886000024
+        ],
+        "events": 143696841,
+        "cells": 1000,
+        "stopped": 108,
+        "sampler": "chacha8-u53/rules-next-reaction/1",
+        "ns_per_event": 107.24486879986624
+      },
+      {
+        "case": "method tau epsilon 0.03 (200 cells, trackers)",
+        "seconds": 15.08295533799992,
+        "all": [
+          15.08295533799992
+        ],
+        "events": 29047064,
+        "cells": 200,
+        "stopped": 16,
+        "sampler": "chacha8-u53/rules-approximate-cgp-poisson/2",
+        "ns_per_event": 519.2592042348899
+      },
+      {
+        "case": "method binomial 1 h (1000 cells, trackers)",
+        "seconds": 11.29216149900003,
+        "all": [
+          11.949603031999686,
+          11.29216149900003,
+          10.989003194999896
+        ],
+        "events": 142942433,
+        "cells": 1000,
+        "stopped": 112,
+        "sampler": "chacha8-u53/rules-approximate-binomial-split/2",
+        "ns_per_event": 78.99796625820711
+      }
+    ],
+    "models": [
+      {
+        "case": "clone model, tree (100 cells)",
+        "seconds": 2.6517787359998692,
+        "all": [
+          2.6517787359998692
+        ],
+        "events": 14933054,
+        "cells": 100,
+        "stopped": 0,
+        "sampler": "chacha8-u53/rules-direct/2",
+        "ns_per_event": 177.5777905845562
+      },
+      {
+        "case": "three-class, tree (100 cells)",
+        "seconds": 4.630990886999825,
+        "all": [
+          4.630990886999825
+        ],
+        "events": 14928617,
+        "cells": 100,
+        "stopped": 0,
+        "sampler": "chacha8-u53/rules-direct/2",
+        "ns_per_event": 310.20896892189177
+      },
+      {
+        "case": "ATP model, thinning (512 cells)",
+        "seconds": 13.175793063999663,
+        "all": [
+          13.175793063999663
+        ],
+        "events": 77829452,
+        "cells": 512,
+        "stopped": 60,
+        "sampler": "chacha8-u53/rules-atp-thinning/1",
+        "ns_per_event": 169.2905799208205
+      }
+    ],
+    "observation": [
+      {
+        "case": "observation none (1000 cells)",
+        "seconds": 2.9994615139994494,
+        "all": [
+          2.9994615139994494,
+          2.814278669000487,
+          3.15005716900032
+        ],
+        "events": 143804795,
+        "cells": 1000,
+        "stopped": 94,
+        "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+        "ns_per_event": 20.857868571068504
+      },
+      {
+        "case": "observation 2 count trackers",
+        "seconds": 2.896252004999951,
+        "all": [
+          2.896252004999951,
+          2.775928453999768,
+          2.9195016300000134
+        ],
+        "events": 143804795,
+        "cells": 1000,
+        "stopped": 94,
+        "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+        "ns_per_event": 20.140162954927554
+      },
+      {
+        "case": "observation first passage tracker",
+        "seconds": 6.0088216599997395,
+        "all": [
+          6.0088216599997395,
+          6.095354977999705,
+          5.897870103000059
+        ],
+        "events": 143804795,
+        "cells": 1000,
+        "stopped": 94,
+        "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+        "ns_per_event": 41.78457095258708
+      },
+      {
+        "case": "observation mutation log (50 per cell)",
+        "seconds": 5.188924774000043,
+        "all": [
+          5.188924774000043,
+          5.018051559000014,
+          5.2548889059999055
+        ],
+        "events": 143804795,
+        "cells": 1000,
+        "stopped": 94,
+        "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+        "ns_per_event": 36.083113737619406
+      },
+      {
+        "case": "callback none (20 cells, static_direct, 1 thread)",
+        "seconds": 0.3705007509997813,
+        "all": [
+          0.3705007509997813,
+          0.3569514880000497,
+          0.43726603300001443
+        ],
+        "events": 2912571,
+        "cells": 20,
+        "stopped": 1,
+        "sampler": "chacha8-u53/rules-static-direct/1",
+        "ns_per_event": 127.20745726019427
+      },
+      {
+        "case": "callback Python (20 cells, static_direct, 1 thread)",
+        "seconds": 39.46997053099949,
+        "all": [
+          39.46997053099949,
+          38.98602905400003,
+          42.82304664700041
+        ],
+        "events": 2912571,
+        "cells": 20,
+        "stopped": 1,
+        "sampler": "chacha8-u53/rules-static-direct/1",
+        "ns_per_event": 13551.590855982391
+      }
+    ],
+    "threads": [
+      {
+        "case": "threads 1 (2000 cells, mtdna_direct)",
+        "seconds": 12.474671559999479,
+        "all": [
+          11.517527463000079,
+          12.924958167000113,
+          12.474671559999479
+        ],
+        "events": 288825331,
+        "cells": 2000,
+        "stopped": 180,
+        "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+        "ns_per_event": 43.19105778156099
+      },
+      {
+        "case": "threads 2 (2000 cells, mtdna_direct)",
+        "seconds": 5.866184264000367,
+        "all": [
+          5.866184264000367,
+          5.731635375000224,
+          7.069483782000134
+        ],
+        "events": 288825331,
+        "cells": 2000,
+        "stopped": 180,
+        "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+        "ns_per_event": 20.310490924358596
+      }
+    ]
+  },
+  "platform": "Linux-6.18.44-fc-v233-x86_64-with-glibc2.39",
+  "python": "3.13.18"
+}

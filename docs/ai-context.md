@@ -13,7 +13,9 @@ result bytes.
 Dynamic attributed species use the experimental rules engine (crate
 crn-craft-rules, CLI rules-check and rules, Python crn_craft.rules): read
 docs/rules-language.md and docs/mtdna-rules.md, and docs/specialized-kernels.md
-before adding a model-specific rules kernel.
+before adding a model-specific rules kernel. docs/mtdna-user-manual.md,
+docs/mtdna-optimization-tutorial.md and docs/mtdna-performance-analysis.md,
+with examples/mtdna/, show the mtDNA workflows end to end.
 Read docs/alternative-ssa.md and the five-step acceleration protocol before changes. FSP executes via fsp; tau is explicitly
 approximate and has separate request/result schemas. Optional crn-diffsol uses
 BDF and forward sensitivities with deterministic count kinetics, not exact

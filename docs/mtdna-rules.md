@@ -1,5 +1,10 @@
 # Three-class mtDNA ensembles
 
+For a task-oriented introduction, read the [user manual](mtdna-user-manual.md),
+the [optimization tutorial](mtdna-optimization-tutorial.md) and the
+[performance analysis](mtdna-performance-analysis.md). This page is the
+reference behind them.
+
 The rules engine represents wild type, neutral mutants and advantaged mutants
 with three fixed attribute tuples. The model
 `models/rules/mtdna-three-class.rules.json` starts at 1000 wild types. It

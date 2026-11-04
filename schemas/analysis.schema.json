@@ -3,6 +3,7 @@
   "additionalProperties": false,
   "definitions": {
     "AnalysisVersion": {
+      "description": "Schema tag of the current analysis report.",
       "enum": [
         "crn-craft.analysis/0.2"
       ],
@@ -10,13 +11,16 @@
     },
     "ComplexEdge": {
       "additionalProperties": false,
+      "description": "The complex-graph edge of one reaction, as indices into `complexes`.",
       "properties": {
         "source": {
+          "description": "Index of the reactant complex.",
           "format": "uint",
           "minimum": 0.0,
           "type": "integer"
         },
         "target": {
+          "description": "Index of the product complex.",
           "format": "uint",
           "minimum": 0.0,
           "type": "integer"
@@ -30,13 +34,16 @@
     },
     "ConeLimits": {
       "additionalProperties": false,
+      "description": "Deterministic caps of one cone enumeration; requested values above the hard caps are lowered to them.",
       "properties": {
         "max_rays": {
+          "description": "Most intermediate rays kept at any step, at most 4096.",
           "format": "uint",
           "minimum": 0.0,
           "type": "integer"
         },
         "max_work": {
+          "description": "Most work units (arithmetic steps) spent, at most 2000000.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
@@ -50,20 +57,24 @@
     },
     "ConeReport": {
       "additionalProperties": false,
+      "description": "Extreme rays of the non-negative conservation cone {l ≥ 0 : lᵀN = 0} and the count bounds they prove. Unless the status is `exact`, rays are empty and every bound is null.",
       "properties": {
         "diagnostics": {
+          "description": "`CRN-W012` to `CRN-W015` when the status is not `exact`.",
           "items": {
             "$ref": "#/definitions/Diagnostic"
           },
           "type": "array"
         },
         "extreme_rays": {
+          "description": "Every extreme ray as a primitive integer law, sorted by coefficients.",
           "items": {
             "$ref": "#/definitions/ConservationLaw"
           },
           "type": "array"
         },
         "initial_class_upper_bounds": {
+          "description": "Per species, the smallest floor(initial_total / coefficient) over the rays, as a decimal string; null when no ray bounds the species. Valid in the initial conservation class only.",
           "items": {
             "type": [
               "string",
@@ -79,6 +90,7 @@
           "$ref": "#/definitions/ConeStatus"
         },
         "work_units": {
+          "description": "Work units spent, at most `limits.max_work`.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
@@ -95,6 +107,7 @@
       "type": "object"
     },
     "ConeStatus": {
+      "description": "Whether the non-negative conservation cone was enumerated completely.",
       "enum": [
         "exact",
         "size_limit",
@@ -107,15 +120,17 @@
     },
     "ConservationLaw": {
       "additionalProperties": false,
+      "description": "One conservation law: integer weights l with lᵀN = 0, so the weighted total of counts never changes.",
       "properties": {
         "coefficients": {
-          "description": "Primitive integer coefficients, encoded as strings to preserve i128 values.",
+          "description": "Primitive integer coefficients, encoded as strings to preserve i128 values. One per species, in species order.",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "initial_total": {
+          "description": "The conserved total lᵀx₀ at the initial counts, as a decimal integer string.",
           "type": "string"
         }
       },
@@ -127,21 +142,24 @@
     },
     "ConservationReport": {
       "additionalProperties": false,
+      "description": "Linear conservation laws of the network and the count bounds they prove.",
       "properties": {
         "basis": {
+          "description": "Basis of the rational conservation space, with non-negative rows exposed where a simple combination allows it; empty unless the status is `exact`.",
           "items": {
             "$ref": "#/definitions/ConservationLaw"
           },
           "type": "array"
         },
         "diagnostics": {
+          "description": "`CRN-W010` or `CRN-W011` when the basis is unavailable.",
           "items": {
             "$ref": "#/definitions/Diagnostic"
           },
           "type": "array"
         },
         "initial_class_upper_bounds": {
-          "description": "Proven using non-negative basis rows only; None is not an unboundedness proof.",
+          "description": "Proven using non-negative basis rows only; None is not an unboundedness proof. One entry per species: floor(initial_total / coefficient), minimized over the rows, as a decimal string. It bounds the species in the initial conservation class only.",
           "items": {
             "type": [
               "string",
@@ -151,6 +169,7 @@
           "type": "array"
         },
         "rank": {
+          "description": "Rank of the stoichiometric matrix N; absent unless the status is `exact`. An exact basis has species − rank rows.",
           "format": "uint",
           "minimum": 0.0,
           "type": [
@@ -171,6 +190,7 @@
       "type": "object"
     },
     "ConservationStatus": {
+      "description": "Whether the linear conservation basis was computed.",
       "enum": [
         "exact",
         "size_limit",
@@ -180,14 +200,18 @@
     },
     "Diagnostic": {
       "additionalProperties": false,
+      "description": "One structured finding with a stable code, the JSON Pointer of the input it concerns, a message and a repair hint.",
       "properties": {
         "code": {
+          "description": "Stable code such as `CRN-E012` or `CRN-W001`, part of the machine contract.",
           "type": "string"
         },
         "hint": {
+          "description": "Suggested repair for the finding.",
           "type": "string"
         },
         "message": {
+          "description": "Human-readable detail; its wording is not part of the contract.",
           "type": "string"
         },
         "path": {
@@ -209,9 +233,10 @@
     },
     "LinkageReport": {
       "additionalProperties": false,
+      "description": "Complex graph of the network and its components; species and complex indices are zero-based.",
       "properties": {
         "complexes": {
-          "description": "First occurrence order while visiting each reaction's reactants/products.",
+          "description": "First occurrence order while visiting each reaction's reactants/products. Each complex is a sparse species vector; the empty complex is an empty list.",
           "items": {
             "items": {
               "$ref": "#/definitions/Term"
@@ -221,7 +246,7 @@
           "type": "array"
         },
         "deficiency": {
-          "description": "Absent when the exact stoichiometric rank is unavailable.",
+          "description": "Absent when the exact stoichiometric rank is unavailable. Otherwise complexes − linkage classes − rank.",
           "format": "uint",
           "minimum": 0.0,
           "type": [
@@ -230,6 +255,7 @@
           ]
         },
         "linkage_classes": {
+          "description": "Connected components of the undirected complex graph, as sorted complex indices.",
           "items": {
             "items": {
               "format": "uint",
@@ -241,12 +267,14 @@
           "type": "array"
         },
         "reaction_edges": {
+          "description": "One edge per reaction, in reaction order.",
           "items": {
             "$ref": "#/definitions/ComplexEdge"
           },
           "type": "array"
         },
         "strong_linkage_classes": {
+          "description": "Strongly connected components of the directed complex graph.",
           "items": {
             "items": {
               "format": "uint",
@@ -258,6 +286,7 @@
           "type": "array"
         },
         "terminal_strong_linkage_classes": {
+          "description": "Strong linkage classes that no edge leaves.",
           "items": {
             "items": {
               "format": "uint",
@@ -269,6 +298,7 @@
           "type": "array"
         },
         "weakly_reversible": {
+          "description": "Whether every linkage class is strongly connected.",
           "type": "boolean"
         }
       },
@@ -284,6 +314,7 @@
     },
     "NetworkAnalysis": {
       "additionalProperties": false,
+      "description": "Structure, rates and conservation analysis of a successfully compiled model.",
       "properties": {
         "conservation": {
           "$ref": "#/definitions/ConservationReport"
@@ -301,6 +332,7 @@
           "type": "array"
         },
         "evaluation_counts": {
+          "description": "The state at which propensities were evaluated: the supplied state, or the initial counts. It need not lie in the initial conservation class.",
           "items": {
             "format": "int64",
             "type": "integer"
@@ -308,7 +340,7 @@
           "type": "array"
         },
         "initial_class_upper_bounds": {
-          "description": "Cone bounds when exact, otherwise sound linear-basis bounds.",
+          "description": "Cone bounds when exact, otherwise sound linear-basis bounds. Null means not proved, not unbounded.",
           "items": {
             "type": [
               "string",
@@ -318,6 +350,7 @@
           "type": "array"
         },
         "initial_counts": {
+          "description": "Initial counts from the model.",
           "items": {
             "format": "int64",
             "type": "integer"
@@ -331,6 +364,7 @@
           "$ref": "#/definitions/ConeReport"
         },
         "propensities": {
+          "description": "Propensity of each reaction at `evaluation_counts`, in events per second.",
           "items": {
             "format": "double",
             "type": "number"
@@ -338,12 +372,14 @@
           "type": "array"
         },
         "reactions": {
+          "description": "Indexed reactions in declaration order.",
           "items": {
             "$ref": "#/definitions/ReactionStructure"
           },
           "type": "array"
         },
         "species": {
+          "description": "Species names in declaration order; this order indexes every other per-species list.",
           "items": {
             "type": "string"
           },
@@ -366,8 +402,10 @@
     },
     "ReactionStructure": {
       "additionalProperties": false,
+      "description": "Indexed structure of one reaction, with terms sorted by species index.",
       "properties": {
         "name": {
+          "description": "Reaction name from the model.",
           "type": "string"
         },
         "net_changes": {
@@ -378,12 +416,14 @@
           "type": "array"
         },
         "products": {
+          "description": "Produced species and coefficients.",
           "items": {
             "$ref": "#/definitions/Term"
           },
           "type": "array"
         },
         "reactants": {
+          "description": "Consumed species and coefficients; they also gate the channel.",
           "items": {
             "$ref": "#/definitions/Term"
           },
@@ -409,6 +449,7 @@
       "type": "object"
     },
     "Severity": {
+      "description": "Whether a diagnostic blocks use of the input or result: `error` does, `warning` is advisory.",
       "enum": [
         "error",
         "warning"
@@ -420,10 +461,12 @@
       "description": "Sparse entry. Indices refer to the model's species declaration order.",
       "properties": {
         "coefficient": {
+          "description": "Stoichiometric coefficient: positive on reactant and product sides, signed in net changes.",
           "format": "int64",
           "type": "integer"
         },
         "species": {
+          "description": "Zero-based species index.",
           "format": "uint",
           "minimum": 0.0,
           "type": "integer"
@@ -436,6 +479,7 @@
       "type": "object"
     }
   },
+  "description": "Result of `analyze`: success flag, input hashes, the analysis and every diagnostic.",
   "properties": {
     "analysis": {
       "anyOf": [
@@ -445,15 +489,18 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "The analysis when `success` is true, otherwise null."
     },
     "diagnostics": {
+      "description": "On success the model warnings (`CRN-W001` dropped for species with a proven bound) and the conservation and cone warnings; on failure the diagnostics of the failed step.",
       "items": {
         "$ref": "#/definitions/Diagnostic"
       },
       "type": "array"
     },
     "model_sha256": {
+      "description": "SHA-256 of the exact model bytes; null only when the model file could not be read.",
       "type": [
         "string",
         "null"
@@ -463,15 +510,18 @@
       "$ref": "#/definitions/AnalysisVersion"
     },
     "simulation_available": {
+      "description": "Always false: analysis runs no simulation.",
       "type": "boolean"
     },
     "state_sha256": {
+      "description": "SHA-256 of the exact state bytes when a state was supplied.",
       "type": [
         "string",
         "null"
       ]
     },
     "success": {
+      "description": "True when the model compiled and every propensity evaluated. Conservation or cone limits leave it true and show up in their status fields.",
       "type": "boolean"
     }
   },

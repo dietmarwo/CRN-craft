@@ -57,13 +57,16 @@
     },
     "Ensemble": {
       "additionalProperties": false,
+      "description": "Independent replicates of a stochastic run.",
       "properties": {
         "replicates": {
+          "description": "Number of independent replicates, ≥ 1, with ids 0 to replicates − 1.",
           "format": "uint64",
           "minimum": 1.0,
           "type": "integer"
         },
         "root_seed": {
+          "description": "Root seed. Each replicate draws from its own stream, derived from this seed and the replicate id, so results do not depend on the thread count.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
@@ -242,6 +245,7 @@
     },
     "ModelRef": {
       "additionalProperties": false,
+      "description": "Reference from a request to its model file: a relative path and the SHA-256 of the exact model bytes.",
       "properties": {
         "path": {
           "description": "Portable, relative to the run file's directory; no parent traversal.",
@@ -309,6 +313,7 @@
       "type": "string"
     },
     "Statistic": {
+      "description": "Ensemble statistic to report per species and save time.",
       "enum": [
         "mean",
         "variance"

@@ -1,10 +1,22 @@
 # CRN-craft compared with GillesPy2
 
+> **Measured before the 0.2.0 release.** These measurements come from
+> development builds of 2 November 2026 and have not been repeated on
+> release 0.2.0 (3 November 2026). The network SSA engine changed in
+> between: `fast` became the default of `ssa` requests
+> (`crn-craft.ssa-run/0.3`), the Ziggurat waiting-time sampler was
+> refactored so the rules engine can share it, and
+> `crn-craft.ssa-run/0.4` added the `next_reaction` aggregator, which
+> this comparison does not include. Requests of the measured versions
+> return the same results as before; their timings on 0.2.0 may differ.
+> With 0.2.0, `crn.ssa_spec(...)` without `fast` gives the `fast`
+> policy timed here.
+
 Measured on 2 November 2026 with CRN-craft 0.2.0-dev.1 (the `fast` branch on
 top of main add6cca) and GillesPy2 1.8.3, Python 3.13 and g++ 13.3, on one
 shared 2-vCPU cloud host. Script: [`validation/compare_gillespy2.py`](../validation/compare_gillespy2.py);
 raw report: [`validation/fast/gillespy2-comparison-fast.json`](../validation/fast/gillespy2-comparison-fast.json).
-The first comparison (1 November, checked default only) is kept in
+The first comparison (1 November, checked policy only) is kept in
 [`validation/campaign/gillespy2-comparison.json`](../validation/campaign/gillespy2-comparison.json).
 
 ## Summary
@@ -21,13 +33,14 @@ network:
 - 1.5 times faster on a dense 66-reaction Michaelis–Menten network, where
   CRN-craft's RSSACR method with `fast` is 9.2 times faster.
 
-With the checked default (`fast` off), `simulate-cached` is still 1.1 to 3.6
-times faster than GillesPy2's C++ solver. Against GillesPy2's pure Python
-solver (`NumPySSASolver`), CRN-craft with `fast` is 114 to 381 times faster.
+The legacy `simulate-cached` command, which always uses the checked policy
+(`fast` off), is still 1.1 to 3.6 times faster than GillesPy2's C++ solver.
+Against GillesPy2's pure Python solver (`NumPySSASolver`), CRN-craft with
+`fast` is 114 to 381 times faster.
 GillesPy2's C++ solver also compiles each model before its first run, which
 took 1.6 to 4.7 seconds.
 
-![Time per SSA event for CRN-craft fast cached Direct, the checked defaults and GillesPy2's C++ solver on W1–W4](images/gillespy2-time-per-event.png)
+![Time per SSA event for CRN-craft fast cached Direct, the checked legacy commands and GillesPy2's C++ solver on W1–W4](images/gillespy2-time-per-event.png)
 
 ## What was measured
 
@@ -47,7 +60,7 @@ How each column was timed:
 - **CRN-craft `fast`:** the wall time of `crn.simulate_ssa(model, request)`
   for a `crn.ssa_spec(..., waiting_time="ziggurat", fast=True)` request,
   including JSON encoding and decoding.
-- **CRN-craft default:** the wall time of `crn.simulate(model, run)` (legacy
+- **CRN-craft checked:** the wall time of `crn.simulate(model, run)` (legacy
   checked Direct, plain and cached). The command line gives the same times
   within about 5%.
 - **GillesPy2:** the wall time of `model.run(solver=..., number_of_trajectories=64)`
@@ -68,8 +81,8 @@ Median seconds for 64 paths:
 | CRN-craft `fast` DirectCR | 0.057 | **0.075** | 0.273 | 0.647 |
 | CRN-craft `fast` SortingDirect | 0.046 | 0.102 | 0.193 | 0.639 |
 | CRN-craft `fast` RSSACR | 0.058 | 0.083 | 0.309 | **0.083** |
-| CRN-craft `simulate-cached` (default) | 0.062 | 0.190 | 0.284 | 0.678 |
-| CRN-craft `simulate` (default) | 0.065 | 0.586 | 0.415 | 0.821 |
+| CRN-craft `simulate-cached` (checked) | 0.062 | 0.190 | 0.284 | 0.678 |
+| CRN-craft `simulate` (checked) | 0.065 | 0.586 | 0.415 | 0.821 |
 | GillesPy2 `SSACSolver` (C++) | 0.113 | 0.681 | 0.646 | 0.761 |
 | GillesPy2 `NumPySSASolver` | 4.42 | 24.4 | 27.5 | 31.5 |
 | GillesPy2 C++ compile (once per model) | 4.7 | 1.7 | 1.6 | 1.8 |
@@ -80,7 +93,7 @@ Time per event, in nanoseconds:
 |---|---|---|---|---|
 | CRN-craft `fast` cached Direct | 31 | 67 | 49 | 406 |
 | CRN-craft `fast` best method | 31 | 61 | 49 | 67 |
-| CRN-craft `simulate-cached` (default) | 49 | 153 | 78 | 553 |
+| CRN-craft `simulate-cached` (checked) | 49 | 153 | 78 | 553 |
 | GillesPy2 C++ | 89 | 552 | 176 | 621 |
 | GillesPy2 NumPy | 3,485 | 19,802 | 7,500 | 25,732 |
 
@@ -90,12 +103,12 @@ How many times longer GillesPy2's C++ solver takes than CRN-craft:
 |---|---|---|---|---|
 | CRN-craft `fast` cached Direct | 2.92 | 8.18 | 3.61 | 1.53 |
 | CRN-craft `fast` best method | 2.92 | 9.05 | 3.61 | 9.19 |
-| CRN-craft `simulate-cached` (default) | 1.83 | 3.59 | 2.27 | 1.12 |
-| CRN-craft `simulate` (default) | 1.75 | 1.16 | 1.56 | 0.93 |
+| CRN-craft `simulate-cached` (checked) | 1.83 | 3.59 | 2.27 | 1.12 |
+| CRN-craft `simulate` (checked) | 1.75 | 1.16 | 1.56 | 0.93 |
 
-`fast` makes cached Direct 1.4 to 2.3 times faster than the checked default
+`fast` makes cached Direct 1.4 to 2.3 times faster than the checked
 `simulate-cached` on these networks. The repressilator rows also include the
-exact Hill-rate memo added since the first comparison, which made the default
+exact Hill-rate memo added since the first comparison, which made the checked
 `simulate-cached` about twice as fast there (0.553 s on 1 November).
 
 Run-to-run spread: most timed runs lie within 5% of their median. Single runs
@@ -124,7 +137,7 @@ by up to 17% on W1; the medians are robust to these outliers.
   of an event summing and scanning 66 propensities and 33 species. CRN-craft
   re-sums only from the changed reaction onward (half the channels on average)
   and finds the reaction by binary search in about six steps.
-- **The checked default does more work per event and is still faster.** On
+- **The checked policy does more work per event and is still faster.** On
   every event it checks that no positive propensity is lost to rounding or too
   small to be selected, polls for cancellation before every random number and
   uses a ChaCha8 stream per path. It also guarantees byte-identical results
@@ -168,8 +181,8 @@ different seeds:
     over 198 species means.
 - **W4:** all eight species stay equal in every path of both simulators, as the
   network's structure requires.
-- **The default samples are the same as on 1 November.** Seeds and the checked
-  default are unchanged, so these figures repeat the first comparison exactly.
+- **The checked samples are the same as on 1 November.** Seeds and the checked
+  policy are unchanged, so these figures repeat the first comparison exactly.
 - **`fast` also agrees with GillesPy2.** CRN-craft's `fast` cached Direct ran
   512 more paths per network against 512 new GillesPy2 paths (other seeds):
   all ten KS p-values are at least 0.18 and every mean |z| is at most 1.47;
@@ -207,9 +220,11 @@ different seeds:
 - **What the timings include:** GillesPy2's include building its result
   objects and, for the C++ solver, launching its compiled program and parsing
   its output. CRN-craft's include JSON encoding and decoding in Python.
-- **`fast` is not the default.** It gives up CRN-craft's per-event loss and
-  resolution checks and uses a different random generator, so its paths differ
-  from the default ones; see the README for when to use it.
+- **`fast` gives up the checked guarantees.** It drops CRN-craft's per-event
+  loss and resolution checks and uses a different random generator, so its
+  paths differ from the checked ones. It was opt-in when this was measured
+  and is the default of `ssa` requests since `crn-craft.ssa-run/0.3`; see the
+  README for when to set `fast: false`.
 - **Scope:** only exact SSA on one thread. CRN-craft can also divide
   replicates among threads without changing results. GillesPy2 also offers
   tau-leaping, hybrid and ODE solvers, which are not compared here.

@@ -1,12 +1,23 @@
 # CRN-craft compared with Catalyst.jl and JumpProcesses.jl
 
+> **Measured before the 0.2.0 release.** These measurements come from
+> development builds of 2 November 2026 and have not been repeated on
+> release 0.2.0 (3 November 2026). The network SSA engine changed in
+> between: `fast` became the default of `ssa` requests
+> (`crn-craft.ssa-run/0.3`), the Ziggurat waiting-time sampler was
+> refactored so the rules engine can share it, and
+> `crn-craft.ssa-run/0.4` added the `next_reaction` aggregator, which
+> this comparison does not include. Requests of the measured versions
+> return the same results as before; their timings on 0.2.0 may differ.
+
 Updated **2 November 2026**, after the five-step exact-SSA acceleration campaign.
 CRN-craft **0.2.0-dev.1** now has DirectCR, SortingDirect, RSSACR, reusable Python
 preparation and a separately versioned exponential Ziggurat sampler. Julia remains
 **1.13.3**, Catalyst **17.0.0**, and
 JumpProcesses **10.0.1**. Exact source hashes are
-retained in the measurement report; the implementation is an unpushed patch over
-GitHub base `baed0e4590f93e4c1dcc77cd7f039a2604a1594c`.
+retained in the measurement report. The implementation was then an unpushed
+patch over GitHub base `baed0e4590f93e4c1dcc77cd7f039a2604a1594c`; it has since
+been merged and released in 0.2.0.
 
 **The largest measured improvement over legacy cached Direct is 6.71×
 on W6; W4 improves 4.04×.** Julia's fastest measured method remains
@@ -37,7 +48,7 @@ on 256-path batches. It supersedes the projection below, which is kept as
 recorded.
 
 **Update with `fast` (projected, not remeasured).** Comparisons now time
-CRN-craft with the opt-in `fast` switch, which emulates JumpProcesses' policy
+CRN-craft with the `fast` switch (then opt-in), which emulates JumpProcesses' policy
 (Xoshiro256++, running totals without loss or resolution checks, batched stop
 polls; see the [README](../README.md#exact-ssa-methods-and-the-fast-switch)).
 Julia's package hosts were again unreachable, so this table scales the CRN

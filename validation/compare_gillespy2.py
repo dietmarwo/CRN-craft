@@ -19,11 +19,13 @@ thread, with independent random streams in the two simulators. The script
    waits; call wall time), GillesPy2's compiled SSACSolver (compiled once,
    compile time reported separately) and its NumPySSASolver.
 
-`fast=True` is CRN-craft's opt-in JumpProcesses-style policy (Xoshiro256++,
+`fast=True` is CRN-craft's JumpProcesses-style policy (Xoshiro256++,
 running totals without loss or resolution checks, batched stop polls). Like
 GillesPy2, it does not check every positive channel against the 53-bit
-selection resolution, so it is the like-for-like setting; the checked default
-(`fast` off) is timed as well. The fast cached Direct method is the closest
+selection resolution, so it is the like-for-like setting; the checked policy
+(`fast` off) is timed as well. The script passes `fast` explicitly, so its
+requests mean the same before and after `fast` became the default
+(ssa-run/0.3). The fast cached Direct method is the closest
 algorithmic match to GillesPy2's SSACSolver (Direct method); it is also
 validated against GillesPy2 below.
 
@@ -261,7 +263,7 @@ def plot(report, path):
     }
     series = [
         ("python_fast_cached_direct", "CRN-craft fast cached Direct", "#2a78d6"),
-        ("python_cached", "CRN-craft simulate-cached (checked default)", "#8fb5e6"),
+        ("python_cached", "CRN-craft simulate-cached (checked)", "#8fb5e6"),
         ("python_simulate", "CRN-craft simulate", "#eb6834"),
         ("gillespy2_ssa_cpp", "GillesPy2 SSACSolver (C++)", "#1baf7a"),
     ]

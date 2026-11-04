@@ -3,9 +3,9 @@
 # CRATES_IO_TRUSTED_PUBLISHING=true, a tag publishes through Trusted
 # Publishing. Before that, the first release publishes with a crates.io API
 # token in the secret CARGO_REGISTRY_TOKEN of the `release` environment
-# (crates.io accepts Trusted Publishers only for existing crates); without
-# either, the workflow validates and skips the upload. Pull requests that touch
-# the crate manifests and manual runs validate only. See RELEASING.md.
+# (crates.io accepts Trusted Publishers only for existing crates); a tag run
+# with neither fails instead of skipping the upload. Pull requests that touch
+# the crates and manual runs validate only. See RELEASING.md.
 name: Publish crates to crates.io
 
 on:
@@ -17,9 +17,7 @@ on:
       - ".github/workflows/publish-crates.yml"
       - "Cargo.toml"
       - "Cargo.lock"
-      - "crates/*/Cargo.toml"
-      - "crates/*/build.rs"
-      - "crates/*/README.md"
+      - "crates/**"
       - "scripts/check_release.py"
       - "scripts/package_version.py"
   workflow_dispatch:

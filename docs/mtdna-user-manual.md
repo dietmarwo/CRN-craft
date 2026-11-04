@@ -45,10 +45,20 @@ cargo install crn-craft-cli --locked     # optional: the native command-line too
 ```
 
 The Python package contains the native engine, so the CLI is optional. Every
-Python feature in this manual is in release 0.2.0. Features that are newer
-than the release are Rust only and are marked where they appear. To use the
-current source instead of the release, build the wheel from a clone of the
-repository:
+feature in this manual is in release 0.2.0; features that exist only in Rust
+are marked where they appear.
+
+Both packages install a command named `crn-craft`. The rules commands
+(`rules-check`, `rules`, `describe rules-run`) exist only in the native CLI
+from `cargo install`; the Python package's `crn-craft` command covers the
+fixed-network tools. If both are installed, the one that comes first on your
+`PATH` wins. `crn-craft --version` tells them apart (the Python command
+prints `"interface": "python"`); call the native binary by its full path,
+by default `~/.cargo/bin/crn-craft`, if needed. Section 14
+shows the rules commands.
+
+To use the current source instead of the release, build the wheel from a
+clone of the repository:
 
 ```sh
 pip install maturin
@@ -996,6 +1006,9 @@ if len(sys.argv) > 2:
     print("result fields:", sorted(result))
 ```
 
+These commands need the native CLI (`cargo install crn-craft-cli --locked`),
+not the command of the same name from the Python package; see section 1.
+
 ```sh
 python examples/mtdna/11_cli_request.py /tmp/takeover
 crn-craft rules-check /tmp/takeover/takeover.rules.json
@@ -1041,7 +1054,7 @@ println!("{} cells stopped", result.stopped_replicates);
   `EventObserver` for every committed event on the native workers. It
   returns `ObserverAction::Stop` to end that cell. An observer that always
   continues compiles away and leaves results byte-identical.
-- *Newer than 0.2.0:* `generate_rules_loop(&prepared)` emits Rust source
+- *Rust only:* `generate_rules_loop(&prepared)` emits Rust source
   for the whole Static Direct event of a closed model with constant or
   vacancy rates, including its stop. Compile it into your program and run
   it with `execute_with_rules_loop`. Results are byte-identical to

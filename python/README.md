@@ -56,13 +56,18 @@ gives the same result on every run and for every thread count.
 - `pip install "crn-craft[fit]"` adds the pinned SciPy, fcmaes-rust and
   SQP-craft versions used by the fitting examples.
 
-The rules engine for dynamic, attributed species is part of the native CLI
+The rules engine for dynamic, attributed species is in the wheel as
+`crn_craft.rules`: prepared parallel ensembles, trackers, event logs and
+callbacks, and the mtDNA methods; see the
+[mtDNA user manual](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-user-manual.md).
+Its command-line tools (`rules-check`, `rules`) are in the native CLI
 (`cargo install crn-craft-cli --locked`, crates
 [crn-craft](https://crates.io/crates/crn-craft) and
-[crn-craft-rules](https://crates.io/crates/crn-craft-rules)). The optional
-diffsol BDF integrator with forward sensitivities and the job worker for
+[crn-craft-rules](https://crates.io/crates/crn-craft-rules)), which installs a
+`crn-craft` command of the same name as the wheel's. The optional diffsol BDF
+integrator with forward sensitivities and the job worker for
 [optimization-jobs](https://github.com/dietmarwo/optimization-jobs) build from
-the repository. None of these are part of the wheel.
+the repository and are not part of the wheel.
 
 ## Documentation
 

@@ -2,7 +2,7 @@
 
 > **Measured before the 0.2.0 release.** These measurements come from the
 > import commit `85a085b` of 2 November 2026 and have not been repeated on
-> release 0.2.0 (3 November 2026). Review fixes since the import
+> release 0.2.0 (4 November 2026). Review fixes since the import
 > (`fdfd3d8`) changed the fallback that generated kernels use for rates they
 > do not specialize (other laws than mass action, reactions above second
 > order) and for values that are not normal floats; the three mass-action

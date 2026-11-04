@@ -16,6 +16,8 @@ on:
     paths:
       - ".github/workflows/python-release.yml"
       - "pyproject.toml"
+      - "Cargo.lock"
+      - "crates/**"
       - "python/**"
       - "bindings/python/**"
       - "scripts/package_version.py"

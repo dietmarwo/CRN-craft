@@ -7,69 +7,7 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
-### Added
-
-- mtDNA documentation:
-  - `docs/mtdna-user-manual.md`: every application scenario, from takeover
-    statistics and trackers to event logs, callbacks, the clone and ATP
-    models, sweeps, the CLI and Rust.
-  - `docs/mtdna-optimization-tutorial.md`: fitting `mu` and `sm` to
-    heteroplasmy distributions with fcmaes, covering noise, common random
-    numbers, staged refinement, held-out checks and parallel evaluation.
-  - `docs/mtdna-performance-analysis.md`: methods, threads, copy number,
-    observation, interfaces, other models, comparisons and study sizing.
-  - Runnable scripts in `examples/mtdna/`, with timings in
-    `validation/mtdna/user-scenarios-timing.json`.
-
-- Generated rules event loops (Rust only): `generate_rules_loop` emits the
-  whole Static Direct event for a lowered model with constant or vacancy
-  rates and sum projections, and `execute_with_rules_loop` runs it through
-  the new `RulesLoop` trait and `LoopHost`. Results are byte-identical to
-  `execute` for every Static Direct request on the same model bytes. On the
-  128-cell mtDNA probe it was 2.3× faster than the interpreter under
-  Ziggurat waits and sparse trackers and within 1.36× of `mtdna_direct`.
-  New example `generate_rules_loop`, tests with ten checked-in loops and
-  `validation/check_generated_loop.py`. See
-  `docs/decisions/generated-rules-loop-2026-11-03.md`.
-
-### Changed
-
-- Comparison documents state that they were measured on development builds
-  of 2 November, before the 0.2.0 release, and name the engine changes since.
-  Wording that predates the release is corrected: `fast` is the default of
-  `ssa-run/0.3`, the legacy `simulate` commands are labeled checked rather
-  than default, and the status lines no longer say nothing was published.
-  The GillesPy2 figure's legend is regenerated from the same report.
-- Generated rules loops emit every stop predicate, not only the guarded
-  fraction form, with the bytecode's semantics. An undefined value still
-  reaches the interpreter's diagnostic. With the stop
-  `N > 0 && mutants / N >= 0.9`, the mtDNA probe's loop went from 90 to
-  53 ns per event. Existing loops must be regenerated, because the emitted
-  source, and so the fingerprint, changes.
-- Static Direct finds the smallest positive rate while summing in networks
-  of at least 32 channels instead of testing every rate in a second pass.
-  Results are byte-identical; the 96- and 512-channel probe networks ran
-  1.25× and 1.34× faster. `validation/probe_structural_rules.py` gains the
-  512-channel workload.
-
-### Validation
-
-- A compact, table-driven loop layout for densely coupled networks above
-  1 MiB replayed byte for byte but reached only 1.15× over the interpreter
-  on a 256-channel network (criterion 1.25×), and was not adopted. Fusing the
-  minimum into unrolled loops slowed them down. Both are recorded in
-  `validation/mtdna/generated-loop-followups.json`, with the compact patch
-  under `validation/mtdna/followup-attempts/`.
-- Recorded a loop of structural changes meant to close the gap between
-  generic Static Direct and `mtdna_direct`: inline rate factors, a fused
-  total and resolution check, exact incremental sum projections and a
-  grouped evaluator. None met its declared criterion, so samplers,
-  identities and contracts are unchanged. The probe is
-  `validation/probe_structural_rules.py`; the results and attempt patches
-  are under `validation/mtdna/`. See
-  `docs/decisions/generic-rules-structural-2026-11-03.md`.
-
-## [0.2.0] - 2026-11-03
+## [0.2.0] - 2026-11-04
 
 The first release: the crates `crn-craft`, `crn-craft-rules` and
 `crn-craft-cli` on crates.io and the Python package `crn-craft` on PyPI, with
@@ -103,11 +41,96 @@ iterations that make up this release follow.
   crates from their own archives and publishes them in dependency order.
   `scripts/package_version.py` and `scripts/check_release.py` check versions,
   crate metadata and lockfiles. The manual `wheels.yml` workflow is replaced.
+- Generated Rust event loops for Static Direct rules models (Rust only), and
+  user guides for mtDNA mutant accumulation: a user manual, an optimization
+  tutorial with fcmaes and a performance analysis, with runnable examples.
 - Archives record `cargo_lock_sha256` from a build-script hash of the lockfile
   (the packaged crate's own, or the checkout's root one) instead of
   `include_bytes!` of a path outside the crate, which no packaged crate could
   build. Checkout builds record the same hash as before; see
   `docs/archive-contract.md`.
+
+### Generated rules loops, API documentation and user guides
+
+#### API documentation
+
+- Every public item of `crn-craft` and `crn-craft-rules` is documented, with
+  crate landing pages, module docs and doc examples for the main entry
+  points; both crates warn on missing docs. Generated JSON schemas gain the
+  same text as `description` entries; their shapes are unchanged.
+
+#### Release fixes
+
+- The PyPI description says correctly that the rules engine ships in the
+  wheel as `crn_craft.rules`; its command-line tools are in the native CLI.
+- The mtDNA manual explains that the wheel and `crn-craft-cli` both install a
+  `crn-craft` command, and that only the native one has the rules commands.
+- `validation/check_installed.py` checks the installed rules engine against
+  the immigration-death law and across thread counts.
+- The wheel and crate packaging workflows also run on pull requests that
+  change crate sources.
+
+#### Added
+
+- mtDNA documentation:
+  - `docs/mtdna-user-manual.md`: every application scenario, from takeover
+    statistics and trackers to event logs, callbacks, the clone and ATP
+    models, sweeps, the CLI and Rust.
+  - `docs/mtdna-optimization-tutorial.md`: fitting `mu` and `sm` to
+    heteroplasmy distributions with fcmaes, covering noise, common random
+    numbers, staged refinement, held-out checks and parallel evaluation.
+  - `docs/mtdna-performance-analysis.md`: methods, threads, copy number,
+    observation, interfaces, other models, comparisons and study sizing.
+  - Runnable scripts in `examples/mtdna/`, with timings in
+    `validation/mtdna/user-scenarios-timing.json`.
+
+- Generated rules event loops (Rust only): `generate_rules_loop` emits the
+  whole Static Direct event for a lowered model with constant or vacancy
+  rates and sum projections, and `execute_with_rules_loop` runs it through
+  the new `RulesLoop` trait and `LoopHost`. Results are byte-identical to
+  `execute` for every Static Direct request on the same model bytes. On the
+  128-cell mtDNA probe it was 2.3× faster than the interpreter under
+  Ziggurat waits and sparse trackers and within 1.36× of `mtdna_direct`.
+  New example `generate_rules_loop`, tests with ten checked-in loops and
+  `validation/check_generated_loop.py`. See
+  `docs/decisions/generated-rules-loop-2026-11-03.md`.
+
+#### Changed
+
+- Comparison documents state that they were measured on development builds
+  of 2 November, before the 0.2.0 release, and name the engine changes since.
+  Wording that predates the release is corrected: `fast` is the default of
+  `ssa-run/0.3`, the legacy `simulate` commands are labeled checked rather
+  than default, and the status lines no longer say nothing was published.
+  The GillesPy2 figure's legend is regenerated from the same report.
+- Generated rules loops emit every stop predicate, not only the guarded
+  fraction form, with the bytecode's semantics. An undefined value still
+  reaches the interpreter's diagnostic. With the stop
+  `N > 0 && mutants / N >= 0.9`, the mtDNA probe's loop went from 90 to
+  53 ns per event. Existing loops must be regenerated, because the emitted
+  source, and so the fingerprint, changes.
+- Static Direct finds the smallest positive rate while summing in networks
+  of at least 32 channels instead of testing every rate in a second pass.
+  Results are byte-identical; the 96- and 512-channel probe networks ran
+  1.25× and 1.34× faster. `validation/probe_structural_rules.py` gains the
+  512-channel workload.
+
+#### Validation
+
+- A compact, table-driven loop layout for densely coupled networks above
+  1 MiB replayed byte for byte but reached only 1.15× over the interpreter
+  on a 256-channel network (criterion 1.25×), and was not adopted. Fusing the
+  minimum into unrolled loops slowed them down. Both are recorded in
+  `validation/mtdna/generated-loop-followups.json`, with the compact patch
+  under `validation/mtdna/followup-attempts/`.
+- Recorded a loop of structural changes meant to close the gap between
+  generic Static Direct and `mtdna_direct`: inline rate factors, a fused
+  total and resolution check, exact incremental sum projections and a
+  grouped evaluator. None met its declared criterion, so samplers,
+  identities and contracts are unchanged. The probe is
+  `validation/probe_structural_rules.py`; the results and attempt patches
+  are under `validation/mtdna/`. See
+  `docs/decisions/generic-rules-structural-2026-11-03.md`.
 
 ### mtDNA ensembles and faster generic rules
 

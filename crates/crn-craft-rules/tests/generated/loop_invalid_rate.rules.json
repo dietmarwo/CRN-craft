@@ -1,0 +1,68 @@
+{
+  "schema": "crn-craft.rules-model/0.1",
+  "name": "loop_invalid_rate",
+  "description": "A vacancy rate whose denominator reaches zero while its reactant is present.",
+  "parameters": {
+    "d": 1.0,
+    "K": 20
+  },
+  "types": [
+    {
+      "name": "A"
+    },
+    {
+      "name": "C"
+    }
+  ],
+  "initial": [
+    {
+      "type": "A",
+      "count": 5
+    },
+    {
+      "type": "C",
+      "count": 1
+    }
+  ],
+  "observables": {
+    "nA": {
+      "type": "A"
+    },
+    "nC": {
+      "type": "C"
+    }
+  },
+  "rules": [
+    {
+      "name": "death",
+      "reactants": [
+        {
+          "type": "A",
+          "label": "x"
+        }
+      ],
+      "rate": "d",
+      "products": []
+    },
+    {
+      "name": "grow",
+      "reactants": [
+        {
+          "type": "C",
+          "label": "x"
+        }
+      ],
+      "rate": "max(0, K - nC) / nA",
+      "products": [
+        {
+          "type": "C",
+          "copy": "x"
+        },
+        {
+          "type": "C",
+          "copy": "x"
+        }
+      ]
+    }
+  ]
+}

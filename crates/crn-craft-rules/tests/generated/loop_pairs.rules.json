@@ -1,0 +1,103 @@
+{
+  "schema": "crn-craft.rules-model/0.1",
+  "name": "loop_pairs",
+  "description": "Identical and distinct pairs, extinction, instance creation and a general stop predicate.",
+  "parameters": {
+    "d": 0.3,
+    "p": 0.02,
+    "q": 0.01,
+    "e": 0.5
+  },
+  "types": [
+    {
+      "name": "A"
+    },
+    {
+      "name": "B"
+    }
+  ],
+  "initial": [
+    {
+      "type": "A",
+      "count": 40
+    }
+  ],
+  "observables": {
+    "nA": {
+      "type": "A"
+    },
+    "nB": {
+      "type": "B"
+    },
+    "w": {
+      "type": "B",
+      "weight": "2.5"
+    }
+  },
+  "rules": [
+    {
+      "name": "death_a",
+      "reactants": [
+        {
+          "type": "A",
+          "label": "x"
+        }
+      ],
+      "rate": "d",
+      "products": []
+    },
+    {
+      "name": "pair_aa",
+      "reactants": [
+        {
+          "type": "A",
+          "label": "x"
+        },
+        {
+          "type": "A",
+          "label": "y"
+        }
+      ],
+      "rate": "p",
+      "products": [
+        {
+          "type": "B"
+        }
+      ]
+    },
+    {
+      "name": "pair_ab",
+      "reactants": [
+        {
+          "type": "A",
+          "label": "x"
+        },
+        {
+          "type": "B",
+          "label": "y"
+        }
+      ],
+      "rate": "q",
+      "products": [
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        }
+      ]
+    },
+    {
+      "name": "death_b",
+      "reactants": [
+        {
+          "type": "B",
+          "label": "x"
+        }
+      ],
+      "rate": "e",
+      "products": []
+    }
+  ],
+  "stop": "nB >= 9 || (nA == 0 && w > 4)"
+}

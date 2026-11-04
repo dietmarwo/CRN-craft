@@ -1,0 +1,56 @@
+{
+  "schema": "crn-craft.rules-model/0.1",
+  "name": "loop_overflow",
+  "description": "A projection with a weight large enough to overflow.",
+  "parameters": {
+    "k": 5.0,
+    "d": 0.001
+  },
+  "types": [
+    {
+      "name": "A"
+    }
+  ],
+  "initial": [
+    {
+      "type": "A",
+      "count": 150
+    }
+  ],
+  "observables": {
+    "nA": {
+      "type": "A"
+    },
+    "small": {
+      "type": "A",
+      "weight": "2"
+    },
+    "big": {
+      "type": "A",
+      "weight": "1e306"
+    }
+  },
+  "rules": [
+    {
+      "name": "influx",
+      "reactants": [],
+      "rate": "k",
+      "products": [
+        {
+          "type": "A"
+        }
+      ]
+    },
+    {
+      "name": "death",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A"
+        }
+      ],
+      "rate": "d",
+      "products": []
+    }
+  ]
+}

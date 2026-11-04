@@ -34,7 +34,7 @@ pub(crate) struct Network {
     pub stop_affected: Vec<bool>,
     pub observe_affected: Vec<bool>,
     pub cold: Vec<usize>,
-    changed: Vec<Vec<usize>>,
+    pub(crate) changed: Vec<Vec<usize>>,
     hot_changed: Vec<Vec<usize>>,
 }
 

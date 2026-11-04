@@ -4,6 +4,9 @@
 mod flat_path;
 #[path = "leap.rs"]
 mod leap;
+#[path = "loop_host.rs"]
+mod loop_host;
+pub use loop_host::{LoopHalt, LoopHost};
 #[path = "mtdna_path.rs"]
 mod mtdna_path;
 #[path = "thinning.rs"]
@@ -572,12 +575,13 @@ pub(crate) struct Path<'a> {
     pub id: u64,
     pub flat: Option<&'a crate::flat::Network>,
     pub generated: Option<&'a dyn crate::RulesKernel>,
+    pub generated_loop: Option<&'a dyn crate::RulesLoop>,
     pub mtdna: Option<&'a crate::mtdna::Kernel>,
     pub method: crate::Method,
 }
 
 impl Path<'_> {
-    pub(crate) fn run<R: RngCore, O: EventObserver>(
+    pub(crate) fn run<R: RngCore + 'static, O: EventObserver>(
         &self,
         rng: &mut R,
         observer: &O,

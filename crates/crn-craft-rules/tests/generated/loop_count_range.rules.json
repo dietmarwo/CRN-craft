@@ -1,0 +1,48 @@
+{
+  "schema": "crn-craft.rules-model/0.1",
+  "name": "loop_count_range",
+  "description": "A count that leaves 0..2^53.",
+  "parameters": {
+    "k": 1.0,
+    "d": 1e-30
+  },
+  "types": [
+    {
+      "name": "A"
+    }
+  ],
+  "initial": [
+    {
+      "type": "A",
+      "count": 9007199254740990
+    }
+  ],
+  "observables": {
+    "nA": {
+      "type": "A"
+    }
+  },
+  "rules": [
+    {
+      "name": "influx",
+      "reactants": [],
+      "rate": "k",
+      "products": [
+        {
+          "type": "A"
+        }
+      ]
+    },
+    {
+      "name": "death",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A"
+        }
+      ],
+      "rate": "d",
+      "products": []
+    }
+  ]
+}

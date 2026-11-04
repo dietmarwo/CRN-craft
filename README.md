@@ -29,7 +29,7 @@ The [four CRN optimization lessons](tutorials/optimization/README.md) cover reus
 - [Agent context](docs/ai-context.md): what an AI agent needs to use and extend CRN-craft
 - [Dynamic, attributed species (experimental)](docs/rules-language.md): rule-based models whose species appear and disappear (mtDNA clones, aggregation), with [K1 law gates](validation/rules/RESULTS.md)
 - [Three-class mtDNA ensembles](docs/mtdna-rules.md): parallel Python ensembles, event trackers and callbacks, Static Direct, a specialized fixed-population sampler, next reaction, approximate tau and binomial steps, and ATP-coupled thinning ([review log](docs/campaign/mtdna-a0-a6-review-log-2026-11-03.md))
-- [Rules kernel checklist](docs/specialized-kernels.md): when a model-specific rules kernel pays off, and generated rules kernels
+- [Rules kernel checklist](docs/specialized-kernels.md): when a model-specific rules kernel pays off, and generated rules kernels and event loops
 
 **Using CRN-craft**
 

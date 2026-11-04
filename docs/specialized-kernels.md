@@ -4,7 +4,8 @@ Use the generic Static Direct path first. Measure the default cached path,
 then the opt-in Ziggurat and sparse count trackers when the changed replay
 identity is appropriate. Compare the generic engine with the candidate on
 the same model, output contract, workload and hardware. Try the ahead-of-time
-generator when its supported rate and projection families cover the model.
+generated event loop when its supported rate and projection families cover
+the model.
 
 Use the following checklist when the remaining measured gap warrants a
 hand-written kernel.
@@ -88,4 +89,82 @@ stop predicate. `mtdna_direct` fuses all of them and refreshes no
 projections between reports. Closing the gap therefore needs generated
 code for the whole event, not only for the rates. The
 [decision record](decisions/generic-rules-structural-2026-11-03.md) has
-the measurements, the profile and that next step.
+the measurements, the profile and that next step. The generated event loop
+below implements it.
+
+## Generated rules event loops
+
+The loop generator emits the whole Static Direct event for a lowered model
+with constant or recognized vacancy rates and sum projections. The emitted `GeneratedRulesLoop` holds the rates in a
+fixed-size array and, after each event, updates the channels that the
+fired channel affects. It sums the total in channel order, checks
+resolution, scans for the next channel, validates and applies the count
+changes and refreshes the projections the channel changes. It also
+evaluates a guarded fraction stop such as `N > 0 && mutants >= 0.9 * N`.
+All of it is straight-line code with the interpreter's operation order.
+`LoopHost` supplies the rest at run time: polling, inverse or Ziggurat
+waits, uniforms, reports and the horizon, the event, instance and sampling
+budgets, tracker observation, event logs and other stop predicates.
+
+```sh
+cargo run --release --locked -p crn-craft-rules --example generate_rules_loop -- MODEL REQUEST > loop.rs
+```
+
+Compile the module into the Rust application and run it with
+`execute_with_rules_loop(&prepared, &control, &GeneratedRulesLoop)`.
+Results are byte-identical to `execute` for the same request. Request
+settings are not compiled in, so one loop serves every Static Direct
+request for its model bytes: either waiting time, either tracker policy,
+any report grid, budget or worker count. As for the rates kernel, the
+fingerprint is the SHA-256 of the emitted source keyed by the model bytes,
+and a loop for other model bytes or from another generator version is
+refused with `CRN-R020`. Other methods, expression rates and max, min or
+distinct projections are refused by the generator. So is a loop whose
+source would exceed 1 MiB: the rate code is repeated in every dependency
+row, so densely coupled networks grow with the square of their channel
+count. A 64-channel network with one shared vacancy base emits about
+0.8 MB, and 128 channels would exhaust a 7 GB build host. Such networks use
+the rates kernel or the interpreter. Observers are not supported on this
+path; trackers and event logs are.
+
+The loop refreshes every projection the fired channel changes. The
+interpreter, without an observer, refreshes only the projections that rates,
+the stop predicate or trackers read, and recomputes the rest before each
+report. The extra values depend only on the counts and are recomputed
+before every report, so outputs do not change. Projections that could
+overflow are refreshed by both. A deferred projection cannot overflow,
+because lowering allows at most 256 species and the interpreter defers only
+weights bounded for 1024 terms.
+
+`crates/crn-craft-rules/tests/generated_loop.rs` runs checked-in loops for
+nine fixtures under `cargo test`:
+
+- the three-class model with its takeover stop;
+- identical and distinct pairs with extinction and a general stop
+  predicate;
+- a channel below 53-bit resolution, with an influx;
+- an invalid vacancy rate;
+- vacancy rates shared by several channels, with a fraction stop or with
+  a stop that becomes undefined;
+- a count that leaves its range;
+- a projection that overflows;
+- a network without channels.
+
+The tests replay every Static Direct policy and the event, sampling-step
+and instance limits. They also cover trackers, first-passage trackers,
+event logs, reports close together, a horizon before the first event, the
+stops and the errors. They check that cancellation is polled inside the
+loop, and that other model bytes, other methods, expression rates and
+oversized networks are refused. `validation/check_generated_loop.py` generates loops for
+eleven replay cases, replays them against the CLI with one and eight
+workers, checks that an aggregation model with a max projection is refused,
+and times the probe.
+
+On the two-CPU host, the 128-cell probe took about 49 ns per event with the
+generated loop under Ziggurat waits and sparse trackers. That is 2.3× faster
+than the interpreter (114 ns) and 1.36× the cost of `mtdna_direct`
+(36 ns). Under default Static Direct the loop took 72 ns, against 134 ns.
+The rates-only kernel took 99 ns and 127 ns. See the
+[decision record](decisions/generated-rules-loop-2026-11-03.md) and
+`validation/mtdna/generated-loop.json`. Like the rates kernel, the loop is
+Rust only. Python use would need a wheel built with the generated module.

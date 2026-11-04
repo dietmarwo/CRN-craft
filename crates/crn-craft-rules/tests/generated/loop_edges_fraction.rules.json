@@ -1,0 +1,193 @@
+{
+  "schema": "crn-craft.rules-model/0.1",
+  "name": "loop_edges_fraction",
+  "description": "Vacancy rates shared by several channels, pairs, an influx and a guarded fraction stop.",
+  "parameters": {
+    "k": 2.0,
+    "d": 0.1,
+    "K": 300,
+    "r1": 1.2,
+    "r2": 0.8,
+    "q": 0.002,
+    "e": 0.01
+  },
+  "types": [
+    {
+      "name": "A",
+      "attributes": [
+        "s"
+      ]
+    },
+    {
+      "name": "B"
+    },
+    {
+      "name": "C"
+    }
+  ],
+  "initial": [
+    {
+      "type": "A",
+      "attributes": {
+        "s": 1
+      },
+      "count": 30
+    },
+    {
+      "type": "A",
+      "attributes": {
+        "s": 2
+      },
+      "count": 20
+    },
+    {
+      "type": "B",
+      "count": 12
+    }
+  ],
+  "observables": {
+    "N": {
+      "type": "A"
+    },
+    "D": {
+      "type": "A",
+      "weight": "x.s"
+    },
+    "nB": {
+      "type": "B"
+    },
+    "neg": {
+      "type": "B",
+      "weight": "-1.5"
+    },
+    "zero": {
+      "type": "C",
+      "weight": "0"
+    },
+    "nC": {
+      "type": "C"
+    },
+    "a2": {
+      "type": "A",
+      "where": "x.s == 2"
+    }
+  },
+  "rules": [
+    {
+      "name": "influx",
+      "reactants": [],
+      "rate": "k",
+      "products": [
+        {
+          "type": "C"
+        }
+      ]
+    },
+    {
+      "name": "repA",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A"
+        }
+      ],
+      "rate": "max(0, K - N) / D * r1",
+      "products": [
+        {
+          "type": "A",
+          "copy": "x"
+        },
+        {
+          "type": "A",
+          "copy": "x"
+        }
+      ]
+    },
+    {
+      "name": "repA2",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A",
+          "where": "x.s == 2"
+        }
+      ],
+      "rate": "max(0, K - N) / D * r2 * 0.5",
+      "products": [
+        {
+          "type": "A",
+          "copy": "x"
+        },
+        {
+          "type": "A",
+          "copy": "x"
+        }
+      ]
+    },
+    {
+      "name": "deathA",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A"
+        }
+      ],
+      "rate": "d",
+      "products": []
+    },
+    {
+      "name": "cross",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A"
+        },
+        {
+          "label": "y",
+          "type": "B"
+        }
+      ],
+      "rate": "q",
+      "products": [
+        {
+          "type": "A",
+          "copy": "x"
+        },
+        {
+          "type": "C"
+        }
+      ]
+    },
+    {
+      "name": "pairB",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "B"
+        },
+        {
+          "label": "y",
+          "type": "B"
+        }
+      ],
+      "rate": "e",
+      "products": [
+        {
+          "type": "B"
+        }
+      ]
+    },
+    {
+      "name": "deathC",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "C"
+        }
+      ],
+      "rate": "d",
+      "products": []
+    }
+  ],
+  "stop": "N > 0 && a2 >= 0.75 * N"
+}

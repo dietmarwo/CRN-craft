@@ -1,5 +1,11 @@
 # CRN-craft compared with Catalyst.jl and JumpProcesses.jl
 
+> **Historical snapshot.** This is the comparison before the exact-SSA
+> acceleration campaign, kept as measured on a development build. For later
+> results see the [updated comparison](comparison-catalyst-jumpprocesses.md)
+> and [fast mode versus Julia](comparison-julia-8-threads.md); none of them
+> has been repeated on release 0.2.0.
+
 Measured on **2 November 2026** with CRN-craft **0.2.0-dev.1**, commit
 [`baed0e4`](https://github.com/dietmarwo/CRN-craft/tree/baed0e4590f93e4c1dcc77cd7f039a2604a1594c),
 **Julia 1.13.3**, **Catalyst 17.0.0** and **JumpProcesses 10.0.1**.

@@ -1,5 +1,15 @@
 # Ten further CRN-craft / Julia-gap iterations
 
+> **Measured before the 0.2.0 release.** These measurements come from
+> development builds of 2 November 2026 and have not been repeated on
+> release 0.2.0 (3 November 2026). The network SSA engine changed in
+> between: `fast` became the default of `ssa` requests
+> (`crn-craft.ssa-run/0.3`), the Ziggurat waiting-time sampler was
+> refactored so the rules engine can share it, and
+> `crn-craft.ssa-run/0.4` added the `next_reaction` aggregator, which
+> this comparison does not include. Requests of the measured versions
+> return the same results as before; their timings on 0.2.0 may differ.
+
 Measured 2 November 2026. GitHub base: `add6cca0fb146e8a40418432e963219514086024`
 (merged PR #7). Julia 1.13.3, Catalyst
 17.0.0, JumpProcesses
@@ -189,4 +199,5 @@ memory-scaling claim is made.
 [Reproduction and raw evidence](../validation/julia-gap10/README.md),
 [implementation log](campaign/julia-gap10-implementation-log-2026-11-02.md), and
 [all final gate outputs](../validation/julia-gap10/final/summary.json) accompany
-the patch. No remote was pushed and no package was published.
+the patch. At import, no remote had been pushed and no package published;
+the kept candidates were released in 0.2.0.

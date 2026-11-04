@@ -11,6 +11,8 @@ performance declarations [P01–P10](campaign/performance.md) and
 exact aggregators and the `fast` policy ([alternative SSA](alternative-ssa.md)),
 discovery 0.10 (0.11 from the native CLI), and the experimental rules engine
 ([rules language](rules-language.md), [mtDNA ensembles](mtdna-rules.md)).
+All of them are in release 0.2.0 (3 November 2026). The comparisons cited in
+section 7 were measured on development builds before that release.
 
 ## 1. Summary
 
@@ -436,10 +438,12 @@ faster than the fastest CRN-craft option (geometric mean 2.02). The follow-up
 sped DirectCR, SortingDirect and RSSACR up 1.07–2.4 times with unchanged
 numbers or statistically gated paths; projected from those paired speedups, the remaining gap is
 1.11–1.83 times (geometric mean 1.46). That projection is not a Julia
-measurement. A later direct same-host measurement with the opt-in `fast`
-switch ([fast mode versus Julia](comparison-julia-8-threads.md)) gives a
+measurement. A later direct same-host measurement with the `fast` switch
+([fast mode versus Julia](comparison-julia-8-threads.md)) gives a
 geometric mean of best fast over best Julia of 1.15 at one worker and 0.69 at
 eight workers on the original batches (1.12 and 1.04 on 256-path batches).
+`fast` was opt-in then; it is the default of `ssa` requests since
+`crn-craft.ssa-run/0.3`.
 
 ### 7.4 Memory
 

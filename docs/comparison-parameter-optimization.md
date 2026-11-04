@@ -1,5 +1,16 @@
 # Reusable parameters, generated kernels and rebop: full optimization
 
+> **Measured before the 0.2.0 release.** These measurements come from the
+> import commit `85a085b` of 2 November 2026 and have not been repeated on
+> release 0.2.0 (3 November 2026). Review fixes since the import
+> (`fdfd3d8`) changed the fallback that generated kernels use for rates they
+> do not specialize (other laws than mass action, reactions above second
+> order) and for values that are not normal floats; the three mass-action
+> models here have no reaction above second order. `fast` also became the
+> default of `ssa` requests (`crn-craft.ssa-run/0.3`), and the Ziggurat
+> waiting-time sampler was refactored so the rules engine can share it.
+> Results are unchanged; the timings on 0.2.0 may differ.
+
 Measured 2 November 2026, America/La_Paz. Base GitHub main `c16fcc5`, including
 PR #8's optional `method.fast`. Actual engine versions: CRN-craft 0.2.0.dev1,
 rebop 0.10.0, fcmaes-rust 0.2.1.
@@ -196,5 +207,7 @@ import commit `85a085b`; later commits change hashed sources.
 [fixed protocol](decisions/reusable-parameters-2026-11-02.md),
 [reproduction instructions](../validation/parameter-optimization/README.md) and
 [implementation log](campaign/reusable-parameters-implementation-log-2026-11-02.md)
-accompany the patch. Failed development outputs remain separate. The checked
-mode remains the default. No remote was pushed or package published.
+accompany the patch. Failed development outputs remain separate. At import,
+the checked mode was the default and nothing had been pushed or published.
+Since `crn-craft.ssa-run/0.3`, `fast` is the default of `ssa` requests, and
+the interface was released in 0.2.0.

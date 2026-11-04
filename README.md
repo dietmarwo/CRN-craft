@@ -211,6 +211,8 @@ the best fast method takes 0.69 times the time of Julia's best method at eight
 workers on the original W1–W7 batches (geometric mean; lower on 6 of 7) and
 1.04 times on 256-path batches. At one worker the same run gives 1.15 and 1.12
 times, so the earlier projection of 1.02 from serial timings was optimistic.
+These comparisons were measured on development builds of 2 November, before
+the 0.2.0 release, and have not been repeated on it.
 
 ## Dynamic, attributed species (experimental)
 

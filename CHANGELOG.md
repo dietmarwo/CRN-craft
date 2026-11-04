@@ -34,6 +34,12 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ### Changed
 
+- Comparison documents state that they were measured on development builds
+  of 2 November, before the 0.2.0 release, and name the engine changes since.
+  Wording that predates the release is corrected: `fast` is the default of
+  `ssa-run/0.3`, the legacy `simulate` commands are labeled checked rather
+  than default, and the status lines no longer say nothing was published.
+  The GillesPy2 figure's legend is regenerated from the same report.
 - Generated rules loops emit every stop predicate, not only the guarded
   fraction form, with the bytecode's semantics. An undefined value still
   reaches the interpreter's diagnostic. With the stop

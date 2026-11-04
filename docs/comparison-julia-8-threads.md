@@ -1,5 +1,15 @@
 # CRN-craft fast mode versus Julia: eight threads
 
+> **Measured before the 0.2.0 release.** These measurements come from
+> development builds of 2 November 2026 and have not been repeated on
+> release 0.2.0 (3 November 2026). The network SSA engine changed in
+> between: `fast` became the default of `ssa` requests
+> (`crn-craft.ssa-run/0.3`), the Ziggurat waiting-time sampler was
+> refactored so the rules engine can share it, and
+> `crn-craft.ssa-run/0.4` added the `next_reaction` aggregator, which
+> this comparison does not include. Requests of the measured versions
+> return the same results as before; their timings on 0.2.0 may differ.
+
 > **Import note (2 November 2026).** This report was integrated as delivered.
 > Its harness (`validation/compare_eight_threads.py`, `validation/eight-thread/`)
 > and raw evidence (`validation/eight-thread/evidence/comparison.json`) were not

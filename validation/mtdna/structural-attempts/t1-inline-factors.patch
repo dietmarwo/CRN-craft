@@ -1,0 +1,213 @@
+diff --git a/crates/crn-craft-rules/src/flat.rs b/crates/crn-craft-rules/src/flat.rs
+index 6023c1c..4b29fd5 100644
+--- a/crates/crn-craft-rules/src/flat.rs
++++ b/crates/crn-craft-rules/src/flat.rs
+@@ -30,7 +30,8 @@ pub(crate) struct Network {
+     plans: Vec<ChannelRate>,
+     shared_rates: usize,
+     vacancy_slots: Vec<Option<usize>>,
+-    shared_vacancies: usize,
++    /// (limit, count, denominator) of each shared vacancy base, by slot.
++    vacancy_bases: Vec<(f64, usize, usize)>,
+     pub stop_affected: Vec<bool>,
+     pub observe_affected: Vec<bool>,
+     pub cold: Vec<usize>,
+@@ -38,13 +39,17 @@ pub(crate) struct Network {
+     hot_changed: Vec<Vec<usize>>,
+ }
+ 
++/// Rate factors kept inline in a channel plan; longer chains use `General`.
++const INLINE_FACTORS: usize = 4;
++
+ enum Factor {
+     Constant(f64),
++    /// A vacancy base shared by several rules, then the rule's own factors in
++    /// their original order.
+     Vacancy {
+         slot: usize,
+-        limit: f64,
+-        count: usize,
+-        denominator: usize,
++        factors: [f64; INLINE_FACTORS],
++        len: usize,
+     },
+     General(Option<usize>),
+ }
+@@ -348,14 +353,17 @@ impl Network {
+                         limit,
+                         count,
+                         denominator,
+-                        ..
++                        factors,
+                     } => match slots.get(&(limit.to_bits(), *count, *denominator)) {
+-                        Some(&slot) if uses[c.rule] == 1 => Factor::Vacancy {
+-                            slot,
+-                            limit: *limit,
+-                            count: *count,
+-                            denominator: *denominator,
+-                        },
++                        Some(&slot) if uses[c.rule] == 1 && factors.len() <= INLINE_FACTORS => {
++                            let mut inline = [1.0; INLINE_FACTORS];
++                            inline[..factors.len()].copy_from_slice(factors);
++                            Factor::Vacancy {
++                                slot,
++                                factors: inline,
++                                len: factors.len(),
++                            }
++                        }
+                         _ => Factor::General(rate_slots[c.rule]),
+                     },
+                     _ => Factor::General(rate_slots[c.rule]),
+@@ -398,6 +406,10 @@ impl Network {
+                     .collect()
+             })
+             .collect();
++        let mut vacancy_bases = vec![(0.0, 0, 0); slots.len()];
++        for (&(limit, count, denominator), &slot) in &slots {
++            vacancy_bases[slot] = (f64::from_bits(limit), count, denominator);
++        }
+         Ok(Self {
+             species,
+             channels,
+@@ -407,7 +419,7 @@ impl Network {
+             plans,
+             shared_rates,
+             vacancy_slots,
+-            shared_vacancies: slots.len(),
++            vacancy_bases,
+             stop_affected: Vec::new(),
+             observe_affected: Vec::new(),
+             cold: Vec::new(),
+@@ -583,13 +595,15 @@ impl Network {
+     pub fn rate_cache(&self) -> RateCache {
+         RateCache {
+             rules: vec![f64::NAN; self.shared_rates],
+-            vacancies: vec![f64::NAN; self.shared_vacancies],
++            vacancies: vec![f64::NAN; self.vacancy_bases.len()],
+         }
+     }
+ 
+     #[cfg(test)]
+     pub fn rate(&self, i: usize, counts: &[u64], env: &Env<'_>) -> Result<f64, Halt> {
+-        self.rate_cache().channel(self, i, counts, env)
++        let mut cache = self.rate_cache();
++        cache.begin(self, env);
++        cache.channel(self, i, counts, env)
+     }
+ 
+     pub fn apply(
+@@ -647,9 +661,15 @@ pub(crate) struct RateCache {
+ }
+ 
+ impl RateCache {
+-    pub fn reset(&mut self) {
++    /// Start a batch of rate evaluations in one state: clear the rule values
++    /// and compute each shared vacancy base once, with the same arithmetic as
++    /// `RateKernel::eval`.
++    pub fn begin(&mut self, net: &Network, env: &Env<'_>) {
+         self.rules.fill(f64::NAN);
+-        self.vacancies.fill(f64::NAN);
++        for (base, &(limit, count, denominator)) in self.vacancies.iter_mut().zip(&net.vacancy_bases)
++        {
++            *base = (limit - env.observables[count]).max(0.0) / env.observables[denominator];
++        }
+     }
+ 
+     fn rule(&mut self, net: &Network, rule: usize, slot: Option<usize>, env: &Env<'_>) -> f64 {
+@@ -660,20 +680,10 @@ impl RateCache {
+         }
+         let kernel = &net.rates[rule];
+         let value = if let Some(i) = net.vacancy_slots[rule] {
+-            let RateKernel::Vacancy {
+-                limit,
+-                count,
+-                denominator,
+-                factors,
+-            } = kernel
+-            else {
++            let RateKernel::Vacancy { factors, .. } = kernel else {
+                 unreachable!()
+             };
+-            let base = &mut self.vacancies[i];
+-            if base.is_nan() {
+-                *base = (limit - env.observables[*count]).max(0.0) / env.observables[*denominator];
+-            }
+-            factors.iter().fold(*base, |x, f| x * f)
++            factors.iter().fold(self.vacancies[i], |x, f| x * f)
+         } else {
+             kernel.eval(env)
+         };
+@@ -706,20 +716,11 @@ impl RateCache {
+             Factor::Constant(k) => k,
+             Factor::Vacancy {
+                 slot,
+-                limit,
+-                count,
+-                denominator,
+-            } => {
+-                let base = &mut self.vacancies[slot];
+-                if base.is_nan() {
+-                    *base =
+-                        (limit - env.observables[count]).max(0.0) / env.observables[denominator];
+-                }
+-                let RateKernel::Vacancy { factors, .. } = &net.rates[c.rule] else {
+-                    unreachable!()
+-                };
+-                factors.iter().fold(*base, |x, f| x * f)
+-            }
++                ref factors,
++                len,
++            } => factors[..len]
++                .iter()
++                .fold(self.vacancies[slot], |x, f| x * f),
+             Factor::General(slot) => self.rule(net, c.rule, slot, env),
+         };
+         let value = global * (weight * c.weight);
+diff --git a/crates/crn-craft-rules/src/flat_path.rs b/crates/crn-craft-rules/src/flat_path.rs
+index 6623fac..40a9658 100644
+--- a/crates/crn-craft-rules/src/flat_path.rs
++++ b/crates/crn-craft-rules/src/flat_path.rs
+@@ -72,7 +72,7 @@ impl Path<'_> {
+                 observables: values,
+                 attributes: [&[], &[]],
+             };
+-            cache.reset();
++            cache.begin(net, &env);
+             let candidate = if matches!(self.method, crate::Method::NextReaction {}) {
+                 let mut update = |i, fired| {
+                     let rate = cache.channel(net, i, counts, &env)?;
+diff --git a/crates/crn-craft-rules/src/leap.rs b/crates/crn-craft-rules/src/leap.rs
+index a79dfbd..09c3e64 100644
+--- a/crates/crn-craft-rules/src/leap.rs
++++ b/crates/crn-craft-rules/src/leap.rs
+@@ -50,7 +50,7 @@ impl LeapWorkspace {
+     }
+ 
+     fn rates(&mut self, net: &Network, counts: &[u64], env: &Env<'_>) -> Result<(), Halt> {
+-        self.cache.reset();
++        self.cache.begin(net, env);
+         for (i, a) in self.rates.iter_mut().enumerate() {
+             *a = self.cache.channel(net, i, counts, env)?;
+         }
+@@ -99,7 +99,7 @@ impl LeapWorkspace {
+             observables: &self.shifted_values,
+             attributes: [&[], &[]],
+         };
+-        self.shifted_cache.reset();
++        self.shifted_cache.begin(net, &env);
+         for (j, f) in row.iter_mut().enumerate() {
+             *f = self
+                 .shifted_cache
+diff --git a/crates/crn-craft-rules/src/thinning.rs b/crates/crn-craft-rules/src/thinning.rs
+index cb65ed8..e7efafe 100644
+--- a/crates/crn-craft-rules/src/thinning.rs
++++ b/crates/crn-craft-rules/src/thinning.rs
+@@ -61,7 +61,7 @@ impl Path<'_> {
+                 observables: values,
+                 attributes: [&[], &[]],
+             };
+-            cache.reset();
++            cache.begin(net, &env);
+             let mut bound = 0.0;
+             for (i, a) in rates.iter_mut().enumerate() {
+                 *a = cache.channel(net, i, counts, &env)?;

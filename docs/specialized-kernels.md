@@ -77,3 +77,15 @@ time to rate evaluation, 18% to selection with the per-event resolution check
 and 11% to observable refresh. That path took 2.07 s, against 0.76 s for
 `mtdna_direct`, whose resolution is certified once at preparation and whose
 selection is grouped.
+
+A later loop of structural changes to the interpreter tried inline rate
+factors, a fused total and resolution check, exact incremental sum
+projections and a grouped evaluator that selects a group and then a
+channel. None gained 5% on that path, and the grouped evaluator gained
+1.04× there and 1.12× on default Static Direct. The cost is spread over
+rate evaluation, selection, random words, projection maintenance and the
+stop predicate. `mtdna_direct` fuses all of them and refreshes no
+projections between reports. Closing the gap therefore needs generated
+code for the whole event, not only for the rates. The
+[decision record](decisions/generic-rules-structural-2026-11-03.md) has
+the measurements, the profile and that next step.

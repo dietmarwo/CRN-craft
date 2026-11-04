@@ -1,0 +1,823 @@
+{
+  "schema": "crn-craft.structural-iterations/0.1",
+  "description": "Structural iterations to close the gap between generic Static Direct and mtdna_direct, under docs/decisions/generic-rules-structural-2026-11-03.md. Probe: validation/probe_structural_rules.py (three-class mtDNA, 128 cells, 25,920 h, 720 h reports, 90% takeover stop, two class trackers, one worker; sparse 48-species birth-death network, 64 replicates). Reference binary: main b4b5f21. Medians of alternating runs. Timing is host-specific.",
+  "platform": "Linux-6.18.44-fc-v233-x86_64-with-glibc2.39",
+  "host": "two CPUs",
+  "rules": {
+    "identity_preserving": "keep if the generic opt-in path is at least 5% faster and no workload is more than 5% slower; byte identity on the 96-case rules replay and the probe",
+    "grouped": "merge only if every gate passes and the generic opt-in path is at least 25% faster (declared before T6 was measured)"
+  },
+  "attempts": [
+    {
+      "id": "H0",
+      "change": "No change: a build of main against the main binary. Measures the noise floor.",
+      "repeats": 3,
+      "workloads": {
+        "mt/generic": {
+          "ns_per_event": {
+            "ref": 104.9,
+            "new": 107.6
+          },
+          "speedup": 0.974,
+          "identical": true,
+          "median_seconds": {
+            "ref": 1.9341,
+            "new": 1.9849
+          },
+          "events": {
+            "ref": 18440125,
+            "new": 18440125
+          }
+        },
+        "mt/default": {
+          "ns_per_event": {
+            "ref": 128.8,
+            "new": 134.3
+          },
+          "speedup": 0.959,
+          "identical": true,
+          "median_seconds": {
+            "ref": 2.3639,
+            "new": 2.4646
+          },
+          "events": {
+            "ref": 18355809,
+            "new": 18355809
+          }
+        },
+        "mt/special": {
+          "ns_per_event": {
+            "ref": 33.7,
+            "new": 34.8
+          },
+          "speedup": 0.968,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.6201,
+            "new": 0.6408
+          },
+          "events": {
+            "ref": 18418274,
+            "new": 18418274
+          }
+        },
+        "sparse/default": {
+          "ns_per_event": {
+            "ref": 233.4,
+            "new": 239.5
+          },
+          "speedup": 0.975,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.2852,
+            "new": 0.2926
+          },
+          "events": {
+            "ref": 1221781,
+            "new": 1221781
+          }
+        },
+        "sparse/next": {
+          "ns_per_event": {
+            "ref": 123.8,
+            "new": 123.3
+          },
+          "speedup": 1.004,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.1514,
+            "new": 0.1508
+          },
+          "events": {
+            "ref": 1222961,
+            "new": 1222961
+          }
+        }
+      },
+      "kept": null,
+      "reason": "Reference run: ratios between 0.96 and 1.00 for identical code."
+    },
+    {
+      "id": "T1",
+      "change": "Rate factors stored inline in each channel plan; vacancy bases computed eagerly once per event (RateCache::begin).",
+      "repeats": 3,
+      "workloads": {
+        "mt/generic": {
+          "ns_per_event": {
+            "ref": 102.0,
+            "new": 101.4
+          },
+          "speedup": 1.006,
+          "identical": true,
+          "median_seconds": {
+            "ref": 1.8813,
+            "new": 1.8692
+          },
+          "events": {
+            "ref": 18440125,
+            "new": 18440125
+          }
+        },
+        "mt/default": {
+          "ns_per_event": {
+            "ref": 138.1,
+            "new": 142.4
+          },
+          "speedup": 0.97,
+          "identical": true,
+          "median_seconds": {
+            "ref": 2.5358,
+            "new": 2.6137
+          },
+          "events": {
+            "ref": 18355809,
+            "new": 18355809
+          }
+        },
+        "mt/special": {
+          "ns_per_event": {
+            "ref": 34.9,
+            "new": 34.8
+          },
+          "speedup": 1.001,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.6419,
+            "new": 0.6414
+          },
+          "events": {
+            "ref": 18418274,
+            "new": 18418274
+          }
+        },
+        "sparse/default": {
+          "ns_per_event": {
+            "ref": 239.3,
+            "new": 259.7
+          },
+          "speedup": 0.921,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.2924,
+            "new": 0.3174
+          },
+          "events": {
+            "ref": 1221781,
+            "new": 1221781
+          }
+        },
+        "sparse/next": {
+          "ns_per_event": {
+            "ref": 123.5,
+            "new": 128.3
+          },
+          "speedup": 0.962,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.151,
+            "new": 0.157
+          },
+          "events": {
+            "ref": 1222961,
+            "new": 1222961
+          }
+        }
+      },
+      "kept": false,
+      "reason": "Generic opt-in path 1.01x, below the 5% threshold; sparse Static Direct 0.92x."
+    },
+    {
+      "id": "T2a",
+      "change": "One pass for the total and the smallest positive rate in direct_with; the resolution check compares the smallest rate with the floor.",
+      "repeats": 9,
+      "workloads": {
+        "mt/generic": {
+          "ns_per_event": {
+            "ref": 107.6,
+            "new": 110.4
+          },
+          "speedup": 0.974,
+          "identical": true,
+          "median_seconds": {
+            "ref": 1.9842,
+            "new": 2.0365
+          },
+          "events": {
+            "ref": 18440125,
+            "new": 18440125
+          }
+        },
+        "mt/default": {
+          "ns_per_event": {
+            "ref": 133.1,
+            "new": 134.7
+          },
+          "speedup": 0.988,
+          "identical": true,
+          "median_seconds": {
+            "ref": 2.4433,
+            "new": 2.4724
+          },
+          "events": {
+            "ref": 18355809,
+            "new": 18355809
+          }
+        },
+        "mt/special": {
+          "ns_per_event": {
+            "ref": 33.5,
+            "new": 33.7
+          },
+          "speedup": 0.993,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.617,
+            "new": 0.6211
+          },
+          "events": {
+            "ref": 18418274,
+            "new": 18418274
+          }
+        },
+        "sparse/default": {
+          "ns_per_event": {
+            "ref": 235.4,
+            "new": 179.3
+          },
+          "speedup": 1.313,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.2876,
+            "new": 0.2191
+          },
+          "events": {
+            "ref": 1221781,
+            "new": 1221781
+          }
+        },
+        "sparse/next": {
+          "ns_per_event": {
+            "ref": 121.6,
+            "new": 116.9
+          },
+          "speedup": 1.04,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.1487,
+            "new": 0.143
+          },
+          "events": {
+            "ref": 1222961,
+            "new": 1222961
+          }
+        }
+      },
+      "kept": false,
+      "reason": "Generic opt-in path 0.97x. Sparse Static Direct (96 channels) was 1.31x faster, but the declared rule targets the generic opt-in path."
+    },
+    {
+      "id": "T2b",
+      "change": "As T2a with a branchless minimum.",
+      "repeats": 9,
+      "workloads": {
+        "mt/generic": {
+          "ns_per_event": {
+            "ref": 110.6,
+            "new": 117.7
+          },
+          "speedup": 0.94,
+          "identical": true,
+          "median_seconds": {
+            "ref": 2.0403,
+            "new": 2.1703
+          },
+          "events": {
+            "ref": 18440125,
+            "new": 18440125
+          }
+        },
+        "mt/default": {
+          "ns_per_event": {
+            "ref": 135.7,
+            "new": 132.2
+          },
+          "speedup": 1.026,
+          "identical": true,
+          "median_seconds": {
+            "ref": 2.4905,
+            "new": 2.4266
+          },
+          "events": {
+            "ref": 18355809,
+            "new": 18355809
+          }
+        },
+        "mt/special": {
+          "ns_per_event": {
+            "ref": 34.2,
+            "new": 34.9
+          },
+          "speedup": 0.981,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.6305,
+            "new": 0.6425
+          },
+          "events": {
+            "ref": 18418274,
+            "new": 18418274
+          }
+        },
+        "sparse/default": {
+          "ns_per_event": {
+            "ref": 228.9,
+            "new": 517.4
+          },
+          "speedup": 0.442,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.2797,
+            "new": 0.6321
+          },
+          "events": {
+            "ref": 1221781,
+            "new": 1221781
+          }
+        },
+        "sparse/next": {
+          "ns_per_event": {
+            "ref": 126.1,
+            "new": 126.6
+          },
+          "speedup": 0.996,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.1543,
+            "new": 0.1548
+          },
+          "events": {
+            "ref": 1222961,
+            "new": 1222961
+          }
+        }
+      },
+      "kept": false,
+      "reason": "Generic opt-in path 0.94x; sparse Static Direct 0.44x (loop-carried minimum)."
+    },
+    {
+      "id": "T3",
+      "change": "Exact incremental sum observables: per-channel (slot, delta) lists, nonnegative weights that are integer multiples of 2^-30, values guarded below 2^23, zero deltas skipped, NaN deltas recomputed.",
+      "repeats": 9,
+      "workloads": {
+        "mt/generic": {
+          "ns_per_event": {
+            "ref": 104.2,
+            "new": 100.2
+          },
+          "speedup": 1.04,
+          "identical": true,
+          "median_seconds": {
+            "ref": 1.9224,
+            "new": 1.8479
+          },
+          "events": {
+            "ref": 18440125,
+            "new": 18440125
+          }
+        },
+        "mt/default": {
+          "ns_per_event": {
+            "ref": 132.7,
+            "new": 139.6
+          },
+          "speedup": 0.951,
+          "identical": true,
+          "median_seconds": {
+            "ref": 2.4363,
+            "new": 2.5624
+          },
+          "events": {
+            "ref": 18355809,
+            "new": 18355809
+          }
+        },
+        "mt/special": {
+          "ns_per_event": {
+            "ref": 34.7,
+            "new": 35.5
+          },
+          "speedup": 0.977,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.6384,
+            "new": 0.6531
+          },
+          "events": {
+            "ref": 18418274,
+            "new": 18418274
+          }
+        },
+        "sparse/default": {
+          "ns_per_event": {
+            "ref": 226.2,
+            "new": 249.6
+          },
+          "speedup": 0.906,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.2764,
+            "new": 0.305
+          },
+          "events": {
+            "ref": 1221781,
+            "new": 1221781
+          }
+        },
+        "sparse/next": {
+          "ns_per_event": {
+            "ref": 120.0,
+            "new": 131.6
+          },
+          "speedup": 0.912,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.1468,
+            "new": 0.161
+          },
+          "events": {
+            "ref": 1222961,
+            "new": 1222961
+          }
+        }
+      },
+      "kept": false,
+      "reason": "Generic opt-in path 1.04x; sparse Next Reaction and sparse Static Direct 0.91x although the sparse model has no observables (code layout)."
+    },
+    {
+      "id": "T4",
+      "change": "Profile-guided event-loop trimming.",
+      "repeats": 0,
+      "workloads": {},
+      "kept": false,
+      "reason": "Not attempted as a code change. The profile attributes the loop's own time to inlined code without line information, and no single per-event item outside rate evaluation, selection, observables and random words was large enough to clear the 5% threshold on its own."
+    },
+    {
+      "id": "T6a",
+      "change": "Prototype grouped evaluation behind a temporary environment switch: precombined coefficients, one group per vacancy base plus one constant group, a second uniform within groups with more than one positive channel.",
+      "repeats": 3,
+      "workloads": {
+        "mt/generic": {
+          "ns_per_event": {
+            "ref": 122.1,
+            "new": 99.7
+          },
+          "speedup": 1.225,
+          "identical": false,
+          "median_seconds": {
+            "ref": 2.1836,
+            "new": 1.7823
+          },
+          "events": {
+            "ref": 17877684,
+            "new": 17877684
+          }
+        },
+        "mt/default": {
+          "ns_per_event": {
+            "ref": 142.3,
+            "new": 139.9
+          },
+          "speedup": 1.017,
+          "identical": false,
+          "median_seconds": {
+            "ref": 2.6075,
+            "new": 2.5636
+          },
+          "events": {
+            "ref": 18321998,
+            "new": 18321998
+          }
+        },
+        "mt/special": {
+          "ns_per_event": {
+            "ref": 34.8,
+            "new": 37.0
+          },
+          "speedup": 0.942,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.6415,
+            "new": 0.6813
+          },
+          "events": {
+            "ref": 18418274,
+            "new": 18418274
+          }
+        },
+        "sparse/default": {
+          "ns_per_event": {
+            "ref": 237.2,
+            "new": 234.7
+          },
+          "speedup": 1.011,
+          "identical": false,
+          "median_seconds": {
+            "ref": 0.2901,
+            "new": 0.2871
+          },
+          "events": {
+            "ref": 1223404,
+            "new": 1223404
+          }
+        },
+        "sparse/next": {
+          "ns_per_event": {
+            "ref": 129.4,
+            "new": 119.2
+          },
+          "speedup": 1.085,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.1583,
+            "new": 0.1458
+          },
+          "events": {
+            "ref": 1222961,
+            "new": 1222961
+          }
+        }
+      },
+      "kept": false,
+      "reason": "This run predates recording the reference's event count; its ns/event ratio for non-identical rows uses the candidate's count and is not comparable. Superseded by T6b.",
+      "note": "For non-identical rows the reference ns/event uses the candidate's event count."
+    },
+    {
+      "id": "T6b",
+      "change": "Grouped evaluation tuned: one uniform for the group and the channel, rates base x term in the within-group scan, resolution of every positive channel against the total, inline terms.",
+      "repeats": 9,
+      "workloads": {
+        "mt/generic": {
+          "ns_per_event": {
+            "ref": 107.1,
+            "new": 103.3
+          },
+          "speedup": 1.037,
+          "identical": false,
+          "median_seconds": {
+            "ref": 1.9754,
+            "new": 1.9028
+          },
+          "events": {
+            "ref": 18440125,
+            "new": 18418274
+          }
+        },
+        "mt/default": {
+          "ns_per_event": {
+            "ref": 136.8,
+            "new": 121.8
+          },
+          "speedup": 1.123,
+          "identical": false,
+          "median_seconds": {
+            "ref": 2.5109,
+            "new": 2.2553
+          },
+          "events": {
+            "ref": 18355809,
+            "new": 18515950
+          }
+        },
+        "mt/special": {
+          "ns_per_event": {
+            "ref": 35.5,
+            "new": 35.5
+          },
+          "speedup": 1.0,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.6543,
+            "new": 0.6542
+          },
+          "events": {
+            "ref": 18418274,
+            "new": 18418274
+          }
+        },
+        "sparse/default": {
+          "ns_per_event": {
+            "ref": 237.0,
+            "new": 217.5
+          },
+          "speedup": 1.09,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.2896,
+            "new": 0.2657
+          },
+          "events": {
+            "ref": 1221781,
+            "new": 1221781
+          }
+        },
+        "sparse/next": {
+          "ns_per_event": {
+            "ref": 120.2,
+            "new": 119.2
+          },
+          "speedup": 1.009,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.147,
+            "new": 0.1457
+          },
+          "events": {
+            "ref": 1222961,
+            "new": 1222961
+          }
+        }
+      },
+      "kept": false,
+      "reason": "Generic opt-in path 1.04x per event and default Static Direct 1.12x, below the 25% criterion declared before T6 was measured. Not merged; no contract version added."
+    },
+    {
+      "id": "T6b-5",
+      "change": "T6b, five-repeat run before the nine-repeat run.",
+      "repeats": 5,
+      "workloads": {
+        "mt/generic": {
+          "ns_per_event": {
+            "ref": 112.5,
+            "new": 100.4
+          },
+          "speedup": 1.12,
+          "identical": false,
+          "median_seconds": {
+            "ref": 2.0736,
+            "new": 1.8499
+          },
+          "events": {
+            "ref": 18440125,
+            "new": 18418274
+          }
+        },
+        "mt/default": {
+          "ns_per_event": {
+            "ref": 134.4,
+            "new": 118.8
+          },
+          "speedup": 1.131,
+          "identical": false,
+          "median_seconds": {
+            "ref": 2.4674,
+            "new": 2.1998
+          },
+          "events": {
+            "ref": 18355809,
+            "new": 18515950
+          }
+        },
+        "mt/special": {
+          "ns_per_event": {
+            "ref": 35.3,
+            "new": 36.1
+          },
+          "speedup": 0.979,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.6502,
+            "new": 0.6641
+          },
+          "events": {
+            "ref": 18418274,
+            "new": 18418274
+          }
+        },
+        "sparse/default": {
+          "ns_per_event": {
+            "ref": 233.8,
+            "new": 219.3
+          },
+          "speedup": 1.066,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.2857,
+            "new": 0.2679
+          },
+          "events": {
+            "ref": 1221781,
+            "new": 1221781
+          }
+        },
+        "sparse/next": {
+          "ns_per_event": {
+            "ref": 114.9,
+            "new": 124.7
+          },
+          "speedup": 0.922,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.1405,
+            "new": 0.1525
+          },
+          "events": {
+            "ref": 1222961,
+            "new": 1222961
+          }
+        }
+      },
+      "kept": false,
+      "reason": "Superseded by the nine-repeat T6b run."
+    },
+    {
+      "id": "final",
+      "change": "Branch head (no sampler change) against main.",
+      "repeats": 5,
+      "workloads": {
+        "mt/generic": {
+          "ns_per_event": {
+            "ref": 108.1,
+            "new": 108.8
+          },
+          "speedup": 0.994,
+          "identical": true,
+          "median_seconds": {
+            "ref": 1.9943,
+            "new": 2.0057
+          },
+          "events": {
+            "ref": 18440125,
+            "new": 18440125
+          }
+        },
+        "mt/default": {
+          "ns_per_event": {
+            "ref": 139.2,
+            "new": 135.9
+          },
+          "speedup": 1.025,
+          "identical": true,
+          "median_seconds": {
+            "ref": 2.5556,
+            "new": 2.4941
+          },
+          "events": {
+            "ref": 18355809,
+            "new": 18355809
+          }
+        },
+        "mt/special": {
+          "ns_per_event": {
+            "ref": 37.0,
+            "new": 36.2
+          },
+          "speedup": 1.022,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.682,
+            "new": 0.6676
+          },
+          "events": {
+            "ref": 18418274,
+            "new": 18418274
+          }
+        },
+        "sparse/default": {
+          "ns_per_event": {
+            "ref": 220.2,
+            "new": 221.3
+          },
+          "speedup": 0.995,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.269,
+            "new": 0.2703
+          },
+          "events": {
+            "ref": 1221781,
+            "new": 1221781
+          }
+        },
+        "sparse/next": {
+          "ns_per_event": {
+            "ref": 119.4,
+            "new": 128.8
+          },
+          "speedup": 0.927,
+          "identical": true,
+          "median_seconds": {
+            "ref": 0.146,
+            "new": 0.1575
+          },
+          "events": {
+            "ref": 1222961,
+            "new": 1222961
+          }
+        }
+      },
+      "kept": null,
+      "reason": "Gap after the loop: 3.00x on this host."
+    }
+  ],
+  "outcome": "No change kept. The generic opt-in path stays at about 100-110 ns per event against about 35 ns for mtdna_direct (about 3x)."
+}

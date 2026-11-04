@@ -1,0 +1,123 @@
+diff --git a/crates/crn-craft-rules/src/flat.rs b/crates/crn-craft-rules/src/flat.rs
+index 6023c1c..157ab69 100644
+--- a/crates/crn-craft-rules/src/flat.rs
++++ b/crates/crn-craft-rules/src/flat.rs
+@@ -36,6 +36,10 @@ pub(crate) struct Network {
+     pub cold: Vec<usize>,
+     changed: Vec<Vec<usize>>,
+     hot_changed: Vec<Vec<usize>>,
++    /// Exact change of each listed observable when the channel fires, or NaN
++    /// where an incremental update could round differently (see `exact_delta`).
++    deltas: Vec<Vec<f64>>,
++    hot_deltas: Vec<Vec<f64>>,
+ }
+ 
+ enum Factor {
+@@ -398,6 +402,15 @@ impl Network {
+                     .collect()
+             })
+             .collect();
++        let deltas: Vec<Vec<f64>> = channels
++            .iter()
++            .zip(&changed)
++            .map(|(c, rows)| {
++                rows.iter()
++                    .map(|&i| exact_delta(&observables[i], &c.changes))
++                    .collect()
++            })
++            .collect();
+         Ok(Self {
+             species,
+             channels,
+@@ -412,6 +425,8 @@ impl Network {
+             observe_affected: Vec::new(),
+             cold: Vec::new(),
+             hot_changed: changed.clone(),
++            deltas: deltas.clone(),
++            hot_deltas: deltas,
+             changed,
+         })
+     }
+@@ -462,7 +477,9 @@ impl Network {
+                 }
+             }
+         }
+-        for row in &mut self.hot_changed {
++        for (row, deltas) in self.hot_changed.iter_mut().zip(&mut self.hot_deltas) {
++            let mut kept = row.iter().map(|&i| !cold[i]);
++            deltas.retain(|_| kept.next().unwrap_or(false));
+             row.retain(|&i| !cold[i]);
+         }
+     }
+@@ -474,12 +491,24 @@ impl Network {
+         values: &mut [f64],
+         full: bool,
+     ) -> Result<(), Halt> {
+-        let changed = if full {
+-            &self.changed
++        let (changed, deltas) = if full {
++            (&self.changed, &self.deltas)
+         } else {
+-            &self.hot_changed
++            (&self.hot_changed, &self.hot_deltas)
+         };
+-        self.refresh_indices(changed[channel].iter().copied(), counts, values)
++        for (&index, &delta) in changed[channel].iter().zip(&deltas[channel]) {
++            // Exact in both forms: the stored value and the delta are integer
++            // multiples of 2^-30 below 2^23, so the sum equals a recomputation.
++            let slot = self.observables[index].0;
++            let old = values[slot];
++            let new = old + delta;
++            if (0.0..EXACT_LIMIT).contains(&old) && (0.0..EXACT_LIMIT).contains(&new) {
++                values[slot] = new;
++            } else {
++                self.refresh_indices(std::iter::once(index), counts, values)?;
++            }
++        }
++        Ok(())
+     }
+ 
+     pub fn refresh_generated(
+@@ -746,6 +775,42 @@ pub(crate) fn check_instances(live: u64, limits: &Limits) -> Result<(), Halt> {
+     ))
+ }
+ 
++/// Below 2^23, every integer multiple of 2^-30 is exactly representable.
++const EXACT_LIMIT: f64 = 8_388_608.0;
++const EXACT_SCALE: f64 = 1_073_741_824.0;
++
++/// The change of a sum observable when `changes` are applied, if updating it
++/// incrementally gives the same bits as recomputing it: every weight is a
++/// finite, nonnegative integer multiple of 2^-30 (so, with the value below
++/// `EXACT_LIMIT`, every partial sum is exact) and the change is exact.
++/// Otherwise NaN, and the observable is recomputed.
++fn exact_delta(projection: &Projection, changes: &[(usize, i64)]) -> f64 {
++    let (_, reduce, terms) = projection;
++    if !matches!(reduce, Reduce::Sum) {
++        return f64::NAN;
++    }
++    let mut scaled: i128 = 0;
++    for &(s, w) in terms {
++        let units = w * EXACT_SCALE;
++        if !(w >= 0.0 && units.is_finite() && units.fract() == 0.0 && units < 9.0e15) {
++            return f64::NAN;
++        }
++        #[allow(clippy::cast_possible_truncation)]
++        let units = units as i128;
++        for &(x, d) in changes {
++            if x == s {
++                scaled += i128::from(d) * units;
++            }
++        }
++    }
++    if scaled.unsigned_abs() >= 1 << 53 {
++        return f64::NAN;
++    }
++    #[allow(clippy::cast_precision_loss)]
++    let delta = scaled as f64 / EXACT_SCALE;
++    delta
++}
++
+ fn normalize(x: f64) -> f64 {
+     if x == 0.0 { 0.0 } else { x }
+ }

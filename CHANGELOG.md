@@ -7,6 +7,17 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+### Validation
+
+- Recorded a loop of structural changes meant to close the gap between
+  generic Static Direct and `mtdna_direct`: inline rate factors, a fused
+  total and resolution check, exact incremental sum projections and a
+  grouped evaluator. None met its declared criterion, so samplers,
+  identities and contracts are unchanged. The probe is
+  `validation/probe_structural_rules.py`; the results and attempt patches
+  are under `validation/mtdna/`. See
+  `docs/decisions/generic-rules-structural-2026-11-03.md`.
+
 ## [0.2.0] - 2026-11-03
 
 The first release: the crates `crn-craft`, `crn-craft-rules` and

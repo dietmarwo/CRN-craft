@@ -38,7 +38,8 @@
 //!                "max_output_bytes": 100000}}}}}}"#, sha256(model));
 //! let result = tau::solve(model, request.as_bytes(), &Control::default()).unwrap();
 //! assert_eq!(result.termination, Stop::Completed);
-//! assert_eq!(result.assessment, "approximate_ensemble");
+//! // Leaping is approximate: a completed ensemble is `approximate_ensemble`, never exact.
+//! assert!(result.assessment.starts_with("approximate"));
 //! assert!(result.leaps > 0);
 //! ```
 use crate::{

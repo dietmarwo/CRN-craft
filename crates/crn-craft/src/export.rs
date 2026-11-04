@@ -1,4 +1,13 @@
 //! Explicit elementary stochastic-count exporter. No target runtime is linked.
+//!
+//! [`export_gillespy2`] translates a validated model into Python source for
+//! GillesPy2 [`GILLESPY2_VERSION`] as a `crn-craft.export/0.1` report. Only
+//! mass action with total reactant order 0, 1 or 2 and no population limits
+//! is supported; anything else fails with `CRN-E050` rather than being
+//! dropped, and a homodimer coefficient that cannot be halved exactly fails
+//! with `CRN-E051`. The source is for reference cross-checks; it carries no
+//! budgets, seeds or time grid. See
+//! [docs/reference-export.md](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference-export.md).
 use crate::{
     contracts::{Rate, Scalar},
     diagnostic::{Diagnostic, Severity},
@@ -9,33 +18,56 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+/// The GillesPy2 version the generated source requires; it raises `RuntimeError` on any other.
 pub const GILLESPY2_VERSION: &str = "1.8.3";
+
+// Docs written as `#[doc = concat!(..)]` reach rustdoc but not the generated
+// JSON Schema; see the note at the top of lib.rs.
+
+/// Schema tag of an export report.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum ExportVersion {
+    #[doc = concat!("`crn-craft.export/0.1`.")]
     #[serde(rename = "crn-craft.export/0.1")]
     V01,
 }
+/// Generated reference source for one target and how its names map back to the model.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PythonExport {
+    /// Target package, `gillespy2`.
     pub target: String,
+    /// Exact target version the source checks for at run time.
     pub target_version: String,
+    /// Python module defining `build_model()`, with one frozen rate constant per channel and
+    /// the target volume fixed at 1.
     pub source: String,
+    /// Model species name to target name (`S0`, `S1`, … in declaration order).
     pub species_aliases: BTreeMap<String, String>,
+    /// Model reaction name to target name (`R0`, `R1`, … in declaration order).
     pub reaction_aliases: BTreeMap<String, String>,
+    /// Semantics the translation does not preserve, for readers.
     pub notes: Vec<String>,
 }
+/// Result of `export`: success flag, model hash, the generated source and diagnostics.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ExportReport {
+    #[doc = concat!("Always `crn-craft.export/0.1`.")]
     pub schema: ExportVersion,
+    /// True when source was generated; then no error diagnostic is present.
     pub success: bool,
+    /// Always false: export runs no simulation.
     pub simulation_available: bool,
+    /// SHA-256 of the exact model bytes; null only when the model file could not be read.
     pub model_sha256: Option<String>,
+    /// The generated source on success, otherwise null; no partial source is emitted.
     pub artifact: Option<PythonExport>,
+    /// Validation findings, plus `CRN-E050` and `CRN-E051` for unsupported features.
     pub diagnostics: Vec<Diagnostic>,
 }
 impl ExportReport {
+    /// A failed report carrying one diagnostic, such as a read error (`CRN-E030`).
     pub fn failure(error: Diagnostic) -> Self {
         Self {
             schema: ExportVersion::V01,
@@ -55,6 +87,21 @@ fn unsupported(path: &str, message: &str) -> Diagnostic {
         "This exporter accepts elementary mass action without population limits; keep unsupported semantics in the source model.",
     )
 }
+/// Exports a model from its exact bytes; see the [module docs](self) for
+/// the supported subset. Failures give `success: false` and no artifact.
+///
+/// ```
+/// let model = br#"{"schema": "crn-craft.model/0.1", "name": "decay",
+///   "convention": "stochastic_counts", "omega": 1.0, "parameters": {"k": 0.1},
+///   "species": [{"name": "A", "initial_count": 10}],
+///   "reactions": [{"name": "death", "reactants": {"A": 1}, "products": {},
+///                  "rate": {"kind": "mass_action", "coefficient": "k"}}]}"#;
+/// let report = crn_craft::export::export_gillespy2(model);
+/// assert!(report.success);
+/// let artifact = report.artifact.unwrap();
+/// assert!(artifact.source.contains("def build_model():"));
+/// assert_eq!(artifact.species_aliases["A"], "S0");
+/// ```
 pub fn export_gillespy2(model_bytes: &[u8]) -> ExportReport {
     let mut report = ExportReport {
         schema: ExportVersion::V01,

@@ -11,14 +11,18 @@
     },
     "Diagnostic": {
       "additionalProperties": false,
+      "description": "One structured finding with a stable code, the JSON Pointer of the input it concerns, a message and a repair hint.",
       "properties": {
         "code": {
+          "description": "Stable code such as `CRN-E012` or `CRN-W001`, part of the machine contract.",
           "type": "string"
         },
         "hint": {
+          "description": "Suggested repair for the finding.",
           "type": "string"
         },
         "message": {
+          "description": "Human-readable detail; its wording is not part of the contract.",
           "type": "string"
         },
         "path": {
@@ -39,6 +43,7 @@
       "type": "object"
     },
     "Severity": {
+      "description": "Whether a diagnostic blocks use of the input or result: `error` does, `warning` is advisory.",
       "enum": [
         "error",
         "warning"

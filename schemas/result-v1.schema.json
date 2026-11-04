@@ -3,6 +3,7 @@
   "additionalProperties": false,
   "definitions": {
     "Assessment": {
+      "description": "Assessments planned for the reserved `result/0.1` envelope.",
       "enum": [
         "exact_ensemble",
         "fsp_approximation",
@@ -13,14 +14,18 @@
     },
     "Evidence": {
       "additionalProperties": false,
+      "description": "One check supporting an assessment of the reserved `result/0.1` envelope.",
       "properties": {
         "check": {
+          "description": "Identifier of the check.",
           "type": "string"
         },
         "detail": {
+          "description": "Explanation of the outcome for readers.",
           "type": "string"
         },
         "passed": {
+          "description": "Outcome of the check.",
           "type": "boolean"
         }
       },
@@ -32,12 +37,14 @@
       "type": "object"
     },
     "ResultVersion": {
+      "description": "Schema tag of the reserved result envelope, which no solver emits.",
       "enum": [
         "crn-craft.result/0.1"
       ],
       "type": "string"
     },
     "Termination": {
+      "description": "Termination states planned for the reserved `result/0.1` envelope.",
       "enum": [
         "completed",
         "event_limit",
@@ -50,36 +57,42 @@
       "type": "string"
     }
   },
-  "description": "Reserved result envelope; M0 never fabricates a simulation result. Full statistics/archive contracts will be added with a new version in M2/M3.",
+  "description": "Reserved result envelope; M0 never fabricates a simulation result. No solver emits it: executed runs report `crn-craft.result/0.2` instead.",
   "properties": {
     "assessment": {
       "$ref": "#/definitions/Assessment"
     },
     "completed_replicates": {
+      "description": "Replicates that reached the horizon.",
       "format": "uint64",
       "minimum": 0.0,
       "type": "integer"
     },
     "events": {
+      "description": "Events executed over all replicates.",
       "format": "uint64",
       "minimum": 0.0,
       "type": "integer"
     },
     "evidence": {
+      "description": "Checks that support the assessment.",
       "items": {
         "$ref": "#/definitions/Evidence"
       },
       "type": "array"
     },
     "model_sha256": {
+      "description": "SHA-256 of the exact model bytes, lowercase hexadecimal.",
       "type": "string"
     },
     "requested_replicates": {
+      "description": "Replicates the run asked for.",
       "format": "uint64",
       "minimum": 0.0,
       "type": "integer"
     },
     "run_sha256": {
+      "description": "SHA-256 of the exact run bytes, lowercase hexadecimal.",
       "type": "string"
     },
     "schema": {

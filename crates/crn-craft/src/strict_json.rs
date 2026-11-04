@@ -1,10 +1,39 @@
 //! Reject duplicate keys before serde can overwrite them in maps.
+//!
+//! [`parse`] is the strict JSON reader behind every contract in this crate and
+//! in `crn-craft-rules`. It reads one UTF-8 document of at most
+//! [`MAX_DOCUMENT_BYTES`] and [`MAX_JSON_DEPTH`] levels, rejects duplicate keys
+//! at any depth, then deserializes into `T`, so unknown fields are rejected
+//! wherever `T` denies them. Failures are a single [`Diagnostic`] whose path is
+//! an RFC 6901 pointer:
+//!
+//! | Code | Cause |
+//! |---|---|
+//! | `CRN-E001` | Invalid JSON (`NaN` and `Infinity` included), invalid UTF-8 or trailing content |
+//! | `CRN-E002` | Duplicate key, also when two escaped spellings decode to the same key |
+//! | `CRN-E003` | Wrong type, missing or unknown field, unknown version or variant |
+//! | `CRN-E004` | Document larger than 16 MiB or nested deeper than 48 levels |
+//! | `CRN-E015` | Numeric literal out of range, such as `1e400` |
+//!
+//! Parsing is not semantic validation; see [`crate::check_bytes`].
+//!
+//! ```
+//! use crn_craft::strict_json::parse;
+//! use std::collections::BTreeMap;
+//!
+//! let duplicate = parse::<BTreeMap<String, f64>>(br#"{"k": 1, "\u006b": 2}"#).unwrap_err();
+//! assert_eq!((duplicate.code.as_str(), duplicate.path.as_str()), ("CRN-E002", "/k"));
+//! let ok: BTreeMap<String, f64> = parse(br#"{"k": 1.5}"#).unwrap();
+//! assert_eq!(ok["k"], 1.5);
+//! ```
 use crate::diagnostic::{Diagnostic, pointer};
 use serde::de::{self, DeserializeOwned, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde_json::{Map, Number, Value};
 use std::fmt;
 
+/// Largest accepted input document: 16 MiB, whitespace included (`CRN-E004`).
 pub const MAX_DOCUMENT_BYTES: usize = 16 * 1024 * 1024;
+/// Deepest accepted nesting level; the root value is level 0 (`CRN-E004`).
 pub const MAX_JSON_DEPTH: usize = 48;
 
 struct Seed<'a> {
@@ -117,6 +146,8 @@ impl<'de> Visitor<'de> for JsonVisitor<'_> {
     }
 }
 
+/// Parses one strict JSON document into `T`; see the [module docs](self) for
+/// the limits and diagnostic codes. Stops at the first failure.
 pub fn parse<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, Diagnostic> {
     parse_bounded(bytes, MAX_DOCUMENT_BYTES)
 }

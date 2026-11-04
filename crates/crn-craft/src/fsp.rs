@@ -1,5 +1,37 @@
 //! Finite state projection (Munsky & Khammash 2006), row-oriented generator.
 //! Positive sparse uniformization, split so lambda*dt <= 16. No normalization.
+//!
+//! [`solve`] reads a `run/0.1` request with `method.kind = "fsp"`, enumerates
+//! the states reachable from the initial counts inside the inclusive
+//! `bounds` box (at most `max_states`, and never more than [`MAX_STATES`]),
+//! routes every transition that leaves the box to one absorbing sink, and
+//! propagates the probability distribution to each save time by
+//! uniformization. Each [`FspSnapshot`] reports the retained probabilities,
+//! the probability in the sink and the error terms separately; nothing is
+//! renormalized, and `numerical_error_certified` is always false.
+//! Capacity, work, output and interruption failures are `CRN-E070` and
+//! return no partial result.
+//!
+//! ```
+//! use crn_craft::{fsp, sha256, simulation::Control};
+//!
+//! let model = br#"{"schema": "crn-craft.model/0.1", "name": "decay",
+//!   "convention": "stochastic_counts", "omega": 1.0, "parameters": {},
+//!   "species": [{"name": "A", "initial_count": 2}],
+//!   "reactions": [{"name": "death", "reactants": {"A": 1}, "products": {},
+//!                  "rate": {"kind": "mass_action", "coefficient": 1.0}}]}"#;
+//! let run = format!(r#"{{"schema": "crn-craft.run/0.1",
+//!   "model": {{"path": "model.json", "sha256": "{}"}},
+//!   "method": {{"kind": "fsp", "bounds": {{"A": 2}}, "max_states": 10, "tolerance": 1e-12}},
+//!   "time": {{"end": 1.0, "save_times": [0.0, 1.0]}},
+//!   "outputs": {{"statistics": ["mean"], "keep_trajectories": 0}},
+//!   "budget": {{"threads": 1, "max_output_bytes": 100000}}}}"#, sha256(model));
+//! let result = fsp::solve(model, run.as_bytes(), &Control::default()).unwrap();
+//! assert_eq!(result.states, vec![vec![2], vec![1], vec![0]]);
+//! let p_two = result.snapshots[1].probabilities[0];
+//! assert!((p_two - (-2.0f64).exp()).abs() < 1e-12); // both molecules survive: e^{-2}
+//! assert_eq!(result.snapshots[1].physical_leakage_estimate, 0.0);
+//! ```
 use crate::{
     CompiledNetwork, check_bytes,
     contracts::Method,
@@ -11,44 +43,71 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, time::Instant};
 
+/// Most projected states, whatever `max_states` says (`CRN-E070` beyond).
 pub const MAX_STATES: usize = 100_000;
+/// Most sparse generator edges (`CRN-E070` beyond).
 pub const MAX_EDGES: usize = 2_000_000;
+/// Most deterministic work units for enumeration and propagation (`CRN-E070` beyond).
 pub const MAX_WORK: u64 = 200_000_000;
 const MAX_BYTES: u128 = 256 * 1024 * 1024;
+
+// Docs written as `#[doc = concat!(..)]` reach rustdoc but not the generated
+// JSON Schema; see the note at the top of lib.rs.
+
+/// Schema tag of an FSP result.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum FspVersion {
+    #[doc = concat!("`crn-craft.fsp-result/0.1`.")]
     #[serde(rename = "crn-craft.fsp-result/0.1")]
     V01,
 }
+/// The projected distribution at one save time and its separately reported error terms.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FspSnapshot {
+    /// Save time in seconds.
     pub time: f64,
     /// Index order matches states, excludes the absorbing escaping-mass sink.
     pub probabilities: Vec<f64>,
+    /// Probability in the sink: mass that left the bounds box by this time.
     pub physical_leakage_estimate: f64,
     /// Unnormalized moments of the retained law, never of the full unbounded process.
     pub projected_first_moment: Vec<f64>,
+    /// Σ p(x)·x² per species over the retained states, unnormalized like the first moment.
     pub projected_second_raw_moment: Vec<f64>,
     /// Cumulative discarded positive Poisson weight, excluding roundoff.
     pub series_tail_upper_bound: f64,
+    /// Probability mass dropped by truncating the uniformization series so far.
     pub discarded_weight_estimate: f64,
+    /// 1 − (retained probability + sink probability): the mass missing from the vector.
     pub mass_defect: f64,
     /// Mass-balance residual only; not a rigorous floating-point error bound.
+    /// It is |mass_defect − discarded_weight_estimate|.
     pub roundoff_mass_residual: f64,
 }
+/// Finite state projection result: the enumerated states and one snapshot per save time.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FspResult {
+    #[doc = concat!("Always `crn-craft.fsp-result/0.1`.")]
     pub schema: FspVersion,
+    /// SHA-256 of the exact model bytes.
     pub model_sha256: String,
+    /// SHA-256 of the exact run bytes.
     pub run_sha256: String,
+    /// Species names in the order of each state's counts.
     pub species: Vec<String>,
+    /// Projected states in discovery order; state 0 is the initial state.
     pub states: Vec<Vec<i64>>,
+    /// One snapshot per save time, in order, starting at time 0.
     pub snapshots: Vec<FspSnapshot>,
+    /// Uniformization rate λ: the largest total exit rate of any projected state, per second.
     pub uniformization_rate: f64,
+    /// Nonzero off-diagonal generator entries, transitions to the sink included.
     pub sparse_edges: usize,
+    /// Deterministic work units spent, at most 200000000.
     pub work: u64,
+    /// Always false: the reported error terms are estimates, not a certified bound.
     pub numerical_error_certified: bool,
 }
 fn error(message: impl Into<String>) -> Diagnostic {
@@ -176,6 +235,20 @@ fn multiply_accumulate(
     }
 }
 
+/// Solves an FSP run against the exact model bytes; see the [module docs](self).
+///
+/// `model.path` is only syntax-checked. The run's wall-time limit and the
+/// [`Control`] are polled during the computation; a stop fails the solve.
+///
+/// # Errors
+///
+/// The [`crate::check_bytes`] errors of model and run (including
+/// `CRN-E023` for invalid bounds, capacity or tolerance), and `CRN-E070` for
+/// an SSA run, exceeded state, edge, work, memory or output limits, a
+/// tolerance below 10⁻¹⁸ per step, a transition that underflows, invalid
+/// probabilities or an interruption. A reachable state above a population
+/// limit (`CRN-E041`) or a rate that cannot be evaluated (`CRN-E042`) also
+/// fails the solve.
 pub fn solve(
     model_bytes: &[u8],
     run_bytes: &[u8],

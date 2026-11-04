@@ -1,20 +1,39 @@
 //! Exact extreme rays of {l >= 0 : N^T l = 0}, with bounded double description.
 //! Algorithm/adjacency reference: Burton, arXiv:0808.4050, Sections 3.1 and 4.1.
 //! Independent implementation; no third-party enumeration code is incorporated.
+//!
+//! [`analyze_cone`] enumerates every extreme ray of the cone of non-negative
+//! conservation laws with exact `i128` arithmetic, verifies each ray against
+//! the stoichiometry and derives per-species upper bounds for the initial
+//! conservation class. These bounds are complete for the cone, so they can
+//! be tighter than the linear-basis bounds of [`crate::conservation`]. Size,
+//! intermediate-ray and work caps keep the run deterministic; when one is hit
+//! the report carries a status and a warning and no partial rays.
 use crate::{conservation::ConservationLaw, diagnostic::Diagnostic, network::CompiledNetwork};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, collections::BTreeMap};
 
+// Docs written as `#[doc = concat!(..)]` reach rustdoc but not the generated
+// JSON Schema; see the note at the top of lib.rs.
+
+/// Most species the cone analysis accepts; beyond it the status is `size_limit` (`CRN-W012`).
 pub const MAX_CONE_SPECIES: usize = 64;
+/// Most reactions the cone analysis accepts; beyond it the status is `size_limit` (`CRN-W012`).
 pub const MAX_CONE_REACTIONS: usize = 256;
+/// Hard cap on intermediate rays during enumeration (`ray_limit`, `CRN-W013`).
 pub const MAX_CONE_RAYS: usize = 4096;
+/// Hard cap on deterministic work units (`work_limit`, `CRN-W013`).
 pub const MAX_CONE_WORK: u64 = 2_000_000;
 
+/// Deterministic caps of one cone enumeration; requested values above the hard caps are
+/// lowered to them.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ConeLimits {
+    /// Most intermediate rays kept at any step, at most 4096.
     pub max_rays: usize,
+    /// Most work units (arithmetic steps) spent, at most 2000000.
     pub max_work: u64,
 }
 impl Default for ConeLimits {
@@ -26,24 +45,43 @@ impl Default for ConeLimits {
     }
 }
 
+/// Whether the non-negative conservation cone was enumerated completely.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ConeStatus {
+    #[doc = concat!("`exact`: every extreme ray was found and verified.")]
     Exact,
+    #[doc = concat!("`size_limit`: more than 64 species or 256 reactions (`CRN-W012`).")]
     SizeLimit,
+    #[doc = concat!("`ray_limit`: the intermediate-ray cap was reached (`CRN-W013`).")]
     RayLimit,
+    #[doc = concat!("`work_limit`: the work cap was reached (`CRN-W013`).")]
     WorkLimit,
+    #[doc = concat!("`arithmetic_overflow`: checked `i128` arithmetic overflowed (`CRN-W014`).")]
     ArithmeticOverflow,
+    #[doc = concat!("`verification_failed`: a ray failed its residual check, an internal defect")]
+    #[doc = concat!("(`CRN-W015`).")]
     VerificationFailed,
 }
+/// Extreme rays of the non-negative conservation cone {l ≥ 0 : lᵀN = 0} and the count
+/// bounds they prove.
+/// Unless the status is `exact`, rays are empty and every bound is null.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ConeReport {
+    #[doc = concat!("Whether the enumeration is complete; inspect it before using the rays.")]
     pub status: ConeStatus,
+    #[doc = concat!("The caps that applied.")]
     pub limits: ConeLimits,
+    /// Work units spent, at most `limits.max_work`.
     pub work_units: u64,
+    /// Every extreme ray as a primitive integer law, sorted by coefficients.
     pub extreme_rays: Vec<ConservationLaw>,
+    /// Per species, the smallest floor(initial_total / coefficient) over the rays, as a
+    /// decimal string; null when no ray bounds the species. Valid in the initial conservation
+    /// class only.
     pub initial_class_upper_bounds: Vec<Option<String>>,
+    /// `CRN-W012` to `CRN-W015` when the status is not `exact`.
     pub diagnostics: Vec<Diagnostic>,
 }
 struct Budget {
@@ -78,6 +116,7 @@ fn insert_ray(next: &mut BTreeMap<Vec<i128>, u64>, ray: Ray, max: usize) -> Resu
     Ok(())
 }
 
+/// Enumerates the cone with the default (hard) caps; see [`analyze_cone_with_limits`].
 pub fn analyze_cone(network: &CompiledNetwork) -> ConeReport {
     analyze_cone_with_limits(network, ConeLimits::default())
 }

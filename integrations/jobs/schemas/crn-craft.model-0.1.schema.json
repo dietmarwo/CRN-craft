@@ -3,12 +3,14 @@
   "additionalProperties": false,
   "definitions": {
     "Convention": {
+      "description": "How a model's numbers are read: integer molecule counts and complete stochastic propensities.",
       "enum": [
         "stochastic_counts"
       ],
       "type": "string"
     },
     "ModelVersion": {
+      "description": "Schema tag of a model document.",
       "enum": [
         "crn-craft.model/0.1"
       ],
@@ -19,6 +21,7 @@
       "oneOf": [
         {
           "additionalProperties": false,
+          "description": "`mass_action`: c × Π binomial(x, ν) over the reactants, with coefficient c ≥ 0, so `2A` gives c·x(x−1)/2 and an empty reactant side gives c.",
           "properties": {
             "coefficient": {
               "$ref": "#/definitions/Scalar"
@@ -38,6 +41,7 @@
         },
         {
           "additionalProperties": false,
+          "description": "`hill_activation`: basal + vmax·xⁿ/(kⁿ + xⁿ), with x the regulator count; vmax, basal ≥ 0 and k, n > 0.",
           "properties": {
             "basal": {
               "$ref": "#/definitions/Scalar"
@@ -55,6 +59,7 @@
               "$ref": "#/definitions/Scalar"
             },
             "regulator": {
+              "description": "Species whose count x drives the law.",
               "type": "string"
             },
             "vmax": {
@@ -73,6 +78,7 @@
         },
         {
           "additionalProperties": false,
+          "description": "`hill_repression`: basal + vmax·kⁿ/(kⁿ + xⁿ), with x the regulator count; vmax, basal ≥ 0 and k, n > 0.",
           "properties": {
             "basal": {
               "$ref": "#/definitions/Scalar"
@@ -90,6 +96,7 @@
               "$ref": "#/definitions/Scalar"
             },
             "regulator": {
+              "description": "Species whose count x drives the law.",
               "type": "string"
             },
             "vmax": {
@@ -108,6 +115,7 @@
         },
         {
           "additionalProperties": false,
+          "description": "`michaelis_menten`: vmax·x/(km + x), with x the substrate count; vmax ≥ 0 and km > 0.",
           "properties": {
             "kind": {
               "enum": [
@@ -119,6 +127,7 @@
               "$ref": "#/definitions/Scalar"
             },
             "substrate": {
+              "description": "Species whose count enters the law.",
               "type": "string"
             },
             "vmax": {
@@ -137,8 +146,10 @@
     },
     "Reaction": {
       "additionalProperties": false,
+      "description": "One reaction channel: stoichiometry by species name and a rate law.",
       "properties": {
         "name": {
+          "description": "Identifier, unique among reactions.",
           "type": "string"
         },
         "products": {
@@ -146,6 +157,7 @@
             "format": "int64",
             "type": "integer"
           },
+          "description": "Produced species and coefficients from 1 to 2147483647; omit zeros. An empty map is a sink.",
           "type": "object"
         },
         "rate": {
@@ -156,6 +168,7 @@
             "format": "int64",
             "type": "integer"
           },
+          "description": "Consumed species and coefficients from 1 to 2147483647; omit zeros. An empty map is a source. A channel can fire only while every reactant count covers its coefficient.",
           "type": "object"
         }
       },
@@ -170,10 +183,12 @@
     "Scalar": {
       "anyOf": [
         {
+          "description": "A finite number used as given.",
           "format": "double",
           "type": "number"
         },
         {
+          "description": "The name of an entry in the model's `parameters`; an unknown name is `CRN-E014`.",
           "type": "string"
         }
       ],
@@ -181,17 +196,20 @@
     },
     "Species": {
       "additionalProperties": false,
+      "description": "One species: a unique name, its initial molecule count and an optional safety limit.",
       "properties": {
         "initial_count": {
+          "description": "Initial molecule count, a non-negative 64-bit integer; counts above 2^53 stay exact.",
           "format": "int64",
           "minimum": 0.0,
           "type": "integer"
         },
         "name": {
+          "description": "Identifier, unique among species and distinct from every parameter name.",
           "type": "string"
         },
         "population_limit": {
-          "description": "A safety stop, never a reflecting boundary or an FSP truncation bound.",
+          "description": "A safety stop, never a reflecting boundary or an FSP truncation bound. When present it is at least `initial_count`. An update that would exceed it is never applied; a stochastic replicate stops with `population_limit` instead.",
           "format": "int64",
           "type": [
             "integer",
@@ -206,11 +224,13 @@
       "type": "object"
     }
   },
+  "description": "A fixed reaction network: species with initial counts, named parameters and reactions with rate laws. Declaration order fixes every species and reaction index in results and analyses.",
   "properties": {
     "convention": {
       "$ref": "#/definitions/Convention"
     },
     "name": {
+      "description": "Model identifier: 1–64 ASCII letters, digits or underscores, not starting with a digit.",
       "type": "string"
     },
     "omega": {
@@ -224,9 +244,11 @@
         "format": "double",
         "type": "number"
       },
+      "description": "Finite named values that rate laws reference by name; at most 16384. Names follow the identifier rules and must not collide with species names.",
       "type": "object"
     },
     "reactions": {
+      "description": "Reactions in declaration order, at most 65536; an empty list gives an absorbing model.",
       "items": {
         "$ref": "#/definitions/Reaction"
       },
@@ -236,6 +258,7 @@
       "$ref": "#/definitions/ModelVersion"
     },
     "species": {
+      "description": "Species in declaration order, 1–4096 entries with unique names.",
       "items": {
         "$ref": "#/definitions/Species"
       },

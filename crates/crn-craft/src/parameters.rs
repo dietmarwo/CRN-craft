@@ -1,4 +1,43 @@
 //! Reusable fixed-topology parameter bindings. No candidate mutates its template.
+//!
+//! For optimization loops: [`ParameterTemplate::prepare`] validates a model
+//! and an `ssa-run` request once; each [`ParameterTemplate::bind`] supplies
+//! new parameter values and returns an independent [`BoundParameters`] that
+//! [`crate::ssa::execute`] runs. Bindings share the compiled stoichiometry and
+//! dependency graphs but re-validate the candidate model and keep exact byte
+//! snapshots, so every candidate can be replayed with [`crate::ssa::solve`].
+//! See [docs/reusable-parameters.md](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reusable-parameters.md).
+//!
+//! ```
+//! use crn_craft::{parameters::ParameterTemplate, sha256, simulation::Control, ssa};
+//!
+//! let model = br#"{"schema": "crn-craft.model/0.1", "name": "birth_death",
+//!   "convention": "stochastic_counts", "omega": 1.0,
+//!   "parameters": {"birth": 4.0, "death": 0.5},
+//!   "species": [{"name": "X", "initial_count": 0}],
+//!   "reactions": [
+//!     {"name": "make", "reactants": {}, "products": {"X": 1},
+//!      "rate": {"kind": "mass_action", "coefficient": "birth"}},
+//!     {"name": "decay", "reactants": {"X": 1}, "products": {},
+//!      "rate": {"kind": "mass_action", "coefficient": "death"}}]}"#;
+//! let request = format!(r#"{{"schema": "crn-craft.ssa-run/0.3",
+//!   "model": {{"path": "model.json", "sha256": "{}"}},
+//!   "method": {{"kind": "ssa", "aggregator": "direct", "waiting_time": "inverse"}},
+//!   "time": {{"end": 2.0, "save_times": [0.0, 1.0, 2.0]}},
+//!   "ensemble": {{"replicates": 8, "root_seed": 7}},
+//!   "outputs": {{"statistics": ["mean"], "keep_trajectories": 0}},
+//!   "budget": {{"max_events_per_replicate": 10000, "max_sampling_steps_per_replicate": 100000,
+//!              "threads": 1, "max_output_bytes": 100000}}}}"#, sha256(model));
+//!
+//! let template = ParameterTemplate::prepare(model, request.as_bytes()).unwrap();
+//! assert_eq!(template.parameter_names(), ["birth", "death"]);
+//! let candidate = template.bind(&[2.0, 1.0], None).unwrap();
+//! let result = ssa::execute(&candidate.prepared, &Control::default()).unwrap();
+//! // The snapshots replay the same candidate through the ordinary byte API.
+//! let replay = ssa::solve(&candidate.model_bytes, &candidate.request_bytes, &Control::default())
+//!     .unwrap();
+//! assert_eq!(result.statistics.unwrap().mean, replay.statistics.unwrap().mean);
+//! ```
 use crate::{contracts::Model, diagnostic::Diagnostic, simulation, ssa};
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -13,8 +52,13 @@ pub struct ParameterTemplate {
 
 /// Independent execution inputs with full snapshots for replay and attribution.
 pub struct BoundParameters {
+    /// Prepared SSA execution for [`crate::ssa::execute`] or
+    /// [`crate::ssa::execute_with_kernel`].
     pub prepared: ssa::Prepared,
+    /// The candidate model as compact JSON with the bound parameter values.
     pub model_bytes: Vec<u8>,
+    /// The request as compact JSON, its model hash updated to `model_bytes`
+    /// and its seed overridden if `bind` was given one.
     pub request_bytes: Vec<u8>,
 }
 
@@ -38,6 +82,12 @@ fn mismatch(message: impl Into<String>) -> Vec<Diagnostic> {
 }
 
 impl ParameterTemplate {
+    /// Validates and prepares `model` and an `ssa-run` `request` exactly as
+    /// [`crate::ssa::prepare`] does.
+    ///
+    /// # Errors
+    ///
+    /// The diagnostics of [`crate::ssa::prepare`].
     pub fn prepare(model: &[u8], request: &[u8]) -> Result<Self, Vec<Diagnostic>> {
         let prepared = ssa::prepare(model, request)?;
         let model = crate::parse_model(model).map_err(|e| vec![e])?;
@@ -49,18 +99,31 @@ impl ParameterTemplate {
         })
     }
 
+    /// Every declared parameter name, sorted by byte order: the order of the
+    /// values given to [`Self::bind`].
     pub fn parameter_names(&self) -> &[String] {
         &self.names
     }
+    /// The model's own parameter values in [`Self::parameter_names`] order.
     pub fn default_values(&self) -> Vec<f64> {
         self.model.parameters.values().copied().collect()
     }
+    /// Topology fingerprint shared by every binding; see
+    /// [`crate::CompiledNetwork::topology_sha256`].
     pub fn topology_sha256(&self) -> &str {
         self.prepared.core.network.topology_sha256()
     }
 
     /// Values include every declared parameter, even unused ones. Seed overrides
     /// the run root seed only; it does not alter the topology or rate bindings.
+    ///
+    /// # Errors
+    ///
+    /// `CRN-E014` for the wrong number of values; the validation errors of
+    /// the candidate model, such as `CRN-E015` for a non-finite value or one
+    /// outside its rate law's domain; `CRN-E004` when a snapshot would exceed
+    /// 16 MiB; and the admission errors of preparation. The template is
+    /// unchanged by a failed bind.
     pub fn bind(
         &self,
         values: &[f64],
@@ -121,6 +184,10 @@ impl ParameterTemplate {
     }
 
     /// Named binding requires exactly the declared key set; no ignored values.
+    ///
+    /// # Errors
+    ///
+    /// `CRN-E014` listing missing and unknown names, otherwise as [`Self::bind`].
     pub fn bind_named(
         &self,
         values: &BTreeMap<String, f64>,

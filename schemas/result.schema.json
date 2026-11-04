@@ -3,6 +3,7 @@
   "additionalProperties": false,
   "definitions": {
     "Assessment": {
+      "description": "What a Direct SSA result may be used for.",
       "enum": [
         "exact_ensemble",
         "incomplete",
@@ -12,14 +13,18 @@
     },
     "Diagnostic": {
       "additionalProperties": false,
+      "description": "One structured finding with a stable code, the JSON Pointer of the input it concerns, a message and a repair hint.",
       "properties": {
         "code": {
+          "description": "Stable code such as `CRN-E012` or `CRN-W001`, part of the machine contract.",
           "type": "string"
         },
         "hint": {
+          "description": "Suggested repair for the finding.",
           "type": "string"
         },
         "message": {
+          "description": "Human-readable detail; its wording is not part of the contract.",
           "type": "string"
         },
         "path": {
@@ -41,6 +46,7 @@
     },
     "Replicate": {
       "additionalProperties": false,
+      "description": "Accounting of one replicate; every requested id has exactly one record.",
       "properties": {
         "diagnostic": {
           "anyOf": [
@@ -50,27 +56,33 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The error that ended the replicate, such as a failed check or a rejected population-limit update; absent when it completed."
         },
         "events": {
+          "description": "Events executed; an event that was rejected (population limit) is not counted.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
         },
         "id": {
+          "description": "Replicate id, which also selects its random stream.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
         },
         "saved_points": {
+          "description": "Save times for which a state was recorded, a prefix of the save grid.",
           "format": "uint",
           "minimum": 0.0,
           "type": "integer"
         },
         "started": {
+          "description": "False for a replicate that a stop prevented from starting; it then has no events and no saved points.",
           "type": "boolean"
         },
         "stop_time": {
+          "description": "The latest certified time of the path in seconds: the horizon for a completed replicate, otherwise the last event or save time reached.",
           "format": "double",
           "type": "number"
         },
@@ -89,12 +101,14 @@
       "type": "object"
     },
     "ResultVersion": {
+      "description": "Schema tag of a Direct SSA result.",
       "enum": [
         "crn-craft.result/0.2"
       ],
       "type": "string"
     },
     "Severity": {
+      "description": "Whether a diagnostic blocks use of the input or result: `error` does, `warning` is advisory.",
       "enum": [
         "error",
         "warning"
@@ -103,8 +117,10 @@
     },
     "Statistics": {
       "additionalProperties": false,
+      "description": "Ensemble statistics: one row per save time, one value per species. Present only for a fully completed ensemble.",
       "properties": {
         "mean": {
+          "description": "Sample mean when `mean` was requested.",
           "items": {
             "items": {
               "format": "double",
@@ -118,6 +134,7 @@
           ]
         },
         "mean_standard_error": {
+          "description": "Standard error of the mean, sqrt(variance / n), when `mean` was requested and n > 1.",
           "items": {
             "items": {
               "format": "double",
@@ -131,6 +148,7 @@
           ]
         },
         "sample_variance": {
+          "description": "Unbiased sample variance (denominator n − 1) when `variance` was requested.",
           "items": {
             "items": {
               "format": "double",
@@ -144,6 +162,7 @@
           ]
         },
         "samples": {
+          "description": "Number of replicates summarized, equal to the requested replicates.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
@@ -155,6 +174,7 @@
       "type": "object"
     },
     "Stop": {
+      "description": "How a replicate, or the whole run, ended.\n\nThe declaration order is the aggregation priority: a run reports the largest replicate value, except that `output_limit` is set when retained output was removed.",
       "enum": [
         "completed",
         "event_limit",
@@ -168,8 +188,10 @@
     },
     "Trajectory": {
       "additionalProperties": false,
+      "description": "Saved states of one retained replicate.",
       "properties": {
         "counts": {
+          "description": "One row of counts in species order per recorded save time; only the replicate's `saved_points` rows if it stopped early.",
           "items": {
             "items": {
               "format": "int64",
@@ -180,6 +202,7 @@
           "type": "array"
         },
         "id": {
+          "description": "Replicate id; trajectories are kept for ids 0 to `keep_trajectories` − 1.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
@@ -192,52 +215,63 @@
       "type": "object"
     }
   },
+  "description": "Direct SSA result: input identities, replicate accounting, retained trajectories and statistics.",
   "properties": {
     "assessment": {
       "$ref": "#/definitions/Assessment"
     },
     "completed_replicates": {
+      "description": "Replicates that completed.",
       "format": "uint64",
       "minimum": 0.0,
       "type": "integer"
     },
     "diagnostics": {
+      "description": "Model warnings, plus `CRN-E064` when output was removed.",
       "items": {
         "$ref": "#/definitions/Diagnostic"
       },
       "type": "array"
     },
     "events": {
+      "description": "Events executed over all replicates.",
       "format": "uint64",
       "minimum": 0.0,
       "type": "integer"
     },
     "model_sha256": {
+      "description": "SHA-256 of the exact model bytes.",
       "type": "string"
     },
     "replicates": {
+      "description": "One record per requested replicate, in id order.",
       "items": {
         "$ref": "#/definitions/Replicate"
       },
       "type": "array"
     },
     "requested_replicates": {
+      "description": "Replicates the run requested.",
       "format": "uint64",
       "minimum": 0.0,
       "type": "integer"
     },
     "root_seed": {
+      "description": "Root seed from the run.",
       "format": "uint64",
       "minimum": 0.0,
       "type": "integer"
     },
     "run_sha256": {
+      "description": "SHA-256 of the exact run bytes.",
       "type": "string"
     },
     "sampler": {
+      "description": "Sampler identity, `crn-craft.chacha8-direct/0.1`; replay needs the same identity, seed and input bytes.",
       "type": "string"
     },
     "save_times": {
+      "description": "The run's save grid in seconds.",
       "items": {
         "format": "double",
         "type": "number"
@@ -248,6 +282,7 @@
       "$ref": "#/definitions/ResultVersion"
     },
     "species": {
+      "description": "Species names in the order used by every count row.",
       "items": {
         "type": "string"
       },
@@ -261,12 +296,14 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "Requested statistics, present only when every replicate completed and output fit."
     },
     "termination": {
       "$ref": "#/definitions/Stop"
     },
     "trajectories": {
+      "description": "Saved states of the first `keep_trajectories` replicates, in id order; empty when output was removed.",
       "items": {
         "$ref": "#/definitions/Trajectory"
       },

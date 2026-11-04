@@ -1,5 +1,52 @@
 //! Six fixed files, checksummed manifest, completion marker written last.
 //! Durable-write pattern inspected in optimization-jobs storage.rs at cc6b03d.
+//!
+//! [`simulate_files`] and [`simulate_cached_files`] run a Direct SSA request
+//! from files and write a new directory with `model.json` and `run.json`
+//! (the exact input bytes), `result.json` (`crn-craft.result/0.2`),
+//! `provenance.json`, `manifest.json` (`crn-craft.archive/0.1`: lengths and
+//! SHA-256 of the four payloads) and `COMPLETE` (the manifest digest and a
+//! newline, written last). [`verify_archive`] checks a finished directory
+//! without running a solver. Both return a `crn-craft.archive-check/0.1`
+//! [`ArchiveReport`]; archive failures are `CRN-E065`.
+//!
+//! A complete archive can hold an incomplete simulation, so read
+//! `archive_complete` and `simulation_complete` together. Integrity checks
+//! are not signatures and do not establish biological validity. See
+//! [docs/archive-contract.md](https://github.com/dietmarwo/CRN-craft/blob/main/docs/archive-contract.md).
+//!
+//! ```
+//! use crn_craft::{archive, sha256, simulation::Control};
+//!
+//! let dir = std::env::temp_dir().join(format!("crn-craft-doc-archive-{}", std::process::id()));
+//! let _ = std::fs::remove_dir_all(&dir);
+//! std::fs::create_dir_all(&dir).unwrap();
+//! let model = br#"{"schema": "crn-craft.model/0.1", "name": "decay",
+//!   "convention": "stochastic_counts", "omega": 1.0, "parameters": {},
+//!   "species": [{"name": "A", "initial_count": 5}],
+//!   "reactions": [{"name": "death", "reactants": {"A": 1}, "products": {},
+//!                  "rate": {"kind": "mass_action", "coefficient": 1.0}}]}"#;
+//! let run = format!(r#"{{"schema": "crn-craft.run/0.1",
+//!   "model": {{"path": "model.json", "sha256": "{}"}},
+//!   "method": {{"kind": "ssa", "aggregator": "direct"}},
+//!   "time": {{"end": 1.0, "save_times": [0.0, 1.0]}},
+//!   "ensemble": {{"replicates": 4, "root_seed": 3}},
+//!   "outputs": {{"statistics": ["mean"], "keep_trajectories": 0}},
+//!   "budget": {{"max_events_per_replicate": 100, "threads": 1, "max_output_bytes": 100000}}}}"#,
+//!   sha256(model));
+//! std::fs::write(dir.join("model.json"), model).unwrap();
+//! std::fs::write(dir.join("run.json"), &run).unwrap();
+//!
+//! let out = dir.join("archive");
+//! let written = archive::simulate_files(&dir.join("model.json"), &dir.join("run.json"), &out,
+//!     &Control::default());
+//! assert!(written.valid && written.archive_complete && written.simulation_complete,
+//!     "{:?}", written.diagnostics);
+//! let checked = archive::verify_archive(&out);
+//! assert!(checked.valid && checked.simulation_complete);
+//! assert_eq!(checked.model_sha256.as_deref(), Some(sha256(model).as_str()));
+//! std::fs::remove_dir_all(&dir).unwrap();
+//! ```
 use crate::{
     diagnostic::Diagnostic,
     parse_model, parse_run, sampling, sha256,
@@ -25,38 +72,63 @@ const ALL_NAMES: [&str; 6] = [
     "manifest.json",
     "COMPLETE",
 ];
+// Docs written as `#[doc = concat!(..)]` reach rustdoc but not the generated
+// JSON Schema; see the note at the top of lib.rs.
+
+/// Schema tag of an archive manifest.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum ArchiveVersion {
+    #[doc = concat!("`crn-craft.archive/0.1`.")]
     #[serde(rename = "crn-craft.archive/0.1")]
     V01,
 }
+/// Length and digest of one payload file.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ArchiveFile {
+    /// File name inside the archive directory: `model.json`, `run.json`, `result.json` or
+    /// `provenance.json`.
     pub path: String,
+    /// Exact file length in bytes.
     pub bytes: u64,
+    /// SHA-256 of the file bytes, lowercase hexadecimal.
     pub sha256: String,
 }
+/// `manifest.json`: the four payload files of an archive, each listed exactly once.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Manifest {
+    #[doc = concat!("Always `crn-craft.archive/0.1`.")]
     pub schema: ArchiveVersion,
+    /// The four payload files, written in the order model, run, result, provenance.
     pub files: Vec<ArchiveFile>,
 }
+/// Report of `simulate`, `simulate-cached` and `verify`: archive integrity and simulation outcome.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ArchiveReport {
+    /// Always `crn-craft.archive-check/0.1`.
     pub schema: String,
+    /// True when the archive was written, or verified, without error.
     pub valid: bool,
+    /// True when every file, the manifest and the completion marker are present and
+    /// consistent. It says nothing about whether the simulation finished.
     pub archive_complete: bool,
+    /// True when the archived result's termination is `completed`.
     pub simulation_complete: bool,
+    /// The archived result's aggregate termination; null when the archive is invalid.
     pub termination: Option<Stop>,
+    /// The archived result's assessment; null when the archive is invalid.
     pub assessment: Option<Assessment>,
+    /// SHA-256 of the archived model bytes; null when the archive is invalid.
     pub model_sha256: Option<String>,
+    /// SHA-256 of the archived run bytes; null when the archive is invalid.
     pub run_sha256: Option<String>,
+    /// Why the archive is invalid; empty for a valid archive.
     pub diagnostics: Vec<Diagnostic>,
 }
 impl ArchiveReport {
+    /// An invalid report carrying `diagnostics`.
     pub fn failure(diagnostics: Vec<Diagnostic>) -> Self {
         Self {
             schema: "crn-craft.archive-check/0.1".into(),
@@ -163,6 +235,18 @@ fn executable_hash() -> Option<String> {
 }
 
 /// Preserves the exact consumed bytes; run path identity is checked before use.
+///
+/// Reads `model_path` and `run_path`, requires the run's `model.path`,
+/// resolved from the run's directory, to name `model_path` inside that
+/// directory, runs [`crate::simulation::execute`] and writes the archive into
+/// `output`, which must not exist yet and whose parent must exist.
+///
+/// Never panics on bad input; failures are an invalid report. Input and
+/// preparation errors (such as `CRN-E022` for the path check, `CRN-E030`
+/// for a read error) create no directory. A write failure (`CRN-E065`) can
+/// leave a directory without `COMPLETE`, which is not a result. If even the
+/// replicate accounting exceeds `max_output_bytes`, the run fails with
+/// `CRN-E064` and the directory holds only the inputs.
 pub fn simulate_files(
     model_path: &Path,
     run_path: &Path,
@@ -172,6 +256,9 @@ pub fn simulate_files(
     simulate_using(model_path, run_path, output, control, false)
 }
 /// Optional dependency-cached execution of the same Direct stochastic contract.
+///
+/// Same as [`simulate_files`] but runs [`crate::simulation::execute_cached`];
+/// the archived numbers are identical.
 pub fn simulate_cached_files(
     model_path: &Path,
     run_path: &Path,
@@ -283,6 +370,13 @@ fn simulate_using(
 
 /// Integrity and relational checks, not cryptographic authenticity or proof of
 /// stochastic correctness. Never executes supplied code or follows manifest paths.
+///
+/// Requires exactly the six regular files, a marker matching the manifest,
+/// matching lengths and digests, strict JSON, consistent provenance and a
+/// result that [`validate_result`] accepts for the archived inputs. A valid
+/// archive of an incomplete simulation reports `valid: true` and
+/// `simulation_complete: false`. Failures are `CRN-E065` (or the strict
+/// parser's codes).
 pub fn verify_archive(path: &Path) -> ArchiveReport {
     let action = (|| -> Result<ArchiveReport, Diagnostic> {
         if !fs::symlink_metadata(path).map_err(io_error)?.is_dir() {
@@ -356,6 +450,15 @@ pub fn verify_archive(path: &Path) -> ArchiveReport {
     action.unwrap_or_else(|e| ArchiveReport::failure(vec![e]))
 }
 
+/// Checks a Direct result against the exact model and run bytes it claims to
+/// come from: identities and dimensions, per-replicate accounting, aggregate
+/// termination and assessment, retained trajectories and their states, and
+/// statistics. When every trajectory is retained it recomputes the ordered
+/// mean, variance and standard error and requires the reported values.
+///
+/// # Errors
+///
+/// `CRN-E065` describing the first inconsistency, or a parse diagnostic.
 pub fn validate_result(
     model_bytes: &[u8],
     run_bytes: &[u8],

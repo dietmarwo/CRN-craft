@@ -4,14 +4,18 @@
   "definitions": {
     "Diagnostic": {
       "additionalProperties": false,
+      "description": "One structured finding with a stable code, the JSON Pointer of the input it concerns, a message and a repair hint.",
       "properties": {
         "code": {
+          "description": "Stable code such as `CRN-E012` or `CRN-W001`, part of the machine contract.",
           "type": "string"
         },
         "hint": {
+          "description": "Suggested repair for the finding.",
           "type": "string"
         },
         "message": {
+          "description": "Human-readable detail; its wording is not part of the contract.",
           "type": "string"
         },
         "path": {
@@ -32,6 +36,7 @@
       "type": "object"
     },
     "ExportVersion": {
+      "description": "Schema tag of an export report.",
       "enum": [
         "crn-craft.export/0.1"
       ],
@@ -39,8 +44,10 @@
     },
     "PythonExport": {
       "additionalProperties": false,
+      "description": "Generated reference source for one target and how its names map back to the model.",
       "properties": {
         "notes": {
+          "description": "Semantics the translation does not preserve, for readers.",
           "items": {
             "type": "string"
           },
@@ -50,21 +57,26 @@
           "additionalProperties": {
             "type": "string"
           },
+          "description": "Model reaction name to target name (`R0`, `R1`, … in declaration order).",
           "type": "object"
         },
         "source": {
+          "description": "Python module defining `build_model()`, with one frozen rate constant per channel and the target volume fixed at 1.",
           "type": "string"
         },
         "species_aliases": {
           "additionalProperties": {
             "type": "string"
           },
+          "description": "Model species name to target name (`S0`, `S1`, … in declaration order).",
           "type": "object"
         },
         "target": {
+          "description": "Target package, `gillespy2`.",
           "type": "string"
         },
         "target_version": {
+          "description": "Exact target version the source checks for at run time.",
           "type": "string"
         }
       },
@@ -79,6 +91,7 @@
       "type": "object"
     },
     "Severity": {
+      "description": "Whether a diagnostic blocks use of the input or result: `error` does, `warning` is advisory.",
       "enum": [
         "error",
         "warning"
@@ -86,6 +99,7 @@
       "type": "string"
     }
   },
+  "description": "Result of `export`: success flag, model hash, the generated source and diagnostics.",
   "properties": {
     "artifact": {
       "anyOf": [
@@ -95,15 +109,18 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "The generated source on success, otherwise null; no partial source is emitted."
     },
     "diagnostics": {
+      "description": "Validation findings, plus `CRN-E050` and `CRN-E051` for unsupported features.",
       "items": {
         "$ref": "#/definitions/Diagnostic"
       },
       "type": "array"
     },
     "model_sha256": {
+      "description": "SHA-256 of the exact model bytes; null only when the model file could not be read.",
       "type": [
         "string",
         "null"
@@ -113,9 +130,11 @@
       "$ref": "#/definitions/ExportVersion"
     },
     "simulation_available": {
+      "description": "Always false: export runs no simulation.",
       "type": "boolean"
     },
     "success": {
+      "description": "True when source was generated; then no error diagnostic is present.",
       "type": "boolean"
     }
   },

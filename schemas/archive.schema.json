@@ -4,16 +4,20 @@
   "definitions": {
     "ArchiveFile": {
       "additionalProperties": false,
+      "description": "Length and digest of one payload file.",
       "properties": {
         "bytes": {
+          "description": "Exact file length in bytes.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
         },
         "path": {
+          "description": "File name inside the archive directory: `model.json`, `run.json`, `result.json` or `provenance.json`.",
           "type": "string"
         },
         "sha256": {
+          "description": "SHA-256 of the file bytes, lowercase hexadecimal.",
           "type": "string"
         }
       },
@@ -25,14 +29,17 @@
       "type": "object"
     },
     "ArchiveVersion": {
+      "description": "Schema tag of an archive manifest.",
       "enum": [
         "crn-craft.archive/0.1"
       ],
       "type": "string"
     }
   },
+  "description": "`manifest.json`: the four payload files of an archive, each listed exactly once.",
   "properties": {
     "files": {
+      "description": "The four payload files, written in the order model, run, result, provenance.",
       "items": {
         "$ref": "#/definitions/ArchiveFile"
       },

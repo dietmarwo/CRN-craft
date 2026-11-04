@@ -1,20 +1,50 @@
 //! Pinned random-word streams and explicit floating-point mappings, version 0.1.
+//!
+//! These are the building blocks of the checked Direct sampler
+//! [`SAMPLER`] (`crn-craft.chacha8-direct/0.1`), specified in
+//! [docs/direct-ssa.md](https://github.com/dietmarwo/CRN-craft/blob/main/docs/direct-ssa.md):
+//! one ChaCha8 stream per replicate, 53-bit uniforms, a strict ordered
+//! propensity total, an inverse-transform exponential wait and first-channel
+//! selection. Numerical failures are diagnostics at `/simulation`: `CRN-E061`
+//! for totals and selection, `CRN-E062` for waits and event times. The rules
+//! engine reuses [`uniform_closed_open`].
+//!
+//! ```
+//! use crn_craft::sampling::{select_channel, stream, total_propensity, uniform_closed_open,
+//!     uniform_open, waiting_time};
+//! use rand_core::RngCore;
+//!
+//! let rates = [1.0, 0.0, 3.0];
+//! let total = total_propensity(&rates).unwrap();
+//! let mut rng = stream(42, 0); // root seed 42, replicate 0
+//! let wait = waiting_time(total, uniform_open(&mut rng)).unwrap();
+//! assert!(wait > 0.0);
+//! // A threshold of 0.5 * total = 2 lies in the third channel's interval.
+//! assert_eq!(select_channel(&rates, total, 0.5).unwrap(), 2);
+//! assert!(uniform_closed_open(rng.next_u64()) < 1.0);
+//! ```
 use crate::diagnostic::Diagnostic;
 use rand_chacha::ChaCha8Rng;
 use rand_core::{RngCore, SeedableRng};
 use sha2::{Digest, Sha256};
 
+/// Sampler identity recorded in Direct results (`simulate`, `simulate-cached`).
 pub const SAMPLER: &str = "crn-craft.chacha8-direct/0.1";
+/// 2⁻⁵³: the spacing of the uniform lattice, and the smallest share of the
+/// total that a positive channel may have (`CRN-E061` below it).
 pub const UNIFORM_STEP: f64 = 1.0 / 9_007_199_254_740_992.0;
 
 /// SHA256(domain || root_seed little endian) is the key; replicate is the
 /// ChaCha 64-bit stream id. No hashing of thread count, model or save grid.
+/// The domain is the ASCII string `crn-craft.chacha8/0.1` and one NUL byte;
+/// the stream starts at word position zero.
 pub fn stream(root_seed: u64, replicate: u64) -> ChaCha8Rng {
     keyed_stream(b"crn-craft.chacha8/0.1\0", root_seed, replicate)
 }
 
 /// Tau leaping's own key: a tau ensemble and an exact ensemble with the same
 /// root seed do not share random words, so comparing them is not coupled.
+/// The domain is `crn-craft.chacha8-tau/0.1` and one NUL byte.
 pub fn tau_stream(root_seed: u64, replicate: u64) -> ChaCha8Rng {
     keyed_stream(b"crn-craft.chacha8-tau/0.1\0", root_seed, replicate)
 }
@@ -94,10 +124,12 @@ fn keyed_stream(domain: &[u8], root_seed: u64, replicate: u64) -> ChaCha8Rng {
     rng
 }
 
+/// Maps a random word to [0, 1): its high 53 bits times 2⁻⁵³.
 pub fn uniform_closed_open(word: u64) -> f64 {
     (word >> 11) as f64 * UNIFORM_STEP
 }
 
+/// Draws a uniform in (0, 1) with [`uniform_closed_open`], redrawing a zero.
 pub fn uniform_open(rng: &mut impl RngCore) -> f64 {
     loop {
         let value = uniform_closed_open(rng.next_u64());
@@ -116,6 +148,14 @@ fn numeric(code: &str, message: &str) -> Diagnostic {
     )
 }
 
+/// Sums `rates` in order, strictly. An all-zero slice gives 0, which callers
+/// treat as absorbing.
+///
+/// # Errors
+///
+/// `CRN-E061` for a negative or non-finite rate, an overflowing sum, a
+/// positive rate lost in rounding, or a positive rate below
+/// [`UNIFORM_STEP`] times the total.
 pub fn total_propensity(rates: &[f64]) -> Result<f64, Diagnostic> {
     let mut total = 0.0;
     let mut minimum = f64::INFINITY;
@@ -251,6 +291,12 @@ pub(crate) fn select_from_prefix(
     }
 }
 
+/// Exponential wait `-ln(uniform) / total` in seconds, using pinned `libm`.
+///
+/// # Errors
+///
+/// `CRN-E062` unless `total` is finite and positive, `uniform` lies in
+/// (0, 1) and the wait is finite and positive.
 pub fn waiting_time(total: f64, uniform: f64) -> Result<f64, Diagnostic> {
     if !total.is_finite() || total <= 0.0 || !(0.0 < uniform && uniform < 1.0) {
         return Err(numeric("CRN-E062", "invalid exponential sampler arguments"));
@@ -265,6 +311,12 @@ pub fn waiting_time(total: f64, uniform: f64) -> Result<f64, Diagnostic> {
     Ok(wait)
 }
 
+/// Advances the clock: `time + wait`.
+///
+/// # Errors
+///
+/// `CRN-E062` unless `time` is finite and non-negative, `wait` is finite and
+/// positive and the sum is finite and strictly greater than `time`.
 pub fn event_time(time: f64, wait: f64) -> Result<f64, Diagnostic> {
     let next = time + wait;
     if !time.is_finite()
@@ -283,6 +335,15 @@ pub fn event_time(time: f64, wait: f64) -> Result<f64, Diagnostic> {
 }
 
 /// Caller supplies the same ordered rate array whose total was checked.
+///
+/// Returns the first positive channel whose running sum exceeds
+/// `uniform * total`; `uniform` must lie in [0, 1). There is no fallback to
+/// the last channel.
+///
+/// # Errors
+///
+/// `CRN-E061` for invalid arguments, a threshold that rounds to the total,
+/// or no channel above the threshold.
 pub fn select_channel(rates: &[f64], total: f64, uniform: f64) -> Result<usize, Diagnostic> {
     if !(0.0..1.0).contains(&uniform) || !total.is_finite() || total <= 0.0 {
         return Err(numeric("CRN-E061", "invalid categorical sampler arguments"));

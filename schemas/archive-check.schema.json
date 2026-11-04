@@ -3,6 +3,7 @@
   "additionalProperties": false,
   "definitions": {
     "Assessment": {
+      "description": "What a Direct SSA result may be used for.",
       "enum": [
         "exact_ensemble",
         "incomplete",
@@ -12,14 +13,18 @@
     },
     "Diagnostic": {
       "additionalProperties": false,
+      "description": "One structured finding with a stable code, the JSON Pointer of the input it concerns, a message and a repair hint.",
       "properties": {
         "code": {
+          "description": "Stable code such as `CRN-E012` or `CRN-W001`, part of the machine contract.",
           "type": "string"
         },
         "hint": {
+          "description": "Suggested repair for the finding.",
           "type": "string"
         },
         "message": {
+          "description": "Human-readable detail; its wording is not part of the contract.",
           "type": "string"
         },
         "path": {
@@ -40,6 +45,7 @@
       "type": "object"
     },
     "Severity": {
+      "description": "Whether a diagnostic blocks use of the input or result: `error` does, `warning` is advisory.",
       "enum": [
         "error",
         "warning"
@@ -47,6 +53,7 @@
       "type": "string"
     },
     "Stop": {
+      "description": "How a replicate, or the whole run, ended.\n\nThe declaration order is the aggregation priority: a run reports the largest replicate value, except that `output_limit` is set when retained output was removed.",
       "enum": [
         "completed",
         "event_limit",
@@ -59,8 +66,10 @@
       "type": "string"
     }
   },
+  "description": "Report of `simulate`, `simulate-cached` and `verify`: archive integrity and simulation outcome.",
   "properties": {
     "archive_complete": {
+      "description": "True when every file, the manifest and the completion marker are present and consistent. It says nothing about whether the simulation finished.",
       "type": "boolean"
     },
     "assessment": {
@@ -71,30 +80,36 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "The archived result's assessment; null when the archive is invalid."
     },
     "diagnostics": {
+      "description": "Why the archive is invalid; empty for a valid archive.",
       "items": {
         "$ref": "#/definitions/Diagnostic"
       },
       "type": "array"
     },
     "model_sha256": {
+      "description": "SHA-256 of the archived model bytes; null when the archive is invalid.",
       "type": [
         "string",
         "null"
       ]
     },
     "run_sha256": {
+      "description": "SHA-256 of the archived run bytes; null when the archive is invalid.",
       "type": [
         "string",
         "null"
       ]
     },
     "schema": {
+      "description": "Always `crn-craft.archive-check/0.1`.",
       "type": "string"
     },
     "simulation_complete": {
+      "description": "True when the archived result's termination is `completed`.",
       "type": "boolean"
     },
     "termination": {
@@ -105,9 +120,11 @@
         {
           "type": "null"
         }
-      ]
+      ],
+      "description": "The archived result's aggregate termination; null when the archive is invalid."
     },
     "valid": {
+      "description": "True when the archive was written, or verified, without error.",
       "type": "boolean"
     }
   },

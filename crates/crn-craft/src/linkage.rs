@@ -1,29 +1,49 @@
 //! Reaction complexes and graph components. No kinetic theorem is inferred.
+//!
+//! [`analyze_linkage`] builds the complex graph of a network (each distinct
+//! reactant or product side is a node, each reaction an edge) and reports its
+//! linkage classes, strong linkage classes, terminal strong linkage classes,
+//! weak reversibility and the deficiency n − l − s. Component lists are
+//! sorted, so the report is deterministic.
 use crate::network::{CompiledNetwork, Term};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+/// The complex-graph edge of one reaction, as indices into `complexes`.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ComplexEdge {
+    /// Index of the reactant complex.
     pub source: usize,
+    /// Index of the product complex.
     pub target: usize,
 }
+/// Complex graph of the network and its components; species and complex indices are zero-based.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LinkageReport {
     /// First occurrence order while visiting each reaction's reactants/products.
+    /// Each complex is a sparse species vector; the empty complex is an empty list.
     pub complexes: Vec<Vec<Term>>,
+    /// One edge per reaction, in reaction order.
     pub reaction_edges: Vec<ComplexEdge>,
+    /// Connected components of the undirected complex graph, as sorted complex indices.
     pub linkage_classes: Vec<Vec<usize>>,
+    /// Strongly connected components of the directed complex graph.
     pub strong_linkage_classes: Vec<Vec<usize>>,
+    /// Strong linkage classes that no edge leaves.
     pub terminal_strong_linkage_classes: Vec<Vec<usize>>,
+    /// Whether every linkage class is strongly connected.
     pub weakly_reversible: bool,
     /// Absent when the exact stoichiometric rank is unavailable.
+    /// Otherwise complexes − linkage classes − rank.
     pub deficiency: Option<usize>,
 }
 
+/// Computes the [`LinkageReport`]. `exact_rank` is the rank of the
+/// stoichiometric matrix, as [`crate::conservation::ConservationReport::rank`]
+/// reports it; without it the deficiency is absent.
 pub fn analyze_linkage(network: &CompiledNetwork, exact_rank: Option<usize>) -> LinkageReport {
     let mut complexes = Vec::new();
     let mut index = BTreeMap::new();

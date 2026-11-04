@@ -3,18 +3,21 @@
   "additionalProperties": false,
   "definitions": {
     "StateVersion": {
+      "description": "Schema tag of a named-state document.",
       "enum": [
         "crn-craft.state/0.1"
       ],
       "type": "string"
     }
   },
+  "description": "A complete state given by species name, the optional input of `analyze`.",
   "properties": {
     "counts": {
       "additionalProperties": {
         "format": "int64",
         "type": "integer"
       },
+      "description": "Count of every declared species, by name, with no missing or extra names. Counts are non-negative and within each population limit (`CRN-E041`).",
       "type": "object"
     },
     "schema": {

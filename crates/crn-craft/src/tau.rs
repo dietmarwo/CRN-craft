@@ -1,5 +1,47 @@
 //! Experimental adaptive explicit Poisson leaps with rejection and Direct fallback.
 //! Approximation is explicit; no clipping, reflecting boundaries or exact assessment.
+//!
+//! [`solve`] reads a `crn-craft.tau-request/0.1` [`Request`]: an accuracy
+//! `epsilon`, a leap budget and a complete `run/0.1` SSA run as the
+//! reference for model binding, time grid, ensemble, outputs and budgets. Each
+//! step chooses a leap that bounds the expected relative change of every
+//! species, draws Poisson firing counts, halves the step after a proposal
+//! that would make a count negative or consume more molecules than present,
+//! and takes exact Direct steps when a reactant is nearly exhausted or a
+//! step has been halved 20 times. Replicates run in
+//! order on one thread and use their own streams ([`crate::sampling::tau_stream`]),
+//! so a tau ensemble is not coupled to an exact one with the same seed. The
+//! result is a `crn-craft.tau-result/0.1` [`TauResult`] with assessment
+//! `approximate_ensemble` at best. Request and numerical failures are
+//! `CRN-E085`.
+//!
+//! ```
+//! use crn_craft::{sha256, simulation::{Control, Stop}, tau};
+//!
+//! let model = br#"{"schema": "crn-craft.model/0.1", "name": "birth_death",
+//!   "convention": "stochastic_counts", "omega": 1.0, "parameters": {},
+//!   "species": [{"name": "X", "initial_count": 30}],
+//!   "reactions": [
+//!     {"name": "make", "reactants": {}, "products": {"X": 1},
+//!      "rate": {"kind": "mass_action", "coefficient": 20.0}},
+//!     {"name": "decay", "reactants": {"X": 1}, "products": {},
+//!      "rate": {"kind": "mass_action", "coefficient": 0.5}}]}"#;
+//! let request = format!(r#"{{"schema": "crn-craft.tau-request/0.1", "epsilon": 0.05,
+//!   "max_leaps_per_replicate": 10000,
+//!   "reference_run": {{"schema": "crn-craft.run/0.1",
+//!     "model": {{"path": "model.json", "sha256": "{}"}},
+//!     "method": {{"kind": "ssa", "aggregator": "direct"}},
+//!     "time": {{"end": 2.0, "save_times": [0.0, 1.0, 2.0]}},
+//!     "ensemble": {{"replicates": 8, "root_seed": 91}},
+//!     "outputs": {{"statistics": ["mean"], "keep_trajectories": 0}},
+//!     "budget": {{"max_events_per_replicate": 100000, "threads": 1,
+//!                "max_output_bytes": 100000}}}}}}"#, sha256(model));
+//! let result = tau::solve(model, request.as_bytes(), &Control::default()).unwrap();
+//! assert_eq!(result.termination, Stop::Completed);
+//! // Leaping is approximate: a completed ensemble is `approximate_ensemble`, never exact.
+//! assert!(result.assessment.starts_with("approximate"));
+//! assert!(result.leaps > 0);
+//! ```
 use crate::{
     CompiledNetwork,
     contracts::{Run, Statistic},
@@ -11,42 +53,76 @@ use rand_core::RngCore;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
+// Docs written as `#[doc = concat!(..)]` reach rustdoc but not the generated
+// JSON Schema; see the note at the top of lib.rs.
+
+/// Schema tag of a tau-leaping request.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum RequestVersion {
+    #[doc = concat!("`crn-craft.tau-request/0.1`.")]
     #[serde(rename = "crn-craft.tau-request/0.1")]
     V01,
 }
+/// Experimental approximate Poisson-leaping request around an exact SSA reference run.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Request {
+    #[doc = concat!("Always `crn-craft.tau-request/0.1`.")]
     pub schema: RequestVersion,
+    /// Accuracy parameter in [0.001, 0.2] that bounds the expected relative change of species
+    /// counts, and so of rates, within one leap. Smaller is more accurate and slower.
     pub epsilon: f64,
+    /// Most leaps and fallback steps per replicate, 1–10000000; exceeding it fails the
+    /// replicate.
     pub max_leaps_per_replicate: u64,
+    #[doc = concat!("A complete `run/0.1` SSA run supplying the model reference, time grid,")]
+    #[doc = concat!("ensemble, outputs and budgets. Its event cap also bounds the events per")]
+    #[doc = concat!("replicate that leaps may fire.")]
     pub reference_run: Run,
 }
+/// Schema tag of a tau-leaping result.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum ResultVersion {
+    #[doc = concat!("`crn-craft.tau-result/0.1`.")]
     #[serde(rename = "crn-craft.tau-result/0.1")]
     V01,
 }
+/// Approximate Poisson-leaping result. It is never an exact ensemble.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TauResult {
+    #[doc = concat!("Always `crn-craft.tau-result/0.1`.")]
     pub schema: ResultVersion,
+    /// Algorithm identity, including its version.
     pub algorithm: String,
+    /// `approximate_ensemble` when every replicate completed, otherwise `incomplete`.
     pub assessment: String,
+    /// SHA-256 of the exact model bytes.
     pub model_sha256: String,
+    /// SHA-256 of the exact tau request bytes.
     pub request_sha256: String,
+    /// The request's accuracy parameter.
     pub epsilon: f64,
+    #[doc = concat!("Aggregate stop: the highest-priority replicate stop.")]
     pub termination: Stop,
+    /// Species names in the order used by every count row.
     pub species: Vec<String>,
+    /// The reference run's save grid in seconds.
     pub save_times: Vec<f64>,
+    /// Replicates the reference run requested.
     pub requested_replicates: u64,
+    /// Reaction firings over all replicates, leaps and exact steps together.
     pub events: u64,
+    /// Accepted leaps and exact fallback steps over all replicates.
     pub leaps: u64,
+    /// Leap proposals rejected because they would make a count negative or consume more
+    /// molecules than present.
     pub rejected_leaps: u64,
+    /// One record per requested replicate, in id order.
     pub replicates: Vec<Replicate>,
+    /// Saved states of the first `keep_trajectories` replicates.
     pub trajectories: Vec<Trajectory>,
+    /// Requested statistics, present only when every replicate completed.
     pub statistics: Option<Statistics>,
 }
 fn error(s: impl Into<String>) -> Diagnostic {
@@ -59,6 +135,7 @@ fn error(s: impl Into<String>) -> Diagnostic {
 }
 /// Largest Poisson mean a single leap may draw for one channel.
 const POISSON_MEAN_LIMIT: f64 = 1e7;
+/// Algorithm identity recorded in [`TauResult::algorithm`].
 pub const ALGORITHM: &str = "adaptive_explicit_poisson_cgp_reject_halve_direct_fallback/0.3";
 
 /// Cao, Gillespie and Petzold (2006), eq. 27: the factor g_i for a species
@@ -358,6 +435,17 @@ fn path(
     record.saved_points = counts.len();
     (record, counts, leaps, rejected)
 }
+/// Runs a tau-leaping request against the exact model bytes; see the
+/// [module docs](self). `reference_run.model.path` is only syntax-checked;
+/// use [`solve_files`] to check that it names the model file.
+///
+/// # Errors
+///
+/// Strict-parse errors; `CRN-E085` for `epsilon` outside [0.001, 0.2], a
+/// leap budget outside 1–10000000 or a result above `max_output_bytes`; the
+/// preparation errors of [`crate::simulation::prepare`] for the reference
+/// run. Stops and numerical failures during a replicate are reported in its
+/// record.
 pub fn solve(
     model: &[u8],
     request_bytes: &[u8],
@@ -482,6 +570,15 @@ pub fn solve(
 }
 
 /// File API checks that the embedded reference identifies the supplied model.
+///
+/// `reference_run.model.path` is resolved from the request's directory and
+/// must name `model_path` inside it (`CRN-E022` at
+/// `/reference_run/model/path`); then [`solve`] runs.
+///
+/// # Errors
+///
+/// `CRN-E030` or `CRN-E004` for unreadable or oversized files, `CRN-E022`,
+/// and the errors of [`solve`].
 pub fn solve_files(
     model_path: &std::path::Path,
     request_path: &std::path::Path,

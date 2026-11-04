@@ -1,4 +1,45 @@
 //! Direct SSA. Fixed replicate streams and ordered reduction, bounded queues.
+//!
+//! The legacy exact engine behind `simulate` and `simulate-cached`:
+//! [`prepare`] validates a `crn-craft.model/0.1` and `crn-craft.run/0.1` pair
+//! from their exact bytes and reserves memory and output, then [`execute`]
+//! (or [`execute_cached`], with identical numbers) runs the ensemble and
+//! returns a [`Simulation`]: the `crn-craft.result/0.2` [`SimulationResult`]
+//! and a separate [`Provenance`]. [`simulate_bytes`] does both steps.
+//! [`crate::archive`] writes the same result as a sealed archive. The
+//! sampler and its stop semantics are specified in
+//! [docs/direct-ssa.md](https://github.com/dietmarwo/CRN-craft/blob/main/docs/direct-ssa.md).
+//!
+//! Replicate `i` always uses stream `i` of the root seed, so completed
+//! results do not depend on the worker count. Every replicate has a record,
+//! including those never started after a stop. Ensemble statistics are
+//! present only when every replicate completed. Stops are typed outcomes, not
+//! errors; an `Err` from [`execute`] means not even the replicate accounting
+//! fit the output budget, or a worker could not start (`CRN-E060`, `CRN-E064`).
+//!
+//! ```
+//! use crn_craft::{sha256, simulation::{self, Assessment, Control, Stop}};
+//!
+//! let model = br#"{"schema": "crn-craft.model/0.1", "name": "decay",
+//!   "convention": "stochastic_counts", "omega": 1.0, "parameters": {},
+//!   "species": [{"name": "A", "initial_count": 20}],
+//!   "reactions": [{"name": "death", "reactants": {"A": 1}, "products": {},
+//!                  "rate": {"kind": "mass_action", "coefficient": 1.0}}]}"#;
+//! let run = format!(r#"{{"schema": "crn-craft.run/0.1",
+//!   "model": {{"path": "model.json", "sha256": "{}"}},
+//!   "method": {{"kind": "ssa", "aggregator": "direct"}},
+//!   "time": {{"end": 1.0, "save_times": [0.0, 0.5, 1.0]}},
+//!   "ensemble": {{"replicates": 16, "root_seed": 1}},
+//!   "outputs": {{"statistics": ["mean", "variance"], "keep_trajectories": 1}},
+//!   "budget": {{"max_events_per_replicate": 1000, "threads": 1, "max_output_bytes": 100000}}}}"#,
+//!   sha256(model));
+//! let simulation = simulation::simulate_bytes(model, run.as_bytes(), &Control::default()).unwrap();
+//! let result = simulation.result;
+//! assert_eq!((result.termination, result.assessment), (Stop::Completed, Assessment::ExactEnsemble));
+//! assert_eq!(result.trajectories[0].counts[0], vec![20]); // state at t = 0
+//! let mean = &result.statistics.unwrap().mean.unwrap();
+//! assert!(mean[2][0] < 20.0); // mean count of A at t = 1
+//! ```
 use crate::{
     CompiledNetwork, check_bytes,
     contracts::{Method, Run, Statistic},
@@ -17,109 +58,209 @@ use std::{
     time::{Duration, Instant},
 };
 
+/// Most replicates one execution admits (`CRN-E060`).
 pub const MAX_REPLICATES: u64 = 1_000_000;
+/// Cap on the conservatively reserved workspace, 256 MiB (`CRN-E060`). It is an
+/// allocation reservation, not an operating-system memory limit.
 pub const MAX_WORKSPACE_BYTES: u64 = 256 * 1024 * 1024;
+/// Cap on result and archive bytes, 256 MiB, whatever `max_output_bytes` says.
 pub const MAX_RESULT_BYTES: u64 = 256 * 1024 * 1024;
+/// Most worker threads; the run's `threads` is an allowance below this.
 pub const MAX_WORKERS: usize = 64;
 /// Polls between reads of the wall clock and, at most once per
 /// `CANCEL_FILE_INTERVAL`, the cancel file. The flag is read at every poll.
 pub const CLOCK_POLL_STRIDE: u32 = 64;
+/// Shortest interval between two checks of [`Control::cancel_file`] by one worker.
 pub const CANCEL_FILE_INTERVAL: Duration = Duration::from_millis(1);
 
+// Docs written as `#[doc = concat!(..)]` reach rustdoc but not the generated
+// JSON Schema; see the note at the top of lib.rs.
+
+/// Schema tag of a Direct SSA result.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ResultVersion {
+    #[doc = concat!("`crn-craft.result/0.2`.")]
     #[serde(rename = "crn-craft.result/0.2")]
     V02,
 }
+/// How a replicate, or the whole run, ended.
+///
+/// The declaration order is the aggregation priority: a run reports the
+/// largest replicate value, except that `output_limit` is set when retained
+/// output was removed.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum Stop {
+    #[doc = concat!("`completed`: reached the horizon, or became absorbing (zero total")]
+    #[doc = concat!("propensity) and held its state to the horizon.")]
     Completed,
+    #[doc = concat!("`event_limit`: executed `max_events_per_replicate` events before the horizon.")]
+    #[doc = concat!("Alternative SSA methods also use it when the sampling budget ran out.")]
     EventLimit,
+    #[doc = concat!("`population_limit`: the next event would have exceeded a population limit; it")]
+    #[doc = concat!("was not applied and the record carries the diagnostic.")]
     PopulationLimit,
+    #[doc = concat!("`wall_time_limit`: `wall_time_s` elapsed.")]
     WallTimeLimit,
+    #[doc = concat!("`cancelled`: cancellation was requested through [`Control`].")]
     Cancelled,
+    #[doc = concat!("`failed`: a numerical or state-update check failed; the record carries the")]
+    #[doc = concat!("diagnostic.")]
     Failed,
+    #[doc = concat!("`output_limit`: the run's retained output did not fit `max_output_bytes`, so")]
+    #[doc = concat!("trajectories and statistics were removed (`CRN-E064`). Run level only.")]
     OutputLimit,
 }
+/// What a Direct SSA result may be used for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Assessment {
+    #[doc = concat!("`exact_ensemble`: every replicate completed under the exact method. Monte")]
+    #[doc = concat!("Carlo and floating-point error remain.")]
     ExactEnsemble,
+    #[doc = concat!("`incomplete`: some replicate stopped early, or output was removed.")]
     Incomplete,
+    #[doc = concat!("`failed_checks`: some replicate failed a numerical or state-update check.")]
     FailedChecks,
 }
 
+/// Accounting of one replicate; every requested id has exactly one record.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Replicate {
+    /// Replicate id, which also selects its random stream.
     pub id: u64,
+    /// False for a replicate that a stop prevented from starting; it then has no events and
+    /// no saved points.
     pub started: bool,
+    #[doc = concat!("How the replicate ended.")]
     pub termination: Stop,
+    /// Events executed; an event that was rejected (population limit) is not counted.
     pub events: u64,
+    /// The latest certified time of the path in seconds: the horizon for a completed
+    /// replicate, otherwise the last event or save time reached.
     pub stop_time: f64,
+    /// Save times for which a state was recorded, a prefix of the save grid.
     pub saved_points: usize,
+    /// The error that ended the replicate, such as a failed check or a rejected
+    /// population-limit update; absent when it completed.
     pub diagnostic: Option<Diagnostic>,
 }
+/// Saved states of one retained replicate.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Trajectory {
+    /// Replicate id; trajectories are kept for ids 0 to `keep_trajectories` − 1.
     pub id: u64,
+    /// One row of counts in species order per recorded save time; only the replicate's
+    /// `saved_points` rows if it stopped early.
     pub counts: Vec<Vec<i64>>,
 }
+/// Ensemble statistics: one row per save time, one value per species. Present only for a
+/// fully completed ensemble.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Statistics {
+    /// Number of replicates summarized, equal to the requested replicates.
     pub samples: u64,
+    /// Sample mean when `mean` was requested.
     pub mean: Option<Vec<Vec<f64>>>,
+    /// Unbiased sample variance (denominator n − 1) when `variance` was requested.
     pub sample_variance: Option<Vec<Vec<f64>>>,
+    /// Standard error of the mean, sqrt(variance / n), when `mean` was requested and n > 1.
     pub mean_standard_error: Option<Vec<Vec<f64>>>,
 }
+/// Direct SSA result: input identities, replicate accounting, retained trajectories and statistics.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SimulationResult {
+    #[doc = concat!("Always `crn-craft.result/0.2`.")]
     pub schema: ResultVersion,
+    /// SHA-256 of the exact model bytes.
     pub model_sha256: String,
+    /// SHA-256 of the exact run bytes.
     pub run_sha256: String,
+    /// Sampler identity, `crn-craft.chacha8-direct/0.1`; replay needs the same identity, seed
+    /// and input bytes.
     pub sampler: String,
+    /// Root seed from the run.
     pub root_seed: u64,
+    /// Species names in the order used by every count row.
     pub species: Vec<String>,
+    /// The run's save grid in seconds.
     pub save_times: Vec<f64>,
+    #[doc = concat!("Aggregate stop: the highest-priority replicate stop, or `output_limit`.")]
     pub termination: Stop,
+    #[doc = concat!("What the result may be used for.")]
     pub assessment: Assessment,
+    /// Replicates the run requested.
     pub requested_replicates: u64,
+    /// Replicates that completed.
     pub completed_replicates: u64,
+    /// Events executed over all replicates.
     pub events: u64,
+    /// One record per requested replicate, in id order.
     pub replicates: Vec<Replicate>,
+    /// Saved states of the first `keep_trajectories` replicates, in id order; empty when
+    /// output was removed.
     pub trajectories: Vec<Trajectory>,
+    /// Requested statistics, present only when every replicate completed and output fit.
     pub statistics: Option<Statistics>,
+    /// Model warnings, plus `CRN-E064` when output was removed.
     pub diagnostics: Vec<Diagnostic>,
 }
+/// Build and execution identity of a run, stored as `provenance.json` in an archive.
+///
+/// Excluded from numerical reproducibility comparisons.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Provenance {
+    /// Version of this crate.
     pub crate_version: String,
+    /// `rustc --version` of the compiler that built this crate.
     pub rustc: String,
+    /// Operating system, as `std::env::consts::OS`.
     pub target_os: String,
+    /// CPU architecture, as `std::env::consts::ARCH`.
     pub target_arch: String,
+    /// SHA-256 of the Cargo.lock this crate was built with: the packaged lockfile of a
+    /// published crate, the workspace lockfile in a checkout.
     pub cargo_lock_sha256: String,
+    /// SHA-256 of the running executable; set by the archive writer when it can be read.
     pub executable_sha256: Option<String>,
+    /// Worker threads used.
     pub workers: usize,
+    /// Wall-clock seconds from the start of execution to the end of reduction.
     pub elapsed_seconds: f64,
+    /// Workspace bytes reserved at preparation.
     pub reserved_workspace_bytes: u64,
+    /// The workspace cap, [`MAX_WORKSPACE_BYTES`].
     pub workspace_cap_bytes: u64,
 }
+/// Output of [`execute`]: the numerical result and, separately, its provenance.
 pub struct Simulation {
+    /// The `crn-craft.result/0.2` document.
     pub result: SimulationResult,
+    /// Build and timing identity, kept apart from the numerical result.
     pub provenance: Provenance,
 }
 
 /// Cooperative API cancellation; CLI additionally accepts a caller-owned file.
+///
+/// Workers poll it at every event, at most every 64 propensity evaluations
+/// and at every save point. Each poll reads the [`Control::cancel`] flag;
+/// every [`CLOCK_POLL_STRIDE`]-th poll of a worker, starting with its first,
+/// also reads the wall clock, calls `external_stop` and checks `cancel_file`
+/// (at most once per [`CANCEL_FILE_INTERVAL`]). A worker keeps a stop once it
+/// has seen one. A default `Control` stops nothing until [`Control::cancel`]
+/// is called.
 #[derive(Default)]
 pub struct Control {
     cancelled: AtomicBool,
+    /// Path whose existence requests cancellation for every worker; an
+    /// existing file cancels before any replicate starts.
     pub cancel_file: Option<PathBuf>,
     /// Optional integration checkpoint. Invoked at the amortized clock stride.
     pub external_stop: Option<Box<dyn Fn() -> bool + Send + Sync>>,
@@ -217,6 +358,9 @@ pub(crate) fn execution_error(message: impl Into<String>) -> Diagnostic {
     )
 }
 
+/// A validated, admitted Direct SSA execution, ready for [`execute`] or
+/// [`execute_cached`]. Immutable: executing it again restarts the same
+/// streams and returns the same numbers.
 #[derive(Debug)]
 pub struct Prepared {
     pub(crate) network: CompiledNetwork,
@@ -229,6 +373,20 @@ pub struct Prepared {
     pub(crate) input_bytes: u64,
 }
 
+/// Validates a model and a `run/0.1` SSA request from their exact bytes and
+/// admits the execution.
+///
+/// The run's `model.sha256` must match `model_bytes`; `model.path` is only
+/// syntax-checked, because a byte API cannot resolve files (use
+/// [`crate::archive::simulate_files`] for that).
+///
+/// # Errors
+///
+/// All [`crate::check_bytes`] errors, then `CRN-E060` for an FSP run, more
+/// than [`MAX_REPLICATES`], a workspace reservation above
+/// [`MAX_WORKSPACE_BYTES`], an output budget too small for the replicate
+/// accounting, or an aggregate event cap above `u64::MAX`, and compilation
+/// errors such as `CRN-E040`.
 pub fn prepare(model_bytes: &[u8], run_bytes: &[u8]) -> Result<Prepared, Vec<Diagnostic>> {
     let report = check_bytes(model_bytes, Some(run_bytes));
     if !report.valid {
@@ -556,10 +714,22 @@ fn path_with_rng_mode(
     PathResult { record, counts }
 }
 
+/// Runs the ensemble with the Direct method, recomputing every propensity at
+/// each event.
+///
+/// # Errors
+///
+/// `CRN-E060` when a worker cannot start, or `CRN-E064` when even the
+/// replicate accounting exceeds the output budget. Numerical failures and
+/// stops are reported per replicate, not as errors.
 pub fn execute(prepared: &Prepared, control: &Control) -> Result<Simulation, Diagnostic> {
     execute_inner(prepared, control, false)
 }
 /// Exact Direct with dependency invalidation; identical sum/selection order and streams.
+///
+/// Recomputes only the propensities the previous event can change and
+/// resumes the ordered prefix sums at the first changed channel. Results
+/// equal those of [`execute`]; errors are the same.
 pub fn execute_cached(prepared: &Prepared, control: &Control) -> Result<Simulation, Diagnostic> {
     execute_inner(prepared, control, true)
 }
@@ -797,6 +967,11 @@ pub(crate) fn constrain_output(
     }
 }
 
+/// [`prepare`] then [`execute`]; see the [module example](self).
+///
+/// # Errors
+///
+/// The errors of both steps.
 pub fn simulate_bytes(
     model: &[u8],
     run: &[u8],

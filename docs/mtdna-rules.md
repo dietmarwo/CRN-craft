@@ -248,6 +248,13 @@ families retain per-event observation. If no tracker is eligible, the run
 reports the default sampler identity and a `CRN-R051` warning. Attaching a Continue observer or an
 event log leaves the opt-in tracker policy consistent.
 
+On a two-CPU host the opt-in path took about 100–110 ns per event on the
+128-cell probe, against about 35 ns for `mtdna_direct`. Inline factors, a
+fused resolution check, exact incremental projections and a grouped
+evaluator did not change that by 5%, so none was adopted
+([decision record](decisions/generic-rules-structural-2026-11-03.md)).
+Use `mtdna_direct` for the fixed three-class topology.
+
 Cached rates and dependency-aware projection refresh apply to the default
 path. Potentially overflowing report-only projections retain eager checks.
 See [the rules kernel review checklist](specialized-kernels.md) for the

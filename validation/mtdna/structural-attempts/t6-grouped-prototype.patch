@@ -1,0 +1,500 @@
+diff --git a/crates/crn-craft-rules/src/engine.rs b/crates/crn-craft-rules/src/engine.rs
+index dece6e9..3e025a0 100644
+--- a/crates/crn-craft-rules/src/engine.rs
++++ b/crates/crn-craft-rules/src/engine.rs
+@@ -2,6 +2,8 @@
+ 
+ #[path = "flat_path.rs"]
+ mod flat_path;
++#[path = "grouped_path.rs"]
++mod grouped_path;
+ #[path = "leap.rs"]
+ mod leap;
+ #[path = "mtdna_path.rs"]
+@@ -573,6 +575,7 @@ pub(crate) struct Path<'a> {
+     pub flat: Option<&'a crate::flat::Network>,
+     pub generated: Option<&'a dyn crate::RulesKernel>,
+     pub mtdna: Option<&'a crate::mtdna::Kernel>,
++    pub grouped: Option<&'a crate::grouped::Grouped>,
+     pub method: crate::Method,
+ }
+ 
+diff --git a/crates/crn-craft-rules/src/flat_path.rs b/crates/crn-craft-rules/src/flat_path.rs
+index 6623fac..ddee6f9 100644
+--- a/crates/crn-craft-rules/src/flat_path.rs
++++ b/crates/crn-craft-rules/src/flat_path.rs
+@@ -48,6 +48,11 @@ impl Path<'_> {
+             net.refresh(counts, values)?;
+             return Ok(stopped);
+         }
++        if let Some(grouped) = self.grouped {
++            return self.simulate_grouped(
++                grouped, net, counts, values, words, out, time, monitor, observer,
++            );
++        }
+         let mut live = out.peak_instances;
+         let mut cache = net.rate_cache();
+         let mut rates = vec![0.0; net.channels.len()];
+diff --git a/crates/crn-craft-rules/src/lib.rs b/crates/crn-craft-rules/src/lib.rs
+index 2be176d..dc5cbee 100644
+--- a/crates/crn-craft-rules/src/lib.rs
++++ b/crates/crn-craft-rules/src/lib.rs
+@@ -15,6 +15,7 @@ mod engine;
+ mod expr;
+ mod flat;
+ mod generated;
++mod grouped;
+ pub use generated::{RulesKernel, execute_with_rules_kernel, generate_rules_kernel};
+ pub mod model;
+ mod mtdna;
+@@ -371,6 +372,7 @@ impl Default for Method {
+ pub struct Prepared {
+     source: Model,
+     mtdna: Option<mtdna::Kernel>,
++    grouped: Option<grouped::Grouped>,
+     /// Why `mtdna_direct` runs Static Direct instead, when it does.
+     mtdna_fallback: Option<&'static str>,
+     /// `sparse_trackers` was requested but no tracker is eligible.
+@@ -720,9 +722,17 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
+         }
+         _ => (None, None),
+     };
++    // PROTOTYPE: environment switch, replaced by the request field.
++    let grouped = match (request.method, flat.as_ref()) {
++        (Some(Method::StaticDirect { .. }), Some(net)) if std::env::var_os("CRN_GROUPED").is_some() => {
++            grouped::Grouped::compile(net).ok()
++        }
++        _ => None,
++    };
+     Ok(Prepared {
+         source: model,
+         mtdna,
++        grouped,
+         mtdna_fallback,
+         sparse_unused,
+         compiled,
+@@ -992,6 +1002,7 @@ fn execute_inner<O: EventObserver>(
+                         flat: prepared.flat.as_ref(),
+                         generated,
+                         mtdna: prepared.mtdna.as_ref(),
++                        grouped: prepared.grouped.as_ref(),
+                         method: request.method.unwrap_or_default(),
+                         id,
+                     };
+diff --git a/crates/crn-craft-rules/src/grouped.rs b/crates/crn-craft-rules/src/grouped.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/crn-craft-rules/src/grouped.rs
+@@ -0,0 +1,318 @@
++//! Grouped Static Direct evaluation (`evaluation: "grouped"`, rules-run/0.5).
++//!
++//! Channels whose rates share a base are evaluated and selected together. A
++//! constant rate has base 1; a recognized vacancy rate has base
++//! `max(0, limit - count) / denominator`. Each channel contributes the term
++//! `weight × coefficient`, where the coefficient folds the rule's constant
++//! factors and the channel's combinatorial factor once, at preparation. A
++//! group's rate is `base × Σ terms`. One uniform selects a group and, when
++//! the group has more than one positive channel, a second uniform selects a
++//! channel within it. Each level requires 53-bit resolution of its own
++//! total, as in the tree engine. Rounding and random-word use differ from
++//! channel evaluation, so the sampler has its own identity.
++use crate::engine::{Halt, RESOLUTION, Words, numerical};
++use crate::expr::RateKernel;
++use crate::flat::Network;
++use rand_core::RngCore;
++
++#[derive(Clone, Copy)]
++enum Base {
++    One,
++    Vacancy {
++        limit: f64,
++        count: usize,
++        denominator: usize,
++    },
++}
++
++struct Group {
++    base: Base,
++    start: usize,
++    end: usize,
++}
++
++struct Member {
++    channel: usize,
++    reactants: [usize; 2],
++    arity: usize,
++    coefficient: f64,
++}
++
++pub(crate) struct Grouped {
++    groups: Vec<Group>,
++    members: Vec<Member>,
++    group_of: Vec<usize>,
++    /// Members whose weight changes when a channel fires.
++    touched: Vec<Vec<usize>>,
++}
++
++/// Per-path evaluation state.
++pub(crate) struct State {
++    terms: Vec<f64>,
++    sums: Vec<f64>,
++    /// The smallest positive term of each group.
++    smallest: Vec<f64>,
++    bases: Vec<f64>,
++    dirty: Vec<bool>,
++    rates: Vec<f64>,
++}
++
++impl Grouped {
++    /// Groups every channel, or says why the network cannot be grouped.
++    pub fn compile(net: &Network) -> Result<Self, &'static str> {
++        let mut keys: Vec<(Option<(u64, usize, usize)>, Base)> = Vec::new();
++        let mut assigned = Vec::with_capacity(net.channels.len());
++        for c in &net.channels {
++            let (key, base, factors): (_, _, &[f64]) = match &net.rates[c.rule] {
++                RateKernel::Constant(k) => (None, Base::One, std::slice::from_ref(k)),
++                RateKernel::Vacancy {
++                    limit,
++                    count,
++                    denominator,
++                    factors,
++                } => (
++                    Some((limit.to_bits(), *count, *denominator)),
++                    Base::Vacancy {
++                        limit: *limit,
++                        count: *count,
++                        denominator: *denominator,
++                    },
++                    factors,
++                ),
++                RateKernel::Expression(_) => {
++                    return Err("a rate is neither constant nor a recognized vacancy rate");
++                }
++            };
++            let coefficient = factors.iter().product::<f64>() * c.factor;
++            if !(coefficient.is_finite() && coefficient >= 0.0) {
++                return Err("a constant rate factor is negative or not finite");
++            }
++            let group = keys.iter().position(|(k, _)| *k == key).unwrap_or_else(|| {
++                keys.push((key, base));
++                keys.len() - 1
++            });
++            assigned.push((group, coefficient));
++        }
++        let mut groups = Vec::with_capacity(keys.len());
++        let mut members = Vec::with_capacity(net.channels.len());
++        for (g, &(_, base)) in keys.iter().enumerate() {
++            let start = members.len();
++            for (i, &(group, coefficient)) in assigned.iter().enumerate() {
++                if group == g {
++                    let c = &net.channels[i];
++                    let mut reactants = [0; 2];
++                    reactants[..c.reactants.len()].copy_from_slice(&c.reactants);
++                    members.push(Member {
++                        channel: i,
++                        reactants,
++                        arity: c.reactants.len(),
++                        coefficient,
++                    });
++                }
++            }
++            groups.push(Group {
++                base,
++                start,
++                end: members.len(),
++            });
++        }
++        let mut group_of = vec![0; members.len()];
++        for (g, group) in groups.iter().enumerate() {
++            group_of[group.start..group.end].fill(g);
++        }
++        let touched = net
++            .channels
++            .iter()
++            .map(|fired| {
++                let mut list: Vec<usize> = members
++                    .iter()
++                    .enumerate()
++                    .filter(|(_, m)| {
++                        m.reactants[..m.arity]
++                            .iter()
++                            .any(|s| fired.changes.iter().any(|&(x, d)| x == *s && d != 0))
++                    })
++                    .map(|(j, _)| j)
++                    .collect();
++                list.sort_unstable();
++                list
++            })
++            .collect();
++        Ok(Self {
++            groups,
++            members,
++            group_of,
++            touched,
++        })
++    }
++
++    pub fn state(&self) -> State {
++        let n = self.groups.len();
++        State {
++            terms: vec![0.0; self.members.len()],
++            sums: vec![0.0; n],
++            smallest: vec![f64::INFINITY; n],
++            bases: vec![0.0; n],
++            dirty: vec![true; n],
++            rates: vec![0.0; n],
++        }
++    }
++
++    #[allow(clippy::cast_precision_loss)]
++    #[inline]
++    fn term(&self, net: &Network, j: usize, counts: &[u64]) -> Result<f64, Halt> {
++        let m = &self.members[j];
++        let [s, t] = m.reactants;
++        let weight = match m.arity {
++            0 => 1.0,
++            1 => counts[s] as f64,
++            _ if s == t => counts[s] as f64 * counts[s].saturating_sub(1) as f64 * 0.5,
++            _ => counts[s] as f64 * counts[t] as f64,
++        };
++        if weight == 0.0 {
++            return Ok(0.0);
++        }
++        let term = weight * m.coefficient;
++        if term.is_finite() {
++            Ok(term)
++        } else {
++            Err(net.rate_error(m.channel))
++        }
++    }
++
++    /// Brings group rates up to date after `previous` fired (all of them on
++    /// the first event).
++    pub fn evaluate(
++        &self,
++        net: &Network,
++        state: &mut State,
++        previous: Option<usize>,
++        counts: &[u64],
++        values: &[f64],
++    ) -> Result<(), Halt> {
++        if let Some(i) = previous {
++            for &j in &self.touched[i] {
++                state.terms[j] = self.term(net, j, counts)?;
++                state.dirty[self.group_of[j]] = true;
++            }
++        } else {
++            for j in 0..self.members.len() {
++                state.terms[j] = self.term(net, j, counts)?;
++            }
++            state.dirty.fill(true);
++        }
++        for (g, group) in self.groups.iter().enumerate() {
++            if state.dirty[g] {
++                state.dirty[g] = false;
++                let mut sum = -0.0;
++                let mut smallest = f64::INFINITY;
++                for &term in &state.terms[group.start..group.end] {
++                    sum += term;
++                    if term > 0.0 && term < smallest {
++                        smallest = term;
++                    }
++                }
++                if !sum.is_finite() {
++                    return Err(net.rate_error(self.members[group.start].channel));
++                }
++                state.sums[g] = sum;
++                state.smallest[g] = smallest;
++            }
++            let sum = state.sums[g];
++            state.rates[g] = if sum == 0.0 {
++                0.0
++            } else {
++                let base = match group.base {
++                    Base::One => 1.0,
++                    Base::Vacancy {
++                        limit,
++                        count,
++                        denominator,
++                    } => (limit - values[count]).max(0.0) / values[denominator],
++                };
++                let rate = base * sum;
++                if !(rate.is_finite() && rate >= 0.0) {
++                    return Err(net.rate_error(self.members[group.start].channel));
++                }
++                state.bases[g] = base;
++                rate
++            };
++        }
++        Ok(())
++    }
++
++    /// Draws the next event from up-to-date group rates.
++    pub fn select<R: RngCore>(
++        &self,
++        state: &State,
++        time: f64,
++        words: &mut Words<'_, R>,
++        next_time: impl FnOnce(&mut Words<'_, R>, f64) -> Result<f64, Halt>,
++    ) -> Result<Option<(f64, usize)>, Halt> {
++        let mut total = -0.0;
++        for &rate in &state.rates {
++            total += rate;
++        }
++        if total == 0.0 {
++            return Ok(None);
++        }
++        if !total.is_finite() {
++            return Err(numerical(
++                "/rules",
++                "unresolvable total propensity",
++                "Rescale rates or populations.",
++            ));
++        }
++        // The channel rates are base × term, as the scan below computes
++        // them: each positive one must be resolvable against the total.
++        let floor = total * RESOLUTION;
++        for (g, &rate) in state.rates.iter().enumerate() {
++            if rate > 0.0 && state.bases[g] * state.smallest[g] < floor {
++                return Err(Halt::Numerical(crn_craft::diagnostic::Diagnostic::error(
++                    "CRN-R031",
++                    "/rules",
++                    "a positive channel is below 53-bit resolution of the total",
++                    "Use the tree method or rescale rates.",
++                )));
++            }
++        }
++        let next = next_time(words, total)?;
++        if next <= time {
++            return Err(numerical(
++                "/time",
++                "clock failed to advance",
++                "Rescale rates and time.",
++            ));
++        }
++        let mut target = words.uniform()? * total;
++        let mut chosen = None;
++        for (g, &rate) in state.rates.iter().enumerate() {
++            if rate > 0.0 {
++                chosen = Some(g);
++                if target < rate {
++                    break;
++                }
++                target -= rate;
++            }
++        }
++        let Some(g) = chosen else {
++            return Ok(None);
++        };
++        // Continue with the same uniform inside the group. If rounding runs
++        // past the group's last positive channel, that channel is selected.
++        let group = &self.groups[g];
++        let base = state.bases[g];
++        let mut picked = None;
++        for (j, &term) in state.terms[group.start..group.end].iter().enumerate() {
++            if term > 0.0 {
++                picked = Some(group.start + j);
++                let rate = base * term;
++                if target < rate {
++                    break;
++                }
++                target -= rate;
++            }
++        }
++        Ok(picked.map(|j| (next, self.members[j].channel)))
++    }
++}
+diff --git a/crates/crn-craft-rules/src/grouped_path.rs b/crates/crn-craft-rules/src/grouped_path.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/crn-craft-rules/src/grouped_path.rs
+@@ -0,0 +1,89 @@
++//! Static Direct loop with grouped evaluation (rules-run/0.5).
++use super::*;
++use crate::flat::Network;
++use crate::grouped::Grouped;
++
++impl Path<'_> {
++    #[allow(clippy::too_many_arguments)]
++    pub(super) fn simulate_grouped<R: RngCore, O: EventObserver>(
++        &self,
++        grouped: &Grouped,
++        net: &Network,
++        counts: &mut [u64],
++        values: &mut [f64],
++        words: &mut Words<'_, R>,
++        out: &mut PathOutput,
++        time: &mut f64,
++        monitor: &mut Option<Monitor<'_>>,
++        observer: &O,
++    ) -> Result<Option<f64>, Halt> {
++        let mut live = out.peak_instances;
++        let mut state = grouped.state();
++        let mut previous = None;
++        let ziggurat = matches!(
++            self.method,
++            crate::Method::StaticDirect {
++                waiting_time: Some(crate::RulesWaitingTime::Ziggurat),
++                ..
++            }
++        );
++        loop {
++            if out.events % POLL_EVENTS == 0 && out.events > 0 {
++                self.poll()?;
++            }
++            grouped.evaluate(net, &mut state, previous, counts, values)?;
++            let candidate = if ziggurat {
++                grouped.select(&state, *time, words, |words, total| {
++                    let unit = crn_craft::ssa::exponential_from_words(|retry| {
++                        if retry {
++                            self.poll()?;
++                        }
++                        words.word()
++                    })?;
++                    Ok(*time + unit / total)
++                })?
++            } else {
++                grouped.select(&state, *time, words, |words, total| {
++                    Ok(*time - libm::log(1.0 - words.open()?) / total)
++                })?
++            };
++            let Some((next, channel)) = candidate else {
++                net.refresh_cold(counts, values)?;
++                return Ok(None);
++            };
++            previous = Some(channel);
++            if out.saved_points < self.report_times.len()
++                && self.report_times[out.saved_points] < next
++            {
++                net.refresh_cold(counts, values)?;
++                self.save_before(out, values, next);
++            }
++            if next > self.end {
++                net.refresh_cold(counts, values)?;
++                return Ok(None);
++            }
++            self.apply_flat(net, channel, counts, &mut live, out)?;
++            *time = next;
++            net.refresh_channel(channel, counts, values, O::ENABLED)?;
++            if (O::ENABLED || net.observe_affected[channel])
++                && self.observe_flat(net, channel, values, next, monitor, observer)
++            {
++                return Ok(Some(next));
++            }
++            if net.stop_affected[channel] {
++                match self.stop_values(values) {
++                    Ok(false) => {}
++                    Ok(true) => {
++                        net.refresh_cold(counts, values)?;
++                        return Ok(Some(next));
++                    }
++                    Err(_) => {
++                        // The diagnostic includes all projection values.
++                        net.refresh_cold(counts, values)?;
++                        self.stop_values(values)?;
++                    }
++                }
++            }
++        }
++    }
++}

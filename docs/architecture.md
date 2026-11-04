@@ -143,7 +143,10 @@ The result's sampler identity names the policy that ran.
 
 The generated rules route is opt-in. In the contributor's eight-worker mtDNA
 measurement it was about 10% faster than the interpreter, and `mtdna_direct`
-remained about three times faster than the generic path. Use the
+remained about three times faster than the generic path. Structural changes
+to the interpreter, including grouped evaluation, did not narrow that gap
+by more than the 5% threshold
+([decision record](decisions/generic-rules-structural-2026-11-03.md)). Use the
 [specialized kernel checklist](specialized-kernels.md) before introducing
 another kernel. See [reusable parameters](reusable-parameters.md) for the
 fixed-network Rust and Python interfaces.

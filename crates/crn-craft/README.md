@@ -9,7 +9,8 @@ checks, explicit budgets and replayable seeds.
   archives, and `direct`, `cached_direct`, `direct_cr`, `sorting_direct` and
   `rssa_cr` with inverse or Ziggurat waits (`crn-craft.ssa-run/0.3`, where the
   JumpProcesses.jl-style `fast` policy is the default and `fast: false` the
-  checked one).
+  checked one), plus Gibson–Bruck `next_reaction` (`crn-craft.ssa-run/0.4`,
+  checked policy).
 - Sparse finite state projection, explicitly approximate Poisson leaping,
   network analysis and conservation laws.
 - Reusable parameter templates for optimization loops.

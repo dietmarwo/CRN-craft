@@ -44,6 +44,11 @@ Rust float serialization may normalize literals, so hashes are never taken from 
 
 ## Migration from iteration 1
 
+> Since release 0.2.0 every generated schema, the legacy snapshots included,
+> carries the Rust API documentation as `description` text. Shapes are
+> unchanged, so the statements below about unchanged snapshots hold for shape;
+> the bytes now differ by those descriptions.
+
 The four model/run/result/check 0.1 schemas are byte-for-byte unchanged. No model or run migration is needed. Discovery advances from `crn-craft.describe/0.1` to `crn-craft.describe/0.2`: clients must accept the new version, `analyze`, `rate_evaluation_available`, analysis limits and the two new schemas. Simulation methods remain unavailable. Programs reading only `check` retain its existing structural/domain semantics and conservative warnings; `analyze` may suppress a growth warning when a conservation law proves an initial-class bound.
 
 ## Migration from iteration 2

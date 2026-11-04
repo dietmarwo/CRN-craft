@@ -1,0 +1,2443 @@
+diff --git a/crates/crn-craft-rules/examples/generate_rules_loop.rs b/crates/crn-craft-rules/examples/generate_rules_loop.rs
+index 83bb2a9..5c410a3 100644
+--- a/crates/crn-craft-rules/examples/generate_rules_loop.rs
++++ b/crates/crn-craft-rules/examples/generate_rules_loop.rs
+@@ -1,15 +1,20 @@
+-use crn_craft_rules::{generate_rules_loop, prepare};
++use crn_craft_rules::{LoopLayout, generate_rules_loop, generate_rules_loop_with, prepare};
+ 
+ fn main() -> Result<(), String> {
+     let args: Vec<_> = std::env::args_os().skip(1).collect();
+-    let [model, run] = args.as_slice() else {
+-        return Err("usage: generate_rules_loop MODEL REQUEST".into());
++    let (model, run, layout) = match args.as_slice() {
++        [model, run] => (model, run, None),
++        [model, run, layout] if layout == "unrolled" => (model, run, Some(LoopLayout::Unrolled)),
++        [model, run, layout] if layout == "compact" => (model, run, Some(LoopLayout::Compact)),
++        _ => return Err("usage: generate_rules_loop MODEL REQUEST [unrolled|compact]".into()),
+     };
+     let read = |path| std::fs::read(path).map_err(|e| e.to_string());
+     let prepared = prepare(&read(model)?, &read(run)?).map_err(|e| format!("{e:?}"))?;
+-    print!(
+-        "{}",
+-        generate_rules_loop(&prepared).map_err(|e| format!("{e:?}"))?
+-    );
++    let source = match layout {
++        None => generate_rules_loop(&prepared),
++        Some(layout) => generate_rules_loop_with(&prepared, layout),
++    }
++    .map_err(|e| format!("{e:?}"))?;
++    print!("{source}");
+     Ok(())
+ }
+diff --git a/crates/crn-craft-rules/src/generated_loop.rs b/crates/crn-craft-rules/src/generated_loop.rs
+index b625383..ca30bc5 100644
+--- a/crates/crn-craft-rules/src/generated_loop.rs
++++ b/crates/crn-craft-rules/src/generated_loop.rs
+@@ -33,11 +33,26 @@ pub trait RulesLoop: Sync {
+ 
+ const PLACEHOLDER: &str = "@FINGERPRINT@";
+ 
+-/// Rate code is emitted once per dependency row, so the source grows with
+-/// the square of the channel count in densely coupled networks. Beyond this
+-/// size the loop is refused before it can exhaust the compiler; the rates
+-/// kernel and the interpreter still apply.
+-const MAX_SOURCE: usize = 1 << 20;
++/// Unrolled loops repeat rate code in every dependency row, so their source
++/// grows with the square of the channel count in densely coupled networks.
++/// Above this size [`generate_rules_loop`] emits the compact layout.
++const MAX_UNROLLED: usize = 1 << 20;
++/// Compact loops keep dependency rows as tables; above this size the loop
++/// is refused before it can exhaust the compiler.
++const MAX_COMPACT: usize = 8 << 20;
++
++/// How a generated loop is laid out. Both layouts give byte-identical
++/// results; they differ in source size and speed.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub enum LoopLayout {
++    /// Straight-line code per channel and dependency row. Fastest, but the
++    /// source grows with the square of the channel count in densely coupled
++    /// networks. Limited to 1 MiB of source.
++    Unrolled,
++    /// One rate function, constant dependency, change and projection
++    /// tables, and loops over the channels. Limited to 8 MiB of source.
++    Compact,
++}
+ 
+ fn network(prepared: &Prepared) -> Result<&Network, Diagnostic> {
+     if matches!(prepared.request.method, Some(Method::StaticDirect { .. })) {
+@@ -56,19 +71,34 @@ fn fingerprint(prepared: &Prepared, template: &str) -> String {
+     crn_craft::sha256(format!("rules-loop/1\n{}\n{template}", prepared.model_sha256).as_bytes())
+ }
+ 
+-/// Run a prepared Static Direct request with a generated event loop. Results
+-/// are byte-identical to [`crate::execute`] for the same request. Fails with
+-/// `CRN-R020` at `/model` unless the loop was generated for these exact model
+-/// bytes by this version of the generator. Observers are not supported on
+-/// this path.
++/// Run a prepared Static Direct request with a generated event loop of
++/// either layout. Results are byte-identical to [`crate::execute`] for the
++/// same request. Fails with `CRN-R020` at `/model` unless the loop was
++/// generated for these exact model bytes by this version of the generator.
++/// Observers are not supported on this path; trackers and event logs are.
+ pub fn execute_with_rules_loop(
+     prepared: &Prepared,
+     control: &Control,
+     kernel: &impl RulesLoop,
+ ) -> Result<RulesResult, Diagnostic> {
+     let net = network(prepared)?;
+-    let expected = fingerprint(prepared, &template(prepared, net)?);
+-    if expected != kernel.fingerprint() {
++    let parts = Parts::analyze(prepared, net)?;
++    let mut refusal = None;
++    let mut matched = false;
++    for layout in [LoopLayout::Unrolled, LoopLayout::Compact] {
++        match parts.template(layout) {
++            Ok(template) if fingerprint(prepared, &template) == kernel.fingerprint() => {
++                matched = true;
++                break;
++            }
++            Ok(_) => {}
++            Err(error) => refusal = refusal.or(Some(error)),
++        }
++    }
++    if !matched {
++        if let (Some(error), true) = (refusal, parts.template(LoopLayout::Compact).is_err()) {
++            return Err(error);
++        }
+         return Err(request_error(
+             "/model",
+             "generated rules loop fingerprint mismatch",
+@@ -79,15 +109,35 @@ pub fn execute_with_rules_loop(
+ }
+ 
+ /// Emit a Rust module defining `GeneratedRulesLoop` for a prepared Static
+-/// Direct request. The caller compiles this source into the application and
+-/// runs it with [`execute_with_rules_loop`]. Supports constant and vacancy
+-/// rates and sum observables, up to 1 MiB of emitted source. Parameters are
+-/// compiled in, so another parameter set needs another loop. Request
+-/// settings are not: one loop serves every Static Direct request for the
+-/// model bytes.
++/// Direct request. Networks of fewer than 32 channels get the unrolled layout
++/// if it fits in 1 MiB of source; larger networks, where the compact loops
++/// were faster, and oversized ones get the compact layout, up to 8 MiB. The
++/// caller compiles this source into the
++/// application and runs it with [`execute_with_rules_loop`]. Supports
++/// constant and vacancy rates and sum observables. Parameters are compiled
++/// in, so another parameter set needs another loop. Request settings are
++/// not: one loop serves every Static Direct request for the model bytes.
+ pub fn generate_rules_loop(prepared: &Prepared) -> Result<String, Diagnostic> {
+     let net = network(prepared)?;
+-    let template = template(prepared, net)?;
++    let parts = Parts::analyze(prepared, net)?;
++    let template = if net.channels.len() >= crate::flat::FUSED_SELECTION {
++        parts.template(LoopLayout::Compact)?
++    } else {
++        parts
++            .template(LoopLayout::Unrolled)
++            .or_else(|_| parts.template(LoopLayout::Compact))?
++    };
++    let hash = fingerprint(prepared, &template);
++    Ok(template.replacen(PLACEHOLDER, &hash, 1))
++}
++
++/// [`generate_rules_loop`] with an explicit layout.
++pub fn generate_rules_loop_with(
++    prepared: &Prepared,
++    layout: LoopLayout,
++) -> Result<String, Diagnostic> {
++    let net = network(prepared)?;
++    let template = Parts::analyze(prepared, net)?.template(layout)?;
+     let hash = fingerprint(prepared, &template);
+     Ok(template.replacen(PLACEHOLDER, &hash, 1))
+ }
+@@ -96,219 +146,477 @@ fn bits(value: f64) -> String {
+     format!("f64::from_bits({:#018x})", value.to_bits())
+ }
+ 
++/// One channel's rate: `weight == 0 ? 0 : global * (weight * factor)`, as
++/// `RateCache::channel` computes it.
+ struct Rate {
+     /// Vacancy base slot, if any.
+     base: Option<usize>,
+-    expression: String,
++    weight: String,
++    global: String,
++    factor: String,
+ }
+ 
+-/// The emitted source with a placeholder for its fingerprint.
+-fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
+-    let unsupported = || {
+-        request_error(
+-            "/method",
+-            "generated rules loops support constant or vacancy rates and sum observables",
+-            "Use interpreted Static Direct for other expressions or reductions.",
++impl Rate {
++    fn value(&self) -> String {
++        format!(
++            "{{ let weight = {}; if weight == 0.0 {{ 0.0 }} else {{ ({}) * (weight * {}) }} }}",
++            self.weight, self.global, self.factor
+         )
+-    };
+-    let mut bases: BTreeMap<(u64, usize, usize), usize> = BTreeMap::new();
+-    let mut base_code = Vec::new();
+-    let mut rates = Vec::with_capacity(net.channels.len());
+-    for (i, c) in net.channels.iter().enumerate() {
+-        let (base, global) = match &net.rates[c.rule] {
+-            RateKernel::Constant(k) => (None, bits(*k)),
+-            RateKernel::Vacancy {
+-                limit,
+-                count,
+-                denominator,
+-                factors,
+-            } => {
+-                let key = (limit.to_bits(), *count, *denominator);
+-                let next = bases.len();
+-                let slot = *bases.entry(key).or_insert(next);
+-                if slot == next {
+-                    base_code.push(format!(
+-                        "let base_{slot} = ({} - values[{count}]).max(0.0) / values[{denominator}];",
+-                        bits(*limit)
+-                    ));
++    }
++}
++
++/// What both layouts emit, derived once from the lowered network.
++struct Parts<'a> {
++    net: &'a Network,
++    rates: Vec<Rate>,
++    /// `let base_k = ...;` per vacancy base.
++    bases: Vec<String>,
++    /// Statements that end the path if the stop predicate fires.
++    stop: String,
++    /// Whether the stop predicate reads a projection the channel changes.
++    stops: Vec<bool>,
++    species: usize,
++    observables: usize,
++}
++
++impl<'a> Parts<'a> {
++    fn analyze(prepared: &Prepared, net: &'a Network) -> Result<Self, Diagnostic> {
++        let unsupported = || {
++            request_error(
++                "/method",
++                "generated rules loops support constant or vacancy rates and sum observables",
++                "Use interpreted Static Direct for other expressions or reductions.",
++            )
++        };
++        let mut slots: BTreeMap<(u64, usize, usize), usize> = BTreeMap::new();
++        let mut bases = Vec::new();
++        let mut rates = Vec::with_capacity(net.channels.len());
++        for c in &net.channels {
++            let (base, global) = match &net.rates[c.rule] {
++                RateKernel::Constant(k) => (None, bits(*k)),
++                RateKernel::Vacancy {
++                    limit,
++                    count,
++                    denominator,
++                    factors,
++                } => {
++                    let key = (limit.to_bits(), *count, *denominator);
++                    let next = slots.len();
++                    let slot = *slots.entry(key).or_insert(next);
++                    if slot == next {
++                        bases.push(format!(
++                            "let base_{slot} = ({} - values[{count}]).max(0.0) / values[{denominator}];",
++                            bits(*limit)
++                        ));
++                    }
++                    let mut expression = format!("base_{slot}");
++                    for &factor in factors {
++                        write!(expression, " * {}", bits(factor)).unwrap();
++                    }
++                    (Some(slot), expression)
+                 }
+-                let mut expression = format!("base_{slot}");
+-                for &factor in factors {
+-                    write!(expression, " * {}", bits(factor)).unwrap();
++                RateKernel::Expression(_) => return Err(unsupported()),
++            };
++            let weight = match *c.reactants.as_slice() {
++                [] => "1.0".into(),
++                [s] => format!("counts[{s}] as f64"),
++                [s, t] if s == t => {
++                    format!("counts[{s}] as f64 * counts[{s}].saturating_sub(1) as f64 * 0.5")
+                 }
+-                (Some(slot), expression)
+-            }
+-            RateKernel::Expression(_) => return Err(unsupported()),
+-        };
+-        let weight = match *c.reactants.as_slice() {
+-            [] => "1.0".into(),
+-            [s] => format!("counts[{s}] as f64"),
+-            [s, t] if s == t => {
+-                format!("counts[{s}] as f64 * counts[{s}].saturating_sub(1) as f64 * 0.5")
++                [s, t] => format!("counts[{s}] as f64 * counts[{t}] as f64"),
++                _ => unreachable!("validated arity"),
++            };
++            rates.push(Rate {
++                base,
++                weight,
++                global,
++                factor: bits(c.factor),
++            });
++        }
++        // Every changed projection is refreshed after each event, including
++        // the ones the interpreter defers to reports. Deferred projections
++        // cannot overflow: lowering allows at most 256 species, and
++        // `plan_observables` defers only weights bounded for 1024 terms.
++        if net
++            .observables
++            .iter()
++            .any(|(_, reduce, _)| !matches!(reduce, Reduce::Sum))
++        {
++            return Err(unsupported());
++        }
++        // The stop predicate runs after events that change a projection it
++        // reads. The fused guarded fraction keeps the interpreter's fused
++        // operations; other predicates are emitted from the expression with
++        // the bytecode's semantics, and an undefined value leaves the
++        // diagnostic to the host.
++        let model = &prepared.compiled;
++        let mut stop_reads = vec![false; model.observables.len()];
++        if let Some(program) = &model.stop_program {
++            program.reads(&mut stop_reads);
++        }
++        let emitted = model
++            .stop
++            .as_ref()
++            .and_then(|e| e.rust_predicate(&model.params));
++        let finish = "host.stopped(&counts[..], &mut values[..])?; return Ok(Some(next));";
++        let stop = match (
++            model.stop_program.as_ref().and_then(|p| p.fraction()),
++            emitted,
++        ) {
++            (Some((total, part, fraction)), _) => format!(
++                "if values[{total}] > 0.0 && values[{part}] >= {} * values[{total}] {{ {finish} }}",
++                bits(fraction)
++            ),
++            (None, Some(value)) => format!(
++                "{{ let v: f64 = {value};\nif v.is_nan() {{ if host.stop(&counts[..], &mut values[..])? {{ return Ok(Some(next)); }} }} else if v != 0.0 {{ {finish} }} }}"
++            ),
++            (None, None) => {
++                "if host.stop(&counts[..], &mut values[..])? { return Ok(Some(next)); }".into()
+             }
+-            [s, t] => format!("counts[{s}] as f64 * counts[{t}] as f64"),
+-            _ => unreachable!("validated arity"),
+         };
+-        rates.push(Rate {
+-            base,
+-            expression: format!(
+-                "{{ let weight = {weight}; let a = if weight == 0.0 {{ 0.0 }} else {{ ({global}) * (weight * {}) }}; \
+-                 if !(a.is_finite() && a >= 0.0) {{ return Err(host.rate_error({i})); }} r[{i}] = a; }}",
+-                bits(c.factor)
+-            ),
+-        });
+-    }
+-    // Every changed projection is refreshed after each event, including the
+-    // ones the interpreter defers to reports. Deferred projections cannot
+-    // overflow: lowering allows at most 256 species, and `plan_observables`
+-    // defers only weights bounded for 1024 terms.
+-    if net
+-        .observables
+-        .iter()
+-        .any(|(_, reduce, _)| !matches!(reduce, Reduce::Sum))
+-    {
+-        return Err(unsupported());
++        let stops = net
++            .changed
++            .iter()
++            .map(|row| {
++                row.iter()
++                    .any(|&index| stop_reads[net.observables[index].0])
++            })
++            .collect();
++        Ok(Self {
++            net,
++            rates,
++            bases,
++            stop,
++            stops,
++            species: net.species.len(),
++            observables: model.observables.len(),
++        })
+     }
+-    let update = |channels: &mut dyn Iterator<Item = usize>| {
+-        let channels: Vec<_> = channels.collect();
+-        let mut code = String::new();
+-        let mut needed: Vec<usize> = channels.iter().filter_map(|&i| rates[i].base).collect();
+-        needed.sort_unstable();
+-        needed.dedup();
+-        for slot in needed {
+-            writeln!(code, "{}", base_code[slot]).unwrap();
++
++    fn template(&self, layout: LoopLayout) -> Result<String, Diagnostic> {
++        let (source, limit, size) = match layout {
++            LoopLayout::Unrolled => (self.unrolled(), MAX_UNROLLED, "1 MiB"),
++            LoopLayout::Compact => (self.compact(), MAX_COMPACT, "8 MiB"),
++        };
++        if source.len() > limit {
++            return Err(request_error(
++                "/method",
++                format!("the generated rules loop would exceed {size} of source"),
++                "Use the generated rates kernel or interpreted Static Direct for densely coupled networks.",
++            ));
+         }
+-        for i in channels {
+-            writeln!(code, "{}", rates[i].expression).unwrap();
++        Ok(source)
++    }
++
++    /// The projection's value from the counts, in the interpreter's order.
++    fn projection(&self, index: usize) -> String {
++        let mut code = String::from("[");
++        for &(species, weight) in &self.net.observables[index].2 {
++            write!(code, "counts[{species}] as f64 * {},", bits(weight)).unwrap();
+         }
++        code.push_str("].into_iter().sum::<f64>()");
+         code
+-    };
+-    let n = net.channels.len();
+-    let mut dependencies = String::new();
+-    for (channel, row) in net.affected.iter().enumerate() {
+-        writeln!(
+-            dependencies,
+-            "{channel} => {{\n{}}}",
+-            update(&mut row.iter().copied())
+-        )
+-        .unwrap();
+     }
+-    writeln!(dependencies, "_ => {{\n{}}}", update(&mut (0..n))).unwrap();
+-    let mut total = String::new();
+-    let mut unresolved = String::from("!total.is_finite()");
+-    let mut pick = String::new();
+-    for i in 0..n {
+-        writeln!(total, "total += r[{i}];").unwrap();
+-        write!(unresolved, " || (r[{i}] > 0.0 && r[{i}] < floor)").unwrap();
+-        writeln!(
+-            pick,
+-            "if r[{i}] > 0.0 {{ channel = {i}; if target < r[{i}] {{ break 'pick; }} target -= r[{i}]; }}"
++
++    /// Selection statements, as in `direct_with`: the total, the resolution
++    /// check, the wait, the uniform and the scan. The unrolled layout writes
++    /// one statement per channel and tests every rate. The compact layout
++    /// loops, and for networks of at least `FUSED_SELECTION` channels tracks
++    /// the smallest positive rate while summing. (Fused tests in unrolled
++    /// code made the 96-channel sparse loop 1.4× slower.)
++    fn selection(&self, layout: LoopLayout) -> String {
++        let n = self.rates.len();
++        let resolution = bits(crate::engine::RESOLUTION);
++        let fused = layout == LoopLayout::Compact && n >= crate::flat::FUSED_SELECTION;
++        let track = "if a > 0.0 && a < smallest { smallest = a; }";
++        let (total, check, pick) = match layout {
++            LoopLayout::Unrolled => {
++                let mut total = String::new();
++                let mut check = String::new();
++                let mut pick = String::new();
++                for i in 0..n {
++                    if fused {
++                        writeln!(total, "{{ let a = r[{i}]; total += a; {track} }}").unwrap();
++                    } else {
++                        writeln!(total, "total += r[{i}];").unwrap();
++                        write!(check, " || (r[{i}] > 0.0 && r[{i}] < floor)").unwrap();
++                    }
++                    writeln!(
++                        pick,
++                        "if r[{i}] > 0.0 {{ channel = {i}; if target < r[{i}] {{ break 'pick; }} target -= r[{i}]; }}"
++                    )
++                    .unwrap();
++                }
++                if fused {
++                    check = " || smallest < floor".into();
++                }
++                (total, check, format!("'pick: {{\n{pick}}}"))
++            }
++            LoopLayout::Compact => (
++                format!("for &a in &r {{ total += a; {} }}\n", if fused { track } else { "" }),
++                if fused {
++                    " || smallest < floor".into()
++                } else {
++                    " || r.iter().any(|&a| a > 0.0 && a < floor)".into()
++                },
++                "for (i, &a) in r.iter().enumerate() { if a > 0.0 { channel = i; if target < a { break; } target -= a; } }".into(),
++            ),
++        };
++        let smallest = if fused {
++            "let mut smallest = f64::INFINITY;\n"
++        } else {
++            ""
++        };
++        format!(
++            "let mut total = -0.0f64;
++            {smallest}{total}            if total == 0.0 {{ return host.exhausted(&counts[..], &mut values[..]); }}
++            let floor = total * {resolution};
++            if !total.is_finite(){check} {{ return Err(host.resolution_error(total)); }}
++            let next = host.next_time(total)?;
++            let mut target = host.uniform()? * total;
++            let mut channel = usize::MAX;
++            {pick}
++            if channel == usize::MAX {{ return host.exhausted(&counts[..], &mut values[..]); }}
++            previous = channel;
++            if !host.reach(next, &counts[..], &mut values[..])? {{ return Ok(None); }}
++            host.begin_event()?;\n"
+         )
+-        .unwrap();
+     }
+-    // The stop predicate runs after events that change a projection it
+-    // reads. The fused guarded fraction is emitted with the interpreter's
+-    // operations; other predicates are evaluated by the host.
+-    let model = &prepared.compiled;
+-    let mut stop_reads = vec![false; model.observables.len()];
+-    if let Some(program) = &model.stop_program {
+-        program.reads(&mut stop_reads);
++
++    fn header(&self, layout: &str) -> String {
++        format!(
++            r#"// Generated by CRN-craft ({layout} layout). Build with the same floating-point policy.
++pub struct GeneratedRulesLoop;
++impl crn_craft_rules::RulesLoop for GeneratedRulesLoop {{
++    fn fingerprint(&self) -> &str {{ "{PLACEHOLDER}" }}
++    #[allow(clippy::all, unused_mut, unused_variables, unused_assignments, unreachable_code, unused_labels)]
++    fn run(&self, host: &mut crn_craft_rules::LoopHost<'_, '_>, counts: &mut [u64],
++           values: &mut [f64]) -> Result<Option<f64>, crn_craft_rules::LoopHalt> {{
++        let counts: &mut [u64; {}] = counts.try_into().expect("lowered species");
++        let values: &mut [f64; {}] = values.try_into().expect("observables");
++        let mut r = [0.0f64; {}];
++        let mut previous = usize::MAX;
++"#,
++            self.species,
++            self.observables,
++            self.rates.len()
++        )
+     }
+-    let stop = match model.stop_program.as_ref().and_then(|p| p.fraction()) {
+-        Some((total, part, fraction)) => format!(
+-            "if values[{total}] > 0.0 && values[{part}] >= {} * values[{total}] {{              host.stopped(&counts[..], &mut values[..])?; return Ok(Some(next)); }}",
+-            bits(fraction)
+-        ),
+-        None => "if host.stop(&counts[..], &mut values[..])? { return Ok(Some(next)); }".into(),
+-    };
+-    let mut events = String::new();
+-    for (k, c) in net.channels.iter().enumerate() {
+-        let mut code = String::from("let mut live = host.live(); let mut created = 0u64;\n");
+-        for (j, &(s, d)) in c.changes.iter().enumerate() {
++
++    fn unrolled(&self) -> String {
++        let net = self.net;
++        let n = self.rates.len();
++        let update = |channels: &[usize]| {
++            let mut code = String::new();
++            let mut needed: Vec<usize> = channels
++                .iter()
++                .filter_map(|&i| self.rates[i].base)
++                .collect();
++            needed.sort_unstable();
++            needed.dedup();
++            for slot in needed {
++                writeln!(code, "{}", self.bases[slot]).unwrap();
++            }
++            for &i in channels {
++                writeln!(
++                    code,
++                    "{{ let a = {}; if !(a.is_finite() && a >= 0.0) {{ return Err(host.rate_error({i})); }} r[{i}] = a; }}",
++                    self.rates[i].value()
++                )
++                .unwrap();
++            }
++            code
++        };
++        let mut dependencies = String::new();
++        for (channel, row) in net.affected.iter().enumerate() {
++            writeln!(dependencies, "{channel} => {{\n{}}}", update(row)).unwrap();
++        }
++        let all: Vec<usize> = (0..n).collect();
++        writeln!(dependencies, "_ => {{\n{}}}", update(&all)).unwrap();
++        let mut events = String::new();
++        for (k, c) in net.channels.iter().enumerate() {
++            let mut code = String::from("let mut live = host.live(); let mut created = 0u64;\n");
++            for (j, &(s, d)) in c.changes.iter().enumerate() {
++                writeln!(
++                    code,
++                    "let n{j} = match counts[{s}].checked_add_signed({d}) {{ Some(n) if n <= {MAX_COUNT} => n, _ => return Err(host.count_error()) }};\n\
++                     live = live + u64::from(n{j} > 0) - u64::from(counts[{s}] > 0);\n\
++                     created += u64::from(n{j} > 0 && counts[{s}] == 0);"
++                )
++                .unwrap();
++            }
++            writeln!(code, "host.admit(live)?;").unwrap();
++            for (j, &(s, _)) in c.changes.iter().enumerate() {
++                writeln!(code, "counts[{s}] = n{j};").unwrap();
++            }
++            writeln!(code, "host.fired({k}, created, live, next);").unwrap();
++            for &index in &net.changed[k] {
++                writeln!(
++                    code,
++                    "{{ let v: f64 = {}; if !v.is_finite() {{ return Err(host.overflow_error()); }} values[{}] = v; }}",
++                    self.projection(index),
++                    net.observables[index].0
++                )
++                .unwrap();
++            }
+             writeln!(
+-                code,
+-                "let n{j} = match counts[{s}].checked_add_signed({d}) {{ Some(n) if n <= {MAX_COUNT} => n, _ => return Err(host.count_error()) }};\n\
+-                 live = live + u64::from(n{j} > 0) - u64::from(counts[{s}] > 0);\n\
+-                 created += u64::from(n{j} > 0 && counts[{s}] == 0);"
++                events,
++                "{k} => {{\n{code}if host.observes({k}) {{ host.observe({k}, &values[..], next); }}\n{}}}",
++                if self.stops[k] { self.stop.as_str() } else { "" }
+             )
+             .unwrap();
+         }
+-        writeln!(code, "host.admit(live)?;").unwrap();
+-        for (j, &(s, _)) in c.changes.iter().enumerate() {
+-            writeln!(code, "counts[{s}] = n{j};").unwrap();
+-        }
+-        writeln!(code, "host.fired({k}, created, live, next);").unwrap();
+-        for &index in &net.changed[k] {
+-            let (slot, _, terms) = &net.observables[index];
+-            write!(code, "{{ let v: f64 = [").unwrap();
+-            for &(species, weight) in terms {
+-                write!(code, "counts[{species}] as f64 * {},", bits(weight)).unwrap();
++        format!(
++            "{}        loop {{
++            host.tick()?;
++            match previous {{
++{dependencies}            }}
++            {}            match channel {{
++{events}                _ => unreachable!(\"validated channel\"),
++            }}
++        }}
++    }}
++}}
++",
++            self.header("unrolled"),
++            self.selection(LoopLayout::Unrolled)
++        )
++    }
++
++    fn compact(&self) -> String {
++        let net = self.net;
++        let n = self.rates.len();
++        // A row covering more than half of the channels updates all of
++        // them, in channel order. The others have unchanged inputs and were
++        // valid when last computed, so their values and the first reported
++        // error are the same.
++        let mut all = Vec::with_capacity(n);
++        let mut rows = vec![0usize];
++        let mut dependencies = Vec::new();
++        for row in &net.affected {
++            let full = 2 * row.len() > n;
++            all.push(full);
++            if !full {
++                dependencies.extend_from_slice(row);
+             }
++            rows.push(dependencies.len());
++        }
++        let mut changes = Vec::new();
++        let mut change_rows = vec![0usize];
++        let mut changed = Vec::new();
++        let mut changed_rows = vec![0usize];
++        for (k, c) in net.channels.iter().enumerate() {
++            changes.extend(c.changes.iter().copied());
++            change_rows.push(changes.len());
++            changed.extend_from_slice(&net.changed[k]);
++            changed_rows.push(changed.len());
++        }
++        let width = net
++            .channels
++            .iter()
++            .map(|c| c.changes.len())
++            .max()
++            .unwrap_or(0);
++        let list = |values: &mut dyn Iterator<Item = String>| values.collect::<Vec<_>>().join(",");
++        let mut rate_arms = String::new();
++        // The update of every channel is written out once: dense networks,
++        // where most rows update every channel, then run straight-line code
++        // without the quadratic source of the unrolled layout.
++        let mut full_update = String::new();
++        for (i, rate) in self.rates.iter().enumerate() {
++            writeln!(rate_arms, "{i} => {},", rate.value()).unwrap();
+             writeln!(
+-                code,
+-                "].into_iter().sum(); if !v.is_finite() {{ return Err(host.overflow_error()); }} values[{slot}] = v; }}"
++                full_update,
++                "{{ let a = {}; if !(a.is_finite() && a >= 0.0) {{ return Err(host.rate_error({i})); }} r[{i}] = a; }}",
++                rate.value()
+             )
+             .unwrap();
+         }
+-        let stops = net.changed[k]
+-            .iter()
+-            .any(|&index| stop_reads[net.observables[index].0]);
+-        writeln!(
+-            events,
+-            "{k} => {{\n{code}if host.observes({k}) {{ host.observe({k}, &values[..], next); }}\n{}}}",
+-            if stops { stop.as_str() } else { "" }
+-        )
+-        .unwrap();
+-    }
+-    let species = net.species.len();
+-    let observables = prepared.compiled.observables.len();
+-    let hash = PLACEHOLDER;
+-    let resolution = bits(crate::engine::RESOLUTION);
+-    let source = format!(
+-        r#"// Generated by CRN-craft. Build with the same floating-point policy.
+-pub struct GeneratedRulesLoop;
+-impl crn_craft_rules::RulesLoop for GeneratedRulesLoop {{
+-    fn fingerprint(&self) -> &str {{ "{hash}" }}
+-    #[allow(clippy::all, unused_mut, unused_variables, unused_assignments, unreachable_code, unused_labels)]
+-    fn run(&self, host: &mut crn_craft_rules::LoopHost<'_, '_>, counts: &mut [u64],
+-           values: &mut [f64]) -> Result<Option<f64>, crn_craft_rules::LoopHalt> {{
+-        let counts: &mut [u64; {species}] = counts.try_into().expect("lowered species");
+-        let values: &mut [f64; {observables}] = values.try_into().expect("observables");
+-        let mut r = [0.0f64; {n}];
+-        let mut previous = usize::MAX;
++        let mut projection_arms = String::new();
++        for index in 0..net.observables.len() {
++            writeln!(projection_arms, "{index} => {},", self.projection(index)).unwrap();
++        }
++        let slots = list(&mut net.observables.iter().map(|(slot, _, _)| slot.to_string()));
++        format!(
++            "{header}        const ALL: [bool; {n}] = [{all}];
++        const ROWS: [u32; {rows_len}] = [{rows}];
++        const DEPENDENCIES: [u32; {deps_len}] = [{deps}];
++        const CHANGE_ROWS: [u32; {rows_len}] = [{change_rows}];
++        const CHANGES: [(u32, i64); {changes_len}] = [{changes}];
++        const CHANGED_ROWS: [u32; {rows_len}] = [{changed_rows}];
++        const CHANGED: [u32; {changed_len}] = [{changed}];
++        const SLOTS: [usize; {slots_len}] = [{slots}];
++        const STOPS: [bool; {n}] = [{stops}];
++        fn projection(index: usize, counts: &[u64; {species}]) -> f64 {{
++            match index {{
++{projection_arms}                _ => unreachable!(\"validated projection\"),
++            }}
++        }}
+         loop {{
+             host.tick()?;
+-            match previous {{
+-{dependencies}            }}
+-            let mut total = -0.0f64;
+-{total}            if total == 0.0 {{ return host.exhausted(&counts[..], &mut values[..]); }}
+-            let floor = total * {resolution};
+-            if {unresolved} {{ return Err(host.resolution_error(total)); }}
+-            let next = host.next_time(total)?;
+-            let mut target = host.uniform()? * total;
+-            let mut channel = usize::MAX;
+-            'pick: {{
+-{pick}            }}
+-            if channel == usize::MAX {{ return host.exhausted(&counts[..], &mut values[..]); }}
+-            previous = channel;
+-            if !host.reach(next, &counts[..], &mut values[..])? {{ return Ok(None); }}
+-            host.begin_event()?;
+-            match channel {{
+-{events}                _ => unreachable!("validated channel"),
++            {{
++                {bases}
++                let rate = |i: usize| -> f64 {{
++                    match i {{
++{rate_arms}                        _ => unreachable!(\"validated channel\"),
++                    }}
++                }};
++                if previous == usize::MAX || ALL[previous] {{
++{full_update}                }} else {{
++                    for &i in &DEPENDENCIES[ROWS[previous] as usize..ROWS[previous + 1] as usize] {{
++                        let i = i as usize;
++                        let a = rate(i);
++                        if !(a.is_finite() && a >= 0.0) {{ return Err(host.rate_error(i)); }}
++                        r[i] = a;
++                    }}
++                }}
++            }}
++            {selection}            let mut live = host.live();
++            let mut created = 0u64;
++            let mut next_counts = [0u64; {width}];
++            let changes = &CHANGES[CHANGE_ROWS[channel] as usize..CHANGE_ROWS[channel + 1] as usize];
++            for (j, &(s, d)) in changes.iter().enumerate() {{
++                let s = s as usize;
++                let n = match counts[s].checked_add_signed(d) {{ Some(n) if n <= {MAX_COUNT} => n, _ => return Err(host.count_error()) }};
++                live = live + u64::from(n > 0) - u64::from(counts[s] > 0);
++                created += u64::from(n > 0 && counts[s] == 0);
++                next_counts[j] = n;
++            }}
++            host.admit(live)?;
++            for (j, &(s, _)) in changes.iter().enumerate() {{ counts[s as usize] = next_counts[j]; }}
++            host.fired(channel, created, live, next);
++            for &index in &CHANGED[CHANGED_ROWS[channel] as usize..CHANGED_ROWS[channel + 1] as usize] {{
++                let v = projection(index as usize, counts);
++                if !v.is_finite() {{ return Err(host.overflow_error()); }}
++                values[SLOTS[index as usize]] = v;
+             }}
++            if host.observes(channel) {{ host.observe(channel, &values[..], next); }}
++            if STOPS[channel] {{ {stop} }}
+         }}
+     }}
+ }}
+-"#
+-    );
+-    if source.len() > MAX_SOURCE {
+-        return Err(request_error(
+-            "/method",
+-            "the generated rules loop would exceed 1 MiB of source",
+-            "Use the generated rates kernel or interpreted Static Direct for densely coupled networks.",
+-        ));
++",
++            header = self.header("compact"),
++            all = list(&mut all.iter().map(bool::to_string)),
++            rows_len = n + 1,
++            rows = list(&mut rows.iter().map(usize::to_string)),
++            deps_len = dependencies.len(),
++            deps = list(&mut dependencies.iter().map(usize::to_string)),
++            change_rows = list(&mut change_rows.iter().map(usize::to_string)),
++            changes_len = changes.len(),
++            changes = list(&mut changes.iter().map(|(s, d)| format!("({s}, {d})"))),
++            changed_rows = list(&mut changed_rows.iter().map(usize::to_string)),
++            changed_len = changed.len(),
++            changed = list(&mut changed.iter().map(usize::to_string)),
++            slots_len = net.observables.len(),
++            stops = list(&mut self.stops.iter().map(bool::to_string)),
++            species = self.species,
++            bases = self.bases.join("\n                "),
++            selection = self.selection(LoopLayout::Compact),
++            stop = self.stop,
++            full_update = full_update,
++        )
+     }
+-    Ok(source)
+ }
+ 
+ #[cfg(test)]
+diff --git a/crates/crn-craft-rules/src/lib.rs b/crates/crn-craft-rules/src/lib.rs
+index d8a121c..e7e5494 100644
+--- a/crates/crn-craft-rules/src/lib.rs
++++ b/crates/crn-craft-rules/src/lib.rs
+@@ -18,7 +18,13 @@ mod generated;
+ mod generated_loop;
+ pub use engine::{LoopHalt, LoopHost};
+ pub use generated::{RulesKernel, execute_with_rules_kernel, generate_rules_kernel};
+-pub use generated_loop::{RulesLoop, execute_with_rules_loop, generate_rules_loop};
++pub use generated_loop::{
++    LoopLayout, RulesLoop, execute_with_rules_loop, generate_rules_loop, generate_rules_loop_with,
++};
++/// The math library emitted stop predicates call, so that a generated loop
++/// needs no dependency of its own.
++#[doc(hidden)]
++pub use libm;
+ pub mod model;
+ mod mtdna;
+ pub mod observe;
+diff --git a/crates/crn-craft-rules/tests/generated/loop_dense.rules.json b/crates/crn-craft-rules/tests/generated/loop_dense.rules.json
+new file mode 100644
+index 0000000..7082cf1
+--- /dev/null
++++ b/crates/crn-craft-rules/tests/generated/loop_dense.rules.json
+@@ -0,0 +1,959 @@
++{
++  "schema": "crn-craft.rules-model/0.1",
++  "name": "loop_dense",
++  "description": "128 instances that share one vacancy base: every event updates every replication rate.",
++  "parameters": {
++    "K": 2000,
++    "r": 1.0,
++    "d": 0.5
++  },
++  "types": [
++    {
++      "name": "A",
++      "attributes": [
++        "s"
++      ]
++    }
++  ],
++  "initial": [
++    {
++      "type": "A",
++      "attributes": {
++        "s": 0
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 1
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 2
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 3
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 4
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 5
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 6
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 7
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 8
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 9
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 10
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 11
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 12
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 13
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 14
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 15
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 16
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 17
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 18
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 19
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 20
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 21
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 22
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 23
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 24
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 25
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 26
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 27
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 28
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 29
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 30
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 31
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 32
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 33
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 34
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 35
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 36
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 37
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 38
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 39
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 40
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 41
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 42
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 43
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 44
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 45
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 46
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 47
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 48
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 49
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 50
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 51
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 52
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 53
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 54
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 55
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 56
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 57
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 58
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 59
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 60
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 61
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 62
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 63
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 64
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 65
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 66
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 67
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 68
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 69
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 70
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 71
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 72
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 73
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 74
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 75
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 76
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 77
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 78
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 79
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 80
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 81
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 82
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 83
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 84
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 85
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 86
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 87
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 88
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 89
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 90
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 91
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 92
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 93
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 94
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 95
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 96
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 97
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 98
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 99
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 100
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 101
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 102
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 103
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 104
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 105
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 106
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 107
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 108
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 109
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 110
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 111
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 112
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 113
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 114
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 115
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 116
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 117
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 118
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 119
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 120
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 121
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 122
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 123
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 124
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 125
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 126
++      },
++      "count": 8
++    },
++    {
++      "type": "A",
++      "attributes": {
++        "s": 127
++      },
++      "count": 8
++    }
++  ],
++  "observables": {
++    "N": {
++      "type": "A"
++    },
++    "D": {
++      "type": "A",
++      "weight": "1 + x.s / 64"
++    }
++  },
++  "rules": [
++    {
++      "name": "rep",
++      "reactants": [
++        {
++          "label": "x",
++          "type": "A"
++        }
++      ],
++      "rate": "max(0, K - N) / D * r",
++      "products": [
++        {
++          "type": "A",
++          "copy": "x"
++        },
++        {
++          "type": "A",
++          "copy": "x"
++        }
++      ]
++    },
++    {
++      "name": "death",
++      "reactants": [
++        {
++          "label": "x",
++          "type": "A"
++        }
++      ],
++      "rate": "d",
++      "products": []
++    }
++  ],
++  "stop": "N < 200"
++}
+diff --git a/crates/crn-craft-rules/tests/generated_loop.rs b/crates/crn-craft-rules/tests/generated_loop.rs
+index d17827f..6caaedb 100644
+--- a/crates/crn-craft-rules/tests/generated_loop.rs
++++ b/crates/crn-craft-rules/tests/generated_loop.rs
+@@ -1,10 +1,11 @@
+-//! Generated event loops for nine fixture models are checked in, so the
+-//! generated-loop path runs under `cargo test` without a separate build.
+-//! Regenerate a fixture with
+-//! `cargo run --release -p crn-craft-rules --example generate_rules_loop -- MODEL REQUEST`
++//! Generated event loops for eleven fixture models are checked in, four of
++//! them also in the compact layout, so the generated-loop path runs under
++//! `cargo test` without a separate build. Regenerate a fixture with
++//! `cargo run --release -p crn-craft-rules --example generate_rules_loop -- MODEL REQUEST [compact]`
+ //! when the generator changes; the first test names the stale fixture.
+ use crn_craft_rules::{
+-    Control, RulesLoop, execute, execute_with_rules_loop, generate_rules_loop, prepare,
++    Control, LoopLayout, RulesLoop, execute, execute_with_rules_loop, generate_rules_loop,
++    generate_rules_loop_with, prepare,
+ };
+ use serde_json::{Value, json};
+ 
+@@ -35,6 +36,24 @@ mod overflow {
+ mod empty {
+     include!("generated/loop_empty_loop.rs");
+ }
++mod operators {
++    include!("generated/loop_stop_operators_loop.rs");
++}
++mod dense {
++    include!("generated/loop_dense_loop.rs");
++}
++mod stop_compact {
++    include!("generated/mtdna_three_class_stop_compact_loop.rs");
++}
++mod edges_nan_compact {
++    include!("generated/loop_edges_nan_compact_loop.rs");
++}
++mod pairs_compact {
++    include!("generated/loop_pairs_compact_loop.rs");
++}
++mod empty_compact {
++    include!("generated/loop_empty_compact_loop.rs");
++}
+ 
+ const STOP: &[u8] = include_bytes!("generated/mtdna_three_class_stop.rules.json");
+ const PAIRS: &[u8] = include_bytes!("generated/loop_pairs.rules.json");
+@@ -45,6 +64,8 @@ const EDGES_FRACTION: &[u8] = include_bytes!("generated/loop_edges_fraction.rule
+ const COUNT_RANGE: &[u8] = include_bytes!("generated/loop_count_range.rules.json");
+ const OVERFLOW: &[u8] = include_bytes!("generated/loop_overflow.rules.json");
+ const EMPTY: &[u8] = include_bytes!("generated/loop_empty.rules.json");
++const OPERATORS: &[u8] = include_bytes!("generated/loop_stop_operators.rules.json");
++const DENSE: &[u8] = include_bytes!("generated/loop_dense.rules.json");
+ const PLAIN: &[u8] = include_bytes!("../../../models/rules/mtdna-three-class.rules.json");
+ 
+ const DEFAULT: (&str, &str) = ("crn-craft.rules-run/0.2", r#"{"kind": "static_direct"}"#);
+@@ -189,6 +210,16 @@ fn generator_output_matches_the_checked_in_loops() {
+             include_str!("generated/loop_empty_loop.rs"),
+             "loop_empty",
+         ),
++        (
++            OPERATORS,
++            include_str!("generated/loop_stop_operators_loop.rs"),
++            "loop_stop_operators",
++        ),
++        (
++            DENSE,
++            include_str!("generated/loop_dense_loop.rs"),
++            "loop_dense",
++        ),
+     ] {
+         let prepared = prepare(model, &Run::new(10.0, vec![0.0, 10.0]).request(model)).unwrap();
+         let source = generate_rules_loop(&prepared).unwrap();
+@@ -197,6 +228,35 @@ fn generator_output_matches_the_checked_in_loops() {
+             "generator output changed; regenerate {name}_loop.rs"
+         );
+     }
++    for (model, golden, name) in [
++        (
++            STOP,
++            include_str!("generated/mtdna_three_class_stop_compact_loop.rs"),
++            "mtdna_three_class_stop",
++        ),
++        (
++            EDGES_NAN,
++            include_str!("generated/loop_edges_nan_compact_loop.rs"),
++            "loop_edges_nan",
++        ),
++        (
++            PAIRS,
++            include_str!("generated/loop_pairs_compact_loop.rs"),
++            "loop_pairs",
++        ),
++        (
++            EMPTY,
++            include_str!("generated/loop_empty_compact_loop.rs"),
++            "loop_empty",
++        ),
++    ] {
++        let prepared = prepare(model, &Run::new(10.0, vec![0.0, 10.0]).request(model)).unwrap();
++        let source = generate_rules_loop_with(&prepared, LoopLayout::Compact).unwrap();
++        assert!(
++            source == golden,
++            "generator output changed; regenerate {name}_compact_loop.rs"
++        );
++    }
+ }
+ 
+ #[test]
+@@ -519,28 +579,94 @@ fn cancellation_is_polled_inside_the_loop() {
+ }
+ 
+ #[test]
+-fn densely_coupled_networks_are_refused_before_they_reach_the_compiler() {
++fn densely_coupled_networks_use_the_compact_layout() {
+     // 128 instances share one vacancy base, so every event updates every
+-    // replication rate and the emitted source grows with the square.
+-    let model = json!({
+-        "schema": "crn-craft.rules-model/0.1", "name": "dense",
+-        "parameters": {"K": 100_000, "r": 1.0, "d": 0.1},
+-        "types": [{"name": "A", "attributes": ["s"]}],
+-        "initial": (0..128)
+-            .map(|i| json!({"type": "A", "attributes": {"s": i}, "count": 10}))
+-            .collect::<Vec<_>>(),
+-        "observables": {"N": {"type": "A"}, "D": {"type": "A", "weight": "1 + x.s"}},
+-        "rules": [
+-            {"name": "rep", "reactants": [{"label": "x", "type": "A"}],
+-             "rate": "max(0, K - N) / D * r",
+-             "products": [{"type": "A", "copy": "x"}, {"type": "A", "copy": "x"}]},
+-            {"name": "death", "reactants": [{"label": "x", "type": "A"}], "rate": "d",
+-             "products": []}
+-        ]
+-    });
+-    let model = serde_json::to_vec(&model).unwrap();
+-    let prepared = prepare(&model, &Run::new(1.0, vec![0.0, 1.0]).request(&model)).unwrap();
+-    let error = generate_rules_loop(&prepared).unwrap_err();
++    // replication rate and unrolled source grows with the square.
++    let prepared = prepare(DENSE, &Run::new(1.0, vec![0.0, 1.0]).request(DENSE)).unwrap();
++    let error = generate_rules_loop_with(&prepared, LoopLayout::Unrolled).unwrap_err();
+     assert_eq!(error.path, "/method");
+     assert!(error.message.contains("1 MiB"), "{}", error.message);
++    assert!(
++        generate_rules_loop(&prepared)
++            .unwrap()
++            .starts_with("// Generated by CRN-craft (compact layout).")
++    );
++    for method in METHODS {
++        let run = Run {
++            method,
++            threads: 2,
++            ..Run::new(20.0, vec![0.0, 0.5, 5.0, 20.0])
++        };
++        replay(DENSE, &run, &dense::GeneratedRulesLoop);
++    }
++    let run = Run {
++        events: 500,
++        ..Run::new(20.0, vec![0.0, 20.0])
++    };
++    assert!(replay(DENSE, &run, &dense::GeneratedRulesLoop).contains("CRN-R040"));
++}
++
++#[test]
++fn compact_loops_replay_like_unrolled_ones() {
++    let grid = vec![0.0, 250.0, 500.0, 1000.0, 2000.0];
++    for method in METHODS {
++        for (tracked, threads) in [(None, 1), (trackers(), 3)] {
++            let run = Run {
++                method,
++                threads,
++                trackers: tracked,
++                ..Run::new(2000.0, grid.clone())
++            };
++            replay(STOP, &run, &stop_compact::GeneratedRulesLoop);
++        }
++        for (end, instances) in [(40.0, 1000), (40.0, 1)] {
++            let run = Run {
++                method,
++                replicates: 32,
++                instances,
++                ..Run::new(end, vec![0.0, 1.0, 10.0, 40.0])
++            };
++            replay(PAIRS, &run, &pairs_compact::GeneratedRulesLoop);
++        }
++        let run = Run {
++            method,
++            ..Run::new(10.0, vec![0.0, 10.0])
++        };
++        replay(EMPTY, &run, &empty_compact::GeneratedRulesLoop);
++    }
++    let results = edge_matrix(
++        EDGES_NAN,
++        &edges_nan_compact::GeneratedRulesLoop,
++        [5.0, 400.0],
++    );
++    assert!(results.iter().any(|r| r.contains("undefined (NaN)")));
++    let run = Run {
++        method: METHODS[3],
++        replicates: 24,
++        trackers: trackers(),
++        ..Run::new(25_920.0, vec![0.0, 8640.0, 17_280.0, 25_920.0])
++    };
++    assert!(replay(STOP, &run, &stop_compact::GeneratedRulesLoop).contains("\"stopped\""));
++    // A loop of either layout runs; another model's loop does not.
++    let prepared = prepare(PLAIN, &Run::new(10.0, vec![0.0, 10.0]).request(PLAIN)).unwrap();
++    let error = execute_with_rules_loop(
++        &prepared,
++        &Control::default(),
++        &stop_compact::GeneratedRulesLoop,
++    )
++    .unwrap_err();
++    assert_eq!(error.code, "CRN-R020");
++}
++
++#[test]
++fn every_stop_operator_is_emitted_like_the_bytecode() {
++    for method in METHODS {
++        let run = Run {
++            method,
++            replicates: 32,
++            ..Run::new(40.0, vec![0.0, 1.0, 10.0, 40.0])
++        };
++        let result = replay(OPERATORS, &run, &operators::GeneratedRulesLoop);
++        assert!(result.contains("\"stopped\""));
++    }
+ }
+diff --git a/validation/check_generated_loop.py b/validation/check_generated_loop.py
+index 465a3bf..f329900 100644
+--- a/validation/check_generated_loop.py
++++ b/validation/check_generated_loop.py
+@@ -1,12 +1,19 @@
+ """Build generated rules loops, replay them against the CLI and time them.
+ 
+-Each replay case generates a loop for its model, compiles all loops into one
+-runner crate and compares the runner's output with `crn-craft rules` byte for
+-byte, with one and eight workers, under default Static Direct and the
+-Ziggurat and sparse-tracker options. The timing section runs the 128-cell
+-mtDNA probe with one worker under the interpreter, `mtdna_direct`, the
+-rates-only kernel and the generated loop, in alternating order. Timing is
+-host-specific.
++Each replay case generates a loop for its model in both layouts (the
++unrolled one only where it fits), compiles all loops into one runner crate
++and compares the runner's output with `crn-craft rules` byte for byte, with
++one and eight workers, under default Static Direct and the Ziggurat and
++sparse-tracker options. The timing section runs, with one worker and in
++alternating order:
++
++- the 128-cell mtDNA probe under the interpreter, the rates-only kernel,
++  both loop layouts and `mtdna_direct`;
++- the same probe with a stop predicate outside the fused fraction form;
++- a dense network of 128 instances sharing one vacancy base (compact only);
++- the 96-channel sparse and 512-channel wide birth-death networks.
++
++Timing is host-specific.
+ """
+ 
+ import argparse
+@@ -20,6 +27,7 @@ from time import perf_counter
+ from benchmark_generic_rules import FAST, TRACKERS, mt
+ from benchmark_mtdna import GRID, sparse
+ from check_mtdna import ROOT, read_model, require, rules_files
++import probe_structural_rules as probe_models
+ 
+ RUNNER = """
+ use crn_craft_rules::{Control, execute, execute_with_rules_kernel,
+@@ -45,6 +53,46 @@ fn main() -> Result<(), String> {
+ }
+ """
+ 
++LAYOUTS = ("unrolled", "compact")
++
++
++def dense():
++    """128 instances sharing one vacancy base: 256 densely coupled channels."""
++    return {
++        "schema": "crn-craft.rules-model/0.1",
++        "name": "dense_128",
++        "parameters": {"K": 2000, "r": 1.0, "d": 0.5},
++        "types": [{"name": "A", "attributes": ["s"]}],
++        "initial": [
++            {"type": "A", "attributes": {"s": i}, "count": 8} for i in range(128)
++        ],
++        "observables": {
++            "N": {"type": "A"},
++            "D": {"type": "A", "weight": "1 + x.s / 64"},
++        },
++        "rules": [
++            {
++                "name": "rep",
++                "reactants": [{"label": "x", "type": "A"}],
++                "rate": "max(0, K - N) / D * r",
++                "products": [{"type": "A", "copy": "x"}, {"type": "A", "copy": "x"}],
++            },
++            {
++                "name": "death",
++                "reactants": [{"label": "x", "type": "A"}],
++                "rate": "d",
++                "products": [],
++            },
++        ],
++    }
++
++
++def general_stop():
++    """The mtDNA probe with a stop the fused fraction form does not cover."""
++    model = mt()
++    model["stop"] = "N > 0 && mutants / N >= 0.9"
++    return model
++
+ 
+ def cases():
+     model = read_model("immigration-death.rules.json")
+@@ -75,6 +123,8 @@ def cases():
+         ("stop-diagnostic", undefined, {}, "failed"),
+         ("resolution", stiff, {}, "failed"),
+         ("instance", sparse(), {"max_instances": 1}, "instance_limit"),
++        ("general-stop", general_stop(), {"trackers": TRACKERS}, "completed"),
++        ("dense", dense(), {}, "completed"),
+     ]
+ 
+ 
+@@ -84,8 +134,8 @@ def run(args):
+     return perf_counter() - start, result
+ 
+ 
+-def generate(generator, files, supported=True):
+-    _, result = run([generator, *files])
++def generate(generator, files, supported=True, layout=None):
++    _, result = run([generator, *files, *([layout] if layout else [])])
+     if not supported:
+         require(
+             result.returncode != 0
+@@ -97,6 +147,45 @@ def generate(generator, files, supported=True):
+     return result.stdout
+ 
+ 
++def build(folder, loops, kernel_source):
++    """Compile a runner with the rates kernel and every (layout, label) loop."""
++    source = folder / "src"
++    source.mkdir(parents=True)
++    modules, arms = [], []
++    for index, ((layout, label), code) in enumerate(loops.items()):
++        (source / f"loop_{index}.rs").write_bytes(code)
++        modules.append(f'mod loop_{index} {{ include!("loop_{index}.rs"); }}')
++        arms.append(
++            f'        ("{layout}", "{label}") => execute_with_rules_loop('
++            f"&prepared, &control, &loop_{index}::GeneratedRulesLoop),"
++        )
++    (source / "kernel.rs").write_bytes(kernel_source)
++    main_rs = RUNNER.replace("@MODULES@", "\n".join(modules))
++    (source / "main.rs").write_text(main_rs.replace("@ARMS@", "\n".join(arms)))
++    crate = ROOT / "crates/crn-craft-rules"
++    (folder / "Cargo.toml").write_text(
++        '[package]\nname = "rules-loop-probe"\nversion = "0.1.0"\n'
++        'edition = "2024"\n[workspace]\n'
++        f'[dependencies]\ncrn-craft-rules = {{path = "{crate}"}}\n'
++        'serde_json = "1"\n'
++    )
++    target = Path(os.environ.get("CARGO_TARGET_DIR", folder / "target")).resolve()
++    seconds, compiled = run(
++        [
++            "cargo",
++            "build",
++            "--offline",
++            "--release",
++            "--target-dir",
++            target,
++            "--manifest-path",
++            folder / "Cargo.toml",
++        ]
++    )
++    require(compiled.returncode == 0, compiled.stderr.decode())
++    return seconds, target / "release/rules-loop-probe"
++
++
+ def main():
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument("binary", type=Path, help="crn-craft CLI")
+@@ -109,53 +198,51 @@ def main():
+     report = {"replay": [], "timing": []}
+     with TemporaryDirectory() as tmp:
+         folder = Path(tmp)
+-        source = folder / "src"
+-        source.mkdir()
++        loops = {}
+         selected = cases()
+-        modules, arms = [], []
+         for index, (label, model, _, expected) in enumerate(selected):
+             case = folder / f"case-{index}"
+             case.mkdir()
+             files = rules_files(case, model, method="static_direct", n=1)
+-            code = generate(loop_generator, files, expected != "unsupported")
+-            if code is None:
++            if expected == "unsupported":
++                generate(loop_generator, files, False)
+                 report["replay"].append({"case": label, "generated": False})
+                 continue
+-            (source / f"case_{index}.rs").write_bytes(code)
+-            modules.append(f'mod case_{index} {{ include!("case_{index}.rs"); }}')
+-            arms.append(
+-                f'        ("loop", "{label}") => execute_with_rules_loop('
+-                f"&prepared, &control, &case_{index}::GeneratedRulesLoop),"
+-            )
++            for layout in LAYOUTS:
++                _, result = run([loop_generator, *files, layout])
++                if result.returncode == 0:
++                    loops[(layout, label)] = result.stdout
++                else:
++                    # Only oversized unrolled loops may be refused.
++                    require(
++                        layout == "unrolled" and b"1 MiB" in result.stderr,
++                        result.stderr.decode(),
++                    )
++                    report["replay"].append(
++                        {"case": label, "layout": layout, "generated": False}
++                    )
++        timing_models = {
++            "mtdna": mt(),
++            "general-stop": general_stop(),
++            "dense": dense(),
++            "sparse": probe_models.sparse(),
++            "wide": probe_models.wide(),
++        }
++        for label, model in timing_models.items():
++            work = folder / f"timing-{label}"
++            work.mkdir()
++            files = rules_files(work, model, method="static_direct", n=1)
++            for layout in LAYOUTS:
++                _, result = run([loop_generator, *files, layout])
++                if result.returncode == 0:
++                    loops[(layout, f"timing-{label}")] = result.stdout
+         probe = folder / "probe"
+         probe.mkdir()
+         files = rules_files(probe, mt(), method="static_direct", n=1)
+-        (source / "kernel.rs").write_bytes(generate(kernel_generator, files))
+-        main_rs = RUNNER.replace("@MODULES@", "\n".join(modules))
+-        (source / "main.rs").write_text(main_rs.replace("@ARMS@", "\n".join(arms)))
+-        crate = ROOT / "crates/crn-craft-rules"
+-        (folder / "Cargo.toml").write_text(
+-            '[package]\nname = "rules-loop-probe"\nversion = "0.1.0"\n'
+-            'edition = "2024"\n[workspace]\n'
+-            f'[dependencies]\ncrn-craft-rules = {{path = "{crate}"}}\n'
+-            'serde_json = "1"\n'
++        build_seconds, exe = build(
++            folder / "runner", loops, generate(kernel_generator, files)
+         )
+-        target = Path(os.environ.get("CARGO_TARGET_DIR", folder / "target")).resolve()
+-        build, compiled = run(
+-            [
+-                "cargo",
+-                "build",
+-                "--offline",
+-                "--release",
+-                "--target-dir",
+-                target,
+-                "--manifest-path",
+-                folder / "Cargo.toml",
+-            ]
+-        )
+-        require(compiled.returncode == 0, compiled.stderr.decode())
+-        report["build_seconds"] = build
+-        exe = target / "release/rules-loop-probe"
++        report["build_seconds"] = build_seconds
+ 
+         for index, (label, model, extra, expected) in enumerate(selected):
+             case = folder / f"case-{index}"
+@@ -171,75 +258,95 @@ def main():
+                     } | extra
+                     files = rules_files(case, model, **settings)
+                     _, old = run([args.binary, "rules", *files])
+-                    _, new = run([exe, "loop", label, *files])
+-                    # The CLI exits with 1 for failed ensembles; the runner
+-                    # always prints its result.
+-                    require(
+-                        new.returncode == 0 and old.stdout == new.stdout,
+-                        f"replay {label}/{method}/{workers}: {new.stderr.decode()}",
+-                    )
+-                    termination = json.loads(new.stdout)["termination"]
++                    termination = json.loads(old.stdout)["termination"]
+                     require(termination == expected, f"{label}: {termination}")
+-                    report["replay"].append(
+-                        {
+-                            "case": label,
+-                            "method": method,
+-                            "workers": workers,
+-                            "termination": termination,
+-                            "identical": True,
+-                        }
+-                    )
++                    for layout in LAYOUTS:
++                        if (layout, label) not in loops:
++                            continue
++                        _, new = run([exe, layout, label, *files])
++                        # The CLI exits with 1 for failed ensembles; the
++                        # runner always prints its result.
++                        require(
++                            new.returncode == 0 and old.stdout == new.stdout,
++                            f"replay {label}/{layout}/{method}/{workers}: "
++                            f"{new.stderr.decode()}",
++                        )
++                        report["replay"].append(
++                            {
++                                "case": label,
++                                "layout": layout,
++                                "method": method,
++                                "workers": workers,
++                                "termination": termination,
++                                "identical": True,
++                            }
++                        )
+         other = mt()
+         other["parameters"]["mu"] *= 2
+         files = rules_files(probe, other, method="static_direct", n=1)
+-        _, invalid = run([exe, "loop", "stop", *files])
++        _, invalid = run([exe, "unrolled", "stop", *files])
+         require(
+             invalid.returncode != 0 and b"fingerprint mismatch" in invalid.stderr,
+             "mismatched loop accepted",
+         )
+         report["fingerprint_rejected"] = True
+ 
+-        def probe_files(method):
+-            return rules_files(
+-                probe,
+-                mt(),
++        # workload: (model label, method, cells, report times, trackers)
++        workloads = {
++            "generic": ("mtdna", FAST, 128, GRID, TRACKERS),
++            "default": ("mtdna", "static_direct", 128, GRID, TRACKERS),
++            "general-stop": ("general-stop", FAST, 128, GRID, TRACKERS),
++            "dense": ("dense", "static_direct", 8, [0, 10, 20], ()),
++            "sparse": ("sparse", "static_direct", 64, [0, 50, 100], ()),
++            "wide": ("wide", "static_direct", 8, [0, 50, 100], ()),
++        }
++        for name, (label, method, cells, times, trackers) in workloads.items():
++            work = folder / f"timing-{label}"
++            files = rules_files(
++                work,
++                timing_models[label],
+                 method=method,
+-                n=128,
+-                times=GRID,
++                n=cells,
++                times=times,
+                 threads=1,
+                 seed=17,
+-                trackers=TRACKERS,
++                trackers=trackers,
+             )
+-
+-        backends = [
+-            ("interpreter", lambda files: [args.binary, "rules", *files]),
+-            ("kernel", lambda files: [exe, "kernel", "-", *files]),
+-            ("loop", lambda files: [exe, "loop", "stop", *files]),
+-        ]
+-        medians = {}
+-        for request, method in (("generic", FAST), ("default", "static_direct")):
++            backends = [("interpreter", [args.binary, "rules", *files])]
++            if label == "mtdna":
++                backends.append(("kernel", [exe, "kernel", "-", *files]))
++            for layout in LAYOUTS:
++                if (layout, f"timing-{label}") in loops:
++                    backends.append((layout, [exe, layout, f"timing-{label}", *files]))
+             payloads = {}
+             for repeat in range(args.repeats):
+                 order = backends if repeat % 2 == 0 else backends[::-1]
+-                for label, command in order:
+-                    files = probe_files(method)
+-                    seconds, result = run(command(files))
++                for backend, command in order:
++                    seconds, result = run(command)
+                     require(result.returncode == 0, result.stderr.decode())
+-                    payloads.setdefault(label, result.stdout)
+-                    require(payloads[label] == result.stdout, "nondeterministic")
+-                    events = json.loads(result.stdout)["events"]
++                    payloads.setdefault(backend, result.stdout)
++                    require(payloads[backend] == result.stdout, "nondeterministic")
+                     report["timing"].append(
+                         {
+-                            "request": request,
+-                            "backend": label,
++                            "request": name,
++                            "backend": backend,
+                             "repeat": repeat,
+                             "seconds": seconds,
+-                            "events": events,
++                            "events": json.loads(result.stdout)["events"],
+                         }
+                     )
+-            require(len(set(payloads.values())) == 1, f"{request} outputs differ")
++            require(len(set(payloads.values())) == 1, f"{name} outputs differ")
++        files = rules_files(
++            folder / "timing-mtdna",
++            mt(),
++            method="mtdna_direct",
++            n=128,
++            times=GRID,
++            threads=1,
++            seed=17,
++            trackers=TRACKERS,
++        )
+         for repeat in range(args.repeats):
+-            files = probe_files("mtdna_direct")
+             seconds, result = run([args.binary, "rules", *files])
+             require(result.returncode == 0, result.stderr.decode())
+             report["timing"].append(
+@@ -251,28 +358,34 @@ def main():
+                     "events": json.loads(result.stdout)["events"],
+                 }
+             )
++        grouped = {}
+         for row in report["timing"]:
+-            key = f"{row['request']}/{row['backend']}"
+-            medians.setdefault(key, []).append(row)
++            grouped.setdefault(f"{row['request']}/{row['backend']}", []).append(row)
+         summary = {}
+-        for key, rows in medians.items():
++        for key, rows in grouped.items():
+             seconds = sorted(r["seconds"] for r in rows)[len(rows) // 2]
+             summary[key] = {
+                 "median_seconds": seconds,
+                 "events": rows[0]["events"],
+                 "ns_per_event": 1e9 * seconds / rows[0]["events"],
+             }
+-            print(
+-                f"{key:28s} {seconds:.3f} s {summary[key]['ns_per_event']:.1f} ns/event"
+-            )
++            ns = summary[key]["ns_per_event"]
++            print(f"{key:28s} {seconds:.3f} s {ns:.1f} ns/event", flush=True)
+         report["summary"] = summary
+         ns = {k: v["ns_per_event"] for k, v in summary.items()}
+-        report["loop_speedup_generic"] = ns["generic/interpreter"] / ns["generic/loop"]
+-        report["loop_speedup_default"] = ns["default/interpreter"] / ns["default/loop"]
++        report["loop_speedup_generic"] = (
++            ns["generic/interpreter"] / ns["generic/unrolled"]
++        )
++        report["loop_speedup_default"] = (
++            ns["default/interpreter"] / ns["default/unrolled"]
++        )
+         report["loop_gap_to_mtdna_direct"] = (
+-            ns["generic/loop"] / ns["special/mtdna_direct"]
++            ns["generic/unrolled"] / ns["special/mtdna_direct"]
++        )
++        report["compact_speedup_dense"] = ns["dense/interpreter"] / ns["dense/compact"]
++        print(
++            json.dumps({k: report[k] for k in report if "speedup" in k or "gap" in k})
+         )
+-        print(json.dumps({k: report[k] for k in report if k.startswith("loop_")}))
+     args.output.write_text(json.dumps(report, indent=2) + "\n")
+ 
+ 

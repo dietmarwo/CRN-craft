@@ -1,12 +1,18 @@
 """Build generated rules loops, replay them against the CLI and time them.
 
-Each replay case generates a loop for its model, compiles all loops into one
-runner crate and compares the runner's output with `crn-craft rules` byte for
-byte, with one and eight workers, under default Static Direct and the
-Ziggurat and sparse-tracker options. The timing section runs the 128-cell
-mtDNA probe with one worker under the interpreter, `mtdna_direct`, the
-rates-only kernel and the generated loop, in alternating order. Timing is
-host-specific.
+Each replay case generates a loop for its model, compiles all loops into
+one runner crate and compares the runner's output with `crn-craft rules`
+byte for byte, with one and eight workers, under default Static Direct and
+the Ziggurat and sparse-tracker options. A dense network whose loop would
+exceed 1 MiB must be refused. The timing section runs, with one worker and
+in alternating order:
+
+- the 128-cell mtDNA probe under the interpreter, the rates-only kernel,
+  the generated loop and `mtdna_direct`;
+- the same probe with a stop predicate outside the fused fraction form;
+- the 96-channel sparse and 512-channel wide networks.
+
+Timing is host-specific.
 """
 
 import argparse
@@ -20,6 +26,7 @@ from time import perf_counter
 from benchmark_generic_rules import FAST, TRACKERS, mt
 from benchmark_mtdna import GRID, sparse
 from check_mtdna import ROOT, read_model, require, rules_files
+import probe_structural_rules as probe_models
 
 RUNNER = """
 use crn_craft_rules::{Control, execute, execute_with_rules_kernel,
@@ -44,6 +51,46 @@ fn main() -> Result<(), String> {
     Ok(())
 }
 """
+
+LAYOUTS = ("unrolled",)
+
+
+def dense():
+    """128 instances sharing one vacancy base: 256 densely coupled channels."""
+    return {
+        "schema": "crn-craft.rules-model/0.1",
+        "name": "dense_128",
+        "parameters": {"K": 2000, "r": 1.0, "d": 0.5},
+        "types": [{"name": "A", "attributes": ["s"]}],
+        "initial": [
+            {"type": "A", "attributes": {"s": i}, "count": 8} for i in range(128)
+        ],
+        "observables": {
+            "N": {"type": "A"},
+            "D": {"type": "A", "weight": "1 + x.s / 64"},
+        },
+        "rules": [
+            {
+                "name": "rep",
+                "reactants": [{"label": "x", "type": "A"}],
+                "rate": "max(0, K - N) / D * r",
+                "products": [{"type": "A", "copy": "x"}, {"type": "A", "copy": "x"}],
+            },
+            {
+                "name": "death",
+                "reactants": [{"label": "x", "type": "A"}],
+                "rate": "d",
+                "products": [],
+            },
+        ],
+    }
+
+
+def general_stop():
+    """The mtDNA probe with a stop the fused fraction form does not cover."""
+    model = mt()
+    model["stop"] = "N > 0 && mutants / N >= 0.9"
+    return model
 
 
 def cases():
@@ -75,6 +122,9 @@ def cases():
         ("stop-diagnostic", undefined, {}, "failed"),
         ("resolution", stiff, {}, "failed"),
         ("instance", sparse(), {"max_instances": 1}, "instance_limit"),
+        ("general-stop", general_stop(), {"trackers": TRACKERS}, "completed"),
+        # Refused: the loop would exceed 1 MiB of source.
+        ("dense", dense(), {}, "completed"),
     ]
 
 
@@ -84,8 +134,8 @@ def run(args):
     return perf_counter() - start, result
 
 
-def generate(generator, files, supported=True):
-    _, result = run([generator, *files])
+def generate(generator, files, supported=True, layout=None):
+    _, result = run([generator, *files, *([layout] if layout else [])])
     if not supported:
         require(
             result.returncode != 0
@@ -95,6 +145,45 @@ def generate(generator, files, supported=True):
         return None
     require(result.returncode == 0, result.stderr.decode())
     return result.stdout
+
+
+def build(folder, loops, kernel_source):
+    """Compile a runner with the rates kernel and every (layout, label) loop."""
+    source = folder / "src"
+    source.mkdir(parents=True)
+    modules, arms = [], []
+    for index, ((layout, label), code) in enumerate(loops.items()):
+        (source / f"loop_{index}.rs").write_bytes(code)
+        modules.append(f'mod loop_{index} {{ include!("loop_{index}.rs"); }}')
+        arms.append(
+            f'        ("{layout}", "{label}") => execute_with_rules_loop('
+            f"&prepared, &control, &loop_{index}::GeneratedRulesLoop),"
+        )
+    (source / "kernel.rs").write_bytes(kernel_source)
+    main_rs = RUNNER.replace("@MODULES@", "\n".join(modules))
+    (source / "main.rs").write_text(main_rs.replace("@ARMS@", "\n".join(arms)))
+    crate = ROOT / "crates/crn-craft-rules"
+    (folder / "Cargo.toml").write_text(
+        '[package]\nname = "rules-loop-probe"\nversion = "0.1.0"\n'
+        'edition = "2024"\n[workspace]\n'
+        f'[dependencies]\ncrn-craft-rules = {{path = "{crate}"}}\n'
+        'serde_json = "1"\n'
+    )
+    target = Path(os.environ.get("CARGO_TARGET_DIR", folder / "target")).resolve()
+    seconds, compiled = run(
+        [
+            "cargo",
+            "build",
+            "--offline",
+            "--release",
+            "--target-dir",
+            target,
+            "--manifest-path",
+            folder / "Cargo.toml",
+        ]
+    )
+    require(compiled.returncode == 0, compiled.stderr.decode())
+    return seconds, target / "release/rules-loop-probe"
 
 
 def main():
@@ -109,53 +198,48 @@ def main():
     report = {"replay": [], "timing": []}
     with TemporaryDirectory() as tmp:
         folder = Path(tmp)
-        source = folder / "src"
-        source.mkdir()
+        loops = {}
         selected = cases()
-        modules, arms = [], []
         for index, (label, model, _, expected) in enumerate(selected):
             case = folder / f"case-{index}"
             case.mkdir()
             files = rules_files(case, model, method="static_direct", n=1)
-            code = generate(loop_generator, files, expected != "unsupported")
-            if code is None:
+            if expected == "unsupported":
+                generate(loop_generator, files, False)
                 report["replay"].append({"case": label, "generated": False})
                 continue
-            (source / f"case_{index}.rs").write_bytes(code)
-            modules.append(f'mod case_{index} {{ include!("case_{index}.rs"); }}')
-            arms.append(
-                f'        ("loop", "{label}") => execute_with_rules_loop('
-                f"&prepared, &control, &case_{index}::GeneratedRulesLoop),"
-            )
+            for layout in LAYOUTS:
+                _, result = run([loop_generator, *files])
+                if result.returncode == 0:
+                    loops[(layout, label)] = result.stdout
+                else:
+                    # Only oversized loops may be refused.
+                    require(
+                        label == "dense" and b"1 MiB" in result.stderr,
+                        result.stderr.decode(),
+                    )
+                    report["replay"].append(
+                        {"case": label, "layout": layout, "generated": False}
+                    )
+        timing_models = {
+            "mtdna": mt(),
+            "general-stop": general_stop(),
+            "sparse": probe_models.sparse(),
+            "wide": probe_models.wide(),
+        }
+        for label, model in timing_models.items():
+            work = folder / f"timing-{label}"
+            work.mkdir()
+            files = rules_files(work, model, method="static_direct", n=1)
+            for layout in LAYOUTS:
+                loops[(layout, f"timing-{label}")] = generate(loop_generator, files)
         probe = folder / "probe"
         probe.mkdir()
         files = rules_files(probe, mt(), method="static_direct", n=1)
-        (source / "kernel.rs").write_bytes(generate(kernel_generator, files))
-        main_rs = RUNNER.replace("@MODULES@", "\n".join(modules))
-        (source / "main.rs").write_text(main_rs.replace("@ARMS@", "\n".join(arms)))
-        crate = ROOT / "crates/crn-craft-rules"
-        (folder / "Cargo.toml").write_text(
-            '[package]\nname = "rules-loop-probe"\nversion = "0.1.0"\n'
-            'edition = "2024"\n[workspace]\n'
-            f'[dependencies]\ncrn-craft-rules = {{path = "{crate}"}}\n'
-            'serde_json = "1"\n'
+        build_seconds, exe = build(
+            folder / "runner", loops, generate(kernel_generator, files)
         )
-        target = Path(os.environ.get("CARGO_TARGET_DIR", folder / "target")).resolve()
-        build, compiled = run(
-            [
-                "cargo",
-                "build",
-                "--offline",
-                "--release",
-                "--target-dir",
-                target,
-                "--manifest-path",
-                folder / "Cargo.toml",
-            ]
-        )
-        require(compiled.returncode == 0, compiled.stderr.decode())
-        report["build_seconds"] = build
-        exe = target / "release/rules-loop-probe"
+        report["build_seconds"] = build_seconds
 
         for index, (label, model, extra, expected) in enumerate(selected):
             case = folder / f"case-{index}"
@@ -171,75 +255,94 @@ def main():
                     } | extra
                     files = rules_files(case, model, **settings)
                     _, old = run([args.binary, "rules", *files])
-                    _, new = run([exe, "loop", label, *files])
-                    # The CLI exits with 1 for failed ensembles; the runner
-                    # always prints its result.
-                    require(
-                        new.returncode == 0 and old.stdout == new.stdout,
-                        f"replay {label}/{method}/{workers}: {new.stderr.decode()}",
-                    )
-                    termination = json.loads(new.stdout)["termination"]
+                    termination = json.loads(old.stdout)["termination"]
                     require(termination == expected, f"{label}: {termination}")
-                    report["replay"].append(
-                        {
-                            "case": label,
-                            "method": method,
-                            "workers": workers,
-                            "termination": termination,
-                            "identical": True,
-                        }
-                    )
+                    for layout in LAYOUTS:
+                        if (layout, label) not in loops:
+                            continue
+                        _, new = run([exe, layout, label, *files])
+                        # The CLI exits with 1 for failed ensembles; the
+                        # runner always prints its result.
+                        require(
+                            new.returncode == 0 and old.stdout == new.stdout,
+                            f"replay {label}/{layout}/{method}/{workers}: "
+                            f"{new.stderr.decode()}",
+                        )
+                        report["replay"].append(
+                            {
+                                "case": label,
+                                "layout": layout,
+                                "method": method,
+                                "workers": workers,
+                                "termination": termination,
+                                "identical": True,
+                            }
+                        )
         other = mt()
         other["parameters"]["mu"] *= 2
         files = rules_files(probe, other, method="static_direct", n=1)
-        _, invalid = run([exe, "loop", "stop", *files])
+        _, invalid = run([exe, "unrolled", "stop", *files])
         require(
             invalid.returncode != 0 and b"fingerprint mismatch" in invalid.stderr,
             "mismatched loop accepted",
         )
         report["fingerprint_rejected"] = True
 
-        def probe_files(method):
-            return rules_files(
-                probe,
-                mt(),
+        # workload: (model label, method, cells, report times, trackers)
+        workloads = {
+            "generic": ("mtdna", FAST, 128, GRID, TRACKERS),
+            "default": ("mtdna", "static_direct", 128, GRID, TRACKERS),
+            "general-stop": ("general-stop", FAST, 128, GRID, TRACKERS),
+            "sparse": ("sparse", "static_direct", 64, [0, 50, 100], ()),
+            "wide": ("wide", "static_direct", 8, [0, 50, 100], ()),
+        }
+        for name, (label, method, cells, times, trackers) in workloads.items():
+            work = folder / f"timing-{label}"
+            files = rules_files(
+                work,
+                timing_models[label],
                 method=method,
-                n=128,
-                times=GRID,
+                n=cells,
+                times=times,
                 threads=1,
                 seed=17,
-                trackers=TRACKERS,
+                trackers=trackers,
             )
-
-        backends = [
-            ("interpreter", lambda files: [args.binary, "rules", *files]),
-            ("kernel", lambda files: [exe, "kernel", "-", *files]),
-            ("loop", lambda files: [exe, "loop", "stop", *files]),
-        ]
-        medians = {}
-        for request, method in (("generic", FAST), ("default", "static_direct")):
+            backends = [("interpreter", [args.binary, "rules", *files])]
+            if label == "mtdna":
+                backends.append(("kernel", [exe, "kernel", "-", *files]))
+            for layout in LAYOUTS:
+                if (layout, f"timing-{label}") in loops:
+                    backends.append((layout, [exe, layout, f"timing-{label}", *files]))
             payloads = {}
             for repeat in range(args.repeats):
                 order = backends if repeat % 2 == 0 else backends[::-1]
-                for label, command in order:
-                    files = probe_files(method)
-                    seconds, result = run(command(files))
+                for backend, command in order:
+                    seconds, result = run(command)
                     require(result.returncode == 0, result.stderr.decode())
-                    payloads.setdefault(label, result.stdout)
-                    require(payloads[label] == result.stdout, "nondeterministic")
-                    events = json.loads(result.stdout)["events"]
+                    payloads.setdefault(backend, result.stdout)
+                    require(payloads[backend] == result.stdout, "nondeterministic")
                     report["timing"].append(
                         {
-                            "request": request,
-                            "backend": label,
+                            "request": name,
+                            "backend": backend,
                             "repeat": repeat,
                             "seconds": seconds,
-                            "events": events,
+                            "events": json.loads(result.stdout)["events"],
                         }
                     )
-            require(len(set(payloads.values())) == 1, f"{request} outputs differ")
+            require(len(set(payloads.values())) == 1, f"{name} outputs differ")
+        files = rules_files(
+            folder / "timing-mtdna",
+            mt(),
+            method="mtdna_direct",
+            n=128,
+            times=GRID,
+            threads=1,
+            seed=17,
+            trackers=TRACKERS,
+        )
         for repeat in range(args.repeats):
-            files = probe_files("mtdna_direct")
             seconds, result = run([args.binary, "rules", *files])
             require(result.returncode == 0, result.stderr.decode())
             report["timing"].append(
@@ -251,28 +354,33 @@ def main():
                     "events": json.loads(result.stdout)["events"],
                 }
             )
+        grouped = {}
         for row in report["timing"]:
-            key = f"{row['request']}/{row['backend']}"
-            medians.setdefault(key, []).append(row)
+            grouped.setdefault(f"{row['request']}/{row['backend']}", []).append(row)
         summary = {}
-        for key, rows in medians.items():
+        for key, rows in grouped.items():
             seconds = sorted(r["seconds"] for r in rows)[len(rows) // 2]
             summary[key] = {
                 "median_seconds": seconds,
                 "events": rows[0]["events"],
                 "ns_per_event": 1e9 * seconds / rows[0]["events"],
             }
-            print(
-                f"{key:28s} {seconds:.3f} s {summary[key]['ns_per_event']:.1f} ns/event"
-            )
+            ns = summary[key]["ns_per_event"]
+            print(f"{key:28s} {seconds:.3f} s {ns:.1f} ns/event", flush=True)
         report["summary"] = summary
         ns = {k: v["ns_per_event"] for k, v in summary.items()}
-        report["loop_speedup_generic"] = ns["generic/interpreter"] / ns["generic/loop"]
-        report["loop_speedup_default"] = ns["default/interpreter"] / ns["default/loop"]
-        report["loop_gap_to_mtdna_direct"] = (
-            ns["generic/loop"] / ns["special/mtdna_direct"]
+        report["loop_speedup_generic"] = (
+            ns["generic/interpreter"] / ns["generic/unrolled"]
         )
-        print(json.dumps({k: report[k] for k in report if k.startswith("loop_")}))
+        report["loop_speedup_default"] = (
+            ns["default/interpreter"] / ns["default/unrolled"]
+        )
+        report["loop_gap_to_mtdna_direct"] = (
+            ns["generic/unrolled"] / ns["special/mtdna_direct"]
+        )
+        print(
+            json.dumps({k: report[k] for k in report if "speedup" in k or "gap" in k})
+        )
     args.output.write_text(json.dumps(report, indent=2) + "\n")
 
 

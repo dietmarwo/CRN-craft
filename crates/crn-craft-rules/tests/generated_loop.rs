@@ -1,4 +1,4 @@
-//! Generated event loops for nine fixture models are checked in, so the
+//! Generated event loops for ten fixture models are checked in, so the
 //! generated-loop path runs under `cargo test` without a separate build.
 //! Regenerate a fixture with
 //! `cargo run --release -p crn-craft-rules --example generate_rules_loop -- MODEL REQUEST`
@@ -35,6 +35,9 @@ mod overflow {
 mod empty {
     include!("generated/loop_empty_loop.rs");
 }
+mod operators {
+    include!("generated/loop_stop_operators_loop.rs");
+}
 
 const STOP: &[u8] = include_bytes!("generated/mtdna_three_class_stop.rules.json");
 const PAIRS: &[u8] = include_bytes!("generated/loop_pairs.rules.json");
@@ -45,6 +48,8 @@ const EDGES_FRACTION: &[u8] = include_bytes!("generated/loop_edges_fraction.rule
 const COUNT_RANGE: &[u8] = include_bytes!("generated/loop_count_range.rules.json");
 const OVERFLOW: &[u8] = include_bytes!("generated/loop_overflow.rules.json");
 const EMPTY: &[u8] = include_bytes!("generated/loop_empty.rules.json");
+const OPERATORS: &[u8] = include_bytes!("generated/loop_stop_operators.rules.json");
+
 const PLAIN: &[u8] = include_bytes!("../../../models/rules/mtdna-three-class.rules.json");
 
 const DEFAULT: (&str, &str) = ("crn-craft.rules-run/0.2", r#"{"kind": "static_direct"}"#);
@@ -188,6 +193,11 @@ fn generator_output_matches_the_checked_in_loops() {
             EMPTY,
             include_str!("generated/loop_empty_loop.rs"),
             "loop_empty",
+        ),
+        (
+            OPERATORS,
+            include_str!("generated/loop_stop_operators_loop.rs"),
+            "loop_stop_operators",
         ),
     ] {
         let prepared = prepare(model, &Run::new(10.0, vec![0.0, 10.0]).request(model)).unwrap();
@@ -543,4 +553,17 @@ fn densely_coupled_networks_are_refused_before_they_reach_the_compiler() {
     let error = generate_rules_loop(&prepared).unwrap_err();
     assert_eq!(error.path, "/method");
     assert!(error.message.contains("1 MiB"), "{}", error.message);
+}
+
+#[test]
+fn every_stop_operator_is_emitted_like_the_bytecode() {
+    for method in METHODS {
+        let run = Run {
+            method,
+            replicates: 32,
+            ..Run::new(40.0, vec![0.0, 1.0, 10.0, 40.0])
+        };
+        let result = replay(OPERATORS, &run, &operators::GeneratedRulesLoop);
+        assert!(result.contains("\"stopped\""));
+    }
 }

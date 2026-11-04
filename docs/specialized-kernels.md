@@ -95,16 +95,20 @@ below implements it.
 ## Generated rules event loops
 
 The loop generator emits the whole Static Direct event for a lowered model
-with constant or recognized vacancy rates and sum projections. The emitted `GeneratedRulesLoop` holds the rates in a
-fixed-size array and, after each event, updates the channels that the
-fired channel affects. It sums the total in channel order, checks
-resolution, scans for the next channel, validates and applies the count
-changes and refreshes the projections the channel changes. It also
-evaluates a guarded fraction stop such as `N > 0 && mutants >= 0.9 * N`.
-All of it is straight-line code with the interpreter's operation order.
-`LoopHost` supplies the rest at run time: polling, inverse or Ziggurat
-waits, uniforms, reports and the horizon, the event, instance and sampling
-budgets, tracker observation, event logs and other stop predicates.
+with constant or recognized vacancy rates and sum projections. The emitted
+`GeneratedRulesLoop` holds the rates in a fixed-size array and, after each
+event, updates the channels that the fired channel affects. It sums the
+total in channel order, checks resolution, scans for the next channel,
+validates and applies the count changes and refreshes the projections the
+channel changes. It also evaluates the model's stop predicate. A guarded
+fraction such as `N > 0 && mutants >= 0.9 * N` keeps the interpreter's
+fused form. Any other predicate is emitted from its expression with the
+bytecode's semantics: NaN propagation, short-circuit `&&` and `||`, and
+the same `libm` functions. An undefined value is passed back to the host
+for the interpreter's diagnostic. All of it is straight-line code with the
+interpreter's operation order. `LoopHost` supplies the rest at run time:
+polling, inverse or Ziggurat waits, uniforms, reports and the horizon, the
+event, instance and sampling budgets, tracker observation and event logs.
 
 ```sh
 cargo run --release --locked -p crn-craft-rules --example generate_rules_loop -- MODEL REQUEST > loop.rs
@@ -124,8 +128,11 @@ source would exceed 1 MiB: the rate code is repeated in every dependency
 row, so densely coupled networks grow with the square of their channel
 count. A 64-channel network with one shared vacancy base emits about
 0.8 MB, and 128 channels would exhaust a 7 GB build host. Such networks use
-the rates kernel or the interpreter. Observers are not supported on this
-path; trackers and event logs are.
+the rates kernel or the interpreter. A table-driven compact layout was tried
+for them, but it gained only 1.15× over the interpreter on a 256-channel
+dense network
+([record](decisions/generated-loop-stops-and-compact-2026-11-04.md)).
+Observers are not supported on this path; trackers and event logs are.
 
 The loop refreshes every projection the fired channel changes. The
 interpreter, without an observer, refreshes only the projections that rates,
@@ -137,11 +144,13 @@ because lowering allows at most 256 species and the interpreter defers only
 weights bounded for 1024 terms.
 
 `crates/crn-craft-rules/tests/generated_loop.rs` runs checked-in loops for
-nine fixtures under `cargo test`:
+ten fixtures under `cargo test`:
 
 - the three-class model with its takeover stop;
 - identical and distinct pairs with extinction and a general stop
   predicate;
+- the same pairs with a stop that uses every operator and function a stop
+  may use;
 - a channel below 53-bit resolution, with an influx;
 - an invalid vacancy rate;
 - vacancy rates shared by several channels, with a fraction stop or with
@@ -155,16 +164,29 @@ and instance limits. They also cover trackers, first-passage trackers,
 event logs, reports close together, a horizon before the first event, the
 stops and the errors. They check that cancellation is polled inside the
 loop, and that other model bytes, other methods, expression rates and
-oversized networks are refused. `validation/check_generated_loop.py` generates loops for
-eleven replay cases, replays them against the CLI with one and eight
-workers, checks that an aggregation model with a max projection is refused,
-and times the probe.
+oversized networks are refused. `validation/check_generated_loop.py`
+generates loops for twelve replay cases, among them a stop outside the
+fused form. It replays them against the CLI with one and eight workers. It
+checks that an aggregation model with a max projection and an oversized
+dense network are refused, and it times the probes.
 
-On the two-CPU host, the 128-cell probe took about 49 ns per event with the
-generated loop under Ziggurat waits and sparse trackers. That is 2.3× faster
-than the interpreter (114 ns) and 1.36× the cost of `mtdna_direct`
-(36 ns). Under default Static Direct the loop took 72 ns, against 134 ns.
-The rates-only kernel took 99 ns and 127 ns. See the
-[decision record](decisions/generated-rules-loop-2026-11-03.md) and
-`validation/mtdna/generated-loop.json`. Like the rates kernel, the loop is
-Rust only. Python use would need a wheel built with the generated module.
+On the two-CPU host, the 128-cell probe took about 48 ns per event with the
+generated loop under Ziggurat waits and sparse trackers. That is 2.4× faster
+than the interpreter (112 ns) and 1.25–1.34× the cost of `mtdna_direct`
+(36–38 ns across runs). Under default Static Direct the loop took 69 ns,
+against 135 ns. The rates-only kernel took 94 ns and 122 ns. With the stop
+written as `N > 0 && mutants / N >= 0.9`, the loop took 48 ns against
+138 ns.
+
+Benchmark before adopting the loop for networks with many channels,
+constant rates and short dependency rows. There, every event's work is the
+total, the resolution check and the scan over all channels, and both paths
+do that work in the same order. On the 96-channel sparse network the
+unrolled loop was no faster than the interpreter (0.85–1.03× across runs).
+On a 512-channel network it was clearly slower: 950 against 630 ns per
+event. See the
+[decision record](decisions/generated-rules-loop-2026-11-03.md),
+[the follow-ups](decisions/generated-loop-stops-and-compact-2026-11-04.md)
+and `validation/mtdna/generated-loop.json`. Like the rates kernel, the
+loop is Rust only. Python use would need a wheel built with the generated
+module.

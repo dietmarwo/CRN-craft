@@ -160,3 +160,7 @@ out of scope for a byte-identical loop.
 General stop predicates, other than the guarded fraction, are still
 evaluated by the host's bytecode. Expression rates and max, min or distinct
 projections are refused. The route is Rust only.
+
+Follow-up, 4 November 2026: every stop predicate is now emitted. A compact
+layout for oversized networks was tried and not adopted
+([record](generated-loop-stops-and-compact-2026-11-04.md)).

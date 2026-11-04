@@ -1,0 +1,240 @@
+{
+  "schema": "crn-craft.generated-loop-followups/0.1",
+  "description": "Iterations of docs/decisions/generated-loop-stops-and-compact-2026-11-04.md and docs/decisions/many-channel-selection-2026-11-04.md on a two-CPU host. mtDNA rows use the 128-cell three-class probe (25,920 h, 720 h reports, two class trackers, one worker); 'generic' is Static Direct with Ziggurat waits and sparse trackers. Medians of alternating runs; timing is host-specific.",
+  "platform": "Linux-6.18.44-fc-v233-x86_64-with-glibc2.39",
+  "attempts": [
+    {
+      "id": "M-interpreter",
+      "change": "direct_with sums the rates and tracks the smallest positive rate in one pass for networks of at least 32 channels.",
+      "probe_against_main_a78a3a5": {
+        "mt/generic": {
+          "ns_per_event": {
+            "ref": 107.7,
+            "new": 109.3
+          },
+          "speedup": 0.985,
+          "identical": true
+        },
+        "mt/default": {
+          "ns_per_event": {
+            "ref": 150.1,
+            "new": 146.7
+          },
+          "speedup": 1.024,
+          "identical": true
+        },
+        "mt/special": {
+          "ns_per_event": {
+            "ref": 34.8,
+            "new": 35.6
+          },
+          "speedup": 0.979,
+          "identical": true
+        },
+        "sparse/default": {
+          "ns_per_event": {
+            "ref": 253.8,
+            "new": 195.5
+          },
+          "speedup": 1.298,
+          "identical": true
+        },
+        "sparse/next": {
+          "ns_per_event": {
+            "ref": 122.9,
+            "new": 121.8
+          },
+          "speedup": 1.009,
+          "identical": true
+        },
+        "wide/default": {
+          "ns_per_event": {
+            "ref": 924.2,
+            "new": 665.8
+          },
+          "speedup": 1.388,
+          "identical": true
+        }
+      },
+      "repeats": 9,
+      "decision": "kept: sparse Static Direct 1.30x, wide 1.39x, no workload more than 2% slower; 96/96 rules replay identical"
+    },
+    {
+      "id": "S",
+      "change": "Emit every stop predicate from the expression tree with the bytecode's semantics; a NaN value defers to the host.",
+      "request_stop": "N > 0 && mutants / N >= 0.9",
+      "ns_per_event": {
+        "generic": {
+          "interpreter": 143.6,
+          "loop_host_stop": 90.1,
+          "loop_emitted_stop": 53.2
+        },
+        "default": {
+          "interpreter": 173.2,
+          "loop_host_stop": 115.0,
+          "loop_emitted_stop": 76.1
+        }
+      },
+      "identical": {
+        "generic": true,
+        "default": true
+      },
+      "repeats": 7,
+      "decision": "kept: the generic loop is 1.69x faster than with the host's bytecode (default 1.51x)"
+    },
+    {
+      "id": "C1",
+      "change": "Compact layout: one rate function with a branch per channel, constant dependency, change and projection tables, loops for selection; full-row updates loop over the rate function.",
+      "ns_per_event": {
+        "generic/interpreter": 110.9,
+        "generic/kernel": 102.9,
+        "generic/unrolled": 49.8,
+        "generic/compact": 62.8,
+        "default/interpreter": 135.5,
+        "default/kernel": 119.3,
+        "default/unrolled": 75.9,
+        "default/compact": 83.4,
+        "general-stop/interpreter": 136.0,
+        "general-stop/unrolled": 48.3,
+        "general-stop/compact": 58.8,
+        "dense/interpreter": 1372.1,
+        "dense/compact": 1621.3,
+        "sparse/interpreter": 185.8,
+        "sparse/unrolled": 208.6,
+        "sparse/compact": 193.7,
+        "wide/interpreter": 637.9,
+        "wide/unrolled": 941.4,
+        "wide/compact": 578.1,
+        "special/mtdna_direct": 40.1
+      },
+      "decision": "below the criterion: dense compact 0.85x of the interpreter (needed 1.25x); revised in C2"
+    },
+    {
+      "id": "C2",
+      "change": "As C1, with the update of every channel written out once as straight-line code.",
+      "ns_per_event": {
+        "dense": {
+          "interpreter": 1398,
+          "compact": 1218
+        },
+        "wide": {
+          "interpreter": 655,
+          "compact": 603
+        }
+      },
+      "repeats": 7,
+      "decision": "not adopted: dense 1.15x of the interpreter, below the declared 1.25x. The summation, scan and projection sums over 256 channels are serial in the interpreter's order, which bounds any byte-identical layout. Patch: validation/mtdna/followup-attempts/compact-layout.patch"
+    },
+    {
+      "id": "M-loops",
+      "change": "Track the smallest positive rate while summing in generated loops of at least 32 channels.",
+      "ns_per_event_unrolled": {
+        "sparse/interp": 204.4,
+        "sparse/nofuse": 221.5,
+        "sparse/fused": 308.7,
+        "wide/interp": 667.4,
+        "wide/nofuse": 966.7,
+        "wide/fused": 1798.6
+      },
+      "ns_per_event_with_compact": {
+        "sparse/interp": 196.9,
+        "sparse/unrolled": 213.0,
+        "sparse/compact-nofuse": 214.7,
+        "sparse/compact-fused": 199.1,
+        "wide/interp": 660.8,
+        "wide/unrolled": 963.4,
+        "wide/compact-nofuse": 803.8,
+        "wide/compact-fused": 610.1
+      },
+      "decision": "not adopted: unrolled loops became 1.39x slower on the sparse network and 1.86x slower on the wide one; the compact layout, where fusion helped (1.08x sparse, 1.32x wide), was not adopted"
+    },
+    {
+      "id": "final",
+      "change": "Branch head: validation/check_generated_loop.py and validation/probe_structural_rules.py against main a78a3a5.",
+      "check_generated_loop_ns_per_event": {
+        "generic/interpreter": 112.2,
+        "generic/kernel": 93.5,
+        "generic/unrolled": 47.6,
+        "default/interpreter": 134.5,
+        "default/kernel": 122.4,
+        "default/unrolled": 68.6,
+        "general-stop/interpreter": 137.6,
+        "general-stop/unrolled": 48.3,
+        "sparse/interpreter": 206.4,
+        "sparse/unrolled": 201.1,
+        "wide/interpreter": 630.3,
+        "wide/unrolled": 950.0,
+        "special/mtdna_direct": 38.1
+      },
+      "loop_speedup_generic": 2.359,
+      "loop_gap_to_mtdna_direct": 1.249,
+      "probe_against_main_a78a3a5": {
+        "mt/generic": {
+          "ns_per_event": {
+            "ref": 105.7,
+            "new": 109.2
+          },
+          "speedup": 0.968,
+          "identical": true
+        },
+        "mt/default": {
+          "ns_per_event": {
+            "ref": 132.3,
+            "new": 128.3
+          },
+          "speedup": 1.031,
+          "identical": true
+        },
+        "mt/special": {
+          "ns_per_event": {
+            "ref": 34.0,
+            "new": 34.4
+          },
+          "speedup": 0.991,
+          "identical": true
+        },
+        "sparse/default": {
+          "ns_per_event": {
+            "ref": 237.7,
+            "new": 190.6
+          },
+          "speedup": 1.247,
+          "identical": true
+        },
+        "sparse/next": {
+          "ns_per_event": {
+            "ref": 113.7,
+            "new": 116.8
+          },
+          "speedup": 0.973,
+          "identical": true
+        },
+        "wide/default": {
+          "ns_per_event": {
+            "ref": 881.5,
+            "new": 659.3
+          },
+          "speedup": 1.337,
+          "identical": true
+        }
+      },
+      "rules_replay": "96/96 identical",
+      "note": "An earlier run of the same script, before the emitted code allowed unused_parens and unused_braces, measured the sparse loop at 216 against 184 ns per event; the 96-channel comparison is within run-to-run noise, the 512-channel one is not.",
+      "earlier_run_ns_per_event": {
+        "generic/interpreter": 113.0,
+        "generic/kernel": 93.1,
+        "generic/unrolled": 47.8,
+        "default/interpreter": 131.9,
+        "default/kernel": 120.6,
+        "default/unrolled": 75.7,
+        "general-stop/interpreter": 135.6,
+        "general-stop/unrolled": 48.1,
+        "sparse/interpreter": 184.3,
+        "sparse/unrolled": 216.3,
+        "wide/interpreter": 624.4,
+        "wide/unrolled": 953.7,
+        "special/mtdna_direct": 35.7
+      }
+    }
+  ]
+}

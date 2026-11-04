@@ -208,18 +208,33 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
     }
     // The stop predicate runs after events that change a projection it
     // reads. The fused guarded fraction is emitted with the interpreter's
-    // operations; other predicates are evaluated by the host.
+    // fused operations.
     let model = &prepared.compiled;
     let mut stop_reads = vec![false; model.observables.len()];
     if let Some(program) = &model.stop_program {
         program.reads(&mut stop_reads);
     }
-    let stop = match model.stop_program.as_ref().and_then(|p| p.fraction()) {
-        Some((total, part, fraction)) => format!(
-            "if values[{total}] > 0.0 && values[{part}] >= {} * values[{total}] {{              host.stopped(&counts[..], &mut values[..])?; return Ok(Some(next)); }}",
+    let emitted = model
+        .stop
+        .as_ref()
+        .and_then(|e| e.rust_predicate(&model.params));
+    let finish = "host.stopped(&counts[..], &mut values[..])?; return Ok(Some(next));";
+    let stop = match (
+        model.stop_program.as_ref().and_then(|p| p.fraction()),
+        emitted,
+    ) {
+        (Some((total, part, fraction)), _) => format!(
+            "if values[{total}] > 0.0 && values[{part}] >= {} * values[{total}] {{ {finish} }}",
             bits(fraction)
         ),
-        None => "if host.stop(&counts[..], &mut values[..])? { return Ok(Some(next)); }".into(),
+        // Other predicates are emitted with the bytecode's semantics; an
+        // undefined value leaves the diagnostic to the host's bytecode.
+        (None, Some(value)) => format!(
+            "{{ let v: f64 = {value};\nif v.is_nan() {{ if host.stop(&counts[..], &mut values[..])? {{ return Ok(Some(next)); }} }} else if v != 0.0 {{ {finish} }} }}"
+        ),
+        (None, None) => {
+            "if host.stop(&counts[..], &mut values[..])? { return Ok(Some(next)); }".into()
+        }
     };
     let mut events = String::new();
     for (k, c) in net.channels.iter().enumerate() {
@@ -269,7 +284,7 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
 pub struct GeneratedRulesLoop;
 impl crn_craft_rules::RulesLoop for GeneratedRulesLoop {{
     fn fingerprint(&self) -> &str {{ "{hash}" }}
-    #[allow(clippy::all, unused_mut, unused_variables, unused_assignments, unreachable_code, unused_labels)]
+    #[allow(clippy::all, unused_mut, unused_variables, unused_assignments, unreachable_code, unused_labels, unused_parens, unused_braces)]
     fn run(&self, host: &mut crn_craft_rules::LoopHost<'_, '_>, counts: &mut [u64],
            values: &mut [f64]) -> Result<Option<f64>, crn_craft_rules::LoopHalt> {{
         let counts: &mut [u64; {species}] = counts.try_into().expect("lowered species");

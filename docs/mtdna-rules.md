@@ -254,7 +254,8 @@ fused resolution check, exact incremental projections and a grouped
 evaluator did not change that by 5%, so none was adopted
 ([decision record](decisions/generic-rules-structural-2026-11-03.md)).
 From Rust, a generated event loop runs the same requests with
-byte-identical results at about 49 ns per event
+byte-identical results at about 48 ns per event, whether the stop
+is written in the fused fraction form or not
 ([generated event loops](specialized-kernels.md#generated-rules-event-loops)).
 `mtdna_direct` remains the fastest route for the fixed three-class topology
 and the only fast one from Python or the CLI.

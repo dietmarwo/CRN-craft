@@ -1,4 +1,9 @@
 //! Ahead-of-time kernels for a lowered Static Direct model.
+//!
+//! [`generate_rules_kernel`] emits the rate and projection arithmetic of one
+//! prepared model as Rust source; [`execute_with_rules_kernel`] runs a
+//! compiled kernel under the Static Direct scheduler. See the
+//! [rules kernel checklist](https://github.com/dietmarwo/CRN-craft/blob/main/docs/specialized-kernels.md#ahead-of-time-generated-rules-kernels).
 use crate::expr::RateKernel;
 use crate::flat::Network;
 use crate::model::Reduce;
@@ -56,6 +61,16 @@ fn fingerprint(prepared: &Prepared, template: &str) -> String {
 /// byte-identical to [`crate::execute`]. Fails with `CRN-R020` at `/model`
 /// unless the kernel was generated for these exact model bytes by this
 /// version of the generator. Observers are not supported on this path.
+///
+/// The fingerprint check regenerates the source, so it also refuses a kernel
+/// after parameter rebinding or a generator change. Waiting-time and tracker
+/// options of the request apply as usual.
+///
+/// # Errors
+///
+/// `CRN-R020` at `/method` if the request does not select `static_direct`,
+/// `CRN-R020` at `/model` on a fingerprint mismatch, and otherwise the
+/// errors of [`crate::execute`].
 pub fn execute_with_rules_kernel(
     prepared: &Prepared,
     control: &Control,
@@ -84,6 +99,51 @@ fn bits(value: f64) -> String {
 /// runs it with [`execute_with_rules_kernel`]. Supports constant and vacancy
 /// rates and sum observables; parameters are compiled in, so another
 /// parameter set needs another kernel.
+///
+/// A constant rate is an expression over parameters only. A vacancy rate has
+/// the form `max(0, K - N) / D * c1 * c2 ...`, with `K` and the factors over
+/// parameters and `N`, `D` observables. The example
+/// `generate_rules_kernel` in the repository writes the source for a model
+/// and request file.
+///
+/// # Errors
+///
+/// `CRN-R020` at `/method` if the request does not select `static_direct`,
+/// or if a rate or an observable is outside the supported forms.
+///
+/// ```
+/// use crn_craft_rules::{generate_rules_kernel, prepare};
+/// # use serde_json::json;
+/// # let model = serde_json::to_vec(&json!({
+/// #     "schema": "crn-craft.rules-model/0.1", "name": "immigration_death",
+/// #     "parameters": {"k_in": 10.0, "k_out": 1.0},
+/// #     "types": [{"name": "X"}], "initial": [],
+/// #     "observables": {"X": {"type": "X"}},
+/// #     "rules": [
+/// #         {"name": "immigration", "reactants": [], "rate": "k_in", "products": [{"type": "X"}]},
+/// #         {"name": "death", "reactants": [{"label": "x", "type": "X"}], "rate": "k_out", "products": []}
+/// #     ]
+/// # })).unwrap();
+/// # let request = |method: serde_json::Value| serde_json::to_vec(&json!({
+/// #     "schema": "crn-craft.rules-run/0.2",
+/// #     "model": {"path": "m.rules.json", "sha256": crn_craft::sha256(&model)},
+/// #     "time": {"end": 5.0, "report_times": [0.0, 5.0]},
+/// #     "ensemble": {"replicates": 4, "root_seed": 1},
+/// #     "outputs": {"statistics": ["mean"], "keep_paths": 0, "keep_instances": 0},
+/// #     "budget": {"max_events_per_replicate": 100000, "max_sampling_steps_per_replicate": 1000000,
+/// #                "max_instances": 1, "threads": 1, "max_output_bytes": 1048576},
+/// #     "method": method
+/// # })).unwrap();
+/// let prepared = prepare(&model, &request(json!({"kind": "static_direct"}))).unwrap();
+/// let source = generate_rules_kernel(&prepared).unwrap();
+/// assert!(source.contains("impl crn_craft_rules::RulesKernel for GeneratedRulesKernel"));
+/// // The source is deterministic; its fingerprint ties it to the model bytes.
+/// assert_eq!(source, generate_rules_kernel(&prepared).unwrap());
+///
+/// // Other methods have no lowered Static Direct network to compile.
+/// let tree = prepare(&model, &request(json!({"kind": "tree"}))).unwrap();
+/// assert_eq!(generate_rules_kernel(&tree).unwrap_err().code, "CRN-R020");
+/// ```
 pub fn generate_rules_kernel(prepared: &Prepared) -> Result<String, Diagnostic> {
     let net = network(prepared)?;
     let template = template(prepared, net)?;

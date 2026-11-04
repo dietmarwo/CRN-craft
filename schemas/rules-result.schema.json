@@ -33,6 +33,7 @@
     },
     "Episode": {
       "additionalProperties": false,
+      "description": "A span during which a tracked observable was positive.",
       "properties": {
         "duration": {
           "description": "Observed duration, including the observed part of an open episode.",
@@ -48,10 +49,12 @@
           ]
         },
         "peak": {
+          "description": "Largest value during the episode.",
           "format": "double",
           "type": "number"
         },
         "start": {
+          "description": "Time the observable became positive; 0 if it was positive initially.",
           "format": "double",
           "type": "number"
         }
@@ -65,13 +68,16 @@
     },
     "FinalInstances": {
       "additionalProperties": false,
+      "description": "The instances present at the end of one kept replicate.",
       "properties": {
         "id": {
+          "description": "Replicate index, below `keep_instances`.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
         },
         "instances": {
+          "description": "Instances with a positive count, sorted by type and attributes.",
           "items": {
             "$ref": "#/definitions/InstanceRecord"
           },
@@ -86,6 +92,7 @@
     },
     "InstanceRecord": {
       "additionalProperties": false,
+      "description": "One instance: a type, its attribute values and its copy number.",
       "properties": {
         "attributes": {
           "description": "One value per attribute of the type, in declared order.",
@@ -96,6 +103,7 @@
           "type": "array"
         },
         "count": {
+          "description": "Copy number, at least 1 for a final instance. Event log participants always have count 1.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
@@ -116,8 +124,10 @@
     },
     "LogEntry": {
       "additionalProperties": false,
+      "description": "One retained event of the event log.",
       "properties": {
         "firings": {
+          "description": "For a leap, `[rule index, firings]` pairs, one per lowered channel that fired; empty for an exact step.",
           "items": {
             "items": [
               {
@@ -138,6 +148,7 @@
           "type": "array"
         },
         "observables": {
+          "description": "Every observable after the event, in the result's column order.",
           "items": {
             "format": "double",
             "type": "number"
@@ -145,18 +156,21 @@
           "type": "array"
         },
         "products": {
+          "description": "Produced instances of an exact step, one per product, each with count 1; a product that copies a reactant appears in both lists. Empty for a leap.",
           "items": {
             "$ref": "#/definitions/InstanceRecord"
           },
           "type": "array"
         },
         "reactants": {
+          "description": "Consumed instances of an exact step, one per reactant pattern, each with count 1. Empty for a leap.",
           "items": {
             "$ref": "#/definitions/InstanceRecord"
           },
           "type": "array"
         },
         "rule": {
+          "description": "Index into the result's `rules` for an exact step; absent for a leap.",
           "format": "uint",
           "minimum": 0.0,
           "type": [
@@ -165,6 +179,7 @@
           ]
         },
         "time": {
+          "description": "Simulated time of the event; for a leap, the end of the leap.",
           "format": "double",
           "type": "number"
         }
@@ -180,24 +195,29 @@
     },
     "Observation": {
       "additionalProperties": false,
+      "description": "The trackers and event log of one replicate, in the result's `observations`.",
       "properties": {
         "id": {
+          "description": "Replicate index.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
         },
         "log": {
+          "description": "Retained events, in event order.",
           "items": {
             "$ref": "#/definitions/LogEntry"
           },
           "type": "array"
         },
         "omitted_log_entries": {
+          "description": "Matching events beyond `max_entries`.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
         },
         "trackers": {
+          "description": "One result per requested tracker, in request order.",
           "items": {
             "$ref": "#/definitions/TrackerResult"
           },
@@ -214,14 +234,16 @@
     },
     "PathSeries": {
       "additionalProperties": false,
+      "description": "The observable series of one kept replicate.",
       "properties": {
         "id": {
+          "description": "Replicate index, below `keep_paths`.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
         },
         "values": {
-          "description": "report time × observable.",
+          "description": "report time × observable: one row per saved report time, with the columns in the order of `observables`.",
           "items": {
             "items": {
               "format": "double",
@@ -240,6 +262,7 @@
     },
     "Record": {
       "additionalProperties": false,
+      "description": "The accounting of one replicate. Every replicate has a record, including replicates that a cancellation or the wall-time limit kept from starting.",
       "properties": {
         "created_instances": {
           "description": "Instances created by events (excluding the initial state).",
@@ -255,19 +278,23 @@
             {
               "type": "null"
             }
-          ]
+          ],
+          "description": "The limit or numerical error that ended the replicate; `null` for a completed or stopped replicate."
         },
         "events": {
+          "description": "Events executed. Approximate methods count every firing in a leap.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
         },
         "id": {
+          "description": "Replicate index, 0 to `requested_replicates - 1`; it selects the random stream.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
         },
         "peak_instances": {
+          "description": "Largest number of distinct instances alive at once. On `tree` it includes the instance whose creation exceeded `max_instances`; the static methods reject that event before counting it.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
@@ -288,11 +315,13 @@
           "type": "array"
         },
         "saved_points": {
+          "description": "Report times filled with observable values: all of them for a completed or stopped replicate, the ones before the halt otherwise.",
           "format": "uint",
           "minimum": 0.0,
           "type": "integer"
         },
         "started": {
+          "description": "False for a replicate that never ran because the run was cancelled or hit its wall-time limit first; its counters are then zero.",
           "type": "boolean"
         },
         "stop_time": {
@@ -319,6 +348,7 @@
       "type": "object"
     },
     "ResultVersion": {
+      "description": "The version of a result, its `schema` field: rules-result/0.1 answers a rules-run/0.1 request, rules-result/0.2 answers rules-run/0.2 to 0.4.",
       "enum": [
         "crn-craft.rules-result/0.1",
         "crn-craft.rules-result/0.2"
@@ -334,6 +364,7 @@
     },
     "Statistics": {
       "additionalProperties": false,
+      "description": "Ensemble statistics per report time and observable, accumulated in replicate order so that they do not depend on the thread count.",
       "properties": {
         "mean": {
           "description": "report time × observable.",
@@ -350,6 +381,7 @@
           ]
         },
         "mean_standard_error": {
+          "description": "Standard error of the mean, `sqrt(sample_variance / samples)`, under the same conditions as `sample_variance`.",
           "items": {
             "items": {
               "format": "double",
@@ -363,6 +395,7 @@
           ]
         },
         "sample_variance": {
+          "description": "Sample variance (divisor `samples - 1`), report time × observable; present when `variance` was requested and `samples` is at least 2.",
           "items": {
             "items": {
               "format": "double",
@@ -376,6 +409,7 @@
           ]
         },
         "samples": {
+          "description": "Replicates included: all of them, since statistics are withheld unless every replicate completed or stopped.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
@@ -387,6 +421,7 @@
       "type": "object"
     },
     "Termination": {
+      "description": "How a replicate, or the whole ensemble, ended.\n\nValues are ordered by severity, from `completed` to `output_limit`. The ensemble reports `completed` when every replicate completed or stopped, and otherwise the most severe replicate termination.",
       "oneOf": [
         {
           "enum": [
@@ -402,7 +437,7 @@
           "type": "string"
         },
         {
-          "description": "The stop condition held; the state is held to the end of the grid.",
+          "description": "The model's stop condition held, ATP was depleted under thinning, or an observer stopped the replicate; the state is held to the end of the grid.",
           "enum": [
             "stopped"
           ],
@@ -412,24 +447,29 @@
     },
     "TrackerResult": {
       "additionalProperties": false,
+      "description": "The summary of one tracker over one replicate.",
       "properties": {
         "appearances": {
+          "description": "Changes from zero or below to a positive value. A value positive at time 0 opens an episode but is not an appearance.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
         },
         "episodes": {
+          "description": "The first `keep_episodes` episodes, in time order. An episode still open at the end is included if there is room.",
           "items": {
             "$ref": "#/definitions/Episode"
           },
           "type": "array"
         },
         "extinctions": {
+          "description": "Changes from a positive value to zero or below.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
         },
         "first_passage": {
+          "description": "First time the `first_passage` predicate held; absent without a predicate or if it never held.",
           "format": "double",
           "type": [
             "number",
@@ -437,10 +477,12 @@
           ]
         },
         "integral": {
+          "description": "Time integral of the observable from 0 to the end of observation (the replicate's stop time or horizon). A non-finite integral fails the replicate with `CRN-R030`.",
           "format": "double",
           "type": "number"
         },
         "last_appearance": {
+          "description": "Time of the last appearance, if any.",
           "format": "double",
           "type": [
             "number",
@@ -448,6 +490,7 @@
           ]
         },
         "last_extinction": {
+          "description": "Time of the last extinction, if any.",
           "format": "double",
           "type": [
             "number",
@@ -455,26 +498,32 @@
           ]
         },
         "maximum": {
+          "description": "Largest value, over the initial value and every post-event value.",
           "format": "double",
           "type": "number"
         },
         "minimum": {
+          "description": "Smallest value, over the initial value and every post-event value.",
           "format": "double",
           "type": "number"
         },
         "observable": {
+          "description": "The tracked observable.",
           "type": "string"
         },
         "omitted_duration": {
+          "description": "Total duration of the omitted episodes.",
           "format": "double",
           "type": "number"
         },
         "omitted_episodes": {
+          "description": "Episodes beyond `keep_episodes`.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
         },
         "omitted_peak": {
+          "description": "Largest peak among the omitted episodes; absent when none was omitted.",
           "format": "double",
           "type": [
             "number",
@@ -497,14 +546,17 @@
     },
     "TypeHeader": {
       "additionalProperties": false,
+      "description": "A species type of the model, as listed in the result's `types`.",
       "properties": {
         "attributes": {
+          "description": "The type's attribute names, in the order of an instance's `attributes` values.",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "name": {
+          "description": "The type name from the model.",
           "type": "string"
         }
       },
@@ -515,57 +567,68 @@
       "type": "object"
     }
   },
+  "description": "The result of a rules run: `crn-craft.rules-result/0.1` or `0.2`.\n\nA result is returned even when replicates hit limits or fail: check `termination`, the per-replicate records and `diagnostics`. Matrices are indexed by report time, then observable.",
   "properties": {
     "completed_replicates": {
+      "description": "Replicates that completed or stopped.",
       "format": "uint64",
       "minimum": 0.0,
       "type": "integer"
     },
     "diagnostics": {
+      "description": "Ensemble-level diagnostics: `CRN-R050` for an incomplete ensemble, `CRN-R051` for a specialization that did not apply and `CRN-R045` for a trimmed result. Replicate errors are in their records.",
       "items": {
         "$ref": "#/definitions/Diagnostic"
       },
       "type": "array"
     },
     "events": {
+      "description": "Events over all replicates.",
       "format": "uint64",
       "minimum": 0.0,
       "type": "integer"
     },
     "final_instances": {
+      "description": "Final instances of the started replicates below `keep_instances`.",
       "items": {
         "$ref": "#/definitions/FinalInstances"
       },
       "type": "array"
     },
     "model_sha256": {
+      "description": "SHA-256 of the exact model bytes, lowercase hexadecimal.",
       "type": "string"
     },
     "observables": {
+      "description": "Observable names in column order: the model's observables sorted by name, then `ATP` for an ATP model.",
       "items": {
         "type": "string"
       },
       "type": "array"
     },
     "observations": {
+      "description": "rules-result/0.2: tracker results and event logs, one entry per observed replicate in replicate order. Omitted when empty.",
       "items": {
         "$ref": "#/definitions/Observation"
       },
       "type": "array"
     },
     "paths": {
+      "description": "Observable series of the started replicates below `keep_paths`.",
       "items": {
         "$ref": "#/definitions/PathSeries"
       },
       "type": "array"
     },
     "replicates": {
+      "description": "One record per replicate, in replicate order.",
       "items": {
         "$ref": "#/definitions/Record"
       },
       "type": "array"
     },
     "report_times": {
+      "description": "The request's report times, one per matrix row.",
       "items": {
         "format": "double",
         "type": "number"
@@ -573,25 +636,30 @@
       "type": "array"
     },
     "requested_replicates": {
+      "description": "The request's `ensemble.replicates`.",
       "format": "uint64",
       "minimum": 0.0,
       "type": "integer"
     },
     "root_seed": {
+      "description": "The request's root seed.",
       "format": "uint64",
       "minimum": 0.0,
       "type": "integer"
     },
     "rules": {
+      "description": "Rule names, in declaration order; `rule_events` and rule indices follow it.",
       "items": {
         "type": "string"
       },
       "type": "array"
     },
     "run_sha256": {
+      "description": "SHA-256 of the exact request bytes, lowercase hexadecimal. A parameter-bound candidate hashes its re-serialized request.",
       "type": "string"
     },
     "sampler": {
+      "description": "The sampler identity of the method that ran, for example `chacha8-u53/rules-direct/2`. Replays compare equal only under the same identity.",
       "type": "string"
     },
     "schema": {
@@ -609,6 +677,7 @@
       "description": "Withheld unless every replicate completed or stopped."
     },
     "stopped_replicates": {
+      "description": "Replicates that stopped, a subset of `completed_replicates`.",
       "format": "uint64",
       "minimum": 0.0,
       "type": "integer"
@@ -622,6 +691,7 @@
       "description": "`completed` when every replicate completed or stopped; otherwise the most severe replicate termination."
     },
     "types": {
+      "description": "The model's types, in declaration order.",
       "items": {
         "$ref": "#/definitions/TypeHeader"
       },

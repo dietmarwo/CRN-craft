@@ -4,36 +4,41 @@
   "definitions": {
     "Budget": {
       "additionalProperties": false,
+      "description": "Explicit work, memory and output limits of a run request.\n\nA replicate that reaches a per-replicate limit ends with the matching termination and diagnostic; the other replicates continue.",
       "properties": {
         "max_events_per_replicate": {
+          "description": "Events one replicate may execute; reaching it ends the replicate with `event_limit` (`CRN-R040`).",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
         },
         "max_instances": {
-          "description": "Distinct instances alive at once, over all types.",
+          "description": "Distinct instances alive at once, over all types; positive. Exceeding it ends the replicate with `instance_limit` (`CRN-R042`). On `tree`, so does a count above 2^53; the static methods fail the replicate with `CRN-R030` instead.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
         },
         "max_output_bytes": {
+          "description": "Size limit of the result as compact JSON plus a trailing newline, capped at 1 GiB. Must hold at least 160 bytes per replicate (`CRN-R020`). A larger result drops statistics, paths, observations and final instances and ends as `output_limit` (`CRN-R045`); if the records alone still do not fit, the run fails with `CRN-R045`.",
           "format": "uint64",
           "minimum": 1.0,
           "type": "integer"
         },
         "max_sampling_steps_per_replicate": {
-          "description": "Every random word, including rejected pair draws and product draws.",
+          "description": "Random 64-bit words one replicate may draw, counting every word, including product draws; exhausting it ends the replicate with `sampling_limit` (`CRN-R041`).",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
         },
         "threads": {
+          "description": "Worker threads, 1 to 64. Completed results do not depend on it.",
           "format": "uint32",
           "maximum": 64.0,
           "minimum": 1.0,
           "type": "integer"
         },
         "wall_time_s": {
+          "description": "Wall-clock limit for the whole run in seconds, positive and finite when present. Reaching it ends running replicates with `wall_time_limit` (`CRN-R043`) and starts no others.",
           "format": "double",
           "type": [
             "number",
@@ -72,15 +77,17 @@
     },
     "LogSpec": {
       "additionalProperties": false,
+      "description": "The event log in a run request's `event_log` (rules-run/0.2 and later).",
       "properties": {
         "max_entries": {
+          "description": "Entries kept per replicate; later matching events are only counted. The reservation for these entries must fit the output budget.",
           "format": "uint",
           "minimum": 0.0,
           "type": "integer"
         },
         "rules": {
           "default": [],
-          "description": "An empty list logs all rules. Leaps match any listed firing.",
+          "description": "An empty list logs all rules. Leaps match any listed firing. Unknown rule names are `CRN-R020` at `/event_log`.",
           "items": {
             "type": "string"
           },
@@ -93,9 +100,11 @@
       "type": "object"
     },
     "Method": {
+      "description": "The simulation method of a run request, tagged by `kind`.\n\nAbsent means `tree`. Each method reports its own sampler identity in the result's `sampler`; the same seed gives different trajectories under different samplers. Every method except `tree` needs a model that lowers to fixed instance tuples (`CRN-R020` at `/method` otherwise).",
       "oneOf": [
         {
           "additionalProperties": false,
+          "description": "Exact direct method over dynamic instances: rules are selected by their propensities, then instances from sum trees. Supports random product attributes and `new_id()`. Sampler `chacha8-u53/rules-direct/2`.",
           "properties": {
             "kind": {
               "enum": [
@@ -111,6 +120,7 @@
         },
         {
           "additionalProperties": false,
+          "description": "Exact direct method over the lowered network of fixed instance tuples and channels. Every positive channel must be at least 2^-53 of the total (`CRN-R031`). Sampler `chacha8-u53/rules-static-direct/1`. Ziggurat waits change the prefix to `chacha8-u53-ziggurat`, and effective sparse trackers change the suffix to `rules-static-direct-sparse-trackers/1`.",
           "properties": {
             "kind": {
               "enum": [
@@ -119,7 +129,7 @@
               "type": "string"
             },
             "sparse_trackers": {
-              "description": "rules-run/0.4 and later. `null` is rejected.",
+              "description": "rules-run/0.4 and later. `true` integrates unweighted single-class count trackers without first-passage predicates over their constant spans, which can change the last bits of an integral. Without such a tracker it changes nothing and warns with `CRN-R051`. `null` is rejected.",
               "type": "boolean"
             },
             "waiting_time": {
@@ -138,6 +148,7 @@
         },
         {
           "additionalProperties": false,
+          "description": "rules-run/0.3 and later. Exact grouped direct method for the fixed three-class mtDNA vacancy model, sampler `chacha8-u53-ziggurat/rules-mtdna-direct/1`. A model or parameter set it cannot certify runs Static Direct instead, with that sampler identity and a `CRN-R051` warning naming the reason.",
           "properties": {
             "kind": {
               "enum": [
@@ -153,6 +164,7 @@
         },
         {
           "additionalProperties": false,
+          "description": "Exact next reaction method with indexed clocks over the lowered channels. Sampler `chacha8-u53/rules-next-reaction/1`.",
           "properties": {
             "kind": {
               "enum": [
@@ -168,6 +180,7 @@
         },
         {
           "additionalProperties": false,
+          "description": "Exact thinning with the analytic ATP flow of a rules-model/0.2 model; required for ATP models and refused for others. Sampler `chacha8-u53/rules-atp-thinning/1`.",
           "properties": {
             "kind": {
               "enum": [
@@ -183,8 +196,10 @@
         },
         {
           "additionalProperties": false,
+          "description": "Approximate adaptive Poisson leaps with exact fallback steps. Sampler `chacha8-u53/rules-approximate-cgp-poisson/2`.",
           "properties": {
             "epsilon": {
+              "description": "Leap tolerance, in (0, 0.1] (`CRN-R020` otherwise): the step selection bounds the mean and spread of each species and rate change in one leap by this fraction of its current value.",
               "format": "double",
               "type": "number"
             },
@@ -203,6 +218,7 @@
         },
         {
           "additionalProperties": false,
+          "description": "Approximate death-then-birth splitting on the fixed lattice `k * step`, for single-parent unit births and deaths only. Sampler `chacha8-u53/rules-approximate-binomial-split/2`.",
           "properties": {
             "kind": {
               "enum": [
@@ -211,6 +227,7 @@
               "type": "string"
             },
             "step": {
+              "description": "Lattice step in simulated time, finite and positive (`CRN-R020` otherwise).",
               "format": "double",
               "type": "number"
             }
@@ -244,20 +261,22 @@
     },
     "Outputs": {
       "additionalProperties": false,
+      "description": "What a result keeps besides the per-replicate records.",
       "properties": {
         "keep_instances": {
-          "description": "Final instances of replicates 0..keep_instances.",
+          "description": "Final instances of replicates 0..keep_instances, at most `replicates`.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
         },
         "keep_paths": {
-          "description": "Observable series of replicates 0..keep_paths.",
+          "description": "Observable series of replicates 0..keep_paths, at most `replicates`.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"
         },
         "statistics": {
+          "description": "Ensemble statistics per report time and observable, each listed at most once: `mean`, and `variance` for the sample variance and the standard error of the mean. They are withheld unless every replicate completed or stopped.",
           "items": {
             "$ref": "#/definitions/Statistic"
           },
@@ -272,6 +291,7 @@
       "type": "object"
     },
     "RulesWaitingTime": {
+      "description": "How Static Direct draws waiting times (rules-run/0.4).",
       "enum": [
         "inverse",
         "ziggurat"
@@ -279,6 +299,7 @@
       "type": "string"
     },
     "RunVersion": {
+      "description": "The version of a run request, its `schema` field.\n\nEach version adds fields to the previous one; using a field before its version is `CRN-R020` at `/schema`. Version 0.1 returns rules-result/0.1, later versions rules-result/0.2.",
       "enum": [
         "crn-craft.rules-run/0.1",
         "crn-craft.rules-run/0.2",
@@ -296,14 +317,15 @@
     },
     "Time": {
       "additionalProperties": false,
+      "description": "The simulated horizon and the report grid of a run request.",
       "properties": {
         "end": {
-          "description": "Simulated time horizon, positive and finite.",
+          "description": "Simulated time horizon, positive and finite, in the time unit of the model's rates.",
           "format": "double",
           "type": "number"
         },
         "report_times": {
-          "description": "Strictly increasing times in [0, end] at which observables are reported (right-continuous: events at a report time are included).",
+          "description": "Strictly increasing times in [0, end] at which observables are reported (right-continuous: events at a report time are included). Between 1 and 100,000 entries.",
           "items": {
             "format": "double",
             "type": "number"
@@ -319,8 +341,10 @@
     },
     "TrackerSpec": {
       "additionalProperties": false,
+      "description": "A tracker in a run request's `trackers` (rules-run/0.2 and later).\n\nIt follows one observable over each replicate, from time 0 to the replicate's stop time or horizon, and reports a tracker result per replicate. A positive value is \"present\": crossings of zero are counted, and every present span is an episode.",
       "properties": {
         "first_passage": {
+          "description": "Optional predicate over parameters and observables, with the syntax of a model's `stop`. The first event time at which it holds (0 if it holds initially) is reported; a NaN value does not count as a hit.",
           "type": [
             "string",
             "null"
@@ -328,11 +352,13 @@
         },
         "keep_episodes": {
           "default": 0,
+          "description": "Episodes kept in full, in time order; later episodes are only summarized. Default 0.",
           "format": "uint",
           "minimum": 0.0,
           "type": "integer"
         },
         "observable": {
+          "description": "Name of a model observable; an unknown name is `CRN-R020` at `/trackers`. Neither the observable nor the predicate may read the continuous `ATP` column of an ATP model.",
           "type": "string"
         }
       },
@@ -342,6 +368,7 @@
       "type": "object"
     }
   },
+  "description": "A run request: `crn-craft.rules-run/0.1` to `0.4`.\n\nIt binds one model by hash and states the time grid, the ensemble, the outputs and an explicit budget. Unknown fields and duplicate keys are rejected.",
   "properties": {
     "budget": {
       "$ref": "#/definitions/Budget"
@@ -355,7 +382,7 @@
           "$ref": "#/definitions/LogSpec"
         }
       ],
-      "description": "rules-run/0.2 and later. `null` is rejected."
+      "description": "Retains selected events of each replicate in the result's `observations`. rules-run/0.2 and later. `null` is rejected."
     },
     "method": {
       "allOf": [
@@ -363,7 +390,7 @@
           "$ref": "#/definitions/Method"
         }
       ],
-      "description": "rules-run/0.2 and later; absent selects `tree`. `null` is rejected."
+      "description": "The simulation method. rules-run/0.2 and later; absent selects `tree`. `null` is rejected."
     },
     "model": {
       "$ref": "#/definitions/ModelRef"
@@ -378,7 +405,7 @@
       "$ref": "#/definitions/Time"
     },
     "trackers": {
-      "description": "rules-run/0.2 and later. Not allowed in 0.1, even when empty.",
+      "description": "Event trackers, at most 256, each summarizing one observable per replicate in the result's `observations`. rules-run/0.2 and later. Not allowed in 0.1, even when empty.",
       "items": {
         "$ref": "#/definitions/TrackerSpec"
       },

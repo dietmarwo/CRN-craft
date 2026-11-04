@@ -1,5 +1,57 @@
 //! `crn-craft.rules-model/0.1`: species types with numeric attributes, rule
 //! schemata, observables and an optional stop condition.
+//!
+//! [`Model`] is the JSON document; `crn-craft.rules-model/0.2` adds the
+//! optional [`crate::atp`] block. A model is parsed strictly and validated by
+//! [`crate::check_model`] or [`crate::prepare`], which compile every
+//! expression. The [rules language
+//! reference](https://github.com/dietmarwo/CRN-craft/blob/main/docs/rules-language.md)
+//! defines the propensities, the expression syntax and which names each
+//! field may use. In brief:
+//!
+//! - Names, including the model's `name`, are ASCII identifiers
+//!   (`[A-Za-z_][A-Za-z0-9_]*`, at most 64 bytes) that are not function
+//!   names. Parameters and observables share one namespace.
+//! - Expressions use `|| && == != < <= > >= + - * / ^`, unary `-` and `!`,
+//!   and `min max exp log sqrt abs floor ceil if`. Product attributes may
+//!   also draw `bernoulli(p)`, `choice(p, a, b)`, `uniform(a, b)`,
+//!   `normal(m, s)` and `new_id()`.
+//! - A rule with no reactant fires at its rate g; with one pattern at
+//!   g × Σ h(x) n(x); with two identical patterns at g times the sum over
+//!   unordered pairs of distinct molecules; with patterns over two types at
+//!   g × (Σ h n)(Σ h n).
+//!
+//! The limits below are checked during validation and reported as
+//! `CRN-R015` (`CRN-R010` for names, `CRN-R014` for counts).
+//!
+//! ```
+//! use crn_craft_rules::model::{Model, Reduce};
+//!
+//! // Clusters merge pairwise; the observables count clusters and mass.
+//! // `check_model` and `prepare` parse strictly; plain `serde_json` does not
+//! // reject duplicate keys.
+//! let model: Model = serde_json::from_str(r#"{
+//!     "schema": "crn-craft.rules-model/0.1",
+//!     "name": "aggregation",
+//!     "parameters": {"k": 0.01},
+//!     "types": [{"name": "C", "attributes": ["size"]}],
+//!     "initial": [{"type": "C", "attributes": {"size": 1}, "count": 12}],
+//!     "observables": {
+//!         "clusters": {"type": "C"},
+//!         "mass": {"type": "C", "weight": "x.size"},
+//!         "largest": {"type": "C", "weight": "x.size", "reduce": "max"}
+//!     },
+//!     "rules": [{
+//!         "name": "merge",
+//!         "reactants": [{"label": "a", "type": "C"}, {"label": "b", "type": "C"}],
+//!         "rate": "k",
+//!         "products": [{"type": "C", "attributes": {"size": "a.size + b.size"}}]
+//!     }],
+//!     "stop": "clusters == 1"
+//! }"#).unwrap();
+//! assert_eq!(model.observables["largest"].reduce, Reduce::Max);
+//! assert!(crn_craft_rules::check_model(&serde_json::to_vec(&model).unwrap()).valid);
+//! ```
 
 use crate::expr::{Expr, Predicate, Scope};
 use crn_craft::diagnostic::Diagnostic;
@@ -7,46 +59,86 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+/// Most species types in a model.
 pub const MAX_TYPES: usize = 64;
+/// Most attributes of one type.
 pub const MAX_ATTRIBUTES: usize = 64;
+/// Most parameters in a model.
 pub const MAX_PARAMETERS: usize = 1024;
+/// Most observables in a model; also the most trackers in a run request
+/// (`CRN-R020` there).
 pub const MAX_OBSERVABLES: usize = 256;
+/// Most rules in a model.
 pub const MAX_RULES: usize = 1024;
+/// Most products of one rule.
 pub const MAX_PRODUCTS: usize = 64;
+/// Most entries in `initial` (before equal attribute vectors merge).
 pub const MAX_INITIAL: usize = 100_000;
+/// Longest expression in bytes, including tracker `first_passage`
+/// predicates.
 pub const MAX_EXPRESSION_BYTES: usize = 4096;
+/// Longest name in bytes (`CRN-R010`).
 pub const MAX_NAME_BYTES: usize = 64;
 /// Counts and identities stay exact integers in f64.
+///
+/// Initial counts may be at most 2^53 (`CRN-R014`). Identities from
+/// `new_id()` must stay below it: a model that calls `new_id()` with an
+/// initial attribute of 2^53 - 1 or more is rejected (`CRN-R014`), and
+/// reaching 2^53 during a run fails the replicate (`CRN-R030`).
 pub const MAX_COUNT: u64 = 1 << 53;
 
+/// The version of a rules model, its `schema` field.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ModelVersion {
+    // Variant docs use `concat!` to stay out of the schema's string enum;
+    // see the note at the top of the crate root.
+    #[doc = concat!("`crn-craft.rules-model/0.1`: the rules language without ATP.")]
     #[serde(rename = "crn-craft.rules-model/0.1")]
     V01,
+    #[doc = concat!(
+        "`crn-craft.rules-model/0.2`: 0.1 plus the optional `atp` block, ",
+        "which requires the `thinning` method."
+    )]
     #[serde(rename = "crn-craft.rules-model/0.2")]
     V02,
 }
 
+/// A rules model: `crn-craft.rules-model/0.1` or `0.2`.
+///
+/// Unknown fields and duplicate keys are rejected. Validation also requires
+/// at least one type and one rule.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Model {
+    // Docs of `$ref` fields use `concat!` so the schema keeps a bare `$ref`.
+    #[doc = concat!("The model version, see [`ModelVersion`].")]
     pub schema: ModelVersion,
+    /// The model's name, an ASCII identifier of at most 64 bytes.
     pub name: String,
+    /// Free text for readers; not interpreted.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     /// Finite numbers by name. Names share one namespace with observables.
     #[serde(default)]
     pub parameters: BTreeMap<String, f64>,
+    /// Species types, 1 to 64, with unique names.
     pub types: Vec<SpeciesType>,
+    /// The initial instances, at most 100,000 entries. Entries with equal
+    /// attribute vectors merge; an empty list starts from no instances.
     pub initial: Vec<Initial>,
+    /// Observables by name, at most 256. Results list them sorted by name.
     #[serde(default)]
     pub observables: BTreeMap<String, Observable>,
+    /// Rules, 1 to 1024, with unique names. Results count events per rule in
+    /// this order.
     pub rules: Vec<Rule>,
     /// Parameters and observables. Once true, the state is held and the
-    /// replicate is marked `stopped`.
+    /// replicate is marked `stopped`. It is checked at time 0 and after each
+    /// event; a NaN value fails the replicate (`CRN-R030`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stop: Option<String>,
-    /// rules-model/0.2 only. `null` is rejected.
+    /// ATP coupling, rules-model/0.2 only (`CRN-R015` in 0.1); a model with
+    /// it runs only with the `thinning` method. `null` is rejected.
     #[serde(
         default,
         deserialize_with = "crate::present",
@@ -56,11 +148,14 @@ pub struct Model {
     pub atp: Option<crate::atp::AtpSpec>,
 }
 
+/// A species type: a name and its numeric attributes.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SpeciesType {
+    /// Type name, unique in the model.
     pub name: String,
     /// Numeric attributes; an instance is a type plus one value per attribute.
+    /// At most 64 unique names; values are finite and `-0` is stored as `0`.
     #[serde(default)]
     pub attributes: Vec<String>,
 }
@@ -69,13 +164,18 @@ pub struct SpeciesType {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
 pub enum Value {
+    /// A literal number; must be finite.
     Number(f64),
+    /// An expression, evaluated with the names the field allows.
     Expression(String),
 }
 
+/// One entry of the initial state: a type, every attribute value and a copy
+/// number.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Initial {
+    /// Name of a declared type.
     #[serde(rename = "type")]
     pub species_type: String,
     /// Every attribute of the type; parameters only.
@@ -85,6 +185,7 @@ pub struct Initial {
     pub count: Value,
 }
 
+/// How an observable reduces the matching instances to one number.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum Reduce {
@@ -100,52 +201,78 @@ pub enum Reduce {
     Min,
 }
 
+/// A named reduction over the present instances of one type that satisfy
+/// `where`.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Observable {
+    /// Name of a declared type.
     #[serde(rename = "type")]
     pub species_type: String,
     /// Name for the instance in `where` and `weight`; default `x`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+    /// Predicate over parameters and the instance's attributes, for example
+    /// `x.wt == 0`; default true. A NaN value is an error, not true.
     #[serde(rename = "where", default, skip_serializing_if = "Option::is_none")]
     pub condition: Option<String>,
-    /// Parameters and the instance's attributes; default 1.
+    /// Parameters and the instance's attributes; default 1. Weights must be
+    /// finite and may be negative.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub weight: Option<String>,
+    /// `sum` (default), `distinct`, `max` or `min`.
     #[serde(default)]
     pub reduce: Reduce,
 }
 
+/// A rule schema: one rule stands for the reactions of every matching
+/// instance.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Rule {
+    /// Rule name, unique in the model; event logs and `rule_events` refer to
+    /// rules by their index in the model.
     pub name: String,
     /// Zero, one or two patterns. Reactants are consumed; list a `copy`
     /// product to keep one.
     pub reactants: Vec<Pattern>,
-    /// Global factor: parameters and observables only.
+    /// Global factor: parameters and observables only. It is evaluated only
+    /// while the reactant weight is positive; a negative or non-finite value
+    /// fails the replicate (`CRN-R030`).
     pub rate: String,
+    /// Up to 64 products. A product equal to a reactant cancels its
+    /// consumption.
     pub products: Vec<Product>,
 }
 
+/// A reactant pattern: the instances of one type that may react, and their
+/// local factor.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Pattern {
+    /// Name of the matched instance in this pattern's expressions and in the
+    /// rule's products, for example `x` in `x.size`. The two patterns of a
+    /// rule need different labels.
     pub label: String,
+    /// Name of a declared type. Two different patterns over the same type
+    /// are not supported (`CRN-R013`); identical ones form pairs.
     #[serde(rename = "type")]
     pub species_type: String,
     /// Parameters and this reactant's attributes.
     #[serde(rename = "where", default, skip_serializing_if = "Option::is_none")]
     pub condition: Option<String>,
     /// Local factor h(x) >= 0: parameters and this reactant's attributes.
+    /// Default 1; an instance that fails `where` has h = 0.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub factor: Option<String>,
 }
 
+/// A product of a rule: a new instance built from constants, parameters,
+/// reactant attributes and random draws.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Product {
+    /// Name of a declared type.
     #[serde(rename = "type")]
     pub species_type: String,
     /// Label of a reactant of the same type whose attributes are copied.

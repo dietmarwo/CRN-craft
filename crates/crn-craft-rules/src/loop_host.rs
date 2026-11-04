@@ -68,6 +68,9 @@ impl LoopHost<'_, '_> {
         Ok(next)
     }
 
+    /// A uniform in [0, 1) from the replicate's stream, for channel
+    /// selection. It counts against the sampling budget and halts the path
+    /// with `CRN-R041` when that is exhausted.
     #[inline]
     pub fn uniform(&mut self) -> Result<f64, LoopHalt> {
         self.words.uniform().map_err(LoopHalt)
@@ -92,11 +95,14 @@ impl LoopHost<'_, '_> {
         })
     }
 
+    /// The `CRN-R030` error for a negative or non-finite rate of `channel`,
+    /// pointing at its rule's `rate`.
     #[cold]
     pub fn rate_error(&self, channel: usize) -> LoopHalt {
         LoopHalt(self.net.rate_error(channel))
     }
 
+    /// The `CRN-R030` error for a count update that would leave 0..=2^53.
     #[cold]
     pub fn count_error(&self) -> LoopHalt {
         LoopHalt(numerical(
@@ -106,6 +112,7 @@ impl LoopHost<'_, '_> {
         ))
     }
 
+    /// The `CRN-R030` error for a projection (observable) that overflows.
     #[cold]
     pub fn overflow_error(&self) -> LoopHalt {
         LoopHalt(numerical(

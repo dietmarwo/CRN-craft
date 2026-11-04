@@ -28,8 +28,11 @@ optional/source-only interfaces and experimental approximations.
 Next prompts should name a concrete fixture, gate and budget. Read the original
 implementation plan and campaign acceptance before numerical changes. Retain failed
 rows; do not loosen tolerances after a failure. The Vilar and circuit diagnoses are
-exploratory; broad behavioral claims, other-platform wheels and
-owner-controlled publishing remain additional validation work.
+exploratory; broad behavioral claims remain additional validation work. From
+0.2.0 the Python package is on PyPI (`pip install crn-craft`) and the crates
+`crn-craft`, `crn-craft-rules` and `crn-craft-cli` (`cargo install
+crn-craft-cli --locked`) are on crates.io; the diffsol integration and the job
+worker build from the repository.
 
 Fixed-topology parameter searches can use the Rust/Python parameter template API;
 read docs/reusable-parameters.md and docs/comparison-parameter-optimization.md.

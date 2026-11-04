@@ -1,6 +1,7 @@
-/target/
+target/
 __pycache__/
 .ruff_cache/
 .venv/
 *.pyc
 /.venv-reference/
+/dist/

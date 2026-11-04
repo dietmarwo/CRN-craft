@@ -3,13 +3,30 @@ requires = ["maturin==1.9.6"]
 build-backend = "maturin"
 [project]
 name = "crn-craft"
-version = "0.2.0.dev1"
+version = "0.2.0"
 requires-python = ">=3.10"
 description = "Reproducible well-mixed reaction network simulation and analysis"
 license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
-readme = "README.md"
+readme = "python/README.md"
 dependencies = ["numpy>=1.24,<3"]
+keywords = ["chemical reaction networks", "stochastic simulation", "Gillespie", "SSA", "systems biology", "Rust"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+]
+
+[project.urls]
+Documentation = "https://github.com/dietmarwo/CRN-craft/blob/main/docs/tutorial.md"
+Issues = "https://github.com/dietmarwo/CRN-craft/issues"
+Changelog = "https://github.com/dietmarwo/CRN-craft/blob/main/CHANGELOG.md"
+"Optimization ecosystem" = "https://dietmarwo.github.io/optimization-jobs/"
+"AI agent guide" = "https://github.com/dietmarwo/CRN-craft/blob/main/docs/ai-context.md"
+Repository = "https://github.com/dietmarwo/CRN-craft"
 [project.scripts]
 crn-craft = "crn_craft.__main__:main"
 crn-craft-import = "crn_craft.importers:main"

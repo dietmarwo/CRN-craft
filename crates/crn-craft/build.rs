@@ -1,3 +1,4 @@
+use sha2::{Digest, Sha256};
 fn main() {
     let rustc = std::env::var_os("RUSTC").expect("Cargo supplies RUSTC");
     let output = std::process::Command::new(rustc)
@@ -11,6 +12,19 @@ fn main() {
             .expect("UTF-8 rustc version")
             .trim()
     );
-    println!("cargo:rerun-if-changed=../../Cargo.lock");
+    // Normalized crates have their own lockfile; a checkout uses the workspace.
+    let root = std::path::PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap());
+    let local = root.join("Cargo.lock");
+    let lock = if local.is_file() {
+        local
+    } else {
+        root.join("../../Cargo.lock")
+    };
+    println!("cargo:rerun-if-changed={}", lock.display());
+    let bytes = std::fs::read(lock).expect("committed or packaged Cargo.lock");
+    println!(
+        "cargo:rustc-env=CRN_CARGO_LOCK_SHA256={:x}",
+        Sha256::digest(bytes)
+    );
     println!("cargo:rerun-if-changed=build.rs");
 }

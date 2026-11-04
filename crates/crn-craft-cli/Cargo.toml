@@ -1,11 +1,16 @@
 [package]
 name = "crn-craft-cli"
-description = "Inspect and validate CRN-craft model and run documents"
+description = "Command-line interface of CRN-craft: check, simulate, analyze and verify reaction-network JSON documents"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-publish = false
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme = "README.md"
+include = ["src/**", "Cargo.toml", "Cargo.lock", "build.rs", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"]
 
 [[bin]]
 name = "crn-craft"

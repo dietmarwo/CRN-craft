@@ -734,7 +734,7 @@ where
             rustc: env!("CRN_RUSTC_VERSION").into(),
             target_os: std::env::consts::OS.into(),
             target_arch: std::env::consts::ARCH.into(),
-            cargo_lock_sha256: sha256(include_bytes!("../../../Cargo.lock")),
+            cargo_lock_sha256: env!("CRN_CARGO_LOCK_SHA256").into(),
             executable_sha256: None,
             workers: prepared.workers,
             elapsed_seconds: start.elapsed().as_secs_f64(),

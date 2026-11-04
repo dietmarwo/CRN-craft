@@ -1,4 +1,11 @@
 //! Ahead-of-time event loops for a lowered Static Direct model.
+//!
+//! [`generate_rules_loop`] emits the whole Static Direct event of one
+//! prepared model as Rust source; [`execute_with_rules_loop`] runs a
+//! compiled loop with a [`LoopHost`] per replicate. Benchmark it before
+//! adopting it: on networks with many constant-rate channels it can be
+//! slower than the interpreter. See the
+//! [rules kernel checklist](https://github.com/dietmarwo/CRN-craft/blob/main/docs/specialized-kernels.md#generated-rules-event-loops).
 use crate::expr::RateKernel;
 use crate::flat::Network;
 use crate::model::{MAX_COUNT, Reduce};
@@ -61,6 +68,15 @@ fn fingerprint(prepared: &Prepared, template: &str) -> String {
 /// `CRN-R020` at `/model` unless the loop was generated for these exact model
 /// bytes by this version of the generator. Observers are not supported on
 /// this path.
+///
+/// Trackers, event logs, both waiting-time policies, any report grid, budget
+/// and worker count work with the same compiled loop.
+///
+/// # Errors
+///
+/// `CRN-R020` at `/method` if the request does not select `static_direct`
+/// or the model is outside the generator's forms, `CRN-R020` at `/model` on
+/// a fingerprint mismatch, and otherwise the errors of [`crate::execute`].
 pub fn execute_with_rules_loop(
     prepared: &Prepared,
     control: &Control,
@@ -85,6 +101,54 @@ pub fn execute_with_rules_loop(
 /// compiled in, so another parameter set needs another loop. Request
 /// settings are not: one loop serves every Static Direct request for the
 /// model bytes.
+///
+/// The model's stop predicate is compiled in with the interpreter's
+/// semantics; an undefined value is passed back to the host for the
+/// interpreter's diagnostic. The example `generate_rules_loop` in the
+/// repository writes the source for a model and request file.
+///
+/// # Errors
+///
+/// `CRN-R020` at `/method` if the request does not select `static_direct`,
+/// if a rate or an observable is outside the supported forms (see
+/// [`crate::generate_rules_kernel`]), or if the source would exceed 1 MiB,
+/// which densely coupled networks reach because rate code is repeated in
+/// every dependency row.
+///
+/// ```
+/// use crn_craft_rules::{generate_rules_loop, prepare};
+/// # use serde_json::json;
+/// # let model = serde_json::to_vec(&json!({
+/// #     "schema": "crn-craft.rules-model/0.1", "name": "immigration_death",
+/// #     "parameters": {"k_in": 10.0, "k_out": 1.0},
+/// #     "types": [{"name": "X"}], "initial": [],
+/// #     "observables": {"X": {"type": "X"}},
+/// #     "rules": [
+/// #         {"name": "immigration", "reactants": [], "rate": "k_in", "products": [{"type": "X"}]},
+/// #         {"name": "death", "reactants": [{"label": "x", "type": "X"}], "rate": "k_out", "products": []}
+/// #     ]
+/// # })).unwrap();
+/// # let request = |method: serde_json::Value| serde_json::to_vec(&json!({
+/// #     "schema": "crn-craft.rules-run/0.2",
+/// #     "model": {"path": "m.rules.json", "sha256": crn_craft::sha256(&model)},
+/// #     "time": {"end": 5.0, "report_times": [0.0, 5.0]},
+/// #     "ensemble": {"replicates": 4, "root_seed": 1},
+/// #     "outputs": {"statistics": ["mean"], "keep_paths": 0, "keep_instances": 0},
+/// #     "budget": {"max_events_per_replicate": 100000, "max_sampling_steps_per_replicate": 1000000,
+/// #                "max_instances": 1, "threads": 1, "max_output_bytes": 1048576},
+/// #     "method": method
+/// # })).unwrap();
+/// let prepared = prepare(&model, &request(json!({"kind": "static_direct"}))).unwrap();
+/// let source = generate_rules_loop(&prepared).unwrap();
+/// assert!(source.contains("impl crn_craft_rules::RulesLoop for GeneratedRulesLoop"));
+///
+/// // Request settings are not compiled in: Ziggurat waits share the loop.
+/// let mut ziggurat: serde_json::Value = serde_json::from_slice(
+///     &request(json!({"kind": "static_direct", "waiting_time": "ziggurat"}))).unwrap();
+/// ziggurat["schema"] = json!("crn-craft.rules-run/0.4");
+/// let other = prepare(&model, &serde_json::to_vec(&ziggurat).unwrap()).unwrap();
+/// assert_eq!(generate_rules_loop(&other).unwrap(), source);
+/// ```
 pub fn generate_rules_loop(prepared: &Prepared) -> Result<String, Diagnostic> {
     let net = network(prepared)?;
     let template = template(prepared, net)?;

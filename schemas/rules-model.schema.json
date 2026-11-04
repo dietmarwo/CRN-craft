@@ -4,6 +4,7 @@
   "definitions": {
     "AtpSpec": {
       "additionalProperties": false,
+      "description": "The ATP block of a rules-model/0.2 model.\n\nEvery coefficient must be finite and nonnegative, with a positive `scale`; the observable and rule names must exist and `ATP` must not be an observable name. Violations are `CRN-R015` at `/atp`.",
       "properties": {
         "decay": {
           "description": "First-order ATP consumption, v1.",
@@ -11,6 +12,7 @@
           "type": "number"
         },
         "initial": {
+          "description": "ATP at time 0.",
           "format": "double",
           "type": "number"
         },
@@ -25,6 +27,7 @@
           "type": "number"
         },
         "replication_rules": {
+          "description": "Names of the rules whose rate is multiplied by c / (c + ATP), each at most once.",
           "items": {
             "type": "string"
           },
@@ -36,9 +39,11 @@
           "type": "number"
         },
         "total": {
+          "description": "Name of the observable counting all molecules, N.",
           "type": "string"
         },
         "wild_type": {
+          "description": "Name of the observable counting wild-type molecules, wt.",
           "type": "string"
         }
       },
@@ -56,6 +61,7 @@
     },
     "Initial": {
       "additionalProperties": false,
+      "description": "One entry of the initial state: a type, every attribute value and a copy number.",
       "properties": {
         "attributes": {
           "additionalProperties": {
@@ -74,6 +80,7 @@
           "description": "Nonnegative integer; parameters only."
         },
         "type": {
+          "description": "Name of a declared type.",
           "type": "string"
         }
       },
@@ -84,6 +91,7 @@
       "type": "object"
     },
     "ModelVersion": {
+      "description": "The version of a rules model, its `schema` field.",
       "enum": [
         "crn-craft.rules-model/0.1",
         "crn-craft.rules-model/0.2"
@@ -92,6 +100,7 @@
     },
     "Observable": {
       "additionalProperties": false,
+      "description": "A named reduction over the present instances of one type that satisfy `where`.",
       "properties": {
         "label": {
           "description": "Name for the instance in `where` and `weight`; default `x`.",
@@ -106,19 +115,22 @@
               "$ref": "#/definitions/Reduce"
             }
           ],
-          "default": "sum"
+          "default": "sum",
+          "description": "`sum` (default), `distinct`, `max` or `min`."
         },
         "type": {
+          "description": "Name of a declared type.",
           "type": "string"
         },
         "weight": {
-          "description": "Parameters and the instance's attributes; default 1.",
+          "description": "Parameters and the instance's attributes; default 1. Weights must be finite and may be negative.",
           "type": [
             "string",
             "null"
           ]
         },
         "where": {
+          "description": "Predicate over parameters and the instance's attributes, for example `x.wt == 0`; default true. A NaN value is an error, not true.",
           "type": [
             "string",
             "null"
@@ -132,18 +144,21 @@
     },
     "Pattern": {
       "additionalProperties": false,
+      "description": "A reactant pattern: the instances of one type that may react, and their local factor.",
       "properties": {
         "factor": {
-          "description": "Local factor h(x) >= 0: parameters and this reactant's attributes.",
+          "description": "Local factor h(x) >= 0: parameters and this reactant's attributes. Default 1; an instance that fails `where` has h = 0.",
           "type": [
             "string",
             "null"
           ]
         },
         "label": {
+          "description": "Name of the matched instance in this pattern's expressions and in the rule's products, for example `x` in `x.size`. The two patterns of a rule need different labels.",
           "type": "string"
         },
         "type": {
+          "description": "Name of a declared type. Two different patterns over the same type are not supported (`CRN-R013`); identical ones form pairs.",
           "type": "string"
         },
         "where": {
@@ -162,6 +177,7 @@
     },
     "Product": {
       "additionalProperties": false,
+      "description": "A product of a rule: a new instance built from constants, parameters, reactant attributes and random draws.",
       "properties": {
         "attributes": {
           "additionalProperties": {
@@ -179,6 +195,7 @@
           ]
         },
         "type": {
+          "description": "Name of a declared type.",
           "type": "string"
         }
       },
@@ -188,6 +205,7 @@
       "type": "object"
     },
     "Reduce": {
+      "description": "How an observable reduces the matching instances to one number.",
       "oneOf": [
         {
           "description": "Count-weighted sum over matching instances.",
@@ -221,18 +239,21 @@
     },
     "Rule": {
       "additionalProperties": false,
+      "description": "A rule schema: one rule stands for the reactions of every matching instance.",
       "properties": {
         "name": {
+          "description": "Rule name, unique in the model; event logs and `rule_events` refer to rules by their index in the model.",
           "type": "string"
         },
         "products": {
+          "description": "Up to 64 products. A product equal to a reactant cancels its consumption.",
           "items": {
             "$ref": "#/definitions/Product"
           },
           "type": "array"
         },
         "rate": {
-          "description": "Global factor: parameters and observables only.",
+          "description": "Global factor: parameters and observables only. It is evaluated only while the reactant weight is positive; a negative or non-finite value fails the replicate (`CRN-R030`).",
           "type": "string"
         },
         "reactants": {
@@ -253,16 +274,18 @@
     },
     "SpeciesType": {
       "additionalProperties": false,
+      "description": "A species type: a name and its numeric attributes.",
       "properties": {
         "attributes": {
           "default": [],
-          "description": "Numeric attributes; an instance is a type plus one value per attribute.",
+          "description": "Numeric attributes; an instance is a type plus one value per attribute. At most 64 unique names; values are finite and `-0` is stored as `0`.",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "name": {
+          "description": "Type name, unique in the model.",
           "type": "string"
         }
       },
@@ -274,16 +297,19 @@
     "Value": {
       "anyOf": [
         {
+          "description": "A literal number; must be finite.",
           "format": "double",
           "type": "number"
         },
         {
+          "description": "An expression, evaluated with the names the field allows.",
           "type": "string"
         }
       ],
       "description": "A number, or an expression string."
     }
   },
+  "description": "A rules model: `crn-craft.rules-model/0.1` or `0.2`.\n\nUnknown fields and duplicate keys are rejected. Validation also requires at least one type and one rule.",
   "properties": {
     "atp": {
       "allOf": [
@@ -291,21 +317,24 @@
           "$ref": "#/definitions/AtpSpec"
         }
       ],
-      "description": "rules-model/0.2 only. `null` is rejected."
+      "description": "ATP coupling, rules-model/0.2 only (`CRN-R015` in 0.1); a model with it runs only with the `thinning` method. `null` is rejected."
     },
     "description": {
+      "description": "Free text for readers; not interpreted.",
       "type": [
         "string",
         "null"
       ]
     },
     "initial": {
+      "description": "The initial instances, at most 100,000 entries. Entries with equal attribute vectors merge; an empty list starts from no instances.",
       "items": {
         "$ref": "#/definitions/Initial"
       },
       "type": "array"
     },
     "name": {
+      "description": "The model's name, an ASCII identifier of at most 64 bytes.",
       "type": "string"
     },
     "observables": {
@@ -313,6 +342,7 @@
         "$ref": "#/definitions/Observable"
       },
       "default": {},
+      "description": "Observables by name, at most 256. Results list them sorted by name.",
       "type": "object"
     },
     "parameters": {
@@ -325,6 +355,7 @@
       "type": "object"
     },
     "rules": {
+      "description": "Rules, 1 to 1024, with unique names. Results count events per rule in this order.",
       "items": {
         "$ref": "#/definitions/Rule"
       },
@@ -334,13 +365,14 @@
       "$ref": "#/definitions/ModelVersion"
     },
     "stop": {
-      "description": "Parameters and observables. Once true, the state is held and the replicate is marked `stopped`.",
+      "description": "Parameters and observables. Once true, the state is held and the replicate is marked `stopped`. It is checked at time 0 and after each event; a NaN value fails the replicate (`CRN-R030`).",
       "type": [
         "string",
         "null"
       ]
     },
     "types": {
+      "description": "Species types, 1 to 64, with unique names.",
       "items": {
         "$ref": "#/definitions/SpeciesType"
       },

@@ -1,13 +1,40 @@
 //! ATP coupling with analytic flow between stochastic events.
+//!
+//! A `crn-craft.rules-model/0.2` model may carry an `atp` block
+//! ([`AtpSpec`]). ATP is a continuous quantity A that follows
+//!
+//! dA/dt = f × wt − v1 × A − v2 × N
+//!
+//! between events, where `wt` and `N` are two of the model's observables
+//! (wild-type molecules and all molecules). Selected replication rules are
+//! multiplied by c / (c + A). The `thinning` method integrates the flow
+//! analytically and samples the coupled rules exactly with a thinning
+//! envelope; it is the only method for such a model, and refused for others.
+//! A replicate stops (`stopped`) when ATP reaches zero while the forcing
+//! f × wt − v2 × N is not positive; with positive forcing ATP rises again.
+//! Results carry ATP as an extra observable column named `ATP`, after the
+//! model's observables, and report it as zero after an ATP stop. Trackers
+//! cannot read it.
+//!
+//! The [mtDNA guide](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-rules.md)
+//! describes the fixture `models/rules/mtdna-three-class-atp.rules.json`.
 use crate::model::{ObservableInfo, RuleInfo};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// The ATP block of a rules-model/0.2 model.
+///
+/// Every coefficient must be finite and nonnegative, with a positive
+/// `scale`; the observable and rule names must exist and `ATP` must not be
+/// an observable name. Violations are `CRN-R015` at `/atp`.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AtpSpec {
+    /// Name of the observable counting wild-type molecules, wt.
     pub wild_type: String,
+    /// Name of the observable counting all molecules, N.
     pub total: String,
+    /// ATP at time 0.
     pub initial: f64,
     /// Production per wild type, f.
     pub production: f64,
@@ -17,6 +44,8 @@ pub struct AtpSpec {
     pub maintenance: f64,
     /// Replication multiplier is c / (c + ATP).
     pub scale: f64,
+    /// Names of the rules whose rate is multiplied by c / (c + ATP), each at
+    /// most once.
     pub replication_rules: Vec<String>,
 }
 

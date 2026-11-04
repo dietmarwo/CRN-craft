@@ -1,4 +1,65 @@
 //! Bounded, read-only event observation. Observation consumes no RNG words.
+//!
+//! There are two ways to watch a run's events:
+//!
+//! - **In the result** (rules-run/0.2 and later): [`TrackerSpec`] entries
+//!   summarize one observable per replicate (crossings of zero, extrema,
+//!   time integral, first passage and episodes), and a [`LogSpec`] retains a
+//!   bounded number of events. Both appear per replicate in
+//!   [`crate::RulesResult::observations`] as an [`Observation`]. Their
+//!   retention counts enter the admission check of [`crate::prepare`].
+//! - **Live**: an [`EventObserver`] passed to
+//!   [`crate::execute_with_observer`] receives every committed [`Event`] on
+//!   the worker threads and can stop a replicate.
+//!
+//! Observation never changes the numbers: a run with trackers, a log or an
+//! observer that always continues draws the same random words and reports
+//! the same observable values as a run without them. Generated kernels and
+//! loops support trackers and logs but not observers.
+//!
+//! ```
+//! use crn_craft_rules::{Control, execute, prepare};
+//! use serde_json::json;
+//!
+//! // Molecules of A appear one at a time and die; an episode is a span with
+//! // at least one molecule present.
+//! let model = serde_json::to_vec(&json!({
+//!     "schema": "crn-craft.rules-model/0.1", "name": "flicker",
+//!     "parameters": {"k_in": 0.5, "k_out": 2.0},
+//!     "types": [{"name": "A"}], "initial": [],
+//!     "observables": {"A": {"type": "A"}},
+//!     "rules": [
+//!         {"name": "birth", "reactants": [], "rate": "k_in", "products": [{"type": "A"}]},
+//!         {"name": "death", "reactants": [{"label": "a", "type": "A"}],
+//!          "rate": "k_out", "products": []}
+//!     ]
+//! }))
+//! .unwrap();
+//! let request = serde_json::to_vec(&json!({
+//!     "schema": "crn-craft.rules-run/0.2",
+//!     "model": {"path": "flicker.rules.json", "sha256": crn_craft::sha256(&model)},
+//!     "time": {"end": 20.0, "report_times": [20.0]},
+//!     "ensemble": {"replicates": 2, "root_seed": 3},
+//!     "outputs": {"statistics": [], "keep_paths": 0, "keep_instances": 0},
+//!     "budget": {"max_events_per_replicate": 10000, "max_sampling_steps_per_replicate": 100000,
+//!                "max_instances": 1, "threads": 1, "max_output_bytes": 1048576},
+//!     "trackers": [{"observable": "A", "first_passage": "A >= 2", "keep_episodes": 3}],
+//!     "event_log": {"max_entries": 5}
+//! }))
+//! .unwrap();
+//! let result = execute(&prepare(&model, &request).unwrap(), &Control::default()).unwrap();
+//!
+//! for observation in &result.observations {
+//!     let a = &observation.trackers[0];
+//!     // Every appearance opens an episode; the retained ones come first.
+//!     assert_eq!(a.appearances, a.episodes.len() as u64 + a.omitted_episodes);
+//!     assert!(a.episodes.iter().all(|e| e.peak >= 1.0 && e.duration >= 0.0));
+//!     assert!(a.integral >= 0.0 && a.integral <= 20.0 * a.maximum);
+//!     // The log keeps the first five events and counts the rest.
+//!     let events = result.replicates[observation.id as usize].events;
+//!     assert_eq!(observation.log.len() as u64 + observation.omitted_log_entries, events);
+//! }
+//! ```
 use crate::InstanceRecord;
 use crate::expr::{Env, Expr, Predicate, Scope};
 use crate::model::{Compiled, Model};
@@ -6,28 +67,62 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+/// What the engine does after an [`EventObserver`] saw an event.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ObserverAction {
+    /// Keep simulating the replicate.
     Continue,
+    /// End the replicate now, as [`Termination::Stopped`](crate::Termination::Stopped)
+    /// at the event's time. Its state is held to the end of the report grid
+    /// and it counts as complete for statistics. Other replicates continue.
     Stop,
 }
 
 /// A committed state change. For a leap, rule is None and multiplicities
 /// identify the aggregate firings. Reactants and products describe exact steps.
+///
+/// Indices refer to the result's lists: types to
+/// [`RulesResult::types`](crate::RulesResult::types), rules to
+/// [`RulesResult::rules`](crate::RulesResult::rules) and observable values
+/// to [`RulesResult::observables`](crate::RulesResult::observables). The
+/// borrowed slices are valid only during the call; copy what you keep, for
+/// example with [`log_entry`].
 pub struct Event<'a> {
+    /// Replicate index.
     pub replicate: u64,
+    /// Simulated time of the event; for a leap, the end of the leap.
     pub time: f64,
+    /// Index of the rule that fired in an exact step; `None` for a leap.
     pub rule: Option<usize>,
+    /// The consumed instances of an exact step as (type index, attribute
+    /// values), one per reactant pattern in rule order. Empty for a leap.
     pub reactants: &'a [(usize, &'a [f64])],
+    /// The produced instances of an exact step as (type index, attribute
+    /// values), one per product in rule order. A product that copies a
+    /// reactant appears in both lists. Empty for a leap.
     pub products: &'a [(usize, &'a [f64])],
+    /// Every observable after the event, in result column order.
     pub observables: &'a [f64],
+    /// For a leap, (rule index, firings) for each lowered channel that fired
+    /// at least once; a rule with several channels can appear more than once.
+    /// Empty for an exact step.
     pub firings: &'a [(usize, u64)],
 }
 
+/// Receives committed events during [`crate::execute_with_observer`].
+///
+/// `on_event` runs on the native worker threads, concurrently for different
+/// replicates, so implementations must be [`Sync`] and should use atomics or
+/// locks for shared state. It is called once per event, after the state
+/// update and tracker observation and before the model's stop condition.
+/// Keep it cheap: it sits in the event loop. It must not panic; see the
+/// panics section of [`crate::execute_with_observer`].
 pub trait EventObserver: Sync {
     /// An observer that sets this to false is never called, and the engine
     /// compiles the per-event observation away.
     const ENABLED: bool = true;
+    /// Called for every committed event; return
+    /// [`ObserverAction::Stop`] to end this replicate.
     fn on_event(&self, event: &Event<'_>) -> ObserverAction;
 }
 
@@ -40,71 +135,129 @@ impl EventObserver for NoObserver {
     }
 }
 
+/// A tracker in a run request's `trackers` (rules-run/0.2 and later).
+///
+/// It follows one observable over each replicate, from time 0 to the
+/// replicate's stop time or horizon, and reports a tracker result per
+/// replicate. A positive value is "present": crossings of zero are counted,
+/// and every present span is an episode.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackerSpec {
+    /// Name of a model observable; an unknown name is `CRN-R020` at
+    /// `/trackers`. Neither the observable nor the predicate may read the
+    /// continuous `ATP` column of an ATP model.
     pub observable: String,
+    /// Optional predicate over parameters and observables, with the syntax
+    /// of a model's `stop`. The first event time at which it holds (0 if it
+    /// holds initially) is reported; a NaN value does not count as a hit.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub first_passage: Option<String>,
+    /// Episodes kept in full, in time order; later episodes are only
+    /// summarized. Default 0.
     #[serde(default)]
     pub keep_episodes: usize,
 }
 
+/// The event log in a run request's `event_log` (rules-run/0.2 and later).
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LogSpec {
+    /// Entries kept per replicate; later matching events are only counted.
+    /// The reservation for these entries must fit the output budget.
     pub max_entries: usize,
     /// An empty list logs all rules. Leaps match any listed firing.
+    /// Unknown rule names are `CRN-R020` at `/event_log`.
     #[serde(default)]
     pub rules: Vec<String>,
 }
 
+/// A span during which a tracked observable was positive.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Episode {
+    /// Time the observable became positive; 0 if it was positive initially.
     pub start: f64,
     /// Open at the end of observation when absent.
     pub end: Option<f64>,
+    /// Largest value during the episode.
     pub peak: f64,
     /// Observed duration, including the observed part of an open episode.
     pub duration: f64,
 }
 
+/// The summary of one tracker over one replicate.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TrackerResult {
+    /// The tracked observable.
     pub observable: String,
+    /// Changes from zero or below to a positive value. A value positive at
+    /// time 0 opens an episode but is not an appearance.
     pub appearances: u64,
+    /// Changes from a positive value to zero or below.
     pub extinctions: u64,
+    /// Time of the last appearance, if any.
     pub last_appearance: Option<f64>,
+    /// Time of the last extinction, if any.
     pub last_extinction: Option<f64>,
+    /// First time the `first_passage` predicate held; absent without a
+    /// predicate or if it never held.
     pub first_passage: Option<f64>,
+    /// Smallest value, over the initial value and every post-event value.
     pub minimum: f64,
+    /// Largest value, over the initial value and every post-event value.
     pub maximum: f64,
+    /// Time integral of the observable from 0 to the end of observation
+    /// (the replicate's stop time or horizon). A non-finite integral fails
+    /// the replicate with `CRN-R030`.
     pub integral: f64,
+    /// The first `keep_episodes` episodes, in time order. An episode still
+    /// open at the end is included if there is room.
     pub episodes: Vec<Episode>,
+    /// Episodes beyond `keep_episodes`.
     pub omitted_episodes: u64,
+    /// Total duration of the omitted episodes.
     pub omitted_duration: f64,
+    /// Largest peak among the omitted episodes; absent when none was
+    /// omitted.
     pub omitted_peak: Option<f64>,
 }
 
+/// One retained event of the event log.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LogEntry {
+    /// Simulated time of the event; for a leap, the end of the leap.
     pub time: f64,
+    /// Index into the result's `rules` for an exact step; absent for a leap.
     pub rule: Option<usize>,
+    /// Consumed instances of an exact step, one per reactant pattern, each
+    /// with count 1. Empty for a leap.
     pub reactants: Vec<InstanceRecord>,
+    /// Produced instances of an exact step, one per product, each with count
+    /// 1; a product that copies a reactant appears in both lists. Empty for
+    /// a leap.
     pub products: Vec<InstanceRecord>,
+    /// Every observable after the event, in the result's column order.
     pub observables: Vec<f64>,
+    /// For a leap, `[rule index, firings]` pairs, one per lowered channel
+    /// that fired; empty for an exact step.
     pub firings: Vec<(usize, u64)>,
 }
 
+/// The trackers and event log of one replicate, in the result's
+/// `observations`.
 #[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Observation {
+    /// Replicate index.
     pub id: u64,
+    /// One result per requested tracker, in request order.
     pub trackers: Vec<TrackerResult>,
+    /// Retained events, in event order.
     pub log: Vec<LogEntry>,
+    /// Matching events beyond `max_entries`.
     pub omitted_log_entries: u64,
 }
 
@@ -455,6 +608,9 @@ fn truth(value: f64) -> bool {
     !value.is_nan() && value != 0.0
 }
 
+/// Copies an event into the owned form the event log uses: participants as
+/// [`InstanceRecord`]s with count 1. Observers use it to keep events beyond
+/// the callback, for example to serialize them.
 pub fn log_entry(event: &Event<'_>) -> LogEntry {
     let records = |items: &[(usize, &[f64])]| {
         items

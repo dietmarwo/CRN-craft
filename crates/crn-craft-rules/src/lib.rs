@@ -1,14 +1,189 @@
 //! Exact stochastic simulation of dynamic, attributed species.
 //!
-//! A model declares species *types* with numeric attributes. An instance is a
-//! type plus one value per attribute and a copy number; instances appear when
-//! a rule produces new attribute values and disappear when their count reaches
-//! zero. Rules are schemata over zero, one or two reactant patterns with
-//! product-form propensities (a global rate times local factors), simulated
-//! exactly with Gillespie's direct method over sum trees.
+//! **Status: experimental.** The rules engine of
+//! [CRN-craft](https://github.com/dietmarwo/CRN-craft) is validated against
+//! exact laws (master equations and Poisson laws, see the
+//! [K1 gates](https://github.com/dietmarwo/CRN-craft/blob/main/validation/rules/RESULTS.md)),
+//! but its language is still small and its contracts may gain versions. The
+//! `tau` and `binomial` methods are approximate and say so in their sampler
+//! identity. Generated kernels and event loops are Rust only.
 //!
-//! Contracts: `crn-craft.rules-model/0.1`, `crn-craft.rules-run/0.1`,
-//! `crn-craft.rules-result/0.1`. See `docs/rules-language.md`.
+//! A rules model declares species *types* with numeric attributes. An
+//! *instance* is a type plus one value per attribute and a copy number.
+//! Instances appear when a rule produces a new attribute vector and disappear
+//! when their count reaches zero, so the species need not be listed in
+//! advance: mitochondrial DNA clones, polymers with a length or clusters with
+//! a size. Rules are schemata over zero, one or two reactant patterns. A
+//! rule's propensity is a global rate over parameters and observables times
+//! local factors over each matched instance's attributes. Observables reduce
+//! the instances of one type to a number; an optional stop predicate over
+//! them ends a replicate early. Models whose species are fixed can use the
+//! network engine in [`crn_craft`] instead.
+//!
+//! # Quickstart
+//!
+//! Prepare a model and a run request once, then execute the ensemble. Both
+//! are JSON documents; the request binds the model by the SHA-256 of its exact
+//! bytes.
+//!
+//! ```
+//! use crn_craft_rules::{Control, Termination, execute, prepare};
+//! use serde_json::json;
+//!
+//! // Immigration at rate 10 and death at rate 1 per copy, from zero copies.
+//! let model = serde_json::to_vec(&json!({
+//!     "schema": "crn-craft.rules-model/0.1",
+//!     "name": "immigration_death",
+//!     "parameters": {"k_in": 10.0, "k_out": 1.0},
+//!     "types": [{"name": "X"}],
+//!     "initial": [],
+//!     "observables": {"X": {"type": "X"}},
+//!     "rules": [
+//!         {"name": "immigration", "reactants": [], "rate": "k_in",
+//!          "products": [{"type": "X"}]},
+//!         {"name": "death", "reactants": [{"label": "x", "type": "X"}],
+//!          "rate": "k_out", "products": []}
+//!     ]
+//! }))?;
+//! let request = serde_json::to_vec(&json!({
+//!     "schema": "crn-craft.rules-run/0.1",
+//!     "model": {"path": "immigration-death.rules.json",
+//!               "sha256": crn_craft::sha256(&model)},
+//!     "time": {"end": 5.0, "report_times": [0.0, 1.0, 5.0]},
+//!     "ensemble": {"replicates": 200, "root_seed": 7},
+//!     "outputs": {"statistics": ["mean", "variance"],
+//!                 "keep_paths": 1, "keep_instances": 0},
+//!     "budget": {"max_events_per_replicate": 100000,
+//!                "max_sampling_steps_per_replicate": 1000000,
+//!                "max_instances": 1, "threads": 2,
+//!                "max_output_bytes": 1048576}
+//! }))?;
+//!
+//! let prepared = prepare(&model, &request).map_err(|d| format!("{d:?}"))?;
+//! let result = execute(&prepared, &Control::default()).map_err(|d| format!("{d:?}"))?;
+//!
+//! assert_eq!(result.termination, Termination::Completed);
+//! assert_eq!(result.observables, ["X"]);
+//! // Rows are report times, columns observables. The exact law at t = 5 is
+//! // Poisson with mean 10 (1 - e^-5), about 9.93.
+//! let mean = result.statistics.as_ref().and_then(|s| s.mean.as_ref()).unwrap();
+//! assert!((mean[2][0] - 9.93).abs() < 1.0);
+//! assert_eq!(result.paths[0].values.len(), 3);
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! # Entry points
+//!
+//! - [`check_model`] and [`check_model_file`] validate a model and return a
+//!   [`RulesCheck`] report.
+//! - [`prepare`] validates a model and a [`RunRequest`] and returns a
+//!   reusable [`Prepared`] run. [`execute`] runs it as often as needed;
+//!   [`Prepared::bind_parameters`] derives candidates for parameter sweeps.
+//! - [`solve`] and [`solve_files`] prepare and execute in one call.
+//! - [`execute_with_observer`] calls an [`observe::EventObserver`] for every
+//!   committed event on the worker threads. Trackers and event logs
+//!   ([`observe::TrackerSpec`], [`observe::LogSpec`]) summarize events inside
+//!   the [`RulesResult`] instead.
+//! - [`generate_rules_kernel`] with [`execute_with_rules_kernel`], and
+//!   [`generate_rules_loop`] with [`execute_with_rules_loop`], emit and run
+//!   ahead-of-time Rust code for a Static Direct model.
+//! - [`schema`] returns the JSON Schemas of the contracts; [`describe`]
+//!   returns the discovery entry of the native CLI.
+//!
+//! The model types live in [`model`], observation in [`observe`] and the ATP
+//! coupling of rules-model/0.2 in [`atp`].
+//!
+//! # Contracts
+//!
+//! Every document names its contract in its `schema` field. Unknown fields
+//! and duplicate keys are rejected, and a present optional field must hold a
+//! value (`null` is rejected).
+//!
+//! | Contract | Rust type | Content |
+//! | --- | --- | --- |
+//! | `crn-craft.rules-model/0.1` | [`Model`] | Types, parameters, initial instances, observables, rules and stop |
+//! | `crn-craft.rules-model/0.2` | [`Model`] | 0.1 plus the [`atp`] block |
+//! | `crn-craft.rules-check/0.1` | [`RulesCheck`] | Validity, model hash and diagnostics |
+//! | `crn-craft.rules-run/0.1` | [`RunRequest`] | Time grid, ensemble, outputs and budget; always the `tree` method |
+//! | `crn-craft.rules-run/0.2` | [`RunRequest`] | 0.1 plus `method`, `trackers` and `event_log` |
+//! | `crn-craft.rules-run/0.3` | [`RunRequest`] | 0.2 plus the `mtdna_direct` method |
+//! | `crn-craft.rules-run/0.4` | [`RunRequest`] | 0.3 plus the Static Direct options `waiting_time` and `sparse_trackers` |
+//! | `crn-craft.rules-result/0.1` | [`RulesResult`] | Result of a rules-run/0.1 request |
+//! | `crn-craft.rules-result/0.2` | [`RulesResult`] | Result of a rules-run/0.2–0.4 request, with `observations` |
+//!
+//! # Methods
+//!
+//! [`Method`] selects the algorithm. Every method except `tree` first lowers
+//! the model to a fixed network: the initial tuples plus the products with
+//! constant attributes (at most 256 tuples), and at most 4096 channels. A
+//! model whose products can leave that set, for example through random
+//! attributes, `new_id()` or attribute arithmetic, runs only on `tree`;
+//! `prepare` reports `CRN-R020` at `/method` otherwise.
+//!
+//! | `kind` | Exact | Scope |
+//! | --- | --- | --- |
+//! | `tree` (default) | yes | Every rules model without ATP; dynamic instances over sum trees |
+//! | `static_direct` | yes | Closed models; options for Ziggurat waits and sparse trackers |
+//! | `mtdna_direct` | yes | The fixed three-class vacancy model; falls back to Static Direct with `CRN-R051` |
+//! | `next_reaction` | yes | Closed models, with indexed clocks ([DOI 10.1021/jp993732q](https://doi.org/10.1021/jp993732q)) |
+//! | `thinning` | yes | Required by, and only for, rules-model/0.2 models with ATP |
+//! | `tau` | no | Closed models; adaptive Poisson leaps ([DOI 10.1063/1.2159468](https://doi.org/10.1063/1.2159468)) |
+//! | `binomial` | no | Closed models with single-parent unit births and deaths |
+//!
+//! # Reproducibility
+//!
+//! Replicate `i` draws from its own ChaCha8 stream, [`stream`]`(root_seed,
+//! i)`, and the ensemble is reduced in replicate order. The numbers of a
+//! completed result therefore depend only on the exact model bytes, the
+//! request's settings and seed, and the sampler identity in
+//! [`RulesResult::sampler`]. They do not depend on `budget.threads`, which
+//! changes only `run_sha256`. Timing, cancellation and wall-time limits can
+//! change which replicates complete.
+//!
+//! # Diagnostics
+//!
+//! Errors are [`crn_craft::diagnostic::Diagnostic`] values with stable codes
+//! and an RFC 6901 pointer into the offending document:
+//!
+//! | Code | Meaning |
+//! | --- | --- |
+//! | `CRN-E001`–`CRN-E004` | Malformed JSON, duplicate keys, unknown fields or wrong types, size limits |
+//! | `CRN-E030` | A model or request file cannot be read |
+//! | `CRN-R010`–`CRN-R015` | Invalid names, unknown types, expressions, rule shapes, initial values and model size or ATP limits |
+//! | `CRN-R020` | Invalid run request, method, tracker or log, budget reservation or generated-code fingerprint |
+//! | `CRN-R030` | A negative or non-finite rate, factor, weight or attribute, an undefined stop, or an overflow |
+//! | `CRN-R031` | A positive weight below 2⁻⁵³ of its total, which a 53-bit uniform cannot select |
+//! | `CRN-R040`–`CRN-R045` | Event, sampling, instance, wall-time, cancellation and output limits |
+//! | `CRN-R050` | Warning: the ensemble is incomplete and statistics are withheld |
+//! | `CRN-R051` | Warning: a requested specialization did not apply |
+//!
+//! # Related crates and documentation
+//!
+//! - [`crn-craft`](https://docs.rs/crn-craft): the fixed-network engine and
+//!   the shared diagnostics, strict JSON parsing and contract types.
+//! - [`crn-craft-cli`](https://crates.io/crates/crn-craft-cli): the native
+//!   CLI, with `crn-craft rules-check`, `crn-craft rules` and
+//!   `crn-craft describe rules-run`.
+//! - [`crn-craft` on PyPI](https://pypi.org/project/crn-craft/): Python
+//!   ensembles through `crn_craft.rules`.
+//! - [Rules language](https://github.com/dietmarwo/CRN-craft/blob/main/docs/rules-language.md):
+//!   the model language, propensities, expressions and numerical policy.
+//! - [mtDNA ensembles](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-rules.md)
+//!   and the [mtDNA user manual](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-user-manual.md):
+//!   methods, trackers, event logs, callbacks and later contract versions.
+//! - [Rules kernel checklist](https://github.com/dietmarwo/CRN-craft/blob/main/docs/specialized-kernels.md):
+//!   generated rules kernels and event loops.
+//! - [Architecture](https://github.com/dietmarwo/CRN-craft/blob/main/docs/architecture.md)
+//!   and [diagnostic codes](https://github.com/dietmarwo/CRN-craft/blob/main/docs/diagnostics.md).
+
+#![warn(missing_docs)]
+
+// Some contract fields and enum variants are documented with
+// `#[doc = concat!(..)]` instead of `///`. schemars copies literal doc
+// strings into the generated JSON Schemas, where a description would wrap a
+// bare `$ref` in `allOf` or split a string enum into `oneOf` entries, which
+// changes the committed schema shapes under `schemas/`. schemars ignores the
+// `concat!` form; rustdoc and `missing_docs` treat it as a doc comment.
 
 pub mod atp;
 mod engine;
@@ -45,19 +220,49 @@ use std::time::{Duration, Instant};
 
 pub use model::Model;
 
-/// Version 2 selects identical-pattern pairs exactly from pair trees;
-/// version 1 (first K1 gate run only) drew two molecules with rejection.
+/// Sampler identity of the `tree` method, reported in
+/// [`RulesResult::sampler`] for every rules-run/0.1 request and for
+/// `{"kind": "tree"}`.
+///
+/// Version 2 selects identical-pattern pairs exactly from pair trees.
+/// Version 1, used only for the first exact-law gate run, drew two molecules
+/// and rejected a draw of the same one; it is no longer produced.
 pub const SAMPLER: &str = "chacha8-u53/rules-direct/2";
+/// Largest `ensemble.replicates` a request may ask for; more is `CRN-R020`.
 pub const MAX_REPLICATES: u64 = 1_000_000;
+/// Largest number of entries in `time.report_times`; more is `CRN-R020`.
 pub const MAX_REPORT_TIMES: usize = 100_000;
+/// Largest `budget.threads`. The engine starts `min(threads, replicates)`
+/// workers.
 pub const MAX_WORKERS: u32 = 64;
+/// Hard cap of 1 GiB on the compact JSON of a result, applied on top of
+/// `budget.max_output_bytes`.
 pub const MAX_RESULT_BYTES: u64 = 1 << 30;
-/// Conservative reservation for records, in-flight and kept series and kept
-/// final instances; not a cap on allocator or OS memory.
+/// Upper bound of 2 GiB on the reservation [`prepare`] computes for records,
+/// in-flight and kept series, kept final instances and observations. It is a
+/// conservative admission estimate (`CRN-R020` at `/budget` when exceeded),
+/// not a cap on allocator or OS memory.
 pub const MAX_WORKSPACE_BYTES: u64 = 2 << 30;
 
-/// Per-replicate ChaCha8 stream in the rules domain: a SHA-256 key of the
-/// domain and root seed, with the replicate index as stream id.
+/// The random stream of one replicate.
+///
+/// ChaCha8 keyed by the SHA-256 of the domain `crn-craft.rules/0.1` followed
+/// by `root_seed` as eight little-endian bytes, with the replicate index as
+/// stream id. Every method draws replicate `replicate` from this stream, so a
+/// replicate can be replayed alone; the sampler identity in
+/// [`RulesResult::sampler`] says how the words are used.
+///
+/// ```
+/// use rand_core::RngCore;
+///
+/// let mut a = crn_craft_rules::stream(17, 3);
+/// let mut b = crn_craft_rules::stream(17, 3);
+/// assert_eq!(a.next_u64(), b.next_u64());
+/// assert_ne!(
+///     crn_craft_rules::stream(17, 4).next_u64(),
+///     crn_craft_rules::stream(18, 3).next_u64(),
+/// );
+/// ```
 pub fn stream(root_seed: u64, replicate: u64) -> ChaCha8Rng {
     let mut digest = Sha256::new();
     digest.update(b"crn-craft.rules/0.1");
@@ -68,12 +273,55 @@ pub fn stream(root_seed: u64, replicate: u64) -> ChaCha8Rng {
 }
 
 /// Cooperative cancellation, by flag or by the existence of a file.
+///
+/// Workers poll the control when a replicate starts and every 1024 events.
+/// A cancelled run ends its running replicates as
+/// [`Termination::Cancelled`] (`CRN-R044`), records the replicates it never
+/// started with `started: false`, and withholds statistics. The flag is never
+/// cleared, so use a fresh `Control` for the next run. [`Control::default`]
+/// is not cancelled and watches no file.
+///
+/// ```
+/// # use crn_craft_rules::{Control, Termination, execute, prepare};
+/// # use serde_json::json;
+/// # let model = serde_json::to_vec(&json!({
+/// #     "schema": "crn-craft.rules-model/0.1", "name": "immigration_death",
+/// #     "parameters": {"k_in": 10.0, "k_out": 1.0},
+/// #     "types": [{"name": "X"}], "initial": [],
+/// #     "observables": {"X": {"type": "X"}},
+/// #     "rules": [
+/// #         {"name": "immigration", "reactants": [], "rate": "k_in", "products": [{"type": "X"}]},
+/// #         {"name": "death", "reactants": [{"label": "x", "type": "X"}], "rate": "k_out", "products": []}
+/// #     ]
+/// # })).unwrap();
+/// # let request = serde_json::to_vec(&json!({
+/// #     "schema": "crn-craft.rules-run/0.1",
+/// #     "model": {"path": "m.rules.json", "sha256": crn_craft::sha256(&model)},
+/// #     "time": {"end": 5.0, "report_times": [0.0, 5.0]},
+/// #     "ensemble": {"replicates": 8, "root_seed": 1},
+/// #     "outputs": {"statistics": ["mean"], "keep_paths": 0, "keep_instances": 0},
+/// #     "budget": {"max_events_per_replicate": 100000, "max_sampling_steps_per_replicate": 1000000,
+/// #                "max_instances": 1, "threads": 1, "max_output_bytes": 1048576}
+/// # })).unwrap();
+/// let prepared = prepare(&model, &request).unwrap();
+/// let control = Control::default();
+/// control.cancel(); // for example from another thread or a signal handler
+/// let result = execute(&prepared, &control).unwrap();
+/// assert_eq!(result.termination, Termination::Cancelled);
+/// assert!(result.statistics.is_none());
+/// assert_eq!(result.diagnostics[0].code, "CRN-R050");
+/// ```
 #[derive(Debug, Default)]
 pub struct Control {
     cancelled: AtomicBool,
+    /// Cancel when this file exists. The check runs at the same polls as the
+    /// flag; it reads file system metadata, so per-event callers should use
+    /// [`Control::cancel_flagged`].
     pub cancel_file: Option<PathBuf>,
 }
 impl Control {
+    /// Sets the cancellation flag. Safe to call from any thread while a run
+    /// is in progress.
     pub fn cancel(&self) {
         self.cancelled.store(true, Ordering::Relaxed);
     }
@@ -82,6 +330,8 @@ impl Control {
     pub fn cancel_flagged(&self) -> bool {
         self.cancelled.load(Ordering::Relaxed)
     }
+    /// Whether the flag is set or the cancel file exists. Finding the file
+    /// also sets the flag.
     pub fn is_cancelled(&self) -> bool {
         if self.cancelled.load(Ordering::Relaxed) {
             return true;
@@ -97,67 +347,147 @@ impl Control {
 // ---------------------------------------------------------------------------
 // Run request
 
+/// The version of a run request, its `schema` field.
+///
+/// Each version adds fields to the previous one; using a field before its
+/// version is `CRN-R020` at `/schema`. Version 0.1 returns rules-result/0.1,
+/// later versions rules-result/0.2.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum RunVersion {
+    // Variant docs use `concat!` to stay out of the schema's string enum.
+    #[doc = concat!(
+        "`crn-craft.rules-run/0.1`: the `tree` method only, without ",
+        "`method`, `trackers` or `event_log`."
+    )]
     #[serde(rename = "crn-craft.rules-run/0.1")]
     V01,
+    #[doc = concat!(
+        "`crn-craft.rules-run/0.2`: adds `method`, `trackers` and `event_log`."
+    )]
     #[serde(rename = "crn-craft.rules-run/0.2")]
     V02,
+    #[doc = concat!(
+        "`crn-craft.rules-run/0.3`: adds the `mtdna_direct` method."
+    )]
     #[serde(rename = "crn-craft.rules-run/0.3")]
     V03,
+    #[doc = concat!(
+        "`crn-craft.rules-run/0.4`: adds the Static Direct options ",
+        "`waiting_time` and `sparse_trackers`."
+    )]
     #[serde(rename = "crn-craft.rules-run/0.4")]
     V04,
 }
 
+/// The simulated horizon and the report grid of a run request.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Time {
-    /// Simulated time horizon, positive and finite.
+    /// Simulated time horizon, positive and finite, in the time unit of the
+    /// model's rates.
     pub end: f64,
     /// Strictly increasing times in [0, end] at which observables are
     /// reported (right-continuous: events at a report time are included).
+    /// Between 1 and 100,000 entries.
     pub report_times: Vec<f64>,
 }
 
+/// What a result keeps besides the per-replicate records.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Outputs {
+    /// Ensemble statistics per report time and observable, each listed at
+    /// most once: `mean`, and `variance` for the sample variance and the
+    /// standard error of the mean. They are withheld unless every replicate
+    /// completed or stopped.
     pub statistics: Vec<Statistic>,
-    /// Observable series of replicates 0..keep_paths.
+    /// Observable series of replicates 0..keep_paths, at most `replicates`.
     pub keep_paths: u64,
-    /// Final instances of replicates 0..keep_instances.
+    /// Final instances of replicates 0..keep_instances, at most
+    /// `replicates`.
     pub keep_instances: u64,
 }
 
+/// Explicit work, memory and output limits of a run request.
+///
+/// A replicate that reaches a per-replicate limit ends with the matching
+/// termination and diagnostic; the other replicates continue.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Budget {
+    /// Events one replicate may execute; reaching it ends the replicate with
+    /// `event_limit` (`CRN-R040`).
     pub max_events_per_replicate: u64,
-    /// Every random word, including rejected pair draws and product draws.
+    /// Random 64-bit words one replicate may draw, counting every word,
+    /// including product draws; exhausting it ends the replicate with
+    /// `sampling_limit` (`CRN-R041`).
     pub max_sampling_steps_per_replicate: u64,
-    /// Distinct instances alive at once, over all types.
+    /// Distinct instances alive at once, over all types; positive. Exceeding
+    /// it ends the replicate with `instance_limit` (`CRN-R042`). On `tree`,
+    /// so does a count above 2^53; the static methods fail the replicate
+    /// with `CRN-R030` instead.
     pub max_instances: u64,
+    /// Wall-clock limit for the whole run in seconds, positive and finite
+    /// when present. Reaching it ends running replicates with
+    /// `wall_time_limit` (`CRN-R043`) and starts no others.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wall_time_s: Option<f64>,
+    /// Worker threads, 1 to 64. Completed results do not depend on it.
     #[schemars(range(min = 1, max = 64))]
     pub threads: u32,
+    /// Size limit of the result as compact JSON plus a trailing newline,
+    /// capped at 1 GiB. Must hold at least 160 bytes per replicate
+    /// (`CRN-R020`). A larger result drops statistics, paths, observations
+    /// and final instances and ends as `output_limit` (`CRN-R045`); if the
+    /// records alone still do not fit, the run fails with `CRN-R045`.
     #[schemars(range(min = 1))]
     pub max_output_bytes: u64,
 }
 
+/// How Static Direct draws waiting times (rules-run/0.4).
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum RulesWaitingTime {
+    // Variant docs use `concat!` to stay out of the schema's string enum.
+    #[doc = concat!(
+        "Inversion of one open uniform, `-ln(1 - u) / total`; the default."
+    )]
     Inverse,
+    #[doc = concat!(
+        "The Ziggurat exponential sampler. It consumes the stream ",
+        "differently, so results differ from `inverse` and the sampler ",
+        "identity says `ziggurat`."
+    )]
     Ziggurat,
 }
 
+/// The simulation method of a run request, tagged by `kind`.
+///
+/// Absent means `tree`. Each method reports its own sampler identity in the
+/// result's `sampler`; the same seed gives different trajectories under
+/// different samplers. Every method except `tree` needs a model that lowers
+/// to fixed instance tuples (`CRN-R020` at `/method` otherwise).
+///
+#[doc = concat!(
+    "See [`RulesResult::sampler`] and the [crate documentation](crate#methods) ",
+    "for which models each method accepts."
+)]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Method {
     // Empty struct variants, so `deny_unknown_fields` applies to every kind:
     // serde ignores extra keys next to the tag of a unit variant.
+    /// Exact direct method over dynamic instances: rules are selected by
+    /// their propensities, then instances from sum trees. Supports random
+    /// product attributes and `new_id()`. Sampler
+    /// `chacha8-u53/rules-direct/2`.
     Tree {},
+    /// Exact direct method over the lowered network of fixed instance tuples
+    /// and channels. Every positive channel must be at least 2^-53 of the
+    /// total (`CRN-R031`). Sampler `chacha8-u53/rules-static-direct/1`.
+    /// Ziggurat waits change the prefix to `chacha8-u53-ziggurat`, and
+    /// effective sparse trackers change the suffix to
+    /// `rules-static-direct-sparse-trackers/1`.
     StaticDirect {
         /// rules-run/0.4 and later; absent selects inverse waits. `null` is
         /// rejected.
@@ -168,7 +498,11 @@ pub enum Method {
         )]
         #[schemars(with = "RulesWaitingTime")]
         waiting_time: Option<RulesWaitingTime>,
-        /// rules-run/0.4 and later. `null` is rejected.
+        /// rules-run/0.4 and later. `true` integrates unweighted
+        /// single-class count trackers without first-passage predicates over
+        /// their constant spans, which can change the last bits of an
+        /// integral. Without such a tracker it changes nothing and warns
+        /// with `CRN-R051`. `null` is rejected.
         #[serde(
             default,
             deserialize_with = "present",
@@ -177,27 +511,73 @@ pub enum Method {
         #[schemars(with = "bool")]
         sparse_trackers: Option<bool>,
     },
+    /// rules-run/0.3 and later. Exact grouped direct method for the fixed
+    /// three-class mtDNA vacancy model, sampler
+    /// `chacha8-u53-ziggurat/rules-mtdna-direct/1`. A model or parameter set
+    /// it cannot certify runs Static Direct instead, with that sampler
+    /// identity and a `CRN-R051` warning naming the reason.
     MtdnaDirect {},
+    /// Exact next reaction method with indexed clocks over the lowered
+    /// channels. Sampler `chacha8-u53/rules-next-reaction/1`.
     NextReaction {},
+    /// Exact thinning with the analytic ATP flow of a rules-model/0.2 model;
+    /// required for ATP models and refused for others. Sampler
+    /// `chacha8-u53/rules-atp-thinning/1`.
     Thinning {},
+    /// Approximate adaptive Poisson leaps with exact fallback steps. Sampler
+    /// `chacha8-u53/rules-approximate-cgp-poisson/2`.
     Tau {
+        /// Leap tolerance, in (0, 0.1] (`CRN-R020` otherwise): the step
+        /// selection bounds the mean and spread of each species and rate
+        /// change in one leap by this fraction of its current value.
         epsilon: f64,
     },
+    /// Approximate death-then-birth splitting on the fixed lattice
+    /// `k * step`, for single-parent unit births and deaths only. Sampler
+    /// `chacha8-u53/rules-approximate-binomial-split/2`.
     Binomial {
+        /// Lattice step in simulated time, finite and positive (`CRN-R020`
+        /// otherwise).
         step: f64,
     },
 }
 
+/// A run request: `crn-craft.rules-run/0.1` to `0.4`.
+///
+/// It binds one model by hash and states the time grid, the ensemble, the
+/// outputs and an explicit budget. Unknown fields and duplicate keys are
+/// rejected.
+///
+#[doc = concat!(
+    "Parse and validate it together with its model bytes with [`prepare`] ",
+    "or [`solve`]; [`RunRequest::trackers`] reads the tracker list."
+)]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RunRequest {
+    // Docs of `$ref` fields use `concat!` so the schema keeps a bare `$ref`.
+    #[doc = concat!("The request version, one of [`RunVersion`].")]
     pub schema: RunVersion,
+    #[doc = concat!(
+        "The model by portable relative path below the request's directory ",
+        "and by the SHA-256 of its exact bytes. [`prepare`] checks the hash ",
+        "and the path syntax; [`solve_files`] also resolves the path."
+    )]
     pub model: ModelRef,
+    #[doc = concat!("Horizon and report grid.")]
     pub time: Time,
+    #[doc = concat!(
+        "Replicates (1 to 1,000,000) and the root seed of their streams; ",
+        "see [`stream`]."
+    )]
     pub ensemble: Ensemble,
+    #[doc = concat!("Statistics, kept paths and kept final instances.")]
     pub outputs: Outputs,
+    #[doc = concat!("Work, instance, thread and output limits.")]
     pub budget: Budget,
-    /// rules-run/0.2 and later. Not allowed in 0.1, even when empty.
+    /// Event trackers, at most 256, each summarizing one observable per
+    /// replicate in the result's `observations`. rules-run/0.2 and later.
+    /// Not allowed in 0.1, even when empty.
     #[serde(
         default,
         deserialize_with = "present",
@@ -205,7 +585,8 @@ pub struct RunRequest {
     )]
     #[schemars(with = "Vec<TrackerSpec>")]
     pub trackers: Option<Vec<TrackerSpec>>,
-    /// rules-run/0.2 and later; absent selects `tree`. `null` is rejected.
+    /// The simulation method. rules-run/0.2 and later; absent selects
+    /// `tree`. `null` is rejected.
     #[serde(
         default,
         deserialize_with = "present",
@@ -213,7 +594,8 @@ pub struct RunRequest {
     )]
     #[schemars(with = "Method")]
     pub method: Option<Method>,
-    /// rules-run/0.2 and later. `null` is rejected.
+    /// Retains selected events of each replicate in the result's
+    /// `observations`. rules-run/0.2 and later. `null` is rejected.
     #[serde(
         default,
         deserialize_with = "present",
@@ -244,43 +626,100 @@ where
 // ---------------------------------------------------------------------------
 // Result
 
+/// The version of a result, its `schema` field: rules-result/0.1 answers a
+/// rules-run/0.1 request, rules-result/0.2 answers rules-run/0.2 to 0.4.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ResultVersion {
+    // Variant docs use `concat!` to stay out of the schema's string enum.
+    #[doc = concat!("`crn-craft.rules-result/0.1`, for rules-run/0.1 requests.")]
     #[serde(rename = "crn-craft.rules-result/0.1")]
     V01,
+    #[doc = concat!(
+        "`crn-craft.rules-result/0.2`, for rules-run/0.2 to 0.4 requests; ",
+        "the only version that can carry `observations`."
+    )]
     #[serde(rename = "crn-craft.rules-result/0.2")]
     V02,
 }
 
+/// How a replicate, or the whole ensemble, ended.
+///
+/// Values are ordered by severity, from `completed` to `output_limit`. The
+/// ensemble reports `completed` when every replicate completed or stopped,
+/// and otherwise the most severe replicate termination.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum Termination {
+    // Variant docs other than `Stopped` use `concat!` to stay out of the
+    // schema's string enum. `Stopped` keeps its `///` comment, which already
+    // gives it a `oneOf` entry of its own.
+    #[doc = concat!(
+        "The replicate ran to the horizon `time.end`, possibly holding its ",
+        "state after the last channel switched off."
+    )]
     Completed,
-    /// The stop condition held; the state is held to the end of the grid.
+    /// The model's stop condition held, ATP was depleted under thinning, or
+    /// an observer stopped the replicate; the state is held to the end of
+    /// the grid.
     Stopped,
+    #[doc = concat!(
+        "`max_events_per_replicate` was reached (`CRN-R040`)."
+    )]
     EventLimit,
+    #[doc = concat!(
+        "`max_sampling_steps_per_replicate` was reached (`CRN-R041`)."
+    )]
     SamplingLimit,
+    #[doc = concat!(
+        "`max_instances` was exceeded, or on `tree` a count passed 2^53 ",
+        "(`CRN-R042`)."
+    )]
     InstanceLimit,
+    #[doc = concat!(
+        "`wall_time_s` elapsed (`CRN-R043`). Replicates not started by ",
+        "then are recorded with `started: false`."
+    )]
     WallTimeLimit,
+    #[doc = concat!(
+        "The run was cancelled through its [`Control`] (`CRN-R044`). ",
+        "Replicates not started by then are recorded with `started: false`."
+    )]
     Cancelled,
+    #[doc = concat!(
+        "A numerical error ended the replicate, for example a negative or ",
+        "non-finite rate (`CRN-R030`) or an unresolvable weight ",
+        "(`CRN-R031`); the record's `diagnostic` says which."
+    )]
     Failed,
+    #[doc = concat!(
+        "Ensemble only: the result exceeded `max_output_bytes`, so ",
+        "statistics, paths, observations and final instances were dropped ",
+        "(`CRN-R045`)."
+    )]
     OutputLimit,
 }
 impl Termination {
+    /// Whether the replicate counts toward statistics: `completed` or
+    /// `stopped`.
     pub fn complete(self) -> bool {
         matches!(self, Self::Completed | Self::Stopped)
     }
 }
 
+/// A species type of the model, as listed in the result's `types`.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TypeHeader {
+    /// The type name from the model.
     pub name: String,
+    /// The type's attribute names, in the order of an instance's
+    /// `attributes` values.
     pub attributes: Vec<String>,
 }
 
+/// One instance: a type, its attribute values and its copy number.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct InstanceRecord {
@@ -288,81 +727,153 @@ pub struct InstanceRecord {
     pub type_index: usize,
     /// One value per attribute of the type, in declared order.
     pub attributes: Vec<f64>,
+    /// Copy number, at least 1 for a final instance. Event log participants
+    /// always have count 1.
     pub count: u64,
 }
 
+/// The accounting of one replicate. Every replicate has a record, including
+/// replicates that a cancellation or the wall-time limit kept from starting.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Record {
+    /// Replicate index, 0 to `requested_replicates - 1`; it selects the
+    /// random stream.
     pub id: u64,
+    /// False for a replicate that never ran because the run was cancelled or
+    /// hit its wall-time limit first; its counters are then zero.
     pub started: bool,
+    // Docs of `$ref` fields use `concat!` so the schema keeps a bare `$ref`.
+    #[doc = concat!(
+        "How this replicate ended; `stopped` for the model's stop condition ",
+        "or an observer's [`observe::ObserverAction::Stop`]."
+    )]
     pub termination: Termination,
+    /// Events executed. Approximate methods count every firing in a leap.
     pub events: u64,
     /// End of the horizon, the time the stop condition fired, or the time a
     /// limit or failure ended the path.
     pub stop_time: f64,
+    /// Report times filled with observable values: all of them for a
+    /// completed or stopped replicate, the ones before the halt otherwise.
     pub saved_points: usize,
     /// Events per rule, in rule order.
     pub rule_events: Vec<u64>,
     /// Random words, including product draws; the final event's product
     /// draws can take it past the sampling budget that stopped the path.
     pub rng_words: u64,
+    /// Largest number of distinct instances alive at once. On `tree` it
+    /// includes the instance whose creation exceeded `max_instances`; the
+    /// static methods reject that event before counting it.
     pub peak_instances: u64,
     /// Instances created by events (excluding the initial state).
     pub created_instances: u64,
+    /// The limit or numerical error that ended the replicate; `null` for a
+    /// completed or stopped replicate.
     pub diagnostic: Option<Diagnostic>,
 }
 
+/// The observable series of one kept replicate.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PathSeries {
+    /// Replicate index, below `keep_paths`.
     pub id: u64,
-    /// report time × observable.
+    /// report time × observable: one row per saved report time, with the
+    /// columns in the order of `observables`.
     pub values: Vec<Vec<f64>>,
 }
 
+/// The instances present at the end of one kept replicate.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct FinalInstances {
+    /// Replicate index, below `keep_instances`.
     pub id: u64,
+    /// Instances with a positive count, sorted by type and attributes.
     pub instances: Vec<InstanceRecord>,
 }
 
+/// Ensemble statistics per report time and observable, accumulated in
+/// replicate order so that they do not depend on the thread count.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Statistics {
+    /// Replicates included: all of them, since statistics are withheld
+    /// unless every replicate completed or stopped.
     pub samples: u64,
     /// report time × observable.
     pub mean: Option<Vec<Vec<f64>>>,
+    /// Sample variance (divisor `samples - 1`), report time × observable;
+    /// present when `variance` was requested and `samples` is at least 2.
     pub sample_variance: Option<Vec<Vec<f64>>>,
+    /// Standard error of the mean, `sqrt(sample_variance / samples)`, under
+    /// the same conditions as `sample_variance`.
     pub mean_standard_error: Option<Vec<Vec<f64>>>,
 }
 
+/// The result of a rules run: `crn-craft.rules-result/0.1` or `0.2`.
+///
+/// A result is returned even when replicates hit limits or fail: check
+/// `termination`, the per-replicate records and `diagnostics`. Matrices are
+/// indexed by report time, then observable.
+///
+#[doc = concat!(
+    "Returned by [`execute`], [`solve`] and the generated-code entry points. ",
+    "Serialize it with `serde_json` to obtain the JSON document."
+)]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RulesResult {
+    // Docs of `$ref` fields use `concat!` so the schema keeps a bare `$ref`.
+    #[doc = concat!("The result version, see [`ResultVersion`].")]
     pub schema: ResultVersion,
+    /// SHA-256 of the exact model bytes, lowercase hexadecimal.
     pub model_sha256: String,
+    /// SHA-256 of the exact request bytes, lowercase hexadecimal. A
+    /// parameter-bound candidate hashes its re-serialized request.
     pub run_sha256: String,
+    /// The sampler identity of the method that ran, for example
+    /// `chacha8-u53/rules-direct/2`. Replays compare equal only under the
+    /// same identity.
     pub sampler: String,
+    /// The request's root seed.
     pub root_seed: u64,
+    /// The model's types, in declaration order.
     pub types: Vec<TypeHeader>,
+    /// Rule names, in declaration order; `rule_events` and rule indices
+    /// follow it.
     pub rules: Vec<String>,
+    /// Observable names in column order: the model's observables sorted by
+    /// name, then `ATP` for an ATP model.
     pub observables: Vec<String>,
+    /// The request's report times, one per matrix row.
     pub report_times: Vec<f64>,
     /// `completed` when every replicate completed or stopped; otherwise the
     /// most severe replicate termination.
     pub termination: Termination,
+    /// The request's `ensemble.replicates`.
     pub requested_replicates: u64,
+    /// Replicates that completed or stopped.
     pub completed_replicates: u64,
+    /// Replicates that stopped, a subset of `completed_replicates`.
     pub stopped_replicates: u64,
+    /// Events over all replicates.
     pub events: u64,
+    /// One record per replicate, in replicate order.
     pub replicates: Vec<Record>,
+    /// Observable series of the started replicates below `keep_paths`.
     pub paths: Vec<PathSeries>,
+    /// Final instances of the started replicates below `keep_instances`.
     pub final_instances: Vec<FinalInstances>,
     /// Withheld unless every replicate completed or stopped.
     pub statistics: Option<Statistics>,
+    /// Ensemble-level diagnostics: `CRN-R050` for an incomplete ensemble,
+    /// `CRN-R051` for a specialization that did not apply and `CRN-R045`
+    /// for a trimmed result. Replicate errors are in their records.
     pub diagnostics: Vec<Diagnostic>,
+    /// rules-result/0.2: tracker results and event logs, one entry per
+    /// observed replicate in replicate order. Omitted when empty.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub observations: Vec<Observation>,
 }
@@ -375,6 +886,16 @@ impl Default for Method {
 
 // ---------------------------------------------------------------------------
 
+/// A validated run, ready to execute.
+///
+/// [`prepare`] parses both documents, validates and compiles the model,
+/// checks the request against it, reserves memory and output, lowers the
+/// model for the static methods and certifies `mtdna_direct` once. A
+/// `Prepared` value is immutable: run it with [`execute`],
+/// [`execute_with_observer`], [`execute_with_rules_kernel`] or
+/// [`execute_with_rules_loop`] as often as needed. Each run starts from
+/// fresh state and gives the same completed results. Use
+/// [`Prepared::bind_parameters`] for other parameter values.
 pub struct Prepared {
     source: Model,
     mtdna: Option<mtdna::Kernel>,
@@ -394,6 +915,61 @@ impl Prepared {
     /// Build an independently reusable candidate with the same run settings.
     /// Rules parameters can affect attributes, projections and even topology,
     /// so each candidate is revalidated and lowered once before simulation.
+    ///
+    /// The candidate is a full [`prepare`] of the re-serialized model, with
+    /// `overrides` applied, and of the request bound to it. Its
+    /// `model_sha256` and `run_sha256` hash those bytes, not the original
+    /// files, so they can differ from the template's hashes even for an
+    /// empty map. Specializations (`mtdna_direct`, `sparse_trackers`) are
+    /// decided again for the new values, and a generated kernel or loop for
+    /// the template is refused for the candidate.
+    ///
+    /// # Errors
+    ///
+    /// `CRN-R020` at `/parameters` for a name the model does not declare or a
+    /// non-finite value; otherwise any diagnostic [`prepare`] reports for the
+    /// new values.
+    ///
+    /// ```
+    /// # use crn_craft_rules::{Control, execute, prepare};
+    /// # use serde_json::json;
+    /// # use std::collections::BTreeMap;
+    /// # let model = serde_json::to_vec(&json!({
+    /// #     "schema": "crn-craft.rules-model/0.1", "name": "immigration_death",
+    /// #     "parameters": {"k_in": 10.0, "k_out": 1.0},
+    /// #     "types": [{"name": "X"}], "initial": [],
+    /// #     "observables": {"X": {"type": "X"}},
+    /// #     "rules": [
+    /// #         {"name": "immigration", "reactants": [], "rate": "k_in", "products": [{"type": "X"}]},
+    /// #         {"name": "death", "reactants": [{"label": "x", "type": "X"}], "rate": "k_out", "products": []}
+    /// #     ]
+    /// # })).unwrap();
+    /// # let request = serde_json::to_vec(&json!({
+    /// #     "schema": "crn-craft.rules-run/0.1",
+    /// #     "model": {"path": "m.rules.json", "sha256": crn_craft::sha256(&model)},
+    /// #     "time": {"end": 5.0, "report_times": [0.0, 5.0]},
+    /// #     "ensemble": {"replicates": 200, "root_seed": 1},
+    /// #     "outputs": {"statistics": ["mean"], "keep_paths": 0, "keep_instances": 0},
+    /// #     "budget": {"max_events_per_replicate": 100000, "max_sampling_steps_per_replicate": 1000000,
+    /// #                "max_instances": 1, "threads": 1, "max_output_bytes": 1048576}
+    /// # })).unwrap();
+    /// let template = prepare(&model, &request).unwrap();
+    /// let control = Control::default();
+    /// let mean_at_end = |k_in: f64| {
+    ///     let candidate = template
+    ///         .bind_parameters(&BTreeMap::from([("k_in".to_string(), k_in)]))
+    ///         .unwrap();
+    ///     let result = execute(&candidate, &control).unwrap();
+    ///     result.statistics.unwrap().mean.unwrap()[1][0]
+    /// };
+    /// // The stationary mean is k_in / k_out.
+    /// assert!((mean_at_end(20.0) - 19.9).abs() < 2.0);
+    /// assert!((mean_at_end(5.0) - 5.0).abs() < 1.0);
+    ///
+    /// let typo = BTreeMap::from([("k_inn".to_string(), 1.0)]);
+    /// let diagnostics = template.bind_parameters(&typo).err().unwrap();
+    /// assert_eq!(diagnostics[0].code, "CRN-R020");
+    /// ```
     pub fn bind_parameters(
         &self,
         overrides: &BTreeMap<String, f64>,
@@ -566,23 +1142,71 @@ fn validate_request(request: &RunRequest, model_sha256: &str) -> Vec<Diagnostic>
     out
 }
 
+/// The version of a model check report, its `schema` field.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum CheckVersion {
+    // Variant docs use `concat!` to stay out of the schema's string enum.
+    #[doc = concat!("`crn-craft.rules-check/0.1`.")]
     #[serde(rename = "crn-craft.rules-check/0.1")]
     V01,
 }
 
+/// The report of a model check: `crn-craft.rules-check/0.1`.
+///
+/// It covers rules-model/0.1 and 0.2 documents. The check stops at the first
+/// stage that fails (parsing, size limits, names and types, then the rest of
+/// the model), so `diagnostics` lists the errors of that stage.
+///
+#[doc = concat!(
+    "Returned by [`check_model`] and [`check_model_file`], and printed by ",
+    "`crn-craft rules-check`."
+)]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RulesCheck {
+    // Docs of `$ref` fields use `concat!` so the schema keeps a bare `$ref`.
+    #[doc = concat!("The report version, see [`CheckVersion`].")]
     pub schema: CheckVersion,
+    /// True when the model parses and compiles without diagnostics.
     pub valid: bool,
     /// SHA-256 of the model bytes, when they could be read.
     pub model_sha256: Option<String>,
+    /// Errors with stable codes and JSON Pointer paths into the model:
+    /// `CRN-E001` to `CRN-E004` from parsing, `CRN-R010` to `CRN-R015` from
+    /// validation, `CRN-E030` for an unreadable file.
     pub diagnostics: Vec<Diagnostic>,
 }
 
 /// Parses and checks a model; every expression is compiled and name-checked.
+///
+/// This validates the model alone. A run request adds its own checks in
+/// [`prepare`], for example whether a static method can lower the model.
+///
+/// ```
+/// use crn_craft_rules::check_model;
+///
+/// let model = br#"{
+///     "schema": "crn-craft.rules-model/0.1",
+///     "name": "decay",
+///     "parameters": {"k": 0.5},
+///     "types": [{"name": "A"}],
+///     "initial": [{"type": "A", "count": 100}],
+///     "observables": {"A": {"type": "A"}},
+///     "rules": [{"name": "decay", "reactants": [{"label": "a", "type": "A"}],
+///                "rate": "k", "products": []}]
+/// }"#;
+/// let report = check_model(model);
+/// assert!(report.valid);
+/// assert_eq!(report.model_sha256.as_deref(), Some(crn_craft::sha256(model).as_str()));
+///
+/// // A product of an undeclared type is reported with a JSON Pointer.
+/// let broken = String::from_utf8_lossy(model).replace(r#""products": []"#,
+///                                                      r#""products": [{"type": "B"}]"#);
+/// let report = check_model(broken.as_bytes());
+/// assert!(!report.valid);
+/// assert_eq!(report.diagnostics[0].code, "CRN-R011");
+/// assert_eq!(report.diagnostics[0].path, "/rules/0/products/0/type");
+/// ```
 pub fn check_model(model_bytes: &[u8]) -> RulesCheck {
     let diagnostics = crn_craft::strict_json::parse::<Model>(model_bytes)
         .map_err(|e| vec![e])
@@ -597,6 +1221,70 @@ pub fn check_model(model_bytes: &[u8]) -> RulesCheck {
     }
 }
 
+/// Validates a model and a run request and prepares the run.
+///
+/// Both arguments are the exact JSON bytes; the request's `model.sha256` must
+/// be the SHA-256 of `model_bytes`. Its `model.path` must be a portable
+/// relative path, but is not resolved here (see [`solve_files`]).
+/// Preparation checks the request against its version, compiles the model,
+/// compiles trackers and the event log, admits the memory and output
+/// reservations, and lowers the model for every method except `tree`.
+///
+/// # Errors
+///
+/// All diagnostics of the first failing stage. A document that does not
+/// parse gives one `CRN-E001` to `CRN-E004` diagnostic; the request checks
+/// and the model validation are reported together (`CRN-R020` for the
+/// request, `CRN-R010` to `CRN-R015` for the model); trackers, the event
+/// log, the budget reservation, the method's parameters and the lowering
+/// each fail with `CRN-R020`.
+///
+/// ```
+/// use crn_craft_rules::{Control, execute, prepare};
+/// use serde_json::json;
+///
+/// # let model = serde_json::to_vec(&json!({
+/// #     "schema": "crn-craft.rules-model/0.1", "name": "immigration_death",
+/// #     "parameters": {"k_in": 10.0, "k_out": 1.0},
+/// #     "types": [{"name": "X"}], "initial": [],
+/// #     "observables": {"X": {"type": "X"}},
+/// #     "rules": [
+/// #         {"name": "immigration", "reactants": [], "rate": "k_in", "products": [{"type": "X"}]},
+/// #         {"name": "death", "reactants": [{"label": "x", "type": "X"}], "rate": "k_out", "products": []}
+/// #     ]
+/// # })).unwrap();
+/// // Static Direct with a tracker on X and a bounded log of death events.
+/// let request = serde_json::to_vec(&json!({
+///     "schema": "crn-craft.rules-run/0.2",
+///     "model": {"path": "m.rules.json", "sha256": crn_craft::sha256(&model)},
+///     "time": {"end": 2.0, "report_times": [0.0, 1.0, 2.0]},
+///     "ensemble": {"replicates": 4, "root_seed": 42},
+///     "outputs": {"statistics": [], "keep_paths": 0, "keep_instances": 4},
+///     "budget": {"max_events_per_replicate": 10000, "max_sampling_steps_per_replicate": 100000,
+///                "max_instances": 1, "threads": 1, "max_output_bytes": 1048576},
+///     "method": {"kind": "static_direct"},
+///     "trackers": [{"observable": "X", "keep_episodes": 2}],
+///     "event_log": {"max_entries": 3, "rules": ["death"]}
+/// }))
+/// .unwrap();
+/// let prepared = prepare(&model, &request).unwrap();
+/// let result = execute(&prepared, &Control::default()).unwrap();
+/// assert_eq!(result.sampler, "chacha8-u53/rules-static-direct/1");
+///
+/// let first = &result.observations[0];
+/// let tracker = &first.trackers[0];
+/// assert_eq!(tracker.observable, "X");
+/// assert!(tracker.maximum >= tracker.minimum);
+/// assert!(first.log.len() <= 3);
+/// assert!(first.log.iter().all(|entry| entry.rule == Some(1)));
+///
+/// // Other model bytes, even a trailing newline, no longer match the hash.
+/// let mut edited = model.clone();
+/// edited.push(b'\n');
+/// let diagnostics = prepare(&edited, &request).err().unwrap();
+/// assert_eq!((diagnostics[0].code.as_str(), diagnostics[0].path.as_str()),
+///            ("CRN-R020", "/model/sha256"));
+/// ```
 pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec<Diagnostic>> {
     let model: Model = crn_craft::strict_json::parse(model_bytes).map_err(|e| vec![e])?;
     let request: RunRequest = crn_craft::strict_json::parse(request_bytes).map_err(|e| vec![e])?;
@@ -912,12 +1600,101 @@ fn statistics(wanted: &[Statistic], reducer: &Reducer, columns: usize) -> Statis
 
 /// Runs the ensemble. Replicates are independent keyed streams, so results do
 /// not depend on the thread count.
+///
+/// The engine starts `min(budget.threads, replicates)` workers, each taking
+/// the next replicate, and reduces finished replicates in replicate order.
+/// Replicates that hit a limit or fail do not make this call fail: they are
+/// reported in [`RulesResult::replicates`], the ensemble
+/// [`RulesResult::termination`] names the most severe of them, and
+/// statistics are withheld with a `CRN-R050` warning. A cancellation or the
+/// wall-time limit stops the remaining replicates from starting.
+///
+/// # Errors
+///
+/// `CRN-R045` at `/budget/max_output_bytes` when even the replicate records,
+/// without statistics, paths, observations and final instances, exceed the
+/// output budget. A result that fits only after that trimming is returned
+/// with termination `output_limit`.
 #[allow(clippy::missing_panics_doc, clippy::too_many_lines)]
 pub fn execute(prepared: &Prepared, control: &Control) -> Result<RulesResult, Diagnostic> {
     execute_with_observer(prepared, control, &NoObserver)
 }
 
 /// Observe committed events on each native worker. Ordering is per replicate.
+///
+/// Like [`execute`], but `observer` sees every committed event: one per
+/// exact step, or one per leap of the approximate methods. It runs on the
+/// worker that simulates the replicate, after the state update and the
+/// trackers and before the stop condition. Events of one replicate arrive in
+/// order; events of different replicates can interleave. Returning
+/// [`observe::ObserverAction::Stop`] ends that replicate as `stopped` at the
+/// event's time, which counts as complete for statistics. An observer that
+/// always continues leaves the serialized result byte-identical to
+/// [`execute`]. Observation consumes no random words.
+///
+/// # Errors
+///
+/// As for [`execute`].
+///
+/// # Panics
+///
+/// `on_event` must not panic. A panic is not caught: it ends that worker
+/// without a result for its replicate, and the remaining workers can then
+/// wait for that result indefinitely, so the call may never return. Catch
+/// panics inside the observer and return
+/// [`observe::ObserverAction::Stop`] instead.
+///
+/// ```
+/// use crn_craft_rules::observe::{Event, EventObserver, ObserverAction};
+/// use crn_craft_rules::{Control, Termination, execute_with_observer, prepare};
+/// use serde_json::json;
+/// use std::sync::atomic::{AtomicU64, Ordering};
+///
+/// /// Counts events and stops a replicate once X reaches 5 copies.
+/// struct StopAtFive {
+///     events: AtomicU64,
+/// }
+///
+/// impl EventObserver for StopAtFive {
+///     fn on_event(&self, event: &Event<'_>) -> ObserverAction {
+///         self.events.fetch_add(1, Ordering::Relaxed);
+///         if event.observables[0] >= 5.0 {
+///             ObserverAction::Stop
+///         } else {
+///             ObserverAction::Continue
+///         }
+///     }
+/// }
+///
+/// # let model = serde_json::to_vec(&json!({
+/// #     "schema": "crn-craft.rules-model/0.1", "name": "immigration_death",
+/// #     "parameters": {"k_in": 10.0, "k_out": 1.0},
+/// #     "types": [{"name": "X"}], "initial": [],
+/// #     "observables": {"X": {"type": "X"}},
+/// #     "rules": [
+/// #         {"name": "immigration", "reactants": [], "rate": "k_in", "products": [{"type": "X"}]},
+/// #         {"name": "death", "reactants": [{"label": "x", "type": "X"}], "rate": "k_out", "products": []}
+/// #     ]
+/// # })).unwrap();
+/// # let request = serde_json::to_vec(&json!({
+/// #     "schema": "crn-craft.rules-run/0.1",
+/// #     "model": {"path": "m.rules.json", "sha256": crn_craft::sha256(&model)},
+/// #     "time": {"end": 5.0, "report_times": [0.0, 5.0]},
+/// #     "ensemble": {"replicates": 16, "root_seed": 1},
+/// #     "outputs": {"statistics": ["mean"], "keep_paths": 0, "keep_instances": 0},
+/// #     "budget": {"max_events_per_replicate": 100000, "max_sampling_steps_per_replicate": 1000000,
+/// #                "max_instances": 1, "threads": 2, "max_output_bytes": 1048576}
+/// # })).unwrap();
+/// let prepared = prepare(&model, &request).unwrap();
+/// let observer = StopAtFive { events: AtomicU64::new(0) };
+/// let result = execute_with_observer(&prepared, &Control::default(), &observer).unwrap();
+///
+/// assert_eq!(observer.events.load(Ordering::Relaxed), result.events);
+/// assert_eq!(result.stopped_replicates, result.requested_replicates);
+/// assert!(result.replicates.iter().all(|r| r.termination == Termination::Stopped));
+/// // A stopped replicate holds its state: X is 5 at the end of the grid.
+/// assert_eq!(result.statistics.unwrap().mean.unwrap()[1][0], 5.0);
+/// ```
 pub fn execute_with_observer<O: EventObserver>(
     prepared: &Prepared,
     control: &Control,
@@ -1198,6 +1975,12 @@ fn execute_inner<O: EventObserver>(
     Ok(result)
 }
 
+/// Prepares and executes in one call: [`prepare`] followed by [`execute`].
+///
+/// # Errors
+///
+/// The diagnostics of [`prepare`], or the single `CRN-R045` error of
+/// [`execute`].
 pub fn solve(
     model_bytes: &[u8],
     request_bytes: &[u8],
@@ -1232,6 +2015,17 @@ fn read(path: &Path) -> Result<Vec<u8>, Diagnostic> {
 
 /// Runs a request file against the model it references, which must be the
 /// supplied model file below the request's directory.
+///
+/// The request's `model.path` is resolved against the request file's
+/// directory and must name the same file as `model_path`, inside that
+/// directory. This is the `crn-craft rules MODEL REQUEST` command.
+///
+/// # Errors
+///
+/// `CRN-E030` for a file that cannot be read or is not a regular file,
+/// `CRN-E004` for a file above 16 MiB, `CRN-E001` to `CRN-E004` for a
+/// request that does not parse, `CRN-R020` at `/model/path` when the request
+/// does not reference `model_path`, and otherwise the errors of [`solve`].
 pub fn solve_files(
     model_path: &Path,
     request_path: &Path,
@@ -1261,6 +2055,20 @@ pub fn solve_files(
     solve(&model, &bytes, control)
 }
 
+/// Reads a model file and checks it like [`check_model`]; this is the
+/// `crn-craft rules-check MODEL` command.
+///
+/// A file that cannot be read gives an invalid report with one `CRN-E030`
+/// diagnostic (or `CRN-E004` above 16 MiB) and no `model_sha256`.
+///
+/// ```
+/// use std::path::Path;
+///
+/// let report = crn_craft_rules::check_model_file(Path::new("no/such/model.rules.json"));
+/// assert!(!report.valid);
+/// assert_eq!(report.model_sha256, None);
+/// assert_eq!(report.diagnostics[0].code, "CRN-E030");
+/// ```
 pub fn check_model_file(model_path: &Path) -> RulesCheck {
     match read(model_path) {
         Ok(bytes) => check_model(&bytes),
@@ -1274,6 +2082,18 @@ pub fn check_model_file(model_path: &Path) -> RulesCheck {
 }
 
 /// Discovery entry for the native CLI's `describe` (`describe/0.11`).
+///
+/// The native CLI embeds it as `dynamic_species`; Python's
+/// `crn_craft.rules.describe()` returns it. It names the status, the
+/// commands, the accepted contract versions, the methods (and which of them
+/// are approximate), the tree sampler identity and the model and run limits.
+///
+/// ```
+/// let entry = crn_craft_rules::describe();
+/// assert_eq!(entry["status"], "experimental");
+/// assert!(entry["methods"].as_array().unwrap().contains(&"static_direct".into()));
+/// assert_eq!(entry["limits"]["threads"], crn_craft_rules::MAX_WORKERS);
+/// ```
 pub fn describe() -> Value {
     serde_json::json!({
         "status": "experimental",
@@ -1305,6 +2125,19 @@ pub fn describe() -> Value {
 }
 
 /// JSON Schemas generated from the Rust contract types.
+///
+/// `kind` is `rules-model` ([`Model`]), `rules-check` ([`RulesCheck`]),
+/// `rules-run` ([`RunRequest`]) or `rules-result` ([`RulesResult`]); any
+/// other kind gives `None`. The schemas are JSON Schema draft 07 and are
+/// committed under `schemas/` in the repository. They express the shape and
+/// some local bounds; [`prepare`] enforces the remaining rules.
+///
+/// ```
+/// let run = crn_craft_rules::schema("rules-run").unwrap();
+/// assert_eq!(run["$schema"], "http://json-schema.org/draft-07/schema#");
+/// assert!(run["properties"]["budget"].is_object());
+/// assert!(crn_craft_rules::schema("model").is_none());
+/// ```
 pub fn schema(kind: &str) -> Option<Value> {
     match kind {
         "rules-model" => serde_json::to_value(schema_for!(Model)).ok(),

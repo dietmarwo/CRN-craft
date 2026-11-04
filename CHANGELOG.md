@@ -26,8 +26,8 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
   fraction form, with the bytecode's semantics. An undefined value still
   reaches the interpreter's diagnostic. With the stop
   `N > 0 && mutants / N >= 0.9`, the mtDNA probe's loop went from 90 to
-  53 ns per event. Loops for models with a stop predicate must be
-  regenerated, because their emitted source and fingerprint change.
+  53 ns per event. Existing loops must be regenerated, because the emitted
+  source, and so the fingerprint, changes.
 - Static Direct finds the smallest positive rate while summing in networks
   of at least 32 channels instead of testing every rate in a second pass.
   Results are byte-identical; the 96- and 512-channel probe networks ran

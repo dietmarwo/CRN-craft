@@ -9,6 +9,18 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ### Added
 
+- mtDNA documentation:
+  - `docs/mtdna-user-manual.md`: every application scenario, from takeover
+    statistics and trackers to event logs, callbacks, the clone and ATP
+    models, sweeps, the CLI and Rust.
+  - `docs/mtdna-optimization-tutorial.md`: fitting `mu` and `sm` to
+    heteroplasmy distributions with fcmaes, covering noise, common random
+    numbers, staged refinement, held-out checks and parallel evaluation.
+  - `docs/mtdna-performance-analysis.md`: methods, threads, copy number,
+    observation, interfaces, other models, comparisons and study sizing.
+  - Runnable scripts in `examples/mtdna/`, with timings in
+    `validation/mtdna/user-scenarios-timing.json`.
+
 - Generated rules event loops (Rust only): `generate_rules_loop` emits the
   whole Static Direct event for a lowered model with constant or vacancy
   rates and sum projections, and `execute_with_rules_loop` runs it through

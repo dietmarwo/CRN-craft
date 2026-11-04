@@ -28,6 +28,7 @@ The [four CRN optimization lessons](tutorials/optimization/README.md) cover reus
 - [Fast mode versus Julia at one and eight threads](docs/comparison-julia-8-threads.md): direct same-host measurement of `fast` against five JumpProcesses methods, 2,240 timed observations, scaling and replay checks
 - [Agent context](docs/ai-context.md): what an AI agent needs to use and extend CRN-craft
 - [Dynamic, attributed species (experimental)](docs/rules-language.md): rule-based models whose species appear and disappear (mtDNA clones, aggregation), with [K1 law gates](validation/rules/RESULTS.md)
+- [mtDNA user manual](docs/mtdna-user-manual.md), [optimization tutorial](docs/mtdna-optimization-tutorial.md) and [performance analysis](docs/mtdna-performance-analysis.md): simulating mtDNA mutant accumulation from Python, the command line and Rust, with runnable examples in `examples/mtdna/`, fitting with fcmaes, and what each method and option costs
 - [Three-class mtDNA ensembles](docs/mtdna-rules.md): parallel Python ensembles, event trackers and callbacks, Static Direct, a specialized fixed-population sampler, next reaction, approximate tau and binomial steps, and ATP-coupled thinning ([review log](docs/campaign/mtdna-a0-a6-review-log-2026-11-03.md))
 - [Rules kernel checklist](docs/specialized-kernels.md): when a model-specific rules kernel pays off, and generated rules kernels and event loops
 

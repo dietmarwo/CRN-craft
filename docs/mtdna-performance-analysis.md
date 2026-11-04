@@ -45,7 +45,7 @@ measurements in `validation/mtdna/`. Read the
 New measurements:
 
 - **Host.** Linux, two CPUs, Python 3.13, `crn-craft` built from `main` at
-  `ac91628` (the 0.2.0 Python API plus later engine changes).
+  `ac91628`; its Python API and engine are those of release 0.2.0.
 - **Script.** `examples/mtdna/performance.py`. Raw timings are in
   `validation/mtdna/user-scenarios-timing.json`.
 - **Workload.** Unless stated, the three-class model with
@@ -224,7 +224,7 @@ settings identical, not because it is faster.
 - **ATP model.** Thinning integrates the ATP flow between events and
   rejects a share of candidate events. Recorded on eight CPUs, 512 cells
   took 2.8 s, against 3.9 s for the Java implementation of the same model.
-- **Rust generated loop.** *Newer than 0.2.0.* From Rust, the generated
+- **Rust generated loop.** *Rust only.* From Rust, the generated
   event loop runs Static Direct requests with byte-identical results. On
   the 128-cell probe, with one thread, Ziggurat waits and sparse trackers
   (`validation/mtdna/generated-loop.json`), the costs per event were:

@@ -16,6 +16,7 @@ import sysconfig
 import tempfile
 import numpy as np
 import crn_craft as c
+from crn_craft import rules
 from crn_craft.importers import import_bng_net
 from crn_craft.observables import oscillation, sampled_first_passage
 
@@ -231,6 +232,68 @@ def main():
     else:
         raise RuntimeError("installed FSP accepted an invalid run")
     checks.append("observables")
+    # The rules engine (`crn_craft.rules`) ships in the wheel; the mtDNA manual
+    # depends on it. Immigration-death has the Poisson law with mean
+    # (k_in/k_out)(1 - exp(-k_out t)), so the means at t = 5 and 10 must lie
+    # within 5 standard errors, and threads must not change any result.
+    death = {
+        "schema": "crn-craft.rules-model/0.1",
+        "name": "immigration_death",
+        "parameters": {"k_in": 10.0, "k_out": 1.0},
+        "types": [{"name": "X", "attributes": []}],
+        "initial": [],
+        "observables": {"X": {"type": "X"}},
+        "rules": [
+            {
+                "name": "immigration",
+                "reactants": [],
+                "rate": "k_in",
+                "products": [{"type": "X"}],
+            },
+            {
+                "name": "death",
+                "reactants": [{"label": "x", "type": "X"}],
+                "rate": "k_out",
+                "products": [],
+            },
+        ],
+    }
+
+    def rules_run(threads):
+        return rules.ensemble(
+            death,
+            end=10.0,
+            report_times=[0.0, 5.0, 10.0],
+            replicates=400,
+            seed=7,
+            threads=threads,
+            method="static_direct",
+            trackers=[{"observable": "X"}],
+        ).simulate()
+
+    serial, parallel = rules_run(1), rules_run(2)
+    mean = serial.statistics["mean"][:, 0]
+    error = serial.statistics["mean_standard_error"][:, 0]
+    exact = 10.0 * (1.0 - np.exp(-np.array([0.0, 5.0, 10.0])))
+    require(
+        mean[0] == 0.0 and bool(np.all(np.abs(mean[1:] - exact[1:]) <= 5 * error[1:])),
+        "installed rules ensemble matches the immigration-death law",
+    )
+    require(
+        all(
+            np.array_equal(serial.records[k], parallel.records[k])
+            for k in serial.records
+        )
+        and np.array_equal(serial.statistics["mean"], parallel.statistics["mean"])
+        and set(serial.tracker_columns(0))
+        >= {"appearances", "first_passage", "integral"},
+        "installed rules results are independent of threads and expose trackers",
+    )
+    require(
+        "mtdna_direct" in str(rules.describe()["methods"]),
+        "installed rules describe lists mtdna_direct",
+    )
+    checks.append("rules_engine")
     args.output.write_text(
         json.dumps(
             {

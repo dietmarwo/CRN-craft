@@ -2,7 +2,7 @@
 
 > **Measured before the 0.2.0 release.** These measurements come from
 > development builds of 2 November 2026 and have not been repeated on
-> release 0.2.0 (3 November 2026). The network SSA engine changed in
+> release 0.2.0 (4 November 2026). The network SSA engine changed in
 > between: `fast` became the default of `ssa` requests
 > (`crn-craft.ssa-run/0.3`), the Ziggurat waiting-time sampler was
 > refactored so the rules engine can share it, and

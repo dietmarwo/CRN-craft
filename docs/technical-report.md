@@ -11,7 +11,7 @@ performance declarations [P01–P10](campaign/performance.md) and
 exact aggregators and the `fast` policy ([alternative SSA](alternative-ssa.md)),
 discovery 0.10 (0.11 from the native CLI), and the experimental rules engine
 ([rules language](rules-language.md), [mtDNA ensembles](mtdna-rules.md)).
-All of them are in release 0.2.0 (3 November 2026). The comparisons cited in
+All of them are in release 0.2.0 (4 November 2026). The comparisons cited in
 section 7 were measured on development builds before that release.
 
 ## 1. Summary

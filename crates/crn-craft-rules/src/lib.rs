@@ -15,7 +15,10 @@ mod engine;
 mod expr;
 mod flat;
 mod generated;
+mod generated_loop;
+pub use engine::{LoopHalt, LoopHost};
 pub use generated::{RulesKernel, execute_with_rules_kernel, generate_rules_kernel};
+pub use generated_loop::{RulesLoop, execute_with_rules_loop, generate_rules_loop};
 pub mod model;
 mod mtdna;
 pub mod observe;
@@ -916,7 +919,7 @@ pub fn execute_with_observer<O: EventObserver>(
     control: &Control,
     observer: &O,
 ) -> Result<RulesResult, Diagnostic> {
-    execute_inner(prepared, control, observer, None)
+    execute_inner(prepared, control, observer, None, None)
 }
 
 fn execute_inner<O: EventObserver>(
@@ -924,6 +927,7 @@ fn execute_inner<O: EventObserver>(
     control: &Control,
     observer: &O,
     generated: Option<&dyn RulesKernel>,
+    generated_loop: Option<&dyn RulesLoop>,
 ) -> Result<RulesResult, Diagnostic> {
     let model = &prepared.compiled;
     let request = &prepared.request;
@@ -991,6 +995,7 @@ fn execute_inner<O: EventObserver>(
                         observations: &prepared.observations,
                         flat: prepared.flat.as_ref(),
                         generated,
+                        generated_loop,
                         mtdna: prepared.mtdna.as_ref(),
                         method: request.method.unwrap_or_default(),
                         id,

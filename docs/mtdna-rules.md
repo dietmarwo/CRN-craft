@@ -253,7 +253,11 @@ On a two-CPU host the opt-in path took about 100–110 ns per event on the
 fused resolution check, exact incremental projections and a grouped
 evaluator did not change that by 5%, so none was adopted
 ([decision record](decisions/generic-rules-structural-2026-11-03.md)).
-Use `mtdna_direct` for the fixed three-class topology.
+From Rust, a generated event loop runs the same requests with
+byte-identical results at about 49 ns per event
+([generated event loops](specialized-kernels.md#generated-rules-event-loops)).
+`mtdna_direct` remains the fastest route for the fixed three-class topology
+and the only fast one from Python or the CLI.
 
 Cached rates and dependency-aware projection refresh apply to the default
 path. Potentially overflowing report-only projections retain eager checks.

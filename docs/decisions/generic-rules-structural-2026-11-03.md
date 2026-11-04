@@ -153,3 +153,6 @@ would be those of the current generator (byte identity with Static Direct
 where it keeps the arithmetic order) or, where it groups, the T6 gates
 above. Until then, use `mtdna_direct` for the fixed three-class topology.
 Other models use generic Static Direct with the 0.4 opt-ins.
+
+Follow-up: the generated event loop is planned, measured and adopted in
+[generated-rules-loop-2026-11-03.md](generated-rules-loop-2026-11-03.md).

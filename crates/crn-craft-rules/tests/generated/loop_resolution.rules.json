@@ -1,0 +1,86 @@
+{
+  "schema": "crn-craft.rules-model/0.1",
+  "name": "loop_resolution",
+  "description": "An influx without reactants and a channel far below 53-bit resolution once C exists.",
+  "parameters": {
+    "k": 1.0,
+    "d": 0.1,
+    "c": 0.002,
+    "t": 1e-19
+  },
+  "types": [
+    {
+      "name": "A"
+    },
+    {
+      "name": "C"
+    }
+  ],
+  "initial": [
+    {
+      "type": "A",
+      "count": 3
+    }
+  ],
+  "observables": {
+    "nA": {
+      "type": "A"
+    },
+    "nC": {
+      "type": "C"
+    }
+  },
+  "rules": [
+    {
+      "name": "influx",
+      "reactants": [],
+      "rate": "k",
+      "products": [
+        {
+          "type": "A"
+        }
+      ]
+    },
+    {
+      "name": "death",
+      "reactants": [
+        {
+          "type": "A",
+          "label": "x"
+        }
+      ],
+      "rate": "d",
+      "products": []
+    },
+    {
+      "name": "make_c",
+      "reactants": [
+        {
+          "type": "A",
+          "label": "x"
+        }
+      ],
+      "rate": "c",
+      "products": [
+        {
+          "type": "A",
+          "copy": "x"
+        },
+        {
+          "type": "C"
+        }
+      ]
+    },
+    {
+      "name": "tiny",
+      "reactants": [
+        {
+          "type": "C",
+          "label": "x"
+        }
+      ],
+      "rate": "t",
+      "products": []
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "schema": "crn-craft.rules-model/0.1",
+  "name": "loop_empty",
+  "description": "A rule that matches no instance, so the network has no channels.",
+  "parameters": {
+    "d": 0.5
+  },
+  "types": [
+    {
+      "name": "A",
+      "attributes": [
+        "s"
+      ]
+    }
+  ],
+  "initial": [
+    {
+      "type": "A",
+      "attributes": {
+        "s": 1
+      },
+      "count": 5
+    }
+  ],
+  "observables": {
+    "nA": {
+      "type": "A"
+    }
+  },
+  "rules": [
+    {
+      "name": "never",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A",
+          "where": "x.s == 7"
+        }
+      ],
+      "rate": "d",
+      "products": []
+    }
+  ]
+}

@@ -72,7 +72,7 @@ pub fn execute_with_rules_kernel(
             "Generate and rebuild the kernel for these exact model bytes.",
         ));
     }
-    crate::execute_inner(prepared, control, &crate::NoObserver, Some(kernel))
+    crate::execute_inner(prepared, control, &crate::NoObserver, Some(kernel), None)
 }
 
 fn bits(value: f64) -> String {

@@ -1,0 +1,118 @@
+{
+  "schema": "crn-craft.generated-loop-iterations/0.1",
+  "description": "Iterations of docs/decisions/generated-rules-loop-2026-11-03.md on a two-CPU host. Probe: three-class mtDNA with the 90% takeover stop, 128 cells, 25,920 h, 720 h reports, two class trackers, one worker. 'generic' is Static Direct with Ziggurat waits and sparse trackers (rules-run/0.4); 'default' is Static Direct (rules-run/0.2). Medians of alternating runs; timing is host-specific.",
+  "platform": "Linux-6.18.44-fc-v233-x86_64-with-glibc2.39",
+  "attempts": [
+    {
+      "id": "L0+L1+L2",
+      "change": "Baseline, the first generated loop (L1) and the emitted fused stop predicate (L2), measured in one alternating run of five repeats.",
+      "ns_per_event": {
+        "generic": {
+          "interpreter": 106.7,
+          "L1": 48.8,
+          "L2": 45.5
+        },
+        "default": {
+          "interpreter": 135.3,
+          "L1": 79.7,
+          "L2": 74.6
+        },
+        "mtdna_direct": 36.0
+      },
+      "identical": {
+        "generic": true,
+        "default": true
+      },
+      "decisions": {
+        "L1": "kept: the route itself",
+        "L2": "kept: 7% faster than L1 on the generic request"
+      }
+    },
+    {
+      "id": "L3",
+      "change": "Pass the rule index as a constant to LoopHost::fired instead of looking it up per event.",
+      "ns_per_event": {
+        "generic": {
+          "L2": 48.4,
+          "L3": 49.5
+        },
+        "default": {
+          "L2": 77.0,
+          "L3": 72.4
+        }
+      },
+      "identical": {
+        "generic": true,
+        "default": true
+      },
+      "decisions": {
+        "L3": "reverted: 0.98x on the generic request (default 1.06x)"
+      }
+    },
+    {
+      "id": "L4",
+      "change": "Decision from validation/check_generated_loop.py on the branch head after the review fixes (five alternating repeats).",
+      "ns_per_event": {
+        "generic/interpreter": 113.9,
+        "generic/kernel": 98.9,
+        "generic/loop": 49.3,
+        "default/interpreter": 133.9,
+        "default/kernel": 126.7,
+        "default/loop": 72.4,
+        "special/mtdna_direct": 36.3
+      },
+      "loop_speedup_generic": 2.312,
+      "loop_speedup_default": 1.851,
+      "loop_gap_to_mtdna_direct": 1.359,
+      "decisions": {
+        "L4": "adopted: byte-identical on every replay and 2.31x faster than the interpreter on the generic request (criterion 1.5x); within 1.36x of mtdna_direct (target 1.5x)"
+      }
+    },
+    {
+      "id": "interpreted",
+      "change": "validation/probe_structural_rules.py: the branch CLI against main b4b5f21 (five repeats). Interpreted samplers must stay byte-identical and no workload more than 5% slower.",
+      "workloads": {
+        "mt/generic": {
+          "ns_per_event": {
+            "ref": 107.9,
+            "new": 101.2
+          },
+          "speedup": 1.066,
+          "identical": true
+        },
+        "mt/default": {
+          "ns_per_event": {
+            "ref": 133.7,
+            "new": 127.3
+          },
+          "speedup": 1.05,
+          "identical": true
+        },
+        "mt/special": {
+          "ns_per_event": {
+            "ref": 36.3,
+            "new": 36.2
+          },
+          "speedup": 1.003,
+          "identical": true
+        },
+        "sparse/default": {
+          "ns_per_event": {
+            "ref": 230.1,
+            "new": 236.7
+          },
+          "speedup": 0.972,
+          "identical": true
+        },
+        "sparse/next": {
+          "ns_per_event": {
+            "ref": 123.7,
+            "new": 128.0
+          },
+          "speedup": 0.967,
+          "identical": true
+        }
+      }
+    }
+  ]
+}

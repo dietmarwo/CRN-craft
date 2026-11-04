@@ -7,6 +7,19 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+### Added
+
+- Generated rules event loops (Rust only): `generate_rules_loop` emits the
+  whole Static Direct event for a lowered model with constant or vacancy
+  rates and sum projections, and `execute_with_rules_loop` runs it through
+  the new `RulesLoop` trait and `LoopHost`. Results are byte-identical to
+  `execute` for every Static Direct request on the same model bytes. On the
+  128-cell mtDNA probe it was 2.3× faster than the interpreter under
+  Ziggurat waits and sparse trackers and within 1.36× of `mtdna_direct`.
+  New example `generate_rules_loop`, tests with nine checked-in loops and
+  `validation/check_generated_loop.py`. See
+  `docs/decisions/generated-rules-loop-2026-11-03.md`.
+
 ### Validation
 
 - Recorded a loop of structural changes meant to close the gap between

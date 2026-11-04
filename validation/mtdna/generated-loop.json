@@ -1,0 +1,695 @@
+{
+  "replay": [
+    {
+      "case": "aggregate",
+      "generated": false
+    },
+    {
+      "case": "mt",
+      "method": "static_direct",
+      "workers": 1,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "mt",
+      "method": "static_direct",
+      "workers": 8,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "mt",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 1,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "mt",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 8,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "stop",
+      "method": "static_direct",
+      "workers": 1,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "stop",
+      "method": "static_direct",
+      "workers": 8,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "stop",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 1,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "stop",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 8,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "trackers",
+      "method": "static_direct",
+      "workers": 1,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "trackers",
+      "method": "static_direct",
+      "workers": 8,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "trackers",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 1,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "trackers",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 8,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "log",
+      "method": "static_direct",
+      "workers": 1,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "log",
+      "method": "static_direct",
+      "workers": 8,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "log",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 1,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "log",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 8,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "sparse",
+      "method": "static_direct",
+      "workers": 1,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "sparse",
+      "method": "static_direct",
+      "workers": 8,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "sparse",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 1,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "sparse",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 8,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "immigration",
+      "method": "static_direct",
+      "workers": 1,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "immigration",
+      "method": "static_direct",
+      "workers": 8,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "immigration",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 1,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "immigration",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 8,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "small-stop",
+      "method": "static_direct",
+      "workers": 1,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "small-stop",
+      "method": "static_direct",
+      "workers": 8,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "small-stop",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 1,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "small-stop",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 8,
+      "termination": "completed",
+      "identical": true
+    },
+    {
+      "case": "cold-overflow",
+      "method": "static_direct",
+      "workers": 1,
+      "termination": "failed",
+      "identical": true
+    },
+    {
+      "case": "cold-overflow",
+      "method": "static_direct",
+      "workers": 8,
+      "termination": "failed",
+      "identical": true
+    },
+    {
+      "case": "cold-overflow",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 1,
+      "termination": "failed",
+      "identical": true
+    },
+    {
+      "case": "cold-overflow",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 8,
+      "termination": "failed",
+      "identical": true
+    },
+    {
+      "case": "stop-diagnostic",
+      "method": "static_direct",
+      "workers": 1,
+      "termination": "failed",
+      "identical": true
+    },
+    {
+      "case": "stop-diagnostic",
+      "method": "static_direct",
+      "workers": 8,
+      "termination": "failed",
+      "identical": true
+    },
+    {
+      "case": "stop-diagnostic",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 1,
+      "termination": "failed",
+      "identical": true
+    },
+    {
+      "case": "stop-diagnostic",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 8,
+      "termination": "failed",
+      "identical": true
+    },
+    {
+      "case": "resolution",
+      "method": "static_direct",
+      "workers": 1,
+      "termination": "failed",
+      "identical": true
+    },
+    {
+      "case": "resolution",
+      "method": "static_direct",
+      "workers": 8,
+      "termination": "failed",
+      "identical": true
+    },
+    {
+      "case": "resolution",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 1,
+      "termination": "failed",
+      "identical": true
+    },
+    {
+      "case": "resolution",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 8,
+      "termination": "failed",
+      "identical": true
+    },
+    {
+      "case": "instance",
+      "method": "static_direct",
+      "workers": 1,
+      "termination": "instance_limit",
+      "identical": true
+    },
+    {
+      "case": "instance",
+      "method": "static_direct",
+      "workers": 8,
+      "termination": "instance_limit",
+      "identical": true
+    },
+    {
+      "case": "instance",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 1,
+      "termination": "instance_limit",
+      "identical": true
+    },
+    {
+      "case": "instance",
+      "method": {
+        "kind": "static_direct",
+        "waiting_time": "ziggurat",
+        "sparse_trackers": true
+      },
+      "workers": 8,
+      "termination": "instance_limit",
+      "identical": true
+    }
+  ],
+  "timing": [
+    {
+      "request": "generic",
+      "backend": "interpreter",
+      "repeat": 0,
+      "seconds": 2.2291521580000335,
+      "events": 18440125
+    },
+    {
+      "request": "generic",
+      "backend": "kernel",
+      "repeat": 0,
+      "seconds": 1.711857190000046,
+      "events": 18440125
+    },
+    {
+      "request": "generic",
+      "backend": "loop",
+      "repeat": 0,
+      "seconds": 0.9089318190003723,
+      "events": 18440125
+    },
+    {
+      "request": "generic",
+      "backend": "loop",
+      "repeat": 1,
+      "seconds": 0.9908170759999848,
+      "events": 18440125
+    },
+    {
+      "request": "generic",
+      "backend": "kernel",
+      "repeat": 1,
+      "seconds": 1.8231328550000399,
+      "events": 18440125
+    },
+    {
+      "request": "generic",
+      "backend": "interpreter",
+      "repeat": 1,
+      "seconds": 2.101048381000055,
+      "events": 18440125
+    },
+    {
+      "request": "generic",
+      "backend": "interpreter",
+      "repeat": 2,
+      "seconds": 1.9059374849998676,
+      "events": 18440125
+    },
+    {
+      "request": "generic",
+      "backend": "kernel",
+      "repeat": 2,
+      "seconds": 1.6336061040001368,
+      "events": 18440125
+    },
+    {
+      "request": "generic",
+      "backend": "loop",
+      "repeat": 2,
+      "seconds": 0.8349987950000468,
+      "events": 18440125
+    },
+    {
+      "request": "generic",
+      "backend": "loop",
+      "repeat": 3,
+      "seconds": 0.9589645609999025,
+      "events": 18440125
+    },
+    {
+      "request": "generic",
+      "backend": "kernel",
+      "repeat": 3,
+      "seconds": 1.8377173980002226,
+      "events": 18440125
+    },
+    {
+      "request": "generic",
+      "backend": "interpreter",
+      "repeat": 3,
+      "seconds": 2.005716764999761,
+      "events": 18440125
+    },
+    {
+      "request": "generic",
+      "backend": "interpreter",
+      "repeat": 4,
+      "seconds": 2.1901382719997855,
+      "events": 18440125
+    },
+    {
+      "request": "generic",
+      "backend": "kernel",
+      "repeat": 4,
+      "seconds": 1.828989260999606,
+      "events": 18440125
+    },
+    {
+      "request": "generic",
+      "backend": "loop",
+      "repeat": 4,
+      "seconds": 0.8322710130000814,
+      "events": 18440125
+    },
+    {
+      "request": "default",
+      "backend": "interpreter",
+      "repeat": 0,
+      "seconds": 2.4582532979998177,
+      "events": 18355809
+    },
+    {
+      "request": "default",
+      "backend": "kernel",
+      "repeat": 0,
+      "seconds": 2.397415543000079,
+      "events": 18355809
+    },
+    {
+      "request": "default",
+      "backend": "loop",
+      "repeat": 0,
+      "seconds": 1.4795755200002532,
+      "events": 18355809
+    },
+    {
+      "request": "default",
+      "backend": "loop",
+      "repeat": 1,
+      "seconds": 1.3283142099999168,
+      "events": 18355809
+    },
+    {
+      "request": "default",
+      "backend": "kernel",
+      "repeat": 1,
+      "seconds": 2.2361481560001266,
+      "events": 18355809
+    },
+    {
+      "request": "default",
+      "backend": "interpreter",
+      "repeat": 1,
+      "seconds": 2.445673288999842,
+      "events": 18355809
+    },
+    {
+      "request": "default",
+      "backend": "interpreter",
+      "repeat": 2,
+      "seconds": 2.4489511840001796,
+      "events": 18355809
+    },
+    {
+      "request": "default",
+      "backend": "kernel",
+      "repeat": 2,
+      "seconds": 2.3255084289999104,
+      "events": 18355809
+    },
+    {
+      "request": "default",
+      "backend": "loop",
+      "repeat": 2,
+      "seconds": 1.34791855200001,
+      "events": 18355809
+    },
+    {
+      "request": "default",
+      "backend": "loop",
+      "repeat": 3,
+      "seconds": 1.2753347759999087,
+      "events": 18355809
+    },
+    {
+      "request": "default",
+      "backend": "kernel",
+      "repeat": 3,
+      "seconds": 2.269124586000089,
+      "events": 18355809
+    },
+    {
+      "request": "default",
+      "backend": "interpreter",
+      "repeat": 3,
+      "seconds": 2.5924597809998886,
+      "events": 18355809
+    },
+    {
+      "request": "default",
+      "backend": "interpreter",
+      "repeat": 4,
+      "seconds": 2.9431657860000087,
+      "events": 18355809
+    },
+    {
+      "request": "default",
+      "backend": "kernel",
+      "repeat": 4,
+      "seconds": 2.583828208000341,
+      "events": 18355809
+    },
+    {
+      "request": "default",
+      "backend": "loop",
+      "repeat": 4,
+      "seconds": 1.3251075389998732,
+      "events": 18355809
+    },
+    {
+      "request": "special",
+      "backend": "mtdna_direct",
+      "repeat": 0,
+      "seconds": 0.6611675789999936,
+      "events": 18418274
+    },
+    {
+      "request": "special",
+      "backend": "mtdna_direct",
+      "repeat": 1,
+      "seconds": 0.7046030670003347,
+      "events": 18418274
+    },
+    {
+      "request": "special",
+      "backend": "mtdna_direct",
+      "repeat": 2,
+      "seconds": 0.6718507089999548,
+      "events": 18418274
+    },
+    {
+      "request": "special",
+      "backend": "mtdna_direct",
+      "repeat": 3,
+      "seconds": 0.6507527580001806,
+      "events": 18418274
+    },
+    {
+      "request": "special",
+      "backend": "mtdna_direct",
+      "repeat": 4,
+      "seconds": 0.6679239899999629,
+      "events": 18418274
+    }
+  ],
+  "build_seconds": 18.66912463200015,
+  "fingerprint_rejected": true,
+  "summary": {
+    "generic/interpreter": {
+      "median_seconds": 2.101048381000055,
+      "events": 18440125,
+      "ns_per_event": 113.93894461127867
+    },
+    "generic/kernel": {
+      "median_seconds": 1.8231328550000399,
+      "events": 18440125,
+      "ns_per_event": 98.86770588594382
+    },
+    "generic/loop": {
+      "median_seconds": 0.9089318190003723,
+      "events": 18440125,
+      "ns_per_event": 49.290979263989385
+    },
+    "default/interpreter": {
+      "median_seconds": 2.4582532979998177,
+      "events": 18355809,
+      "ns_per_event": 133.92236201628694
+    },
+    "default/kernel": {
+      "median_seconds": 2.3255084289999104,
+      "events": 18355809,
+      "ns_per_event": 126.69059854566532
+    },
+    "default/loop": {
+      "median_seconds": 1.3283142099999168,
+      "events": 18355809,
+      "ns_per_event": 72.3647870818397
+    },
+    "special/mtdna_direct": {
+      "median_seconds": 0.6679239899999629,
+      "events": 18418274,
+      "ns_per_event": 36.264200977787766
+    }
+  },
+  "loop_speedup_generic": 2.3115577396231464,
+  "loop_speedup_default": 1.850656478334273,
+  "loop_gap_to_mtdna_direct": 1.359218676682844,
+  "platform": "Linux-6.18.44-fc-v233-x86_64-with-glibc2.39",
+  "description": "validation/check_generated_loop.py on a two-CPU host at the branch head: replay of eleven supported cases (one refused) under default Static Direct and the Ziggurat and sparse-tracker options with one and eight workers, fingerprint rejection, and the 128-cell mtDNA probe timing. Timing is host-specific."
+}

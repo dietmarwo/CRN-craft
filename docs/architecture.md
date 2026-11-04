@@ -23,7 +23,7 @@ flowchart TB
 | Component | Responsibility |
 | --- | --- |
 | `crates/crn-craft` | Fixed-network contracts and solvers, compiled stoichiometry and rates, sampling, analysis, export and sealed archives. It also provides the primitives the rules engine reuses: diagnostics, strict JSON parsing, shared contract types, the Ziggurat exponential and indexed reaction clocks. |
-| `crates/crn-craft-rules` | Attributed rules: dynamic (tree) and lowered (static) execution, rule observations, the specialized `mtdna_direct` sampler and generated rules kernels. |
+| `crates/crn-craft-rules` | Attributed rules: dynamic (tree) and lowered (static) execution, rule observations, the specialized `mtdna_direct` sampler, and generated rules kernels and event loops. |
 | `crates/crn-craft-cli` | Dispatches both engines, emits Rust-generated JSON schemas and verifies archives. |
 | `bindings/python` and `python/crn_craft` | Expose prepared execution, Python-friendly results, importers and trajectory analysis. The numerical loops run in Rust. |
 | `integrations/jobs` and `integrations/diffsol` | Optional fcmaes job objectives and deterministic BDF integration with forward sensitivities. They have separate workspaces and lockfiles. |
@@ -140,13 +140,18 @@ The result's sampler identity names the policy that ran.
 | Rules `Prepared.bind_parameters` | Creates a separate prepared candidate with the same run settings. It revalidates and lowers the model, because parameters can change attributes, projections and topology. The candidate's hashes cover the re-serialized model and request. |
 | Generated fixed-network kernel | A Rust propensity kernel that plugs into the fixed-network SSA scheduler, for the supported mass-action subset. Benchmark it before adopting it. |
 | Generated rules kernel | Ahead-of-time Rust for a lowered Static Direct model with constant or vacancy rates and weighted sums. It emits rate and projection code and static dependencies. Its fingerprint is the hash of the emitted source keyed by the model bytes, so another parameter set or a newer generator needs a regenerated kernel. The scheduler keeps selection, waits, budgets and reports, and results are byte-identical to the interpreter. Rust only. |
+| Generated rules loop | Ahead-of-time Rust for the whole Static Direct event of the same model family, up to 1 MiB of source: rates and their dependency updates, the total, the resolution check, selection, count updates, projection refresh and a guarded fraction stop. A host in the crate supplies waits, uniforms, reports, budgets, trackers, event logs and other stop predicates, so one loop serves every Static Direct request for its model bytes. Fingerprinted like the kernel, byte-identical to the interpreter, Rust only. |
 
-The generated rules route is opt-in. In the contributor's eight-worker mtDNA
-measurement it was about 10% faster than the interpreter, and `mtdna_direct`
-remained about three times faster than the generic path. Structural changes
-to the interpreter, including grouped evaluation, did not narrow that gap
-by more than the 5% threshold
-([decision record](decisions/generic-rules-structural-2026-11-03.md)). Use the
+The generated routes are opt-in. In the contributor's eight-worker mtDNA
+measurement the rates kernel was about 10% faster than the interpreter, and
+`mtdna_direct` remained about three times faster than the generic path.
+Structural changes to the interpreter, including grouped evaluation, did
+not narrow that gap by more than the 5% threshold
+([decision record](decisions/generic-rules-structural-2026-11-03.md)).
+The generated loop did: on the two-CPU host's 128-cell probe it was 2.3×
+faster than the interpreter under Ziggurat waits and sparse trackers and
+within 1.36× of `mtdna_direct`, with byte-identical results
+([decision record](decisions/generated-rules-loop-2026-11-03.md)). Use the
 [specialized kernel checklist](specialized-kernels.md) before introducing
 another kernel. See [reusable parameters](reusable-parameters.md) for the
 fixed-network Rust and Python interfaces.

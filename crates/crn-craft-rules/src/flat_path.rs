@@ -5,7 +5,7 @@ use crn_craft::next_reaction::Clocks;
 
 impl Path<'_> {
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn simulate_flat<R: RngCore, O: EventObserver>(
+    pub(super) fn simulate_flat<R: RngCore + 'static, O: EventObserver>(
         &self,
         net: &Network,
         counts: &mut [u64],
@@ -47,6 +47,10 @@ impl Path<'_> {
             )?;
             net.refresh(counts, values)?;
             return Ok(stopped);
+        }
+        if let Some(kernel) = self.generated_loop {
+            return self
+                .simulate_generated_loop(kernel, net, counts, values, words, out, time, monitor);
         }
         let mut live = out.peak_instances;
         let mut cache = net.rate_cache();

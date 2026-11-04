@@ -461,6 +461,12 @@ impl Predicate {
         }
     }
 
+    /// The fused guarded fraction `total > 0 && part >= fraction * total`,
+    /// as observable indices and the fraction, if this predicate is one.
+    pub(crate) fn fraction(&self) -> Option<(usize, usize, f64)> {
+        self.fraction
+    }
+
     pub(crate) fn eval(&self, env: &Env<'_>) -> f64 {
         if let Some((total, part, fraction)) = self.fraction {
             let n = env.observables[total];

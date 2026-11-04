@@ -11,4 +11,4 @@
 - Keep fixed-work numerical reproducibility separate from timing, hardware, paths and interrupted runs.
 - Include a concise implementation log and validation limitations with each iteration.
 - Do not tag, publish packages or push to a remote unless the user requests it.
-- Profile rules models with the generic Static Direct path before adding a specialized kernel. Follow [the rules kernel review checklist](docs/specialized-kernels.md).
+- Profile rules models with the generic Static Direct path, then the generated event loop where it applies, before adding a specialized kernel. Follow [the rules kernel review checklist](docs/specialized-kernels.md).

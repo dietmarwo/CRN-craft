@@ -164,9 +164,11 @@ Python code written for the NumPy results of 0.2.0:
 - **Discovery:** clients of the native CLI's `describe` must accept
   `crn-craft.describe/0.12` and the new rules entries; core and Python
   discovery are unchanged at 0.10.
-- **Rust:** `Method` gains a `Hybrid` variant and the result types the 0.3
-  version with `method` and `continuous`; exhaustive matches over them need
-  the new arms.
+- **Rust (`crn-craft-rules`):** `Method` gains `Hybrid { rtol, atol }`,
+  `RunVersion` gains `V05` and `ResultVersion` `V03`, so exhaustive matches
+  need the new arms. `RulesResult` gains `method` and `continuous`, the
+  model gains `continuous`, and a rule's `rate` is now `Option<String>`
+  next to the new `propensity: Option<String>`.
 
 ## [0.2.0] - 2026-11-04
 

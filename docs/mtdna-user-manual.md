@@ -53,8 +53,8 @@ pandas is a required dependency since 0.3.0, because results are pandas
 DataFrames.
 
 The Python package contains the native engine, so the CLI is optional. Every
-feature in this manual is in release 0.3.0 unless it is marked as
-unreleased; features that exist only in Rust are marked where they appear.
+feature in this manual is in release 0.4.0; features that exist only in
+Rust are marked where they appear.
 
 Both packages install a command named `crn-craft`. The rules commands
 (`rules-check`, `rules`, `describe rules-run`) exist only in the native CLI
@@ -862,8 +862,7 @@ Direct, at its speed.
 
 ### Optional: compiled event loop
 
-*Opt-in, off by default; needs a Rust toolchain. Unreleased: in `main`
-after 0.3.0.*
+*Opt-in, off by default; needs a Rust toolchain. New in 0.4.0.*
 
 `rules.compile_loop(model)` compiles the whole Static Direct event of one
 model into a small native program; `compiled=` then runs Static Direct
@@ -1739,7 +1738,7 @@ println!("{} cells stopped", result.stopped_replicates);
   constant-rate channels it can be slower, so measure first
   ([details](specialized-kernels.md#generated-rules-event-loops)). From
   Python, `rules.compile_loop` builds such a loop into a separate program
-  and runs it (section 8, unreleased).
+  and runs it (section 8).
 
 ## 17. Checking results
 
@@ -1781,7 +1780,7 @@ validate the model against biology.
 | `keep_paths` | how many cells keep their full observable series (`result.paths`); `"all"` or `True` for every cell |
 | `keep_instances` | how many cells keep their final instances (`metadata["final_instances"]`) |
 | `method` | a method name or dictionary (section 8) |
-| `compiled` | a loop from `rules.compile_loop` for this model, run by `simulate()` (section 8, unreleased) |
+| `compiled` | a loop from `rules.compile_loop` for this model, run by `simulate()` (section 8) |
 | `trackers` | list of `{"observable", "first_passage"?, "keep_episodes"?}` |
 | `event_log` | `{"max_entries": n, "rules": [...]}` |
 | budgets | `max_events`, `max_sampling_steps`, `max_instances`, `max_output_bytes`, `wall_time_s` |

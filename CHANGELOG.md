@@ -7,6 +7,16 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-06
+
+Faster generic Static Direct for Python: new defaults in rules-run/0.6
+(Ziggurat waits and sparse trackers, 1.17× per event on the three-class
+mtDNA model) and an opt-in compiled event loop (`rules.compile_loop`,
+byte-identical to the interpreter, 2.2× on that model). Together 7.0 s →
+2.6 s on the 1000-cell case of the performance analysis. Python
+`static_direct` results use a different random stream by default; see
+Migration.
+
 Static Direct gets faster defaults in a new request version. Stored
 rules-model 0.1–0.3 files and rules-run 0.1–0.5 requests keep their meaning
 and replay byte-identically; Python's `method="static_direct"` now samples
@@ -626,6 +636,7 @@ iterations that make up this release follow.
 - Experimental non-negative Poisson leaping with explicit approximate request/result schemas.
 - Ten performance experiments and same-host reference/quality evidence; no package publishing.
 
-[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/dietmarwo/CRN-craft/releases/tag/v0.2.0

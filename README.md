@@ -4,7 +4,7 @@
 
 Native Rust foundations for well-mixed chemical reaction networks, designed for reproducible simulation and optimization workflows.
 
-**Version 0.3.0.** Install the Python package with `pip install crn-craft` and the native CLI with `cargo install crn-craft-cli --locked`; the libraries are the crates `crn-craft` and `crn-craft-rules`. Optional integrations build from this repository. Native Direct, dependency-cached SSA, DirectCR, SortingDirect, RSSACR and next reaction, sparse FSP and explicitly approximate Poisson leaps execute, as does the experimental rules engine with Python ensembles, a Python model builder, pandas results and continuous variables (`hybrid`). Optional Python bindings, trajectory diagnostics, pinned fcmaes job applications, diffsol BDF/forward sensitivities, global-to-SQP fitting and explicit SBML/BioNetGen import subsets are included. The default Rust engine remains independent of Python, jobs and ODE dependencies. A successful numerical run is not biological validation.
+**Version 0.4.0.** Install the Python package with `pip install crn-craft` and the native CLI with `cargo install crn-craft-cli --locked`; the libraries are the crates `crn-craft` and `crn-craft-rules`. Optional integrations build from this repository. Native Direct, dependency-cached SSA, DirectCR, SortingDirect, RSSACR and next reaction, sparse FSP and explicitly approximate Poisson leaps execute, as does the experimental rules engine with Python ensembles, a Python model builder, pandas results and continuous variables (`hybrid`). Optional Python bindings, trajectory diagnostics, pinned fcmaes job applications, diffsol BDF/forward sensitivities, global-to-SQP fitting and explicit SBML/BioNetGen import subsets are included. The default Rust engine remains independent of Python, jobs and ODE dependencies. A successful numerical run is not biological validation.
 
 Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/architecture.md), the [technical report](docs/technical-report.md) (design, validation and measured performance), the [comparison with GillesPy2](docs/comparison-gillespy2.md) and `crn-craft describe`. Every document is listed under [Documentation](#documentation). Legacy input/result/archive contracts remain available; new approximate/FSP results use distinct schemas.
 
@@ -262,13 +262,17 @@ mutation log fits the default budget. See the
 [mtDNA user manual](docs/mtdna-user-manual.md) and the
 [changelog](CHANGELOG.md) for migration notes.
 
-Since 0.3.0, rules-run/0.6 makes Ziggurat waiting times and sparse count
-trackers the Static Direct defaults, 1.17× faster per event on the
+Release 0.4.0 makes Ziggurat waiting times and sparse count trackers the
+Static Direct defaults in rules-run/0.6, 1.17× faster per event on the
 three-class model, and Python's `method="static_direct"` selects it. The
 new default uses the random stream differently;
 `{"kind": "static_direct", "waiting_time": "inverse", "sparse_trackers": False}`
 reproduces the numbers of 0.3.0, and stored requests replay unchanged
 ([Static Direct options](docs/mtdna-rules.md#generic-static-direct-options)).
+Opt-in, `rules.compile_loop` compiles a model's Static Direct event loop
+with a local Rust toolchain into a cached program whose results are
+byte-identical to the interpreter's, about 2.2× faster on that model
+([manual](docs/mtdna-user-manual.md#optional-compiled-event-loop)).
 
 ## Developer checks
 

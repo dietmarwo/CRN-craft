@@ -7,6 +7,10 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+### Changed
+
+- README: links the [overview of the 18 related repositories](https://github.com/dietmarwo/fcmaes-rust/blob/main/docs/repositories.md).
+
 ## [0.4.0] - 2026-11-06
 
 Faster generic Static Direct for Python: new defaults in rules-run/0.6

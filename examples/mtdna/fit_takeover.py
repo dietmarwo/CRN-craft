@@ -29,11 +29,10 @@ def template(cells, seed, threads=2):
 def summaries(result):
     """Fraction of cells taken over by each age, and mean mutant fraction."""
     stop = result.records["stop_time"]
-    stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
+    stopped = result.records["termination"] == "stopped"
     taken = np.array([(stopped & (stop <= 24.0 * d)).mean() for d in DAYS])
-    names = result.metadata["observables"]
-    mean = result.statistics["mean"][1:]
-    load = mean[:, names.index("mutants")] / mean[:, names.index("N")]
+    mean = result.statistics["mean"].iloc[1:]  # the report times after day 0
+    load = (mean["mutants"] / mean["N"]).to_numpy()
     return taken, load
 
 

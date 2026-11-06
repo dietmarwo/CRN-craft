@@ -1,15 +1,22 @@
 """Write a model and a run request for the command line, and run them.
 
-Usage: python examples/mtdna/11_cli_request.py DIRECTORY [CRN_CRAFT_BINARY]
+Usage: python examples/mtdna/11_cli_request.py [DIRECTORY [CRN_CRAFT_BINARY]]
+
+DIRECTORY defaults to `takeover` in the temporary directory, /tmp/takeover
+on Linux. With the native CLI binary, the script also runs the request.
 """
 
 import hashlib
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
-folder = Path(sys.argv[1])
+if len(sys.argv) > 1:
+    folder = Path(sys.argv[1])
+else:
+    folder = Path(tempfile.gettempdir()) / "takeover"
 folder.mkdir(parents=True, exist_ok=True)
 model = json.loads(Path("models/rules/mtdna-three-class.rules.json").read_text())
 model["stop"] = "N > 0 && mutants >= 0.9 * N"

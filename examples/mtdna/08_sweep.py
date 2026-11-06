@@ -23,8 +23,7 @@ for mu in (1e-5, 3e-5, 1e-4):
     row = []
     for sm in (1.0, 1.25, 1.5, 2.0):
         result = template.bind_parameters({"mu": mu, "sm": sm}).simulate()
-        stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
-        row.append(stopped.mean())
+        row.append((result.records["termination"] == "stopped").mean())
     print(f"{mu:9.0e}  " + "".join(f"{v:8.3f}" for v in row))
 print(f"12 candidates in {time.perf_counter() - start:.1f} s")
 # The same seed gives every candidate the same random streams (common

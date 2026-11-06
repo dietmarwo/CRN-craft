@@ -11,10 +11,10 @@ methods = {
     "tree": None,
     "static_direct": "static_direct",
     "static_direct, ziggurat": {"kind": "static_direct", "waiting_time": "ziggurat"},
-    "mtdna_direct": "mtdna_direct",
     "next_reaction": "next_reaction",
     "tau (epsilon 0.03)": {"kind": "tau", "epsilon": 0.03},
     "binomial (1 h steps)": {"kind": "binomial", "step": 1.0},
+    "mtdna_direct (opt-in)": "mtdna_direct",
 }
 for label, method in methods.items():
     run = rules.ensemble(
@@ -30,10 +30,9 @@ for label, method in methods.items():
     result = run.simulate()
     seconds = time.perf_counter() - start
     meta = result.metadata
-    stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
-    mean = result.statistics["mean"]
-    names = meta["observables"]
-    fraction = mean[-1, names.index("mutants")] / mean[-1, names.index("N")]
+    stopped = result.records["termination"] == "stopped"
+    final = result.statistics["mean"].iloc[-1]  # the means at the last report time
+    fraction = final["mutants"] / final["N"]
     print(
         f"{label:24s} {seconds:6.2f} s  {meta['events']:>11,} events  "
         f"taken over {stopped.sum():2d}  final mutant fraction {fraction:.3f}  "

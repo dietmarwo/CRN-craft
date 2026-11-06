@@ -274,7 +274,16 @@ def main():
                         sort_keys=True,
                     ).encode()
                 )
-                for key, values in sorted(out.records.items()):
+                # The bytes of the former NumPy record columns, so that the
+                # signature stays comparable with recorded rows.
+                records = out.records
+                columns = {k: records[k].to_numpy() for k in records.columns}
+                columns["termination"] = (
+                    records["termination"].cat.codes.to_numpy().astype("u1")
+                )
+                columns["id"] = records.index.to_numpy().astype("<u8")
+                columns["rule_events"] = out.rule_events.to_numpy()
+                for key, values in sorted(columns.items()):
                     signature.update(key.encode())
                     signature.update(values.tobytes())
                 hashes.append(signature.hexdigest())

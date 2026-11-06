@@ -3,9 +3,11 @@
 This manual is for researchers who simulate how mitochondrial DNA mutants
 arise and spread in single cells. It shows how to do it with the rules
 engine of CRN-craft, from Python, from the command line and from Rust. Every
-scenario comes with a complete example in `examples/mtdna/`. The examples
-were run as printed. Each one's output is shown below it, timings from a
-two-CPU Linux host.
+Python block is a complete program: copy it and run it from the repository
+root. Most are also in `examples/mtdna/`. The examples were run as printed.
+Each one's output is shown below it, timings from a two-CPU Linux host.
+`validation/check_manual.py` runs every block and compares its output with
+the manual.
 
 Companion documents:
 
@@ -41,8 +43,11 @@ Contents:
 
 ```sh
 pip install crn-craft                    # Python package (abi3 wheels for CPython 3.10+)
+pip install "crn-craft[xarray]"          # optional: results as xarray Datasets
 cargo install crn-craft-cli --locked     # optional: the native command-line tool
 ```
+
+The Python package needs NumPy and pandas, which pip installs with it.
 
 The Python package contains the native engine, so the CLI is optional. Every
 feature in this manual is in release 0.2.0; features that exist only in Rust
@@ -85,7 +90,7 @@ Replication can produce a mutant. The repository has four model files:
 
 | File | What it models | Methods |
 | --- | --- | --- |
-| `mtdna-three-class.rules.json` | fixed population target; wild type, neutral mutants and advantaged mutants as three classes | every static method, `mtdna_direct`, `tree` |
+| `mtdna-three-class.rules.json` | fixed population target; wild type, neutral mutants and advantaged mutants as three classes | every generic method, and the opt-in fast path `mtdna_direct` |
 | `mtdna-three-class-cme.rules.json` | the same with K = 20 and fast rates, for exact checks against the master equation | as above |
 | `mtdna-three-class-atp.rules.json` | variable population: replication limited by a cellular ATP balance | `thinning` |
 | `mtdna-fixed.rules.json` | every new mutant is its own clone with an identity | `tree` |
@@ -131,16 +136,22 @@ stop condition. The examples add the takeover rule used throughout this
 manual, `N > 0 && mutants >= 0.9 * N`: a cell is taken over when 90% of its
 molecules are mutants.
 
-The order of observables in results is sorted by name, not the order in the
-file. Look up a column with `result.metadata["observables"].index("N")`
-instead of assuming a position.
+Results are pandas DataFrames whose columns carry the observable names, so
+select a column by name, as in `result.statistics["mean"]["N"]`. Observable
+columns are sorted by name, not in the order of the file; the raw matrices
+in `result.metadata` use the same order.
 
 ## 3. A first ensemble
 
 An *ensemble* is a set of independent replicates of the model. Here each
 replicate is one cell. `rules.ensemble` builds and validates a run request
 and prepares it; `simulate()` runs the cells on native threads and returns
-NumPy columns.
+pandas DataFrames.
+
+Most examples pass `method="mtdna_direct"`, an opt-in fast path for the
+three-class structure of this model (section 8). `method="static_direct"`
+runs the same model, and any other closed model, about 3.9× slower; the
+numbers then differ cell by cell but not in distribution.
 
 ```python
 """Three-class model: 200 cells for three years with the takeover stop."""
@@ -168,23 +179,29 @@ result = run.simulate()
 seconds = time.perf_counter() - start
 
 meta = result.metadata
-records = result.records
-stopped = records["termination"] == rules.TERMINATIONS.index("stopped")
+records = result.records  # one row per cell
+stopped = records["termination"] == "stopped"
 print(meta["sampler"], meta["termination"])
 print(f"{meta['events']:,} events in {seconds:.2f} s")
-print(f"taken over: {stopped.sum()} of {len(stopped)} cells")
-print("takeover days (first five):", np.sort(records["stop_time"][stopped])[:5] / 24)
-names = meta["observables"]
-mean = result.statistics["mean"]
-fraction = mean[:, names.index("mutants")] / mean[:, names.index("N")]
-for day, value in zip(days, fraction, strict=True):
-    print(f"day {day:5d}: mean mutant fraction {value:.4f}")
+print(f"taken over: {stopped.sum()} of {len(records)} cells")
+print(records[["termination", "stop_time", "events"]].head(3))
+first = records.loc[stopped, "stop_time"].nsmallest(5)
+print("takeover days (first five):", first.to_numpy() / 24)
+mean = result.statistics["mean"]  # one row per report time
+fraction = mean["mutants"] / mean["N"]
+for hours, value in fraction.items():
+    print(f"day {hours / 24:5.0f}: mean mutant fraction {value:.4f}")
 ```
 
 ```text
 chacha8-u53-ziggurat/rules-mtdna-direct/1 completed
 28,536,814 events in 0.53 s
 taken over: 23 of 200 cells
+          termination  stop_time  events
+replicate                               
+0           completed    25920.0  148726
+1           completed    25920.0  149476
+2           completed    25920.0  150111
 takeover days (first five): [272.73509567 300.76054915 304.31896137 358.80591137 426.00462126]
 day     0: mean mutant fraction 0.0000
 day    90: mean mutant fraction 0.0004
@@ -203,14 +220,21 @@ day  1080: mean mutant fraction 0.1097
 
 What the result holds:
 
+- `result.records`: a DataFrame with one row per cell, indexed by
+  `replicate`, the cell's index. The columns are `started`, `termination`,
+  `stop_time`, `events`, `rng_words`, `peak_instances`, `created_instances`
+  and `saved_points`. `termination` is categorical: compare it with a name
+  such as `"stopped"` (section 17 lists them).
+- `result.rule_events`: events per cell and rule, one column per rule name.
+- `result.statistics`: a dictionary of DataFrames `mean`, `sample_variance`
+  and `mean_standard_error`, indexed by report `time` with one column per
+  observable, and `samples`, the number of cells. They are withheld (`None`)
+  if any cell ended early for a budget reason.
+- `result.paths`: the kept series of single cells (next section).
 - `result.metadata`: the full result document (sampler, termination,
   totals, statistics, kept paths, observations, diagnostics).
-- `result.records`: one entry per cell. The columns are `id`, `started`,
-  `termination`, `stop_time`, `events`, `rng_words`, `peak_instances`,
-  `created_instances`, `saved_points` and `rule_events` (cells × rules).
-- `result.statistics`: `mean`, `sample_variance` and `mean_standard_error`
-  (report times × observables), and `samples`. They are withheld if any
-  cell ended early for a budget reason.
+
+`.to_numpy()` turns any DataFrame or column into a NumPy array.
 
 Report times are right-continuous: an event exactly at a report time is
 included. A cell that stops holds its state at every later report time.
@@ -227,7 +251,6 @@ larger ensemble.
 
 import json
 
-import numpy as np
 from crn_craft import rules
 
 model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
@@ -243,20 +266,19 @@ def run(seed, threads):
         seed=seed,
         threads=threads,
         method="mtdna_direct",
-        keep_paths=64,
+        keep_paths="all",  # every cell's series, as result.paths
     )
     return ensemble.simulate()
 
 
 one, two, other = run(7, 1), run(7, 2), run(8, 2)
-same = all(np.array_equal(one.records[k], two.records[k]) for k in one.records)
+same = one.records.equals(two.records) and one.rule_events.equals(two.rule_events)
 print("1 vs 2 threads, same seed, identical records:", same)
-print(
-    "same statistics:", np.array_equal(one.statistics["mean"], two.statistics["mean"])
-)
+print("same statistics:", one.statistics["mean"].equals(two.statistics["mean"]))
+print("same paths:", one.paths.equals(two.paths))
 print(
     "seed 7 vs 8, identical stop times:",
-    np.array_equal(one.records["stop_time"], other.records["stop_time"]),
+    one.records["stop_time"].equals(other.records["stop_time"]),
 )
 # Replicate i always uses the same stream, whatever the ensemble size.
 small = rules.ensemble(
@@ -270,16 +292,42 @@ small = rules.ensemble(
 ).simulate()
 print(
     "first 8 of 64 equal an 8-cell run:",
-    np.array_equal(small.records["events"], one.records["events"][:8]),
+    small.records["events"].equals(one.records["events"].head(8)),
 )
+print(one.paths[["N", "mutants"]].head(5))
 ```
 
 ```text
 1 vs 2 threads, same seed, identical records: True
 same statistics: True
+same paths: True
 seed 7 vs 8, identical stop times: False
 first 8 of 64 equal an 8-cell run: True
+                        N  mutants
+replicate time                    
+0         0.0      1000.0      0.0
+          8640.0    998.0      1.0
+          17280.0   997.0      0.0
+          25920.0   999.0      0.0
+1         0.0      1000.0      0.0
 ```
+
+`keep_paths` decides which cells keep their observable series: a count
+keeps cells 0, 1, … up to it, and `"all"` (or `True`) keeps every cell.
+`result.paths` holds them as one DataFrame indexed by (`replicate`,
+`time`), with one column per observable. Some common forms:
+
+- `result.paths.loc[3]`: cell 3's series;
+- `result.paths.xs(8640.0, level="time")`: every kept cell at day 360;
+- `result.paths["mutants"].unstack("time")`: cells × report times;
+- `result.to_xarray()`: an xarray Dataset with dimensions `replicate` and
+  `time`, one variable per observable (`pip install "crn-craft[xarray]"`).
+
+A cell that ended on a budget has rows only up to its last saved report
+time; `to_xarray()` fills the rest with NaN. Kept paths count against
+`max_output_bytes`; the
+[performance analysis](mtdna-performance-analysis.md#8-sizing-a-study)
+gives their size.
 
 Each method has its own sampler identity in `metadata["sampler"]`. The same
 seed gives different trajectories under different methods. Results are
@@ -296,18 +344,49 @@ The two common outputs are:
 - **Time-to-threshold distribution:** the stop times of the stopped cells.
 
 ```python
-stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
-ages = 24.0 * np.array([360, 720, 1080])
-taken = [(stopped & (result.records["stop_time"] <= a)).mean() for a in ages]
+"""Takeover fraction by age and time to the 90% threshold."""
+
+import json
+
+from crn_craft import rules
+
+model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
+model["stop"] = "N > 0 && mutants >= 0.9 * N"
+result = rules.ensemble(
+    model,
+    end=25_920.0,
+    report_times=[0.0, 25_920.0],
+    replicates=200,
+    seed=1,
+    threads=2,
+    method="mtdna_direct",
+).simulate()
+stopped = result.records["termination"] == "stopped"
+for age in (360, 720, 1080):
+    taken = (stopped & (result.records["stop_time"] <= 24.0 * age)).mean()
+    print(f"taken over by day {age:4d}: {taken:.3f}")
+days = result.records.loc[stopped, "stop_time"] / 24
+print(f"days to 90% mutants: first {days.min():.0f}, median {days.median():.0f}")
 ```
+
+```text
+taken over by day  360: 0.020
+taken over by day  720: 0.055
+taken over by day 1080: 0.115
+days to 90% mutants: first 273, median 726
+```
+
+These are the 200 cells of section 3: the same seed gives the same cells
+whatever the report times.
 
 Any expression over parameters and observables can be a stop, for example
 `mutants >= 0.6 * N` for a 60% COX-deficiency threshold, or
-`advantaged_mutants > 0` to stop at the first advantaged mutant.
-`mtdna_direct` runs at full speed with no stop or with the guarded fraction
-form `N > 0 && mutants >= f * N`. Any other stop makes it fall back to Static
-Direct with a warning (section 12). To record a threshold without ending
-the cell, use a first-passage tracker (next section).
+`advantaged_mutants > 0` to stop at the first advantaged mutant. Every
+method accepts any stop. The fast path `mtdna_direct` keeps its speed only
+with no stop or the guarded fraction `N > 0 && mutants >= f * N`; any other
+stop makes it fall back to Static Direct with a warning (sections 8 and
+12). To record a threshold without ending the cell, use a first-passage
+tracker (next section).
 
 ## 6. Event-level bookkeeping with trackers
 
@@ -329,7 +408,6 @@ report per cell:
 
 import json
 
-import numpy as np
 from crn_craft import rules
 
 model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
@@ -351,10 +429,11 @@ run = rules.ensemble(
 )
 result = run.simulate()
 print("sampler:", result.metadata["sampler"])
+# One DataFrame per tracker, one row per cell.
 neutral = result.tracker_columns(0)
 advantaged = result.tracker_columns(1)
 passage = result.tracker_columns(2)
-stop = result.records["stop_time"]
+print(advantaged[["appearances", "extinctions", "maximum", "integral"]].head(3))
 print("neutral lineages arising per cell:", neutral["appearances"].mean())
 print("neutral lineages lost per cell:   ", neutral["extinctions"].mean())
 print(
@@ -364,12 +443,12 @@ print(
 )
 print("largest advantaged class seen:    ", advantaged["maximum"].max())
 # The integral runs until the replicate's stop or the horizon.
-load = advantaged["integral"] / stop
+load = advantaged["integral"] / result.records["stop_time"]
 print("time-averaged advantaged count, mean over cells:", load.mean())
-hit = ~np.isnan(passage["first_passage"])
+reached = passage["first_passage"].dropna()  # NaN: never reached 60%
 print(
-    f"cells reaching 60% mutants: {hit.sum()}; median day "
-    f"{np.median(passage['first_passage'][hit]) / 24:.0f}"
+    f"cells reaching 60% mutants: {len(reached)}; median day "
+    f"{reached.median() / 24:.0f}"
 )
 # Episodes: each excursion of a class above zero, with start, end, peak.
 first = next(o for o in result.observations if o["trackers"][1]["episodes"])
@@ -379,6 +458,11 @@ for episode in first["trackers"][1]["episodes"]:
 
 ```text
 sampler: chacha8-u53-ziggurat/rules-mtdna-direct/1
+           appearances  extinctions  maximum   integral
+replicate                                              
+0                    0            0      0.0   0.000000
+1                    1            1      1.0  64.109016
+2                    0            0      0.0   0.000000
 neutral lineages arising per cell: 1.566
 neutral lineages lost per cell:    1.472
 advantaged lineages arising/lost:  0.404 0.266
@@ -407,22 +491,15 @@ The last bits of an integral can then differ from per-event integration.
 An *event log* keeps, for every cell, up to `max_entries` events of the
 listed rules (all rules if the list is empty). Each entry holds the time,
 the rule, the participating instances and the observables after the event.
-A *live callback* is a Python function called for every committed event. It
-may stop a cell by returning `False`.
 
 ```python
-"""Exact event records: the event log and live callbacks."""
+"""Exact event records: a bounded event log for every cell."""
 
 import json
-from collections import Counter
 
-import numpy as np
 from crn_craft import rules
 
 model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
-names = [rule["name"] for rule in model["rules"]]
-
-# 1. A bounded log of selected rules for every cell.
 run = rules.ensemble(
     model,
     end=25_920.0,
@@ -434,33 +511,39 @@ run = rules.ensemble(
     event_log={"max_entries": 50, "rules": ["mutation_mt", "mutation_mtAdv"]},
 )
 result = run.simulate()
-total = Counter()
-for observation in result.observations:
-    for entry in observation["log"]:
-        total[names[entry["rule"]]] += 1
-print("logged mutation events:", dict(total))
+# Every logged event, indexed by (replicate, entry); rule_name names the rule.
+log = result.event_columns()
+counts = log.groupby("rule_name", observed=True).size()
+print("logged mutation events:", counts.to_dict())
 print("omitted (log full):", sum(o["omitted_log_entries"] for o in result.observations))
-columns = result.event_columns(result.observations[0]["id"])
-print(
-    "cell",
-    result.observations[0]["id"],
-    "mutation days:",
-    np.round(columns["time"] / 24, 1),
-)
-observables = result.metadata["observables"]
-print("N after each logged event:", columns["observables"][:, observables.index("N")])
+cell = log.loc[0]  # the log of cell 0
+print(cell[["time", "rule", "rule_name", "N", "mutants"]])
+print("cell 0 mutation days:", (cell["time"] / 24).round(1).tolist())
+```
 
-# 2. A live callback sees every committed event in order; returning False
-#    stops that replicate. Callbacks hold the GIL, so use them on few cells.
-seen = Counter()
+```text
+logged mutation events: {'mutation_mt': 157, 'mutation_mtAdv': 40}
+omitted (log full): 0
+               time  rule       rule_name      N  mutants
+entry                                                    
+0       7762.480758     2     mutation_mt  997.0      1.0
+1      17858.018331     3  mutation_mtAdv  999.0      1.0
+cell 0 mutation days: [323.4, 744.1]
+```
 
+A *live callback* is a Python function called for every committed event of
+a cell, in order. Returning `False` stops that cell. Each event carries the
+rule index; `run.rule_names[event["rule"]]` gives the rule's name:
 
-def watch(replicate, event):
-    seen[event["rule"]] += 1
-    # Stop a cell as soon as an advantaged mutant arises.
-    return event["rule"] != names.index("mutation_mtAdv")
+```python
+"""Exact event records: a live callback that stops cells."""
 
+import json
+from collections import Counter
 
+from crn_craft import rules
+
+model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
 run = rules.ensemble(
     model,
     end=25_920.0,
@@ -470,18 +553,26 @@ run = rules.ensemble(
     threads=1,
     method="static_direct",
 )
+seen = Counter()
+
+
+def watch(replicate, event):
+    """Count events by rule; stop a cell at its first advantaged mutant."""
+    name = run.rule_names[event["rule"]]
+    seen[name] += 1
+    return name != "mutation_mtAdv"
+
+
+# Callbacks hold the GIL, so use them on few cells.
 result = run.simulate(callback=watch)
-stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
+stopped = result.records["termination"] == "stopped"
 print("events seen by the callback:", sum(seen.values()))
 print("cells stopped at their first advantaged mutation:", stopped.sum())
-print("their stop days:", np.round(result.records["stop_time"][stopped] / 24, 1))
+days = result.records.loc[stopped, "stop_time"] / 24
+print("their stop days:", days.round(1).to_numpy())
 ```
 
 ```text
-logged mutation events: {'mutation_mt': 157, 'mutation_mtAdv': 40}
-omitted (log full): 0
-cell 0 mutation days: [323.4 744.1]
-N after each logged event: [997. 999.]
 events seen by the callback: 2512850
 cells stopped at their first advantaged mutation: 7
 their stop days: [ 744.1  364.2  914.2  232.4   47.8 1061.3  747.2]
@@ -502,23 +593,35 @@ Rules for observation:
   it on a few cells, and use trackers or logs for whole ensembles.
 - Log retention counts against the admission budget. Large logs need small
   cohorts and a larger `max_output_bytes`.
-- `batch_callback=fn` replays the retained log after the run in chunks, and
-  `result.event_columns(id)` returns time, rule and observables as arrays.
+- `batch_callback=fn` replays the retained log after the run in chunks.
+- `result.event_columns()` returns every logged event as one DataFrame
+  indexed by (`replicate`, `entry`): `time`, `rule` (the index),
+  `rule_name`, then the observables after the event.
+  `result.event_columns(id)` returns one cell's log. Participating
+  instances are in `result.observations`.
 
 ## 8. Choosing a method
 
+The generic methods run every model within their scope. None of them
+depends on mtDNA or on the names in a model:
+
+| `method` | Kind | Scope | Use it for |
+| --- | --- | --- | --- |
+| `"static_direct"` | exact | closed models (a fixed set of attribute vectors) | the default for most work |
+| `{"kind": "static_direct", "waiting_time": "ziggurat", "sparse_trackers": True}` | exact | closed models | Static Direct with faster waiting times and sparse count trackers; its own replay identity |
+| `"next_reaction"` | exact | closed models | Gibson–Bruck; pays off in large sparse networks, not here, where every event changes every rate |
+| `None` (tree) | exact | every model without an ATP block | models whose instances change identity, such as the clone model |
+| `{"kind": "tau", "epsilon": 0.03}` | approximate | closed models | adaptive Poisson leaps; at K = 1000 the vacancy limits leaps, so it runs exact events |
+| `{"kind": "binomial", "step": 1.0}` | approximate | closed models with single-parent unit births and deaths | fixed hourly splitting, similar to a binomial hourly scheme in Java |
+
+Two methods serve one model structure each:
+
 | `method` | Kind | Use it for |
 | --- | --- | --- |
-| `"mtdna_direct"` | exact | the three-class model: certified once at preparation, about 3× faster than Static Direct |
-| `"static_direct"` | exact | any closed model (fixed set of attribute vectors); the default for most work |
-| `{"kind": "static_direct", "waiting_time": "ziggurat", "sparse_trackers": True}` | exact | Static Direct with faster waiting times and sparse count trackers; its own replay identity |
-| `"next_reaction"` | exact | Gibson–Bruck; pays off in large sparse networks, not here, where every event changes every rate |
-| `None` (tree) | exact | models whose instances change identity, such as the clone model |
-| `{"kind": "tau", "epsilon": 0.03}` | approximate | adaptive Poisson leaps; at K = 1000 the vacancy limits leaps, so it runs exact events |
-| `{"kind": "binomial", "step": 1.0}` | approximate | fixed hourly splitting, similar to a binomial hourly scheme in Java |
-| `"thinning"` | exact | the ATP model (section 10) |
+| `"mtdna_direct"` | exact | an opt-in fast path for the three-class fixed-population structure, about 3.9× faster than Static Direct; other models fall back to Static Direct (below) |
+| `"thinning"` | exact | models with an ATP block (section 10), and only those |
 
-The same 64 cells under each method:
+The same 64 cells under each method that runs the three-class model:
 
 ```python
 """The same 64 cells under every method that runs the three-class model."""
@@ -534,10 +637,10 @@ methods = {
     "tree": None,
     "static_direct": "static_direct",
     "static_direct, ziggurat": {"kind": "static_direct", "waiting_time": "ziggurat"},
-    "mtdna_direct": "mtdna_direct",
     "next_reaction": "next_reaction",
     "tau (epsilon 0.03)": {"kind": "tau", "epsilon": 0.03},
     "binomial (1 h steps)": {"kind": "binomial", "step": 1.0},
+    "mtdna_direct (opt-in)": "mtdna_direct",
 }
 for label, method in methods.items():
     run = rules.ensemble(
@@ -553,10 +656,9 @@ for label, method in methods.items():
     result = run.simulate()
     seconds = time.perf_counter() - start
     meta = result.metadata
-    stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
-    mean = result.statistics["mean"]
-    names = meta["observables"]
-    fraction = mean[-1, names.index("mutants")] / mean[-1, names.index("N")]
+    stopped = result.records["termination"] == "stopped"
+    final = result.statistics["mean"].iloc[-1]  # the means at the last report time
+    fraction = final["mutants"] / final["N"]
     print(
         f"{label:24s} {seconds:6.2f} s  {meta['events']:>11,} events  "
         f"taken over {stopped.sum():2d}  final mutant fraction {fraction:.3f}  "
@@ -564,28 +666,172 @@ for label, method in methods.items():
     )
 ```
 
+
 ```text
 tree                       2.58 s    9,167,872 events  taken over  6  final mutant fraction 0.097  chacha8-u53/rules-direct/2
 static_direct              0.72 s    9,180,176 events  taken over  8  final mutant fraction 0.144  chacha8-u53/rules-static-direct/1
 static_direct, ziggurat    0.56 s    8,861,769 events  taken over 10  final mutant fraction 0.164  chacha8-u53-ziggurat/rules-static-direct/1
-mtdna_direct               0.18 s    8,969,870 events  taken over  8  final mutant fraction 0.122  chacha8-u53-ziggurat/rules-mtdna-direct/1
 next_reaction              1.03 s    9,226,649 events  taken over  7  final mutant fraction 0.105  chacha8-u53/rules-next-reaction/1
 tau (epsilon 0.03)         4.08 s    9,225,966 events  taken over  5  final mutant fraction 0.108  chacha8-u53/rules-approximate-cgp-poisson/2
 binomial (1 h steps)       0.68 s    9,158,734 events  taken over  6  final mutant fraction 0.088  chacha8-u53/rules-approximate-binomial-split/2
+mtdna_direct (opt-in)      0.18 s    8,969,870 events  taken over  8  final mutant fraction 0.122  chacha8-u53-ziggurat/rules-mtdna-direct/1
 ```
 
 The takeover counts differ because each method uses the random stream
 differently. With 64 cells, 5 to 10 takeovers are within sampling error of
 each other. The approximate methods are statistically close here but are
-labelled as approximations in their sampler identity. The
+labeled as approximations in their sampler identity. The
 [performance analysis](mtdna-performance-analysis.md) compares the methods
 at full scale.
 
-`mtdna_direct` checks at preparation that the model has the three-class
-structure, that every positive hazard stays resolvable in every reachable
-state, and that the stop is absent or the guarded fraction. If any check
-fails, the run uses Static Direct, `metadata["sampler"]` says so, and a
-`CRN-R051` warning in `metadata["diagnostics"]` names the reason.
+### The opt-in fast path `mtdna_direct`
+
+`mtdna_direct` is an exact direct method fused for one model structure:
+three classes in a fixed population, as in section 2. It reads that
+structure from the lowered rules; the model file and its names do not
+matter. At preparation it lowers the model to a fixed network, as Static
+Direct does, and certifies that:
+
+1. **Three classes, eight channels.** The network has exactly three
+   attribute vectors (classes) and eight channels. Each channel consumes
+   one molecule and changes one class by one molecule: every class
+   degrades and replicates, and one class, the wild type, also yields one
+   molecule of each other class (the two mutation channels). The roles are
+   read from the channels.
+2. **Degradation.** All three classes degrade at one constant rate.
+3. **Replication.** Every replication and mutation rate is
+   `max(0, K - N) / D` times constant factors. All five share one `K`, an
+   expression of parameters whose value is an integer from 1 to 1,000,000
+   and at least the initial population. `N` is an observable that counts
+   every molecule, and `D` an observable that sums the classes with finite
+   positive weights.
+4. **Observables.** Every observable is a finite weighted sum over the
+   three classes.
+5. **Stop.** The stop is absent, or `N > 0 && mutants >= f * N` with a
+   number `f` in [0, 1], where `mutants` counts the two classes other than
+   the wild type.
+6. **Resolution.** Bounds from `K`, the weights and the rate constants
+   show that every hazard stays finite, and every positive hazard at least
+   16 · 2⁻⁵³ of the total, in every reachable state.
+
+The certificate holds for one model and one parameter set:
+`bind_parameters` certifies each candidate again. If a check fails, the
+run uses generic Static Direct. `metadata["sampler"]` is then
+`chacha8-u53/rules-static-direct/1`, the numbers equal those of
+`method="static_direct"`, and a `CRN-R051` warning in
+`metadata["diagnostics"]` names the failed check. A model that cannot be
+lowered at all, such as the clone model, is rejected with `CRN-R020`, as
+by every method except the tree.
+
+`mtdna_direct` samples the same process as Static Direct with a different
+random stream: each cell's ChaCha8 words go to Ziggurat waiting times and
+to a selection over grouped hazards. Its sampler identity is
+`chacha8-u53-ziggurat/rules-mtdna-direct/1`. Results therefore agree in
+distribution, not cell by cell; section 16 lists the checks. Trackers,
+event logs and callbacks work as under Static Direct, and count trackers
+integrate sparsely (section 6).
+
+What it gains: it computes the eight hazards from three counts with one
+division and reads its stop from the counts. On the three-class model
+that is about 3.9× less time per event than Static Direct, and 3.3× less
+than Static Direct with Ziggurat waits and sparse trackers
+([performance analysis](mtdna-performance-analysis.md#2-methods)).
+
+The structure need not be called mtDNA. Below, three strains share `room`
+places, and the resident strain gives rise to two variants. Every name
+differs from the model file, and `mtdna_direct` still certifies the model.
+A strain that dies faster breaks check 2:
+
+```python
+"""mtdna_direct recognizes a model structure, not a file or names."""
+
+import copy
+import time
+
+from crn_craft import rules
+
+# Three strains share `room` places. The resident strain (0) gives rise to
+# the two variants; every strain dies at one rate and grows into free room.
+grow = "max(0, room - total) / crowding"
+model = {
+    "schema": "crn-craft.rules-model/0.1",
+    "name": "three_strains",
+    "parameters": {"room": 200, "loss": 0.01, "g": 0.5, "eps": 0.0002},
+    "types": [{"name": "Cell", "attributes": ["strain"]}],
+    "initial": [{"type": "Cell", "attributes": {"strain": 0}, "count": 200}],
+    "observables": {
+        "total": {"type": "Cell"},
+        "crowding": {"type": "Cell", "weight": "1 + (x.strain == 2)"},
+        "variants": {"type": "Cell", "where": "x.strain > 0"},
+    },
+    "stop": "total > 0 && variants >= 0.5 * total",
+    "rules": [],
+}
+for strain, rate in ((0, "g"), (1, "g"), (2, "2 * g")):
+    cell = [{"label": "c", "type": "Cell", "where": f"c.strain == {strain}"}]
+    model["rules"] += [
+        {"name": f"die_{strain}", "reactants": cell, "rate": "loss", "products": []},
+        {
+            "name": f"grow_{strain}",
+            "reactants": cell,
+            "rate": f"{grow} * {rate}",
+            "products": [{"type": "Cell", "copy": "c"}, {"type": "Cell", "copy": "c"}],
+        },
+    ]
+for strain in (1, 2):
+    model["rules"].append(
+        {
+            "name": f"switch_to_{strain}",
+            "reactants": [{"label": "c", "type": "Cell", "where": "c.strain == 0"}],
+            "rate": f"{grow} * eps",
+            "products": [
+                {"type": "Cell", "copy": "c"},
+                {"type": "Cell", "attributes": {"strain": strain}},
+            ],
+        }
+    )
+
+
+def run(model, method):
+    start = time.perf_counter()
+    result = rules.ensemble(
+        model,
+        end=2000.0,
+        report_times=[0.0, 2000.0],
+        replicates=4000,
+        seed=1,
+        threads=2,
+        method=method,
+    ).simulate()
+    seconds = time.perf_counter() - start
+    taken = (result.records["termination"] == "stopped").mean()
+    print(
+        f"{method:14s} {seconds:5.2f} s  variants took over: {taken:.3f}  "
+        f"{result.metadata['sampler']}"
+    )
+    return result
+
+
+run(model, "static_direct")
+run(model, "mtdna_direct")
+# A strain that dies faster breaks the shared degradation rate, so the run
+# falls back to Static Direct and says why.
+faster = copy.deepcopy(model)
+next(r for r in faster["rules"] if r["name"] == "die_1")["rate"] = "2 * loss"
+result = run(faster, "mtdna_direct")
+print([d["message"] for d in result.metadata["diagnostics"]])
+```
+
+```text
+static_direct   1.19 s  variants took over: 0.432  chacha8-u53/rules-static-direct/1
+mtdna_direct    0.36 s  variants took over: 0.427  chacha8-u53-ziggurat/rules-mtdna-direct/1
+mtdna_direct    1.13 s  variants took over: 0.434  chacha8-u53/rules-static-direct/1
+['mtdna_direct ran Static Direct: degradation is not one constant rate shared by all classes']
+```
+
+The first two runs agree within sampling error: with 4000 cells each, the
+standard error of their difference is about 0.011. The third ran Static
+Direct, at its speed.
 
 ## 9. Individual mutant lineages: the clone model
 
@@ -621,8 +867,7 @@ run = rules.ensemble(
 result = run.simulate()
 print("sampler:", result.metadata["sampler"])
 mean = result.statistics["mean"]
-names = result.metadata["observables"]
-print("mean number of distinct mutant clones:", mean[:, names.index("mutant_clones")])
+print("mean number of distinct mutant clones:", mean["mutant_clones"].to_numpy())
 print(
     "peak instances (clones + wild type), max over cells:",
     result.records["peak_instances"].max(),
@@ -707,14 +952,13 @@ run = rules.ensemble(
 )
 result = run.simulate()
 meta = result.metadata
-names = meta["observables"]
-print("observables:", names)
+print("observables:", meta["observables"])
 print("sampler:", meta["sampler"], "stopped:", meta["stopped_replicates"])
 mean = result.statistics["mean"]
-for day, row in zip(np.arange(0, 1081, 180), mean, strict=True):
+for hours, row in mean.iterrows():
     print(
-        f"day {day:4d}: N {row[names.index('N')]:7.1f}  "
-        f"mutants {row[names.index('mutants')]:6.1f}  ATP {row[names.index('ATP')]:7.2f}"
+        f"day {hours / 24:4.0f}: N {row['N']:7.1f}  "
+        f"mutants {row['mutants']:6.1f}  ATP {row['ATP']:7.2f}"
     )
 ```
 
@@ -766,8 +1010,7 @@ for mu in (1e-5, 3e-5, 1e-4):
     row = []
     for sm in (1.0, 1.25, 1.5, 2.0):
         result = template.bind_parameters({"mu": mu, "sm": sm}).simulate()
-        stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
-        row.append(stopped.mean())
+        row.append((result.records["termination"] == "stopped").mean())
     print(f"{mu:9.0e}  " + "".join(f"{v:8.3f}" for v in row))
 print(f"12 candidates in {time.perf_counter() - start:.1f} s")
 # The same seed gives every candidate the same random streams (common
@@ -799,8 +1042,8 @@ change it, and pass the dictionary to `rules.ensemble`.
 - **Copy number and half-life:** set `K`, `w0` and `delta = ln 2 / half-life`.
 - **Initial heteroplasmy:** add an `initial` entry for the mutant class.
 - **Threshold:** change the fraction in `stop`.
-- **Recognition:** see what happens when `mtdna_direct` does not recognize
-  the model.
+- **Recognition:** see what happens when the fast path `mtdna_direct`
+  cannot certify the model.
 - **Errors:** see how mistakes are reported.
 
 ```python
@@ -828,7 +1071,7 @@ run = rules.ensemble(
     method="mtdna_direct",
 )
 result = run.simulate()
-stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
+stopped = result.records["termination"] == "stopped"
 print(result.metadata["sampler"])
 print(f"cells past 60% within three years: {stopped.mean():.2%}")
 
@@ -896,9 +1139,9 @@ model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
 
 
 def summary(result):
-    terms = [rules.TERMINATIONS[t] for t in result.records["termination"]]
+    terms = sorted(set(result.records["termination"]))
     codes = [d["code"] for d in result.metadata["diagnostics"]]
-    return result.metadata["termination"], sorted(set(terms)), codes
+    return result.metadata["termination"], terms, codes
 
 
 # Too few events for three years: every cell ends with event_limit and the
@@ -946,16 +1189,23 @@ path and SHA-256, so a result always names the exact model it came from.
 ```python
 """Write a model and a run request for the command line, and run them.
 
-Usage: python examples/mtdna/11_cli_request.py DIRECTORY [CRN_CRAFT_BINARY]
+Usage: python examples/mtdna/11_cli_request.py [DIRECTORY [CRN_CRAFT_BINARY]]
+
+DIRECTORY defaults to `takeover` in the temporary directory, /tmp/takeover
+on Linux. With the native CLI binary, the script also runs the request.
 """
 
 import hashlib
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
-folder = Path(sys.argv[1])
+if len(sys.argv) > 1:
+    folder = Path(sys.argv[1])
+else:
+    folder = Path(tempfile.gettempdir()) / "takeover"
 folder.mkdir(parents=True, exist_ok=True)
 model = json.loads(Path("models/rules/mtdna-three-class.rules.json").read_text())
 model["stop"] = "N > 0 && mutants >= 0.9 * N"
@@ -1054,14 +1304,19 @@ println!("{} cells stopped", result.stopped_replicates);
   `EventObserver` for every committed event on the native workers. It
   returns `ObserverAction::Stop` to end that cell. An observer that always
   continues compiles away and leaves results byte-identical.
-- *Rust only:* `generate_rules_loop(&prepared)` emits Rust source
-  for the whole Static Direct event of a closed model with constant or
-  vacancy rates, including its stop. Compile it into your program and run
-  it with `execute_with_rules_loop`. Results are byte-identical to
-  `execute`, and on the three-class model it is about 2.4× faster than
-  interpreted Static Direct
+- *Rust only, opt-in:* `generate_rules_loop(&prepared)` emits Rust source
+  for the whole Static Direct event of one prepared model. It requires a
+  `static_direct` request, constant or vacancy rates and sum observables,
+  and at most 1 MiB of source; it refuses anything else with `CRN-R020`.
+  Parameters are compiled in, so another parameter set needs another loop.
+  Compile it into your program and run it with `execute_with_rules_loop`,
+  which runs only a loop generated for the same model bytes. Results are
+  byte-identical to `execute`, and on the three-class model it is about
+  2.4× faster than interpreted Static Direct. On networks with many
+  constant-rate channels it can be slower, so measure first
   ([details](specialized-kernels.md#generated-rules-event-loops)). From
-  Python, use `mtdna_direct` for the same speed.
+  Python, the fast path `mtdna_direct` is faster still for the three-class
+  structure (section 8).
 
 ## 16. Checking results
 
@@ -1069,9 +1324,10 @@ Exactness is checked against independent references, and the checks can be
 rerun:
 
 - **Master equation.** `validation/check_mtdna.py` compares the
-  `mtdna-three-class-cme` model (K = 20) under every exact method with an
-  exact solution of the chemical master equation, using DKW bounds at family
-  α = 0.001. Approximate methods are compared with the exact ones.
+  `mtdna-three-class-cme` model (K = 20) under every exact method, the fast
+  path `mtdna_direct` included, with an exact solution of the chemical
+  master equation, using DKW bounds at family α = 0.001. Approximate
+  methods are compared with the exact ones.
 - **Lumping.** The clone model is checked against the same master-equation
   law for its class totals.
 - **Observation.** Trackers equal their recomputation from complete event
@@ -1099,12 +1355,41 @@ validate the model against biology.
 | `model` | model bytes from `rules.load`, or a dictionary |
 | `end`, `report_times` | horizon in hours; increasing report times in [0, end] |
 | `replicates`, `seed`, `threads` | number of cells, root seed, 1–64 native threads |
-| `keep_paths` | how many cells keep their full observable series (`metadata["paths"]`) |
+| `keep_paths` | how many cells keep their full observable series (`result.paths`); `"all"` or `True` for every cell |
 | `keep_instances` | how many cells keep their final instances (`metadata["final_instances"]`) |
 | `method` | a method name or dictionary (section 8) |
 | `trackers` | list of `{"observable", "first_passage"?, "keep_episodes"?}` |
 | `event_log` | `{"max_entries": n, "rules": [...]}` |
 | budgets | `max_events`, `max_sampling_steps`, `max_instances`, `max_output_bytes`, `wall_time_s` |
+
+The result, `run.simulate()`:
+
+| Attribute | Content |
+| --- | --- |
+| `records` | DataFrame, one row per cell, index `replicate`: `started` (bool), `termination` (categorical), `stop_time` (float), `events`, `rng_words`, `peak_instances`, `created_instances`, `saved_points` (unsigned integers) |
+| `rule_events` | DataFrame, one row per cell, one column per rule name: events of each rule |
+| `statistics` | `None` if withheld; else `samples` and the DataFrames `mean`, `sample_variance`, `mean_standard_error`, index `time`, one column per observable |
+| `paths` | DataFrame of the kept series, index (`replicate`, `time`), one column per observable; `to_xarray()` gives a Dataset with dimensions `replicate` and `time` |
+| `tracker_columns(i)` | DataFrame of tracker `i`, one row per observed cell; NaN where a time or peak is absent |
+| `event_columns()`, `event_columns(id)` | DataFrame of every logged event, index (`replicate`, `entry`), or of one cell's log, index `entry` |
+| `rule_names` | rule names in declaration order, also on the prepared run |
+| `observations`, `record_diagnostics`, `metadata` | trackers and logs as documents, per-cell errors by id, the full result document |
+
+Every DataFrame and column has `.to_numpy()`. Code written for the NumPy
+results of release 0.2.0 changes as follows:
+
+| 0.2.0 | Now |
+| --- | --- |
+| `records["termination"] == rules.TERMINATIONS.index("stopped")` | `records["termination"] == "stopped"`; the old form is silently all `False` |
+| `records["id"]` | `records.index` |
+| `records["rule_events"]` | `result.rule_events` |
+| `records[name]` (an array) | `records[name].to_numpy()`; integer termination codes are `records["termination"].cat.codes` |
+| `statistics["mean"][:, names.index("N")]` | `statistics["mean"]["N"]` |
+| `statistics["mean"]` (an array) | `statistics["mean"].to_numpy()` |
+| `metadata["paths"]` rows | `result.paths`, or `result.paths.to_numpy()` |
+| `tracker_columns(i)["id"]` and fields | `tracker_columns(i).index` and its columns |
+| `event_columns(id)["observables"]` | `event_columns(id)[list(metadata["observables"])].to_numpy()` |
+| `keep_paths=True` (one cell) | `keep_paths=1`; `True` now keeps every cell |
 
 Result metadata:
 
@@ -1112,14 +1397,15 @@ Result metadata:
 | --- | --- |
 | `sampler`, `termination`, `diagnostics` | what ran, how the ensemble ended, warnings and errors |
 | `events`, `completed_replicates`, `stopped_replicates` | totals |
-| `rules`, `observables`, `types`, `report_times` | names and grid, in result order |
+| `rules`, `observables`, `types`, `report_times` | names and grid, in result order; rule names also as `run.rule_names` and `result.rule_names` |
 | `statistics` | `mean`, `sample_variance`, `mean_standard_error`, `samples` (also `result.statistics`) |
 | `paths`, `final_instances`, `observations` | kept series, kept instances, and (with trackers or a log) trackers and logs |
 | `model_sha256`, `run_sha256`, `root_seed` | provenance |
 
-Terminations, indexed by `rules.TERMINATIONS`: `completed`, `stopped`,
-`event_limit`, `sampling_limit`, `instance_limit`, `wall_time_limit`,
-`cancelled`, `failed`, `output_limit`.
+Terminations, the categories of `records["termination"]` in the order of
+`rules.TERMINATIONS`: `completed`, `stopped`, `event_limit`,
+`sampling_limit`, `instance_limit`, `wall_time_limit`, `cancelled`,
+`failed`, `output_limit`.
 
 Frequent diagnostics:
 
@@ -1138,8 +1424,10 @@ Frequent diagnostics:
 - **`event_limit` in every cell.** Raise `max_events` above the events of
   one cell (section 13).
 - **`mtdna_direct` is not faster.** Check `metadata["sampler"]` and the
-  `CRN-R051` warning. A stop other than the guarded fraction, or another
-  model change, makes it fall back.
+  `CRN-R051` warning, which names the failed check of section 8. A stop
+  other than the guarded fraction, unequal degradation rates or a rate
+  outside `max(0, K - N) / D` times constants make it fall back to Static
+  Direct.
 - **`observation reservation exceeds budget`.** Event logs reserve space for
   every cell. Use fewer cells or entries, or raise `max_output_bytes`.
 - **A Python callback is slow.** It holds the interpreter lock. Use trackers
@@ -1149,5 +1437,10 @@ Frequent diagnostics:
 - **`CRN-R031`.** A rate is below 2⁻⁵³ of the total, for example a tiny
   mutation probability in a huge population. Static methods select in one
   level; the tree method resolves rules and instances separately.
-- **Column positions.** Observables are sorted by name. Use
+- **No cell stopped, though some should have.** Compare `termination` with
+  a name, `records["termination"] == "stopped"`. A comparison with the
+  integer `rules.TERMINATIONS.index("stopped")`, as in release 0.2.0, is
+  `False` for every cell.
+- **Column positions.** Select DataFrame columns by observable name. In the
+  raw matrices of `result.metadata`, observables are sorted by name; use
   `metadata["observables"].index(name)`.

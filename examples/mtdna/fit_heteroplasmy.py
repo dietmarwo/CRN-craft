@@ -26,16 +26,15 @@ def template(cells, seed, threads=2):
         seed=seed,
         threads=threads,
         method="mtdna_direct",
-        keep_paths=cells,
+        keep_paths="all",
         max_output_bytes=256 << 20,
     )
 
 
 def heteroplasmy(result):
     """Fraction of cells whose mutant fraction reaches each edge, per age."""
-    names = result.metadata["observables"]
-    values = np.array([path["values"] for path in result.metadata["paths"]])
-    fraction = values[:, :, names.index("mutants")] / values[:, :, names.index("N")]
+    paths = result.paths  # one row per (cell, report time)
+    fraction = (paths["mutants"] / paths["N"]).unstack("time").to_numpy()
     return (fraction[:, :, None] >= EDGES).mean(axis=0)  # ages x edges
 
 

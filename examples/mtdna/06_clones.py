@@ -23,8 +23,7 @@ run = rules.ensemble(
 result = run.simulate()
 print("sampler:", result.metadata["sampler"])
 mean = result.statistics["mean"]
-names = result.metadata["observables"]
-print("mean number of distinct mutant clones:", mean[:, names.index("mutant_clones")])
+print("mean number of distinct mutant clones:", mean["mutant_clones"].to_numpy())
 print(
     "peak instances (clones + wild type), max over cells:",
     result.records["peak_instances"].max(),

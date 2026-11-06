@@ -327,8 +327,8 @@ byte-identical results at about 48 ns per event, whether the stop
 is written in the fused fraction form or not
 ([generated event loops](specialized-kernels.md#generated-rules-event-loops)).
 From Python, `rules.compile_loop` builds that loop with a local Rust
-toolchain and runs it with `compiled=`, about 1.9× faster than interpreted
-Static Direct end to end. `mtdna_direct` remains the fastest route for the
+toolchain and runs it with `compiled=`, about 2.2× faster than interpreted
+Static Direct with its defaults, end to end. `mtdna_direct` remains the fastest route for the
 fixed three-class topology and the only fast one from the CLI.
 
 Cached rates and dependency-aware projection refresh apply to the default

@@ -65,23 +65,34 @@ are byte-identical to the interpreter's.
 ## Results
 
 Recorded 6 November 2026 on the two-CPU host, under the CPU lock, with the
-loop built against this checkout
-(`validation/mtdna/compiled-loop-python.json`).
+loop built against the checkout. Each row is the median of three runs in
+alternating order; both rows name their Static Direct options explicitly.
 
-| Method | Interpreted, median s | Compiled, median s | ns per event | Speedup |
+First run, on `main` before rules-run/0.6
+(`validation/mtdna/compiled-loop-python-before-rebase.json`):
+
+| Static Direct options | Interpreted, median s | Compiled, median s | ns per event | Speedup |
 | --- | ---: | ---: | ---: | ---: |
-| `static_direct` | 7.06 | 3.71 | 49.2 → 25.8 | **1.90×** |
-| Ziggurat waits + sparse trackers | 5.84 | 2.71 | 40.6 → 18.8 | 2.16× |
+| inverse waits, per-event trackers | 7.06 | 3.71 | 49.2 → 25.8 | **1.90×** |
+| Ziggurat waits, sparse trackers | 5.84 | 2.71 | 40.6 → 18.8 | **2.16×** |
 
-The declared target (1.5×) is met. All three runs of each route were
-within 3.3% of their median, and every pair agreed; `verify` passed for
-both methods. 143.4 million events (default) and 143.8 million (Ziggurat)
-per run.
+Second run, after rebasing onto rules-run/0.6, whose `static_direct`
+default is the second row (`validation/mtdna/compiled-loop-python.json`):
+
+| Static Direct options | Interpreted, median s | Compiled, median s | ns per event | Speedup |
+| --- | ---: | ---: | ---: | ---: |
+| inverse waits, per-event trackers | 7.04 | 3.79 | 49.1 → 26.4 | **1.86×** |
+| Ziggurat waits, sparse trackers (0.6 default) | 5.77 | 2.61 | 40.1 → 18.1 | **2.21×** |
+
+The declared target (1.5× over `method="static_direct"`) is met under both
+meanings of that name. Every run was within 4.2% of its median, every
+pair agreed and `verify` passed for both options. 143.4 million events
+(inverse) and 143.8 million (Ziggurat) per run.
 
 Build times, with the crates already downloaded:
 
-- first build into an empty cache and target directory: 39.9 s (cargo
-  39.8 s) from the checkout, 38.5 s from crates.io;
+- first build into an empty cache and target directory: 39.9 s and 42.0 s
+  (the two runs) from the checkout, 38.5 s from crates.io;
 - a second model with the shared target directory warm: 2.7 s;
 - a cached call, including the self-check: 0.06 s.
 
@@ -103,6 +114,9 @@ The shared target directory took about 150 MB; each cached program about
   build, the third-party crates were reused; `crn-craft` and
   `crn-craft-rules` were compiled again, beside the workspace's artifacts
   (29 s instead of 40 s).
+- After the rebase onto rules-run/0.6, the check's plain `"static_direct"`
+  case and the self-check run the 0.6 defaults; both stayed byte-identical
+  without code changes. The manual block now shows the 0.6 sampler.
 - `validation/check_manual.py` sets `CRN_CRAFT_SOURCE` to the checkout,
   skips `compile_loop` blocks without cargo and fails them with
   `--require-cargo`, which CI passes. `validation/check_installed.py`

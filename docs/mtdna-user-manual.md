@@ -53,9 +53,8 @@ pandas is a required dependency since 0.3.0, because results are pandas
 DataFrames.
 
 The Python package contains the native engine, so the CLI is optional. Every
-feature in this manual is in release 0.3.0, except the compiled event loop
-of section 8, which is marked as unreleased; features that exist only in
-Rust are marked where they appear.
+feature in this manual is in release 0.3.0 unless it is marked as
+unreleased; features that exist only in Rust are marked where they appear.
 
 Both packages install a command named `crn-craft`. The rules commands
 (`rules-check`, `rules`, `describe rules-run`) exist only in the native CLI
@@ -918,18 +917,19 @@ except CrnError as error:
 ```
 
 ```text
-interpreted   1.41 s   28,597,977 events  taken over 24  chacha8-u53/rules-static-direct/1
-compiled      0.78 s   28,597,977 events  taken over 24  chacha8-u53/rules-static-direct/1
+interpreted   1.19 s   28,523,982 events  taken over 20  chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1
+compiled      0.51 s   28,523,982 events  taken over 20  chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1
 byte-identical
 CRN-R020 generated rules loops support constant or vacancy rates and sum observables
 ```
 
 On the 1000-cell workload of the
 [performance analysis](mtdna-performance-analysis.md#2-methods), timed
-from Python including the subprocess, the compiled loop took 3.7 s
-against 7.1 s for interpreted Static Direct (1.90×), and 2.7 s against
-5.8 s with Ziggurat waits and sparse trackers (2.16×), medians of three
-on the two-CPU host (`validation/mtdna/compiled-loop-python.json`).
+from Python including the subprocess, the compiled loop took 2.6 s
+against 5.8 s for interpreted Static Direct with its defaults (2.21×),
+and 3.8 s against 7.0 s with inverse waits and per-event trackers (1.86×),
+medians of three on the two-CPU host
+(`validation/mtdna/compiled-loop-python.json`).
 `mtdna_direct` is faster still where it applies.
 
 **Requirements.** Rust 1.85 or newer, the MSRV of the crates (install it
@@ -940,7 +940,7 @@ clone), pass `source=` a CRN-craft checkout of that version, or set
 `CRN_CRAFT_SOURCE`. `cargo=` names another cargo executable.
 
 **Build time and cache.** The first build compiles `crn-craft-rules` and
-its dependencies: 40 s on the two-CPU host after the downloads, several
+its dependencies: about 40 s on the two-CPU host after the downloads, several
 minutes on slower machines. `compile_loop` prints cargo's progress and the
 path of the build log to stderr (`progress=False` silences it). Builds are
 cached in the user cache directory (`~/.cache/crn-craft/rules-loops` on

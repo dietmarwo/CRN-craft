@@ -216,10 +216,11 @@ request the same way. Methods other than `static_direct`, other model
 bytes, bound candidates and callbacks are refused.
 
 On the 1000-cell three-class workload with two threads, end to end from
-Python, the compiled loop took 3.7 s against 7.1 s for interpreted Static
-Direct (1.90×, declared target 1.5×) and 2.7 s against 5.8 s with Ziggurat
-waits and sparse trackers (2.16×). The first build took 40 s on the
-two-CPU host, a second model 3 s and a cached call 0.06 s
+Python, the compiled loop took 2.6 s against 5.8 s for interpreted Static
+Direct with its rules-run/0.6 defaults, Ziggurat waits and sparse trackers
+(2.21×), and 3.8 s against 7.0 s with inverse waits and per-event trackers
+(1.86×; declared target 1.5×). The first build took 42 s on the two-CPU
+host, a second model 3 s and a cached call 0.06 s
 ([record](decisions/compiled-rules-loop-python-2026-11-06.md),
 `validation/mtdna/compiled-loop-python.json`).
 `validation/check_compiled_loop.py` checks identity over threads, waiting

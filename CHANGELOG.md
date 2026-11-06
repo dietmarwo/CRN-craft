@@ -64,11 +64,13 @@ with a different use of the random stream (see **Migration**).
   other methods and for models the generator refuses, `CRN-R020` at
   `/model` for other model bytes and bound candidates, `ValueError` for
   `callback` and `batch_callback`, and `rules.CompiledLoopError` (reason
-  `cargo_missing`, `build_failed` with the log path, or `mismatch`). On the
-  1000-cell three-class workload with two threads it was 1.90× faster than
-  interpreted Static Direct end to end from Python (declared target 1.5×)
-  and 2.16× with Ziggurat waits and sparse trackers; the first build took
-  40 s on the two-CPU host. See
+  `cargo_missing`, `build_failed` with the log path, or `mismatch`). It
+  serves the rules-run/0.6 defaults and every explicit option. On the
+  1000-cell three-class workload with two threads, end to end from Python,
+  it was 2.21× faster than the interpreter under the 0.6 default (Ziggurat
+  waits, sparse trackers) and 1.86× with inverse waits and per-event
+  trackers (declared target 1.5×); the first build took 42 s on the two-CPU
+  host. See
   `docs/decisions/compiled-rules-loop-python-2026-11-06.md` and
   `validation/mtdna/compiled-loop-python.json`.
 - `validation/check_compiled_loop.py`, run in the `python` CI job against

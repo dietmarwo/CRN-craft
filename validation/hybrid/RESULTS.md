@@ -68,8 +68,9 @@ otherwise the row fails.
 First runs, 2026-11-06, on the 2-vCPU development container with the wheel
 of the engine stream (commit `9f59917`). **Every gate, check and test
 passed at both sizes; no failed row to retain.** The default report was
-also produced under `python -O` and is identical; the large report was
-produced once.
+also produced under `python -O` and is identical. After the following
+commit (a floor on the step cap and clamp ties, edge cases only), both
+reports were reproduced byte for byte.
 
 ### A. Exact-law gates (20,000 replicates each, ε = 0.01517)
 

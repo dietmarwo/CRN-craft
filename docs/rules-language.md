@@ -260,7 +260,8 @@ simulated by integrated propensities (Alfonsi et al. 2005, DOI
    by `atol + rtol·max(|y₀|, |y₁|)`, must not exceed 1; the next step is
    h·min(10, max(0.2, 0.9·err^(−1/5))). The first step uses their starting
    rule, later ones the previous prediction, and each step is at most four
-   times (E − Λ)/a₀ at its start.
+   times (E − Λ)/a₀ at its start (but not below 16 rounding units of the
+   time).
 3. The event happens where Λ reaches E, located by the Illinois method on
    the fourth-order dense output (II.6, after Shampine 1986, DOI
    [10.1090/S0025-5718-1986-0815836-3](https://doi.org/10.1090/S0025-5718-1986-0815836-3)).

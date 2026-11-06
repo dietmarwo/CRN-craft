@@ -329,8 +329,10 @@ impl Path<'_> {
                     };
                     let rate = stepper.derivative(*time, &y, &mut rhs)?[m];
                     if rate > 0.0 {
-                        // The threshold is expected within a quarter of the step.
-                        h = h.min(4.0 * (threshold - y[m]) / rate);
+                        // The threshold is expected within a quarter of the
+                        // step; the cap never goes below a resolvable step.
+                        let floor = 16.0 * f64::EPSILON * time.abs().max(1.0);
+                        h = h.min((4.0 * (threshold - y[m]) / rate).max(floor));
                     }
                     let last = h >= remaining;
                     if last {
@@ -350,7 +352,9 @@ impl Path<'_> {
                         }
                         Attempt::Accepted { next_h } => predicted = Some(next_h),
                     }
-                    // The earliest event inside the step; a bound wins a tie.
+                    // The earliest event inside the step. A stop wins a tie
+                    // with the threshold; a clamp loses it, and the variable
+                    // then reads the bound from the event on.
                     let mut theta = 1.0;
                     let mut stop = None;
                     if stepper.next[m] >= threshold {
@@ -367,7 +371,7 @@ impl Path<'_> {
                         };
                         if y[k] > lower && crossed {
                             let at = dense.crossing_down(k, lower);
-                            if at <= theta {
+                            if at < theta || (at == theta && action == OnBound::Stop) {
                                 theta = at;
                                 stop = Some(Stop::Bound(k));
                             }

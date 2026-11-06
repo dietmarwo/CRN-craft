@@ -81,6 +81,15 @@ request hash.
 | `binomial` with `step` | Approximate death-then-birth splitting for single-parent unit reactions |
 | `thinning` | Exact stochastic thinning with analytic ATP flow and a deterministic zero crossing |
 
+Rules-model/0.3 adds whole-rule propensities
+([rules language](rules-language.md#whole-rule-propensities-rules-model03)),
+which `crn_craft.rules.Model` writes for string rates. Every method above
+samples them. The static methods need each reactant type of such a rule to
+lower to one tuple, as for attribute-free species, and refuse other models
+with `CRN-R020` at `/method`; `tree` has no such limit. `mtdna_direct` does
+not certify them and runs Static Direct with a `CRN-R051` warning, and the
+generated Rust kernels and loops refuse them.
+
 Static lowering evaluates local predicates and factors once and compiles
 constant and vacancy-rate kernels. It accepts up to 256 tuples and 4096
 channels. Static Direct and leap fallbacks select among all channels in one

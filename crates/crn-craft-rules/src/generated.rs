@@ -164,6 +164,13 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
     let mut bases = BTreeMap::new();
     let mut definitions = String::new();
     let mut channels = String::new();
+    if net.channels.iter().any(|c| c.whole) {
+        return Err(request_error(
+            "/method",
+            "generated rules kernels do not support whole-rule propensities",
+            "Use interpreted Static Direct for models with propensity rules.",
+        ));
+    }
     for (i, c) in net.channels.iter().enumerate() {
         let global = match &net.rates[c.rule] {
             RateKernel::Constant(k) => bits(*k),

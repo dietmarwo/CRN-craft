@@ -1,6 +1,6 @@
 # Dynamic, attributed species: the rules language
 
-**Status:** experimental. Contracts `crn-craft.rules-model/0.1` and `0.2`,
+**Status:** experimental. Contracts `crn-craft.rules-model/0.1` to `0.3`,
 `crn-craft.rules-check/0.1`, `crn-craft.rules-run/0.1` to `0.4`,
 `crn-craft.rules-result/0.1` and `0.2`; crate `crn-craft-rules`; CLI
 `rules-check` and `rules`; Python `crn_craft.rules`. This page describes the
@@ -68,7 +68,7 @@ crn-craft describe rules-model     # JSON Schema; also rules-check, rules-run, r
 | `types` | `{name, attributes}`. Attribute values are finite f64; `-0` is stored as `0`. |
 | `initial` | `{type, attributes, count}`: every attribute, and a nonnegative integer count, as numbers or parameter expressions. Equal attribute vectors merge. |
 | `observables` | Named reductions over the instances of one type (below). |
-| `rules` | `{name, reactants, rate, products}` with zero, one or two reactant patterns. |
+| `rules` | `{name, reactants, rate, products}` with zero, one or two reactant patterns; in 0.3 `propensity` may replace `rate`. |
 | `stop` | Optional condition over parameters and observables. Once true, the state is held to the end of the report grid and the replicate is `stopped`. |
 
 Names, including the model's `name`, are ASCII identifiers
@@ -105,6 +105,50 @@ For one instance this is the stochastic mass-action convention n(n−1)/2 of the
 network engine (a `2A` channel with coefficient c). Two *different* patterns
 over the same type are rejected in 0.1. Patterns are compared after their
 labels are resolved, so `a.size` and `b.size` are identical factors.
+
+#### Counting identical reactants, and rebop
+
+A `rate` counts *distinct combinations of reactant molecules*, Gillespie's
+h_μ (Gillespie 1977, DOI
+[10.1021/j100540a008](https://doi.org/10.1021/j100540a008)): with rate k,
+`A` fires at k·n, `A + B` at k·n_A·n_B and `A + A` at k·n(n−1)/2. rebop 0.10
+uses the same expression for distinct species but leaves out the 1/m! for m
+identical reactants: its numeric rate k on `["A", "A"]` fires at k·n(n−1)
+(its documentation equates `4.2` with `"4.2 * A * (A-1)"`). A rebop model
+with a numeric rate k on `A + A` corresponds to rate 2k here; models without
+identical reactants agree. String rates are full propensities in both. The
+Python builder `crn_craft.rules.Model` follows the convention of this
+engine, so its JSON equals a hand-written model; see
+`validation/check_builder.py` for the statistical comparison with rebop.
+
+#### Whole-rule propensities (rules-model/0.3)
+
+A rule may give `propensity`, its total rate P as an expression over
+parameters and observables, instead of `rate`. Exactly one of the two is
+present (`CRN-R013`); `propensity` in 0.1 or 0.2 is `CRN-R015`, and a 0.1 or
+0.2 rule without `rate` stays `CRN-E003`.
+
+| Reactants | Propensity |
+|---|---|
+| none | P |
+| one pattern of type T | P if T has a molecule, else 0 |
+| two patterns of type T | P if T has two molecules, else 0 |
+| patterns of types T and U | P if T and U each have a molecule, else 0 |
+
+The reactant patterns take no `where` or `factor` (`CRN-R013`), and P cannot
+read their labels (`CRN-R012`): the expression already says how the rate
+depends on the state, for example `"vmax * S / (Km + S)"` over an observable
+`S`. P is evaluated only while it applies; a negative or non-finite value
+fails the replicate (`CRN-R030` at `/rules/i/propensity`). A firing picks
+reactant molecules uniformly: one of the type's molecules, or an unordered
+pair of distinct molecules, whatever their attributes. The `tree` method
+samples this for any type. The static methods lower each pattern to its
+tuples, so they accept a propensity rule only when each reactant type has a
+single tuple, as for attribute-free species (`CRN-R020` at `/method`
+otherwise); `mtdna_direct` falls back to Static Direct with `CRN-R051`, and
+generated kernels and loops refuse such models (`CRN-R020`). For one
+reactant, `propensity: "k * A"` and `rate: "k"` give the same floating-point
+value, so they reproduce each other's trajectories exactly.
 
 `g` is evaluated only when the reactant weight is positive, so a rate such as
 `(K - N) / D` is never evaluated after extinction. A negative or non-finite
@@ -224,9 +268,9 @@ or stopped.
 | CRN-R010 | invalid, reserved or duplicate name; observable shadowing a parameter |
 | CRN-R011 | unknown type |
 | CRN-R012 | expression syntax, unknown name, out-of-scope name or random draw outside products |
-| CRN-R013 | unsupported rule shape, missing or unknown attribute, bad `copy` |
+| CRN-R013 | unsupported rule shape, missing or unknown attribute, bad `copy`; both or neither of `rate` and `propensity`, `where` or `factor` on a propensity rule's reactant |
 | CRN-R014 | invalid initial count or attribute |
-| CRN-R015 | model size limit |
+| CRN-R015 | model size limit; a field used before its model version (`atp` in 0.1, `propensity` in 0.1 or 0.2) |
 | CRN-R020 | invalid run request (hash, path, grid, ensemble, budget, method, tracker, log or version gate; generated-kernel fingerprint mismatch) |
 | CRN-R030 | negative or non-finite rate, factor, weight or product attribute; overflow |
 | CRN-R031 | weight below 53-bit resolution (Static Direct: a channel below 2⁻⁵³ of the total) |
@@ -251,7 +295,11 @@ share one DKW family at alpha 0.001. Results: `validation/rules/RESULTS.md`.
 - Two different patterns over one type, three or more reactants, and counts
   inside expressions (largest clone *size*) are not supported yet.
 - Models are JSON. `crn_craft.rules` prepares and runs ensembles from Python
-  ([mtDNA ensembles](mtdna-rules.md)).
+  ([mtDNA ensembles](mtdna-rules.md)), and `crn_craft.rules.Model` builds
+  rules-model/0.3 documents over attribute-free species from
+  `add_reaction(rate, reactants, products)` calls: a numeric rate is a
+  mass-action constant with the counting above, a string the whole
+  propensity.
 - The tree method recomputes the propensities of all rules after every
   event, which suits models with few rules. Closed models can use the
   static methods; benchmarks are in `validation/mtdna/`.

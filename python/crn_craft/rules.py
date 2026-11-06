@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 
 from . import _crn_error, _native, _path, model_bytes
+from .builder import Model
 
 TERMINATIONS = (
     "completed",
@@ -161,7 +162,12 @@ class PreparedEnsemble:
 
 
 def prepare(model, request):
-    """Prepare a rules-run contract, preserving the supplied model bytes."""
+    """Prepare a rules-run contract, preserving the supplied model bytes.
+
+    ``model`` is bytes, text, a dictionary or a ``Model``.
+    """
+    if isinstance(model, Model):
+        model = model.to_dict()
     try:
         return PreparedEnsemble(
             _native.prepare_rules(model_bytes(model), model_bytes(request))
@@ -189,7 +195,12 @@ def ensemble(
     event_log=None,
     method=None,
 ):
-    """Build and prepare a rules request with explicit work/output budgets."""
+    """Build and prepare a rules request with explicit work/output budgets.
+
+    ``model`` is bytes, text, a dictionary or a ``Model``.
+    """
+    if isinstance(model, Model):
+        model = model.to_dict()
     data = model_bytes(model)
     # NumPy scalars and arrays are converted; counts must be integral.
     count = operator.index

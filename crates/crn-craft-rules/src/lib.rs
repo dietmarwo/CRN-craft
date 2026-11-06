@@ -103,6 +103,7 @@
 //! | --- | --- | --- |
 //! | `crn-craft.rules-model/0.1` | [`Model`] | Types, parameters, initial instances, observables, rules and stop |
 //! | `crn-craft.rules-model/0.2` | [`Model`] | 0.1 plus the [`atp`] block |
+//! | `crn-craft.rules-model/0.3` | [`Model`] | 0.2 plus whole-rule `propensity` expressions ([`model::Rule::propensity`]) |
 //! | `crn-craft.rules-check/0.1` | [`RulesCheck`] | Validity, model hash and diagnostics |
 //! | `crn-craft.rules-run/0.1` | [`RunRequest`] | Time grid, ensemble, outputs and budget; always the `tree` method |
 //! | `crn-craft.rules-run/0.2` | [`RunRequest`] | 0.1 plus `method`, `trackers` and `event_log` |
@@ -118,7 +119,11 @@
 //! constant attributes (at most 256 tuples), and at most 4096 channels. A
 //! model whose products can leave that set, for example through random
 //! attributes, `new_id()` or attribute arithmetic, runs only on `tree`;
-//! `prepare` reports `CRN-R020` at `/method` otherwise.
+//! `prepare` reports `CRN-R020` at `/method` otherwise. Every method samples
+//! whole-rule propensities (rules-model/0.3); the static methods need each
+//! of their reactant types to lower to one tuple, `mtdna_direct` falls back
+//! to Static Direct with `CRN-R051`, and generated kernels and loops refuse
+//! them with `CRN-R020`.
 //!
 //! | `kind` | Exact | Scope |
 //! | --- | --- | --- |
@@ -1153,7 +1158,7 @@ pub enum CheckVersion {
 
 /// The report of a model check: `crn-craft.rules-check/0.1`.
 ///
-/// It covers rules-model/0.1 and 0.2 documents. The check stops at the first
+/// It covers rules-model/0.1 to 0.3 documents. The check stops at the first
 /// stage that fails (parsing, size limits, names and types, then the rest of
 /// the model), so `diagnostics` lists the errors of that stage.
 ///
@@ -2158,7 +2163,7 @@ pub fn describe() -> Value {
         "crate": "crn-craft-rules",
         "commands": ["rules-check", "rules"],
         "model": "crn-craft.rules-model/0.1",
-        "accepted_models": ["crn-craft.rules-model/0.1","crn-craft.rules-model/0.2"],
+        "accepted_models": ["crn-craft.rules-model/0.1","crn-craft.rules-model/0.2","crn-craft.rules-model/0.3"],
         "check": "crn-craft.rules-check/0.1",
         "request": "crn-craft.rules-run/0.1",
         "result": "crn-craft.rules-result/0.1",

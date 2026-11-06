@@ -118,6 +118,11 @@ jobs:
       - run: python validation/check_rules_python.py --output rules-python.json
       - run: python -O validation/check_rules_python.py --output rules-python-optimized.json
       - run: diff rules-python.json rules-python-optimized.json
+      # Every Python block of the mtDNA manual runs on its own and prints the
+      # output shown in the manual.
+      - run: python validation/check_manual.py --binary target/release/crn-craft --output manual.json
+      - run: python -O validation/check_manual.py --binary target/release/crn-craft --output manual-optimized.json
+      - run: diff manual.json manual-optimized.json
       - run: python validation/check_alternative_contracts.py --binary target/release/crn-craft --output alternative-contracts.json
       - run: python -O validation/check_alternative_contracts.py --binary target/release/crn-craft --output alternative-contracts-optimized.json
       - run: diff alternative-contracts.json alternative-contracts-optimized.json

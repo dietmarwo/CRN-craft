@@ -68,6 +68,17 @@ def main():
         received == batches == [ob["log"] for ob in actual.observations],
         "callback sequence mismatch",
     )
+    # Rule names: declaration order on the prepared run and the result, so a
+    # callback names a rule as run.rule_names[event["rule"]].
+    declared = tuple(rule["name"] for rule in json.loads(model)["rules"])
+    require(
+        prepared.rule_names == actual.rule_names == declared
+        and tuple(actual.metadata["rules"]) == declared
+        and prepared.bind_parameters({"mu": 0.3}).rule_names == declared,
+        "rule names",
+    )
+    fired = {prepared.rule_names[e["rule"]] for log in received for e in log}
+    require(fired and fired <= set(declared), "rule names of callback events")
     require(
         with_callback.metadata == actual.metadata, "observer changed numerical result"
     )

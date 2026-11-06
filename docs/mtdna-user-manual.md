@@ -3,9 +3,11 @@
 This manual is for researchers who simulate how mitochondrial DNA mutants
 arise and spread in single cells. It shows how to do it with the rules
 engine of CRN-craft, from Python, from the command line and from Rust. Every
-scenario comes with a complete example in `examples/mtdna/`. The examples
-were run as printed. Each one's output is shown below it, timings from a
-two-CPU Linux host.
+Python block is a complete program: copy it and run it from the repository
+root. Most are also in `examples/mtdna/`. The examples were run as printed.
+Each one's output is shown below it, timings from a two-CPU Linux host.
+`validation/check_manual.py` runs every block and compares its output with
+the manual.
 
 Companion documents:
 
@@ -296,10 +298,41 @@ The two common outputs are:
 - **Time-to-threshold distribution:** the stop times of the stopped cells.
 
 ```python
+"""Takeover fraction by age and time to the 90% threshold."""
+
+import json
+
+import numpy as np
+from crn_craft import rules
+
+model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
+model["stop"] = "N > 0 && mutants >= 0.9 * N"
+result = rules.ensemble(
+    model,
+    end=25_920.0,
+    report_times=[0.0, 25_920.0],
+    replicates=200,
+    seed=1,
+    threads=2,
+    method="mtdna_direct",
+).simulate()
 stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
-ages = 24.0 * np.array([360, 720, 1080])
-taken = [(stopped & (result.records["stop_time"] <= a)).mean() for a in ages]
+for age in (360, 720, 1080):
+    taken = (stopped & (result.records["stop_time"] <= 24.0 * age)).mean()
+    print(f"taken over by day {age:4d}: {taken:.3f}")
+days = result.records["stop_time"][stopped] / 24
+print(f"days to 90% mutants: first {days.min():.0f}, median {np.median(days):.0f}")
 ```
+
+```text
+taken over by day  360: 0.020
+taken over by day  720: 0.055
+taken over by day 1080: 0.115
+days to 90% mutants: first 273, median 726
+```
+
+These are the 200 cells of section 3: the same seed gives the same cells
+whatever the report times.
 
 Any expression over parameters and observables can be a stop, for example
 `mutants >= 0.6 * N` for a 60% COX-deficiency threshold, or
@@ -407,11 +440,9 @@ The last bits of an integral can then differ from per-event integration.
 An *event log* keeps, for every cell, up to `max_entries` events of the
 listed rules (all rules if the list is empty). Each entry holds the time,
 the rule, the participating instances and the observables after the event.
-A *live callback* is a Python function called for every committed event. It
-may stop a cell by returning `False`.
 
 ```python
-"""Exact event records: the event log and live callbacks."""
+"""Exact event records: a bounded event log for every cell."""
 
 import json
 from collections import Counter
@@ -420,9 +451,6 @@ import numpy as np
 from crn_craft import rules
 
 model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
-names = [rule["name"] for rule in model["rules"]]
-
-# 1. A bounded log of selected rules for every cell.
 run = rules.ensemble(
     model,
     end=25_920.0,
@@ -434,10 +462,11 @@ run = rules.ensemble(
     event_log={"max_entries": 50, "rules": ["mutation_mt", "mutation_mtAdv"]},
 )
 result = run.simulate()
+# Log entries carry a rule index; result.rule_names turns it into a name.
 total = Counter()
 for observation in result.observations:
     for entry in observation["log"]:
-        total[names[entry["rule"]]] += 1
+        total[result.rule_names[entry["rule"]]] += 1
 print("logged mutation events:", dict(total))
 print("omitted (log full):", sum(o["omitted_log_entries"] for o in result.observations))
 columns = result.event_columns(result.observations[0]["id"])
@@ -449,18 +478,29 @@ print(
 )
 observables = result.metadata["observables"]
 print("N after each logged event:", columns["observables"][:, observables.index("N")])
+```
 
-# 2. A live callback sees every committed event in order; returning False
-#    stops that replicate. Callbacks hold the GIL, so use them on few cells.
-seen = Counter()
+```text
+logged mutation events: {'mutation_mt': 157, 'mutation_mtAdv': 40}
+omitted (log full): 0
+cell 0 mutation days: [323.4 744.1]
+N after each logged event: [997. 999.]
+```
 
+A *live callback* is a Python function called for every committed event of
+a cell, in order. Returning `False` stops that cell. Each event carries the
+rule index; `run.rule_names[event["rule"]]` gives the rule's name:
 
-def watch(replicate, event):
-    seen[event["rule"]] += 1
-    # Stop a cell as soon as an advantaged mutant arises.
-    return event["rule"] != names.index("mutation_mtAdv")
+```python
+"""Exact event records: a live callback that stops cells."""
 
+import json
+from collections import Counter
 
+import numpy as np
+from crn_craft import rules
+
+model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
 run = rules.ensemble(
     model,
     end=25_920.0,
@@ -470,6 +510,17 @@ run = rules.ensemble(
     threads=1,
     method="static_direct",
 )
+seen = Counter()
+
+
+def watch(replicate, event):
+    """Count events by rule; stop a cell at its first advantaged mutant."""
+    name = run.rule_names[event["rule"]]
+    seen[name] += 1
+    return name != "mutation_mtAdv"
+
+
+# Callbacks hold the GIL, so use them on few cells.
 result = run.simulate(callback=watch)
 stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
 print("events seen by the callback:", sum(seen.values()))
@@ -478,10 +529,6 @@ print("their stop days:", np.round(result.records["stop_time"][stopped] / 24, 1)
 ```
 
 ```text
-logged mutation events: {'mutation_mt': 157, 'mutation_mtAdv': 40}
-omitted (log full): 0
-cell 0 mutation days: [323.4 744.1]
-N after each logged event: [997. 999.]
 events seen by the callback: 2512850
 cells stopped at their first advantaged mutation: 7
 their stop days: [ 744.1  364.2  914.2  232.4   47.8 1061.3  747.2]
@@ -946,16 +993,23 @@ path and SHA-256, so a result always names the exact model it came from.
 ```python
 """Write a model and a run request for the command line, and run them.
 
-Usage: python examples/mtdna/11_cli_request.py DIRECTORY [CRN_CRAFT_BINARY]
+Usage: python examples/mtdna/11_cli_request.py [DIRECTORY [CRN_CRAFT_BINARY]]
+
+DIRECTORY defaults to `takeover` in the temporary directory, /tmp/takeover
+on Linux. With the native CLI binary, the script also runs the request.
 """
 
 import hashlib
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
-folder = Path(sys.argv[1])
+if len(sys.argv) > 1:
+    folder = Path(sys.argv[1])
+else:
+    folder = Path(tempfile.gettempdir()) / "takeover"
 folder.mkdir(parents=True, exist_ok=True)
 model = json.loads(Path("models/rules/mtdna-three-class.rules.json").read_text())
 model["stop"] = "N > 0 && mutants >= 0.9 * N"
@@ -1112,7 +1166,7 @@ Result metadata:
 | --- | --- |
 | `sampler`, `termination`, `diagnostics` | what ran, how the ensemble ended, warnings and errors |
 | `events`, `completed_replicates`, `stopped_replicates` | totals |
-| `rules`, `observables`, `types`, `report_times` | names and grid, in result order |
+| `rules`, `observables`, `types`, `report_times` | names and grid, in result order; rule names also as `run.rule_names` and `result.rule_names` |
 | `statistics` | `mean`, `sample_variance`, `mean_standard_error`, `samples` (also `result.statistics`) |
 | `paths`, `final_instances`, `observations` | kept series, kept instances, and (with trackers or a log) trackers and logs |
 | `model_sha256`, `run_sha256`, `root_seed` | provenance |

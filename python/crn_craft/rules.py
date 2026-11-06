@@ -52,6 +52,7 @@ class Result:
             len(self.records["id"]), len(self.metadata["rules"])
         )
         self.observations = self.metadata.get("observations", [])
+        self.rule_names = tuple(self.metadata["rules"])
         stats = self.metadata["statistics"]
         self.statistics = (
             None
@@ -112,8 +113,18 @@ class Result:
 
 
 class PreparedEnsemble:
-    def __init__(self, native):
+    def __init__(self, native, rule_names):
         self._native = native
+        self._rule_names = tuple(rule_names)
+
+    @property
+    def rule_names(self):
+        """Rule names in declaration order.
+
+        Callback events and log entries carry a rule index into this tuple,
+        so ``run.rule_names[event["rule"]]`` names the rule that fired.
+        """
+        return self._rule_names
 
     def bind_parameters(self, overrides):
         """Prepare an independent candidate with the same ensemble settings.
@@ -122,9 +133,10 @@ class PreparedEnsemble:
         model and request, not the original file.
         """
         try:
-            return PreparedEnsemble(self._native.bind_parameters(dict(overrides)))
+            native = self._native.bind_parameters(dict(overrides))
         except _native.NativeError as error:
             raise _crn_error(error) from None
+        return PreparedEnsemble(native, self._rule_names)
 
     def simulate(
         self, *, cancel_file=None, callback=None, batch_callback=None, batch_size=256
@@ -132,8 +144,11 @@ class PreparedEnsemble:
         """Run native workers.
 
         A live callback(id, event) returning False stops that replicate; any
-        other return value continues. Workers preserve per-replicate order,
-        and calls from different replicates interleave. An exception in the
+        other return value continues. ``event`` is a log entry: ``time``,
+        ``rule`` (an index into ``rule_names``, None for a leap),
+        ``reactants``, ``products``, ``observables`` (in the result's column
+        order) and ``firings``. Workers preserve per-replicate order, and
+        calls from different replicates interleave. An exception in the
         callback cancels the run and is raised here; partial results are
         discarded. A callback that blocks also blocks Ctrl-C. A
         batch_callback(id, events) replays the retained log after execution
@@ -162,12 +177,13 @@ class PreparedEnsemble:
 
 def prepare(model, request):
     """Prepare a rules-run contract, preserving the supplied model bytes."""
+    data = model_bytes(model)
     try:
-        return PreparedEnsemble(
-            _native.prepare_rules(model_bytes(model), model_bytes(request))
-        )
+        native = _native.prepare_rules(data, model_bytes(request))
     except _native.NativeError as error:
         raise _crn_error(error) from None
+    # The engine has validated the model; results list rules in this order.
+    return PreparedEnsemble(native, [r["name"] for r in json.loads(data)["rules"]])
 
 
 def ensemble(

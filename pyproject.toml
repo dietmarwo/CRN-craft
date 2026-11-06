@@ -3,13 +3,13 @@ requires = ["maturin==1.9.6"]
 build-backend = "maturin"
 [project]
 name = "crn-craft"
-version = "0.2.0"
+version = "0.3.0"
 requires-python = ">=3.10"
 description = "Reproducible well-mixed reaction network simulation and analysis"
 license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 readme = "python/README.md"
-dependencies = ["numpy>=1.24,<3"]
+dependencies = ["numpy>=1.24,<3", "pandas>=2.0,<4"]
 keywords = ["chemical reaction networks", "stochastic simulation", "Gillespie", "SSA", "systems biology", "Rust"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -33,6 +33,7 @@ crn-craft-import = "crn_craft.importers:main"
 
 [project.optional-dependencies]
 fit = ["scipy==1.17.0", "fcmaes-rust==0.2.1", "sqp-craft==0.17.0"]
+xarray = ["xarray>=2023.1"]
 [tool.maturin]
 manifest-path = "bindings/python/Cargo.toml"
 python-source = "python"

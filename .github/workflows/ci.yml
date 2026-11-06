@@ -102,13 +102,14 @@ jobs:
   python:
     # The wheel, its console scripts and the Python-level checks.
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install maturin==1.9.6 numpy==2.3.5 jsonschema==4.26.0
+      # rebop is a reference for check_builder.py only, not a dependency.
+      - run: python -m pip install maturin==1.9.6 numpy==2.3.5 pandas==3.1.1 xarray==2026.9.0 jsonschema==4.26.0 rebop==0.10.0
       - run: cargo build --release --workspace --locked
       - run: maturin build --release --locked --out dist
       - run: python -m pip install dist/*.whl
@@ -118,6 +119,21 @@ jobs:
       - run: python validation/check_rules_python.py --output rules-python.json
       - run: python -O validation/check_rules_python.py --output rules-python-optimized.json
       - run: diff rules-python.json rules-python-optimized.json
+      # Every Python block of the mtDNA manual runs on its own and prints the
+      # output shown in the manual.
+      - run: python validation/check_manual.py --binary target/release/crn-craft --output manual.json
+      - run: python -O validation/check_manual.py --binary target/release/crn-craft --output manual-optimized.json
+      - run: diff manual.json manual-optimized.json
+      # The rules.Model builder against exact means and rebop 0.10.0
+      # (validation/builder/RESULTS.md).
+      - run: python validation/check_builder.py --output builder.json
+      - run: python -O validation/check_builder.py --output builder-optimized.json
+      - run: diff builder.json builder-optimized.json
+      # hybrid against exact laws and against exact thinning on the ATP model,
+      # at the default sizes (about 70 s per run; validation/hybrid/RESULTS.md).
+      - run: python validation/check_hybrid.py --output hybrid.json
+      - run: python -O validation/check_hybrid.py --output hybrid-optimized.json
+      - run: diff hybrid.json hybrid-optimized.json
       - run: python validation/check_alternative_contracts.py --binary target/release/crn-craft --output alternative-contracts.json
       - run: python -O validation/check_alternative_contracts.py --binary target/release/crn-craft --output alternative-contracts-optimized.json
       - run: diff alternative-contracts.json alternative-contracts-optimized.json

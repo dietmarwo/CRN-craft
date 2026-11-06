@@ -1,0 +1,184 @@
+{
+  "schema": "crn-craft.hybrid-validation/0.1",
+  "protocol": "validation/hybrid/RESULTS.md",
+  "tolerances": {
+    "rtol": 1e-06,
+    "atol": 1e-09
+  },
+  "gates": {
+    "family_alpha": 0.001,
+    "comparisons": 5,
+    "epsilon": 0.015174271293851465,
+    "rows": [
+      {
+        "gate": "A1_decay_driven_death",
+        "replicates": 20000,
+        "distance": 0.004921933934520395,
+        "epsilon": 0.015174271293851465,
+        "passed": true
+      },
+      {
+        "gate": "A2_linear_rate_poisson",
+        "replicates": 20000,
+        "distance": 0.003991617470656572,
+        "epsilon": 0.015174271293851465,
+        "passed": true
+      },
+      {
+        "gate": "A3_count_at_stop_binomial",
+        "replicates": 20000,
+        "distance": 0.0026462536285309923,
+        "epsilon": 0.015174271293851465,
+        "passed": true
+      },
+      {
+        "gate": "A4_clamp_poisson",
+        "replicates": 20000,
+        "distance": 0.0015530173437109385,
+        "epsilon": 0.015174271293851465,
+        "passed": true
+      },
+      {
+        "gate": "A5_jump_process_poisson",
+        "replicates": 20000,
+        "distance": 0.0031492212392144614,
+        "epsilon": 0.015174271293851465,
+        "passed": true
+      }
+    ]
+  },
+  "checks": [
+    {
+      "check": "A1_complete",
+      "passed": true
+    },
+    {
+      "check": "A1_observed",
+      "passed": true
+    },
+    {
+      "check": "A2_complete",
+      "passed": true
+    },
+    {
+      "check": "A3_all_stopped",
+      "passed": true
+    },
+    {
+      "check": "A3_stop_time",
+      "passed": true,
+      "detail": 1.7763568394002505e-15
+    },
+    {
+      "check": "A3_x_before_stop",
+      "passed": true
+    },
+    {
+      "check": "A3_x_after_stop",
+      "passed": true
+    },
+    {
+      "check": "A4_all_completed",
+      "passed": true
+    },
+    {
+      "check": "A4_x_clamped",
+      "passed": true
+    },
+    {
+      "check": "A5_complete",
+      "passed": true
+    },
+    {
+      "check": "A6_ode_accuracy",
+      "passed": true,
+      "detail": 0.02155307838269629
+    }
+  ],
+  "power": [
+    {
+      "gate": "A1",
+      "wrong_law": "c = 1.1",
+      "distance": 0.037187881973655745,
+      "rejected": true
+    },
+    {
+      "gate": "A2",
+      "wrong_law": "b = 2.2",
+      "distance": 0.11554841793846038,
+      "rejected": true
+    },
+    {
+      "gate": "A5",
+      "wrong_law": "immigration 10.5",
+      "distance": 0.05796224232286784,
+      "rejected": true
+    }
+  ],
+  "atp_equivalence": {
+    "size": "default",
+    "replicates_per_arm": 400,
+    "seeds": {
+      "thinning": 7101,
+      "hybrid": 7102
+    },
+    "family_alpha": 0.01,
+    "per_test_level": 0.0025,
+    "arms": {
+      "thinning": {
+        "sampler": "chacha8-u53/rules-atp-thinning/1",
+        "complete": true,
+        "events": 60721498,
+        "stopped": 41,
+        "taken_over": 41,
+        "median_takeover_hours": 14029.788630571857,
+        "mean_final_atp": 404.1429805915886,
+        "mean_final_population": 5011.07
+      },
+      "hybrid": {
+        "sampler": "chacha8-u53/rules-approximate-hybrid-dopri54/1",
+        "complete": true,
+        "events": 60862156,
+        "stopped": 42,
+        "taken_over": 42,
+        "median_takeover_hours": 15286.856147872695,
+        "mean_final_atp": 402.79677224124026,
+        "mean_final_population": 5176.32
+      }
+    },
+    "tests": [
+      {
+        "test": "B1_takeover_time",
+        "kind": "two-sample Kolmogorov-Smirnov",
+        "statistic": 0.015,
+        "p_value": 1.0,
+        "passed": true
+      },
+      {
+        "test": "B2_final_atp",
+        "kind": "two-sample Kolmogorov-Smirnov",
+        "statistic": 0.04750000000000004,
+        "p_value": 0.7477687826200233,
+        "passed": true
+      },
+      {
+        "test": "B3_final_population",
+        "kind": "two-sample Kolmogorov-Smirnov",
+        "statistic": 0.05499999999999999,
+        "p_value": 0.5689846391499882,
+        "passed": true
+      },
+      {
+        "test": "B4_atp_exhaustion",
+        "kind": "Fisher exact, two-sided",
+        "statistic": [
+          41,
+          42
+        ],
+        "p_value": 1.0,
+        "passed": true
+      }
+    ]
+  },
+  "failed": []
+}

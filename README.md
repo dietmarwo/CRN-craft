@@ -4,7 +4,7 @@
 
 Native Rust foundations for well-mixed chemical reaction networks, designed for reproducible simulation and optimization workflows.
 
-**Version 0.2.0.** Install the Python package with `pip install crn-craft` and the native CLI with `cargo install crn-craft-cli --locked`; the libraries are the crates `crn-craft` and `crn-craft-rules`. Optional integrations build from this repository. Native Direct, dependency-cached SSA, DirectCR, SortingDirect, RSSACR and next reaction, sparse FSP and explicitly approximate Poisson leaps execute, as does the experimental rules engine with Python ensembles. Optional Python bindings, trajectory diagnostics, pinned fcmaes job applications, diffsol BDF/forward sensitivities, global-to-SQP fitting and explicit SBML/BioNetGen import subsets are included. The default Rust engine remains independent of Python, jobs and ODE dependencies. A successful numerical run is not biological validation.
+**Version 0.3.0.** Install the Python package with `pip install crn-craft` and the native CLI with `cargo install crn-craft-cli --locked`; the libraries are the crates `crn-craft` and `crn-craft-rules`. Optional integrations build from this repository. Native Direct, dependency-cached SSA, DirectCR, SortingDirect, RSSACR and next reaction, sparse FSP and explicitly approximate Poisson leaps execute, as does the experimental rules engine with Python ensembles, a Python model builder, pandas results and continuous variables (`hybrid`). Optional Python bindings, trajectory diagnostics, pinned fcmaes job applications, diffsol BDF/forward sensitivities, global-to-SQP fitting and explicit SBML/BioNetGen import subsets are included. The default Rust engine remains independent of Python, jobs and ODE dependencies. A successful numerical run is not biological validation.
 
 Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/architecture.md), the [technical report](docs/technical-report.md) (design, validation and measured performance), the [comparison with GillesPy2](docs/comparison-gillespy2.md) and `crn-craft describe`. Every document is listed under [Documentation](#documentation). Legacy input/result/archive contracts remain available; new approximate/FSP results use distinct schemas.
 
@@ -27,9 +27,9 @@ The [four CRN optimization lessons](tutorials/optimization/README.md) cover reus
 - [Ten further Julia-gap iterations](docs/comparison-julia-gap10.md): same-host GitHub-main/final/Julia rerun, all methods, exposed regressions and [inspected Julia mechanisms](docs/campaign/julia-gap10-source-investigation.md)
 - [Fast mode versus Julia at one and eight threads](docs/comparison-julia-8-threads.md): direct same-host measurement of `fast` against five JumpProcesses methods, 2,240 timed observations, scaling and replay checks
 - [Agent context](docs/ai-context.md): what an AI agent needs to use and extend CRN-craft
-- [Dynamic, attributed species (experimental)](docs/rules-language.md): rule-based models whose species appear and disappear (mtDNA clones, aggregation), with [K1 law gates](validation/rules/RESULTS.md)
+- [Dynamic, attributed species (experimental)](docs/rules-language.md): rule-based models whose species appear and disappear (mtDNA clones, aggregation), whole-rule propensities and continuous variables, with [K1 law gates](validation/rules/RESULTS.md), [builder checks](validation/builder/RESULTS.md) and [hybrid gates](validation/hybrid/RESULTS.md)
 - [mtDNA user manual](docs/mtdna-user-manual.md), [optimization tutorial](docs/mtdna-optimization-tutorial.md) and [performance analysis](docs/mtdna-performance-analysis.md): simulating mtDNA mutant accumulation from Python, the command line and Rust, with runnable examples in `examples/mtdna/`, fitting with fcmaes, and what each method and option costs
-- [Three-class mtDNA ensembles](docs/mtdna-rules.md): parallel Python ensembles, event trackers and callbacks, Static Direct, a specialized fixed-population sampler, next reaction, approximate tau and binomial steps, and ATP-coupled thinning ([review log](docs/campaign/mtdna-a0-a6-review-log-2026-11-03.md))
+- [Three-class mtDNA ensembles](docs/mtdna-rules.md): parallel Python ensembles, event trackers and callbacks, Static Direct, a specialized fixed-population sampler, next reaction, approximate tau and binomial steps, ATP-coupled thinning and the `hybrid` method for continuous variables ([review log](docs/campaign/mtdna-a0-a6-review-log-2026-11-03.md))
 - [Rules kernel checklist](docs/specialized-kernels.md): when a model-specific rules kernel pays off, and generated rules kernels and event loops
 
 **Using CRN-craft**
@@ -246,6 +246,22 @@ the ATP-coupled variable-population model with its own gates; see
 [docs/mtdna-rules.md](docs/mtdna-rules.md) and the
 [language reference](docs/rules-language.md).
 
+Release 0.3.0 answers the first user feedback on the Python interface
+([plan](docs/plan-0.3.0-feedback.md)). rules-model/0.3 lets a rule give its
+whole `propensity` instead of a per-tuple `rate`, and declares `continuous`
+variables: ODEs between events that rates read, simulated by the
+approximate `hybrid` method at declared tolerances (rules-run/0.5,
+rules-result/0.3; Dormand–Prince 5(4) with integrated hazards). The ATP
+model is now an ordinary model file
+(`models/rules/mtdna-three-class-atp-continuous.rules.json`); the legacy
+`atp` block and `thinning` keep working. In Python, `crn_craft.rules.Model`
+builds models from `add_reaction(rate, reactants, products)` calls, results
+are pandas DataFrames (`keep_paths="all"`, `to_xarray()`), and event logs
+reserve output from the model's own sizes, so the reported 50-entry
+mutation log fits the default budget. See the
+[mtDNA user manual](docs/mtdna-user-manual.md) and the
+[changelog](CHANGELOG.md) for migration notes.
+
 ## Developer checks
 
 ```bash
@@ -282,6 +298,15 @@ diff mtdna.json mtdna-optimized.json
 python3 validation/check_rules_python.py --output rules-python.json
 python3 -O validation/check_rules_python.py --output rules-python-optimized.json
 diff rules-python.json rules-python-optimized.json
+# Every Python block of the mtDNA manual, run on its own, against its shown output:
+python3 validation/check_manual.py --binary target/release/crn-craft --output manual.json
+python3 -O validation/check_manual.py --binary target/release/crn-craft --output manual-optimized.json
+diff manual.json manual-optimized.json
+# The rules.Model builder (rebop 0.10.0 rows are skipped without rebop) and hybrid:
+python3 validation/check_builder.py --output builder.json
+python3 validation/check_hybrid.py --output hybrid.json
+# The installed wheel, from outside the checkout:
+(cd /tmp && python3 -I "$OLDPWD/validation/check_installed.py" --output installed.json)
 ```
 
 The optional real-reference checks use a separate Python environment:
@@ -293,7 +318,7 @@ python3 -m venv .venv-reference
 .venv-reference/bin/python -O validation/check_export.py
 ```
 
-The eleven original schema snapshots keep their shapes (since 0.2.0 the generated schemas also carry the API documentation as `description` text), and nine further native schemas (fsp-result, tau-request, tau-result, ssa-run, ssa-result, rules-model, rules-check, rules-run, rules-result) are compared with the CLI. Model/run/check/state, analysis 0.2, legacy analysis 0.1 and export 0.1 remain unchanged. Reserved result 0.1 is retained as `result-v1`; real simulation results use 0.2. Archive and archive-check are 0.1; discovery is 0.10 (0.11 from the native CLI). Strict parsers and semantic checks remain mandatory. The optional exporter checker runs a short GillesPy2 smoke test; the independent SSA campaign validates CRN-craft against declared analytic distributions, and `check_cme.py` against exact master-equation laws for nonlinear and custom rates.
+The eleven original schema snapshots keep their shapes (since 0.2.0 the generated schemas also carry the API documentation as `description` text), and nine further native schemas (fsp-result, tau-request, tau-result, ssa-run, ssa-result, rules-model, rules-check, rules-run, rules-result) are compared with the CLI. Model/run/check/state, analysis 0.2, legacy analysis 0.1 and export 0.1 remain unchanged. Reserved result 0.1 is retained as `result-v1`; real simulation results use 0.2. Archive and archive-check are 0.1; discovery is 0.10 (0.12 from the native CLI). Strict parsers and semantic checks remain mandatory. The optional exporter checker runs a short GillesPy2 smoke test; the independent SSA campaign validates CRN-craft against declared analytic distributions, and `check_cme.py` against exact master-equation laws for nonlinear and custom rates.
 
 GitHub Actions is configured for fmt, clippy and release tests on Rust 1.85.0, 1.88.0 and stable; dependency, schema/CLI and independent network/structure/SSA/CME checks normally and under Python `-O` with identical reports; source mutation checks; and contract/network/structure/SSA/archive tests with `core.autocrlf=true`. See [iteration 4 evidence](validation/iteration-04/RESULTS.md) for executed local checks. The default build has no C/C++ simulator, Julia or Python runtime dependency. It pins pure-Rust libm for rate evaluation. Python is only needed for independent acceptance checks.
 

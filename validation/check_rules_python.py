@@ -6,11 +6,179 @@ from pathlib import Path
 import tempfile
 
 import numpy as np
+import pandas as pd
 
 from crn_craft import rules
 from check_rules import require
 
 ROOT = Path(__file__).resolve().parents[1]
+RECORD_DTYPES = {
+    "started": "?",
+    "termination": "u1",
+    "stop_time": "<f8",
+    "events": "<u8",
+    "rng_words": "<u8",
+    "peak_instances": "<u8",
+    "created_instances": "<u8",
+    "saved_points": "<u8",
+}
+
+
+def frame_bytes(frame):
+    """Index, columns, dtypes and exact value bytes of a DataFrame."""
+    parts = [tuple(frame.index.names), frame.index.to_numpy().tobytes()]
+    for name in frame.columns:
+        column = frame[name]
+        if isinstance(column.dtype, pd.CategoricalDtype):
+            values = column.cat.codes.to_numpy()
+        else:
+            values = column.to_numpy()
+        parts.append((name, str(column.dtype), values.tobytes()))
+    return parts
+
+
+def result_bytes(result):
+    """Every DataFrame of a result, for byte-for-byte replay comparisons."""
+    out = [frame_bytes(result.records), frame_bytes(result.rule_events)]
+    if result.statistics is not None:
+        for key, value in sorted(result.statistics.items()):
+            out.append(
+                (
+                    key,
+                    value
+                    if value is None or isinstance(value, int)
+                    else frame_bytes(value),
+                )
+            )
+    return out
+
+
+def check_frames(result, metadata, columns):
+    """Check a Result's DataFrames against the raw native metadata/buffers."""
+    meta = metadata["result"]
+    observables = meta["observables"]
+    times = meta["report_times"]
+    ids = np.frombuffer(columns["id"], dtype="<u8")
+    records = result.records
+    require(
+        list(records.columns) == list(RECORD_DTYPES)
+        and records.index.name == "replicate"
+        and records.index.dtype == np.int64
+        and np.array_equal(records.index.to_numpy(), ids),
+        "records index and columns",
+    )
+    for key, dtype in RECORD_DTYPES.items():
+        raw = np.frombuffer(columns[key], dtype=dtype)
+        column = records[key]
+        if key == "termination":
+            require(
+                isinstance(column.dtype, pd.CategoricalDtype)
+                and tuple(column.cat.categories) == rules.TERMINATIONS
+                and np.array_equal(column.cat.codes.to_numpy(), raw)
+                and list(column.astype(str)) == [rules.TERMINATIONS[i] for i in raw],
+                "categorical termination",
+            )
+        else:
+            require(
+                column.dtype == np.dtype(dtype)
+                and column.to_numpy().tobytes() == raw.tobytes(),
+                f"record column {key}",
+            )
+    counts = np.frombuffer(columns["rule_events"], dtype="<u8")
+    require(
+        result.rule_events.shape == (len(ids), len(meta["rules"]))
+        and list(result.rule_events.columns) == meta["rules"]
+        and result.rule_events.index.equals(records.index)
+        and set(result.rule_events.dtypes) == {np.dtype(np.uint64)}
+        and result.rule_events.to_numpy().ravel().tobytes() == counts.tobytes(),
+        "rule event frame",
+    )
+    stats = meta["statistics"]
+    if stats is None:
+        require(result.statistics is None, "withheld statistics")
+    else:
+        require(result.statistics["samples"] == stats["samples"], "statistics samples")
+        for key in ("mean", "sample_variance", "mean_standard_error"):
+            frame = result.statistics[key]
+            if stats[key] is None:
+                require(frame is None, f"absent statistic {key}")
+                continue
+            require(
+                frame.index.name == "time"
+                and list(frame.index) == times
+                and list(frame.columns) == observables
+                and frame.shape == (len(times), len(observables))
+                and np.array_equal(frame.to_numpy(), np.array(stats[key])),
+                f"statistic frame {key}",
+            )
+    paths = result.paths
+    require(
+        list(paths.index.names) == ["replicate", "time"]
+        and list(paths.columns) == observables
+        and len(paths) == sum(len(p["values"]) for p in meta["paths"]),
+        "path frame shape",
+    )
+    for kept in meta["paths"]:
+        rows = paths.loc[kept["id"]]
+        require(
+            np.array_equal(
+                rows.to_numpy(), np.array(kept["values"]).reshape(-1, len(observables))
+            )
+            and list(rows.index) == times[: len(kept["values"])],
+            f"path rows of replicate {kept['id']}",
+        )
+    for observation in meta.get("observations", []):
+        if observation["log"]:
+            frame = result.event_columns(observation["id"])
+            log = observation["log"]
+            require(
+                list(frame.columns) == ["time", "rule", "rule_name", *observables]
+                and list(frame["time"]) == [e["time"] for e in log]
+                and list(frame["rule"])
+                == [-1 if e["rule"] is None else e["rule"] for e in log]
+                and [None if pd.isna(n) else n for n in frame["rule_name"]]
+                == [
+                    None if e["rule"] is None else meta["rules"][e["rule"]] for e in log
+                ]
+                and np.array_equal(
+                    frame[observables].to_numpy(), [e["observables"] for e in log]
+                ),
+                "event log frame",
+            )
+    observed = meta.get("observations", [])
+    everything = result.event_columns()
+    require(
+        list(everything.index.names) == ["replicate", "entry"]
+        and len(everything) == sum(len(o["log"]) for o in observed)
+        and all(
+            everything.loc[o["id"]].equals(result.event_columns(o["id"]))
+            for o in observed
+            if o["log"]
+        ),
+        "event frame of every replicate",
+    )
+    for index, _ in enumerate(meta.get("observations", [{}])[0].get("trackers", [])):
+        frame = result.tracker_columns(index)
+        observed = meta["observations"]
+        require(
+            list(frame.index) == [o["id"] for o in observed]
+            and all(
+                frame[key].dtype == np.uint64
+                for key in ("appearances", "extinctions", "omitted_episodes")
+            )
+            and all(
+                np.array_equal(
+                    frame[key].to_numpy(),
+                    np.array(
+                        [o["trackers"][index][key] for o in observed],
+                        dtype=frame[key].dtype,
+                    ),
+                    equal_nan=frame[key].dtype.kind == "f",
+                )
+                for key in frame.columns
+            ),
+            "tracker frame",
+        )
 
 
 def main():
@@ -31,19 +199,13 @@ def main():
     expected = rules.ensemble(model, threads=1, **common).simulate()
     prepared = rules.ensemble(model, threads=20, **common)
     actual = prepared.simulate()
-    for key in expected.records:
-        require(
-            actual.records[key].dtype == expected.records[key].dtype
-            and actual.records[key].tobytes() == expected.records[key].tobytes()
-            and not actual.records[key].flags.writeable,
-            f"record column mismatch: {key}",
-        )
+    require(result_bytes(actual) == result_bytes(expected), "thread-dependent frames")
     require(expected.observations == actual.observations, "thread-dependent log")
     require(
         np.array_equal(expected.statistics["mean"], actual.statistics["mean"]),
         "thread-dependent statistics",
     )
-    require(actual.records["rule_events"].shape == (20, 8), "rule buffer shape")
+    require(actual.rule_events.shape == (20, 8), "rule frame shape")
     first = actual.observations[0]["log"]
     events = actual.event_columns(0)
     require(
@@ -68,12 +230,24 @@ def main():
         received == batches == [ob["log"] for ob in actual.observations],
         "callback sequence mismatch",
     )
+    # Rule names: declaration order on the prepared run and the result, so a
+    # callback names a rule as run.rule_names[event["rule"]].
+    declared = tuple(rule["name"] for rule in json.loads(model)["rules"])
+    require(
+        prepared.rule_names == actual.rule_names == declared
+        and tuple(actual.metadata["rules"]) == declared
+        and prepared.bind_parameters({"mu": 0.3}).rule_names == declared,
+        "rule names",
+    )
+    fired = {prepared.rule_names[e["rule"]] for log in received for e in log}
+    require(fired and fired <= set(declared), "rule names of callback events")
     require(
         with_callback.metadata == actual.metadata, "observer changed numerical result"
     )
     stopped = prepared.simulate(callback=lambda _i, _event: False)
     require(
-        np.all(stopped.records["events"] == 1)
+        bool((stopped.records["events"] == 1).all())
+        and bool((stopped.records["termination"] == "stopped").all())
         and stopped.metadata["stopped_replicates"] == 20,
         "callback did not stop the paths",
     )
@@ -108,13 +282,10 @@ def main():
     fresh["parameters"].update(mu=0.3, sm=1.8)
     c = rules.ensemble(fresh, threads=8, **fixed).simulate()
     require("ziggurat" in a.metadata["sampler"], "bound candidate fell back")
-    for key in a.records:
-        require(
-            a.records[key].tobytes()
-            == b.records[key].tobytes()
-            == c.records[key].tobytes(),
-            f"bound parameter replay mismatch: {key}",
-        )
+    require(
+        result_bytes(a) == result_bytes(b) == result_bytes(c),
+        "bound parameter replay mismatch",
+    )
     require(a.observations == c.observations, "bound parameter observation mismatch")
     require(
         template.simulate().metadata["model_sha256"] != a.metadata["model_sha256"],
@@ -157,11 +328,10 @@ def main():
         "static-direct-sparse-trackers" in plain.metadata["sampler"],
         "generic opts missing",
     )
-    for key in plain.records:
-        require(
-            plain.records[key].tobytes() == observed.records[key].tobytes(),
-            f"generic Continue observer changed {key}",
-        )
+    require(
+        result_bytes(plain) == result_bytes(observed),
+        "generic Continue observer changed the frames",
+    )
     # NumPy scalars and arrays are accepted for the grid, counts and seeds;
     # fractional counts are rejected rather than truncated.
     grid = rules.ensemble(
@@ -194,14 +364,169 @@ def main():
         pass
     else:
         raise RuntimeError("tracker index beyond the requested trackers")
+    # DataFrames against the raw native metadata and buffers: a full run with
+    # every path, a log and a first-passage tracker, and a run whose
+    # replicates end on the event budget with partial paths.
+    full = rules.ensemble(
+        model,
+        threads=2,
+        keep_paths="all",
+        **(
+            common
+            | {
+                "trackers": [
+                    {"observable": "mutants", "keep_episodes": 4},
+                    {"observable": "N", "first_passage": "N < 7"},
+                ]
+            }
+        ),
+    )
+    metadata, columns = full._native.simulate(None, None)
+    metadata = json.loads(metadata)
+    framed = rules.Result(metadata, columns)
+    check_frames(framed, metadata, columns)
+    require(
+        len(framed.paths) == 20 * 3
+        and framed.paths.index.get_level_values(0).nunique() == 20,
+        "keep_paths='all' keeps every replicate",
+    )
+    require(
+        framed.tracker_columns(1)["first_passage"].isna().any()
+        and framed.tracker_columns(1)["first_passage"].notna().any(),
+        "first passage NaN where absent",
+    )
+    short = rules.ensemble(
+        model,
+        end=3.0,
+        report_times=[0.0, 1.0, 2.0, 3.0],
+        replicates=6,
+        seed=5,
+        max_events=20,
+        keep_paths=True,
+        method="static_direct",
+    )
+    metadata, columns = short._native.simulate(None, None)
+    metadata = json.loads(metadata)
+    partial = rules.Result(metadata, columns)
+    check_frames(partial, metadata, columns)
+    saved = partial.paths.groupby(level="replicate").size()
+    require(
+        partial.statistics is None
+        and set(partial.records["termination"]) == {"event_limit"}
+        and saved.max() < 4
+        and np.array_equal(
+            saved.to_numpy(), partial.records["saved_points"].to_numpy()
+        ),
+        "partial paths of budget-ended replicates",
+    )
+    # Leaps of an approximate method are logged with rule -1 and no name.
+    leaping = rules.ensemble(
+        model,
+        end=3.0,
+        report_times=[0.0, 3.0],
+        replicates=3,
+        seed=2,
+        method={"kind": "binomial", "step": 0.5},
+        event_log={"max_entries": 64},
+    )
+    metadata, columns = leaping._native.simulate(None, None)
+    metadata = json.loads(metadata)
+    check_frames(rules.Result(metadata, columns), metadata, columns)
+    require(
+        any(
+            e["rule"] is None
+            for o in metadata["result"]["observations"]
+            for e in o["log"]
+        ),
+        "leap entries in the log",
+    )
+    try:
+        import xarray  # noqa: F401
+    except ImportError:
+        try:
+            partial.to_xarray()
+        except ImportError as error:
+            require("crn-craft[xarray]" in str(error), "to_xarray hint")
+        else:
+            raise RuntimeError("to_xarray without xarray")
+    else:
+        for result in (framed, partial):
+            data = result.to_xarray()
+            cube = np.stack(
+                [data[name].values for name in result.paths.columns], axis=-1
+            )
+            require(
+                data[result.paths.columns[0]].dims == ("replicate", "time")
+                and list(data["time"].values) == result.metadata["report_times"]
+                and list(data["replicate"].values)
+                == [p["id"] for p in result.metadata["paths"]]
+                and data.attrs["sampler"] == result.metadata["sampler"],
+                "to_xarray coordinates",
+            )
+            for kept in result.metadata["paths"]:
+                rows = np.array(kept["values"])
+                require(
+                    np.array_equal(cube[kept["id"], : len(rows)], rows)
+                    and np.isnan(cube[kept["id"], len(rows) :]).all(),
+                    "to_xarray values",
+                )
+    # The documented mtdna_direct fallback: a stop outside the certified form
+    # runs generic Static Direct, with its numbers and a CRN-R051 warning.
+    odd = json.loads(model)
+    odd["stop"] = "mutants > 2"
+    settings = {
+        "end": 3.0,
+        "report_times": [0.0, 1.0, 3.0],
+        "replicates": 12,
+        "seed": 9,
+        "keep_paths": "all",
+        "trackers": [{"observable": "mutants"}],
+    }
+    fell = rules.ensemble(odd, method="mtdna_direct", **settings).simulate()
+    plain = rules.ensemble(odd, method="static_direct", **settings).simulate()
+    require(
+        fell.metadata["sampler"]
+        == plain.metadata["sampler"]
+        == "chacha8-u53/rules-static-direct/1"
+        and result_bytes(fell) == result_bytes(plain)
+        and fell.paths.equals(plain.paths)
+        and fell.observations == plain.observations
+        and [d["code"] for d in fell.metadata["diagnostics"]] == ["CRN-R051"]
+        and not plain.metadata["diagnostics"],
+        "mtdna_direct fallback equals static_direct",
+    )
+    # keep_paths: "all" and True are every replicate, False none; same request.
+    shapes = {
+        repr(keep): rules.ensemble(
+            model, end=3.0, report_times=[0.0, 3.0], replicates=3, keep_paths=keep
+        )
+        .simulate()
+        .metadata["run_sha256"]
+        for keep in ("all", True, 3, False, 0)
+    }
+    require(
+        shapes["'all'"] == shapes["True"] == shapes["3"]
+        and shapes["False"] == shapes["0"] != shapes["3"],
+        "keep_paths all, True and False",
+    )
+    for bad in ("some", -1, 1.5):
+        try:
+            rules.ensemble(model, end=3.0, report_times=[0.0, 3.0], keep_paths=bad)
+        except (ValueError, TypeError):  # CrnError is a ValueError
+            pass
+        else:
+            raise RuntimeError(f"keep_paths {bad!r} accepted")
     args.output.write_text(
         json.dumps(
             {
                 "passed": True,
                 "checks": [
-                    "1/20 typed column bytes",
+                    "1/20 typed frame bytes",
                     "ordered statistics",
-                    "read-only buffers",
+                    "frames match the native buffers and metadata",
+                    "keep_paths all, True and False",
+                    "partial paths and to_xarray",
+                    "mtdna_direct fallback equals static_direct",
                     "event and batch delivery",
                     "event and tracker array views",
                     "continue identity",

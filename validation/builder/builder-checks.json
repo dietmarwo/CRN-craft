@@ -1,0 +1,189 @@
+{
+  "schema": "crn-craft.builder-validation/0.1",
+  "protocol": "validation/builder/RESULTS.md",
+  "replicates_per_arm": 4000,
+  "family_alpha": 0.001,
+  "family_size": 18,
+  "z_critical": 4.030934372846465,
+  "rebop": "0.10.0",
+  "checks": [
+    {
+      "check": "sir_numeric_json",
+      "passed": true
+    },
+    {
+      "check": "birth_death_string_json",
+      "passed": true
+    },
+    {
+      "check": "builder_model_validates",
+      "passed": true
+    }
+  ],
+  "tests": [
+    {
+      "test": "birth_death_numeric_mean_A_10",
+      "kind": "exact mean",
+      "estimate": 9.9665,
+      "expected": 9.999546000702376,
+      "standard_error": 0.04999886498887344,
+      "z": -0.6609350174194866,
+      "passed": true
+    },
+    {
+      "test": "birth_death_string_mean_A_10",
+      "kind": "exact mean",
+      "estimate": 10.1305,
+      "expected": 9.999546000702376,
+      "standard_error": 0.04999886498887344,
+      "z": 2.6191394410006326,
+      "passed": true
+    },
+    {
+      "test": "michaelis_menten_mass_action_mean_P_20",
+      "kind": "exact mean",
+      "estimate": 56.36275,
+      "expected": 56.326530612244895,
+      "standard_error": 0.0994981938631074,
+      "z": 0.36402055503575576,
+      "passed": true
+    },
+    {
+      "test": "michaelis_menten_propensity_mean_P_10",
+      "kind": "exact mean",
+      "estimate": 26.59625,
+      "expected": 26.666666666666668,
+      "standard_error": 0.08164965809277261,
+      "z": -0.8624245136049093,
+      "passed": true
+    },
+    {
+      "test": "sir_json_vs_builder_S_10",
+      "kind": "two-sample mean (Welch)",
+      "estimate": 440.24825,
+      "expected": 440.20575,
+      "standard_error": 0.42815223729805013,
+      "z": 0.09926375783568724,
+      "passed": true
+    },
+    {
+      "test": "sir_json_vs_builder_I_10",
+      "kind": "two-sample mean (Welch)",
+      "estimate": 38.08675,
+      "expected": 38.23025,
+      "standard_error": 0.32931288554791927,
+      "z": -0.43575580032720845,
+      "passed": true
+    },
+    {
+      "test": "sir_json_vs_builder_S_20",
+      "kind": "two-sample mean (Welch)",
+      "estimate": 323.02425,
+      "expected": 321.99475,
+      "standard_error": 1.1098418393270413,
+      "z": 0.927609649879687,
+      "passed": true
+    },
+    {
+      "test": "sir_json_vs_builder_I_20",
+      "kind": "two-sample mean (Welch)",
+      "estimate": 91.17875,
+      "expected": 91.88525,
+      "standard_error": 0.6104934649825882,
+      "z": -1.1572605449923292,
+      "passed": true
+    },
+    {
+      "test": "sir_json_vs_builder_S_40",
+      "kind": "two-sample mean (Welch)",
+      "estimate": 115.66175,
+      "expected": 115.04475,
+      "standard_error": 0.8034700754441846,
+      "z": 0.7679190785778881,
+      "passed": true
+    },
+    {
+      "test": "sir_json_vs_builder_I_40",
+      "kind": "two-sample mean (Welch)",
+      "estimate": 87.995,
+      "expected": 87.52425,
+      "standard_error": 0.3556746727735729,
+      "z": 1.3235409660436943,
+      "passed": true
+    },
+    {
+      "test": "sir_json_vs_rebop_S_10",
+      "kind": "two-sample mean (Welch)",
+      "estimate": 440.24825,
+      "expected": 439.9885,
+      "standard_error": 0.43140398673611946,
+      "z": 0.6021038469421478,
+      "passed": true
+    },
+    {
+      "test": "sir_json_vs_rebop_I_10",
+      "kind": "two-sample mean (Welch)",
+      "estimate": 38.08675,
+      "expected": 38.40075,
+      "standard_error": 0.33300460430055817,
+      "z": -0.9429299053072394,
+      "passed": true
+    },
+    {
+      "test": "sir_json_vs_rebop_S_20",
+      "kind": "two-sample mean (Welch)",
+      "estimate": 323.02425,
+      "expected": 321.95575,
+      "standard_error": 1.1153879979922978,
+      "z": 0.9579626120446656,
+      "passed": true
+    },
+    {
+      "test": "sir_json_vs_rebop_I_20",
+      "kind": "two-sample mean (Welch)",
+      "estimate": 91.17875,
+      "expected": 91.87825,
+      "standard_error": 0.6126509133504636,
+      "z": -1.141759499181315,
+      "passed": true
+    },
+    {
+      "test": "sir_json_vs_rebop_S_40",
+      "kind": "two-sample mean (Welch)",
+      "estimate": 115.66175,
+      "expected": 115.15725,
+      "standard_error": 0.8064591179476988,
+      "z": 0.6255741782470756,
+      "passed": true
+    },
+    {
+      "test": "sir_json_vs_rebop_I_40",
+      "kind": "two-sample mean (Welch)",
+      "estimate": 87.995,
+      "expected": 87.5355,
+      "standard_error": 0.35308882964192523,
+      "z": 1.3013722367427882,
+      "passed": true
+    },
+    {
+      "test": "dimer_builder_2k_vs_rebop_k_A_0.5",
+      "kind": "two-sample mean (Welch)",
+      "estimate": 50.144,
+      "expected": 50.1925,
+      "standard_error": 0.11966988826784919,
+      "z": -0.4052815683378083,
+      "passed": true
+    },
+    {
+      "test": "dimer_builder_2k_vs_rebop_k_A_1",
+      "kind": "two-sample mean (Welch)",
+      "estimate": 33.495,
+      "expected": 33.5565,
+      "standard_error": 0.10339726029184218,
+      "z": -0.5947933226317269,
+      "passed": true
+    }
+  ],
+  "failed": [],
+  "skipped": []
+}

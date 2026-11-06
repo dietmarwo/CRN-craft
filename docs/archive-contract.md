@@ -4,7 +4,7 @@ The previous result 0.1 was a reserved envelope with no simulator emitter.
 `describe result` now emits the actual result **0.2** schema. The unchanged
 reserved schema remains available as `describe result-v1`. Model, run, check,
 state, analysis 0.2, legacy analysis 0.1 and export 0.1 shapes are unchanged.
-Discovery advanced to **0.4** here and advertises implemented Direct SSA (current: 0.10, or 0.11 from the native CLI).
+Discovery advanced to **0.4** here and advertises implemented Direct SSA (current: 0.10, or 0.12 from the native CLI).
 Historical preflight/analysis report flags remain unchanged; use `describe`
 for the current executable capability catalog.
 

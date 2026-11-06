@@ -3,7 +3,7 @@
 Usage: python examples/mtdna/performance.py SECTION [CRN_CRAFT_BINARY]
 
 SECTION is methods, threads, copy, observation, interfaces (needs the native
-CLI), models or all. Writes performance-SECTION.json in the working
+CLI), models, results or all. Writes performance-SECTION.json in the working
 directory. Timing is host-specific.
 """
 
@@ -33,13 +33,13 @@ def timed(label, ensemble, repeats=3, **kwargs):
         result = ensemble.simulate(**kwargs)
         seconds.append(time.perf_counter() - start)
     meta = result.metadata
-    stopped = int((result.records["termination"] == 1).sum())
+    stopped = int((result.records["termination"] == "stopped").sum())
     row = {
         "case": label,
         "seconds": sorted(seconds)[len(seconds) // 2],
         "all": seconds,
         "events": meta["events"],
-        "cells": len(result.records["id"]),
+        "cells": len(result.records),
         "stopped": stopped,
         "sampler": meta["sampler"],
     }
@@ -208,4 +208,60 @@ if section in ("models", "all"):
         ensemble(atp, cells=512, method="thinning"),
         1,
     )
+if section in ("results", "all"):
+    # What the pandas result costs next to the simulation: 4000 cells with
+    # every path kept. The native call returns the result document as JSON
+    # and the per-cell records as buffers; each later step is timed alone.
+    log = {"max_entries": 50, "rules": ["mutation_mt", "mutation_mtAdv"]}
+    for label, grid, extra in [
+        ("monthly reports", GRID, {}),
+        ("weekly reports", 24.0 * np.arange(0, 1081, 7), {}),
+        ("monthly reports, mutation log", GRID, {"event_log": log}),
+    ]:
+        prepared = ensemble(
+            cells=4000,
+            keep_paths="all",
+            report_times=grid,
+            max_output_bytes=1 << 30,
+            **extra,
+        )
+        steps = {}
+        for _ in range(3):
+            # Free the previous repeat first, so that no step times its release.
+            text = buffers = document = result = paths = None
+            clock = time.perf_counter()
+            text, buffers = prepared._native.simulate(None, None)
+            lap = {"simulate (native)": time.perf_counter() - clock}
+            clock = time.perf_counter()
+            document = json.loads(text)
+            lap["parse JSON"] = time.perf_counter() - clock
+            clock = time.perf_counter()
+            result = rules.Result(document, buffers)
+            lap["records, rule_events, statistics"] = time.perf_counter() - clock
+            clock = time.perf_counter()
+            paths = result.paths
+            lap["paths"] = time.perf_counter() - clock
+            try:
+                clock = time.perf_counter()
+                result.to_xarray()
+                lap["to_xarray"] = time.perf_counter() - clock
+            except ImportError:
+                pass
+            if result.observations:
+                clock = time.perf_counter()
+                result.event_columns()
+                lap["event_columns()"] = time.perf_counter() - clock
+            for key, value in lap.items():
+                steps.setdefault(key, []).append(value)
+        row = {
+            "case": f"results 4000 cells, keep_paths all, {label}",
+            "report_times": len(grid),
+            "path_rows": len(paths),
+            "logged_events": sum(len(o["log"]) for o in result.observations),
+            "events": result.metadata["events"],
+            "seconds": {key: sorted(v)[1] for key, v in steps.items()},
+            "all": steps,
+        }
+        OUT["rows"].append(row)
+        print(row["case"], json.dumps(row["seconds"]), flush=True)
 Path(f"performance-{section}.json").write_text(json.dumps(OUT, indent=2) + "\n")

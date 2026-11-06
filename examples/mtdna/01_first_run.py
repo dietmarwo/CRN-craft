@@ -23,14 +23,15 @@ result = run.simulate()
 seconds = time.perf_counter() - start
 
 meta = result.metadata
-records = result.records
-stopped = records["termination"] == rules.TERMINATIONS.index("stopped")
+records = result.records  # one row per cell
+stopped = records["termination"] == "stopped"
 print(meta["sampler"], meta["termination"])
 print(f"{meta['events']:,} events in {seconds:.2f} s")
-print(f"taken over: {stopped.sum()} of {len(stopped)} cells")
-print("takeover days (first five):", np.sort(records["stop_time"][stopped])[:5] / 24)
-names = meta["observables"]
-mean = result.statistics["mean"]
-fraction = mean[:, names.index("mutants")] / mean[:, names.index("N")]
-for day, value in zip(days, fraction, strict=True):
-    print(f"day {day:5d}: mean mutant fraction {value:.4f}")
+print(f"taken over: {stopped.sum()} of {len(records)} cells")
+print(records[["termination", "stop_time", "events"]].head(3))
+first = records.loc[stopped, "stop_time"].nsmallest(5)
+print("takeover days (first five):", first.to_numpy() / 24)
+mean = result.statistics["mean"]  # one row per report time
+fraction = mean["mutants"] / mean["N"]
+for hours, value in fraction.items():
+    print(f"day {hours / 24:5.0f}: mean mutant fraction {value:.4f}")

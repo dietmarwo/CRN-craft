@@ -197,6 +197,175 @@
       ],
       "type": "object"
     },
+    "Method": {
+      "description": "The simulation method of a run request, tagged by `kind`.\n\nAbsent means `tree`. Each method reports its own sampler identity in the result's `sampler`; the same seed gives different trajectories under different samplers. Every method except `tree` needs a model that lowers to fixed instance tuples (`CRN-R020` at `/method` otherwise).",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Exact direct method over dynamic instances: rules are selected by their propensities, then instances from sum trees. Supports random product attributes and `new_id()`. Sampler `chacha8-u53/rules-direct/2`.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "tree"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Exact direct method over the lowered network of fixed instance tuples and channels. Every positive channel must be at least 2^-53 of the total (`CRN-R031`). Sampler `chacha8-u53/rules-static-direct/1`. Ziggurat waits change the prefix to `chacha8-u53-ziggurat`, and effective sparse trackers change the suffix to `rules-static-direct-sparse-trackers/1`.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "static_direct"
+              ],
+              "type": "string"
+            },
+            "sparse_trackers": {
+              "description": "rules-run/0.4 and later. `true` integrates unweighted single-class count trackers without first-passage predicates over their constant spans, which can change the last bits of an integral. Without such a tracker it changes nothing and warns with `CRN-R051`. `null` is rejected.",
+              "type": "boolean"
+            },
+            "waiting_time": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/RulesWaitingTime"
+                }
+              ],
+              "description": "rules-run/0.4 and later; absent selects inverse waits. `null` is rejected."
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "rules-run/0.3 and later. Exact grouped direct method for the fixed three-class mtDNA vacancy model, sampler `chacha8-u53-ziggurat/rules-mtdna-direct/1`. A model or parameter set it cannot certify runs Static Direct instead, with that sampler identity and a `CRN-R051` warning naming the reason.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "mtdna_direct"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Exact next reaction method with indexed clocks over the lowered channels. Sampler `chacha8-u53/rules-next-reaction/1`.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "next_reaction"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Exact thinning with the analytic ATP flow of a rules-model/0.2 model; required for ATP models and refused for others. Sampler `chacha8-u53/rules-atp-thinning/1`.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "thinning"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Approximate adaptive Poisson leaps with exact fallback steps. Sampler `chacha8-u53/rules-approximate-cgp-poisson/2`.",
+          "properties": {
+            "epsilon": {
+              "description": "Leap tolerance, in (0, 0.1] (`CRN-R020` otherwise): the step selection bounds the mean and spread of each species and rate change in one leap by this fraction of its current value.",
+              "format": "double",
+              "type": "number"
+            },
+            "kind": {
+              "enum": [
+                "tau"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "epsilon",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Approximate death-then-birth splitting on the fixed lattice `k * step`, for single-parent unit births and deaths only. Sampler `chacha8-u53/rules-approximate-binomial-split/2`.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "binomial"
+              ],
+              "type": "string"
+            },
+            "step": {
+              "description": "Lattice step in simulated time, finite and positive (`CRN-R020` otherwise).",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "kind",
+            "step"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "rules-run/0.5 and later. Piecewise-deterministic simulation of a closed model with continuous variables (rules-model/0.3): between events the variables and the integrated total propensity follow an adaptive Dormand–Prince 5(4) integration, and the next event happens where the integrated propensity reaches a unit exponential threshold, located on the dense output. Approximate at the given tolerances; sampler `chacha8-u53/rules-approximate-hybrid-dopri54/1`. Also runs models without continuous variables. Refuses ATP models (use `thinning`) and models that do not lower to fixed tuples.",
+          "properties": {
+            "atol": {
+              "description": "Absolute tolerance of the error control, in (0, 1e-2] (`CRN-R020` otherwise). It applies to every variable and to the integrated propensity, which runs from 0 to a unit exponential.",
+              "format": "double",
+              "type": "number"
+            },
+            "kind": {
+              "enum": [
+                "hybrid"
+              ],
+              "type": "string"
+            },
+            "rtol": {
+              "description": "Relative tolerance of the error control, in [1e-12, 1e-2] (`CRN-R020` otherwise).",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "atol",
+            "kind",
+            "rtol"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "Observation": {
       "additionalProperties": false,
       "description": "The trackers and event log of one replicate, in the result's `observations`.",
@@ -352,10 +521,19 @@
       "type": "object"
     },
     "ResultVersion": {
-      "description": "The version of a result, its `schema` field: rules-result/0.1 answers a rules-run/0.1 request, rules-result/0.2 answers rules-run/0.2 to 0.4.",
+      "description": "The version of a result, its `schema` field: rules-result/0.1 answers a rules-run/0.1 request, rules-result/0.2 answers rules-run/0.2 to 0.4 and rules-result/0.3 answers rules-run/0.5.",
       "enum": [
         "crn-craft.rules-result/0.1",
-        "crn-craft.rules-result/0.2"
+        "crn-craft.rules-result/0.2",
+        "crn-craft.rules-result/0.3"
+      ],
+      "type": "string"
+    },
+    "RulesWaitingTime": {
+      "description": "How Static Direct draws waiting times (rules-run/0.4).",
+      "enum": [
+        "inverse",
+        "ziggurat"
       ],
       "type": "string"
     },
@@ -442,7 +620,7 @@
           "type": "string"
         },
         {
-          "description": "The model's stop condition held, ATP was depleted under thinning, or an observer stopped the replicate; the state is held to the end of the grid.",
+          "description": "The model's stop condition held, ATP was depleted under thinning, a continuous variable reached its lower bound with `on_bound: \"stop\"` under hybrid, or an observer stopped the replicate; the state is held to the end of the grid.",
           "enum": [
             "stopped"
           ],
@@ -572,13 +750,20 @@
       "type": "object"
     }
   },
-  "description": "The result of a rules run: `crn-craft.rules-result/0.1` or `0.2`.\n\nA result is returned even when replicates hit limits or fail: check `termination`, the per-replicate records and `diagnostics`. Matrices are indexed by report time, then observable.",
+  "description": "The result of a rules run: `crn-craft.rules-result/0.1`, `0.2` or `0.3`.\n\nA result is returned even when replicates hit limits or fail: check `termination`, the per-replicate records and `diagnostics`. Matrices are indexed by report time, then observable.",
   "properties": {
     "completed_replicates": {
       "description": "Replicates that completed or stopped.",
       "format": "uint64",
       "minimum": 0.0,
       "type": "integer"
+    },
+    "continuous": {
+      "description": "rules-result/0.3: the names of the continuous observable columns, in column order (continuous variables, or `ATP` of an ATP model). Their values are reported from the integrated or analytic flow, not only at events. Omitted when empty and before 0.3.",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
     },
     "diagnostics": {
       "description": "Ensemble-level diagnostics: `CRN-R050` for an incomplete ensemble, `CRN-R051` for a specialization that did not apply and `CRN-R045` for a trimmed result. Replicate errors are in their records.",
@@ -600,12 +785,15 @@
       },
       "type": "array"
     },
+    "method": {
+      "$ref": "#/definitions/Method"
+    },
     "model_sha256": {
       "description": "SHA-256 of the exact model bytes, lowercase hexadecimal.",
       "type": "string"
     },
     "observables": {
-      "description": "Observable names in column order: the model's observables sorted by name, then `ATP` for an ATP model.",
+      "description": "Observable names in column order: the model's observables sorted by name, then `ATP` for an ATP model or the continuous variables in declaration order.",
       "items": {
         "type": "string"
       },

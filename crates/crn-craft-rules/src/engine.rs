@@ -2,6 +2,8 @@
 
 #[path = "flat_path.rs"]
 mod flat_path;
+#[path = "hybrid.rs"]
+mod hybrid;
 #[path = "leap.rs"]
 mod leap;
 #[path = "loop_host.rs"]
@@ -410,7 +412,7 @@ impl<'m> State<'m> {
         let env = self.global_env();
         let mut total = 0.0;
         for (r, rule) in self.model.rules.iter().enumerate() {
-            let weight = match rule.shape {
+            let mut weight = match rule.shape {
                 Shape::Source => 1.0,
                 Shape::Single(c) => self.classes[c].weight(),
                 Shape::Pair(c) => self.classes[c]
@@ -420,6 +422,12 @@ impl<'m> State<'m> {
                     .total_pairs(),
                 Shape::Cross(c, d) => self.classes[c].weight() * self.classes[d].weight(),
             };
+            if rule.whole && weight > 0.0 {
+                // A whole-rule propensity applies once while the reactants
+                // are available (unit factors: the weights count molecules
+                // or pairs of distinct molecules).
+                weight = 1.0;
+            }
             if !weight.is_finite() {
                 return Err(numerical(
                     &format!("/rules/{r}"),
@@ -431,10 +439,12 @@ impl<'m> State<'m> {
                 let rate = rule.rate.eval(&env);
                 if !(rate.is_finite() && rate >= 0.0) {
                     return Err(numerical(
-                        &format!("/rules/{r}/rate"),
+                        &rule.pointer(r),
                         format!(
-                            "rate of `{}` is {rate} at observables {:?}",
-                            rule.name, self.values
+                            "{} of `{}` is {rate} at observables {:?}",
+                            rule.field(),
+                            rule.name,
+                            self.values
                         ),
                         "Rates must be finite and nonnegative wherever the rule has reactants.",
                     ));

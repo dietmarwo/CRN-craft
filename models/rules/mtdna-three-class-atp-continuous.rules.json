@@ -1,0 +1,221 @@
+{
+  "schema": "crn-craft.rules-model/0.3",
+  "name": "mtdna_three_class_atp_continuous",
+  "description": "Three fixed mtDNA classes with ATP as a continuous variable: dATP/dt = f * wild_type - v1 * ATP - v2 * N, replication multiplied by c / (c + ATP), and a stop when ATP is exhausted. The same model as mtdna-three-class-atp.rules.json without its legacy atp block; run it with the hybrid method.",
+  "parameters": {
+    "K": 1000,
+    "delta": 0.0028881132523331052,
+    "sw": 1.0,
+    "sm": 1.5,
+    "mu": 3e-05,
+    "fracAdv": 0.2,
+    "w0": 1000,
+    "f": 0.1,
+    "v1": 0.2,
+    "v2": 0.01,
+    "c": 1.3034153747670567,
+    "ATP0": 450.0
+  },
+  "types": [
+    {
+      "name": "mtDNA",
+      "attributes": [
+        "clone",
+        "s",
+        "wt"
+      ]
+    }
+  ],
+  "initial": [
+    {
+      "type": "mtDNA",
+      "attributes": {
+        "clone": 0,
+        "s": "sw",
+        "wt": 1
+      },
+      "count": "w0"
+    }
+  ],
+  "observables": {
+    "N": {
+      "type": "mtDNA"
+    },
+    "wild_type": {
+      "type": "mtDNA",
+      "where": "x.wt == 1"
+    },
+    "mutants": {
+      "type": "mtDNA",
+      "where": "x.wt == 0"
+    },
+    "advantaged_mutants": {
+      "type": "mtDNA",
+      "where": "x.clone == 2"
+    },
+    "neutral_mutants": {
+      "type": "mtDNA",
+      "where": "x.clone == 1"
+    }
+  },
+  "rules": [
+    {
+      "name": "degradation_wt",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "where": "x.clone == 0"
+        }
+      ],
+      "rate": "delta",
+      "products": []
+    },
+    {
+      "name": "replication_wt",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "where": "x.clone == 0"
+        }
+      ],
+      "rate": "(sw * (1 - mu)) * c / (c + ATP)",
+      "products": [
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        },
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        }
+      ]
+    },
+    {
+      "name": "mutation_mt",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "where": "x.clone == 0"
+        }
+      ],
+      "rate": "sw * mu * (1 - fracAdv) * c / (c + ATP)",
+      "products": [
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        },
+        {
+          "type": "mtDNA",
+          "attributes": {
+            "clone": 1,
+            "s": "sw",
+            "wt": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "mutation_mtAdv",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "where": "x.clone == 0"
+        }
+      ],
+      "rate": "sw * mu * fracAdv * c / (c + ATP)",
+      "products": [
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        },
+        {
+          "type": "mtDNA",
+          "attributes": {
+            "clone": 2,
+            "s": "sm",
+            "wt": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "degradation_mt",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "where": "x.clone == 1"
+        }
+      ],
+      "rate": "delta",
+      "products": []
+    },
+    {
+      "name": "replication_mt",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "where": "x.clone == 1"
+        }
+      ],
+      "rate": "(sw) * c / (c + ATP)",
+      "products": [
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        },
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        }
+      ]
+    },
+    {
+      "name": "degradation_mtAdv",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "where": "x.clone == 2"
+        }
+      ],
+      "rate": "delta",
+      "products": []
+    },
+    {
+      "name": "replication_mtAdv",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "mtDNA",
+          "where": "x.clone == 2"
+        }
+      ],
+      "rate": "(sm) * c / (c + ATP)",
+      "products": [
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        },
+        {
+          "type": "mtDNA",
+          "copy": "x"
+        }
+      ]
+    }
+  ],
+  "continuous": [
+    {
+      "name": "ATP",
+      "initial": "ATP0",
+      "derivative": "f * wild_type - v1 * ATP - v2 * N",
+      "lower_bound": 0,
+      "on_bound": "stop"
+    }
+  ]
+}

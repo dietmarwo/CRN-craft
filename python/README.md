@@ -60,6 +60,57 @@ The rules engine for dynamic, attributed species is in the wheel as
 `crn_craft.rules`: prepared parallel ensembles, trackers, event logs and
 callbacks, and the mtDNA methods; see the
 [mtDNA user manual](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-user-manual.md).
+`rules.Model` builds models from Python calls, in the style of rebop: a
+numeric rate is a mass-action constant, a string the reaction's whole
+propensity. Results are pandas DataFrames (pandas is installed with the
+package): per-replicate records and rule counts, statistics by report time,
+kept paths by (replicate, time), trackers and event logs.
+`Result.to_xarray()` returns the paths as an xarray Dataset with
+`pip install "crn-craft[xarray]"`. The same immigration–death model:
+
+```python
+from crn_craft import rules
+
+model = rules.Model("immigration_death")
+model.add_parameter("k_in", 4.0).add_species("X")
+model.add_reaction("k_in", [], ["X"], name="immigration")  # string: whole propensity
+model.add_reaction(0.2, ["X"], [], name="death")  # number: mass action, 0.2 X
+result = rules.ensemble(
+    model,
+    end=10.0,
+    report_times=[0.0, 5.0, 10.0],
+    replicates=1000,
+    seed=1,
+    threads=2,
+    method="static_direct",
+    keep_paths="all",
+).simulate()
+print(result.statistics["mean"])
+print(result.rule_events.sum().to_dict())
+print(result.paths["X"].unstack("time").head(3))
+```
+
+```text
+           X
+time
+0.0    0.000
+5.0   12.550
+10.0  17.351
+{'immigration': 40132, 'death': 22781}
+time       0.0   5.0   10.0
+replicate
+0           0.0   7.0  19.0
+1           0.0  13.0  20.0
+2           0.0  18.0  25.0
+```
+
+The means lie within one standard error of the exact 12.64 and 17.29.
+Models may also declare continuous variables, ODEs between events that
+rates read (for example an ATP pool), which `method="hybrid"` simulates at
+declared tolerances. Release 0.3.0 changed the rules results from NumPy
+arrays to DataFrames; the
+[changelog](https://github.com/dietmarwo/CRN-craft/blob/main/CHANGELOG.md)
+lists what to migrate.
 Its command-line tools (`rules-check`, `rules`) are in the native CLI
 (`cargo install crn-craft-cli --locked`, crates
 [crn-craft](https://crates.io/crates/crn-craft) and
@@ -74,6 +125,7 @@ the repository and are not part of the wheel.
 - [Repository and README](https://github.com/dietmarwo/CRN-craft)
 - [Tutorial](https://github.com/dietmarwo/CRN-craft/blob/main/docs/tutorial.md)
 - [Alternative exact SSA methods and the `fast` switch](https://github.com/dietmarwo/CRN-craft/blob/main/docs/alternative-ssa.md)
+- [Rules language](https://github.com/dietmarwo/CRN-craft/blob/main/docs/rules-language.md) and [mtDNA user manual](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-user-manual.md)
 - [Optimization tutorials C1–C4](https://github.com/dietmarwo/CRN-craft/blob/main/tutorials/optimization/README.md)
 - [Agent context](https://github.com/dietmarwo/CRN-craft/blob/main/docs/ai-context.md)
 - [Changelog](https://github.com/dietmarwo/CRN-craft/blob/main/CHANGELOG.md)

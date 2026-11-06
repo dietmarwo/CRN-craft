@@ -1,13 +1,27 @@
-"""Prepared rules ensembles and read-only NumPy result columns."""
+"""Prepared rules ensembles and their results as pandas objects.
+
+``rules.ensemble(model, ...)`` builds and prepares a run request;
+``simulate()`` returns a :class:`Result` whose records, statistics, rule
+counts, kept paths, trackers and event logs are pandas DataFrames. Every
+frame has ``.to_numpy()``, and ``Result.metadata`` keeps the full result
+document as the engine returned it.
+"""
 
 import hashlib
 import json
 import operator
+from functools import cached_property
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 from . import _crn_error, _native, _path, model_bytes
+from .builder import Model
+
+# Tolerances `ensemble` writes for method="hybrid" unless the method
+# dictionary gives its own.
+HYBRID_TOLERANCES = {"kind": "hybrid", "rtol": 1e-6, "atol": 1e-9}
 
 TERMINATIONS = (
     "completed",
@@ -19,6 +33,29 @@ TERMINATIONS = (
     "cancelled",
     "failed",
     "output_limit",
+)
+
+# Record columns in DataFrame order, with the native buffers' dtypes.
+_RECORD_DTYPES = {
+    "started": "?",
+    "termination": "u1",
+    "stop_time": "<f8",
+    "events": "<u8",
+    "rng_words": "<u8",
+    "peak_instances": "<u8",
+    "created_instances": "<u8",
+    "saved_points": "<u8",
+}
+_TRACKER_COUNTS = ("appearances", "extinctions", "omitted_episodes")
+_TRACKER_VALUES = (
+    "last_appearance",
+    "last_extinction",
+    "first_passage",
+    "minimum",
+    "maximum",
+    "integral",
+    "omitted_duration",
+    "omitted_peak",
 )
 
 
@@ -38,82 +75,229 @@ def load(path):
     return data
 
 
+def _replicate_index(ids):
+    return pd.Index(np.asarray(ids, dtype=np.int64), name="replicate")
+
+
 class Result:
+    """The result of a rules ensemble.
+
+    - ``records``: one row per replicate, indexed by replicate id. Columns
+      ``started``, ``termination`` (categorical over :data:`TERMINATIONS`),
+      ``stop_time``, ``events``, ``rng_words``, ``peak_instances``,
+      ``created_instances`` and ``saved_points``.
+    - ``rule_events``: events per replicate (rows) and rule (columns, in
+      declaration order).
+    - ``statistics``: None if withheld, else a dict with ``samples`` (the
+      number of replicates included) and one DataFrame per statistic
+      (``mean``, ``sample_variance``, ``mean_standard_error``), indexed by
+      report time with one column per observable. A statistic that was not
+      computed is None.
+    - ``paths``: the kept observable series, indexed by (replicate, time),
+      one column per observable. ``to_xarray()`` gives them as a Dataset.
+    - ``tracker_columns(i)`` and ``event_columns(id)``: trackers and event
+      logs as DataFrames.
+    - ``metadata``: the full result document; ``observations`` its trackers
+      and logs; ``record_diagnostics`` replicate errors by id.
+
+    Observable columns are in result order: sorted by name, then any
+    continuous observable such as ``ATP``. Use ``.to_numpy()`` on any frame
+    or column for NumPy arrays.
+    """
+
     def __init__(self, metadata, columns):
         self.metadata = metadata["result"]
         self.record_diagnostics = dict(metadata["record_diagnostics"])
-        self.records = {}
-        for key, buffer in columns.items():
-            dtype = {"started": "?", "termination": "u1", "stop_time": "<f8"}.get(
-                key, "<u8"
-            )
-            self.records[key] = np.frombuffer(buffer, dtype=dtype)
-        self.records["rule_events"] = self.records["rule_events"].reshape(
-            len(self.records["id"]), len(self.metadata["rules"])
-        )
         self.observations = self.metadata.get("observations", [])
+        self.rule_names = tuple(self.metadata["rules"])
+        observables = list(self.metadata["observables"])
+        index = _replicate_index(np.frombuffer(columns["id"], dtype="<u8"))
+        data = {}
+        for key, dtype in _RECORD_DTYPES.items():
+            values = np.frombuffer(columns[key], dtype=dtype)
+            if key == "termination":
+                values = pd.Categorical.from_codes(values, categories=TERMINATIONS)
+            data[key] = values
+        self.records = pd.DataFrame(data, index=index)
+        counts = np.frombuffer(columns["rule_events"], dtype="<u8")
+        self.rule_events = pd.DataFrame(
+            counts.reshape(len(index), len(self.rule_names)),
+            index=index,
+            columns=pd.Index(self.rule_names, name="rule"),
+        )
         stats = self.metadata["statistics"]
-        self.statistics = (
-            None
-            if stats is None
-            else {
-                key: np.asarray(value) if isinstance(value, list) else value
-                for key, value in stats.items()
-            }
+        if stats is None:
+            self.statistics = None
+        else:
+            times = pd.Index(self.metadata["report_times"], name="time")
+            self.statistics = {}
+            for key, value in stats.items():
+                if isinstance(value, list):
+                    matrix = np.array(value, dtype=np.float64)
+                    value = pd.DataFrame(
+                        matrix.reshape(len(times), len(observables)),
+                        index=times,
+                        columns=observables,
+                    )
+                self.statistics[key] = value
+
+    @cached_property
+    def _path_arrays(self):
+        """Kept replicate ids, row counts, row positions and values."""
+        kept = self.metadata["paths"]
+        width = len(self.metadata["observables"])
+        ids = np.fromiter((p["id"] for p in kept), dtype=np.int64, count=len(kept))
+        lengths = np.fromiter(
+            (len(p["values"]) for p in kept), dtype=np.intp, count=len(kept)
+        )
+        total = int(lengths.sum())
+        values = np.array(
+            [row for p in kept for row in p["values"]], dtype=np.float64
+        ).reshape(total, width)
+        # Position of each row in the report grid: rows are a prefix of it.
+        positions = np.arange(total) - np.repeat(np.cumsum(lengths) - lengths, lengths)
+        return ids, lengths, positions, values
+
+    @cached_property
+    def paths(self):
+        """Kept series: (replicate, time) rows, one column per observable.
+
+        ``keep_paths`` decides which replicates are kept (``"all"`` keeps
+        every one). A replicate that ended on a budget has rows only up to
+        its last saved report time.
+        """
+        ids, lengths, positions, values = self._path_arrays
+        times = np.asarray(self.metadata["report_times"], dtype=np.float64)
+        index = pd.MultiIndex.from_arrays(
+            [np.repeat(ids, lengths), times[positions]], names=["replicate", "time"]
+        )
+        return pd.DataFrame(
+            values, index=index, columns=list(self.metadata["observables"])
         )
 
-    def event_columns(self, replicate):
-        """Return time, rule and observable arrays for a retained path log.
+    def to_xarray(self):
+        """Return the kept paths as an xarray Dataset.
 
-        Rule index -1 denotes a leap. Participant identities and leap
-        multiplicities are available in the corresponding observation entries.
+        Dimensions are ``replicate`` and ``time`` (the report times), with
+        one variable per observable. Rows a replicate did not save are NaN.
+        Needs the optional ``xarray`` package (``pip install
+        "crn-craft[xarray]"``).
         """
-        for observation in self.observations:
-            if observation["id"] == replicate:
-                entries = observation["log"]
-                return {
-                    "time": np.array([e["time"] for e in entries], dtype=np.float64),
-                    "rule": np.array(
-                        [-1 if e["rule"] is None else e["rule"] for e in entries],
-                        dtype=np.int64,
+        try:
+            import xarray
+        except ImportError as error:
+            raise ImportError(
+                'Result.to_xarray() needs xarray: pip install "crn-craft[xarray]"'
+            ) from error
+        ids, lengths, positions, values = self._path_arrays
+        times = np.asarray(self.metadata["report_times"], dtype=np.float64)
+        observables = self.metadata["observables"]
+        cube = np.full((len(ids), len(times), len(observables)), np.nan)
+        cube[np.repeat(np.arange(len(ids)), lengths), positions] = values
+        meta = self.metadata
+        return xarray.Dataset(
+            {
+                name: (("replicate", "time"), cube[:, :, column])
+                for column, name in enumerate(observables)
+            },
+            coords={"replicate": ids, "time": times},
+            attrs={
+                key: meta[key]
+                for key in ("sampler", "model_sha256", "run_sha256", "root_seed")
+            },
+        )
+
+    def event_columns(self, replicate=None):
+        """Return retained event logs as a DataFrame.
+
+        With a replicate id, that replicate's log, indexed by ``entry``;
+        without one, every logged event, indexed by (``replicate``,
+        ``entry``). Rows are in event order: ``time``, ``rule`` (the rule
+        index, -1 for a leap), ``rule_name`` (categorical, missing for a
+        leap), then one column per observable after the event. Participant
+        instances and leap firings are in the observation entries.
+        """
+        if replicate is None:
+            chosen = self.observations
+        else:
+            chosen = [o for o in self.observations if o["id"] == replicate][:1]
+            if not chosen:
+                raise KeyError(replicate)
+        entries = [e for o in chosen for e in o["log"]]
+        size = len(entries)
+        observables = list(self.metadata["observables"])
+        rule = np.fromiter(
+            (-1 if e["rule"] is None else e["rule"] for e in entries),
+            dtype=np.int64,
+            count=size,
+        )
+        if replicate is None:
+            lengths = [len(o["log"]) for o in chosen]
+            index = pd.MultiIndex.from_arrays(
+                [
+                    np.repeat([o["id"] for o in chosen], lengths).astype(np.int64),
+                    np.concatenate([np.arange(n) for n in lengths] or [[]]).astype(
+                        np.int64
                     ),
-                    "observables": np.array(
-                        [e["observables"] for e in entries], dtype=np.float64
-                    ).reshape(len(entries), len(self.metadata["observables"])),
-                }
-        raise KeyError(replicate)
+                ],
+                names=["replicate", "entry"],
+            )
+        else:
+            index = pd.RangeIndex(size, name="entry")
+        frame = pd.DataFrame(
+            {
+                "time": np.fromiter(
+                    (e["time"] for e in entries), dtype=np.float64, count=size
+                ),
+                "rule": rule,
+                "rule_name": pd.Categorical.from_codes(
+                    rule, categories=list(self.rule_names)
+                ),
+            },
+            index=index,
+        )
+        values = np.array([e["observables"] for e in entries], dtype=np.float64)
+        values = values.reshape(size, len(observables))
+        return frame.join(pd.DataFrame(values, index=index, columns=observables))
 
     def tracker_columns(self, index=0):
-        """Return scalar tracker fields as arrays, one entry per observed path.
+        """Return a tracker's scalar fields, one row per observed replicate.
 
-        Paths that failed before tracking began carry no observation.
+        Indexed by replicate id. Counts (``appearances``, ``extinctions``,
+        ``omitted_episodes``) are unsigned integers; times and values are
+        floats, NaN where absent (for example ``first_passage`` of a
+        replicate that never met the predicate). Replicates that failed
+        before tracking began carry no observation. Episodes are in
+        ``observations``.
         """
         if index < 0:
             raise ValueError("tracker index must be nonnegative")
         count = max((len(ob["trackers"]) for ob in self.observations), default=0)
         if index >= count:
             raise IndexError(f"tracker index {index} with {count} trackers")
-        rows = [(ob["id"], ob["trackers"][index]) for ob in self.observations]
-        out = {"id": np.array([i for i, _ in rows], dtype=np.uint64)}
-        for key in ("appearances", "extinctions", "omitted_episodes"):
-            out[key] = np.array([t[key] for _, t in rows], dtype=np.uint64)
-        for key in (
-            "last_appearance",
-            "last_extinction",
-            "first_passage",
-            "minimum",
-            "maximum",
-            "integral",
-            "omitted_duration",
-            "omitted_peak",
-        ):
-            out[key] = np.array([t[key] for _, t in rows], dtype=np.float64)
-        return out
+        rows = [ob["trackers"][index] for ob in self.observations]
+        data = {}
+        for key in _TRACKER_COUNTS:
+            data[key] = np.array([t[key] for t in rows], dtype=np.uint64)
+        for key in _TRACKER_VALUES:
+            data[key] = np.array([t[key] for t in rows], dtype=np.float64)
+        ids = [ob["id"] for ob in self.observations]
+        return pd.DataFrame(data, index=_replicate_index(ids))
 
 
 class PreparedEnsemble:
-    def __init__(self, native):
+    def __init__(self, native, rule_names):
         self._native = native
+        self._rule_names = tuple(rule_names)
+
+    @property
+    def rule_names(self):
+        """Rule names in declaration order.
+
+        Callback events and log entries carry a rule index into this tuple,
+        so ``run.rule_names[event["rule"]]`` names the rule that fired.
+        """
+        return self._rule_names
 
     def bind_parameters(self, overrides):
         """Prepare an independent candidate with the same ensemble settings.
@@ -122,9 +306,10 @@ class PreparedEnsemble:
         model and request, not the original file.
         """
         try:
-            return PreparedEnsemble(self._native.bind_parameters(dict(overrides)))
+            native = self._native.bind_parameters(dict(overrides))
         except _native.NativeError as error:
             raise _crn_error(error) from None
+        return PreparedEnsemble(native, self._rule_names)
 
     def simulate(
         self, *, cancel_file=None, callback=None, batch_callback=None, batch_size=256
@@ -132,8 +317,11 @@ class PreparedEnsemble:
         """Run native workers.
 
         A live callback(id, event) returning False stops that replicate; any
-        other return value continues. Workers preserve per-replicate order,
-        and calls from different replicates interleave. An exception in the
+        other return value continues. ``event`` is a log entry: ``time``,
+        ``rule`` (an index into ``rule_names``, None for a leap),
+        ``reactants``, ``products``, ``observables`` (in the result's column
+        order) and ``firings``. Workers preserve per-replicate order, and
+        calls from different replicates interleave. An exception in the
         callback cancels the run and is raised here; partial results are
         discarded. A callback that blocks also blocks Ctrl-C. A
         batch_callback(id, events) replays the retained log after execution
@@ -161,13 +349,19 @@ class PreparedEnsemble:
 
 
 def prepare(model, request):
-    """Prepare a rules-run contract, preserving the supplied model bytes."""
+    """Prepare a rules-run contract, preserving the supplied model bytes.
+
+    ``model`` is bytes, text, a dictionary or a ``Model``.
+    """
+    if isinstance(model, Model):
+        model = model.to_dict()
+    data = model_bytes(model)
     try:
-        return PreparedEnsemble(
-            _native.prepare_rules(model_bytes(model), model_bytes(request))
-        )
+        native = _native.prepare_rules(data, model_bytes(request))
     except _native.NativeError as error:
         raise _crn_error(error) from None
+    # The engine has validated the model; results list rules in this order.
+    return PreparedEnsemble(native, [r["name"] for r in json.loads(data)["rules"]])
 
 
 def ensemble(
@@ -189,10 +383,60 @@ def ensemble(
     event_log=None,
     method=None,
 ):
-    """Build and prepare a rules request with explicit work/output budgets."""
+    """Build and prepare a rules request with explicit work/output budgets.
+
+    ``model`` is model bytes (from :func:`load`), a JSON string, a
+    dictionary or a :class:`Model`. ``report_times`` are increasing times in [0, ``end``].
+    ``keep_paths`` is the number of replicates, from replicate 0, whose
+    observable series are kept as ``Result.paths``; ``"all"`` or ``True``
+    keeps every replicate. ``keep_instances`` keeps final instances the same
+    way (a count). The budgets ``max_events``, ``max_sampling_steps`` and
+    ``max_instances`` are per replicate; ``wall_time_s`` covers the run and
+    ``max_output_bytes`` the result. ``trackers`` and ``event_log`` select
+    the observation. The lowest request version that fits the arguments is
+    used.
+
+    ``method`` is a name or a dictionary such as ``{"kind": "tau",
+    "epsilon": 0.03}``. The generic methods run every model in their scope:
+
+    - ``"static_direct"``: exact, for closed models (a fixed set of
+      attribute vectors); options ``waiting_time="ziggurat"`` and
+      ``sparse_trackers=True``;
+    - ``"next_reaction"``: exact, for closed models;
+    - ``None``: the exact tree method, for every model without an ATP
+      block, including models whose instances change identity;
+    - ``"tau"`` and ``"binomial"``: approximate, for closed models;
+    - ``"hybrid"``: for models with continuous variables, integrating the
+      hazards to a declared tolerance; ``"hybrid"`` or a hybrid dictionary
+      without tolerances gets ``rtol=1e-6`` and ``atol=1e-9`` and selects
+      rules-run/0.5.
+
+    Two methods serve one structure each. ``"thinning"`` is required by,
+    and only for, models with an ATP block. ``"mtdna_direct"`` is an opt-in
+    exact fast path for the three-class fixed-population structure: three
+    classes in eight unit channels, one shared constant degradation rate,
+    replication and mutation rates ``max(0, K - N) / D`` times constants,
+    observables that are weighted sums, and no stop or
+    ``N > 0 && mutants >= f * N``. It is certified per model and parameter
+    set at preparation, samples the same process with a different use of
+    the random stream (sampler ``chacha8-u53-ziggurat/rules-mtdna-direct/1``)
+    and is about 3.9x faster than Static Direct on that structure. A model
+    it cannot certify runs Static Direct, with the same numbers as
+    ``"static_direct"`` and a ``CRN-R051`` warning naming the reason.
+    """
+    if isinstance(model, Model):
+        model = model.to_dict()
     data = model_bytes(model)
     # NumPy scalars and arrays are converted; counts must be integral.
     count = operator.index
+    if isinstance(keep_paths, bool | np.bool_):
+        keep_paths = count(replicates) if keep_paths else 0
+    elif isinstance(keep_paths, str):
+        if keep_paths != "all":
+            raise ValueError(
+                f"keep_paths must be a count, 'all' or True: {keep_paths!r}"
+            )
+        keep_paths = count(replicates)
     request = {
         "schema": "crn-craft.rules-run/0.1",
         "model": {
@@ -225,6 +469,13 @@ def ensemble(
         if method is not None:
             request["method"] = {"kind": method} if isinstance(method, str) else method
         if (
+            isinstance(request.get("method"), dict)
+            and request["method"].get("kind") == "hybrid"
+        ):
+            # The request declares the tolerances; these are the defaults.
+            request["method"] = {**HYBRID_TOLERANCES, **request["method"]}
+            request["schema"] = "crn-craft.rules-run/0.5"
+        elif (
             isinstance(request.get("method"), dict)
             and request["method"].get("kind") == "mtdna_direct"
         ):

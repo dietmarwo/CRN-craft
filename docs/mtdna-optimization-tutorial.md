@@ -32,9 +32,11 @@ distributions match the observed ones.
 
 Each prediction is an ensemble of simulated cells. A three-year cell at
 K = 1000 has about 150,000 events. An objective evaluation with 800 cells
-takes about 2.2 s on two cores with `mtdna_direct`. Two hundred evaluations
-are therefore minutes, not hours. That holds only with the specialized
-sampler and a reused prepared template.
+takes about 2.2 s on two cores with `mtdna_direct`, the opt-in fast path
+for this model's three-class structure, and a reused prepared template.
+Two hundred evaluations are therefore minutes, not hours. Static Direct,
+which runs any closed model, takes about 3.9× longer: about half an hour
+for the same fit.
 
 To be able to check the answer, the tutorial makes its own data from known
 parameters (`mu = 3·10⁻⁵`, `sm = 1.5`), with a seed that the fit never sees.
@@ -79,11 +81,10 @@ def template(cells, seed, threads=2):
 def summaries(result):
     """Fraction of cells taken over by each age, and mean mutant fraction."""
     stop = result.records["stop_time"]
-    stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
+    stopped = result.records["termination"] == "stopped"
     taken = np.array([(stopped & (stop <= 24.0 * d)).mean() for d in DAYS])
-    names = result.metadata["observables"]
-    mean = result.statistics["mean"][1:]
-    load = mean[:, names.index("mutants")] / mean[:, names.index("N")]
+    mean = result.statistics["mean"].iloc[1:]  # the report times after day 0
+    load = (mean["mutants"] / mean["N"]).to_numpy()
     return taken, load
 
 
@@ -201,16 +202,15 @@ def template(cells, seed, threads=2):
         seed=seed,
         threads=threads,
         method="mtdna_direct",
-        keep_paths=cells,
+        keep_paths="all",
         max_output_bytes=256 << 20,
     )
 
 
 def heteroplasmy(result):
     """Fraction of cells whose mutant fraction reaches each edge, per age."""
-    names = result.metadata["observables"]
-    values = np.array([path["values"] for path in result.metadata["paths"]])
-    fraction = values[:, :, names.index("mutants")] / values[:, :, names.index("N")]
+    paths = result.paths  # one row per (cell, report time)
+    fraction = (paths["mutants"] / paths["N"]).unstack("time").to_numpy()
     return (fraction[:, :, None] >= EDGES).mean(axis=0)  # ages x edges
 
 
@@ -456,13 +456,15 @@ Practical sizes for this model:
 
 ## 7. Making each evaluation cheap
 
-- **Use `mtdna_direct`** for the three-class model. Check
-  `metadata["sampler"]`: a stop other than `N > 0 && mutants >= f * N` makes
-  it fall back to Static Direct, which is about three times slower. Record
+- **Opt in to `mtdna_direct`** where the model has the three-class
+  structure ([user manual, section 8](mtdna-user-manual.md#the-opt-in-fast-path-mtdna_direct)).
+  Check `metadata["sampler"]`: a stop other than `N > 0 && mutants >= f * N`
+  makes it fall back to Static Direct, which is about 3.9× slower. Record
   other thresholds with first-passage trackers, or compute them from kept
-  paths as here.
-- **Keep only what the loss needs.** `keep_paths=cells` keeps 3 report
-  times × 6 observables per cell. Avoid event logs and Python callbacks
+  paths as here. Other models run on the generic methods, Static Direct
+  first.
+- **Keep only what the loss needs.** `keep_paths="all"` keeps 3 report
+  times × 6 observables per cell, as one `result.paths` DataFrame. Avoid event logs and Python callbacks
   inside an objective.
 - **Reuse the template.** `bind_parameters` costs about 0.3 ms, as does a
   fresh request. Both are negligible, but a template guarantees that every
@@ -484,7 +486,7 @@ Practical sizes for this model:
   given in the [performance analysis](mtdna-performance-analysis.md).
 - **Rust.** For very large studies, an optimizer in Rust can call
   `crn_craft_rules::execute` directly, or a generated event loop
-  ([user manual, section 15](mtdna-user-manual.md#15-rust)).
+  ([user manual, section 16](mtdna-user-manual.md#16-rust)).
 
 ## 9. Checklist
 

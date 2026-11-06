@@ -17,6 +17,9 @@ pub(crate) struct Channel {
     pub products: Vec<usize>,
     pub changes: Vec<(usize, i64)>,
     pub(crate) factor: f64,
+    /// A whole-rule propensity: the rate applies once while the reactants
+    /// are present instead of per reactant tuple.
+    pub whole: bool,
 }
 
 pub(crate) type Projection = (usize, Reduce, Vec<(usize, f64)>);
@@ -55,6 +58,7 @@ struct ChannelRate {
     arity: usize,
     weight: f64,
     rule: usize,
+    whole: bool,
 }
 
 fn same(a: &[f64], b: &[f64]) -> bool {
@@ -214,6 +218,7 @@ impl Network {
                     reactants: reactants.to_vec(),
                     products,
                     factor,
+                    whole: rule.whole,
                     changes: delta
                         .into_iter()
                         .enumerate()
@@ -222,6 +227,22 @@ impl Network {
                 });
                 Ok(())
             };
+            if rule.whole {
+                // Firing picks molecules uniformly, which one channel per
+                // tuple could express only with the type's total count.
+                let several = |c: usize| classes[c].len() > 1;
+                let single = match rule.shape {
+                    Shape::Source => true,
+                    Shape::Single(c) | Shape::Pair(c) => !several(c),
+                    Shape::Cross(c, d) => !several(c) && !several(d),
+                };
+                if !single {
+                    return Err(format!(
+                        "the propensity of rule `{}` reads a type with several instance tuples; static methods support whole-rule propensities over types with one tuple",
+                        rule.name
+                    ));
+                }
+            }
             match rule.shape {
                 Shape::Source => add(&[], 1.0)?,
                 Shape::Single(c) => {
@@ -248,7 +269,9 @@ impl Network {
         }
         let mut observables = Vec::new();
         for (o, info) in model.observables.iter().enumerate() {
-            if model.atp.as_ref().is_some_and(|atp| atp.index == o) {
+            if model.atp.as_ref().is_some_and(|atp| atp.index == o)
+                || model.continuous.iter().any(|v| v.index == o)
+            {
                 continue;
             }
             let mut terms = Vec::new();
@@ -368,6 +391,7 @@ impl Network {
                     arity: c.reactants.len(),
                     weight: c.factor,
                     rule: c.rule,
+                    whole: c.whole,
                 }
             })
             .collect();
@@ -448,7 +472,7 @@ impl Network {
             rule.rate.reads(&mut hot);
         }
         let mut cold = vec![false; self.observables.len()];
-        if model.atp.is_none() {
+        if model.atp.is_none() && model.continuous.is_empty() {
             for (i, (index, _, terms)) in self.observables.iter().enumerate() {
                 // Retain eager validation for any projection that might
                 // overflow. Summing up to 256 products leaves ample headroom.
@@ -510,8 +534,13 @@ impl Network {
     }
 
     pub fn rate_error(&self, channel: usize) -> Halt {
+        let c = &self.channels[channel];
         numerical(
-            &format!("/rules/{}/rate", self.channels[channel].rule),
+            &format!(
+                "/rules/{}/{}",
+                c.rule,
+                if c.whole { "propensity" } else { "rate" }
+            ),
             "invalid fixed-channel propensity",
             "Rates must be finite and nonnegative.",
         )
@@ -693,11 +722,15 @@ impl RateCache {
     ) -> Result<f64, Halt> {
         let c = &net.plans[i];
         let [s, t] = c.reactants;
-        let weight = match c.arity {
-            0 => 1.0,
-            1 => counts[s] as f64,
-            _ if s == t => counts[s] as f64 * counts[s].saturating_sub(1) as f64 * 0.5,
-            _ => counts[s] as f64 * counts[t] as f64,
+        let weight = match (c.arity, c.whole) {
+            (0, _) => 1.0,
+            (1, false) => counts[s] as f64,
+            (_, false) if s == t => counts[s] as f64 * counts[s].saturating_sub(1) as f64 * 0.5,
+            (_, false) => counts[s] as f64 * counts[t] as f64,
+            // A whole-rule propensity needs one molecule per pattern.
+            (1, true) => f64::from(u8::from(counts[s] > 0)),
+            (_, true) if s == t => f64::from(u8::from(counts[s] > 1)),
+            (_, true) => f64::from(u8::from(counts[s] > 0 && counts[t] > 0)),
         };
         if weight == 0.0 {
             return Ok(0.0);

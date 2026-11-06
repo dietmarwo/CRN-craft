@@ -7,6 +7,169 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-06
+
+The answer to the first user feedback on the 0.2.0 Python interface, from a
+researcher simulating mtDNA mutant models: six findings, fixed in the
+increments I1–I7 of [the plan](docs/plan-0.3.0-feedback.md). Python results
+become pandas DataFrames, which breaks code written for the NumPy results of
+0.2.0; see **Migration** below. Stored rules-model 0.1/0.2 files and
+rules-run 0.1–0.4 requests keep their meaning and replay byte-identically.
+
+### Highlights
+
+- **Continuous variables** (rules-model/0.3, I5): ODEs between events that
+  rule rates read, with optional lower bounds that stop or clamp, simulated
+  by the new approximate `hybrid` method at declared tolerances
+  (rules-run/0.5, rules-result/0.3). The ATP model is now an ordinary model
+  file, `models/rules/mtdna-three-class-atp-continuous.rules.json`; the
+  legacy `atp` block and exact `thinning` keep working (finding 5).
+- **`crn_craft.rules.Model`** (I4): build models from Python with
+  `add_reaction(rate, reactants, products)`, as in rebop; a number is a
+  mass-action constant, a string the whole propensity, backed by the new
+  whole-rule `propensity` of rules-model/0.3 (finding 6).
+- **pandas results** (I3): records, rule counts, statistics, paths, trackers
+  and event logs are DataFrames; `keep_paths="all"` keeps every replicate and
+  `Result.to_xarray()` returns the paths as a Dataset (finding 2).
+- **Event logs fit the default budget** (I2): the reported 50-entry mutation
+  log for 400 cells of the three-class model is admitted under the Python
+  default of 64 MiB, and the `CRN-R020` message names the bytes needed and
+  the fix (finding 3).
+- **A runnable manual** (I1, I7): every Python block of the mtDNA user manual
+  runs on its own and is checked against its printed output in CI; rule
+  names are on prepared runs and results (finding 4).
+- **Method guidance** (I6): the docs lead with the generic methods;
+  `mtdna_direct` is documented as an opt-in fast path with its requirements
+  and fallback (finding 1).
+
+### Added
+
+- rules-model/0.3 (I4, I5): a rule gives exactly one of `rate` (per reactant
+  tuple) and `propensity` (its whole rate over parameters and observables;
+  `CRN-R013` for both or neither, `CRN-R015` before 0.3). A propensity
+  applies while each reactant pattern can take a distinct molecule, picks
+  molecules uniformly, and fails the replicate with `CRN-R030` at
+  `/rules/i/propensity` when negative or not finite. Every method samples
+  propensities; the static methods need each reactant type to lower to one
+  tuple (`CRN-R020` at `/method` otherwise), `mtdna_direct` falls back to
+  Static Direct with `CRN-R051`, and the generated Rust kernels and loops
+  refuse them.
+- rules-model/0.3 `continuous` variables `{name, initial, derivative,
+  lower_bound?, on_bound?}` with `on_bound` `"stop"` or `"clamp"` (I5).
+  Rates and propensities may read them; the stop, observables, patterns,
+  products and trackers may not (`CRN-R012`, `CRN-R020`). Results list them
+  as observable columns after the model's observables.
+- Method `hybrid` (rules-run/0.5, `{"kind": "hybrid", "rtol", "atol"}`, I5):
+  integrated propensities (Davis 1984; Alfonsi et al. 2005) with the
+  Dormand–Prince 5(4) pair, Hairer–Nørsett–Wanner step control and dense
+  output; event times, reports and bound crossings located by the Illinois
+  method. Sampler `chacha8-u53/rules-approximate-hybrid-dopri54/1`, listed
+  as approximate. Its result is `crn-craft.rules-result/0.3`: rules-result/0.2
+  plus `method` (with the tolerances) and `continuous` (the column names).
+  Only `hybrid` runs continuous variables (`CRN-R020` at `/method` for every
+  other method); it refuses ATP models and models that do not lower.
+- `models/rules/mtdna-three-class-atp-continuous.rules.json`, the ATP model
+  with the continuous variable `ATP` (I5).
+- Python `crn_craft.rules.Model` with `add_parameter`, `add_species`,
+  `set_initial`, `add_reaction(rate, reactants, products, name=None)`,
+  `add_continuous`, `to_dict` and `to_json`; `rules.ensemble` and
+  `rules.prepare` accept a `Model` (I4, I5). `method="hybrid"` writes
+  `rtol=1e-6` and `atol=1e-9` unless given and selects rules-run/0.5.
+- `PreparedEnsemble.rule_names` and `Result.rule_names` (I1);
+  `Result.rule_events`, `Result.paths`, `Result.to_xarray()` and
+  `event_columns()` without a replicate for every logged event (I3).
+- Validation: `validation/check_manual.py` (every manual block, I1),
+  `validation/check_builder.py` (18 predeclared z tests against exact means
+  and rebop 0.10.0, all passed; [results](validation/builder/RESULTS.md), I4)
+  and `validation/check_hybrid.py` (five DKW gates against exact laws and four
+  predeclared two-sample tests against exact thinning on the ATP model, all
+  passed at 400 and 4,000 replicates per arm;
+  [results](validation/hybrid/RESULTS.md), I5). CI runs all three in the
+  Python job, normally and under `-O`, and installs `rebop==0.10.0` there.
+  `validation/check_installed.py` checks the builder, the pandas results,
+  the reported event-log request at the default budget and a small `hybrid`
+  run from the installed wheel (I7).
+- Examples `examples/mtdna/04_callback.py`, `05_structure.py`,
+  `12_builder.py` and `13_continuous_atp.py`; manual chapters on
+  continuous variables (10) and on building models in Python (12) (I1, I4,
+  I5, I6, I7).
+
+### Changed
+
+- Python results are pandas objects (I3); pandas (`>=2.0,<4`) is a required
+  dependency and xarray an optional extra (`crn-craft[xarray]`). See
+  **Migration**.
+- The native CLI's discovery is `crn-craft.describe/0.12` (I7): its rules
+  entry (`dynamic_species`) gains `hybrid_request` and `hybrid_result`, lists
+  `hybrid` among the methods and approximate methods and
+  `crn-craft.rules-model/0.3` among the accepted models. The core and Python
+  `describe()` stay at `describe/0.10`.
+- The `CRN-R020` reservation message itemizes replicates × bytes per
+  replicate (log entries × bytes per entry, plus trackers), the total and
+  `max_output_bytes`; its hint names the smallest `max_output_bytes` that
+  admits the request (I2). The reservation and admission checks run after
+  lowering, so only the order of diagnostics for requests with several
+  errors can change.
+- The manual, `docs/mtdna-rules.md`, `describe` and the `rules.ensemble`
+  docstring lead with the generic methods; `mtdna_direct` and the generated
+  Rust loops are described as opt-in, with what each requires and gains,
+  and the performance analysis says which numbers depend on the fast path
+  (I6). The manual's chapters 12–18 are now 13–19.
+- The rules-model, rules-run and rules-result schemas gain the 0.3, 0.5 and
+  0.3 shapes; the descriptions of other fields change in places (I2, I4, I5).
+
+### Fixed
+
+- An event log of 50 mutation events for the three-class model was refused
+  with `CRN-R020: observation reservation exceeds budget` above 263 cells
+  under the Python default budget (I2, finding 3). Each log entry is now
+  bounded by the model's own sizes (the three-class model reserves 721
+  bytes per entry instead of 5,088), never above the 0.2.0 bound, so no
+  previously admitted request is refused. The 64 MiB default stays.
+- The manual's chapter 7 callback used `names` without defining it, and the
+  chapter 5 snippet used `result` from an earlier block (I1, finding 4).
+  Every block now runs on its own.
+
+### Migration
+
+Python code written for the NumPy results of 0.2.0:
+
+| 0.2.0 | 0.3.0 |
+| --- | --- |
+| `result.records` was a dict of NumPy arrays | a DataFrame, one row per replicate, indexed by replicate id (`records.index`, name `replicate`); `records["id"]` is gone |
+| `records["rule_events"]` (a replicates × rules matrix) | `result.rule_events`, a DataFrame with one column per rule name |
+| `statistics["mean"][:, names.index("N")]` | statistics are DataFrames indexed by report time with one column per observable: select by name, `statistics["mean"]["N"]` |
+| `event_columns(id)` returned arrays `time`, `rule`, `observables` | a DataFrame indexed by `entry` with `time`, `rule`, `rule_name` and one column per observable; `event_columns()` gives every log, indexed by (`replicate`, `entry`); the old matrix is `event_columns(id)[list(metadata["observables"])].to_numpy()` |
+| `tracker_columns(i)` returned arrays with `id` | a DataFrame indexed by replicate id |
+| `keep_paths=True` kept one replicate | `keep_paths=True` (or `"all"`) keeps every replicate; write `keep_paths=1` for one |
+| `metadata["paths"]` rows | `result.paths`, indexed by (`replicate`, `time`) |
+| NumPy arrays | `.to_numpy()` on any frame or column; integer termination codes are `records["termination"].cat.codes` |
+
+- **Silent break:** `termination` is categorical with names, so
+  `records["termination"] == rules.TERMINATIONS.index("stopped")` is `False`
+  for every replicate under pandas, with no error. Compare with the name,
+  `records["termination"] == "stopped"`.
+- **New dependency:** pandas is installed with the package. Environments
+  that install the wheel with `--no-deps` must install pandas themselves.
+- **Contracts:** `crn-craft.rules-model/0.3`, `crn-craft.rules-run/0.5` and
+  `crn-craft.rules-result/0.3` are new. Stored rules-model 0.1/0.2 files and
+  rules-run 0.1–0.4 requests keep their meaning and replay byte-identically;
+  0.1–0.4 requests still return rules-result/0.1 or 0.2. A model cannot
+  have both `atp` and `continuous` (`CRN-R015`).
+- **Schema:** `rate` is no longer a required property of a rule in the
+  rules-model schema, since a 0.3 rule may give `propensity` instead. The
+  engine still rejects a 0.1 or 0.2 rule without `rate` (`CRN-E003`), but a
+  tool that validates such files only against the schema no longer catches
+  it.
+- **Discovery:** clients of the native CLI's `describe` must accept
+  `crn-craft.describe/0.12` and the new rules entries; core and Python
+  discovery are unchanged at 0.10.
+- **Rust (`crn-craft-rules`):** `Method` gains `Hybrid { rtol, atol }`,
+  `RunVersion` gains `V05` and `ResultVersion` `V03`, so exhaustive matches
+  need the new arms. `RulesResult` gains `method` and `continuous`, the
+  model gains `continuous`, and a rule's `rate` is now `Option<String>`
+  next to the new `propensity: Option<String>`.
+
 ## [0.2.0] - 2026-11-04
 
 The first release: the crates `crn-craft`, `crn-craft-rules` and
@@ -348,5 +511,6 @@ iterations that make up this release follow.
 - Experimental non-negative Poisson leaping with explicit approximate request/result schemas.
 - Ten performance experiments and same-host reference/quality evidence; no package publishing.
 
-[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/dietmarwo/CRN-craft/releases/tag/v0.2.0

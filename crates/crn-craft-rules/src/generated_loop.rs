@@ -178,6 +178,13 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
     let mut bases: BTreeMap<(u64, usize, usize), usize> = BTreeMap::new();
     let mut base_code = Vec::new();
     let mut rates = Vec::with_capacity(net.channels.len());
+    if net.channels.iter().any(|c| c.whole) {
+        return Err(request_error(
+            "/method",
+            "generated rules loops do not support whole-rule propensities",
+            "Use interpreted Static Direct for models with propensity rules.",
+        ));
+    }
     for (i, c) in net.channels.iter().enumerate() {
         let (base, global) = match &net.rates[c.rule] {
             RateKernel::Constant(k) => (None, bits(*k)),

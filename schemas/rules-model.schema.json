@@ -59,6 +59,35 @@
       ],
       "type": "object"
     },
+    "ContinuousSpec": {
+      "additionalProperties": false,
+      "description": "A continuous variable of a rules-model/0.3 model.\n\nIts name shares one namespace with parameters and observables (`CRN-R010`). Rule rates and propensities may read it, and so may the derivatives of all variables; the model's `stop`, observables, patterns and products may not (`CRN-R012`), and neither may run-request trackers.",
+      "properties": {
+        "derivative": {
+          "description": "dx/dt between events: an expression over parameters, observables and continuous variables. A non-finite value fails the replicate (`CRN-R030`).",
+          "type": "string"
+        },
+        "initial": {
+          "$ref": "#/definitions/Value"
+        },
+        "lower_bound": {
+          "$ref": "#/definitions/Value"
+        },
+        "name": {
+          "description": "The variable's name and result column.",
+          "type": "string"
+        },
+        "on_bound": {
+          "$ref": "#/definitions/OnBound"
+        }
+      },
+      "required": [
+        "derivative",
+        "initial",
+        "name"
+      ],
+      "type": "object"
+    },
     "Initial": {
       "additionalProperties": false,
       "description": "One entry of the initial state: a type, every attribute value and a copy number.",
@@ -91,10 +120,11 @@
       "type": "object"
     },
     "ModelVersion": {
-      "description": "The version of a rules model, its `schema` field.",
+      "description": "The version of a rules model, its `schema` field.\n\nVersions are ordered; each adds fields to the previous one.",
       "enum": [
         "crn-craft.rules-model/0.1",
-        "crn-craft.rules-model/0.2"
+        "crn-craft.rules-model/0.2",
+        "crn-craft.rules-model/0.3"
       ],
       "type": "string"
     },
@@ -141,6 +171,14 @@
         "type"
       ],
       "type": "object"
+    },
+    "OnBound": {
+      "description": "What happens when a continuous variable reaches its lower bound.",
+      "enum": [
+        "stop",
+        "clamp"
+      ],
+      "type": "string"
     },
     "Pattern": {
       "additionalProperties": false,
@@ -252,8 +290,12 @@
           },
           "type": "array"
         },
+        "propensity": {
+          "description": "rules-model/0.3 (`CRN-R015` before): the rule's whole propensity, an expression over parameters and observables, instead of a `rate` per reactant tuple. It applies while every reactant type has enough molecules (one per pattern, two for two patterns over one type) and is 0 otherwise; a firing picks distinct reactant molecules uniformly. The reactant patterns take no `where` or `factor` (`CRN-R013`), and the expression cannot read their labels (`CRN-R012`). A negative or non-finite value fails the replicate (`CRN-R030`). `null` is rejected.",
+          "type": "string"
+        },
         "rate": {
-          "description": "Global factor: parameters and observables only. It is evaluated only while the reactant weight is positive; a negative or non-finite value fails the replicate (`CRN-R030`).",
+          "description": "Global factor: parameters and observables only. It is evaluated only while the reactant weight is positive; a negative or non-finite value fails the replicate (`CRN-R030`). Required in rules-model/0.1 and 0.2 (`CRN-E003` when missing); in 0.3 a rule gives exactly one of `rate` and `propensity` (`CRN-R013`). `null` is rejected.",
           "type": "string"
         },
         "reactants": {
@@ -267,7 +309,6 @@
       "required": [
         "name",
         "products",
-        "rate",
         "reactants"
       ],
       "type": "object"
@@ -309,7 +350,7 @@
       "description": "A number, or an expression string."
     }
   },
-  "description": "A rules model: `crn-craft.rules-model/0.1` or `0.2`.\n\nUnknown fields and duplicate keys are rejected. Validation also requires at least one type and one rule.",
+  "description": "A rules model: `crn-craft.rules-model/0.1`, `0.2` or `0.3`.\n\nUnknown fields and duplicate keys are rejected. Validation also requires at least one type and one rule.",
   "properties": {
     "atp": {
       "allOf": [
@@ -318,6 +359,13 @@
         }
       ],
       "description": "ATP coupling, rules-model/0.2 only (`CRN-R015` in 0.1); a model with it runs only with the `thinning` method. `null` is rejected."
+    },
+    "continuous": {
+      "description": "Continuous variables, rules-model/0.3 only (`CRN-R015` before), at most 64: ODEs between events whose values rule rates and propensities may read. A model with them runs only with the `hybrid` method, and it cannot also have `atp` (`CRN-R015`). `null` is rejected. See [`crate::continuous`].",
+      "items": {
+        "$ref": "#/definitions/ContinuousSpec"
+      },
+      "type": "array"
     },
     "description": {
       "description": "Free text for readers; not interpreted.",

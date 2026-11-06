@@ -48,7 +48,7 @@ output budgets. `crn-craft describe` lists the supported methods, and
 | `ssa` | Alternative exact `ssa-run/0.1` through `0.4` → the matching `ssa-result` version. `0.4` is `0.3` plus the `next_reaction` aggregator. |
 | `fsp`, `tau` | FSP emits `fsp-result/0.1`. Fixed-network tau uses `tau-request/0.1` → `tau-result/0.1`. |
 | `rules-check`, `rules` | Attributed `rules-model/0.1`, or `0.2` with the ATP block. Check emits `rules-check/0.1`. Rules-run `0.1` emits rules-result `0.1`. Rules-run `0.2` (method, trackers, event log), `0.3` (`mtdna_direct`) and `0.4` (Static Direct options) emit rules-result `0.2`. |
-| `describe` | The core and Python emit `describe/0.10`. The native CLI emits `describe/0.11`, which adds `dynamic_species` and the rules commands. Python's `crn_craft.rules.describe()` returns the rules discovery entry. |
+| `describe` | The core and Python emit `describe/0.10`. The native CLI emits `describe/0.12`, which adds `dynamic_species` and the rules commands. Python's `crn_craft.rules.describe()` returns the rules discovery entry. |
 
 Schema names in the table use the `crn-craft.` prefix. See
 [fixed-network contracts](contracts.md), [alternative SSA](alternative-ssa.md),

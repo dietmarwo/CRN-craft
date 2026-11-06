@@ -1,0 +1,212 @@
+{
+  "paths": 32768,
+  "seed": 20261103,
+  "alpha": 0.001,
+  "checks": [
+    {
+      "test": "cme/static-ziggurat/wild_type/1.0",
+      "distance": 0.0031115626420447073,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-ziggurat/wild_type/3.0",
+      "distance": 0.005728257439151618,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-ziggurat/wild_type/10.0",
+      "distance": 0.0032653714193122685,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-ziggurat/mutants/1.0",
+      "distance": 0.004165022374651994,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-ziggurat/mutants/3.0",
+      "distance": 0.006093560848255686,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-ziggurat/mutants/10.0",
+      "distance": 0.0032126016365389143,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-ziggurat/advantaged_mutants/1.0",
+      "distance": 0.0013435437551800877,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-ziggurat/advantaged_mutants/3.0",
+      "distance": 0.0033735475448020136,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-ziggurat/advantaged_mutants/10.0",
+      "distance": 0.003271093348506393,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "static-ziggurat/worker-replay-and-log-integrals",
+      "distance": 0.0,
+      "bound": 0.0,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6/wild_type/1.0",
+      "distance": 0.0034656867523916723,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6/wild_type/3.0",
+      "distance": 0.0029113973690759187,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6/wild_type/10.0",
+      "distance": 0.002009244960703427,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6/mutants/1.0",
+      "distance": 0.0012048172965269943,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6/mutants/3.0",
+      "distance": 0.005269586238880686,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6/mutants/10.0",
+      "distance": 0.003487595844883784,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6/advantaged_mutants/1.0",
+      "distance": 0.0007274164530851612,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6/advantaged_mutants/3.0",
+      "distance": 0.0034013547989479864,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6/advantaged_mutants/10.0",
+      "distance": 0.004446711145822235,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "static-default-0.6/worker-replay-and-log-integrals",
+      "distance": 0.0,
+      "bound": 0.0,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6-sparse/wild_type/1.0",
+      "distance": 0.001963997424658248,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6-sparse/wild_type/3.0",
+      "distance": 0.004202378532901618,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6-sparse/wild_type/10.0",
+      "distance": 0.003056673008046573,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6-sparse/mutants/1.0",
+      "distance": 0.006728498937151994,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6-sparse/mutants/3.0",
+      "distance": 0.0027260526037983235,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6-sparse/mutants/10.0",
+      "distance": 0.003983874508896423,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6-sparse/advantaged_mutants/1.0",
+      "distance": 0.0033882214895550877,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6-sparse/advantaged_mutants/3.0",
+      "distance": 0.0012678346541770136,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    },
+    {
+      "test": "cme/static-default-0.6-sparse/advantaged_mutants/10.0",
+      "distance": 0.002942063011862117,
+      "bound": 0.013063717958459061,
+      "passed": true,
+      "required": true
+    }
+  ],
+  "tau": {},
+  "passed": true
+}

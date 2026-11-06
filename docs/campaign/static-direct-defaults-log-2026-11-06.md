@@ -52,3 +52,52 @@ median wall nanoseconds per event over three runs each in alternating
 order (0.5 first), under the CPU lock. Wall seconds are reported as well.
 Script: `validation/benchmark_static_direct_defaults.py`. The background
 measurement in the brief was 78 against 67 ns per event (1.16×).
+
+## Outcomes
+
+### Gates
+
+`python validation/check_mtdna.py --binary target/release/crn-craft
+--section generic --output validation/mtdna/gates-static-direct-defaults.json`,
+normally and under `-O` (identical reports), with the CLI built from
+`099c08d`. `--section generic` runs only `check_generic_sampler`; CI runs
+the whole script. All 29 rows passed; nothing was rerun.
+
+| Case | Request | Identity | Law rows | Largest distance | Bound | Replay row |
+| --- | --- | --- | ---: | ---: | ---: | --- |
+| `static-ziggurat` (S3) | 0.4, both opt-ins, first-passage tracker | Ziggurat, `CRN-R051` | 9 | 0.00609 (mutants, t = 3) | 0.01306 | passed |
+| `static-default-0.6` | 0.6 default, first-passage tracker | Ziggurat, no warning | 9 | 0.00527 (mutants, t = 3) | 0.01306 | passed |
+| `static-default-0.6-sparse` | 0.6 default, two count trackers | Ziggurat, sparse trackers | 9 | 0.00673 (mutants, t = 1) | 0.01306 | — |
+
+The S3 rows reproduce the recorded S3 result (largest distance 0.00609).
+The replay rows ran the sparse identity for both requests. The Rust replay
+tests and `check_rules_python.py` (including the Ziggurat sparse-tracker
+callback replay and the new checks of the Python default) passed.
+
+### Speed
+
+`python validation/benchmark_static_direct_defaults.py --output
+validation/mtdna/static-direct-defaults-timing.json` under the CPU lock, with
+a wheel built from this tree: Linux, two CPUs, Python 3.12.3, commit
+`099c08d`. 1000 cells, two threads, two count trackers, takeover stop.
+
+| Run | 0.5 default s | ns per event | 0.6 default s | ns per event |
+| ---: | ---: | ---: | ---: | ---: |
+| 1 | 7.00 | 48.8 | 5.79 | 40.3 |
+| 2 | 6.81 | 47.5 | 5.99 | 41.6 |
+| 3 | 7.04 | 49.1 | 6.02 | 41.9 |
+| median | 7.00 | 48.8 | 5.99 | 41.6 |
+
+Events: 143,436,887 (0.5, 99 takeovers) and 143,795,432 (0.6, 97
+takeovers); the two requests use the random stream differently. Speedup
+**1.17×** in median ns per event (1.17× in wall seconds), above the declared
+1.10× target. The absolute times are lower than the 78 and 67 ns per event
+in the performance analysis, which were measured on another two-CPU host
+with Python 3.13; the ratio agrees (1.16× there).
+
+## Validation limitations
+
+- The law gate is the K = 20 three-class chain; the sparse path's speed and
+  identity were measured on the K = 1000 model only.
+- The timing ran on a shared two-CPU host under its CPU lock; other hosts
+  will give other absolute times.

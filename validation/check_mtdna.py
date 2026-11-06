@@ -863,19 +863,29 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--section",
+        choices=["all", "generic"],
+        default="all",
+        help="generic: only the Ziggurat and sparse-tracker gate",
+    )
     args = parser.parse_args()
     report = {"paths": N, "seed": SEED, "alpha": ALPHA, "checks": [], "tau": {}}
     try:
         with tempfile.TemporaryDirectory() as directory:
             folder = Path(directory)
-            check_mt(args.binary, folder, report["checks"], report["tau"])
-            check_tracking(args.binary, folder, report["checks"])
-            check_specialized(args.binary, folder, report["checks"])
-            check_generic_sampler(args.binary, folder, report["checks"])
-            check_atp(args.binary, folder, report["checks"])
-            check_leaps(args.binary, folder, report["checks"])
-            check_tau_production(args.binary, folder, report["checks"], report["tau"])
-            check_clocks(args.binary, folder, report["checks"])
+            if args.section == "generic":
+                check_generic_sampler(args.binary, folder, report["checks"])
+            else:
+                checks, tau = report["checks"], report["tau"]
+                check_mt(args.binary, folder, checks, tau)
+                check_tracking(args.binary, folder, checks)
+                check_specialized(args.binary, folder, checks)
+                check_generic_sampler(args.binary, folder, checks)
+                check_atp(args.binary, folder, checks)
+                check_leaps(args.binary, folder, checks)
+                check_tau_production(args.binary, folder, checks, tau)
+                check_clocks(args.binary, folder, checks)
         report["passed"] = all(
             r["passed"] or not r["required"] for r in report["checks"]
         )

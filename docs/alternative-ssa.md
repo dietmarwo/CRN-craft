@@ -102,7 +102,7 @@ give identical numbers. Version 0.4 adds the `next_reaction` aggregator
 with Ziggurat waiting times returns CRN-E020 at the offending field.
 `crn.ssa_spec(...)` writes 0.3 with `fast` stated explicitly (`fast=False` for
 the checked policy), and 0.4 with `fast=False` for `next_reaction`. Discovery
-(`describe/0.10`, and `describe/0.11` from the native CLI) lists the request
+(`describe/0.10`, and `describe/0.12` from the native CLI) lists the request
 versions and the default per version under `alternative_exact_ssa`.
 
 ## Methods and numerical policy

@@ -93,7 +93,7 @@ def main():
             "rules",
         ]
         and capabilities["dynamic_species"]["model"] == "crn-craft.rules-model/0.1"
-        and capabilities["schema"] == "crn-craft.describe/0.11",
+        and capabilities["schema"] == "crn-craft.describe/0.12",
     )
 
     examples = ROOT / "models/examples"

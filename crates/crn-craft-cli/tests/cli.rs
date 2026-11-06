@@ -26,6 +26,17 @@ fn cli_description_and_example_check() {
     let (code, value) = invoke(&["describe"]);
     assert_eq!(code, 0);
     assert_eq!(value["milestone"], "SSA-acceleration");
+    // The rules entry gained `hybrid_request` and `hybrid_result` in 0.3.0,
+    // so the native discovery moved from 0.11 to 0.12.
+    assert_eq!(value["schema"], "crn-craft.describe/0.12");
+    assert_eq!(
+        value["dynamic_species"]["hybrid_request"],
+        "crn-craft.rules-run/0.5"
+    );
+    assert_eq!(
+        value["dynamic_species"]["hybrid_result"],
+        "crn-craft.rules-result/0.3"
+    );
     let (code, value) = invoke(&[
         "check",
         "models/examples/immigration-death.model.json",

@@ -2246,7 +2246,7 @@ pub fn check_model_file(model_path: &Path) -> RulesCheck {
     }
 }
 
-/// Discovery entry for the native CLI's `describe` (`describe/0.11`).
+/// Discovery entry for the native CLI's `describe` (`describe/0.12`).
 ///
 /// The native CLI embeds it as `dynamic_species`; Python's
 /// `crn_craft.rules.describe()` returns it. It names the status, the

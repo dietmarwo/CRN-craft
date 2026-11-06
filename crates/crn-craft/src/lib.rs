@@ -473,7 +473,7 @@ pub fn schema(kind: &str) -> Option<Value> {
 /// identities, the accepted `ssa-run` versions and their `fast` defaults,
 /// rate laws, exporters, optional integrations, input and execution limits,
 /// and the schemas of the eleven original contracts; [`schema`] returns the
-/// others. The native CLI reports `crn-craft.describe/0.11`, which adds the
+/// others. The native CLI reports `crn-craft.describe/0.12`, which adds the
 /// rules engine.
 ///
 /// ```

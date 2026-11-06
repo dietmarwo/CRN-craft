@@ -111,7 +111,15 @@ trackers sparsely (rules-run/0.6). `method={"kind": "static_direct",
 release 0.3.0, which printed 12.550 and 17.351 here.
 Models may also declare continuous variables, ODEs between events that
 rates read (for example an ATP pool), which `method="hybrid"` simulates at
-declared tolerances. Release 0.3.0 changed the rules results from NumPy
+declared tolerances.
+
+Opt-in, with a Rust toolchain (1.85 or newer): `loop = rules.compile_loop(model)`
+compiles a model's Static Direct event loop into a cached native program,
+and `rules.ensemble(..., method="static_direct", compiled=loop)` runs it
+with results byte-identical to the interpreter's, about 2.2× faster on
+the three-class mtDNA model. The first build takes a minute or more; see
+the [user manual](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-user-manual.md#optional-compiled-event-loop)
+for requirements and limitations. Release 0.3.0 changed the rules results from NumPy
 arrays to DataFrames; the
 [changelog](https://github.com/dietmarwo/CRN-craft/blob/main/CHANGELOG.md)
 lists what to migrate.

@@ -119,10 +119,21 @@ jobs:
       - run: python validation/check_rules_python.py --output rules-python.json
       - run: python -O validation/check_rules_python.py --output rules-python-optimized.json
       - run: diff rules-python.json rules-python-optimized.json
+      # The opt-in compiled event loop, built with this checkout, against the
+      # interpreter. CARGO_TARGET_DIR reuses the release build above; the -O
+      # run and the manual block reuse the cached program.
+      - name: Compiled rules event loop
+        env:
+          CRN_CRAFT_SOURCE: ${{ github.workspace }}
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
+        run: |
+          python validation/check_compiled_loop.py --require-cargo --output compiled-loop.json
+          python -O validation/check_compiled_loop.py --require-cargo --output compiled-loop-optimized.json
+          diff compiled-loop.json compiled-loop-optimized.json
       # Every Python block of the mtDNA manual runs on its own and prints the
-      # output shown in the manual.
-      - run: python validation/check_manual.py --binary target/release/crn-craft --output manual.json
-      - run: python -O validation/check_manual.py --binary target/release/crn-craft --output manual-optimized.json
+      # output shown in the manual; compile_loop blocks build with this checkout.
+      - run: python validation/check_manual.py --binary target/release/crn-craft --require-cargo --output manual.json
+      - run: python -O validation/check_manual.py --binary target/release/crn-craft --require-cargo --output manual-optimized.json
       - run: diff manual.json manual-optimized.json
       # The rules.Model builder against exact means and rebop 0.10.0
       # (validation/builder/RESULTS.md).

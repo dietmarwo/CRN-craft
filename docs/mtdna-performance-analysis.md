@@ -293,7 +293,7 @@ events in 0.012 s.
 - **ATP model.** Thinning integrates the ATP flow between events and
   rejects a share of candidate events. Recorded on eight CPUs, 512 cells
   took 2.8 s, against 3.9 s for the Java implementation of the same model.
-- **Rust generated loop.** *Rust only, opt-in.* From Rust, the generated
+- **Generated loop.** *Opt-in.* From Rust, the generated
   event loop runs Static Direct requests with byte-identical results. It
   needs constant or vacancy rates and sum observables, and is compiled for
   one model and parameter set; other requests are refused with `CRN-R020`.
@@ -310,7 +310,16 @@ events in 0.012 s.
 
   It brings Static Direct's identity close to the specialized sampler's
   speed. It also works for models `mtdna_direct` does not certify, such
-  as other stop conditions.
+  as other stop conditions. From Python, `rules.compile_loop` builds the
+  same loop with a local Rust toolchain (unreleased; user manual,
+  section 8). On the 1000-cell workload of section 2, end to end from
+  Python, it took 18.1 against 40.1 ns per event under the Static Direct
+  default (Ziggurat waits, sparse trackers; 2.21×) and 26.4 against
+  49.1 ns with inverse waits and per-event trackers (1.86×), on the
+  two-CPU host
+  (`validation/mtdna/compiled-loop-python.json`). Both routes were timed
+  together on 6 November 2026, at a later commit than the table of
+  section 2, so compare the ratio, not the absolute times.
 
 ## 7. Comparison with other implementations
 

@@ -1,0 +1,146 @@
+{
+  "platform": "Linux-6.18.44-fc-v242-x86_64-with-glibc2.39",
+  "python": "3.12.3",
+  "crn_craft": "0.3.0",
+  "source": "checkout",
+  "declared_target": "compiled >= 1.5x interpreted static_direct",
+  "cells": 1000,
+  "rows": [
+    {
+      "method": "static_direct",
+      "route": "interpreted",
+      "repeat": 0,
+      "seconds": 7.150715976999891,
+      "events": 143436887,
+      "ns_per_event": 49.85269916656718,
+      "sampler": "chacha8-u53/rules-static-direct/1"
+    },
+    {
+      "method": "static_direct",
+      "route": "compiled",
+      "repeat": 0,
+      "seconds": 3.8264293009997346,
+      "events": 143436887,
+      "ns_per_event": 26.676745299134485,
+      "sampler": "chacha8-u53/rules-static-direct/1"
+    },
+    {
+      "method": "static_direct",
+      "route": "compiled",
+      "repeat": 1,
+      "seconds": 3.7910246560004452,
+      "events": 143436887,
+      "ns_per_event": 26.429914475210587,
+      "sampler": "chacha8-u53/rules-static-direct/1"
+    },
+    {
+      "method": "static_direct",
+      "route": "interpreted",
+      "repeat": 1,
+      "seconds": 7.039250320000065,
+      "events": 143436887,
+      "ns_per_event": 49.075593225890806,
+      "sampler": "chacha8-u53/rules-static-direct/1"
+    },
+    {
+      "method": "static_direct",
+      "route": "interpreted",
+      "repeat": 2,
+      "seconds": 6.889968714000133,
+      "events": 143436887,
+      "ns_per_event": 48.03484555545418,
+      "sampler": "chacha8-u53/rules-static-direct/1"
+    },
+    {
+      "method": "static_direct",
+      "route": "compiled",
+      "repeat": 2,
+      "seconds": 3.663395481000407,
+      "events": 143436887,
+      "ns_per_event": 25.540121217218044,
+      "sampler": "chacha8-u53/rules-static-direct/1"
+    },
+    {
+      "method": "ziggurat + sparse trackers",
+      "route": "interpreted",
+      "repeat": 0,
+      "seconds": 5.769403180999689,
+      "events": 143795432,
+      "ns_per_event": 40.1222980504672,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1"
+    },
+    {
+      "method": "ziggurat + sparse trackers",
+      "route": "compiled",
+      "repeat": 0,
+      "seconds": 2.6095767179995164,
+      "events": 143795432,
+      "ns_per_event": 18.147841567036124,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1"
+    },
+    {
+      "method": "ziggurat + sparse trackers",
+      "route": "compiled",
+      "repeat": 1,
+      "seconds": 2.5717799270005344,
+      "events": 143795432,
+      "ns_per_event": 17.884990442537386,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1"
+    },
+    {
+      "method": "ziggurat + sparse trackers",
+      "route": "interpreted",
+      "repeat": 1,
+      "seconds": 5.751125763000346,
+      "events": 143795432,
+      "ns_per_event": 39.99519096684758,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1"
+    },
+    {
+      "method": "ziggurat + sparse trackers",
+      "route": "interpreted",
+      "repeat": 2,
+      "seconds": 5.807748202999392,
+      "events": 143795432,
+      "ns_per_event": 40.388961750880874,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1"
+    },
+    {
+      "method": "ziggurat + sparse trackers",
+      "route": "compiled",
+      "repeat": 2,
+      "seconds": 2.716718507999758,
+      "events": 143795432,
+      "ns_per_event": 18.89294027086867,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1"
+    }
+  ],
+  "build_first_s": 41.99342962500032,
+  "cargo_first_s": 41.91362248900077,
+  "build_cached_s": 0.06106405900027312,
+  "summary": {
+    "static_direct": {
+      "interpreted": {
+        "median_seconds": 7.039250320000065,
+        "ns_per_event": 49.075593225890806
+      },
+      "compiled": {
+        "median_seconds": 3.7910246560004452,
+        "ns_per_event": 26.429914475210587
+      },
+      "speedup": 1.8568199784346742
+    },
+    "ziggurat + sparse trackers": {
+      "interpreted": {
+        "median_seconds": 5.769403180999689,
+        "ns_per_event": 40.1222980504672
+      },
+      "compiled": {
+        "median_seconds": 2.6095767179995164,
+        "ns_per_event": 18.147841567036124
+      },
+      "speedup": 2.210857853384925
+    }
+  },
+  "target_met": true
+}

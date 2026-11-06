@@ -53,8 +53,8 @@ pandas is a required dependency since 0.3.0, because results are pandas
 DataFrames.
 
 The Python package contains the native engine, so the CLI is optional. Every
-feature in this manual is in release 0.3.0; features that exist only in Rust
-are marked where they appear.
+feature in this manual is in release 0.3.0 unless it is marked as
+unreleased; features that exist only in Rust are marked where they appear.
 
 Both packages install a command named `crn-craft`. The rules commands
 (`rules-check`, `rules`, `describe rules-run`) exist only in the native CLI
@@ -860,6 +860,130 @@ The first two runs agree within sampling error: with 4000 cells each, the
 standard error of their difference is about 0.011. The third ran Static
 Direct, at its speed.
 
+### Optional: compiled event loop
+
+*Opt-in, off by default; needs a Rust toolchain. Unreleased: in `main`
+after 0.3.0.*
+
+`rules.compile_loop(model)` compiles the whole Static Direct event of one
+model into a small native program; `compiled=` then runs Static Direct
+requests in it. Results are byte-identical to the interpreter's: the same
+records, statistics, paths, trackers, event logs and sampler identity, so
+replays and stored results keep their meaning. Unlike `mtdna_direct`, it
+keeps Static Direct's use of the random stream and is not limited to the
+three-class structure.
+
+```python
+"""Static Direct with a compiled event loop (needs cargo)."""
+
+import json
+import time
+
+from crn_craft import CrnError, rules
+
+model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
+model["stop"] = "N > 0 && mutants >= 0.9 * N"
+loop = rules.compile_loop(model)  # about a minute the first time, then cached
+run = rules.ensemble(
+    model,
+    end=25_920.0,
+    report_times=[0.0, 12_960.0, 25_920.0],
+    replicates=200,
+    seed=5,
+    threads=2,
+    method="static_direct",
+    trackers=[{"observable": "neutral_mutants"}, {"observable": "advantaged_mutants"}],
+)
+for label, compiled in (("interpreted", None), ("compiled", loop)):
+    start = time.perf_counter()
+    result = run.simulate(compiled=compiled)
+    seconds = time.perf_counter() - start
+    stopped = (result.records["termination"] == "stopped").sum()
+    print(
+        f"{label:12s} {seconds:5.2f} s  {result.metadata['events']:>11,} events  "
+        f"taken over {stopped:2d}  {result.metadata['sampler']}"
+    )
+# Runs the request both ways; raises unless the results are byte-identical.
+loop.verify(run)
+print("byte-identical")
+
+# Without cargo: does the generator support a model?
+other = json.loads(json.dumps(model))
+other["rules"][0]["rate"] = "delta * (1 + mutants / K)"
+try:
+    rules.loop_source(other)
+except CrnError as error:
+    print(error.diagnostics[0]["code"], error.diagnostics[0]["message"])
+```
+
+```text
+interpreted   1.19 s   28,523,982 events  taken over 20  chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1
+compiled      0.51 s   28,523,982 events  taken over 20  chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1
+byte-identical
+CRN-R020 generated rules loops support constant or vacancy rates and sum observables
+```
+
+On the 1000-cell workload of the
+[performance analysis](mtdna-performance-analysis.md#2-methods), timed
+from Python including the subprocess, the compiled loop took 2.6 s
+against 5.8 s for interpreted Static Direct with its defaults (2.21×),
+and 3.8 s against 7.0 s with inverse waits and per-event trackers (1.86×),
+medians of three on the two-CPU host
+(`validation/mtdna/compiled-loop-python.json`).
+`mtdna_direct` is faster still where it applies.
+
+**Requirements.** Rust 1.85 or newer, the MSRV of the crates (install it
+with [rustup](https://rustup.rs)), and network access to crates.io: the
+program depends on `crn-craft-rules` at exactly the installed version.
+Offline, or with a version that is not on crates.io (a wheel built from a
+clone), pass `source=` a CRN-craft checkout of that version, or set
+`CRN_CRAFT_SOURCE`. `cargo=` names another cargo executable.
+
+**Build time and cache.** The first build compiles `crn-craft-rules` and
+its dependencies: about 40 s on the two-CPU host after the downloads, several
+minutes on slower machines. `compile_loop` prints cargo's progress and the
+path of the build log to stderr (`progress=False` silences it). Builds are
+cached in the user cache directory (`~/.cache/crn-craft/rules-loops` on
+Linux; `cache_dir=` or `CRN_CRAFT_CACHE_DIR` choose another), keyed by the
+loop's fingerprint, the installed version, `rustc -vV`, the target and
+Rust flags. A cached call took 0.06 s. All builds share one Cargo target
+directory (`CARGO_TARGET_DIR` if set), so a second model built in 3 s.
+The cache takes about 160 MB; delete the directory to reclaim it.
+
+**Limitations.**
+
+- Only `method="static_direct"`, with any options. Other methods are
+  refused with `CRN-R020` at `/method`.
+- The generator needs constant or vacancy rates (`max(0, K - N) / D` times
+  constants) and weighted-sum observables, and at most 1 MiB of source.
+  It refuses expression rates, `propensity` rules, max or distinct
+  observables, continuous variables, ATP blocks and models whose instances
+  change identity with `CRN-R020` at `/method`, before cargo runs.
+  `rules.loop_source(model)` returns the source, or that error, without
+  cargo.
+- Parameters are compiled in, so another parameter set needs another loop.
+  A loop passed for other model bytes, or for a `bind_parameters`
+  candidate, is refused with `CRN-R020` at `/model`; candidates run
+  interpreted.
+- `callback` and `batch_callback` are refused with `ValueError`: the loop
+  runs in its own process. Trackers and event logs work.
+- Threads, report times, stops, budgets, `wall_time_s` and `cancel_file`
+  work as interpreted. Ctrl-C stops the program and raises
+  `KeyboardInterrupt`.
+- On networks with many constant-rate channels the loop can be slower than
+  the interpreter
+  ([details](specialized-kernels.md#generated-rules-event-loops)).
+- Missing cargo, a failed build (`error.log` is the build log) and a
+  result that differs raise `rules.CompiledLoopError`, whose `reason` is
+  `"cargo_missing"`, `"build_failed"` or `"mismatch"`.
+
+**Confirming identity.** Every `compile_loop` call, cached or not, runs
+short requests through the program and the interpreter, with both waiting
+times, both tracker policies and an event log, and returns the loop only if
+the metadata and every record column are byte-identical. `loop.verify(run)`
+does the same for your own request, as above, and returns the result. On a
+mismatch both results are saved next to the build for inspection.
+
 ## 9. Individual mutant lineages: the clone model
 
 `mtdna-fixed.rules.json` gives every new mutant its own `clone` identity
@@ -1603,7 +1727,7 @@ println!("{} cells stopped", result.stopped_replicates);
   `EventObserver` for every committed event on the native workers. It
   returns `ObserverAction::Stop` to end that cell. An observer that always
   continues compiles away and leaves results byte-identical.
-- *Rust only, opt-in:* `generate_rules_loop(&prepared)` emits Rust source
+- *Opt-in:* `generate_rules_loop(&prepared)` emits Rust source
   for the whole Static Direct event of one prepared model. It requires a
   `static_direct` request, constant or vacancy rates and sum observables,
   and at most 1 MiB of source; it refuses anything else with `CRN-R020`.
@@ -1614,8 +1738,8 @@ println!("{} cells stopped", result.stopped_replicates);
   2.4× faster than interpreted Static Direct. On networks with many
   constant-rate channels it can be slower, so measure first
   ([details](specialized-kernels.md#generated-rules-event-loops)). From
-  Python, the fast path `mtdna_direct` is faster still for the three-class
-  structure (section 8).
+  Python, `rules.compile_loop` builds such a loop into a separate program
+  and runs it (section 8, unreleased).
 
 ## 17. Checking results
 
@@ -1657,6 +1781,7 @@ validate the model against biology.
 | `keep_paths` | how many cells keep their full observable series (`result.paths`); `"all"` or `True` for every cell |
 | `keep_instances` | how many cells keep their final instances (`metadata["final_instances"]`) |
 | `method` | a method name or dictionary (section 8) |
+| `compiled` | a loop from `rules.compile_loop` for this model, run by `simulate()` (section 8, unreleased) |
 | `trackers` | list of `{"observable", "first_passage"?, "keep_episodes"?}` |
 | `event_log` | `{"max_entries": n, "rules": [...]}` |
 | budgets | `max_events`, `max_sampling_steps`, `max_instances`, `max_output_bytes`, `wall_time_s` |
@@ -1740,6 +1865,11 @@ Frequent diagnostics:
   block need `thinning`.
 - **A Python callback is slow.** It holds the interpreter lock. Use trackers
   or event logs for whole ensembles.
+- **`rules.compile_loop` fails.** `CompiledLoopError.reason` says why:
+  `"cargo_missing"` (install Rust with rustup), `"build_failed"` (read
+  `error.log`; for a version that is not on crates.io pass `source=` a
+  checkout), or `"mismatch"`. A `CrnError` with `CRN-R020` at `/method`
+  means the generator does not support the model (section 8).
 - **Different results with another method.** Each method uses the random
   stream differently. Compare distributions, not paths.
 - **`CRN-R031`.** A rate is below 2⁻⁵³ of the total, for example a tiny

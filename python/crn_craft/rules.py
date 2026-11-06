@@ -5,6 +5,10 @@
 counts, kept paths, trackers and event logs are pandas DataFrames. Every
 frame has ``.to_numpy()``, and ``Result.metadata`` keeps the full result
 document as the engine returned it.
+
+Opt-in, with a Rust toolchain: :func:`compile_loop` compiles a model's
+Static Direct event loop, and ``compiled=`` runs it with byte-identical
+results; :func:`loop_source` shows whether a model is supported.
 """
 
 import hashlib
@@ -16,7 +20,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from . import _crn_error, _native, _path, model_bytes
+from . import CrnError, _crn_error, _native, _path, model_bytes
+from ._rules_loop import CompiledLoop, fingerprint_of
+
+# The compiled-loop API is part of this module.
+from ._rules_loop import CompiledLoopError as CompiledLoopError
+from ._rules_loop import compile_loop as compile_loop
+from ._rules_loop import loop_source as loop_source
 from .builder import Model
 
 # Tolerances `ensemble` writes for method="hybrid" unless the method
@@ -286,9 +296,41 @@ class Result:
 
 
 class PreparedEnsemble:
-    def __init__(self, native, rule_names):
+    def __init__(self, native, rule_names, documents=None, compiled=None):
         self._native = native
         self._rule_names = tuple(rule_names)
+        # The exact (model, request) bytes, which a compiled loop runs.
+        self._documents = documents
+        self._fingerprint = None
+        self._compiled = None
+        if compiled is not None:
+            self._compiled_request(compiled)
+            self._compiled = compiled
+
+    def _compiled_request(self, compiled):
+        """Check that ``compiled`` runs this request; return the request."""
+        if not isinstance(compiled, CompiledLoop):
+            raise TypeError("compiled must be a CompiledLoop from rules.compile_loop")
+        if self._fingerprint is None:
+            try:
+                source = self._native.loop_source()
+            except _native.NativeError as error:
+                raise _crn_error(error) from None
+            self._fingerprint = fingerprint_of(source)
+        if self._fingerprint != compiled.fingerprint or self._documents is None:
+            raise CrnError(
+                [
+                    {
+                        "code": "CRN-R020",
+                        "path": "/model",
+                        "message": "generated rules loop fingerprint mismatch",
+                        "hint": "A compiled loop runs only the model bytes it was "
+                        "compiled for; compile one for this model and parameter "
+                        "set with rules.compile_loop.",
+                    }
+                ]
+            )
+        return self._documents[1]
 
     @property
     def rule_names(self):
@@ -303,7 +345,8 @@ class PreparedEnsemble:
         """Prepare an independent candidate with the same ensemble settings.
 
         The candidate's model and run hashes cover the re-serialized bound
-        model and request, not the original file.
+        model and request, not the original file. It runs interpreted: a
+        compiled loop serves only the model bytes it was compiled for.
         """
         try:
             native = self._native.bind_parameters(dict(overrides))
@@ -312,7 +355,13 @@ class PreparedEnsemble:
         return PreparedEnsemble(native, self._rule_names)
 
     def simulate(
-        self, *, cancel_file=None, callback=None, batch_callback=None, batch_size=256
+        self,
+        *,
+        cancel_file=None,
+        callback=None,
+        batch_callback=None,
+        batch_size=256,
+        compiled=None,
     ):
         """Run native workers.
 
@@ -326,9 +375,29 @@ class PreparedEnsemble:
         discarded. A callback that blocks also blocks Ctrl-C. A
         batch_callback(id, events) replays the retained log after execution
         and cannot affect the run.
+
+        ``compiled``, a :class:`CompiledLoop` for this model, runs the
+        request in the compiled program instead of the interpreter, with
+        byte-identical results; it defaults to the loop given to
+        ``ensemble`` or ``prepare``. The request must select
+        ``static_direct`` (``CrnError`` ``CRN-R020`` at ``/method``
+        otherwise) and use this loop's model bytes (``CRN-R020`` at
+        ``/model``). Callbacks need the interpreter and are refused with
+        ``ValueError``.
         """
         if batch_size < 1:
             raise ValueError("batch_size must be positive")
+        compiled = self._compiled if compiled is None else compiled
+        if compiled is not None:
+            if callback is not None or batch_callback is not None:
+                raise ValueError(
+                    "callback and batch_callback need the interpreter; a compiled "
+                    "loop runs in its own process. Use trackers or an event log, "
+                    "or simulate without compiled."
+                )
+            request = self._compiled_request(compiled)
+            metadata, columns = compiled.execute(request, cancel_file=cancel_file)
+            return Result(json.loads(metadata), columns)
 
         def dispatch(replicate, event):
             return callback(replicate, json.loads(event))
@@ -348,20 +417,24 @@ class PreparedEnsemble:
         return result
 
 
-def prepare(model, request):
+def prepare(model, request, *, compiled=None):
     """Prepare a rules-run contract, preserving the supplied model bytes.
 
-    ``model`` is bytes, text, a dictionary or a ``Model``.
+    ``model`` is bytes, text, a dictionary or a ``Model``. ``compiled`` is
+    an optional :class:`CompiledLoop` for this model that ``simulate`` then
+    uses (see ``PreparedEnsemble.simulate``).
     """
     if isinstance(model, Model):
         model = model.to_dict()
     data = model_bytes(model)
+    request = model_bytes(request)
     try:
-        native = _native.prepare_rules(data, model_bytes(request))
+        native = _native.prepare_rules(data, request)
     except _native.NativeError as error:
         raise _crn_error(error) from None
     # The engine has validated the model; results list rules in this order.
-    return PreparedEnsemble(native, [r["name"] for r in json.loads(data)["rules"]])
+    names = [r["name"] for r in json.loads(data)["rules"]]
+    return PreparedEnsemble(native, names, (data, request), compiled)
 
 
 def ensemble(
@@ -382,6 +455,7 @@ def ensemble(
     trackers=(),
     event_log=None,
     method=None,
+    compiled=None,
 ):
     """Build and prepare a rules request with explicit work/output budgets.
 
@@ -432,6 +506,11 @@ def ensemble(
     trackers, with the numbers of ``{"kind": "static_direct",
     "waiting_time": "inverse", "sparse_trackers": False}`` and a
     ``CRN-R051`` warning naming the reason.
+
+    ``compiled`` is an optional :class:`CompiledLoop` from
+    :func:`compile_loop` for this model; ``simulate`` then runs the request
+    in the compiled program, with results byte-identical to the
+    interpreter's. It needs ``method="static_direct"`` (with any options).
     """
     if isinstance(model, Model):
         model = model.to_dict()
@@ -495,4 +574,4 @@ def ensemble(
         ):
             # Options left out take the rules-run/0.6 defaults.
             request["schema"] = "crn-craft.rules-run/0.6"
-    return prepare(data, request)
+    return prepare(data, request, compiled=compiled)

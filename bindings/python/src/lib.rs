@@ -1,5 +1,6 @@
 //! Minimal JSON bridge; numerical semantics and validators live in the core.
 mod rules;
+mod rules_payload;
 
 use crn_craft::simulation::Control;
 use pyo3::{

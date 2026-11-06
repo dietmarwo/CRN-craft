@@ -394,14 +394,20 @@ def ensemble(
     ``max_instances`` are per replicate; ``wall_time_s`` covers the run and
     ``max_output_bytes`` the result. ``trackers`` and ``event_log`` select
     the observation. The lowest request version that fits the arguments is
-    used.
+    used; ``"static_direct"`` selects rules-run/0.6 for its defaults.
 
     ``method`` is a name or a dictionary such as ``{"kind": "tau",
     "epsilon": 0.03}``. The generic methods run every model in their scope:
 
     - ``"static_direct"``: exact, for closed models (a fixed set of
-      attribute vectors); options ``waiting_time="ziggurat"`` and
-      ``sparse_trackers=True``;
+      attribute vectors). It selects rules-run/0.6, whose defaults are
+      Ziggurat waiting times and sparse integration of every eligible
+      tracker (an unweighted single-class count without a first-passage
+      predicate). The dictionary options ``"waiting_time"`` (``"inverse"``
+      or ``"ziggurat"``) and ``"sparse_trackers"`` (``False`` or ``True``)
+      override them; ``{"kind": "static_direct", "waiting_time":
+      "inverse", "sparse_trackers": False}`` reproduces the
+      ``"static_direct"`` numbers of 0.3.0;
     - ``"next_reaction"``: exact, for closed models;
     - ``None``: the exact tree method, for every model without an ATP
       block, including models whose instances change identity;
@@ -421,8 +427,10 @@ def ensemble(
     set at preparation, samples the same process with a different use of
     the random stream (sampler ``chacha8-u53-ziggurat/rules-mtdna-direct/1``)
     and is about 3.9x faster than Static Direct on that structure. A model
-    it cannot certify runs Static Direct, with the same numbers as
-    ``"static_direct"`` and a ``CRN-R051`` warning naming the reason.
+    it cannot certify runs Static Direct with inverse waits and per-event
+    trackers, with the numbers of ``{"kind": "static_direct",
+    "waiting_time": "inverse", "sparse_trackers": False}`` and a
+    ``CRN-R051`` warning naming the reason.
     """
     if isinstance(model, Model):
         model = model.to_dict()
@@ -483,7 +491,7 @@ def ensemble(
         elif (
             isinstance(request.get("method"), dict)
             and request["method"].get("kind") == "static_direct"
-            and {"waiting_time", "sparse_trackers"} & request["method"].keys()
         ):
-            request["schema"] = "crn-craft.rules-run/0.4"
+            # Options left out take the rules-run/0.6 defaults.
+            request["schema"] = "crn-craft.rules-run/0.6"
     return prepare(data, request)

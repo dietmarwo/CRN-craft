@@ -8,7 +8,8 @@ every record column to be byte-identical to the interpreter's:
 - 1 and 2 threads, inverse and Ziggurat waits, dense and sparse trackers,
   each with three trackers (one with a first-passage predicate), an event
   log, kept paths and kept instances; at least one cell takes over;
-- the plain `"static_direct"` method, the run's default settings;
+- the plain `"static_direct"` method, with the defaults of the request
+  version `rules.ensemble` writes, trackers and an event log;
 - event, sampling, instance and output budgets, a wall-time budget that is
   not reached, and a cancel file that exists before the run.
 
@@ -187,7 +188,10 @@ def main():
                     f"threads {threads}, {wait}, sparse {sparse}", run, loop, rows
                 )
     require(any(r["stopped"] > 0 for r in rows), "no cell took over")
-    identical("default static_direct", ensemble(model, loop), loop, rows)
+    # The plain method name, with the defaults of the request version that
+    # rules.ensemble writes for it.
+    default = ensemble(model, loop, trackers=TRACKERS, event_log=LOG)
+    identical("default static_direct", default, loop, rows)
 
     # Budgets and cancellation.
     for label, settings in (

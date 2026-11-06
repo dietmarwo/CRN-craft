@@ -5,13 +5,15 @@ on the 1000-cell three-class workload of docs/mtdna-performance-analysis.md
 (takeover stop, three years, monthly reports, seed 17, two threads, two
 count trackers), `run.simulate(compiled=loop)` must be at least 1.5x faster
 than interpreted `run.simulate()` under `method="static_direct"`, by the
-median of three runs in alternating order. Times cover the whole
+median of three runs in alternating order. The row `static_direct` uses
+inverse waits and per-event trackers, the meaning of `"static_direct"` in
+rules-run/0.2-0.5; the row `ziggurat + sparse trackers` uses the options
+that rules-run/0.6 makes the default. Times cover the whole
 `simulate()` call, including the subprocess and parsing its output, and
 exclude the build. Every timed pair must be byte-identical.
 
-The Ziggurat and sparse-tracker options are timed the same way, for
-information. The build is timed twice: into an empty cache and target
-directory, then again from the cache.
+The build is timed twice: into an empty cache and target directory, then
+again from the cache.
 
 Usage: python validation/benchmark_compiled_loop.py --output timing.json
 [--source CHECKOUT]. Run it under the host's CPU lock. Timing is
@@ -32,8 +34,14 @@ ROOT = Path(__file__).resolve().parents[1]
 TARGET = 1.5
 GRID = [24.0 * day for day in range(0, 1081, 30)]
 TRACK = [{"observable": "neutral_mutants"}, {"observable": "advantaged_mutants"}]
+# Explicit options, so the rows keep their meaning whatever the request
+# version's defaults are.
 METHODS = {
-    "static_direct": "static_direct",
+    "static_direct": {
+        "kind": "static_direct",
+        "waiting_time": "inverse",
+        "sparse_trackers": False,
+    },
     "ziggurat + sparse trackers": {
         "kind": "static_direct",
         "waiting_time": "ziggurat",

@@ -101,3 +101,15 @@ with Python 3.13; the ratio agrees (1.16× there).
   identity were measured on the K = 1000 model only.
 - The timing ran on a shared two-CPU host under its CPU lock; other hosts
   will give other absolute times.
+
+## Other checks whose numbers changed
+
+`validation/check_builder.py` runs its declared protocol with Python's
+`method="static_direct"`, so its samples changed with the default. Rerun
+unchanged in tests, seeds and alpha: 18 of 18 tests and 3 of 3 checks
+passed, largest |z| 1.54 against 4.03
+(`validation/builder/builder-checks-static-direct-defaults.json`). The
+first run's report stays as recorded; the same script with the explicit
+options `waiting_time: "inverse", sparse_trackers: false` reproduced it byte
+for byte. The manual blocks that use `static_direct` (sections 7, 8 and 12)
+were rerun and show their new output; `check_manual.py` passes.

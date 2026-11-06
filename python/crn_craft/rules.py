@@ -426,7 +426,8 @@ def ensemble(
     ``N > 0 && mutants >= f * N``. It is certified per model and parameter
     set at preparation, samples the same process with a different use of
     the random stream (sampler ``chacha8-u53-ziggurat/rules-mtdna-direct/1``)
-    and is about 3.9x faster than Static Direct on that structure. A model
+    and is about 3.3x faster than the Static Direct default on that
+    structure (3.9x faster than Static Direct with inverse waits). A model
     it cannot certify runs Static Direct with inverse waits and per-event
     trackers, with the numbers of ``{"kind": "static_direct",
     "waiting_time": "inverse", "sparse_trackers": False}`` and a

@@ -18,15 +18,17 @@ measurements in `validation/mtdna/`. Read the
   (2 · δ · K · T). Run time is close to cells × events per cell × cost per
   event ÷ cores.
 - **The generic methods.** Static Direct, the generic exact method for
-  closed models, took about 156 ns of CPU time per event on the two-CPU
-  host. Static Direct with Ziggurat waits and sparse trackers took 134 ns,
-  next reaction 214 ns and the tree method, which also runs models whose
-  instances change identity, 561 ns.
+  closed models, took about 134 ns of CPU time per event on the two-CPU
+  host with its default since rules-run/0.6, Ziggurat waits and sparse
+  trackers, and 156 ns with inverse waits and per-event trackers, its
+  default up to release 0.3.0. Next reaction took 214 ns and the tree
+  method, which also runs models whose instances change identity, 561 ns.
 - **The opt-in fast path.** `mtdna_direct`, certified at preparation for
   the three-class fixed-population structure only, took about 40 ns per
-  event: 3.9× less than Static Direct. Other models fall back to Static
-  Direct with `CRN-R051`. The numbers marked `mtdna_direct` below hold
-  only for that structure; multiply them by about 3.9 for Static Direct.
+  event: 3.3× less than Static Direct (3.9× less than with inverse waits).
+  Other models fall back to Static Direct with inverse waits and
+  `CRN-R051`. The numbers marked `mtdna_direct` below hold only for that
+  structure; multiply them by about 3.3 for Static Direct.
 - **A full study is short.** 10,000 cells for three years with the takeover
   stop take about 8.6 s on eight CPUs with `mtdna_direct` and 43 s with
   Static Direct. A supplied Java implementation took 14.9 s on the same
@@ -67,6 +69,12 @@ New measurements:
   Their headers say so. Section 2 gives the factor for every other method.
 - **Metrics.** *Wall ns per event* divides wall time by all events of the
   ensemble. With two busy threads, the CPU time per event is twice that.
+- **Static Direct defaults.** Rows labeled *0.3.0 default* ran inverse
+  waits and per-event trackers, which `method="static_direct"` selected up
+  to release 0.3.0. Rows labeled *0.6 default* ran Ziggurat waits and
+  sparse trackers, which it selects now. Section 2 gives a separate,
+  alternating measurement of the two
+  (`validation/mtdna/static-direct-defaults-timing.json`).
 
 Recorded measurements, cited where used:
 
@@ -101,23 +109,42 @@ So, on this host:
 
 > time ≈ cells × 2 · δ · K · T × cost per event ÷ cores
 
-with a CPU cost per event of about 40 ns for `mtdna_direct` and 156 ns for
-Static Direct (section 2).
+with a CPU cost per event of about 40 ns for `mtdna_direct` and 134 ns for
+Static Direct (156 ns with inverse waits; section 2).
 
 ## 2. Methods
 
 1000 cells (200 for the tree method and tau), two count trackers, two
 threads:
 
-| Method | Kind | Wall s per 1000 cells | Wall ns per event | Relative to Static Direct |
+| Method | Kind | Wall s per 1000 cells | Wall ns per event | Relative to Static Direct, 0.3.0 default |
 | --- | --- | ---: | ---: | ---: |
-| Static Direct | exact | 11.2 | 78.2 | 1.00 |
-| Static Direct, Ziggurat + sparse trackers | exact | 9.6 | 66.9 | 0.86 |
+| Static Direct, 0.3.0 default (inverse waits, per-event trackers) | exact | 11.2 | 78.2 | 1.00 |
+| Static Direct, 0.6 default (Ziggurat waits, sparse trackers) | exact | 9.6 | 66.9 | 0.86 |
 | next reaction | exact | 15.4 | 107.2 | 1.37 |
 | tree | exact | 40 (8.1 for 200) | 280.5 | 3.59 |
 | binomial, 1 h steps | approximate | 11.3 | 79.0 | 1.01 |
 | tau, ε = 0.03 | approximate | 75 (15.1 for 200) | 519.3 | 6.64 |
 | `mtdna_direct`, opt-in fast path | exact | 2.9 | 20.3 | 0.26 (3.9× faster) |
+
+**The 0.6 default.** rules-run/0.6 made the faster row the default of
+`static_direct`; Python's `method="static_direct"` selects it. Measured on
+6 November 2026 on another two-CPU host (Python 3.12.3, commit `099c08d`,
+`validation/benchmark_static_direct_defaults.py`), the same 1000 cells
+with three runs of each request in alternating order took:
+
+| Static Direct request | Median wall s | Median wall ns per event | Speedup |
+| --- | ---: | ---: | ---: |
+| rules-run/0.5 default (0.3.0 default) | 7.00 | 48.8 | 1.00 |
+| rules-run/0.6 default | 5.99 | 41.6 | 1.17 |
+
+The declared target was 1.10×. The table above gives the same ratio,
+1.17×, on its slower host. The new default samples the same process with
+another use of the random stream, so its numbers differ cell by cell; it
+passed the master-equation gate of the Ziggurat sampler
+([log](campaign/static-direct-defaults-log-2026-11-06.md)).
+`{"kind": "static_direct", "waiting_time": "inverse", "sparse_trackers": False}`
+reproduces the numbers of release 0.3.0.
 
 Why the methods differ:
 
@@ -171,7 +198,8 @@ the checks. Every other closed model runs on the generic methods above.
 | 1 | 12.47 | 1.0 |
 | 2 | 5.87 | 2.1 |
 
-Recorded with an eight-CPU quota and 20 threads, against one thread:
+Recorded with an eight-CPU quota and 20 threads, against one thread
+(Static Direct with its 0.3.0 default):
 
 | Method (200 cells, no stop) | 1 thread | 20 threads on 8 CPUs | Speedup |
 | --- | ---: | ---: | ---: |
@@ -195,7 +223,7 @@ Use as many threads as CPUs.
 | a first-passage tracker (`N > 0 && mutants >= 0.6 * N`) | 6.01 | 2.0 |
 | an event log of mutation events, 50 per cell | 5.19 | 1.7 |
 
-Static Direct, 20 cells, one thread:
+Static Direct, 0.3.0 default, 20 cells, one thread:
 
 | Observation | Wall s | Wall ns per event |
 | --- | ---: | ---: |
@@ -203,8 +231,8 @@ Static Direct, 20 cells, one thread:
 | a Python callback that always continues | 39.5 | 13,550 |
 
 Under `mtdna_direct`, plain count trackers integrate only when their class
-changes, so they are free; Static Direct does the same with
-`sparse_trackers`. A first-passage predicate or an event log needs the general
+changes, so they are free; Static Direct does the same by default since
+rules-run/0.6 (`sparse_trackers`). A first-passage predicate or an event log needs the general
 observation path, which refreshes the observables and evaluates the
 predicate after every event. That costs about the same again as the
 simulation.
@@ -292,7 +320,7 @@ stop, eight workers, two runs each
 
 | Implementation | Median wall s |
 | --- | ---: |
-| CRN-craft Static Direct | 43.40 |
+| CRN-craft Static Direct, 0.3.0 default | 43.40 |
 | supplied Java SSA | 14.86 |
 | CRN-craft `mtdna_direct` | 8.62 |
 
@@ -338,8 +366,8 @@ Every column is for the fast path `mtdna_direct`. The two-CPU column uses
 | 100,000 cells, 3 years, K = 2000 | 29 G | 10 min | 2.9 min |
 | the tutorial's two-stage fit (100 × 800 and 33 × 2400 cells) | 23 G | 7.5 min (measured) | 2.3 min |
 
-Static Direct, for any other closed model, takes about 3.9× these times,
-and the tree method about 14×.
+Static Direct, for any other closed model, takes about 3.3× these times
+(3.9× with inverse waits), and the tree method about 14×.
 Add the observation costs of section 4. Long horizons need a larger event
 budget: `max_events` is per cell and must exceed 2 · δ · K · T.
 
@@ -356,10 +384,10 @@ Output and memory grow with what is kept, not with the events:
 ## 9. Recommendations
 
 1. **Pick the method by model.**
-   - Any closed model: Static Direct with
-     `{"kind": "static_direct", "waiting_time": "ziggurat", "sparse_trackers": True}`
-     when its own replay identity is acceptable, plain Static Direct
-     otherwise.
+   - Any closed model: Static Direct, `method="static_direct"`, whose
+     default uses Ziggurat waits and sparse trackers. Add
+     `"waiting_time": "inverse", "sparse_trackers": False` to a method
+     dictionary only to reproduce results of release 0.3.0.
    - Lineage identities: the clone model with the tree method.
    - Variable population: `thinning`.
    - The three-class structure: opt in with `mtdna_direct`, with the stop

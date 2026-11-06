@@ -1,9 +1,10 @@
 # Rules kernel review checklist
 
-Use the generic Static Direct path first. Measure the default cached path,
-then the opt-in Ziggurat and sparse count trackers when the changed replay
-identity is appropriate. Compare the generic engine with the candidate on
-the same model, output contract, workload and hardware. Try the ahead-of-time
+Use the generic Static Direct path first. Measure its default, which since
+rules-run/0.6 uses Ziggurat waits and sparse count trackers, and inverse
+waits with per-event trackers where the earlier replay identity is needed.
+Compare the generic engine with the candidate on the same model, output
+contract, workload and hardware. Try the ahead-of-time
 generated event loop when its supported rate and projection families cover
 the model.
 

@@ -262,6 +262,14 @@ mutation log fits the default budget. See the
 [mtDNA user manual](docs/mtdna-user-manual.md) and the
 [changelog](CHANGELOG.md) for migration notes.
 
+Since 0.3.0, rules-run/0.6 makes Ziggurat waiting times and sparse count
+trackers the Static Direct defaults, 1.17× faster per event on the
+three-class model, and Python's `method="static_direct"` selects it. The
+new default uses the random stream differently;
+`{"kind": "static_direct", "waiting_time": "inverse", "sparse_trackers": False}`
+reproduces the numbers of 0.3.0, and stored requests replay unchanged
+([Static Direct options](docs/mtdna-rules.md#generic-static-direct-options)).
+
 ## Developer checks
 
 ```bash

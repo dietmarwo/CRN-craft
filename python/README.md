@@ -94,17 +94,21 @@ print(result.paths["X"].unstack("time").head(3))
            X
 time
 0.0    0.000
-5.0   12.550
-10.0  17.351
-{'immigration': 40132, 'death': 22781}
+5.0   12.623
+10.0  17.305
+{'immigration': 39800, 'death': 22495}
 time       0.0   5.0   10.0
 replicate
-0           0.0   7.0  19.0
-1           0.0  13.0  20.0
-2           0.0  18.0  25.0
+0           0.0  14.0  19.0
+1           0.0  19.0  20.0
+2           0.0  17.0  17.0
 ```
 
 The means lie within one standard error of the exact 12.64 and 17.29.
+`method="static_direct"` draws Ziggurat waiting times and integrates count
+trackers sparsely (rules-run/0.6). `method={"kind": "static_direct",
+"waiting_time": "inverse", "sparse_trackers": False}` gives the numbers of
+release 0.3.0, which printed 12.550 and 17.351 here.
 Models may also declare continuous variables, ODEs between events that
 rates read (for example an ATP pool), which `method="hybrid"` simulates at
 declared tolerances. Release 0.3.0 changed the rules results from NumPy

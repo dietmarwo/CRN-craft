@@ -104,7 +104,7 @@ flowchart TB
 | Method | Execution and constraints |
 | --- | --- |
 | `tree` | The default dynamic Direct path. It keeps attributed instance state and supports changing instance identities and random product attributes. |
-| `static_direct` | Exact Direct on a closed set of instance tuples and indexed channels. Inverse waits and per-event tracker updates are the defaults. Every positive channel must be at least 2⁻⁵³ of the total (`CRN-R031`); the tree resolves rules and instances separately and can run such models. |
+| `static_direct` | Exact Direct on a closed set of instance tuples and indexed channels. Ziggurat waits and sparse count trackers are the defaults from rules-run/0.6; inverse waits and per-event tracker updates before, and with explicit options. Every positive channel must be at least 2⁻⁵³ of the total (`CRN-R031`); the tree resolves rules and instances separately and can run such models. |
 | `next_reaction` | Exact Gibson–Bruck clocks on a lowered model. Dependency lists identify the clocks to update. |
 | `thinning` | Exact thinning for the ATP-coupled rules model, with the analytic ATP flow and a checked intensity envelope. |
 | `tau`, `binomial` | Approximate closed-model methods with their own sampler identities. Tau bounds both species and rate changes (Cao–Gillespie–Petzold) and takes exact steps where a leap would be inaccurate. Binomial uses competing-risk probabilities on a fixed step lattice and admits only single-parent unit births and deaths. |

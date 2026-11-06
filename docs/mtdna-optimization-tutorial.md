@@ -32,9 +32,11 @@ distributions match the observed ones.
 
 Each prediction is an ensemble of simulated cells. A three-year cell at
 K = 1000 has about 150,000 events. An objective evaluation with 800 cells
-takes about 2.2 s on two cores with `mtdna_direct`. Two hundred evaluations
-are therefore minutes, not hours. That holds only with the specialized
-sampler and a reused prepared template.
+takes about 2.2 s on two cores with `mtdna_direct`, the opt-in fast path
+for this model's three-class structure, and a reused prepared template.
+Two hundred evaluations are therefore minutes, not hours. Static Direct,
+which runs any closed model, takes about 3.9× longer: about half an hour
+for the same fit.
 
 To be able to check the answer, the tutorial makes its own data from known
 parameters (`mu = 3·10⁻⁵`, `sm = 1.5`), with a seed that the fit never sees.
@@ -454,11 +456,13 @@ Practical sizes for this model:
 
 ## 7. Making each evaluation cheap
 
-- **Use `mtdna_direct`** for the three-class model. Check
-  `metadata["sampler"]`: a stop other than `N > 0 && mutants >= f * N` makes
-  it fall back to Static Direct, which is about three times slower. Record
+- **Opt in to `mtdna_direct`** where the model has the three-class
+  structure ([user manual, section 8](mtdna-user-manual.md#the-opt-in-fast-path-mtdna_direct)).
+  Check `metadata["sampler"]`: a stop other than `N > 0 && mutants >= f * N`
+  makes it fall back to Static Direct, which is about 3.9× slower. Record
   other thresholds with first-passage trackers, or compute them from kept
-  paths as here.
+  paths as here. Other models run on the generic methods, Static Direct
+  first.
 - **Keep only what the loss needs.** `keep_paths="all"` keeps 3 report
   times × 6 observables per cell, as one `result.paths` DataFrame. Avoid event logs and Python callbacks
   inside an objective.

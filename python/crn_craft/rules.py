@@ -382,9 +382,33 @@ def ensemble(
     keeps every replicate. ``keep_instances`` keeps final instances the same
     way (a count). The budgets ``max_events``, ``max_sampling_steps`` and
     ``max_instances`` are per replicate; ``wall_time_s`` covers the run and
-    ``max_output_bytes`` the result. ``trackers``, ``event_log`` and
-    ``method`` select the observation and the simulation method. The
-    lowest request version that fits the arguments is used.
+    ``max_output_bytes`` the result. ``trackers`` and ``event_log`` select
+    the observation. The lowest request version that fits the arguments is
+    used.
+
+    ``method`` is a name or a dictionary such as ``{"kind": "tau",
+    "epsilon": 0.03}``. The generic methods run every model in their scope:
+
+    - ``"static_direct"``: exact, for closed models (a fixed set of
+      attribute vectors); options ``waiting_time="ziggurat"`` and
+      ``sparse_trackers=True``;
+    - ``"next_reaction"``: exact, for closed models;
+    - ``None``: the exact tree method, for every model without an ATP
+      block, including models whose instances change identity;
+    - ``"tau"`` and ``"binomial"``: approximate, for closed models.
+
+    Two methods serve one structure each. ``"thinning"`` is required by,
+    and only for, models with an ATP block. ``"mtdna_direct"`` is an opt-in
+    exact fast path for the three-class fixed-population structure: three
+    classes in eight unit channels, one shared constant degradation rate,
+    replication and mutation rates ``max(0, K - N) / D`` times constants,
+    observables that are weighted sums, and no stop or
+    ``N > 0 && mutants >= f * N``. It is certified per model and parameter
+    set at preparation, samples the same process with a different use of
+    the random stream (sampler ``chacha8-u53-ziggurat/rules-mtdna-direct/1``)
+    and is about 3.9x faster than Static Direct on that structure. A model
+    it cannot certify runs Static Direct, with the same numbers as
+    ``"static_direct"`` and a ``CRN-R051`` warning naming the reason.
     """
     data = model_bytes(model)
     # NumPy scalars and arrays are converted; counts must be integral.

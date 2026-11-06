@@ -90,7 +90,7 @@ Replication can produce a mutant. The repository has four model files:
 
 | File | What it models | Methods |
 | --- | --- | --- |
-| `mtdna-three-class.rules.json` | fixed population target; wild type, neutral mutants and advantaged mutants as three classes | every static method, `mtdna_direct`, `tree` |
+| `mtdna-three-class.rules.json` | fixed population target; wild type, neutral mutants and advantaged mutants as three classes | every generic method, and the opt-in fast path `mtdna_direct` |
 | `mtdna-three-class-cme.rules.json` | the same with K = 20 and fast rates, for exact checks against the master equation | as above |
 | `mtdna-three-class-atp.rules.json` | variable population: replication limited by a cellular ATP balance | `thinning` |
 | `mtdna-fixed.rules.json` | every new mutant is its own clone with an identity | `tree` |
@@ -147,6 +147,11 @@ An *ensemble* is a set of independent replicates of the model. Here each
 replicate is one cell. `rules.ensemble` builds and validates a run request
 and prepares it; `simulate()` runs the cells on native threads and returns
 pandas DataFrames.
+
+Most examples pass `method="mtdna_direct"`, an opt-in fast path for the
+three-class structure of this model (section 8). `method="static_direct"`
+runs the same model, and any other closed model, about 3.9× slower; the
+numbers then differ cell by cell but not in distribution.
 
 ```python
 """Three-class model: 200 cells for three years with the takeover stop."""
@@ -376,11 +381,12 @@ whatever the report times.
 
 Any expression over parameters and observables can be a stop, for example
 `mutants >= 0.6 * N` for a 60% COX-deficiency threshold, or
-`advantaged_mutants > 0` to stop at the first advantaged mutant.
-`mtdna_direct` runs at full speed with no stop or with the guarded fraction
-form `N > 0 && mutants >= f * N`. Any other stop makes it fall back to Static
-Direct with a warning (section 12). To record a threshold without ending
-the cell, use a first-passage tracker (next section).
+`advantaged_mutants > 0` to stop at the first advantaged mutant. Every
+method accepts any stop. The fast path `mtdna_direct` keeps its speed only
+with no stop or the guarded fraction `N > 0 && mutants >= f * N`; any other
+stop makes it fall back to Static Direct with a warning (sections 8 and
+12). To record a threshold without ending the cell, use a first-passage
+tracker (next section).
 
 ## 6. Event-level bookkeeping with trackers
 
@@ -596,18 +602,26 @@ Rules for observation:
 
 ## 8. Choosing a method
 
+The generic methods run every model within their scope. None of them
+depends on mtDNA or on the names in a model:
+
+| `method` | Kind | Scope | Use it for |
+| --- | --- | --- | --- |
+| `"static_direct"` | exact | closed models (a fixed set of attribute vectors) | the default for most work |
+| `{"kind": "static_direct", "waiting_time": "ziggurat", "sparse_trackers": True}` | exact | closed models | Static Direct with faster waiting times and sparse count trackers; its own replay identity |
+| `"next_reaction"` | exact | closed models | Gibson–Bruck; pays off in large sparse networks, not here, where every event changes every rate |
+| `None` (tree) | exact | every model without an ATP block | models whose instances change identity, such as the clone model |
+| `{"kind": "tau", "epsilon": 0.03}` | approximate | closed models | adaptive Poisson leaps; at K = 1000 the vacancy limits leaps, so it runs exact events |
+| `{"kind": "binomial", "step": 1.0}` | approximate | closed models with single-parent unit births and deaths | fixed hourly splitting, similar to a binomial hourly scheme in Java |
+
+Two methods serve one model structure each:
+
 | `method` | Kind | Use it for |
 | --- | --- | --- |
-| `"mtdna_direct"` | exact | the three-class model: certified once at preparation, about 3× faster than Static Direct |
-| `"static_direct"` | exact | any closed model (fixed set of attribute vectors); the default for most work |
-| `{"kind": "static_direct", "waiting_time": "ziggurat", "sparse_trackers": True}` | exact | Static Direct with faster waiting times and sparse count trackers; its own replay identity |
-| `"next_reaction"` | exact | Gibson–Bruck; pays off in large sparse networks, not here, where every event changes every rate |
-| `None` (tree) | exact | models whose instances change identity, such as the clone model |
-| `{"kind": "tau", "epsilon": 0.03}` | approximate | adaptive Poisson leaps; at K = 1000 the vacancy limits leaps, so it runs exact events |
-| `{"kind": "binomial", "step": 1.0}` | approximate | fixed hourly splitting, similar to a binomial hourly scheme in Java |
-| `"thinning"` | exact | the ATP model (section 10) |
+| `"mtdna_direct"` | exact | an opt-in fast path for the three-class fixed-population structure, about 3.9× faster than Static Direct; other models fall back to Static Direct (below) |
+| `"thinning"` | exact | models with an ATP block (section 10), and only those |
 
-The same 64 cells under each method:
+The same 64 cells under each method that runs the three-class model:
 
 ```python
 """The same 64 cells under every method that runs the three-class model."""
@@ -623,10 +637,10 @@ methods = {
     "tree": None,
     "static_direct": "static_direct",
     "static_direct, ziggurat": {"kind": "static_direct", "waiting_time": "ziggurat"},
-    "mtdna_direct": "mtdna_direct",
     "next_reaction": "next_reaction",
     "tau (epsilon 0.03)": {"kind": "tau", "epsilon": 0.03},
     "binomial (1 h steps)": {"kind": "binomial", "step": 1.0},
+    "mtdna_direct (opt-in)": "mtdna_direct",
 }
 for label, method in methods.items():
     run = rules.ensemble(
@@ -652,28 +666,172 @@ for label, method in methods.items():
     )
 ```
 
+
 ```text
 tree                       2.58 s    9,167,872 events  taken over  6  final mutant fraction 0.097  chacha8-u53/rules-direct/2
 static_direct              0.72 s    9,180,176 events  taken over  8  final mutant fraction 0.144  chacha8-u53/rules-static-direct/1
 static_direct, ziggurat    0.56 s    8,861,769 events  taken over 10  final mutant fraction 0.164  chacha8-u53-ziggurat/rules-static-direct/1
-mtdna_direct               0.18 s    8,969,870 events  taken over  8  final mutant fraction 0.122  chacha8-u53-ziggurat/rules-mtdna-direct/1
 next_reaction              1.03 s    9,226,649 events  taken over  7  final mutant fraction 0.105  chacha8-u53/rules-next-reaction/1
 tau (epsilon 0.03)         4.08 s    9,225,966 events  taken over  5  final mutant fraction 0.108  chacha8-u53/rules-approximate-cgp-poisson/2
 binomial (1 h steps)       0.68 s    9,158,734 events  taken over  6  final mutant fraction 0.088  chacha8-u53/rules-approximate-binomial-split/2
+mtdna_direct (opt-in)      0.18 s    8,969,870 events  taken over  8  final mutant fraction 0.122  chacha8-u53-ziggurat/rules-mtdna-direct/1
 ```
 
 The takeover counts differ because each method uses the random stream
 differently. With 64 cells, 5 to 10 takeovers are within sampling error of
 each other. The approximate methods are statistically close here but are
-labelled as approximations in their sampler identity. The
+labeled as approximations in their sampler identity. The
 [performance analysis](mtdna-performance-analysis.md) compares the methods
 at full scale.
 
-`mtdna_direct` checks at preparation that the model has the three-class
-structure, that every positive hazard stays resolvable in every reachable
-state, and that the stop is absent or the guarded fraction. If any check
-fails, the run uses Static Direct, `metadata["sampler"]` says so, and a
-`CRN-R051` warning in `metadata["diagnostics"]` names the reason.
+### The opt-in fast path `mtdna_direct`
+
+`mtdna_direct` is an exact direct method fused for one model structure:
+three classes in a fixed population, as in section 2. It reads that
+structure from the lowered rules; the model file and its names do not
+matter. At preparation it lowers the model to a fixed network, as Static
+Direct does, and certifies that:
+
+1. **Three classes, eight channels.** The network has exactly three
+   attribute vectors (classes) and eight channels. Each channel consumes
+   one molecule and changes one class by one molecule: every class
+   degrades and replicates, and one class, the wild type, also yields one
+   molecule of each other class (the two mutation channels). The roles are
+   read from the channels.
+2. **Degradation.** All three classes degrade at one constant rate.
+3. **Replication.** Every replication and mutation rate is
+   `max(0, K - N) / D` times constant factors. All five share one `K`, an
+   expression of parameters whose value is an integer from 1 to 1,000,000
+   and at least the initial population. `N` is an observable that counts
+   every molecule, and `D` an observable that sums the classes with finite
+   positive weights.
+4. **Observables.** Every observable is a finite weighted sum over the
+   three classes.
+5. **Stop.** The stop is absent, or `N > 0 && mutants >= f * N` with a
+   number `f` in [0, 1], where `mutants` counts the two classes other than
+   the wild type.
+6. **Resolution.** Bounds from `K`, the weights and the rate constants
+   show that every hazard stays finite, and every positive hazard at least
+   16 · 2⁻⁵³ of the total, in every reachable state.
+
+The certificate holds for one model and one parameter set:
+`bind_parameters` certifies each candidate again. If a check fails, the
+run uses generic Static Direct. `metadata["sampler"]` is then
+`chacha8-u53/rules-static-direct/1`, the numbers equal those of
+`method="static_direct"`, and a `CRN-R051` warning in
+`metadata["diagnostics"]` names the failed check. A model that cannot be
+lowered at all, such as the clone model, is rejected with `CRN-R020`, as
+by every method except the tree.
+
+`mtdna_direct` samples the same process as Static Direct with a different
+random stream: each cell's ChaCha8 words go to Ziggurat waiting times and
+to a selection over grouped hazards. Its sampler identity is
+`chacha8-u53-ziggurat/rules-mtdna-direct/1`. Results therefore agree in
+distribution, not cell by cell; section 16 lists the checks. Trackers,
+event logs and callbacks work as under Static Direct, and count trackers
+integrate sparsely (section 6).
+
+What it gains: it computes the eight hazards from three counts with one
+division and reads its stop from the counts. On the three-class model
+that is about 3.9× less time per event than Static Direct, and 3.3× less
+than Static Direct with Ziggurat waits and sparse trackers
+([performance analysis](mtdna-performance-analysis.md#2-methods)).
+
+The structure need not be called mtDNA. Below, three strains share `room`
+places, and the resident strain gives rise to two variants. Every name
+differs from the model file, and `mtdna_direct` still certifies the model.
+A strain that dies faster breaks check 2:
+
+```python
+"""mtdna_direct recognizes a model structure, not a file or names."""
+
+import copy
+import time
+
+from crn_craft import rules
+
+# Three strains share `room` places. The resident strain (0) gives rise to
+# the two variants; every strain dies at one rate and grows into free room.
+grow = "max(0, room - total) / crowding"
+model = {
+    "schema": "crn-craft.rules-model/0.1",
+    "name": "three_strains",
+    "parameters": {"room": 200, "loss": 0.01, "g": 0.5, "eps": 0.0002},
+    "types": [{"name": "Cell", "attributes": ["strain"]}],
+    "initial": [{"type": "Cell", "attributes": {"strain": 0}, "count": 200}],
+    "observables": {
+        "total": {"type": "Cell"},
+        "crowding": {"type": "Cell", "weight": "1 + (x.strain == 2)"},
+        "variants": {"type": "Cell", "where": "x.strain > 0"},
+    },
+    "stop": "total > 0 && variants >= 0.5 * total",
+    "rules": [],
+}
+for strain, rate in ((0, "g"), (1, "g"), (2, "2 * g")):
+    cell = [{"label": "c", "type": "Cell", "where": f"c.strain == {strain}"}]
+    model["rules"] += [
+        {"name": f"die_{strain}", "reactants": cell, "rate": "loss", "products": []},
+        {
+            "name": f"grow_{strain}",
+            "reactants": cell,
+            "rate": f"{grow} * {rate}",
+            "products": [{"type": "Cell", "copy": "c"}, {"type": "Cell", "copy": "c"}],
+        },
+    ]
+for strain in (1, 2):
+    model["rules"].append(
+        {
+            "name": f"switch_to_{strain}",
+            "reactants": [{"label": "c", "type": "Cell", "where": "c.strain == 0"}],
+            "rate": f"{grow} * eps",
+            "products": [
+                {"type": "Cell", "copy": "c"},
+                {"type": "Cell", "attributes": {"strain": strain}},
+            ],
+        }
+    )
+
+
+def run(model, method):
+    start = time.perf_counter()
+    result = rules.ensemble(
+        model,
+        end=2000.0,
+        report_times=[0.0, 2000.0],
+        replicates=4000,
+        seed=1,
+        threads=2,
+        method=method,
+    ).simulate()
+    seconds = time.perf_counter() - start
+    taken = (result.records["termination"] == "stopped").mean()
+    print(
+        f"{method:14s} {seconds:5.2f} s  variants took over: {taken:.3f}  "
+        f"{result.metadata['sampler']}"
+    )
+    return result
+
+
+run(model, "static_direct")
+run(model, "mtdna_direct")
+# A strain that dies faster breaks the shared degradation rate, so the run
+# falls back to Static Direct and says why.
+faster = copy.deepcopy(model)
+next(r for r in faster["rules"] if r["name"] == "die_1")["rate"] = "2 * loss"
+result = run(faster, "mtdna_direct")
+print([d["message"] for d in result.metadata["diagnostics"]])
+```
+
+```text
+static_direct   1.19 s  variants took over: 0.432  chacha8-u53/rules-static-direct/1
+mtdna_direct    0.36 s  variants took over: 0.427  chacha8-u53-ziggurat/rules-mtdna-direct/1
+mtdna_direct    1.13 s  variants took over: 0.434  chacha8-u53/rules-static-direct/1
+['mtdna_direct ran Static Direct: degradation is not one constant rate shared by all classes']
+```
+
+The first two runs agree within sampling error: with 4000 cells each, the
+standard error of their difference is about 0.011. The third ran Static
+Direct, at its speed.
 
 ## 9. Individual mutant lineages: the clone model
 
@@ -884,8 +1042,8 @@ change it, and pass the dictionary to `rules.ensemble`.
 - **Copy number and half-life:** set `K`, `w0` and `delta = ln 2 / half-life`.
 - **Initial heteroplasmy:** add an `initial` entry for the mutant class.
 - **Threshold:** change the fraction in `stop`.
-- **Recognition:** see what happens when `mtdna_direct` does not recognize
-  the model.
+- **Recognition:** see what happens when the fast path `mtdna_direct`
+  cannot certify the model.
 - **Errors:** see how mistakes are reported.
 
 ```python
@@ -1146,14 +1304,19 @@ println!("{} cells stopped", result.stopped_replicates);
   `EventObserver` for every committed event on the native workers. It
   returns `ObserverAction::Stop` to end that cell. An observer that always
   continues compiles away and leaves results byte-identical.
-- *Rust only:* `generate_rules_loop(&prepared)` emits Rust source
-  for the whole Static Direct event of a closed model with constant or
-  vacancy rates, including its stop. Compile it into your program and run
-  it with `execute_with_rules_loop`. Results are byte-identical to
-  `execute`, and on the three-class model it is about 2.4× faster than
-  interpreted Static Direct
+- *Rust only, opt-in:* `generate_rules_loop(&prepared)` emits Rust source
+  for the whole Static Direct event of one prepared model. It requires a
+  `static_direct` request, constant or vacancy rates and sum observables,
+  and at most 1 MiB of source; it refuses anything else with `CRN-R020`.
+  Parameters are compiled in, so another parameter set needs another loop.
+  Compile it into your program and run it with `execute_with_rules_loop`,
+  which runs only a loop generated for the same model bytes. Results are
+  byte-identical to `execute`, and on the three-class model it is about
+  2.4× faster than interpreted Static Direct. On networks with many
+  constant-rate channels it can be slower, so measure first
   ([details](specialized-kernels.md#generated-rules-event-loops)). From
-  Python, use `mtdna_direct` for the same speed.
+  Python, the fast path `mtdna_direct` is faster still for the three-class
+  structure (section 8).
 
 ## 16. Checking results
 
@@ -1161,9 +1324,10 @@ Exactness is checked against independent references, and the checks can be
 rerun:
 
 - **Master equation.** `validation/check_mtdna.py` compares the
-  `mtdna-three-class-cme` model (K = 20) under every exact method with an
-  exact solution of the chemical master equation, using DKW bounds at family
-  α = 0.001. Approximate methods are compared with the exact ones.
+  `mtdna-three-class-cme` model (K = 20) under every exact method, the fast
+  path `mtdna_direct` included, with an exact solution of the chemical
+  master equation, using DKW bounds at family α = 0.001. Approximate
+  methods are compared with the exact ones.
 - **Lumping.** The clone model is checked against the same master-equation
   law for its class totals.
 - **Observation.** Trackers equal their recomputation from complete event
@@ -1260,8 +1424,10 @@ Frequent diagnostics:
 - **`event_limit` in every cell.** Raise `max_events` above the events of
   one cell (section 13).
 - **`mtdna_direct` is not faster.** Check `metadata["sampler"]` and the
-  `CRN-R051` warning. A stop other than the guarded fraction, or another
-  model change, makes it fall back.
+  `CRN-R051` warning, which names the failed check of section 8. A stop
+  other than the guarded fraction, unequal degradation rates or a rate
+  outside `max(0, K - N) / D` times constants make it fall back to Static
+  Direct.
 - **`observation reservation exceeds budget`.** Event logs reserve space for
   every cell. Use fewer cells or entries, or raise `max_output_bytes`.
 - **A Python callback is slow.** It holds the interpreter lock. Use trackers

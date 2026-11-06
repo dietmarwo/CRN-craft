@@ -470,6 +470,31 @@ def main():
                     and np.isnan(cube[kept["id"], len(rows) :]).all(),
                     "to_xarray values",
                 )
+    # The documented mtdna_direct fallback: a stop outside the certified form
+    # runs generic Static Direct, with its numbers and a CRN-R051 warning.
+    odd = json.loads(model)
+    odd["stop"] = "mutants > 2"
+    settings = {
+        "end": 3.0,
+        "report_times": [0.0, 1.0, 3.0],
+        "replicates": 12,
+        "seed": 9,
+        "keep_paths": "all",
+        "trackers": [{"observable": "mutants"}],
+    }
+    fell = rules.ensemble(odd, method="mtdna_direct", **settings).simulate()
+    plain = rules.ensemble(odd, method="static_direct", **settings).simulate()
+    require(
+        fell.metadata["sampler"]
+        == plain.metadata["sampler"]
+        == "chacha8-u53/rules-static-direct/1"
+        and result_bytes(fell) == result_bytes(plain)
+        and fell.paths.equals(plain.paths)
+        and fell.observations == plain.observations
+        and [d["code"] for d in fell.metadata["diagnostics"]] == ["CRN-R051"]
+        and not plain.metadata["diagnostics"],
+        "mtdna_direct fallback equals static_direct",
+    )
     # keep_paths: "all" and True are every replicate, False none; same request.
     shapes = {
         repr(keep): rules.ensemble(
@@ -501,6 +526,7 @@ def main():
                     "frames match the native buffers and metadata",
                     "keep_paths all, True and False",
                     "partial paths and to_xarray",
+                    "mtdna_direct fallback equals static_direct",
                     "event and batch delivery",
                     "event and tracker array views",
                     "continue identity",

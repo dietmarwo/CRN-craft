@@ -18,6 +18,7 @@ them all in fresh interpreters and compares their output with the manual.
 | `04_event_log.py` | 7, event logs |
 | `04_callback.py` | 7, live callbacks |
 | `05_methods.py` | 8, choosing a method |
+| `05_structure.py` | 8, the `mtdna_direct` fast path |
 | `06_clones.py` | 9, the clone model |
 | `07_atp.py` | 10, the ATP model |
 | `08_sweep.py` | 11, parameter sweeps |

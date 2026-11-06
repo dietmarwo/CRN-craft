@@ -24,11 +24,19 @@ impl Path<'_> {
         if let Some(atp) = &self.model.atp {
             values[atp.index] = atp.initial;
         }
+        for variable in &self.model.continuous {
+            values[variable.index] = variable.initial;
+        }
         if let Some(m) = monitor {
             m.start(&self.model.params, values);
         }
         if self.stop_values(values)? {
             return Ok(Some(0.0));
+        }
+        if let crate::Method::Hybrid { rtol, atol } = self.method {
+            return self.simulate_hybrid(
+                rtol, atol, net, counts, values, words, out, time, monitor, observer,
+            );
         }
         if matches!(
             self.method,

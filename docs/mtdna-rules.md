@@ -80,6 +80,16 @@ request hash.
 | `tau` with `epsilon` | Approximate adaptive Poisson leaps with competing critical events and exact fallback |
 | `binomial` with `step` | Approximate death-then-birth splitting for single-parent unit reactions |
 | `thinning` | Exact stochastic thinning with analytic ATP flow and a deterministic zero crossing |
+| `hybrid` | Approximate piecewise-deterministic simulation of continuous variables (rules-model/0.3) at declared tolerances; rules-run/0.5 |
+
+Rules-model/0.3 adds whole-rule propensities
+([rules language](rules-language.md#whole-rule-propensities-rules-model03)),
+which `crn_craft.rules.Model` writes for string rates. Every method above
+samples them. The static methods need each reactant type of such a rule to
+lower to one tuple, as for attribute-free species, and refuse other models
+with `CRN-R020` at `/method`; `tree` has no such limit. `mtdna_direct` does
+not certify them and runs Static Direct with a `CRN-R051` warning, and the
+generated Rust kernels and loops refuse them.
 
 Static lowering evaluates local predicates and factors once and compiles
 constant and vacancy-rate kernels. It accepts up to 256 tuples and 4096
@@ -176,6 +186,16 @@ Gibson–Bruck updates the fired channel and the channels affected by its
 count changes. Active clocks are rescaled when their rates change.
 Sparse networks can benefit when few clocks change at each event.
 DOI [10.1021/jp993732q](https://doi.org/10.1021/jp993732q).
+
+`models/rules/mtdna-three-class-atp-continuous.rules.json` writes the same
+model with a continuous variable `ATP` (rules-model/0.3): its derivative is
+the expression `f * wild_type - v1 * ATP - v2 * N`, each coupled rate ends in
+`* c / (c + ATP)`, and `lower_bound: 0` with `on_bound: "stop"` keeps the
+depletion rule below. The `hybrid` method integrates it with Dormand–Prince
+5(4) at the request's tolerances
+([rules language](rules-language.md#continuous-variables-rules-model03));
+`validation/hybrid/RESULTS.md` compares it with thinning on the legacy file.
+The legacy file and `thinning` are unchanged.
 
 The ATP fixture uses rules-model/0.2 with an `atp` block. Between events
 the solver integrates dA/dt = f × wt − v1 × A − v2 × N analytically.

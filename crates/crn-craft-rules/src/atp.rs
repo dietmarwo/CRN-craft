@@ -18,6 +18,10 @@
 //!
 //! The [mtDNA guide](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-rules.md)
 //! describes the fixture `models/rules/mtdna-three-class-atp.rules.json`.
+//! rules-model/0.3 can write the same flow as an ordinary
+//! [`crate::continuous`] variable
+//! (`models/rules/mtdna-three-class-atp-continuous.rules.json`), simulated by
+//! the approximate `hybrid` method instead of exact thinning.
 use crate::model::{ObservableInfo, RuleInfo};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};

@@ -8,6 +8,11 @@ from pathlib import Path
 import numpy as np
 
 from . import _crn_error, _native, _path, model_bytes
+from .builder import Model
+
+# Tolerances `ensemble` writes for method="hybrid" unless the method
+# dictionary gives its own.
+HYBRID_TOLERANCES = {"kind": "hybrid", "rtol": 1e-6, "atol": 1e-9}
 
 TERMINATIONS = (
     "completed",
@@ -161,7 +166,12 @@ class PreparedEnsemble:
 
 
 def prepare(model, request):
-    """Prepare a rules-run contract, preserving the supplied model bytes."""
+    """Prepare a rules-run contract, preserving the supplied model bytes.
+
+    ``model`` is bytes, text, a dictionary or a ``Model``.
+    """
+    if isinstance(model, Model):
+        model = model.to_dict()
     try:
         return PreparedEnsemble(
             _native.prepare_rules(model_bytes(model), model_bytes(request))
@@ -189,7 +199,15 @@ def ensemble(
     event_log=None,
     method=None,
 ):
-    """Build and prepare a rules request with explicit work/output budgets."""
+    """Build and prepare a rules request with explicit work/output budgets.
+
+    ``model`` is bytes, text, a dictionary or a ``Model``. ``method`` is a
+    method name or a method dictionary; ``"hybrid"`` and a hybrid dictionary
+    without tolerances get ``rtol=1e-6`` and ``atol=1e-9`` and select
+    rules-run/0.5.
+    """
+    if isinstance(model, Model):
+        model = model.to_dict()
     data = model_bytes(model)
     # NumPy scalars and arrays are converted; counts must be integral.
     count = operator.index
@@ -225,6 +243,13 @@ def ensemble(
         if method is not None:
             request["method"] = {"kind": method} if isinstance(method, str) else method
         if (
+            isinstance(request.get("method"), dict)
+            and request["method"].get("kind") == "hybrid"
+        ):
+            # The request declares the tolerances; these are the defaults.
+            request["method"] = {**HYBRID_TOLERANCES, **request["method"]}
+            request["schema"] = "crn-craft.rules-run/0.5"
+        elif (
             isinstance(request.get("method"), dict)
             and request["method"].get("kind") == "mtdna_direct"
         ):

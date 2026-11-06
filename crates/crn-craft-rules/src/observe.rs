@@ -164,7 +164,10 @@ pub struct TrackerSpec {
 #[serde(deny_unknown_fields)]
 pub struct LogSpec {
     /// Entries kept per replicate; later matching events are only counted.
-    /// The reservation for these entries must fit the output budget.
+    /// Replicates times `max_entries` times a per-entry bound from the
+    /// model's sizes (observables, attributes and the largest reactant plus
+    /// product count of a rule) must fit `budget.max_output_bytes`; the
+    /// `CRN-R020` message names the bytes needed.
     pub max_entries: usize,
     /// An empty list logs all rules. Leaps match any listed firing.
     /// Unknown rule names are `CRN-R020` at `/event_log`.
@@ -314,18 +317,27 @@ impl Spec {
             })
             .collect::<Result<_, String>>()
             .map_err(|e| ("/trackers", e))?;
-        if let Some(atp) = &compiled.atp {
-            for (_, index, predicate) in &trackers {
-                let mut flags = vec![false; compiled.observables.len()];
-                if let Some(expr) = predicate {
-                    expr.reads(&mut flags);
-                }
-                if *index == atp.index || flags[atp.index] {
-                    return Err((
-                        "/trackers",
-                        "trackers apply to event-driven observables; ATP is continuous".into(),
-                    ));
-                }
+        let continuous: Vec<(usize, &str)> = compiled
+            .atp
+            .iter()
+            .map(|atp| (atp.index, "ATP"))
+            .chain(
+                compiled
+                    .continuous
+                    .iter()
+                    .map(|v| (v.index, v.name.as_str())),
+            )
+            .collect();
+        for (_, index, predicate) in &trackers {
+            let mut flags = vec![false; compiled.observables.len()];
+            if let Some(expr) = predicate {
+                expr.reads(&mut flags);
+            }
+            if let Some((_, name)) = continuous.iter().find(|(i, _)| *index == *i || flags[*i]) {
+                return Err((
+                    "/trackers",
+                    format!("trackers apply to event-driven observables; {name} is continuous"),
+                ));
             }
         }
         let log = log
@@ -412,17 +424,77 @@ impl Spec {
         Some(by_species)
     }
 
-    pub(crate) fn reservation(&self, attributes: usize, observables: usize, rules: usize) -> u128 {
+    /// The bytes reserved for one replicate's trackers and event log.
+    pub(crate) fn reservation(&self, sizes: &Sizes) -> Reservation {
         let trackers = self
             .trackers
             .iter()
             .map(|(t, _, _)| 256 + t.keep_episodes as u128 * 64)
             .sum::<u128>();
-        let entry = 160
-            + observables as u128 * 8
-            + rules as u128 * 16
-            + (2 + crate::model::MAX_PRODUCTS as u128) * (48 + 8 * attributes as u128);
-        trackers + self.log.as_ref().map_or(0, |(n, _)| *n as u128 * entry)
+        Reservation {
+            trackers,
+            entries: self.log.as_ref().map_or(0, |(n, _)| *n as u128),
+            entry: sizes.entry_bytes(),
+        }
+    }
+}
+
+/// The model and method sizes that bound one retained log entry.
+pub(crate) struct Sizes {
+    /// Largest attribute count of a type.
+    pub attributes: usize,
+    /// Observable columns of the result, including continuous ones.
+    pub observables: usize,
+    /// Rules of the model.
+    pub rules: usize,
+    /// Largest number of reactant patterns plus products of one rule: the
+    /// participants of an exact step.
+    pub participants: usize,
+    /// Lowered channels for the leap methods, whose entries list firings
+    /// instead of participants; `None` for exact steps.
+    pub leap_channels: Option<usize>,
+}
+
+/// Longest compact JSON of a finite f64 (`-2.2250738585072014e-308`) or a
+/// u64, plus a separating comma.
+const NUMBER: u128 = 25;
+
+impl Sizes {
+    /// An upper bound on one log entry, both as compact JSON and in memory.
+    ///
+    /// The model-based bound counts every number at its longest JSON form:
+    /// 160 bytes for the keys, time and rule; 25 per observable; per
+    /// participant 62 bytes plus 25 per attribute (type index, attributes and
+    /// count 1); per leap firing 45 bytes. Up to 0.2.0 the bound assumed 2
+    /// reactants and 64 products for every rule. The smaller of the two is
+    /// used, so a request admitted before stays admitted; both exceed an
+    /// entry's in-memory size.
+    fn entry_bytes(&self) -> u128 {
+        let attributes = self.attributes as u128;
+        let legacy = 160
+            + self.observables as u128 * 8
+            + self.rules as u128 * 16
+            + (2 + crate::model::MAX_PRODUCTS as u128) * (48 + 8 * attributes);
+        let body = match self.leap_channels {
+            Some(channels) => channels as u128 * 45,
+            None => self.participants as u128 * (62 + NUMBER * attributes),
+        };
+        legacy.min(160 + self.observables as u128 * NUMBER + body)
+    }
+}
+
+/// The observation bytes reserved per replicate: trackers plus
+/// `entries × entry` for the event log.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Reservation {
+    pub trackers: u128,
+    pub entries: u128,
+    pub entry: u128,
+}
+
+impl Reservation {
+    pub(crate) fn per_replicate(&self) -> u128 {
+        self.trackers + self.entries * self.entry
     }
 }
 

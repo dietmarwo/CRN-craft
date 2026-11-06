@@ -40,6 +40,7 @@ const CAPACITY: &str = "K is not an integer from 1 to 1,000,000 at or above the 
 const PROJECTIONS: &str = "observables are not finite weighted sums of the three classes";
 const STOP: &str = "stop is neither absent nor the guarded mutant fraction";
 const RANGE: &str = "hazards span more than the certified floating-point range";
+const WHOLE: &str = "the model has whole-rule propensities";
 
 impl Kernel {
     /// Recognize the fixed three-class model, or say why Static Direct runs.
@@ -48,6 +49,9 @@ impl Kernel {
         model: &Compiled,
         spec: &crate::observe::Spec,
     ) -> Result<Self, &'static str> {
+        if net.channels.iter().any(|c| c.whole) {
+            return Err(WHOLE);
+        }
         if net.species.len() != 3 || net.channels.len() != SHAPES.len() {
             return Err(TOPOLOGY);
         }

@@ -1,6 +1,6 @@
-use crate::{failure, run_interruptible};
+use crate::{failure, rules_payload, run_interruptible};
 use crn_craft_rules::observe::{Event, EventObserver, ObserverAction, log_entry};
-use crn_craft_rules::{Control, Prepared, Record, Termination};
+use crn_craft_rules::{Control, Prepared};
 use pyo3::{
     prelude::*,
     types::{PyBytes, PyDict},
@@ -12,42 +12,6 @@ use std::{
 
 #[pyclass(frozen)]
 struct PreparedRules(Arc<Prepared>);
-
-fn columns<'py>(py: Python<'py>, records: &[Record]) -> PyResult<Bound<'py, PyDict>> {
-    let out = PyDict::new(py);
-    macro_rules! column {
-        ($name:literal, $value:expr) => {{
-            let bytes: Vec<u8> = records.iter().flat_map($value).collect();
-            out.set_item($name, PyBytes::new(py, &bytes))?;
-        }};
-    }
-    column!("id", |r| r.id.to_le_bytes());
-    column!("started", |r| [u8::from(r.started)]);
-    column!("events", |r| r.events.to_le_bytes());
-    column!("stop_time", |r| r.stop_time.to_le_bytes());
-    column!("saved_points", |r| (r.saved_points as u64).to_le_bytes());
-    column!("rng_words", |r| r.rng_words.to_le_bytes());
-    column!("peak_instances", |r| r.peak_instances.to_le_bytes());
-    column!("created_instances", |r| r.created_instances.to_le_bytes());
-    column!("termination", |r| [match r.termination {
-        Termination::Completed => 0,
-        Termination::Stopped => 1,
-        Termination::EventLimit => 2,
-        Termination::SamplingLimit => 3,
-        Termination::InstanceLimit => 4,
-        Termination::WallTimeLimit => 5,
-        Termination::Cancelled => 6,
-        Termination::Failed => 7,
-        Termination::OutputLimit => 8,
-    }]);
-    let counts: Vec<u8> = records
-        .iter()
-        .flat_map(|r| &r.rule_events)
-        .flat_map(|n| n.to_le_bytes())
-        .collect();
-    out.set_item("rule_events", PyBytes::new(py, &counts))?;
-    Ok(out)
-}
 
 struct PythonObserver<'a> {
     callback: Py<PyAny>,
@@ -109,7 +73,7 @@ impl PreparedRules {
         let prepared = Arc::clone(&self.0);
         let mut control = Control::default();
         control.cancel_file = cancel_file.map(PathBuf::from);
-        let mut result = run_interruptible(py, control, Control::cancel, move |c| {
+        let result = run_interruptible(py, control, Control::cancel, move |c| {
             if let Some(callback) = callback {
                 let observer = PythonObserver {
                     callback,
@@ -125,15 +89,35 @@ impl PreparedRules {
                 crn_craft_rules::execute(&prepared, c).map_err(|d| failure(&d))
             }
         })??;
-        let records = std::mem::take(&mut result.replicates);
-        let metadata = serde_json::json!({
-            "result": result,
-            "record_diagnostics": records.iter().filter_map(|r| {
-                r.diagnostic.as_ref().map(|d| (r.id, d))
-            }).collect::<Vec<_>>(),
-        });
-        Ok((metadata.to_string(), columns(py, &records)?))
+        let (metadata, columns) = rules_payload::encode(result);
+        let out = PyDict::new(py);
+        for (name, data) in columns {
+            out.set_item(name, PyBytes::new(py, &data))?;
+        }
+        Ok((metadata, out))
     }
+
+    /// The generated Static Direct event loop of this prepared run, or the
+    /// generator's `CRN-R020` refusal.
+    fn loop_source(&self, py: Python<'_>) -> PyResult<String> {
+        let prepared = Arc::clone(&self.0);
+        py.detach(move || crn_craft_rules::generate_rules_loop(&prepared))
+            .map_err(|d| failure(&d))
+    }
+}
+
+/// The driver sources of a compiled-loop project and the minimum Rust
+/// version. `compile_loop` adds the generated loop, the model and the
+/// manifest.
+#[pyfunction]
+fn rules_loop_driver() -> (&'static str, Vec<(&'static str, &'static str)>) {
+    (
+        env!("CARGO_PKG_RUST_VERSION"),
+        vec![
+            ("src/main.rs", include_str!("rules_loop_main.rs")),
+            ("src/rules_payload.rs", include_str!("rules_payload.rs")),
+        ],
+    )
 }
 
 #[pyfunction]
@@ -158,5 +142,6 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(describe_rules_json, module)?)?;
     module.add_function(wrap_pyfunction!(check_rules_json, module)?)?;
     module.add_function(wrap_pyfunction!(prepare_rules, module)?)?;
+    module.add_function(wrap_pyfunction!(rules_loop_driver, module)?)?;
     Ok(())
 }

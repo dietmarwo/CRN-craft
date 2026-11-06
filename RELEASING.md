@@ -95,6 +95,14 @@ git tag -a "v$version" -m "Release CRN-craft $version"
 git push origin "v$version"
 ```
 
+Hosted macOS arm64 runners are sometimes unavailable: a job then waits, is
+cancelled after about 15 minutes without running a step, and the publish job
+that depends on it is skipped. `retry-runner-shortage.yml` notices such a run
+and reruns its failed jobs, up to three attempts in total. It leaves real
+failures and runs cancelled by a person alone. If the last attempt still
+finds no runner, rerun the failed jobs by hand (Actions → the run → Re-run
+failed jobs); never re-tag.
+
 ## Post-release verification
 
 ```bash

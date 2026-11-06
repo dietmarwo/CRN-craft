@@ -7,6 +7,13 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+### Changed
+
+- CI: `retry-runner-shortage.yml` reruns the failed jobs of a release or CI
+  run when every job that did not succeed was cancelled before a runner picked
+  it up (hosted macOS arm64 shortage), up to three attempts. A release is no
+  longer held back until someone reruns it by hand.
+
 ## [0.3.0] - 2026-11-06
 
 The answer to the first user feedback on the 0.2.0 Python interface, from a

@@ -313,6 +313,51 @@ def check_hybrid():
     )
 
 
+def check_compiled_loop_refusals():
+    """The compiled-loop API without cargo: source, driver and refusals."""
+    model = three_class_model()
+    source = rules.loop_source(model)
+    require(
+        "impl crn_craft_rules::RulesLoop for GeneratedRulesLoop" in source,
+        "installed loop_source returns the generated loop",
+    )
+    rust_version, files = c._native.rules_loop_driver()
+    require(
+        rust_version and {"src/main.rs", "src/rules_payload.rs"} <= dict(files).keys(),
+        "the installed extension carries the compiled-loop driver",
+    )
+    try:
+        rules.compile_loop(model, cargo="crn-craft-no-such-cargo", progress=False)
+    except rules.CompiledLoopError as error:
+        require(error.reason == "cargo_missing", "missing cargo reason")
+    else:
+        raise RuntimeError("compile_loop without cargo was accepted")
+    with tempfile.TemporaryDirectory() as folder:
+        stranger = rules.CompiledLoop(
+            fingerprint="0" * 64,
+            model_sha256="0" * 64,
+            version=c._native.__version__,
+            directory=folder,
+            cached=True,
+        )
+        try:
+            rules.ensemble(
+                model,
+                end=1.0,
+                report_times=[1.0],
+                method="static_direct",
+                compiled=stranger,
+            )
+        except c.CrnError as error:
+            first = error.diagnostics[0]
+            require(
+                (first["code"], first["path"]) == ("CRN-R020", "/model"),
+                "a loop for other model bytes is refused at /model",
+            )
+        else:
+            raise RuntimeError("a loop for other model bytes was accepted")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--output", type=Path, required=True)
@@ -614,6 +659,8 @@ def main():
     checks.append("rules_builder")
     check_hybrid()
     checks.append("rules_hybrid")
+    check_compiled_loop_refusals()
+    checks.append("rules_compiled_loop_refusals")
     args.output.write_text(
         json.dumps(
             {

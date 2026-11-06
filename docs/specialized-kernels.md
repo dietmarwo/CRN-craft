@@ -188,6 +188,41 @@ On a 512-channel network it was clearly slower: 950 against 630 ns per
 event. See the
 [decision record](decisions/generated-rules-loop-2026-11-03.md),
 [the follow-ups](decisions/generated-loop-stops-and-compact-2026-11-04.md)
-and `validation/mtdna/generated-loop.json`. Like the rates kernel, the
-loop is Rust only. Python use would need a wheel built with the generated
-module.
+and `validation/mtdna/generated-loop.json`.
+
+### From Python: `rules.compile_loop`
+
+Opt-in, off by default, for users with a Rust toolchain at least at the
+MSRV (1.85). `rules.compile_loop(model)` takes the loop source from the
+extension (`rules.loop_source(model)`, which needs no cargo and raises the
+generator's `CRN-R020` for unsupported models) and writes a small Cargo
+project: the generated loop, the exact model bytes, a driver
+(`bindings/python/src/rules_loop_main.rs`) and the result encoder that the
+extension compiles itself (`bindings/python/src/rules_payload.rs`). The
+project depends on `crn-craft-rules` at exactly the installed version, from
+crates.io or from a checkout (`source=` or `CRN_CRAFT_SOURCE`), and builds
+a standalone program. `simulate(compiled=loop)` sends the request to it on
+standard input and reads the metadata and record columns in the
+extension's own form. No Rust value crosses a library boundary, so the
+program's toolchain need not match the wheel's.
+
+Builds are cached in the user cache directory, keyed by the loop
+fingerprint, the installed version, `rustc -vV`, the target and Rust
+flags, the driver and, for a checkout, its engine sources; one Cargo target
+directory serves every model. Every `compile_loop` call runs short requests
+through the program and the interpreter and returns the loop only if the
+result bytes are identical; `CompiledLoop.verify(run)` checks a user's
+request the same way. Methods other than `static_direct`, other model
+bytes, bound candidates and callbacks are refused.
+
+On the 1000-cell three-class workload with two threads, end to end from
+Python, the compiled loop took 3.7 s against 7.1 s for interpreted Static
+Direct (1.90×, declared target 1.5×) and 2.7 s against 5.8 s with Ziggurat
+waits and sparse trackers (2.16×). The first build took 40 s on the
+two-CPU host, a second model 3 s and a cached call 0.06 s
+([record](decisions/compiled-rules-loop-python-2026-11-06.md),
+`validation/mtdna/compiled-loop-python.json`).
+`validation/check_compiled_loop.py` checks identity over threads, waiting
+times, tracker policies, event logs, stops, budgets and cancellation, and
+the refusals; it runs in CI against the checkout. See the
+[user manual](mtdna-user-manual.md#optional-compiled-event-loop) for usage.

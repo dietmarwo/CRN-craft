@@ -13,12 +13,20 @@ native CLI as arguments. Without `--binary` their output is not compared.
 `keep_paths` at that count) without changing the manual text. It is a quick
 smoke run: the numbers then differ from the manual, so output is not
 compared.
+
+Blocks that call `rules.compile_loop` need cargo. Without it they are
+skipped with a message, or fail with `--require-cargo` (as in CI). They
+build against this checkout, which may be newer than the release on
+crates.io: the checker sets `CRN_CRAFT_SOURCE` to the repository root
+unless it is already set.
 """
 
 import argparse
 import json
+import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -94,12 +102,20 @@ def main():
     parser.add_argument("--timeout", type=float, default=600.0, help="per block, s")
     parser.add_argument("--max-replicates", type=int, help="quick smoke run")
     parser.add_argument("--only", type=int, nargs="*", help="block numbers (1-based)")
+    parser.add_argument(
+        "--require-cargo",
+        action="store_true",
+        help="fail blocks that need cargo when it is missing, instead of skipping",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if args.max_replicates is not None and args.max_replicates < 1:
         parser.error("--max-replicates must be positive")
     found = blocks(args.manual.read_text(encoding="utf-8"))
     flags = ["-O"] * sys.flags.optimize
+    environment = dict(os.environ)
+    environment.setdefault("CRN_CRAFT_SOURCE", str(ROOT))
+    cargo = shutil.which("cargo") is not None
     report = []
     with tempfile.TemporaryDirectory() as scratch:
         scratch = Path(scratch)
@@ -128,10 +144,17 @@ def main():
                 "heading": block["heading"],
             }
             start = time.perf_counter()
+            if "compile_loop" in block["code"] and not cargo:
+                status = "failed" if args.require_cargo else "skipped"
+                entry |= {"status": status, "detail": "needs cargo (https://rustup.rs)"}
+                print(f"block {number:2d}: {status}, it needs cargo", file=sys.stderr)
+                report.append(entry)
+                continue
             try:
                 done = subprocess.run(
                     command,
                     cwd=ROOT,
+                    env=environment,
                     capture_output=True,
                     text=True,
                     timeout=args.timeout,
@@ -165,7 +188,7 @@ def main():
             if entry["status"] in ("failed", "mismatch", "timeout"):
                 print(json.dumps(entry, indent=2), file=sys.stderr)
             report.append(entry)
-    passed = all(e["status"] in ("passed", "ran") for e in report)
+    passed = all(e["status"] in ("passed", "ran", "skipped") for e in report)
     document = {
         "schema": "crn-craft.manual-check/0.1",
         "manual": args.manual.resolve().relative_to(ROOT).as_posix()

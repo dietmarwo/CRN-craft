@@ -232,7 +232,9 @@ def _build(entry, root, cargo, name, progress, checkout):
     log = entry / "build.log"
     messages = entry / "build-messages.json"
     env = dict(os.environ)
-    env.setdefault("CARGO_TARGET_DIR", str(root / "target"))
+    # cargo runs in the project folder, so a relative directory is resolved here.
+    target = Path(env.get("CARGO_TARGET_DIR") or root / "target").resolve()
+    env["CARGO_TARGET_DIR"] = str(target)
     command = [
         cargo,
         "build",

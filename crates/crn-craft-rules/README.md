@@ -45,10 +45,12 @@ complete, runnable example.
   Dormand–Prince 5(4) at the request's tolerances).
 - **Observation:** trackers and bounded event logs inside the result, and an
   `EventObserver` interface for live callbacks on the worker threads.
-- **Generated code (Rust only):** `generate_rules_kernel` and
+- **Generated code:** `generate_rules_kernel` and
   `generate_rules_loop` emit Rust source for a Static Direct model;
   `execute_with_rules_kernel` and `execute_with_rules_loop` run it with
-  results byte-identical to the interpreter.
+  results byte-identical to the interpreter. From Python,
+  `crn_craft.rules.compile_loop` builds a generated loop against this crate
+  and runs it as a separate program.
 
 Completed results depend only on the input bytes, the seed and the sampler
 identity, not on the thread count.

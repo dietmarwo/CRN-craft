@@ -44,9 +44,46 @@ with a different use of the random stream (see **Migration**).
 - `validation/check_mtdna.py --section generic` runs only the Ziggurat and
   sparse-tracker gate; `validation/benchmark_static_direct_defaults.py`
   times the two defaults.
+- Opt-in compiled Static Direct event loops from Python, off by default.
+  `crn_craft.rules.compile_loop(model, *, cache_dir=None, cargo="cargo",
+  source=None, progress=True)` writes a small Cargo project around the
+  generated rules loop, builds it with the user's Rust toolchain (1.85 or
+  newer) against `crn-craft-rules` at exactly the installed version, from
+  crates.io or from a checkout (`source=` or `CRN_CRAFT_SOURCE`), and
+  returns a `CompiledLoop` (`fingerprint`, `path`, `version`, `cached`,
+  `build_seconds`, `log`). `rules.ensemble(..., compiled=loop)`,
+  `rules.prepare(..., compiled=loop)` and `simulate(compiled=loop)` run
+  Static Direct requests in that program as a subprocess, with results
+  byte-identical to the interpreter's; `CompiledLoop.verify(run)` checks a
+  request both ways. Builds are cached in the user cache directory
+  (`cache_dir=`, `CRN_CRAFT_CACHE_DIR`), keyed by the loop fingerprint, the
+  installed version, `rustc -vV`, the target and Rust flags, and share one
+  Cargo target directory; every call checks the program against the
+  interpreter before returning it. `rules.loop_source(model)` returns the
+  generated source without cargo. Refusals: `CRN-R020` at `/method` for
+  other methods and for models the generator refuses, `CRN-R020` at
+  `/model` for other model bytes and bound candidates, `ValueError` for
+  `callback` and `batch_callback`, and `rules.CompiledLoopError` (reason
+  `cargo_missing`, `build_failed` with the log path, or `mismatch`). On the
+  1000-cell three-class workload with two threads it was 1.90× faster than
+  interpreted Static Direct end to end from Python (declared target 1.5×)
+  and 2.16× with Ziggurat waits and sparse trackers; the first build took
+  40 s on the two-CPU host. See
+  `docs/decisions/compiled-rules-loop-python-2026-11-06.md` and
+  `validation/mtdna/compiled-loop-python.json`.
+- `validation/check_compiled_loop.py`, run in the `python` CI job against
+  the checkout: byte-identical results over 1 and 2 threads, both waiting
+  times, both tracker policies, event logs, the takeover stop, budgets and
+  a cancel file, and every refusal. `validation/benchmark_compiled_loop.py`
+  times the route. `validation/check_manual.py` runs manual blocks that
+  call `compile_loop` against the checkout (`CRN_CRAFT_SOURCE`) and skips
+  them without cargo unless `--require-cargo`.
 
 ### Changed
 
+- The Python extension encodes rules results with
+  `bindings/python/src/rules_payload.rs`, which compiled loops share; the
+  bytes are unchanged.
 - CI: `retry-runner-shortage.yml` reruns the failed jobs of a release or CI
   run when every job that did not succeed was cancelled before a runner picked
   it up (hosted macOS arm64 shortage), up to three attempts. A release is no

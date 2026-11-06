@@ -8,7 +8,8 @@
 //! `tau`, `binomial` and `hybrid` methods are approximate and say so in their
 //! sampler identity; `hybrid` integrates continuous variables between events
 //! at the request's tolerances. Generated kernels and event loops are Rust
-//! only.
+//! source; from Python, `crn_craft.rules.compile_loop` builds a generated
+//! loop against this crate and runs it as a separate program.
 //!
 //! A rules model declares species *types* with numeric attributes. An
 //! *instance* is a type plus one value per attribute and a copy number.

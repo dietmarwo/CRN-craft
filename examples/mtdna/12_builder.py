@@ -19,7 +19,7 @@ for name, value in {
 }.items():
     model.add_parameter(name, value)
 model.add_species("W", 1000).add_species("M").add_species("A")
-# Replication fills the vacancy K - N, shared by Kowald's competition term.
+# Replication fills the vacancy K - N, shared by the competition term.
 vacancy = "max(0, K - W - M - A) / (W + sm * (M + A))"
 model.add_reaction(
     f"{vacancy} * sw * (1 - mu) * W", ["W"], ["W", "W"], "replication_wt"
@@ -45,7 +45,7 @@ settings = dict(
     report_times=24.0 * days,
     replicates=200,
     threads=2,
-    keep_paths=200,
+    keep_paths="all",
     method="static_direct",
 )
 built = rules.ensemble(model, seed=1, **settings).simulate()
@@ -57,12 +57,10 @@ reference = rules.ensemble(
 
 def mutant_fraction(result, mutants, total):
     """Mean and standard error over cells of each cell's mutant fraction."""
-    meta = result.metadata
-    names = meta["observables"]
-    paths = np.array([p["values"] for p in meta["paths"]])  # cell, time, column
-    count = sum(paths[:, :, names.index(n)] for n in mutants)
-    fraction = count / sum(paths[:, :, names.index(n)] for n in total)
-    return fraction.mean(axis=0), fraction.std(axis=0, ddof=1) / np.sqrt(len(paths))
+    paths = result.paths  # (replicate, time) rows, one column per observable
+    fraction = paths[mutants].sum(axis=1) / paths[total].sum(axis=1)
+    by_time = fraction.groupby(level="time")
+    return by_time.mean(), by_time.std() / np.sqrt(by_time.size())
 
 
 ours = mutant_fraction(built, ["M", "A"], ["W", "M", "A"])

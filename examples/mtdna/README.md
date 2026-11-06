@@ -20,13 +20,13 @@ them all in fresh interpreters and compares their output with the manual.
 | `05_methods.py` | 8, choosing a method |
 | `05_structure.py` | 8, the `mtdna_direct` fast path |
 | `06_clones.py` | 9, the clone model |
-| `07_atp.py` | 10, the ATP model |
+| `13_continuous_atp.py` | 10, continuous variables and `hybrid` |
+| `07_atp.py` | 10, stored models: the ATP block and `thinning` |
 | `08_sweep.py` | 11, parameter sweeps |
-| `09_variants.py` | 12, model variants |
-| `10_budgets.py` | 13, budgets |
-| `11_cli_request.py [DIR [CRN_CRAFT]]` | 14, the command line |
-| `12_builder.py` | the `rules.Model` builder |
-| `13_continuous_atp.py` | continuous variables and `hybrid` (replaces `07_atp.py` in the ATP chapter) |
+| `12_builder.py` | 12, building models in Python |
+| `09_variants.py` | 13, model variants |
+| `10_budgets.py` | 14, budgets |
+| `11_cli_request.py [DIR [CRN_CRAFT]]` | 15, the command line |
 | `fit_takeover.py [EVALUATIONS]` | tutorial, section 2 |
 | `fit_heteroplasmy.py [EVALUATIONS]` | tutorial, section 3 |
 | `noise_and_parallel.py` | tutorial, sections 4 and 5 |

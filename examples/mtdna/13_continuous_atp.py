@@ -11,12 +11,10 @@ data = rules.load("models/rules/mtdna-three-class-atp-continuous.rules.json")
 model = json.loads(data)
 print("continuous:", model["continuous"])
 print("replication_wt rate:", model["rules"][1]["rate"])
-
-days = np.arange(0, 1081, 180)
 run = rules.ensemble(
     data,
     end=25_920.0,
-    report_times=24.0 * days,
+    report_times=24.0 * np.arange(0, 1081, 180),
     replicates=64,
     seed=7,
     threads=2,
@@ -24,15 +22,16 @@ run = rules.ensemble(
 )
 result = run.simulate()
 meta = result.metadata
-names = meta["observables"]
-print("observables:", names, "continuous columns:", meta["continuous"])
+print("columns:", list(result.statistics["mean"].columns))
+print("continuous columns:", meta["continuous"])
 print("sampler:", meta["sampler"], "method:", meta["method"])
-print("stopped (ATP exhausted):", meta["stopped_replicates"])
-mean = np.asarray(meta["statistics"]["mean"])
-for day, row in zip(days, mean, strict=True):
+stopped = result.records["termination"] == "stopped"
+print("stopped (ATP exhausted):", stopped.sum())
+mean = result.statistics["mean"]
+for hours, row in mean.iterrows():
     print(
-        f"day {day:4d}: N {row[names.index('N')]:7.1f}  "
-        f"mutants {row[names.index('mutants')]:6.1f}  ATP {row[names.index('ATP')]:7.2f}"
+        f"day {hours / 24:4.0f}: N {row['N']:7.1f}  "
+        f"mutants {row['mutants']:6.1f}  ATP {row['ATP']:7.2f}"
     )
 
 # The same ODE, written with the builder for a single wild-type class.
@@ -53,7 +52,4 @@ small = rules.ensemble(
     method={"kind": "hybrid", "rtol": 1e-7, "atol": 1e-9},
 ).simulate()
 print("builder model method:", small.metadata["method"])
-print(
-    "mean W and ATP:",
-    np.round(np.asarray(small.metadata["statistics"]["mean"]), 2).tolist(),
-)
+print(small.statistics["mean"].round(2))

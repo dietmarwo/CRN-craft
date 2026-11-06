@@ -14,6 +14,7 @@ methods = {
     "next_reaction": "next_reaction",
     "tau (epsilon 0.03)": {"kind": "tau", "epsilon": 0.03},
     "binomial (1 h steps)": {"kind": "binomial", "step": 1.0},
+    "hybrid": "hybrid",
     "mtdna_direct (opt-in)": "mtdna_direct",
 }
 for label, method in methods.items():

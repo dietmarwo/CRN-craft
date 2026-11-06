@@ -29,15 +29,16 @@ Contents:
 7. [Exact event records: logs and callbacks](#7-exact-event-records-logs-and-callbacks)
 8. [Choosing a method](#8-choosing-a-method)
 9. [Individual mutant lineages: the clone model](#9-individual-mutant-lineages-the-clone-model)
-10. [Variable population: the ATP model](#10-variable-population-the-atp-model)
+10. [Variable population: continuous variables](#10-variable-population-continuous-variables)
 11. [Parameter sweeps](#11-parameter-sweeps)
-12. [Model variants](#12-model-variants)
-13. [Budgets, wall time and cancellation](#13-budgets-wall-time-and-cancellation)
-14. [The command line and JSON requests](#14-the-command-line-and-json-requests)
-15. [Rust](#15-rust)
-16. [Checking results](#16-checking-results)
-17. [Reference](#17-reference)
-18. [Troubleshooting](#18-troubleshooting)
+12. [Building models in Python](#12-building-models-in-python)
+13. [Model variants](#13-model-variants)
+14. [Budgets, wall time and cancellation](#14-budgets-wall-time-and-cancellation)
+15. [The command line and JSON requests](#15-the-command-line-and-json-requests)
+16. [Rust](#16-rust)
+17. [Checking results](#17-checking-results)
+18. [Reference](#18-reference)
+19. [Troubleshooting](#19-troubleshooting)
 
 ## 1. Installation
 
@@ -47,10 +48,12 @@ pip install "crn-craft[xarray]"          # optional: results as xarray Datasets
 cargo install crn-craft-cli --locked     # optional: the native command-line tool
 ```
 
-The Python package needs NumPy and pandas, which pip installs with it.
+The Python package needs NumPy and pandas, which pip installs with it;
+pandas is a required dependency since 0.3.0, because results are pandas
+DataFrames.
 
 The Python package contains the native engine, so the CLI is optional. Every
-feature in this manual is in release 0.2.0; features that exist only in Rust
+feature in this manual is in release 0.3.0; features that exist only in Rust
 are marked where they appear.
 
 Both packages install a command named `crn-craft`. The rules commands
@@ -59,7 +62,7 @@ from `cargo install`; the Python package's `crn-craft` command covers the
 fixed-network tools. If both are installed, the one that comes first on your
 `PATH` wins. `crn-craft --version` tells them apart (the Python command
 prints `"interface": "python"`); call the native binary by its full path,
-by default `~/.cargo/bin/crn-craft`, if needed. Section 14
+by default `~/.cargo/bin/crn-craft`, if needed. Section 15
 shows the rules commands.
 
 To use the current source instead of the release, build the wheel from a
@@ -86,14 +89,18 @@ The engine simulates *rules models*: species types carry numeric
 attributes, and rules act on every instance that matches a pattern. The
 mtDNA models describe one cell. Its molecules degrade at a constant rate
 and replicate into the free places below a copy-number target `K`.
-Replication can produce a mutant. The repository has four model files:
+Replication can produce a mutant. The repository has five model files:
 
 | File | What it models | Methods |
 | --- | --- | --- |
 | `mtdna-three-class.rules.json` | fixed population target; wild type, neutral mutants and advantaged mutants as three classes | every generic method, and the opt-in fast path `mtdna_direct` |
 | `mtdna-three-class-cme.rules.json` | the same with K = 20 and fast rates, for exact checks against the master equation | as above |
-| `mtdna-three-class-atp.rules.json` | variable population: replication limited by a cellular ATP balance | `thinning` |
+| `mtdna-three-class-atp-continuous.rules.json` | variable population: replication limited by a cellular ATP balance, written as a continuous variable (rules-model/0.3) | `hybrid` |
+| `mtdna-three-class-atp.rules.json` | the same model in the stored rules-model/0.2 form, with a fixed `atp` block | `thinning` |
 | `mtdna-fixed.rules.json` | every new mutant is its own clone with an identity | `tree` |
+
+Section 12 shows how to write models like these from Python with
+`rules.Model` instead of JSON.
 
 ### The three-class model
 
@@ -138,8 +145,9 @@ molecules are mutants.
 
 Results are pandas DataFrames whose columns carry the observable names, so
 select a column by name, as in `result.statistics["mean"]["N"]`. Observable
-columns are sorted by name, not in the order of the file; the raw matrices
-in `result.metadata` use the same order.
+columns are sorted by name, not in the order of the file, and continuous
+variables follow them (section 10); the raw matrices in `result.metadata`
+use the same order.
 
 ## 3. A first ensemble
 
@@ -224,7 +232,7 @@ What the result holds:
   `replicate`, the cell's index. The columns are `started`, `termination`,
   `stop_time`, `events`, `rng_words`, `peak_instances`, `created_instances`
   and `saved_points`. `termination` is categorical: compare it with a name
-  such as `"stopped"` (section 17 lists them).
+  such as `"stopped"` (section 18 lists them).
 - `result.rule_events`: events per cell and rule, one column per rule name.
 - `result.statistics`: a dictionary of DataFrames `mean`, `sample_variance`
   and `mean_standard_error`, indexed by report `time` with one column per
@@ -385,7 +393,7 @@ Any expression over parameters and observables can be a stop, for example
 method accepts any stop. The fast path `mtdna_direct` keeps its speed only
 with no stop or the guarded fraction `N > 0 && mutants >= f * N`; any other
 stop makes it fall back to Static Direct with a warning (sections 8 and
-12). To record a threshold without ending the cell, use a first-passage
+13). To record a threshold without ending the cell, use a first-passage
 tracker (next section).
 
 ## 6. Event-level bookkeeping with trackers
@@ -610,16 +618,17 @@ depends on mtDNA or on the names in a model:
 | `"static_direct"` | exact | closed models (a fixed set of attribute vectors) | the default for most work |
 | `{"kind": "static_direct", "waiting_time": "ziggurat", "sparse_trackers": True}` | exact | closed models | Static Direct with faster waiting times and sparse count trackers; its own replay identity |
 | `"next_reaction"` | exact | closed models | Gibson–Bruck; pays off in large sparse networks, not here, where every event changes every rate |
-| `None` (tree) | exact | every model without an ATP block | models whose instances change identity, such as the clone model |
+| `None` (tree) | exact | every model without an ATP block or continuous variables | models whose instances change identity, such as the clone model |
 | `{"kind": "tau", "epsilon": 0.03}` | approximate | closed models | adaptive Poisson leaps; at K = 1000 the vacancy limits leaps, so it runs exact events |
 | `{"kind": "binomial", "step": 1.0}` | approximate | closed models with single-parent unit births and deaths | fixed hourly splitting, similar to a binomial hourly scheme in Java |
+| `"hybrid"` or `{"kind": "hybrid", "rtol": 1e-6, "atol": 1e-9}` | approximate at its tolerances | closed models, with or without continuous variables | models with continuous variables (section 10), which no other method runs; without them it runs exact events up to rounding, slower than Static Direct |
 
 Two methods serve one model structure each:
 
 | `method` | Kind | Use it for |
 | --- | --- | --- |
 | `"mtdna_direct"` | exact | an opt-in fast path for the three-class fixed-population structure, about 3.9× faster than Static Direct; other models fall back to Static Direct (below) |
-| `"thinning"` | exact | models with an ATP block (section 10), and only those |
+| `"thinning"` | exact | stored models with the legacy ATP block (section 10), and only those |
 
 The same 64 cells under each method that runs the three-class model:
 
@@ -640,6 +649,7 @@ methods = {
     "next_reaction": "next_reaction",
     "tau (epsilon 0.03)": {"kind": "tau", "epsilon": 0.03},
     "binomial (1 h steps)": {"kind": "binomial", "step": 1.0},
+    "hybrid": "hybrid",
     "mtdna_direct (opt-in)": "mtdna_direct",
 }
 for label, method in methods.items():
@@ -674,13 +684,18 @@ static_direct, ziggurat    0.56 s    8,861,769 events  taken over 10  final muta
 next_reaction              1.03 s    9,226,649 events  taken over  7  final mutant fraction 0.105  chacha8-u53/rules-next-reaction/1
 tau (epsilon 0.03)         4.08 s    9,225,966 events  taken over  5  final mutant fraction 0.108  chacha8-u53/rules-approximate-cgp-poisson/2
 binomial (1 h steps)       0.68 s    9,158,734 events  taken over  6  final mutant fraction 0.088  chacha8-u53/rules-approximate-binomial-split/2
+hybrid                     1.62 s    9,181,653 events  taken over  8  final mutant fraction 0.144  chacha8-u53/rules-approximate-hybrid-dopri54/1
 mtdna_direct (opt-in)      0.18 s    8,969,870 events  taken over  8  final mutant fraction 0.122  chacha8-u53-ziggurat/rules-mtdna-direct/1
 ```
 
 The takeover counts differ because each method uses the random stream
 differently. With 64 cells, 5 to 10 takeovers are within sampling error of
 each other. The approximate methods are statistically close here but are
-labeled as approximations in their sampler identity. The
+labeled as approximations in their sampler identity. Without continuous
+variables, `hybrid` uses the random stream as Static Direct does: the same
+cells take over at nearly the same times, and its event times differ only
+by rounding, so paths drift apart over many events. It costs more per
+event, since it integrates between events. The
 [performance analysis](mtdna-performance-analysis.md) compares the methods
 at full scale.
 
@@ -727,7 +742,7 @@ by every method except the tree.
 random stream: each cell's ChaCha8 words go to Ziggurat waiting times and
 to a selection over grouped hazards. Its sampler identity is
 `chacha8-u53-ziggurat/rules-mtdna-direct/1`. Results therefore agree in
-distribution, not cell by cell; section 16 lists the checks. Trackers,
+distribution, not cell by cell; section 17 lists the checks. Trackers,
 event logs and callbacks work as under Static Direct, and count trackers
 integrate sparsely (section 6).
 
@@ -921,39 +936,48 @@ and `created_instances`, and log only the mutation and degradation rules of
 a few cells. Per cell, `created_instances` counts new instances, here one
 per lineage.
 
-## 10. Variable population: the ATP model
+## 10. Variable population: continuous variables
 
-`mtdna-three-class-atp.rules.json` (rules-model/0.2) lets the population
-float. Replication is limited by an ATP pool instead of the vacancy
-`K − N`. ATP follows dA/dt = f · wt − v1 · A − v2 · N between events, solved
-exactly, and the replication rules are multiplied by c/(c + A). The
-`thinning` method samples events exactly against a bound on each interval.
-ATP appears as an extra continuous observable, `ATP`. A path also stops when
-ATP is exhausted.
+In the variable-population model replication is limited by an ATP pool
+instead of the vacancy `K − N`. ATP is a continuous quantity: between events
+it follows
+
+dA/dt = f · wt − v1 · A − v2 · N,
+
+and the replication rules are multiplied by c/(c + A). Since 0.3.0 this is
+written in the model file itself, as a *continuous variable*:
+`models/rules/mtdna-three-class-atp-continuous.rules.json` (rules-model/0.3)
+declares `ATP` with its initial value, its derivative and a lower bound,
+and each replication rate reads it.
 
 ```python
-"""Variable population with the ATP balance (exact thinning)."""
+"""Variable population with ATP as a continuous variable (hybrid method)."""
 
 import json
 
 import numpy as np
 from crn_craft import rules
 
-model = json.loads(rules.load("models/rules/mtdna-three-class-atp.rules.json"))
-print("ATP block:", model["atp"])
+data = rules.load("models/rules/mtdna-three-class-atp-continuous.rules.json")
+model = json.loads(data)
+print("continuous:", model["continuous"])
+print("replication_wt rate:", model["rules"][1]["rate"])
 run = rules.ensemble(
-    model,
+    data,
     end=25_920.0,
     report_times=24.0 * np.arange(0, 1081, 180),
     replicates=64,
     seed=7,
     threads=2,
-    method="thinning",
+    method="hybrid",  # rtol 1e-6, atol 1e-9 unless a method dict says otherwise
 )
 result = run.simulate()
 meta = result.metadata
-print("observables:", meta["observables"])
-print("sampler:", meta["sampler"], "stopped:", meta["stopped_replicates"])
+print("columns:", list(result.statistics["mean"].columns))
+print("continuous columns:", meta["continuous"])
+print("sampler:", meta["sampler"], "method:", meta["method"])
+stopped = result.records["termination"] == "stopped"
+print("stopped (ATP exhausted):", stopped.sum())
 mean = result.statistics["mean"]
 for hours, row in mean.iterrows():
     print(
@@ -963,20 +987,151 @@ for hours, row in mean.iterrows():
 ```
 
 ```text
-ATP block: {'wild_type': 'wild_type', 'total': 'N', 'initial': 450.0, 'production': 0.1, 'decay': 0.2, 'maintenance': 0.01, 'scale': 1.3034153747670567, 'replication_rules': ['replication_wt', 'mutation_mt', 'mutation_mtAdv', 'replication_mt', 'replication_mtAdv']}
-observables: ['N', 'advantaged_mutants', 'mutants', 'neutral_mutants', 'wild_type', 'ATP']
-sampler: chacha8-u53/rules-atp-thinning/1 stopped: 8
+continuous: [{'name': 'ATP', 'initial': 'ATP0', 'derivative': 'f * wild_type - v1 * ATP - v2 * N', 'lower_bound': 0, 'on_bound': 'stop'}]
+replication_wt rate: (sw * (1 - mu)) * c / (c + ATP)
+columns: ['N', 'advantaged_mutants', 'mutants', 'neutral_mutants', 'wild_type', 'ATP']
+continuous columns: ['ATP']
+sampler: chacha8-u53/rules-approximate-hybrid-dopri54/1 method: {'atol': 1e-09, 'kind': 'hybrid', 'rtol': 1e-06}
+stopped (ATP exhausted): 4
 day    0: N  1000.0  mutants    0.0  ATP  450.00
-day  180: N   998.9  mutants    0.2  ATP  449.16
-day  360: N  1576.6  mutants  540.5  ATP  441.89
-day  540: N  3599.7  mutants 2418.4  ATP  422.84
-day  720: N  4765.5  mutants 3510.3  ATP  407.80
-day  900: N  5352.7  mutants 4055.7  ATP  401.87
-day 1080: N  5919.9  mutants 4587.1  ATP  394.85
+day  180: N   998.6  mutants    0.8  ATP  449.13
+day  360: N  1005.9  mutants    4.3  ATP  450.41
+day  540: N  1607.2  mutants  561.5  ATP  445.71
+day  720: N  2778.9  mutants 1660.0  ATP  428.70
+day  900: N  3449.8  mutants 2282.5  ATP  422.58
+day 1080: N  3493.0  mutants 2325.0  ATP  420.51
 ```
 
-Event trackers can follow the discrete observables of the ATP model, but
-not `ATP` itself.
+A continuous variable has
+
+| Field | Meaning |
+| --- | --- |
+| `name` | its name; rates and derivatives read it like an observable, and results report it as an observable column after the model's observables |
+| `initial` | its value at time 0, a number or a parameter expression |
+| `derivative` | dx/dt between events: an expression over parameters, observables (here `wild_type` and `N`) and continuous variables |
+| `lower_bound`, `on_bound` | optional, together: a bound and `"stop"` or `"clamp"` |
+
+With `"stop"` a cell ends as `stopped` when the variable reaches its bound
+while its derivative there is not positive, as in the ATP model when ATP is
+exhausted; the variable then reads the bound on every later report, and the
+other observables keep their values. With `"clamp"` the variable is held at
+the bound and follows the ODE again once its derivative turns positive.
+
+**The `hybrid` method.** Only `method="hybrid"` runs models with continuous
+variables; the other methods refuse them with `CRN-R020`. Between events it
+integrates the variables together with the integrated total propensity, with
+the adaptive Dormand–Prince 5(4) Runge–Kutta pair, and places the next event
+where the integrated propensity reaches an exponential threshold. It is
+approximate at its tolerances `rtol` and `atol`, which the request states and
+`metadata["method"]` records. The defaults `rtol=1e-6` and `atol=1e-9` apply
+unless you pass `method={"kind": "hybrid", "rtol": ..., "atol": ...}`. The
+request uses rules-run/0.5, and the result is rules-result/0.3 with the
+`method` and the `continuous` column names. `validation/check_hybrid.py`
+checks `hybrid` against exact laws and against exact thinning on this model
+([results](../validation/hybrid/RESULTS.md)). On the test host it took about
+eleven times as long as thinning on the ATP model, since every event needs an
+integration step. The error has not yet been measured as a function of the
+tolerances.
+
+**Your own variables.** `rules.Model.add_continuous(name, initial,
+derivative, lower_bound=None, on_bound="stop")` adds a variable to a builder
+model (section 12); string rates may read it:
+
+```python
+"""A continuous variable in a builder model."""
+
+from crn_craft import rules
+
+cell = rules.Model("atp_wild_type")
+for name, value in {"f": 0.1, "v1": 0.2, "v2": 0.01, "c": 1.3034153747670567}.items():
+    cell.add_parameter(name, value)
+cell.add_species("W", 1000)
+cell.add_continuous("ATP", 450.0, "f * W - v1 * ATP - v2 * W", lower_bound=0)
+cell.add_reaction("c / (c + ATP) * W", ["W"], ["W", "W"], name="replication")
+cell.add_reaction(0.0028881132523331052, ["W"], [], name="degradation")
+result = rules.ensemble(
+    cell,
+    end=2_400.0,
+    report_times=[0.0, 1_200.0, 2_400.0],
+    replicates=16,
+    seed=3,
+    threads=2,
+    method={"kind": "hybrid", "rtol": 1e-7, "atol": 1e-9},
+).simulate()
+print("method:", result.metadata["method"])
+print(result.statistics["mean"].round(2))
+```
+
+```text
+method: {'atol': 1e-09, 'kind': 'hybrid', 'rtol': 1e-07}
+              W     ATP
+time                   
+0.0     1000.00  450.00
+1200.0  1000.06  449.55
+2400.0  1005.75  452.43
+```
+
+Rules for continuous variables:
+
+- Rule rates and propensities may read them; the model's `stop`, observable
+  filters and weights, reactant patterns and products may not (`CRN-R012`).
+  Stop on a variable with its `lower_bound`.
+- Trackers follow discrete observables only (`CRN-R020` for a continuous
+  one). Event logs and callbacks see the variables' values at each event.
+- `hybrid` lowers the model to fixed tuples like `static_direct`, so models
+  whose instances change identity (the clone model) need `tree`, which has
+  no continuous variables.
+- A bound is checked on the integrator's dense output at each step. A
+  variable that dips below its bound and returns within one step can be
+  missed; tighter tolerances shorten the steps.
+
+### Stored models: the ATP block and `thinning`
+
+`mtdna-three-class-atp.rules.json` (rules-model/0.2) writes the same model
+with a fixed `atp` block, which `method="thinning"` samples exactly against
+a bound on each interval. Stored files and requests of this form keep
+working unchanged and replay byte-identically. A model cannot have both an
+`atp` block and `continuous` variables; for new models, use continuous
+variables.
+
+```python
+"""A stored rules-model/0.2 file with the legacy ATP block (exact thinning)."""
+
+import json
+
+from crn_craft import rules
+
+data = rules.load("models/rules/mtdna-three-class-atp.rules.json")
+print("ATP block:", json.loads(data)["atp"])
+result = rules.ensemble(
+    data,
+    end=25_920.0,
+    report_times=[0.0, 25_920.0],
+    replicates=64,
+    seed=7,
+    threads=2,
+    method="thinning",
+).simulate()
+print("sampler:", result.metadata["sampler"])
+print("stopped (ATP exhausted):", (result.records["termination"] == "stopped").sum())
+print(result.statistics["mean"][["N", "mutants", "ATP"]].round(2))
+```
+
+```text
+ATP block: {'wild_type': 'wild_type', 'total': 'N', 'initial': 450.0, 'production': 0.1, 'decay': 0.2, 'maintenance': 0.01, 'scale': 1.3034153747670567, 'replication_rules': ['replication_wt', 'mutation_mt', 'mutation_mtAdv', 'replication_mt', 'replication_mtAdv']}
+sampler: chacha8-u53/rules-atp-thinning/1
+stopped (ATP exhausted): 8
+               N  mutants     ATP
+time                             
+0.0      1000.00     0.00  450.00
+25920.0  5919.92  4587.14  394.85
+```
+
+The final means of the two 64-cell runs differ (`N` 3493 against 5920; 4
+and 8 cells stopped). Mutant expansion is rare and lets the population
+grow, so the final `N` is heavy-tailed, and 64 cells are too few to compare
+methods. `validation/check_hybrid.py` compares the two methods on
+400 cells each, and optionally 4,000, with predeclared two-sample tests.
 
 ## 11. Parameter sweeps
 
@@ -1034,7 +1189,130 @@ roughly in proportion to `mu` and steeply with `sm`. The
 fit. A candidate's `model_sha256` and `run_sha256` hash the bound model and
 request, so every result names its parameters.
 
-## 12. Model variants
+## 12. Building models in Python
+
+`rules.Model` writes a rules model from Python calls, in the style of
+rebop's `Gillespie` class. Every species is an attribute-free type, and
+every species count is an observable with the species name.
+
+```python
+"""An SIR epidemic written with rules.Model."""
+
+from crn_craft import rules
+
+sir = rules.Model("sir")
+sir.add_species("S", 490).add_species("I", 10).add_species("R")
+sir.add_parameter("gamma", 0.1)
+# A number is a mass-action constant: S + I fires at 5e-4 * S * I.
+sir.add_reaction(5e-4, ["S", "I"], ["I", "I"], name="infection")
+# A string is the whole propensity, over parameters and species counts.
+sir.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
+print(sir)
+run = rules.ensemble(
+    sir,
+    end=60.0,
+    report_times=[0.0, 20.0, 40.0, 60.0],
+    replicates=1000,
+    seed=1,
+    threads=2,
+    method="static_direct",
+)
+result = run.simulate()
+print(result.statistics["mean"].round(1))  # species columns, sorted by name
+print("events per cell:", result.rule_events.mean().to_dict())
+```
+
+```text
+Model('sir': 3 species, 2 reactions)
+         I      R      S
+time                    
+0.0   10.0    0.0  490.0
+20.0  91.2   86.4  322.4
+40.0  87.7  296.7  115.7
+60.0  28.4  405.7   66.0
+events per cell: {'infection': 424.046, 'recovery': 405.666}
+```
+
+The calls:
+
+| Call | Effect |
+| --- | --- |
+| `rules.Model(name="model")` | a new rules-model/0.3 document |
+| `add_parameter(name, value)` | a parameter that string rates may read |
+| `add_species(name, initial=0)` | a species type, its count observable and its initial count |
+| `set_initial(mapping)` or `set_initial(S=490, I=10)` | initial counts of declared species |
+| `add_reaction(rate, reactants, products, name=None)` | a rule; species are lists of names, repeated for multiplicity; undeclared species start at 0; names default to `r0`, `r1`, ... |
+| `add_continuous(name, initial, derivative, lower_bound=None, on_bound="stop")` | a continuous variable (section 10) |
+| `to_dict()`, `to_json()` | the JSON document |
+
+`rules.ensemble` and `rules.prepare` accept the `Model` itself. Every method
+runs builder models; `tree` is never needed, since the species have no
+attributes.
+
+**Rates.** A numeric rate k is a mass-action constant, counted like the rest
+of CRN-craft: k times the number of distinct combinations of reactant
+molecules. `A` fires at k·A, `A + B` at k·A·B and `A + A` at k·A(A − 1)/2.
+rebop drops the 1/2 for identical reactants, so its rate k on `["A", "A"]`
+equals `2 * k` here; reactions without identical reactants agree. A string
+rate is the reaction's whole propensity (rules-model/0.3 `propensity`), an
+expression over parameters and species counts with the operators
+`+ - * / ^`, comparisons and the functions `min max exp log sqrt abs floor
+ceil if`. It applies while each reactant has enough molecules (two for
+`["A", "A"]`) and is 0 otherwise, so `"vmax * S / (Km + S)"` on `["S"]` stops
+when `S` is used up. A reaction takes at most two reactant molecules.
+`validation/check_builder.py` compares builder models with exact means and
+with rebop 0.10.0 ([results](../validation/builder/RESULTS.md)).
+
+The three-class model can be written the same way, with one species per
+class and the vacancy law in the propensities. `examples/mtdna/12_builder.py`
+builds it and compares it with the JSON file:
+
+```python
+"""The three-class model built with rules.Model."""
+
+from crn_craft import rules
+
+model = rules.Model("mtdna_three_species")
+parameters = {"K": 1000, "delta": 0.0028881132523331052, "sw": 1.0, "sm": 1.5}
+parameters |= {"mu": 3e-05, "fracAdv": 0.2}
+for name, value in parameters.items():
+    model.add_parameter(name, value)
+model.add_species("W", 1000).add_species("M").add_species("A")
+vacancy = "max(0, K - W - M - A) / (W + sm * (M + A))"
+model.add_reaction(f"{vacancy} * sw * (1 - mu) * W", ["W"], ["W", "W"], "replication_wt")
+model.add_reaction(f"{vacancy} * sw * mu * (1 - fracAdv) * W", ["W"], ["W", "M"], "mutation_mt")
+model.add_reaction(f"{vacancy} * sw * mu * fracAdv * W", ["W"], ["W", "A"], "mutation_mtAdv")
+model.add_reaction(f"{vacancy} * sw * M", ["M"], ["M", "M"], "replication_mt")
+model.add_reaction(f"{vacancy} * sm * A", ["A"], ["A", "A"], "replication_mtAdv")
+for species in ("W", "M", "A"):
+    model.add_reaction(parameters["delta"], [species], [], f"degradation_{species}")
+result = rules.ensemble(
+    model,
+    end=25_920.0,
+    report_times=[0.0, 25_920.0],
+    replicates=100,
+    seed=1,
+    threads=2,
+    method="mtdna_direct",
+).simulate()
+print(result.metadata["sampler"])
+print(result.metadata["diagnostics"][0]["message"])
+final = result.statistics["mean"].loc[25_920.0]
+print(f"mean mutant fraction after three years: {(final['M'] + final['A']) / final.sum():.4f}")
+```
+
+```text
+chacha8-u53/rules-static-direct/1
+mtdna_direct ran Static Direct: the model has whole-rule propensities
+mean mutant fraction after three years: 0.0828
+```
+
+`mtdna_direct` certifies only the JSON form of the model; for builder
+models it runs Static Direct and says so in a `CRN-R051` warning. Species
+with attributes (clone identities, drawn fitness) need the JSON language
+(section 2 and the [rules language](rules-language.md)).
+
+## 13. Model variants
 
 The model file is plain JSON. Load it with `json.loads(rules.load(path))`,
 change it, and pass the dictionary to `rules.ensemble`.
@@ -1109,7 +1387,7 @@ Validation is strict:
 - `rules.load(path)` checks a model file before any run;
 - `crn-craft rules-check MODEL` does the same from the command line.
 
-## 13. Budgets, wall time and cancellation
+## 14. Budgets, wall time and cancellation
 
 Every run has explicit limits:
 
@@ -1181,7 +1459,7 @@ Ctrl-C cancels a Python run cooperatively. `simulate(cancel_file=path)`
 cancels when the file appears, which suits batch systems. The engine polls
 every 1024 events.
 
-## 14. The command line and JSON requests
+## 15. The command line and JSON requests
 
 The CLI runs the same requests as Python. A request binds the model file by
 path and SHA-256, so a result always names the exact model it came from.
@@ -1283,11 +1561,18 @@ The request versions decide which fields are allowed:
 | `crn-craft.rules-run/0.2` | `method`, `trackers`, `event_log` |
 | `crn-craft.rules-run/0.3` | `mtdna_direct` |
 | `crn-craft.rules-run/0.4` | Static Direct `waiting_time` and `sparse_trackers` |
+| `crn-craft.rules-run/0.5` | `hybrid` with its `rtol` and `atol`; the result is rules-result/0.3, which adds `method` and `continuous` |
 
 `rules.ensemble` picks the lowest version that fits its arguments.
-`rules.prepare(model, request)` takes a request you wrote yourself.
+`rules.prepare(model, request)` takes a request you wrote yourself. Stored
+requests of every earlier version keep their meaning and replay
+byte-identically.
 
-## 15. Rust
+Model files carry their own version: rules-model/0.1 is the base language,
+0.2 adds the legacy `atp` block, and 0.3 adds whole-rule `propensity` and
+`continuous` variables. `rules.Model` writes 0.3.
+
+## 16. Rust
 
 The crate `crn-craft-rules` is the engine behind Python and the CLI.
 `prepare` validates exact model and request bytes, and `execute` runs them:
@@ -1318,7 +1603,7 @@ println!("{} cells stopped", result.stopped_replicates);
   Python, the fast path `mtdna_direct` is faster still for the three-class
   structure (section 8).
 
-## 16. Checking results
+## 17. Checking results
 
 Exactness is checked against independent references, and the checks can be
 rerun:
@@ -1346,13 +1631,13 @@ python validation/check_rules_python.py --output mtdna-python.json
 A numerical check confirms that the simulator solves the model; it does not
 validate the model against biology.
 
-## 17. Reference
+## 18. Reference
 
 `rules.ensemble` arguments:
 
 | Argument | Meaning |
 | --- | --- |
-| `model` | model bytes from `rules.load`, or a dictionary |
+| `model` | model bytes from `rules.load`, a dictionary, or a `rules.Model` (section 12) |
 | `end`, `report_times` | horizon in hours; increasing report times in [0, end] |
 | `replicates`, `seed`, `threads` | number of cells, root seed, 1–64 native threads |
 | `keep_paths` | how many cells keep their full observable series (`result.paths`); `"all"` or `True` for every cell |
@@ -1401,6 +1686,7 @@ Result metadata:
 | `statistics` | `mean`, `sample_variance`, `mean_standard_error`, `samples` (also `result.statistics`) |
 | `paths`, `final_instances`, `observations` | kept series, kept instances, and (with trackers or a log) trackers and logs |
 | `model_sha256`, `run_sha256`, `root_seed` | provenance |
+| `method`, `continuous` | with `hybrid` (rules-result/0.3): the method with its tolerances, and the names of the continuous columns |
 
 Terminations, the categories of `records["termination"]` in the order of
 `rules.TERMINATIONS`: `completed`, `stopped`, `event_limit`,
@@ -1419,17 +1705,25 @@ Frequent diagnostics:
 | `CRN-R050` | incomplete ensemble, statistics withheld |
 | `CRN-R051` | a requested specialization did not apply; the message says why |
 
-## 18. Troubleshooting
+## 19. Troubleshooting
 
 - **`event_limit` in every cell.** Raise `max_events` above the events of
-  one cell (section 13).
+  one cell (section 14).
 - **`mtdna_direct` is not faster.** Check `metadata["sampler"]` and the
   `CRN-R051` warning, which names the failed check of section 8. A stop
   other than the guarded fraction, unequal degradation rates or a rate
   outside `max(0, K - N) / D` times constants make it fall back to Static
   Direct.
 - **`observation reservation exceeds budget`.** Event logs reserve space for
-  every cell. Use fewer cells or entries, or raise `max_output_bytes`.
+  every cell before the run. The message itemizes the reservation (cells ×
+  bytes per cell, log entries × bytes per entry), and its hint
+  (`error.diagnostics[0]["hint"]`) names the smallest `max_output_bytes`
+  that admits the request. Raise `max_output_bytes` to that value, or use
+  fewer cells or entries. For the three-class model an entry takes 721
+  bytes, so 50 entries for 1,000 cells fit the 64 MiB default.
+- **`CRN-R020` at `/method` for a model with continuous variables.** Only
+  `method="hybrid"` runs them (section 10); stored models with an `atp`
+  block need `thinning`.
 - **A Python callback is slow.** It holds the interpreter lock. Use trackers
   or event logs for whole ensembles.
 - **Different results with another method.** Each method uses the random

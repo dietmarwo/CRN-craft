@@ -32,14 +32,25 @@ run = rules.ensemble(
 )
 result = run.simulate()
 print(result.metadata["termination"])
-print(result.records["rule_events"].sum(axis=0))
+print(result.rule_events.sum())  # events per rule, summed over replicates
+passage = result.tracker_columns(0)["first_passage"]  # NaN: never reached
+print(passage.dropna().describe())
 ```
 
-Python exposes read-only NumPy record columns, an ordered rule-count
-matrix, report-time statistics and bounded observation results. Termination
-codes index `rules.TERMINATIONS`. Ctrl-C and cancel files use cooperative
-cancellation. Interrupted ensembles withhold statistics. A prepared
-ensemble can be executed again with independent execution state.
+Since 0.3.0 Python results are pandas objects (pandas is a required
+dependency): `result.records` is a DataFrame indexed by replicate id with a
+categorical `termination` (compare with a name such as `"stopped"`),
+`result.rule_events` has one column per rule name, `result.statistics` holds
+one DataFrame per statistic indexed by report time with one column per
+observable, and `result.paths` the kept series indexed by (replicate, time).
+`keep_paths="all"` keeps every replicate, and `result.to_xarray()` returns
+the paths as an xarray Dataset when xarray is installed. Every frame has
+`.to_numpy()`; `result.metadata` keeps the full result document, and
+`run.rule_names` and `result.rule_names` name the rules in declaration
+order. The [user manual](mtdna-user-manual.md#18-reference) lists the
+changes from the NumPy results of 0.2.0. Ctrl-C and cancel files use
+cooperative cancellation. Interrupted ensembles withhold statistics. A
+prepared ensemble can be executed again with independent execution state.
 
 Trackers capture zero crossings, last crossing times, extrema, time
 integrals and first passage. A tracked interval runs until the replicate's
@@ -67,9 +78,16 @@ away.
 Rules model and run version 0.1 still select the tree engine and the
 original sampler. Use rules-run/0.2 for a `method` object, `trackers`
 or `event_log`. It returns rules-result/0.2 with a sampler identity and
-optional ordered `observations`. Each backend has its own replay identity.
-Worker count preserves a completed numerical payload apart from its
-request hash.
+optional ordered `observations`. Rules-run/0.3 adds `mtdna_direct` and 0.4
+the Static Direct options (below); both return rules-result/0.2.
+Rules-run/0.5 adds `hybrid` with its tolerances and returns
+rules-result/0.3, which adds the request's `method` and the names of the
+`continuous` columns. Rules-model/0.2 adds the legacy `atp` block, and
+rules-model/0.3 whole-rule `propensity` and `continuous` variables; in 0.3
+a rule gives exactly one of `rate` and `propensity`. Stored rules-model
+0.1/0.2 files and rules-run 0.1–0.4 requests keep their meaning and replay
+byte-identically. Each backend has its own replay identity. Worker count
+preserves a completed numerical payload apart from its request hash.
 
 | Method | Scope |
 | --- | --- |
@@ -119,7 +137,8 @@ each positive hazard is at least 16 × 2⁻⁵³ of the total, evaluated at the
 worst state (one vacancy, one molecule of the class). It supports no stop or
 the guarded mutant fraction predicate shown above. Unsupported static models or parameter
 ranges use Static Direct. Models with changing instance identities use
-`tree`. ATP requires `thinning`.
+`tree`. The legacy ATP block requires `thinning`, and continuous variables
+require `hybrid`.
 
 The kernel tracks the total population directly and computes the common
 vacancy factor once per event. It groups degradations and wild-type birth
@@ -229,9 +248,12 @@ patch. The original Java material and per-trajectory output stay local.
 For leap methods, the sampling-step budget bounds both random words
 and leap iterations, including iterations with zero firings.
 
-`result.event_columns(replicate)` exposes time, rule index and observable
-arrays for the bounded log. `result.tracker_columns(index)` exposes the
-scalar tracker summaries as arrays, with NaN for missing times or peaks.
+`result.event_columns(replicate)` returns the bounded log of one replicate
+as a DataFrame indexed by `entry`, with `time`, `rule` (the index),
+`rule_name` and one column per observable; without an argument it returns
+every logged event, indexed by (`replicate`, `entry`).
+`result.tracker_columns(index)` returns the scalar tracker summaries as a
+DataFrame indexed by replicate id, with NaN for missing times or peaks.
 Ragged participant identities, leap multiplicities and episodes remain
 in `result.observations`.
 

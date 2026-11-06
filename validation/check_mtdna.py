@@ -43,12 +43,14 @@ def rules_files(
     max_events=1_000_000,
     max_sampling_steps=8_000_000,
     max_instances=100_000,
+    version=None,
 ):
     path = folder / "model.rules.json"
     path.write_text(json.dumps(model))
     kind = method.get("kind") if isinstance(method, dict) else method
-    version = "0.1"
-    if (
+    if version is not None:
+        pass  # The caller names the version, for example 0.6 for its defaults.
+    elif (
         kind == "static_direct"
         and isinstance(method, dict)
         and {"waiting_time", "sparse_trackers"} & method.keys()
@@ -58,6 +60,8 @@ def rules_files(
         version = "0.3"
     elif method or trackers or log is not None:
         version = "0.2"
+    else:
+        version = "0.1"
     request = {
         "schema": f"crn-craft.rules-run/{version}",
         "model": {
@@ -496,66 +500,107 @@ def check_specialized(binary, folder, rows):
     print("checked specialized mtDNA", flush=True)
 
 
+ZIGGURAT = "chacha8-u53-ziggurat/rules-static-direct/1"
+ZIGGURAT_SPARSE = "chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1"
+COUNTS = [{"observable": "neutral_mutants"}, {"observable": "advantaged_mutants"}]
+
+
 def check_generic_sampler(binary, folder, rows):
-    model = read_model("mtdna-three-class-cme.rules.json")
-    method = {
+    """Ziggurat waits and sparse trackers: the S3 opt-in and the 0.6 default.
+
+    The K = 20 master-equation gate runs for the rules-run/0.4 opt-in and
+    for the rules-run/0.6 default, with the first-passage tracker (not
+    eligible for sparse integration: the opt-in warns, the default is
+    silent) and with two count trackers (eligible: the sparse identity).
+    Worker replay and event-log integrals are checked for both requests.
+    """
+    opt_in = {
         "kind": "static_direct",
         "waiting_time": "ziggurat",
         "sparse_trackers": True,
     }
-    paths, result = sample(
-        binary, folder, model, method=method, seed=SEED + 4, trackers=[TRACKER]
-    )
-    # The first-passage tracker is not eligible for sparse integration, so
-    # the run is the Ziggurat default and says so; the law is the same.
-    require(
-        result["sampler"] == "chacha8-u53-ziggurat/rules-static-direct/1"
-        and any(
+    default = {"kind": "static_direct"}
+    # label, version, method, CME trackers, seed offset, identity, warns,
+    # replay checks
+    cases = [
+        ("static-ziggurat", None, opt_in, [TRACKER], 4, ZIGGURAT, True, True),
+        ("static-default-0.6", "0.6", default, [TRACKER], 5, ZIGGURAT, False, True),
+        (
+            "static-default-0.6-sparse",
+            "0.6",
+            default,
+            COUNTS,
+            6,
+            ZIGGURAT_SPARSE,
+            False,
+            False,
+        ),
+    ]
+    oracle, _ = law_mtdna(MTDNA, TIMES)
+    for label, version, method, trackers, offset, sampler, warns, replay in cases:
+        model = read_model("mtdna-three-class-cme.rules.json")
+        paths, result = sample(
+            binary,
+            folder,
+            model,
+            method=method,
+            version=version,
+            seed=SEED + offset,
+            trackers=trackers,
+        )
+        warned = any(
             d["code"] == "CRN-R051" and "sparse_trackers" in d["message"]
             for d in result["diagnostics"]
-        ),
-        "wrong generic sampler identity",
-    )
-    oracle, _ = law_mtdna(MTDNA, TIMES)
-    for key, law in oracle.items():
-        for j, t in enumerate(TIMES):
-            row(
-                rows,
-                f"cme/static-ziggurat/{key}/{t}",
-                integer_cdf(column(paths, result, key)[:, j], law[j]),
-                dkw(36),
-            )
+        )
+        require(
+            result["sampler"] == sampler and warned == warns,
+            f"wrong generic sampler identity: {label}",
+        )
+        for key, law in oracle.items():
+            for j, t in enumerate(TIMES):
+                row(
+                    rows,
+                    f"cme/{label}/{key}/{t}",
+                    integer_cdf(column(paths, result, key)[:, j], law[j]),
+                    dkw(36),
+                )
+        if not replay:
+            continue
 
-    model["stop"] = "N > 0 && mutants >= 0.5 * N"
-    trackers = [{"observable": "neutral_mutants"}, {"observable": "advantaged_mutants"}]
-    options = dict(method=method, trackers=trackers, seed=17, n=32)
-    _, one = sample(binary, folder, model, threads=1, **options)
-    _, eight = sample(binary, folder, model, threads=8, **options)
-    _, logged = sample(binary, folder, model, log={"max_entries": 512}, **options)
-    for result in (one, eight, logged):
-        result.pop("run_sha256")
-    require(one == eight, "generic opt-in worker replay")
-    for bare, log, replicate in zip(
-        one.pop("observations"),
-        logged.pop("observations"),
-        one["replicates"],
-        strict=True,
-    ):
-        require(bare["trackers"] == log["trackers"], "event log changed tracker output")
-        require(not log["omitted_log_entries"], "event log truncated")
-        for track in log["trackers"]:
-            index = logged["observables"].index(track["observable"])
-            value, last, integral = 0.0, 0.0, 0.0
-            for event in log["log"]:
-                integral += value * (event["time"] - last)
-                value, last = event["observables"][index], event["time"]
-            integral += value * (replicate["stop_time"] - last)
+        model["stop"] = "N > 0 && mutants >= 0.5 * N"
+        options = dict(method=method, version=version, trackers=COUNTS, seed=17, n=32)
+        _, one = sample(binary, folder, model, threads=1, **options)
+        _, eight = sample(binary, folder, model, threads=8, **options)
+        _, logged = sample(binary, folder, model, log={"max_entries": 512}, **options)
+        for result in (one, eight, logged):
+            require(result["sampler"] == ZIGGURAT_SPARSE, f"{label} replay identity")
+            result.pop("run_sha256")
+        require(one == eight, f"{label} worker replay")
+        for bare, log, replicate in zip(
+            one.pop("observations"),
+            logged.pop("observations"),
+            one["replicates"],
+            strict=True,
+        ):
             require(
-                math.isclose(track["integral"], integral, rel_tol=1e-12),
-                "log integral mismatch",
+                bare["trackers"] == log["trackers"],
+                "event log changed tracker output",
             )
-    require(one == logged, "event log changed opt-in trajectories")
-    row(rows, "static-ziggurat/worker-replay-and-log-integrals", 0.0, 0.0)
+            require(not log["omitted_log_entries"], "event log truncated")
+            for track in log["trackers"]:
+                index = logged["observables"].index(track["observable"])
+                value, last, integral = 0.0, 0.0, 0.0
+                for event in log["log"]:
+                    integral += value * (event["time"] - last)
+                    value, last = event["observables"][index], event["time"]
+                integral += value * (replicate["stop_time"] - last)
+                require(
+                    math.isclose(track["integral"], integral, rel_tol=1e-12),
+                    "log integral mismatch",
+                )
+        require(one == logged, f"event log changed {label} trajectories")
+        row(rows, f"{label}/worker-replay-and-log-integrals", 0.0, 0.0)
+        print("checked", label, flush=True)
 
 
 def poisson_cdf(mean, support=100):
@@ -818,19 +863,29 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--binary", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--section",
+        choices=["all", "generic"],
+        default="all",
+        help="generic: only the Ziggurat and sparse-tracker gate",
+    )
     args = parser.parse_args()
     report = {"paths": N, "seed": SEED, "alpha": ALPHA, "checks": [], "tau": {}}
     try:
         with tempfile.TemporaryDirectory() as directory:
             folder = Path(directory)
-            check_mt(args.binary, folder, report["checks"], report["tau"])
-            check_tracking(args.binary, folder, report["checks"])
-            check_specialized(args.binary, folder, report["checks"])
-            check_generic_sampler(args.binary, folder, report["checks"])
-            check_atp(args.binary, folder, report["checks"])
-            check_leaps(args.binary, folder, report["checks"])
-            check_tau_production(args.binary, folder, report["checks"], report["tau"])
-            check_clocks(args.binary, folder, report["checks"])
+            if args.section == "generic":
+                check_generic_sampler(args.binary, folder, report["checks"])
+            else:
+                checks, tau = report["checks"], report["tau"]
+                check_mt(args.binary, folder, checks, tau)
+                check_tracking(args.binary, folder, checks)
+                check_specialized(args.binary, folder, checks)
+                check_generic_sampler(args.binary, folder, checks)
+                check_atp(args.binary, folder, checks)
+                check_leaps(args.binary, folder, checks)
+                check_tau_production(args.binary, folder, checks, tau)
+                check_clocks(args.binary, folder, checks)
         report["passed"] = all(
             r["passed"] or not r["required"] for r in report["checks"]
         )

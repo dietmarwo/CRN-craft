@@ -35,8 +35,8 @@ K = 1000 has about 150,000 events. An objective evaluation with 800 cells
 takes about 2.2 s on two cores with `mtdna_direct`, the opt-in fast path
 for this model's three-class structure, and a reused prepared template.
 Two hundred evaluations are therefore minutes, not hours. Static Direct,
-which runs any closed model, takes about 3.9× longer: about half an hour
-for the same fit.
+which runs any closed model, takes about 3.3× longer with its default
+Ziggurat waits and sparse trackers: about 25 minutes for the same fit.
 
 To be able to check the answer, the tutorial makes its own data from known
 parameters (`mu = 3·10⁻⁵`, `sm = 1.5`), with a seed that the fit never sees.

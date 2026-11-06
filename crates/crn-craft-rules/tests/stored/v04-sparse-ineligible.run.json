@@ -1,0 +1,45 @@
+{
+  "schema": "crn-craft.rules-run/0.4",
+  "model": {
+    "path": "mtdna-three-class.rules.json",
+    "sha256": "cef86addb08d9a11d870f65b1636652e96e3e38a56db951028b586ab5589c150"
+  },
+  "time": {
+    "end": 2000.0,
+    "report_times": [
+      0.0,
+      1000.0,
+      2000.0
+    ]
+  },
+  "ensemble": {
+    "replicates": 6,
+    "root_seed": 11
+  },
+  "outputs": {
+    "statistics": [
+      "mean",
+      "variance"
+    ],
+    "keep_paths": 3,
+    "keep_instances": 2
+  },
+  "budget": {
+    "max_events_per_replicate": 1000000,
+    "max_sampling_steps_per_replicate": 10000000,
+    "max_instances": 10,
+    "threads": 2,
+    "max_output_bytes": 16777216
+  },
+  "trackers": [
+    {
+      "observable": "mutants",
+      "first_passage": "N > 0 && mutants >= 0.002 * N"
+    }
+  ],
+  "method": {
+    "kind": "static_direct",
+    "waiting_time": "ziggurat",
+    "sparse_trackers": true
+  }
+}

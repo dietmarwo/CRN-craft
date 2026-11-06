@@ -85,4 +85,5 @@ channel below 2⁻⁵³ of the total, so use `tree` or rescale),
 `CRN-R040`–`CRN-R045` event, sampling, instance, wall-time, cancellation and
 output limits, and the warnings `CRN-R050` for an incomplete ensemble and
 `CRN-R051` for a requested specialization that did not apply (an
-`mtdna_direct` fallback or ineligible `sparse_trackers`).
+`mtdna_direct` fallback, or an explicit `sparse_trackers: true` without an
+eligible tracker; the rules-run/0.6 default does not warn).

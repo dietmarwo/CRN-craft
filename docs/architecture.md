@@ -48,7 +48,7 @@ output budgets. `crn-craft describe` lists the supported methods, and
 | `ssa` | Alternative exact `ssa-run/0.1` through `0.4` → the matching `ssa-result` version. `0.4` is `0.3` plus the `next_reaction` aggregator. |
 | `fsp`, `tau` | FSP emits `fsp-result/0.1`. Fixed-network tau uses `tau-request/0.1` → `tau-result/0.1`. |
 | `rules-check`, `rules` | Attributed `rules-model/0.1`, or `0.2` with the ATP block. Check emits `rules-check/0.1`. Rules-run `0.1` emits rules-result `0.1`. Rules-run `0.2` (method, trackers, event log), `0.3` (`mtdna_direct`) and `0.4` (Static Direct options) emit rules-result `0.2`. |
-| `describe` | The core and Python emit `describe/0.10`. The native CLI emits `describe/0.12`, which adds `dynamic_species` and the rules commands. Python's `crn_craft.rules.describe()` returns the rules discovery entry. |
+| `describe` | The core and Python emit `describe/0.10`. The native CLI emits `describe/0.13`, which adds `dynamic_species` and the rules commands. Python's `crn_craft.rules.describe()` returns the rules discovery entry. |
 
 Schema names in the table use the `crn-craft.` prefix. See
 [fixed-network contracts](contracts.md), [alternative SSA](alternative-ssa.md),
@@ -104,7 +104,7 @@ flowchart TB
 | Method | Execution and constraints |
 | --- | --- |
 | `tree` | The default dynamic Direct path. It keeps attributed instance state and supports changing instance identities and random product attributes. |
-| `static_direct` | Exact Direct on a closed set of instance tuples and indexed channels. Inverse waits and per-event tracker updates are the defaults. Every positive channel must be at least 2⁻⁵³ of the total (`CRN-R031`); the tree resolves rules and instances separately and can run such models. |
+| `static_direct` | Exact Direct on a closed set of instance tuples and indexed channels. Ziggurat waits and sparse count trackers are the defaults from rules-run/0.6; inverse waits and per-event tracker updates before, and with explicit options. Every positive channel must be at least 2⁻⁵³ of the total (`CRN-R031`); the tree resolves rules and instances separately and can run such models. |
 | `next_reaction` | Exact Gibson–Bruck clocks on a lowered model. Dependency lists identify the clocks to update. |
 | `thinning` | Exact thinning for the ATP-coupled rules model, with the analytic ATP flow and a checked intensity envelope. |
 | `tau`, `binomial` | Approximate closed-model methods with their own sampler identities. Tau bounds both species and rate changes (Cao–Gillespie–Petzold) and takes exact steps where a leap would be inaccurate. Binomial uses competing-risk probabilities on a fixed step lattice and admits only single-parent unit births and deaths. |

@@ -59,6 +59,8 @@ fn generated_kernel_replays_the_interpreter_byte_for_byte() {
             json!({"kind": "static_direct", "waiting_time": "ziggurat", "sparse_trackers": true}),
             "crn-craft.rules-run/0.4",
         ),
+        // The rules-run/0.6 default: Ziggurat waits and sparse trackers.
+        (json!({"kind": "static_direct"}), "crn-craft.rules-run/0.6"),
     ] {
         for threads in [1, 3] {
             let prepared =

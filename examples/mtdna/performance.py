@@ -70,13 +70,14 @@ section = sys.argv[1] if len(sys.argv) > 1 else "all"
 if section in ("methods", "all"):
     for label, method, cells, repeats in [
         ("tree", None, 200, 1),
+        # The rules-run/0.6 default: Ziggurat waits and sparse trackers.
         ("static_direct", "static_direct", 1000, 3),
         (
-            "static_direct ziggurat + sparse trackers",
+            "static_direct inverse, per-event trackers (0.3.0 default)",
             {
                 "kind": "static_direct",
-                "waiting_time": "ziggurat",
-                "sparse_trackers": True,
+                "waiting_time": "inverse",
+                "sparse_trackers": False,
             },
             1000,
             3,
@@ -123,7 +124,15 @@ if section in ("observation", "all"):
             max_output_bytes=1 << 30,
         ),
     )
-    small = ensemble(cells=20, threads=1, method="static_direct")
+    small = ensemble(
+        cells=20,
+        threads=1,
+        method={
+            "kind": "static_direct",
+            "waiting_time": "inverse",
+            "sparse_trackers": False,
+        },
+    )
     timed("callback none (20 cells, static_direct, 1 thread)", small)
     timed(
         "callback Python (20 cells, static_direct, 1 thread)",

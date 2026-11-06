@@ -1,6 +1,6 @@
 # Agent context: CRN-craft campaign
 
-Start with README.md, docs/architecture.md, docs/campaign/README.md and `crn-craft describe` (0.10; 0.12 from the native CLI).
+Start with README.md, docs/architecture.md, docs/campaign/README.md and `crn-craft describe` (0.10; 0.13 from the native CLI).
 Default engine MSRV is 1.85; Python/jobs/diffsol are isolated optional workspaces.
 Legacy exact SSA commands are simulate and simulate-cached, with unchanged original
 model/run/result/archive contracts. The separate ssa command implements Direct,
@@ -13,7 +13,9 @@ result bytes.
 Dynamic attributed species use the experimental rules engine (crate
 crn-craft-rules, CLI rules-check and rules, Python crn_craft.rules): read
 docs/rules-language.md and docs/mtdna-rules.md, and docs/specialized-kernels.md
-before adding a model-specific rules kernel. docs/mtdna-user-manual.md,
+before adding a model-specific rules kernel. rules-run/0.6 makes Ziggurat
+waits and sparse count trackers the static_direct defaults (Python's
+"static_direct" writes 0.6); stored 0.1-0.5 requests keep their meaning. docs/mtdna-user-manual.md,
 docs/mtdna-optimization-tutorial.md and docs/mtdna-performance-analysis.md,
 with examples/mtdna/, show the mtDNA workflows end to end.
 Read docs/alternative-ssa.md and the five-step acceleration protocol before changes. FSP executes via fsp; tau is explicitly

@@ -1,6 +1,7 @@
 """Exercise the installed wheel's rules API, buffers and callback contracts."""
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -470,8 +471,83 @@ def main():
                     and np.isnan(cube[kept["id"], len(rows) :]).all(),
                     "to_xarray values",
                 )
+    # rules-run/0.6: "static_direct" defaults to Ziggurat waits and sparse
+    # trackers; explicit options give the numbers of the 0.3.0 request.
+    counts = [{"observable": "neutral_mutants"}, {"observable": "advantaged_mutants"}]
+    base = {
+        "end": 3.0,
+        "report_times": [0.0, 1.0, 3.0],
+        "replicates": 12,
+        "seed": 9,
+        "keep_paths": "all",
+        "trackers": counts,
+    }
+    new = rules.ensemble(model, method="static_direct", **base).simulate()
+    require(
+        new.metadata["schema"] == "crn-craft.rules-result/0.3"
+        and new.metadata["method"] == {"kind": "static_direct"}
+        and new.metadata["sampler"]
+        == "chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1"
+        and not new.metadata["diagnostics"],
+        "static_direct selects the rules-run/0.6 defaults",
+    )
+    inverse = {"kind": "static_direct", "waiting_time": "inverse"}
+    restored = rules.ensemble(
+        model, method=inverse | {"sparse_trackers": False}, **base
+    ).simulate()
+    released = rules.prepare(
+        model,
+        {
+            "schema": "crn-craft.rules-run/0.2",
+            "model": {
+                "path": "model.rules.json",
+                "sha256": hashlib.sha256(model).hexdigest(),
+            },
+            "time": {"end": 3.0, "report_times": [0.0, 1.0, 3.0]},
+            "ensemble": {"replicates": 12, "root_seed": 9},
+            "outputs": {
+                "statistics": ["mean", "variance"],
+                "keep_paths": 12,
+                "keep_instances": 0,
+            },
+            "budget": {
+                "threads": 1,
+                "max_events_per_replicate": 1_000_000,
+                "max_sampling_steps_per_replicate": 8_000_000,
+                "max_instances": 100_000,
+                "max_output_bytes": 64 << 20,
+            },
+            "trackers": counts,
+            "method": {"kind": "static_direct"},
+        },
+    ).simulate()
+    require(
+        restored.metadata["sampler"]
+        == released.metadata["sampler"]
+        == "chacha8-u53/rules-static-direct/1"
+        and result_bytes(restored) == result_bytes(released)
+        and restored.paths.equals(released.paths)
+        and restored.observations == released.observations,
+        "explicit options reproduce the 0.3.0 static_direct numbers",
+    )
+    # Without an eligible tracker the default is silent.
+    quiet = rules.ensemble(
+        model,
+        method="static_direct",
+        **(
+            base
+            | {"trackers": [{"observable": "mutants", "first_passage": "mutants >= 2"}]}
+        ),
+    ).simulate()
+    require(
+        quiet.metadata["sampler"] == "chacha8-u53-ziggurat/rules-static-direct/1"
+        and not quiet.metadata["diagnostics"],
+        "static_direct without an eligible tracker",
+    )
+
     # The documented mtdna_direct fallback: a stop outside the certified form
-    # runs generic Static Direct, with its numbers and a CRN-R051 warning.
+    # runs generic Static Direct as in 0.3.0 (inverse waits, per-event
+    # trackers), with its numbers and a CRN-R051 warning.
     odd = json.loads(model)
     odd["stop"] = "mutants > 2"
     settings = {
@@ -483,7 +559,9 @@ def main():
         "trackers": [{"observable": "mutants"}],
     }
     fell = rules.ensemble(odd, method="mtdna_direct", **settings).simulate()
-    plain = rules.ensemble(odd, method="static_direct", **settings).simulate()
+    plain = rules.ensemble(
+        odd, method=inverse | {"sparse_trackers": False}, **settings
+    ).simulate()
     require(
         fell.metadata["sampler"]
         == plain.metadata["sampler"]
@@ -526,6 +604,9 @@ def main():
                     "frames match the native buffers and metadata",
                     "keep_paths all, True and False",
                     "partial paths and to_xarray",
+                    "static_direct selects the rules-run/0.6 defaults",
+                    "explicit options reproduce the 0.3.0 static_direct numbers",
+                    "static_direct without an eligible tracker",
                     "mtdna_direct fallback equals static_direct",
                     "event and batch delivery",
                     "event and tracker array views",

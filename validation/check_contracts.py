@@ -93,7 +93,9 @@ def main():
             "rules",
         ]
         and capabilities["dynamic_species"]["model"] == "crn-craft.rules-model/0.1"
-        and capabilities["schema"] == "crn-craft.describe/0.12",
+        and capabilities["schema"] == "crn-craft.describe/0.13"
+        and capabilities["dynamic_species"]["accepted_requests"][-1]
+        == "crn-craft.rules-run/0.6",
     )
 
     examples = ROOT / "models/examples"
@@ -163,7 +165,8 @@ def main():
 
     # rules-model/0.3 through the CLI: a hybrid run of the continuous ATP
     # model (rules-run/0.5, rules-result/0.3), its refusal by Static Direct,
-    # and a whole-rule propensity under Static Direct (rules-result/0.2).
+    # and a whole-rule propensity under Static Direct (rules-result/0.2, and
+    # rules-result/0.3 with the Ziggurat default of rules-run/0.6).
     with tempfile.TemporaryDirectory(prefix="crn-rules-03-") as folder:
         temp = Path(folder)
         atp = temp / "atp.rules.json"
@@ -246,6 +249,13 @@ def main():
                     propensity, "crn-craft.rules-run/0.2", {"kind": "static_direct"}
                 ),
             ),
+            (
+                "rules_run_static_defaults",
+                propensity,
+                request(
+                    propensity, "crn-craft.rules-run/0.6", {"kind": "static_direct"}
+                ),
+            ),
         ]
         for name, model, document in cases:
             validators["rules-model"].validate(json.loads(model.read_text()))
@@ -263,6 +273,23 @@ def main():
                 continue
             validators["rules-result"].validate(report)
             hybrid = name == "rules_run_hybrid_continuous"
+            defaults = name == "rules_run_static_defaults"
+            if hybrid:
+                shape = (
+                    report["method"] == document["method"]
+                    and report["continuous"] == ["ATP"]
+                    and report["observables"][-1] == "ATP"
+                )
+            elif defaults:
+                # The result echoes the request; the identity names the waits.
+                shape = (
+                    report["method"] == document["method"]
+                    and "continuous" not in report
+                    and report["sampler"]
+                    == "chacha8-u53-ziggurat/rules-static-direct/1"
+                )
+            else:
+                shape = "method" not in report and "continuous" not in report
             record(
                 name,
                 code == 0
@@ -270,16 +297,10 @@ def main():
                 and report["schema"]
                 == (
                     "crn-craft.rules-result/0.3"
-                    if hybrid
+                    if hybrid or defaults
                     else "crn-craft.rules-result/0.2"
                 )
-                and (
-                    report["method"] == document["method"]
-                    and report["continuous"] == ["ATP"]
-                    and report["observables"][-1] == "ATP"
-                    if hybrid
-                    else "method" not in report and "continuous" not in report
-                ),
+                and shape,
             )
 
     invalid = ROOT / "models/invalid"

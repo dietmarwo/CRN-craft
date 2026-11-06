@@ -1,0 +1,19 @@
+{
+  "v01-tree.run.json": "5bfcccc80e6983d00c2761bda254c4b5765bbbef3b4537f937b322380ae45bcb",
+  "v02-next-reaction.run.json": "54d11206fbbf6ff00ff23a6e18daaefe8ab9e5ae15089e736707ec5011f6fc5d",
+  "v02-static-direct.run.json": "c6c4f6413c24c7d3f0462b5f2eabbc1f3e4d6d2175b12d2faf8cc80571d0dd9a",
+  "v02-tau.run.json": "3644c4e71ef89632da6917a42164eb88003ae3d9d189da36d998ec4f73bdbedb",
+  "v02-tree-trackers.run.json": "02857e80a26d124d4460fc2196ad4fde7e39d359498274372b2774eedebe1ce4",
+  "v03-mtdna-direct.run.json": "def59ef095554b503848389b235254f231175bca8ec95433feefcfe8717067ac",
+  "v03-static-direct.run.json": "42f8beadb7c64a6b798309a1e9a009699c320b3bdc354b81bddc86dd6948ccf5",
+  "v04-inverse-dense.run.json": "2464a6a426d6a04a0993ddce3b6a6066350b20c57ec4b685d6952f020c046e1e",
+  "v04-sparse-ineligible.run.json": "9528944a441d6567acdd31bca17ff09f05b0f1f6aa6b601f95a234864afaa14a",
+  "v04-sparse.run.json": "1c4aa892874993085ecad0a44467e06f22d6a97ee86cdcfbb220c368edf3742a",
+  "v04-static-direct.run.json": "6ed12c3cca70c30180dc9acc0a1539db6f3df67e0b45a4e7272a05d9f3a2dfa2",
+  "v04-ziggurat.run.json": "f9acd8d1265a08525e6fb57995980da340632b7bfa189cf040d5839399ce9253",
+  "v05-hybrid.run.json": "ffd6f244c745b90cec7715426ff1b2dfebbfa2f032cbae22b17f93467d6ce754",
+  "v05-mtdna-direct.run.json": "fab3b62fa02c2d97755424f6a9ecdaf1e0f2735ef639ae3fb7b23c426cf0062c",
+  "v05-static-direct-no-trackers.run.json": "2d976568438ac5d0b412b6ee0db99f718c5a9d610fb4d0f92f17bdb51556bce8",
+  "v05-static-direct.run.json": "fa47b4ebcf62e9e76be1560673261c8610a91e8c71d0183909ca1ebf294ca359",
+  "v05-ziggurat-sparse.run.json": "6e86641be017844ab238c7952f607971bc59edc5dc8b3d2b2c7cd6753622e145"
+}

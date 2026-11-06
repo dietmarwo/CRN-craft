@@ -158,7 +158,7 @@ pandas DataFrames.
 
 Most examples pass `method="mtdna_direct"`, an opt-in fast path for the
 three-class structure of this model (section 8). `method="static_direct"`
-runs the same model, and any other closed model, about 3.9× slower; the
+runs the same model, and any other closed model, about 3.3× slower; the
 numbers then differ cell by cell but not in distribution.
 
 ```python
@@ -489,10 +489,12 @@ The integral divided by the observed time is the time-averaged count. For
 `advantaged_mutants` above, it is the average number of advantaged
 molecules per hour lived.
 
-For plain count trackers, Static Direct offers sparse integration
-(`{"kind": "static_direct", "sparse_trackers": True}`), and `mtdna_direct`
-does it automatically: an integral is advanced only when its class changes.
-The last bits of an integral can then differ from per-event integration.
+For plain count trackers (an unweighted class count without a
+first-passage predicate), `"static_direct"` and `mtdna_direct` integrate
+sparsely: an integral is advanced only when its class changes. The last
+bits of an integral can then differ from per-event integration.
+`{"kind": "static_direct", "sparse_trackers": False}` integrates at every
+event, as Static Direct did in release 0.3.0.
 
 ## 7. Exact event records: logs and callbacks
 
@@ -530,13 +532,14 @@ print("cell 0 mutation days:", (cell["time"] / 24).round(1).tolist())
 ```
 
 ```text
-logged mutation events: {'mutation_mt': 157, 'mutation_mtAdv': 40}
+logged mutation events: {'mutation_mt': 166, 'mutation_mtAdv': 39}
 omitted (log full): 0
                time  rule       rule_name      N  mutants
 entry                                                    
-0       7762.480758     2     mutation_mt  997.0      1.0
-1      17858.018331     3  mutation_mtAdv  999.0      1.0
-cell 0 mutation days: [323.4, 744.1]
+0       1442.924093     2     mutation_mt  995.0      1.0
+1       7745.901298     2     mutation_mt  997.0      1.0
+2      17740.229245     3  mutation_mtAdv  998.0      1.0
+cell 0 mutation days: [60.1, 322.7, 739.2]
 ```
 
 A *live callback* is a Python function called for every committed event of
@@ -581,15 +584,15 @@ print("their stop days:", days.round(1).to_numpy())
 ```
 
 ```text
-events seen by the callback: 2512850
-cells stopped at their first advantaged mutation: 7
-their stop days: [ 744.1  364.2  914.2  232.4   47.8 1061.3  747.2]
+events seen by the callback: 2770371
+cells stopped at their first advantaged mutation: 5
+their stop days: [739.2 672.8 574.3 938.7 914.1]
 ```
 
-Both runs use Static Direct with seed 4. Cell 0's mutation days in the log
-(323.4 and 744.1) reappear as the stop day of a cell stopped at its first
-advantaged mutation. An observer reads the same events; it does not change
-them.
+Both runs use Static Direct with seed 4. Cell 0's advantaged mutation in
+the log, on day 739.2, reappears as its stop day in the callback run, which
+stopped it at that first advantaged mutation. An observer reads the same
+events; it does not change them.
 
 Rules for observation:
 
@@ -615,8 +618,8 @@ depends on mtDNA or on the names in a model:
 
 | `method` | Kind | Scope | Use it for |
 | --- | --- | --- | --- |
-| `"static_direct"` | exact | closed models (a fixed set of attribute vectors) | the default for most work |
-| `{"kind": "static_direct", "waiting_time": "ziggurat", "sparse_trackers": True}` | exact | closed models | Static Direct with faster waiting times and sparse count trackers; its own replay identity |
+| `"static_direct"` | exact | closed models (a fixed set of attribute vectors) | the default for most work; Ziggurat waiting times and sparse count trackers (rules-run/0.6) |
+| `{"kind": "static_direct", "waiting_time": "inverse", "sparse_trackers": False}` | exact | closed models | the Static Direct of release 0.3.0: inverse waiting times and per-event trackers; reproduces its numbers |
 | `"next_reaction"` | exact | closed models | Gibson–Bruck; pays off in large sparse networks, not here, where every event changes every rate |
 | `None` (tree) | exact | every model without an ATP block or continuous variables | models whose instances change identity, such as the clone model |
 | `{"kind": "tau", "epsilon": 0.03}` | approximate | closed models | adaptive Poisson leaps; at K = 1000 the vacancy limits leaps, so it runs exact events |
@@ -627,7 +630,7 @@ Two methods serve one model structure each:
 
 | `method` | Kind | Use it for |
 | --- | --- | --- |
-| `"mtdna_direct"` | exact | an opt-in fast path for the three-class fixed-population structure, about 3.9× faster than Static Direct; other models fall back to Static Direct (below) |
+| `"mtdna_direct"` | exact | an opt-in fast path for the three-class fixed-population structure, about 3.3× faster than Static Direct; other models fall back to Static Direct with inverse waits (below) |
 | `"thinning"` | exact | stored models with the legacy ATP block (section 10), and only those |
 
 The same 64 cells under each method that runs the three-class model:
@@ -645,7 +648,11 @@ model["stop"] = "N > 0 && mutants >= 0.9 * N"
 methods = {
     "tree": None,
     "static_direct": "static_direct",
-    "static_direct, ziggurat": {"kind": "static_direct", "waiting_time": "ziggurat"},
+    "static_direct, inverse": {
+        "kind": "static_direct",
+        "waiting_time": "inverse",
+        "sparse_trackers": False,
+    },
     "next_reaction": "next_reaction",
     "tau (epsilon 0.03)": {"kind": "tau", "epsilon": 0.03},
     "binomial (1 h steps)": {"kind": "binomial", "step": 1.0},
@@ -678,23 +685,26 @@ for label, method in methods.items():
 
 
 ```text
-tree                       2.58 s    9,167,872 events  taken over  6  final mutant fraction 0.097  chacha8-u53/rules-direct/2
-static_direct              0.72 s    9,180,176 events  taken over  8  final mutant fraction 0.144  chacha8-u53/rules-static-direct/1
-static_direct, ziggurat    0.56 s    8,861,769 events  taken over 10  final mutant fraction 0.164  chacha8-u53-ziggurat/rules-static-direct/1
-next_reaction              1.03 s    9,226,649 events  taken over  7  final mutant fraction 0.105  chacha8-u53/rules-next-reaction/1
-tau (epsilon 0.03)         4.08 s    9,225,966 events  taken over  5  final mutant fraction 0.108  chacha8-u53/rules-approximate-cgp-poisson/2
-binomial (1 h steps)       0.68 s    9,158,734 events  taken over  6  final mutant fraction 0.088  chacha8-u53/rules-approximate-binomial-split/2
-hybrid                     1.62 s    9,181,653 events  taken over  8  final mutant fraction 0.144  chacha8-u53/rules-approximate-hybrid-dopri54/1
-mtdna_direct (opt-in)      0.18 s    8,969,870 events  taken over  8  final mutant fraction 0.122  chacha8-u53-ziggurat/rules-mtdna-direct/1
+tree                       1.56 s    9,167,872 events  taken over  6  final mutant fraction 0.097  chacha8-u53/rules-direct/2
+static_direct              0.37 s    8,861,769 events  taken over 10  final mutant fraction 0.164  chacha8-u53-ziggurat/rules-static-direct/1
+static_direct, inverse     0.40 s    9,180,176 events  taken over  8  final mutant fraction 0.144  chacha8-u53/rules-static-direct/1
+next_reaction              0.62 s    9,226,649 events  taken over  7  final mutant fraction 0.105  chacha8-u53/rules-next-reaction/1
+tau (epsilon 0.03)         2.34 s    9,225,966 events  taken over  5  final mutant fraction 0.108  chacha8-u53/rules-approximate-cgp-poisson/2
+binomial (1 h steps)       0.39 s    9,158,734 events  taken over  6  final mutant fraction 0.088  chacha8-u53/rules-approximate-binomial-split/2
+hybrid                     1.56 s    9,181,653 events  taken over  8  final mutant fraction 0.144  chacha8-u53/rules-approximate-hybrid-dopri54/1
+mtdna_direct (opt-in)      0.12 s    8,969,870 events  taken over  8  final mutant fraction 0.122  chacha8-u53-ziggurat/rules-mtdna-direct/1
 ```
 
 The takeover counts differ because each method uses the random stream
 differently. With 64 cells, 5 to 10 takeovers are within sampling error of
-each other. The approximate methods are statistically close here but are
+each other. `"static_direct"` draws Ziggurat waiting times;
+`static_direct, inverse` is the Static Direct of release 0.3.0 and gives
+its numbers. The approximate methods are statistically close here but are
 labeled as approximations in their sampler identity. Without continuous
-variables, `hybrid` uses the random stream as Static Direct does: the same
-cells take over at nearly the same times, and its event times differ only
-by rounding, so paths drift apart over many events. It costs more per
+variables, `hybrid` uses the random stream as Static Direct with inverse
+waits does: the same cells take over at nearly the same times, and its
+event times differ only by rounding, so paths drift apart over many
+events. It costs more per
 event, since it integrates between events. The
 [performance analysis](mtdna-performance-analysis.md) compares the methods
 at full scale.
@@ -731,9 +741,10 @@ Direct does, and certifies that:
 
 The certificate holds for one model and one parameter set:
 `bind_parameters` certifies each candidate again. If a check fails, the
-run uses generic Static Direct. `metadata["sampler"]` is then
-`chacha8-u53/rules-static-direct/1`, the numbers equal those of
-`method="static_direct"`, and a `CRN-R051` warning in
+run uses generic Static Direct with inverse waits and per-event trackers.
+`metadata["sampler"]` is then `chacha8-u53/rules-static-direct/1`, the
+numbers equal those of `{"kind": "static_direct", "waiting_time":
+"inverse", "sparse_trackers": False}`, and a `CRN-R051` warning in
 `metadata["diagnostics"]` names the failed check. A model that cannot be
 lowered at all, such as the clone model, is rejected with `CRN-R020`, as
 by every method except the tree.
@@ -748,8 +759,9 @@ integrate sparsely (section 6).
 
 What it gains: it computes the eight hazards from three counts with one
 division and reads its stop from the counts. On the three-class model
-that is about 3.9× less time per event than Static Direct, and 3.3× less
-than Static Direct with Ziggurat waits and sparse trackers
+that is about 3.3× less time per event than Static Direct with its
+default Ziggurat waits and sparse trackers, and 3.9× less than Static
+Direct with inverse waits
 ([performance analysis](mtdna-performance-analysis.md#2-methods)).
 
 The structure need not be called mtDNA. Below, three strains share `room`
@@ -838,9 +850,9 @@ print([d["message"] for d in result.metadata["diagnostics"]])
 ```
 
 ```text
-static_direct   1.19 s  variants took over: 0.432  chacha8-u53/rules-static-direct/1
-mtdna_direct    0.36 s  variants took over: 0.427  chacha8-u53-ziggurat/rules-mtdna-direct/1
-mtdna_direct    1.13 s  variants took over: 0.434  chacha8-u53/rules-static-direct/1
+static_direct   1.09 s  variants took over: 0.421  chacha8-u53-ziggurat/rules-static-direct/1
+mtdna_direct    0.34 s  variants took over: 0.427  chacha8-u53-ziggurat/rules-mtdna-direct/1
+mtdna_direct    1.11 s  variants took over: 0.434  chacha8-u53/rules-static-direct/1
 ['mtdna_direct ran Static Direct: degradation is not one constant rate shared by all classes']
 ```
 
@@ -1227,10 +1239,10 @@ Model('sir': 3 species, 2 reactions)
          I      R      S
 time                    
 0.0   10.0    0.0  490.0
-20.0  91.2   86.4  322.4
-40.0  87.7  296.7  115.7
-60.0  28.4  405.7   66.0
-events per cell: {'infection': 424.046, 'recovery': 405.666}
+20.0  90.9   86.1  323.0
+40.0  87.4  295.0  117.6
+60.0  28.7  404.4   66.9
+events per cell: {'infection': 423.065, 'recovery': 404.412}
 ```
 
 The calls:
@@ -1562,8 +1574,10 @@ The request versions decide which fields are allowed:
 | `crn-craft.rules-run/0.3` | `mtdna_direct` |
 | `crn-craft.rules-run/0.4` | Static Direct `waiting_time` and `sparse_trackers` |
 | `crn-craft.rules-run/0.5` | `hybrid` with its `rtol` and `atol`; the result is rules-result/0.3, which adds `method` and `continuous` |
+| `crn-craft.rules-run/0.6` | no field; Static Direct defaults to Ziggurat waits and sparse trackers; the result is rules-result/0.3 |
 
-`rules.ensemble` picks the lowest version that fits its arguments.
+`rules.ensemble` picks the lowest version that fits its arguments, and
+rules-run/0.6 for `static_direct`.
 `rules.prepare(model, request)` takes a request you wrote yourself. Stored
 requests of every earlier version keep their meaning and replay
 byte-identically.
@@ -1686,7 +1700,7 @@ Result metadata:
 | `statistics` | `mean`, `sample_variance`, `mean_standard_error`, `samples` (also `result.statistics`) |
 | `paths`, `final_instances`, `observations` | kept series, kept instances, and (with trackers or a log) trackers and logs |
 | `model_sha256`, `run_sha256`, `root_seed` | provenance |
-| `method`, `continuous` | with `hybrid` (rules-result/0.3): the method with its tolerances, and the names of the continuous columns |
+| `method`, `continuous` | rules-result/0.3 (`hybrid`, `static_direct`): the request's method, with the tolerances of `hybrid`, and the names of the continuous columns |
 
 Terminations, the categories of `records["termination"]` in the order of
 `rules.TERMINATIONS`: `completed`, `stopped`, `event_limit`,

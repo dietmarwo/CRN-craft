@@ -1,7 +1,9 @@
 # Python builder and whole-rule propensities: validation
 
 Script: `validation/check_builder.py` (installed wheel; rebop 0.10.0 optional).
-Report: `validation/builder/builder-checks.json`, identical under `python -O`.
+Reports: `validation/builder/builder-checks.json` (first run) and
+`validation/builder/builder-checks-static-direct-defaults.json` (second run,
+rules-run/0.6 defaults), each identical under `python -O`.
 
 ## Protocol (declared before the first run)
 
@@ -60,6 +62,38 @@ Rows 17–18 show the documented convention: a builder rate of 2k on `A + A`
 reproduces rebop's k. With rate k instead, A(1) would be near
 100/(1 + 100·0.01) = 50 rather than 33.5 (deterministic limit), a difference
 of more than a hundred standard errors; this alternative was not run.
+
+## Second run: rules-run/0.6 Static Direct defaults
+
+Since rules-run/0.6, `method="static_direct"` in Python runs Ziggurat waits
+and sparse trackers (no trackers here), so the same protocol and seeds draw
+other samples. Rerun 2026-11-06 on the 2-vCPU development container with
+rebop 0.10.0, unchanged in tests, sizes, seeds and alpha. **18 of 18 tests
+and 3 of 3 checks passed.** The largest |z| is 1.54 against z* = 4.03.
+The first run stays above as recorded; the explicit options
+`{"kind": "static_direct", "waiting_time": "inverse", "sparse_trackers": False}`
+reproduce its samples.
+
+| # | Test | Estimate | Expected or other arm | Standard error | z | Outcome |
+|---|---|---|---|---|---|---|
+| 1 | `birth_death_numeric_mean_A_10` | 10.0585 | 9.9995 | 0.0500 | +1.18 | pass |
+| 2 | `birth_death_string_mean_A_10` | 10.0698 | 9.9995 | 0.0500 | +1.40 | pass |
+| 3 | `michaelis_menten_mass_action_mean_P_20` | 56.2602 | 56.3265 | 0.0979 | -0.68 | pass |
+| 4 | `michaelis_menten_propensity_mean_P_10` | 26.5587 | 26.6667 | 0.0816 | -1.32 | pass |
+| 5 | `sir_json_vs_builder_S_10` | 440.4183 | 440.0230 | 0.4278 | +0.92 | pass |
+| 6 | `sir_json_vs_builder_I_10` | 38.1003 | 38.4633 | 0.3325 | -1.09 | pass |
+| 7 | `sir_json_vs_builder_S_20` | 323.1363 | 321.6965 | 1.1079 | +1.30 | pass |
+| 8 | `sir_json_vs_builder_I_20` | 91.2095 | 92.0060 | 0.6073 | -1.31 | pass |
+| 9 | `sir_json_vs_builder_S_40` | 115.2625 | 115.0720 | 0.7953 | +0.24 | pass |
+| 10 | `sir_json_vs_builder_I_40` | 87.8738 | 87.3298 | 0.3539 | +1.54 | pass |
+| 11 | `sir_json_vs_rebop_S_10` | 440.4183 | 439.9885 | 0.4335 | +0.99 | pass |
+| 12 | `sir_json_vs_rebop_I_10` | 38.1003 | 38.4008 | 0.3347 | -0.90 | pass |
+| 13 | `sir_json_vs_rebop_S_20` | 323.1363 | 321.9558 | 1.1148 | +1.06 | pass |
+| 14 | `sir_json_vs_rebop_I_20` | 91.2095 | 91.8782 | 0.6103 | -1.10 | pass |
+| 15 | `sir_json_vs_rebop_S_40` | 115.2625 | 115.1573 | 0.7915 | +0.13 | pass |
+| 16 | `sir_json_vs_rebop_I_40` | 87.8738 | 87.5355 | 0.3538 | +0.96 | pass |
+| 17 | `dimer_builder_2k_vs_rebop_k_A_0.5` | 50.3335 | 50.1925 | 0.1226 | +1.15 | pass |
+| 18 | `dimer_builder_2k_vs_rebop_k_A_1` | 33.5490 | 33.5565 | 0.1048 | -0.07 | pass |
 
 Limitations: the tests compare means at three or fewer times, not whole
 distributions; the exact-law gates of the rules engine

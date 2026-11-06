@@ -53,7 +53,10 @@ const OPERATORS: &[u8] = include_bytes!("generated/loop_stop_operators.rules.jso
 const PLAIN: &[u8] = include_bytes!("../../../models/rules/mtdna-three-class.rules.json");
 
 const DEFAULT: (&str, &str) = ("crn-craft.rules-run/0.2", r#"{"kind": "static_direct"}"#);
-const METHODS: [(&str, &str); 4] = [
+/// Every waiting-time and tracker policy, including the rules-run/0.6
+/// defaults (Ziggurat waits, sparse trackers where eligible) and the explicit
+/// options that restore the earlier default.
+const METHODS: [(&str, &str); 6] = [
     DEFAULT,
     (
         "crn-craft.rules-run/0.4",
@@ -66,6 +69,11 @@ const METHODS: [(&str, &str); 4] = [
     (
         "crn-craft.rules-run/0.4",
         r#"{"kind": "static_direct", "waiting_time": "ziggurat", "sparse_trackers": true}"#,
+    ),
+    ("crn-craft.rules-run/0.6", r#"{"kind": "static_direct"}"#),
+    (
+        "crn-craft.rules-run/0.6",
+        r#"{"kind": "static_direct", "waiting_time": "inverse", "sparse_trackers": false}"#,
     ),
 ];
 

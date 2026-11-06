@@ -1,7 +1,7 @@
 # Dynamic, attributed species: the rules language
 
 **Status:** experimental. Contracts `crn-craft.rules-model/0.1` to `0.3`,
-`crn-craft.rules-check/0.1`, `crn-craft.rules-run/0.1` to `0.5`,
+`crn-craft.rules-check/0.1`, `crn-craft.rules-run/0.1` to `0.6`,
 `crn-craft.rules-result/0.1` to `0.3`; crate `crn-craft-rules`; CLI
 `rules-check` and `rules`; Python `crn_craft.rules`. This page describes the
 0.1 language and the `tree` method; [mtDNA ensembles](mtdna-rules.md) covers
@@ -371,7 +371,7 @@ or stopped.
 | CRN-R031 | weight below 53-bit resolution (Static Direct: a channel below 2⁻⁵³ of the total) |
 | CRN-R040–R045 | event, sampling, instance (including a count above 2⁵³), wall-time, cancellation and output limits |
 | CRN-R050 | warning: incomplete ensemble, statistics withheld |
-| CRN-R051 | warning: a requested specialization did not apply (`mtdna_direct` could not certify the model and ran Static Direct, or `sparse_trackers` found no eligible tracker); the message gives the reason |
+| CRN-R051 | warning: a requested specialization did not apply (`mtdna_direct` could not certify the model and ran Static Direct, or an explicit `sparse_trackers: true` found no eligible tracker; the rules-run/0.6 default does not warn); the message gives the reason |
 
 ## Validation (K1)
 
@@ -408,4 +408,9 @@ Direct and next reaction, approximate leaps, and ATP thinning. See the
 [mtDNA rules guide](mtdna-rules.md) for rules-run/0.2–0.4, rules-result/0.2 and rules-model/0.2, examples,
 supported model shapes and validation commands. rules-run/0.5 adds `hybrid`
 and returns rules-result/0.3 (0.2 plus `method` and `continuous`); see
-[continuous variables](#continuous-variables-rules-model03).
+[continuous variables](#continuous-variables-rules-model03). rules-run/0.6
+adds no field: `static_direct` defaults to Ziggurat waits and sparse
+integration of eligible count trackers, `waiting_time: "inverse"` with
+`sparse_trackers: false` restores the 0.5 default, and the result is
+rules-result/0.3
+([Static Direct options](mtdna-rules.md#generic-static-direct-options)).

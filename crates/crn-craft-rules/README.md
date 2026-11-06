@@ -32,10 +32,11 @@ complete, runnable example.
 
 - **Contracts:** `crn-craft.rules-model/0.1`, `0.2` (the legacy ATP block)
   and `0.3` (whole-rule `propensity` and `continuous` variables),
-  `crn-craft.rules-check/0.1`, `crn-craft.rules-run/0.1` to `0.5` (0.5 adds
-  `hybrid` with `rtol` and `atol`) and `crn-craft.rules-result/0.1` to `0.3`
-  (0.3 records the method and the continuous columns). Stored 0.1–0.4
-  requests replay byte-identically. JSON Schemas come from
+  `crn-craft.rules-check/0.1`, `crn-craft.rules-run/0.1` to `0.6` (0.5 adds
+  `hybrid` with `rtol` and `atol`; 0.6 makes Ziggurat waits and sparse
+  count trackers the `static_direct` defaults) and
+  `crn-craft.rules-result/0.1` to `0.3` (0.3 records the method and the
+  continuous columns). Stored 0.1–0.5 requests replay byte-identically. JSON Schemas come from
   `crn_craft_rules::schema`.
 - **Methods:** exact `tree` (dynamic instances), `static_direct`,
   `mtdna_direct` (an opt-in fast path for one model structure, with a

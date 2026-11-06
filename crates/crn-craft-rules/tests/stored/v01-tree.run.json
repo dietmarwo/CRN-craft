@@ -1,0 +1,34 @@
+{
+  "schema": "crn-craft.rules-run/0.1",
+  "model": {
+    "path": "immigration-death.rules.json",
+    "sha256": "287e93bcddf3f7d05b2fbea6a40d06741153bc23b6527f52f929340122bdf3b8"
+  },
+  "time": {
+    "end": 5.0,
+    "report_times": [
+      0.0,
+      1.0,
+      5.0
+    ]
+  },
+  "ensemble": {
+    "replicates": 16,
+    "root_seed": 11
+  },
+  "outputs": {
+    "statistics": [
+      "mean",
+      "variance"
+    ],
+    "keep_paths": 3,
+    "keep_instances": 2
+  },
+  "budget": {
+    "max_events_per_replicate": 1000000,
+    "max_sampling_steps_per_replicate": 10000000,
+    "max_instances": 1,
+    "threads": 2,
+    "max_output_bytes": 16777216
+  }
+}

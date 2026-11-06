@@ -82,10 +82,12 @@ optional ordered `observations`. Rules-run/0.3 adds `mtdna_direct` and 0.4
 the Static Direct options (below); both return rules-result/0.2.
 Rules-run/0.5 adds `hybrid` with its tolerances and returns
 rules-result/0.3, which adds the request's `method` and the names of the
-`continuous` columns. Rules-model/0.2 adds the legacy `atp` block, and
+`continuous` columns. Rules-run/0.6 adds no field: Static Direct defaults
+to Ziggurat waits and sparse trackers (below), and the result is
+rules-result/0.3. Rules-model/0.2 adds the legacy `atp` block, and
 rules-model/0.3 whole-rule `propensity` and `continuous` variables; in 0.3
 a rule gives exactly one of `rate` and `propensity`. Stored rules-model
-0.1/0.2 files and rules-run 0.1–0.4 requests keep their meaning and replay
+0.1/0.2 files and rules-run 0.1–0.5 requests keep their meaning and replay
 byte-identically. Each backend has its own replay identity. Worker count
 preserves a completed numerical payload apart from its request hash.
 
@@ -272,9 +274,7 @@ The end-to-end comparison used the original Java classes.
 
 ### Generic Static Direct options
 
-Existing `static_direct` requests keep inverse-transform waits, the same
-sampler identity and per-event tracker integration. Rules-run/0.4 accepts
-two independent opt-ins in the method object.
+Static Direct has two options in the method object, from rules-run/0.4:
 
 ```json
 {
@@ -284,21 +284,43 @@ two independent opt-ins in the method object.
 }
 ```
 
-The Python rules helper selects rules-run/0.4 for this method dictionary.
-Rust callers constructing `Method::StaticDirect` use the struct variant
-with `waiting_time: None, sparse_trackers: None` for the previous defaults.
-The result still uses rules-result/0.2. Ziggurat changes the seeded stream
-consumption. Sparse tracking integrates each eligible unweighted single-class
-count over its constant spans. The integral can differ in the last bits
-from per-event integration. First-passage predicates and other projection
-families retain per-event observation. If no tracker is eligible, the run
-reports the default sampler identity and a `CRN-R051` warning. Attaching a Continue observer or an
-event log leaves the opt-in tracker policy consistent.
+- `waiting_time`: `"inverse"` inverts one uniform per wait; `"ziggurat"`
+  draws it with the Ziggurat sampler, which consumes the seeded stream
+  differently, so the numbers differ cell by cell but not in distribution.
+- `sparse_trackers`: `true` integrates each eligible tracker, an
+  unweighted single-class count without a first-passage predicate, over
+  its constant spans. The integral can differ in the last bits from
+  per-event integration. First-passage predicates and other projection
+  families keep per-event observation. Without an eligible tracker,
+  `true` changes nothing and reports the per-event sampler identity with a
+  `CRN-R051` warning.
 
-On a two-CPU host the opt-in path took about 100–110 ns per event on the
-128-cell probe, against about 35 ns for `mtdna_direct`. Inline factors, a
-fused resolution check, exact incremental projections and a grouped
-evaluator did not change that by 5%, so none was adopted
+What an absent option means depends on the request version:
+
+| Request | Absent `waiting_time` | Absent `sparse_trackers` |
+| --- | --- | --- |
+| rules-run/0.2 to 0.5 | `"inverse"` | `false` |
+| rules-run/0.6 | `"ziggurat"` | sparse where a tracker is eligible, otherwise per-event integration without a warning |
+
+So `{"kind": "static_direct"}` in rules-run/0.6 runs
+`chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1` with eligible
+trackers and `chacha8-u53-ziggurat/rules-static-direct/1` without, and
+`{"kind": "static_direct", "waiting_time": "inverse", "sparse_trackers":
+false}` runs the earlier default with its numbers. The Python rules helper
+selects rules-run/0.6 for every `static_direct` method. Rust callers
+constructing `Method::StaticDirect` with `waiting_time: None,
+sparse_trackers: None` get the defaults of their request's version.
+Attaching a Continue observer or an event log leaves the tracker policy
+consistent. `mtdna_direct`'s fallback keeps inverse waits and per-event
+trackers in every version.
+
+On a two-CPU host Ziggurat waits with sparse trackers took about
+100–110 ns per event on the 128-cell probe, against about 35 ns for
+`mtdna_direct`; on the 1000-cell three-class case they were 1.17× faster
+than inverse waits with per-event trackers
+([performance analysis](mtdna-performance-analysis.md#2-methods)). Inline
+factors, a fused resolution check, exact incremental projections and a
+grouped evaluator did not change that by 5%, so none was adopted
 ([decision record](decisions/generic-rules-structural-2026-11-03.md)).
 From Rust, a generated event loop runs the same requests with
 byte-identical results at about 48 ns per event, whether the stop

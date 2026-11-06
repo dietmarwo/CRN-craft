@@ -7,12 +7,81 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+Static Direct gets faster defaults in a new request version. Stored
+rules-model 0.1–0.3 files and rules-run 0.1–0.5 requests keep their meaning
+and replay byte-identically; Python's `method="static_direct"` now samples
+with a different use of the random stream (see **Migration**).
+
+### Added
+
+- `crn-craft.rules-run/0.6`: the fields of 0.5, with new `static_direct`
+  defaults. An absent `waiting_time` selects Ziggurat waits, and an absent
+  `sparse_trackers` integrates every eligible tracker (an unweighted
+  single-class count without a first-passage predicate) over its constant
+  spans; without an eligible tracker the run integrates per event and does
+  not warn. Explicit `waiting_time: "inverse"` and `sparse_trackers: false`
+  restore the 0.5 default; an explicit `sparse_trackers: true` without an
+  eligible tracker still warns with `CRN-R051`. The result is
+  rules-result/0.3, whose shape is unchanged; its `method` echoes the
+  request, and `sampler` names what ran. Every other method, including
+  `hybrid` and the Static Direct fallback of `mtdna_direct` (inverse waits,
+  per-event trackers), runs as under 0.5. The rules-run schema gains 0.6.
+- On the 1000-cell three-class case of `examples/mtdna/performance.py`
+  (two threads, two count trackers), the 0.6 default took 41.6 ns per event
+  against 48.8 for the 0.5 default, 1.17× faster against a declared 1.10×
+  target (`validation/mtdna/static-direct-defaults-timing.json`). It passed
+  the K = 20 master-equation gate of the Ziggurat sampler with and without
+  eligible trackers, and the worker-replay and event-log integral checks
+  (`validation/mtdna/gates-static-direct-defaults.json`,
+  [log](docs/campaign/static-direct-defaults-log-2026-11-06.md)).
+- Discovery: the rules entry of the native CLI's `describe` gains
+  `accepted_requests` (rules-run/0.1 to 0.6) and
+  `static_direct_defaults_request`, so the native CLI reports
+  `crn-craft.describe/0.13`; core and Python `describe/0.10` are unchanged.
+- Tests: stored requests of every version from 0.1 to 0.5 replay to recorded
+  result hashes (`crates/crn-craft-rules/tests/stored`); the generated event
+  loop and kernel replay the 0.6 default byte for byte.
+- `validation/check_mtdna.py --section generic` runs only the Ziggurat and
+  sparse-tracker gate; `validation/benchmark_static_direct_defaults.py`
+  times the two defaults.
+
 ### Changed
 
 - CI: `retry-runner-shortage.yml` reruns the failed jobs of a release or CI
   run when every job that did not succeed was cancelled before a runner picked
   it up (hosted macOS arm64 shortage), up to three attempts. A release is no
   longer held back until someone reruns it by hand.
+- Python: `rules.ensemble` writes rules-run/0.6 for `static_direct`, given
+  as a name or as a dictionary; options a dictionary leaves out take the 0.6
+  defaults. Results carry `metadata["method"]` (rules-result/0.3).
+  `rules.prepare` keeps the version of the request it is given.
+- Rust: `RunVersion` gains `V06`; code that matches it exhaustively needs a
+  new arm. A `Method::StaticDirect { waiting_time: None, sparse_trackers:
+  None }` means the defaults of its request's version.
+- The mtDNA user manual, the performance analysis, the rules guides and the
+  READMEs describe the new defaults; the manual examples that use
+  `static_direct` show their new output.
+
+### Migration
+
+- **Python `static_direct` results change.** The same seed gives other
+  cell-by-cell numbers, with the same distribution: sampler
+  `chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1` with an
+  eligible tracker, `chacha8-u53-ziggurat/rules-static-direct/1` without.
+  Tracker integrals can also differ in their last bits. To reproduce the
+  numbers of 0.3.0, pass
+  `method={"kind": "static_direct", "waiting_time": "inverse", "sparse_trackers": False}`;
+  the sampler is then `chacha8-u53/rules-static-direct/1` again. The result
+  document is rules-result/0.3 instead of 0.2 and adds `method`; frames,
+  paths and observations equal those of 0.3.0.
+- **JSON and Rust requests** of rules-run/0.1 to 0.5 are unchanged. A
+  request moved to 0.6 without options gets the new defaults; add
+  `"waiting_time": "inverse", "sparse_trackers": false` to keep the old
+  numbers.
+- **`mtdna_direct` fallback.** A model `mtdna_direct` does not certify still
+  runs Static Direct with inverse waits and per-event trackers. Its numbers
+  equal those of the explicit options above, no longer those of Python's
+  `method="static_direct"`.
 
 ## [0.3.0] - 2026-11-06
 

@@ -10,7 +10,11 @@ model["stop"] = "N > 0 && mutants >= 0.9 * N"
 methods = {
     "tree": None,
     "static_direct": "static_direct",
-    "static_direct, ziggurat": {"kind": "static_direct", "waiting_time": "ziggurat"},
+    "static_direct, inverse": {
+        "kind": "static_direct",
+        "waiting_time": "inverse",
+        "sparse_trackers": False,
+    },
     "next_reaction": "next_reaction",
     "tau (epsilon 0.03)": {"kind": "tau", "epsilon": 0.03},
     "binomial (1 h steps)": {"kind": "binomial", "step": 1.0},

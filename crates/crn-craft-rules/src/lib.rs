@@ -113,9 +113,10 @@
 //! | `crn-craft.rules-run/0.3` | [`RunRequest`] | 0.2 plus the `mtdna_direct` method |
 //! | `crn-craft.rules-run/0.4` | [`RunRequest`] | 0.3 plus the Static Direct options `waiting_time` and `sparse_trackers` |
 //! | `crn-craft.rules-run/0.5` | [`RunRequest`] | 0.4 plus the `hybrid` method and its tolerances |
+//! | `crn-craft.rules-run/0.6` | [`RunRequest`] | 0.5 with new Static Direct defaults: Ziggurat waits, and sparse integration of every eligible tracker |
 //! | `crn-craft.rules-result/0.1` | [`RulesResult`] | Result of a rules-run/0.1 request |
 //! | `crn-craft.rules-result/0.2` | [`RulesResult`] | Result of a rules-run/0.2–0.4 request, with `observations` |
-//! | `crn-craft.rules-result/0.3` | [`RulesResult`] | Result of a rules-run/0.5 request: 0.2 plus `method` and `continuous` |
+//! | `crn-craft.rules-result/0.3` | [`RulesResult`] | Result of a rules-run/0.5 or 0.6 request: 0.2 plus `method` and `continuous` |
 //!
 //! # Methods
 //!
@@ -133,7 +134,7 @@
 //! | `kind` | Exact | Scope |
 //! | --- | --- | --- |
 //! | `tree` (default) | yes | Every rules model without ATP or continuous variables; dynamic instances over sum trees |
-//! | `static_direct` | yes | Closed models; options for Ziggurat waits and sparse trackers |
+//! | `static_direct` | yes | Closed models; Ziggurat waits and sparse trackers, opt-in in rules-run/0.4 and 0.5 and the default from 0.6 |
 //! | `mtdna_direct` | yes | The fixed three-class vacancy model; falls back to Static Direct with `CRN-R051` |
 //! | `next_reaction` | yes | Closed models, with indexed clocks ([DOI 10.1021/jp993732q](https://doi.org/10.1021/jp993732q)) |
 //! | `thinning` | yes | Required by, and only for, rules-model/0.2 models with ATP |
@@ -361,9 +362,12 @@ impl Control {
 
 /// The version of a run request, its `schema` field.
 ///
-/// Each version adds fields to the previous one; using a field before its
-/// version is `CRN-R020` at `/schema`. Version 0.1 returns rules-result/0.1,
-/// versions 0.2 to 0.4 rules-result/0.2 and 0.5 rules-result/0.3.
+/// Versions 0.2 to 0.5 each add fields to the previous one; using a field
+/// before its version is `CRN-R020` at `/schema`. Version 0.6 adds no field:
+/// it changes what an absent `static_direct` option means (Ziggurat waits,
+/// sparse trackers where eligible), and a stored request of an earlier
+/// version keeps its meaning. Version 0.1 returns rules-result/0.1, versions
+/// 0.2 to 0.4 rules-result/0.2, and 0.5 and 0.6 rules-result/0.3.
 #[derive(
     Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, PartialOrd, Ord,
 )]
@@ -397,6 +401,13 @@ pub enum RunVersion {
     )]
     #[serde(rename = "crn-craft.rules-run/0.5")]
     V05,
+    #[doc = concat!(
+        "`crn-craft.rules-run/0.6`: the fields of 0.5; Static Direct ",
+        "defaults to Ziggurat waits and to sparse integration of every ",
+        "eligible tracker. Returns rules-result/0.3."
+    )]
+    #[serde(rename = "crn-craft.rules-run/0.6")]
+    V06,
 }
 
 /// The simulated horizon and the report grid of a run request.
@@ -465,19 +476,20 @@ pub struct Budget {
     pub max_output_bytes: u64,
 }
 
-/// How Static Direct draws waiting times (rules-run/0.4).
+/// How Static Direct draws waiting times (rules-run/0.4 and later).
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum RulesWaitingTime {
     // Variant docs use `concat!` to stay out of the schema's string enum.
     #[doc = concat!(
-        "Inversion of one open uniform, `-ln(1 - u) / total`; the default."
+        "Inversion of one open uniform, `-ln(1 - u) / total`; the default ",
+        "before rules-run/0.6."
     )]
     Inverse,
     #[doc = concat!(
         "The Ziggurat exponential sampler. It consumes the stream ",
         "differently, so results differ from `inverse` and the sampler ",
-        "identity says `ziggurat`."
+        "identity says `ziggurat`. The default from rules-run/0.6."
     )]
     Ziggurat,
 }
@@ -508,10 +520,12 @@ pub enum Method {
     /// total (`CRN-R031`). Sampler `chacha8-u53/rules-static-direct/1`.
     /// Ziggurat waits change the prefix to `chacha8-u53-ziggurat`, and
     /// effective sparse trackers change the suffix to
-    /// `rules-static-direct-sparse-trackers/1`.
+    /// `rules-static-direct-sparse-trackers/1`. From rules-run/0.6 both are
+    /// the default: `waiting_time: "inverse"` with `sparse_trackers: false`
+    /// runs the default of rules-run/0.5.
     StaticDirect {
-        /// rules-run/0.4 and later; absent selects inverse waits. `null` is
-        /// rejected.
+        /// rules-run/0.4 and later. Absent selects inverse waits before
+        /// rules-run/0.6 and Ziggurat waits from 0.6. `null` is rejected.
         #[serde(
             default,
             deserialize_with = "present",
@@ -523,7 +537,10 @@ pub enum Method {
         /// single-class count trackers without first-passage predicates over
         /// their constant spans, which can change the last bits of an
         /// integral. Without such a tracker it changes nothing and warns
-        /// with `CRN-R051`. `null` is rejected.
+        /// with `CRN-R051`. `false` integrates every tracker at every event.
+        /// Absent means `false` before rules-run/0.6; from 0.6 it integrates
+        /// the eligible trackers sparsely and, without one, runs the
+        /// per-event path without a warning. `null` is rejected.
         #[serde(
             default,
             deserialize_with = "present",
@@ -581,7 +598,7 @@ pub enum Method {
     },
 }
 
-/// A run request: `crn-craft.rules-run/0.1` to `0.5`.
+/// A run request: `crn-craft.rules-run/0.1` to `0.6`.
 ///
 /// It binds one model by hash and states the time grid, the ensemble, the
 /// outputs and an explicit budget. Unknown fields and duplicate keys are
@@ -667,7 +684,7 @@ where
 
 /// The version of a result, its `schema` field: rules-result/0.1 answers a
 /// rules-run/0.1 request, rules-result/0.2 answers rules-run/0.2 to 0.4 and
-/// rules-result/0.3 answers rules-run/0.5.
+/// rules-result/0.3 answers rules-run/0.5 and 0.6.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ResultVersion {
     // Variant docs use `concat!` to stay out of the schema's string enum.
@@ -681,8 +698,8 @@ pub enum ResultVersion {
     #[serde(rename = "crn-craft.rules-result/0.2")]
     V02,
     #[doc = concat!(
-        "`crn-craft.rules-result/0.3`, for rules-run/0.5 requests: 0.2 plus ",
-        "`method` and `continuous`."
+        "`crn-craft.rules-result/0.3`, for rules-run/0.5 and 0.6 requests: ",
+        "0.2 plus `method` and `continuous`."
     )]
     #[serde(rename = "crn-craft.rules-result/0.3")]
     V03,
@@ -967,8 +984,10 @@ pub struct Prepared {
     mtdna: Option<mtdna::Kernel>,
     /// Why `mtdna_direct` runs Static Direct instead, when it does.
     mtdna_fallback: Option<&'static str>,
-    /// `sparse_trackers` was requested but no tracker is eligible.
+    /// `sparse_trackers: true` was requested but no tracker is eligible.
     sparse_unused: bool,
+    /// The request's method with the Static Direct defaults of its version.
+    method: Method,
     compiled: model::Compiled,
     observations: observe::Spec,
     flat: Option<flat::Network>,
@@ -1481,16 +1500,12 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
     }
     let mut sparse_unused = false;
     if let Some(net) = &mut flat {
-        if matches!(
-            request.method,
-            Some(Method::StaticDirect {
-                sparse_trackers: Some(true),
-                ..
-            })
-        ) {
+        let sparse = sparse_request(&request);
+        if sparse != Sparse::Off {
             observations.enable_sparse(net);
-            // No eligible tracker: the run is the default one and says so.
-            sparse_unused = !observations.sparse_effective();
+            // No eligible tracker: the run is the per-event one, and an
+            // explicit request says so.
+            sparse_unused = sparse == Sparse::Required && !observations.sparse_effective();
         }
         net.plan_observables(&compiled, &observations);
     }
@@ -1508,6 +1523,7 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
         mtdna,
         mtdna_fallback,
         sparse_unused,
+        method: effective_method(&request),
         compiled,
         flat,
         observations,
@@ -1515,6 +1531,47 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
         model_sha256,
         run_sha256: crn_craft::sha256(request_bytes),
     })
+}
+
+/// How a request asks for sparse tracker integration on Static Direct.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Sparse {
+    /// Per-event integration of every tracker.
+    Off,
+    /// The rules-run/0.6 default: sparse where eligible, silently.
+    Auto,
+    /// `sparse_trackers: true`: sparse where eligible, `CRN-R051` otherwise.
+    Required,
+}
+
+fn sparse_request(request: &RunRequest) -> Sparse {
+    match request.method {
+        Some(Method::StaticDirect {
+            sparse_trackers: Some(true),
+            ..
+        }) => Sparse::Required,
+        Some(Method::StaticDirect {
+            sparse_trackers: None,
+            ..
+        }) if request.schema >= RunVersion::V06 => Sparse::Auto,
+        _ => Sparse::Off,
+    }
+}
+
+/// The method that runs: the request's method, or `tree`, with an absent
+/// Static Direct `waiting_time` filled in by the default of the request's
+/// version. Every other method is the request's own.
+fn effective_method(request: &RunRequest) -> Method {
+    match request.method.unwrap_or_default() {
+        Method::StaticDirect {
+            waiting_time: None,
+            sparse_trackers,
+        } if request.schema >= RunVersion::V06 => Method::StaticDirect {
+            waiting_time: Some(RulesWaitingTime::Ziggurat),
+            sparse_trackers,
+        },
+        method => method,
+    }
 }
 
 fn workers(request: &RunRequest) -> u64 {
@@ -1930,7 +1987,7 @@ fn execute_inner<O: EventObserver>(
                         generated,
                         generated_loop,
                         mtdna: prepared.mtdna.as_ref(),
-                        method: request.method.unwrap_or_default(),
+                        method: prepared.method,
                         id,
                     };
                     let output = path.run(&mut stream(request.ensemble.root_seed, id), observer);
@@ -2030,43 +2087,36 @@ fn execute_inner<O: EventObserver>(
             "Per-event integration ran; the sampler identity is the default one.",
         ));
     }
-    let method = match request.method.unwrap_or_default() {
-        Method::StaticDirect { waiting_time, .. } if prepared.sparse_unused => {
-            Method::StaticDirect {
-                waiting_time,
-                sparse_trackers: None,
-            }
+    // The identity names what ran: the effective waits, and sparse
+    // integration only where a tracker was eligible.
+    let ziggurat = matches!(
+        prepared.method,
+        Method::StaticDirect {
+            waiting_time: Some(RulesWaitingTime::Ziggurat),
+            ..
         }
-        method => method,
-    };
+    );
+    let sparse = prepared.observations.sparse_effective();
     let mut result = RulesResult {
         schema: match request.schema {
             RunVersion::V01 => ResultVersion::V01,
             RunVersion::V02 | RunVersion::V03 | RunVersion::V04 => ResultVersion::V02,
-            RunVersion::V05 => ResultVersion::V03,
+            RunVersion::V05 | RunVersion::V06 => ResultVersion::V03,
         },
         model_sha256: prepared.model_sha256.clone(),
         run_sha256: prepared.run_sha256.clone(),
-        sampler: match method {
+        sampler: match prepared.method {
             Method::Tree {} => SAMPLER,
             Method::MtdnaDirect {} if prepared.mtdna.is_some() => {
                 "chacha8-u53-ziggurat/rules-mtdna-direct/1"
             }
-            Method::StaticDirect {
-                waiting_time: Some(RulesWaitingTime::Ziggurat),
-                sparse_trackers: Some(true),
-            } => "chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1",
-            Method::StaticDirect {
-                waiting_time: Some(RulesWaitingTime::Ziggurat),
-                ..
-            } => "chacha8-u53-ziggurat/rules-static-direct/1",
-            Method::StaticDirect {
-                sparse_trackers: Some(true),
-                ..
-            } => "chacha8-u53/rules-static-direct-sparse-trackers/1",
-            Method::StaticDirect { .. } | Method::MtdnaDirect {} => {
-                "chacha8-u53/rules-static-direct/1"
-            }
+            Method::StaticDirect { .. } => match (ziggurat, sparse) {
+                (true, true) => "chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1",
+                (true, false) => "chacha8-u53-ziggurat/rules-static-direct/1",
+                (false, true) => "chacha8-u53/rules-static-direct-sparse-trackers/1",
+                (false, false) => "chacha8-u53/rules-static-direct/1",
+            },
+            Method::MtdnaDirect {} => "chacha8-u53/rules-static-direct/1",
             Method::NextReaction {} => "chacha8-u53/rules-next-reaction/1",
             Method::Thinning {} => "chacha8-u53/rules-atp-thinning/1",
             Method::Tau { .. } => "chacha8-u53/rules-approximate-cgp-poisson/2",
@@ -2246,16 +2296,19 @@ pub fn check_model_file(model_path: &Path) -> RulesCheck {
     }
 }
 
-/// Discovery entry for the native CLI's `describe` (`describe/0.12`).
+/// Discovery entry for the native CLI's `describe` (`describe/0.13`).
 ///
 /// The native CLI embeds it as `dynamic_species`; Python's
 /// `crn_craft.rules.describe()` returns it. It names the status, the
-/// commands, the accepted contract versions, the methods (and which of them
-/// are approximate), the tree sampler identity and the model and run limits.
+/// commands, the accepted contract versions (`accepted_models`,
+/// `accepted_requests`), the request version that introduced each option
+/// or default, the methods (and which of them are approximate), the tree
+/// sampler identity and the model and run limits.
 ///
 /// ```
 /// let entry = crn_craft_rules::describe();
 /// assert_eq!(entry["status"], "experimental");
+/// assert_eq!(entry["static_direct_defaults_request"], "crn-craft.rules-run/0.6");
 /// assert!(entry["methods"].as_array().unwrap().contains(&"static_direct".into()));
 /// assert_eq!(entry["limits"]["threads"], crn_craft_rules::MAX_WORKERS);
 /// ```
@@ -2272,6 +2325,11 @@ pub fn describe() -> Value {
         "extended_request": "crn-craft.rules-run/0.2",
         "extended_result": "crn-craft.rules-result/0.2",
         "static_direct_options_request": "crn-craft.rules-run/0.4",
+        "static_direct_defaults_request": "crn-craft.rules-run/0.6",
+        "accepted_requests": [
+            "crn-craft.rules-run/0.1", "crn-craft.rules-run/0.2", "crn-craft.rules-run/0.3",
+            "crn-craft.rules-run/0.4", "crn-craft.rules-run/0.5", "crn-craft.rules-run/0.6"
+        ],
         "mtdna_direct_request": "crn-craft.rules-run/0.3",
         "methods": ["tree", "static_direct", "mtdna_direct", "next_reaction", "tau", "binomial", "thinning", "hybrid"],
         "hybrid_request": "crn-craft.rules-run/0.5",

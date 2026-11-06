@@ -1,0 +1,39 @@
+{
+  "schema": "crn-craft.rules-run/0.5",
+  "model": {
+    "path": "mtdna-three-class-atp-continuous.rules.json",
+    "sha256": "cdec085a4858a03709bb9922b58069524db5f00bcbf9521438fc156f14f62a00"
+  },
+  "time": {
+    "end": 200.0,
+    "report_times": [
+      0.0,
+      100.0,
+      200.0
+    ]
+  },
+  "ensemble": {
+    "replicates": 4,
+    "root_seed": 11
+  },
+  "outputs": {
+    "statistics": [
+      "mean",
+      "variance"
+    ],
+    "keep_paths": 3,
+    "keep_instances": 2
+  },
+  "budget": {
+    "max_events_per_replicate": 1000000,
+    "max_sampling_steps_per_replicate": 10000000,
+    "max_instances": 10,
+    "threads": 2,
+    "max_output_bytes": 16777216
+  },
+  "method": {
+    "kind": "hybrid",
+    "rtol": 1e-06,
+    "atol": 1e-09
+  }
+}

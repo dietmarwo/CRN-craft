@@ -25,7 +25,7 @@
           "type": "integer"
         },
         "max_sampling_steps_per_replicate": {
-          "description": "Random 64-bit words one replicate may draw, counting every word, including product draws; exhausting it ends the replicate with `sampling_limit` (`CRN-R041`).",
+          "description": "Random 64-bit words one replicate may draw, counting every word, including product draws; exhausting it ends the replicate with `sampling_limit` (`CRN-R041`). The leap methods also count their iterations against it, and `hybrid` its integration steps.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"

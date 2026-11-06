@@ -2,9 +2,8 @@
 
 Script: `validation/check_hybrid.py` (installed wheel; standard library and
 NumPy only). Reports: `validation/hybrid/hybrid-gates.json` for the default
-sizes and `validation/hybrid/hybrid-gates-large.json` for `--large`, each
-identical under `python -O`. The script prints run times; the reports hold
-fixed-work evidence only.
+sizes and `validation/hybrid/hybrid-gates-large.json` for `--large`. The
+script prints run times; the reports hold fixed-work evidence only.
 
 ## Protocol (declared before the first run)
 
@@ -66,4 +65,99 @@ otherwise the row fails.
 
 ## Results
 
-Pending the first run.
+First runs, 2026-11-06, on the 2-vCPU development container with the wheel
+of the engine stream (commit `9f59917`). **Every gate, check and test
+passed at both sizes; no failed row to retain.** The default report was
+also produced under `python -O` and is identical; the large report was
+produced once.
+
+### A. Exact-law gates (20,000 replicates each, ε = 0.01517)
+
+| Gate | Largest distance D | Outcome |
+|---|---|---|
+| A1 decaying variable drives a death | 0.00492 | pass |
+| A2 constant derivative | 0.00399 | pass |
+| A3 bound stop | 0.00265 | pass |
+| A4 bound clamp | 0.00155 | pass |
+| A5 no continuous variable | 0.00315 | pass |
+
+The largest distance, 0.00492, is about a third of ε.
+
+| Deterministic check | Outcome | Worst value |
+|---|---|---|
+| `A1_complete` | pass | |
+| `A1_observed` | pass | |
+| `A2_complete` | pass | |
+| `A3_all_stopped` | pass | |
+| `A3_stop_time` | pass | 1.78e-15 |
+| `A3_x_before_stop` | pass | |
+| `A3_x_after_stop` | pass | |
+| `A4_all_completed` | pass | |
+| `A4_x_clamped` | pass | |
+| `A5_complete` | pass | |
+| `A6_ode_accuracy` | pass | 0.0216 |
+
+`A3_stop_time` gives the largest |stop time − 3| in hours;
+`A6_ode_accuracy` the largest error as a fraction of 100 (atol + rtol |x|),
+so the integrator stays within 2.2 (atol + rtol |x|) of the exact
+solutions over ten time units.
+
+Power (same samples against wrong laws, not gating):
+
+| Gate | Wrong law | D | Against ε |
+|---|---|---|---|
+| A1 | c = 1.1 | 0.0372 | rejected |
+| A2 | b = 2.2 | 0.1155 | rejected |
+| A5 | immigration 10.5 | 0.0580 | rejected |
+
+### B. ATP equivalence with exact thinning
+
+Default size, 400 replicates per arm (seeds 7101 and 7102):
+
+| Arm | Events | Stopped | Taken over | Median takeover (h) | Mean final ATP | Mean final N |
+|---|---|---|---|---|---|---|
+| thinning | 60,721,498 | 41 | 41 | 14030 | 404.1 | 5011 |
+| hybrid | 60,862,156 | 42 | 42 | 15287 | 402.8 | 5176 |
+
+| Test | Statistic | p | Outcome (p ≥ 0.0025) |
+|---|---|---|---|
+| B1_takeover_time | D = 0.0150 | 1.000 | pass |
+| B2_final_atp | D = 0.0475 | 0.748 | pass |
+| B3_final_population | D = 0.0550 | 0.569 | pass |
+| B4_atp_exhaustion | 41 vs 42 stopped | 1.000 | pass |
+
+Large size (`--large`), 4,000 replicates per arm (seeds 7201 and 7202):
+
+| Arm | Events | Stopped | Taken over | Median takeover (h) | Mean final ATP | Mean final N |
+|---|---|---|---|---|---|---|
+| thinning | 606,956,342 | 416 | 416 | 15450 | 402.2 | 5106 |
+| hybrid | 608,765,560 | 476 | 476 | 15705 | 396.1 | 5656 |
+
+| Test | Statistic | p | Outcome (p ≥ 0.0025) |
+|---|---|---|---|
+| B1_takeover_time | D = 0.0150 | 0.756 | pass |
+| B2_final_atp | D = 0.0150 | 0.756 | pass |
+| B3_final_population | D = 0.0192 | 0.445 | pass |
+| B4_atp_exhaustion | 416 vs 476 stopped | 0.036 | pass |
+
+In every arm the number of replicates stopped by ATP exhaustion equals the
+number whose mutants reached 90% (41 and 42, 416 and 476); a likely reason
+is that once the wild type is gone, production f·wt no longer covers
+maintenance v2·N. B1 and B4 then measure closely related events (the
+per-replicate sets were not compared). The smallest p-value of the eight ATP tests is
+0.036 (B4 at the large size: 10.4% against 11.9% stopped, a difference of
+2.1 standard errors). It passes the predeclared level 0.0025; it is the
+first place to look if a larger independent run is made. Means of final N
+differ by about 11% at the large size, which the KS test of the whole
+distribution does not flag (p = 0.45); the population distribution is
+heavy-tailed because takeover lets N grow.
+
+Run time for 400 replicates on two threads: thinning about 6 s, hybrid about
+62 s (11 times as long: every event needs a Dormand–Prince step of seven
+right-hand-side evaluations). The large gate took about 11 minutes.
+
+Limitations: the gates cover one variable at a time with closed-form laws
+and the ATP model at one set of parameters and the default tolerances; they
+do not measure the error as a function of rtol and atol, and the two-sample
+tests detect only differences of a few percent in the ATP model at these
+sizes.

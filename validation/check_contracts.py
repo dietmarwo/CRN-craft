@@ -161,6 +161,127 @@ def main():
             and report["model_sha256"] == hashlib.sha256(path.read_bytes()).hexdigest(),
         )
 
+    # rules-model/0.3 through the CLI: a hybrid run of the continuous ATP
+    # model (rules-run/0.5, rules-result/0.3), its refusal by Static Direct,
+    # and a whole-rule propensity under Static Direct (rules-result/0.2).
+    with tempfile.TemporaryDirectory(prefix="crn-rules-03-") as folder:
+        temp = Path(folder)
+        atp = temp / "atp.rules.json"
+        atp.write_bytes(
+            (
+                ROOT / "models/rules/mtdna-three-class-atp-continuous.rules.json"
+            ).read_bytes()
+        )
+        propensity = temp / "propensity.rules.json"
+        propensity.write_text(
+            json.dumps(
+                {
+                    "schema": "crn-craft.rules-model/0.3",
+                    "name": "birth_death",
+                    "parameters": {"k": 5.0, "g": 1.0},
+                    "types": [{"name": "A"}],
+                    "initial": [],
+                    "observables": {"A": {"type": "A"}},
+                    "rules": [
+                        {
+                            "name": "birth",
+                            "reactants": [],
+                            "propensity": "k",
+                            "products": [{"type": "A"}],
+                        },
+                        {
+                            "name": "death",
+                            "reactants": [{"label": "x", "type": "A"}],
+                            "propensity": "g * A",
+                            "products": [],
+                        },
+                    ],
+                }
+            )
+        )
+
+        def request(model, schema, method):
+            return {
+                "schema": schema,
+                "model": {
+                    "path": model.name,
+                    "sha256": hashlib.sha256(model.read_bytes()).hexdigest(),
+                },
+                "time": {"end": 50.0, "report_times": [0.0, 50.0]},
+                "ensemble": {"replicates": 3, "root_seed": 9},
+                "outputs": {
+                    "statistics": ["mean"],
+                    "keep_paths": 1,
+                    "keep_instances": 0,
+                },
+                "budget": {
+                    "max_events_per_replicate": 1000000,
+                    "max_sampling_steps_per_replicate": 10000000,
+                    "max_instances": 10,
+                    "threads": 1,
+                    "max_output_bytes": 1048576,
+                },
+                "method": method,
+            }
+
+        cases = [
+            (
+                "rules_run_hybrid_continuous",
+                atp,
+                request(
+                    atp,
+                    "crn-craft.rules-run/0.5",
+                    {"kind": "hybrid", "rtol": 1e-6, "atol": 1e-9},
+                ),
+            ),
+            (
+                "rules_run_static_refuses_continuous",
+                atp,
+                request(atp, "crn-craft.rules-run/0.2", {"kind": "static_direct"}),
+            ),
+            (
+                "rules_run_static_propensity",
+                propensity,
+                request(
+                    propensity, "crn-craft.rules-run/0.2", {"kind": "static_direct"}
+                ),
+            ),
+        ]
+        for name, model, document in cases:
+            validators["rules-model"].validate(json.loads(model.read_text()))
+            validators["rules-run"].validate(document)
+            path = temp / f"{name}.run.json"
+            path.write_text(json.dumps(document))
+            code, report = invoke("rules", model, path)
+            if name == "rules_run_static_refuses_continuous":
+                record(
+                    name,
+                    code == 1
+                    and report["diagnostics"][0]["code"] == "CRN-R020"
+                    and report["diagnostics"][0]["path"] == "/method",
+                )
+                continue
+            validators["rules-result"].validate(report)
+            hybrid = name == "rules_run_hybrid_continuous"
+            record(
+                name,
+                code == 0
+                and report["termination"] == "completed"
+                and report["schema"]
+                == (
+                    "crn-craft.rules-result/0.3"
+                    if hybrid
+                    else "crn-craft.rules-result/0.2"
+                )
+                and (
+                    report["method"] == document["method"]
+                    and report["continuous"] == ["ATP"]
+                    and report["observables"][-1] == "ATP"
+                    if hybrid
+                    else "method" not in report and "continuous" not in report
+                ),
+            )
+
     invalid = ROOT / "models/invalid"
     for row in json.loads((invalid / "expected.json").read_text()):
         command = ["check", invalid / row["model"]]

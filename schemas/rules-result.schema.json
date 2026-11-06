@@ -620,7 +620,7 @@
           "type": "string"
         },
         {
-          "description": "The model's stop condition held, ATP was depleted under thinning, or an observer stopped the replicate; the state is held to the end of the grid.",
+          "description": "The model's stop condition held, ATP was depleted under thinning, a continuous variable reached its lower bound with `on_bound: \"stop\"` under hybrid, or an observer stopped the replicate; the state is held to the end of the grid.",
           "enum": [
             "stopped"
           ],

@@ -440,7 +440,8 @@ pub struct Budget {
     pub max_events_per_replicate: u64,
     /// Random 64-bit words one replicate may draw, counting every word,
     /// including product draws; exhausting it ends the replicate with
-    /// `sampling_limit` (`CRN-R041`).
+    /// `sampling_limit` (`CRN-R041`). The leap methods also count their
+    /// iterations against it, and `hybrid` its integration steps.
     pub max_sampling_steps_per_replicate: u64,
     /// Distinct instances alive at once, over all types; positive. Exceeding
     /// it ends the replicate with `instance_limit` (`CRN-R042`). On `tree`,
@@ -705,9 +706,10 @@ pub enum Termination {
         "state after the last channel switched off."
     )]
     Completed,
-    /// The model's stop condition held, ATP was depleted under thinning, or
-    /// an observer stopped the replicate; the state is held to the end of
-    /// the grid.
+    /// The model's stop condition held, ATP was depleted under thinning, a
+    /// continuous variable reached its lower bound with `on_bound: "stop"`
+    /// under hybrid, or an observer stopped the replicate; the state is held
+    /// to the end of the grid.
     Stopped,
     #[doc = concat!(
         "`max_events_per_replicate` was reached (`CRN-R040`)."

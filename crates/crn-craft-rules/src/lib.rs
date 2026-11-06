@@ -5,8 +5,10 @@
 //! exact laws (master equations and Poisson laws, see the
 //! [K1 gates](https://github.com/dietmarwo/CRN-craft/blob/main/validation/rules/RESULTS.md)),
 //! but its language is still small and its contracts may gain versions. The
-//! `tau` and `binomial` methods are approximate and say so in their sampler
-//! identity. Generated kernels and event loops are Rust only.
+//! `tau`, `binomial` and `hybrid` methods are approximate and say so in their
+//! sampler identity; `hybrid` integrates continuous variables between events
+//! at the request's tolerances. Generated kernels and event loops are Rust
+//! only.
 //!
 //! A rules model declares species *types* with numeric attributes. An
 //! *instance* is a type plus one value per attribute and a copy number.
@@ -90,8 +92,9 @@
 //! - [`schema`] returns the JSON Schemas of the contracts; [`describe`]
 //!   returns the discovery entry of the native CLI.
 //!
-//! The model types live in [`model`], observation in [`observe`] and the ATP
-//! coupling of rules-model/0.2 in [`atp`].
+//! The model types live in [`model`], observation in [`observe`], the ATP
+//! coupling of rules-model/0.2 in [`atp`] and the continuous variables of
+//! rules-model/0.3 with the `hybrid` method in [`continuous`].
 //!
 //! # Contracts
 //!
@@ -103,14 +106,16 @@
 //! | --- | --- | --- |
 //! | `crn-craft.rules-model/0.1` | [`Model`] | Types, parameters, initial instances, observables, rules and stop |
 //! | `crn-craft.rules-model/0.2` | [`Model`] | 0.1 plus the [`atp`] block |
-//! | `crn-craft.rules-model/0.3` | [`Model`] | 0.2 plus whole-rule `propensity` expressions ([`model::Rule::propensity`]) |
+//! | `crn-craft.rules-model/0.3` | [`Model`] | 0.2 plus whole-rule `propensity` expressions ([`model::Rule::propensity`]) and [`continuous`] variables |
 //! | `crn-craft.rules-check/0.1` | [`RulesCheck`] | Validity, model hash and diagnostics |
 //! | `crn-craft.rules-run/0.1` | [`RunRequest`] | Time grid, ensemble, outputs and budget; always the `tree` method |
 //! | `crn-craft.rules-run/0.2` | [`RunRequest`] | 0.1 plus `method`, `trackers` and `event_log` |
 //! | `crn-craft.rules-run/0.3` | [`RunRequest`] | 0.2 plus the `mtdna_direct` method |
 //! | `crn-craft.rules-run/0.4` | [`RunRequest`] | 0.3 plus the Static Direct options `waiting_time` and `sparse_trackers` |
+//! | `crn-craft.rules-run/0.5` | [`RunRequest`] | 0.4 plus the `hybrid` method and its tolerances |
 //! | `crn-craft.rules-result/0.1` | [`RulesResult`] | Result of a rules-run/0.1 request |
 //! | `crn-craft.rules-result/0.2` | [`RulesResult`] | Result of a rules-run/0.2–0.4 request, with `observations` |
+//! | `crn-craft.rules-result/0.3` | [`RulesResult`] | Result of a rules-run/0.5 request: 0.2 plus `method` and `continuous` |
 //!
 //! # Methods
 //!
@@ -127,12 +132,13 @@
 //!
 //! | `kind` | Exact | Scope |
 //! | --- | --- | --- |
-//! | `tree` (default) | yes | Every rules model without ATP; dynamic instances over sum trees |
+//! | `tree` (default) | yes | Every rules model without ATP or continuous variables; dynamic instances over sum trees |
 //! | `static_direct` | yes | Closed models; options for Ziggurat waits and sparse trackers |
 //! | `mtdna_direct` | yes | The fixed three-class vacancy model; falls back to Static Direct with `CRN-R051` |
 //! | `next_reaction` | yes | Closed models, with indexed clocks ([DOI 10.1021/jp993732q](https://doi.org/10.1021/jp993732q)) |
 //! | `thinning` | yes | Required by, and only for, rules-model/0.2 models with ATP |
 //! | `tau` | no | Closed models; adaptive Poisson leaps ([DOI 10.1063/1.2159468](https://doi.org/10.1063/1.2159468)) |
+//! | `hybrid` | no | Required by, and only for, closed models with [`continuous`] variables (also runs closed models without); Dormand–Prince 5(4) between events at the request's tolerances |
 //! | `binomial` | no | Closed models with single-parent unit births and deaths |
 //!
 //! # Reproducibility
@@ -191,6 +197,7 @@
 // `concat!` form; rustdoc and `missing_docs` treat it as a doc comment.
 
 pub mod atp;
+pub mod continuous;
 mod engine;
 mod expr;
 mod flat;
@@ -356,8 +363,10 @@ impl Control {
 ///
 /// Each version adds fields to the previous one; using a field before its
 /// version is `CRN-R020` at `/schema`. Version 0.1 returns rules-result/0.1,
-/// later versions rules-result/0.2.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+/// versions 0.2 to 0.4 rules-result/0.2 and 0.5 rules-result/0.3.
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq, PartialOrd, Ord,
+)]
 pub enum RunVersion {
     // Variant docs use `concat!` to stay out of the schema's string enum.
     #[doc = concat!(
@@ -382,6 +391,12 @@ pub enum RunVersion {
     )]
     #[serde(rename = "crn-craft.rules-run/0.4")]
     V04,
+    #[doc = concat!(
+        "`crn-craft.rules-run/0.5`: adds the `hybrid` method; returns ",
+        "rules-result/0.3."
+    )]
+    #[serde(rename = "crn-craft.rules-run/0.5")]
+    V05,
 }
 
 /// The simulated horizon and the report grid of a run request.
@@ -545,9 +560,27 @@ pub enum Method {
         /// otherwise).
         step: f64,
     },
+    /// rules-run/0.5 and later. Piecewise-deterministic simulation of a
+    /// closed model with continuous variables (rules-model/0.3): between
+    /// events the variables and the integrated total propensity follow an
+    /// adaptive Dormand–Prince 5(4) integration, and the next event happens
+    /// where the integrated propensity reaches a unit exponential threshold,
+    /// located on the dense output. Approximate at the given tolerances;
+    /// sampler `chacha8-u53/rules-approximate-hybrid-dopri54/1`. Also runs
+    /// models without continuous variables. Refuses ATP models (use
+    /// `thinning`) and models that do not lower to fixed tuples.
+    Hybrid {
+        /// Relative tolerance of the error control, in [1e-12, 1e-2]
+        /// (`CRN-R020` otherwise).
+        rtol: f64,
+        /// Absolute tolerance of the error control, in (0, 1e-2]
+        /// (`CRN-R020` otherwise). It applies to every variable and to the
+        /// integrated propensity, which runs from 0 to a unit exponential.
+        atol: f64,
+    },
 }
 
-/// A run request: `crn-craft.rules-run/0.1` to `0.4`.
+/// A run request: `crn-craft.rules-run/0.1` to `0.5`.
 ///
 /// It binds one model by hash and states the time grid, the ensemble, the
 /// outputs and an explicit budget. Unknown fields and duplicate keys are
@@ -632,7 +665,8 @@ where
 // Result
 
 /// The version of a result, its `schema` field: rules-result/0.1 answers a
-/// rules-run/0.1 request, rules-result/0.2 answers rules-run/0.2 to 0.4.
+/// rules-run/0.1 request, rules-result/0.2 answers rules-run/0.2 to 0.4 and
+/// rules-result/0.3 answers rules-run/0.5.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 pub enum ResultVersion {
     // Variant docs use `concat!` to stay out of the schema's string enum.
@@ -641,10 +675,16 @@ pub enum ResultVersion {
     V01,
     #[doc = concat!(
         "`crn-craft.rules-result/0.2`, for rules-run/0.2 to 0.4 requests; ",
-        "the only version that can carry `observations`."
+        "it can carry `observations`."
     )]
     #[serde(rename = "crn-craft.rules-result/0.2")]
     V02,
+    #[doc = concat!(
+        "`crn-craft.rules-result/0.3`, for rules-run/0.5 requests: 0.2 plus ",
+        "`method` and `continuous`."
+    )]
+    #[serde(rename = "crn-craft.rules-result/0.3")]
+    V03,
 }
 
 /// How a replicate, or the whole ensemble, ended.
@@ -817,7 +857,7 @@ pub struct Statistics {
     pub mean_standard_error: Option<Vec<Vec<f64>>>,
 }
 
-/// The result of a rules run: `crn-craft.rules-result/0.1` or `0.2`.
+/// The result of a rules run: `crn-craft.rules-result/0.1`, `0.2` or `0.3`.
 ///
 /// A result is returned even when replicates hit limits or fail: check
 /// `termination`, the per-replicate records and `diagnostics`. Matrices are
@@ -850,7 +890,8 @@ pub struct RulesResult {
     /// follow it.
     pub rules: Vec<String>,
     /// Observable names in column order: the model's observables sorted by
-    /// name, then `ATP` for an ATP model.
+    /// name, then `ATP` for an ATP model or the continuous variables in
+    /// declaration order.
     pub observables: Vec<String>,
     /// The request's report times, one per matrix row.
     pub report_times: Vec<f64>,
@@ -881,6 +922,24 @@ pub struct RulesResult {
     /// observed replicate in replicate order. Omitted when empty.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub observations: Vec<Observation>,
+    #[doc = concat!(
+        "rules-result/0.3: the request's method, including the tolerances ",
+        "of `hybrid`, so the result records the approximation it ran at. ",
+        "Omitted before 0.3."
+    )]
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "Method")]
+    pub method: Option<Method>,
+    /// rules-result/0.3: the names of the continuous observable columns, in
+    /// column order (continuous variables, or `ATP` of an ATP model). Their
+    /// values are reported from the integrated or analytic flow, not only
+    /// at events. Omitted when empty and before 0.3.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub continuous: Vec<String>,
 }
 
 impl Default for Method {
@@ -1023,13 +1082,18 @@ fn validate_request(request: &RunRequest, model_sha256: &str) -> Vec<Diagnostic>
             "Select the version 0.2 request contract or remove these fields.",
         ));
     }
-    if request.method == Some(Method::MtdnaDirect {})
-        && !matches!(request.schema, RunVersion::V03 | RunVersion::V04)
-    {
+    if request.method == Some(Method::MtdnaDirect {}) && request.schema < RunVersion::V03 {
         out.push(request_error(
             "/schema",
             "mtdna_direct requires rules-run/0.3 or later",
             "Select the version 0.3 or 0.4 request contract.",
+        ));
+    }
+    if matches!(request.method, Some(Method::Hybrid { .. })) && request.schema < RunVersion::V05 {
+        out.push(request_error(
+            "/schema",
+            "hybrid requires rules-run/0.5",
+            "Select the version 0.5 request contract.",
         ));
     }
     if matches!(
@@ -1043,7 +1107,7 @@ fn validate_request(request: &RunRequest, model_sha256: &str) -> Vec<Diagnostic>
                 ..
             }
         )
-    ) && request.schema != RunVersion::V04
+    ) && request.schema < RunVersion::V04
     {
         out.push(request_error(
             "/schema",
@@ -1336,7 +1400,29 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
                 "Specify a fixed step.",
             )]);
         }
+        Some(Method::Hybrid { rtol, .. }) if !(1e-12..=1e-2).contains(&rtol) => {
+            return Err(vec![request_error(
+                "/method/rtol",
+                "rtol must be in [1e-12, 1e-2]",
+                "Set an explicit relative tolerance, for example 1e-6.",
+            )]);
+        }
+        Some(Method::Hybrid { atol, .. }) if !(atol > 0.0 && atol <= 1e-2) => {
+            return Err(vec![request_error(
+                "/method/atol",
+                "atol must be in (0, 1e-2]",
+                "Set an explicit absolute tolerance, for example 1e-9.",
+            )]);
+        }
         _ => {}
+    }
+    let hybrid = matches!(request.method, Some(Method::Hybrid { .. }));
+    if !compiled.continuous.is_empty() && !hybrid {
+        return Err(vec![request_error(
+            "/method",
+            "continuous variables require the hybrid method",
+            "Select {\"kind\": \"hybrid\"} with rules-run/0.5.",
+        )]);
     }
     if compiled.atp.is_some() != matches!(request.method, Some(Method::Thinning {})) {
         let message = if compiled.atp.is_some() {
@@ -1357,7 +1443,8 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
         | Method::NextReaction {}
         | Method::Thinning {}
         | Method::Tau { .. }
-        | Method::Binomial { .. } => Some(flat::Network::compile(&compiled).map_err(|e| {
+        | Method::Binomial { .. }
+        | Method::Hybrid { .. } => Some(flat::Network::compile(&compiled).map_err(|e| {
             vec![request_error(
                 "/method",
                 e,
@@ -1954,6 +2041,7 @@ fn execute_inner<O: EventObserver>(
         schema: match request.schema {
             RunVersion::V01 => ResultVersion::V01,
             RunVersion::V02 | RunVersion::V03 | RunVersion::V04 => ResultVersion::V02,
+            RunVersion::V05 => ResultVersion::V03,
         },
         model_sha256: prepared.model_sha256.clone(),
         run_sha256: prepared.run_sha256.clone(),
@@ -1981,6 +2069,7 @@ fn execute_inner<O: EventObserver>(
             Method::Thinning {} => "chacha8-u53/rules-atp-thinning/1",
             Method::Tau { .. } => "chacha8-u53/rules-approximate-cgp-poisson/2",
             Method::Binomial { .. } => "chacha8-u53/rules-approximate-binomial-split/2",
+            Method::Hybrid { .. } => "chacha8-u53/rules-approximate-hybrid-dopri54/1",
         }
         .into(),
         root_seed: request.ensemble.root_seed,
@@ -2012,6 +2101,17 @@ fn execute_inner<O: EventObserver>(
         statistics,
         diagnostics,
         observations: reducer.observations,
+        method: (request.schema >= RunVersion::V05).then(|| request.method.unwrap_or_default()),
+        continuous: if request.schema >= RunVersion::V05 {
+            model
+                .atp
+                .iter()
+                .map(|_| "ATP".to_string())
+                .chain(model.continuous.iter().map(|v| v.name.clone()))
+                .collect()
+        } else {
+            Vec::new()
+        },
     };
     let limit = request.budget.max_output_bytes.min(MAX_RESULT_BYTES);
     if !fits_json(&result, limit) {
@@ -2171,9 +2271,11 @@ pub fn describe() -> Value {
         "extended_result": "crn-craft.rules-result/0.2",
         "static_direct_options_request": "crn-craft.rules-run/0.4",
         "mtdna_direct_request": "crn-craft.rules-run/0.3",
-        "methods": ["tree", "static_direct", "mtdna_direct", "next_reaction", "tau", "binomial", "thinning"],
+        "methods": ["tree", "static_direct", "mtdna_direct", "next_reaction", "tau", "binomial", "thinning", "hybrid"],
+        "hybrid_request": "crn-craft.rules-run/0.5",
+        "hybrid_result": "crn-craft.rules-result/0.3",
         "python": "crn_craft.rules",
-        "approximate_methods": ["tau", "binomial"],
+        "approximate_methods": ["tau", "binomial", "hybrid"],
         "sampler": SAMPLER,
         "reference": "docs/rules-language.md",
         "limits": {

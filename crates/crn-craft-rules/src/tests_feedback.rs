@@ -535,3 +535,351 @@ fn thinning_runs_propensities_in_atp_models() {
         mean[1][markers]
     );
 }
+
+// ---------------------------------------------------------------------------
+// I5: continuous variables and the hybrid method
+
+const ATP_LEGACY: &str = include_str!("../../../models/rules/mtdna-three-class-atp.rules.json");
+const ATP_CONTINUOUS: &str =
+    include_str!("../../../models/rules/mtdna-three-class-atp-continuous.rules.json");
+
+/// One variable `x` with `derivative`, and molecules `A` that die at rate
+/// `death` per molecule (an expression that may read `x`).
+fn continuous_model(derivative: &str, x0: f64, bound: Option<&str>, death: &str, a0: u64) -> Value {
+    let mut variable = json!({"name": "x", "initial": x0, "derivative": derivative});
+    if let Some(action) = bound {
+        variable["lower_bound"] = json!(0);
+        variable["on_bound"] = json!(action);
+    }
+    json!({
+        "schema": V03, "name": "continuous",
+        "parameters": {"k": 1.0},
+        "types": [{"name": "A"}],
+        "initial": [{"type": "A", "count": a0}],
+        "observables": {"A": {"type": "A"}},
+        "rules": [{"name": "death", "reactants": [{"label": "a", "type": "A"}],
+                   "rate": death, "products": []}],
+        "continuous": [variable]
+    })
+}
+
+fn hybrid_request(model: &[u8], replicates: u64, end: f64, times: &[f64]) -> Value {
+    json!({
+        "schema": "crn-craft.rules-run/0.5",
+        "model": {"path": "m.rules.json", "sha256": crn_craft::sha256(model)},
+        "time": {"end": end, "report_times": times},
+        "ensemble": {"replicates": replicates, "root_seed": 5},
+        "outputs": {"statistics": ["mean", "variance"], "keep_paths": replicates, "keep_instances": 0},
+        "budget": {"max_events_per_replicate": 1_000_000u64,
+                   "max_sampling_steps_per_replicate": 10_000_000u64,
+                   "max_instances": 100u64, "threads": 2, "max_output_bytes": 1u64 << 28},
+        "method": {"kind": "hybrid", "rtol": 1e-8, "atol": 1e-10}
+    })
+}
+
+fn hybrid_run(model: &Value, replicates: u64, end: f64, times: &[f64]) -> RulesResult {
+    let bytes = serde_json::to_vec(model).unwrap();
+    let request = hybrid_request(&bytes, replicates, end, times);
+    execute(
+        &prepare_json(&bytes, &request).unwrap(),
+        &Control::default(),
+    )
+    .unwrap()
+}
+
+fn first_error(model: &Value, request: &Value) -> (String, String, String) {
+    let bytes = serde_json::to_vec(model).unwrap();
+    let mut request = request.clone();
+    request["model"]["sha256"] = json!(crn_craft::sha256(&bytes));
+    let d = prepare_json(&bytes, &request).err().unwrap();
+    (d[0].code.clone(), d[0].path.clone(), d[0].message.clone())
+}
+
+/// Between events the variables follow the ODE: reports read the dense
+/// output, and the result records the method and the continuous columns.
+#[test]
+fn hybrid_integrates_between_events() {
+    // No molecule, so no event: x' = -k x and a logistic second variable.
+    let mut model = continuous_model("-k * x", 2.0, None, "k", 0);
+    model["continuous"].as_array_mut().unwrap().push(json!({
+        "name": "z", "initial": 0.1, "derivative": "z * (1 - z)"
+    }));
+    let times: Vec<f64> = (0..=10).map(f64::from).collect();
+    let result = hybrid_run(&model, 2, 10.0, &times);
+    assert_eq!(result.schema, ResultVersion::V03);
+    assert_eq!(
+        result.sampler,
+        "chacha8-u53/rules-approximate-hybrid-dopri54/1"
+    );
+    assert_eq!(result.observables, ["A", "x", "z"]);
+    assert_eq!(result.continuous, ["x", "z"]);
+    assert_eq!(
+        result.method,
+        Some(Method::Hybrid {
+            rtol: 1e-8,
+            atol: 1e-10
+        })
+    );
+    for (row, &t) in result.paths[0].values.iter().zip(&times) {
+        let x = 2.0 * libm::exp(-t);
+        let z = 1.0 / (1.0 + 9.0 * libm::exp(-t));
+        assert!((row[1] - x).abs() <= 1e-6 * x + 1e-9, "x({t}) = {}", row[1]);
+        assert!((row[2] - z).abs() <= 1e-6 * z + 1e-9, "z({t}) = {}", row[2]);
+    }
+    let json = serde_json::to_value(&result).unwrap();
+    assert_eq!(
+        json["method"],
+        json!({"kind": "hybrid", "rtol": 1e-8, "atol": 1e-10})
+    );
+}
+
+/// With `on_bound: "stop"` the replicate stops where the variable reaches
+/// the bound and reports the bound afterwards; with `"clamp"` it holds the
+/// variable there and completes.
+#[test]
+fn hybrid_lower_bounds_stop_or_clamp() {
+    let times = [0.0, 1.0, 2.5, 4.0];
+    let stop = hybrid_run(
+        &continuous_model("-k", 2.0, Some("stop"), "0.1", 3),
+        4,
+        4.0,
+        &times,
+    );
+    for record in &stop.replicates {
+        assert_eq!(record.termination, Termination::Stopped);
+        assert!(
+            (record.stop_time - 2.0).abs() < 1e-12,
+            "{}",
+            record.stop_time
+        );
+    }
+    let x = |result: &RulesResult, row: usize| result.paths[0].values[row][1];
+    assert!((x(&stop, 1) - 1.0).abs() < 1e-12);
+    assert_eq!((x(&stop, 2), x(&stop, 3)), (0.0, 0.0));
+    // A derivative that turns positive at the bound continues the path.
+    let rising = hybrid_run(
+        &continuous_model("k - A", 0.0, Some("stop"), "1", 0),
+        2,
+        4.0,
+        &times,
+    );
+    assert!(
+        rising
+            .replicates
+            .iter()
+            .all(|r| r.termination == Termination::Completed)
+    );
+    assert!((x(&rising, 3) - 4.0).abs() < 1e-9);
+    // At the bound with a negative derivative at time 0: stopped at once.
+    let flat = hybrid_run(
+        &continuous_model("-k", 0.0, Some("stop"), "1", 1),
+        2,
+        4.0,
+        &times,
+    );
+    assert!(
+        flat.replicates
+            .iter()
+            .all(|r| r.termination == Termination::Stopped && r.stop_time == 0.0)
+    );
+    let clamp = hybrid_run(
+        &continuous_model("-k", 2.0, Some("clamp"), "0.1", 3),
+        4,
+        4.0,
+        &times,
+    );
+    assert!(
+        clamp
+            .replicates
+            .iter()
+            .all(|r| r.termination == Termination::Completed)
+    );
+    assert!((x(&clamp, 1) - 1.0).abs() < 1e-12);
+    assert_eq!((x(&clamp, 2), x(&clamp, 3)), (0.0, 0.0));
+}
+
+/// The ensemble does not depend on the thread count, and the legacy ATP
+/// results keep their version and shape.
+#[test]
+fn hybrid_replays_and_legacy_results_keep_their_shape() {
+    let model: Value = serde_json::from_str(ATP_CONTINUOUS).unwrap();
+    let bytes = serde_json::to_vec(&model).unwrap();
+    let mut request = hybrid_request(&bytes, 6, 500.0, &[0.0, 250.0, 500.0]);
+    request["method"] = json!({"kind": "hybrid", "rtol": 1e-6, "atol": 1e-9});
+    let run = |threads: u32| {
+        let mut request = request.clone();
+        request["budget"]["threads"] = json!(threads);
+        let result = execute(
+            &prepare_json(&bytes, &request).unwrap(),
+            &Control::default(),
+        )
+        .unwrap();
+        numbers(&result)
+    };
+    assert!(run(1) == run(2), "thread-dependent hybrid result");
+    // A rules-run/0.4 thinning result carries neither `method` nor `continuous`.
+    let legacy = ATP_LEGACY.as_bytes();
+    let mut old = run_request(legacy, json!({"kind": "thinning"}), 2);
+    old["time"] = json!({"end": 10.0, "report_times": [0.0, 10.0]});
+    let result = execute(&prepare_json(legacy, &old).unwrap(), &Control::default()).unwrap();
+    let json = serde_json::to_value(&result).unwrap();
+    assert_eq!(json["schema"], "crn-craft.rules-result/0.2");
+    assert!(json.get("method").is_none() && json.get("continuous").is_none());
+    // The same thinning request as rules-run/0.5 records both.
+    old["schema"] = json!("crn-craft.rules-run/0.5");
+    let result = execute(&prepare_json(legacy, &old).unwrap(), &Control::default()).unwrap();
+    assert_eq!(result.schema, ResultVersion::V03);
+    assert_eq!(result.continuous, ["ATP"]);
+    assert_eq!(result.method, Some(Method::Thinning {}));
+}
+
+/// Model contract errors for continuous variables.
+#[test]
+fn continuous_contract_errors() {
+    let base = continuous_model("-k * x", 1.0, Some("stop"), "k * x", 1);
+    let check = |edit: &dyn Fn(&mut Value)| {
+        let mut m = base.clone();
+        edit(&mut m);
+        let report = check_model(&serde_json::to_vec(&m).unwrap());
+        report
+            .diagnostics
+            .first()
+            .map(|d| (d.code.clone(), d.path.clone()))
+    };
+    let pair = |code: &str, path: &str| Some((code.to_string(), path.to_string()));
+    assert_eq!(check(&|_| {}), None);
+    assert_eq!(
+        check(&|m| m["schema"] = json!("crn-craft.rules-model/0.2")),
+        pair("CRN-R015", "/continuous")
+    );
+    assert_eq!(
+        check(&|m| m["continuous"][0]["name"] = json!("k")),
+        pair("CRN-R010", "/continuous/0/name")
+    );
+    assert_eq!(
+        check(&|m| m["continuous"][0]["name"] = json!("A")),
+        pair("CRN-R010", "/continuous/0/name")
+    );
+    assert_eq!(
+        check(&|m| m["continuous"][0]["initial"] = json!(-1)),
+        pair("CRN-R014", "/continuous/0/initial")
+    );
+    assert_eq!(
+        check(&|m| {
+            m["continuous"][0]
+                .as_object_mut()
+                .unwrap()
+                .remove("on_bound");
+        }),
+        pair("CRN-R013", "/continuous/0")
+    );
+    assert_eq!(
+        check(&|m| m["continuous"][0]["derivative"] = json!("-y")),
+        pair("CRN-R012", "/continuous/0/derivative")
+    );
+    assert_eq!(
+        check(&|m| m["stop"] = json!("x < 0.5")),
+        pair("CRN-R012", "/stop")
+    );
+    assert_eq!(
+        check(&|m| m["observables"]["B"] = json!({"type": "A", "weight": "x"})),
+        pair("CRN-R012", "/observables/B/weight")
+    );
+    assert_eq!(
+        check(&|m| m["continuous"][0]["on_bound"] = Value::Null).map(|p| p.0),
+        Some("CRN-E003".into())
+    );
+    let mut atp: Value = serde_json::from_str(ATP_LEGACY).unwrap();
+    atp["schema"] = json!(V03);
+    atp["continuous"] = json!([{"name": "x", "initial": 1, "derivative": "0"}]);
+    let report = check_model(&serde_json::to_vec(&atp).unwrap());
+    assert_eq!(report.diagnostics[0].code, "CRN-R015");
+    assert_eq!(report.diagnostics[0].path, "/continuous");
+}
+
+/// Every other method refuses continuous variables, and hybrid refuses what
+/// it cannot run, with coded diagnostics.
+#[test]
+fn methods_refuse_what_they_cannot_run() {
+    let model = continuous_model("-k * x", 1.0, None, "k * x", 3);
+    let bytes = serde_json::to_vec(&model).unwrap();
+    let base = hybrid_request(&bytes, 2, 1.0, &[0.0, 1.0]);
+    for method in METHODS
+        .iter()
+        .map(|m| serde_json::from_str::<Value>(m).unwrap())
+        .chain([json!({"kind": "mtdna_direct"}), json!({"kind": "thinning"})])
+    {
+        let mut request = base.clone();
+        request["method"] = method.clone();
+        let (code, path, message) = first_error(&model, &request);
+        assert_eq!(
+            (code.as_str(), path.as_str()),
+            ("CRN-R020", "/method"),
+            "{method}"
+        );
+        assert!(
+            message.contains("require the hybrid method"),
+            "{method}: {message}"
+        );
+    }
+    let mut request = base.clone();
+    request["schema"] = json!("crn-craft.rules-run/0.4");
+    assert_eq!(first_error(&model, &request).1, "/schema");
+    for (key, value, path) in [
+        ("rtol", 0.5, "/method/rtol"),
+        ("rtol", 1e-13, "/method/rtol"),
+        ("atol", 0.0, "/method/atol"),
+        ("atol", 0.1, "/method/atol"),
+    ] {
+        let mut request = base.clone();
+        request["method"][key] = json!(value);
+        assert_eq!(first_error(&model, &request).1, path, "{key}={value}");
+    }
+    let mut request = base.clone();
+    request["trackers"] = json!([{"observable": "x"}]);
+    let (code, path, message) = first_error(&model, &request);
+    assert_eq!((code.as_str(), path.as_str()), ("CRN-R020", "/trackers"));
+    assert!(message.contains("x is continuous"), "{message}");
+    // The legacy ATP block needs thinning.
+    let atp: Value = serde_json::from_str(ATP_LEGACY).unwrap();
+    let (code, path, message) = first_error(&atp, &base);
+    assert_eq!((code.as_str(), path.as_str()), ("CRN-R020", "/method"));
+    assert!(message.contains("thinning"), "{message}");
+    // Dynamic instances do not lower to fixed tuples.
+    let clones: Value =
+        serde_json::from_str(include_str!("../../../models/rules/mtdna-fixed.rules.json")).unwrap();
+    assert_eq!(first_error(&clones, &base).1, "/method");
+    // Generated kernels and loops need Static Direct.
+    let prepared = prepare_json(&bytes, &base).unwrap();
+    assert_eq!(
+        generate_rules_kernel(&prepared).err().unwrap().code,
+        "CRN-R020"
+    );
+    assert_eq!(
+        generate_rules_loop(&prepared).err().unwrap().code,
+        "CRN-R020"
+    );
+}
+
+/// Without continuous variables `hybrid` runs a jump process; a derivative
+/// that is not finite fails the replicate with its pointer.
+#[test]
+fn hybrid_runs_jump_processes_and_reports_bad_derivatives() {
+    let model = birth_death(true, 20);
+    let bytes = serde_json::to_vec(&model).unwrap();
+    let request = hybrid_request(&bytes, 50, 2.0, &[0.0, 2.0]);
+    let result = execute(
+        &prepare_json(&bytes, &request).unwrap(),
+        &Control::default(),
+    )
+    .unwrap();
+    assert_eq!(result.termination, Termination::Completed);
+    assert!(result.continuous.is_empty() && result.events > 0);
+    let bad = continuous_model("log(x - 2)", 1.0, None, "k", 1);
+    let result = hybrid_run(&bad, 1, 1.0, &[0.0, 1.0]);
+    let diagnostic = result.replicates[0].diagnostic.as_ref().unwrap();
+    assert_eq!(
+        (diagnostic.code.as_str(), diagnostic.path.as_str()),
+        ("CRN-R030", "/continuous/0/derivative")
+    );
+}

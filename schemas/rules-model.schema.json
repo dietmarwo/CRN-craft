@@ -59,6 +59,35 @@
       ],
       "type": "object"
     },
+    "ContinuousSpec": {
+      "additionalProperties": false,
+      "description": "A continuous variable of a rules-model/0.3 model.\n\nIts name shares one namespace with parameters and observables (`CRN-R010`). Rule rates and propensities may read it, and so may the derivatives of all variables; the model's `stop`, observables, patterns and products may not (`CRN-R012`), and neither may run-request trackers.",
+      "properties": {
+        "derivative": {
+          "description": "dx/dt between events: an expression over parameters, observables and continuous variables. A non-finite value fails the replicate (`CRN-R030`).",
+          "type": "string"
+        },
+        "initial": {
+          "$ref": "#/definitions/Value"
+        },
+        "lower_bound": {
+          "$ref": "#/definitions/Value"
+        },
+        "name": {
+          "description": "The variable's name and result column.",
+          "type": "string"
+        },
+        "on_bound": {
+          "$ref": "#/definitions/OnBound"
+        }
+      },
+      "required": [
+        "derivative",
+        "initial",
+        "name"
+      ],
+      "type": "object"
+    },
     "Initial": {
       "additionalProperties": false,
       "description": "One entry of the initial state: a type, every attribute value and a copy number.",
@@ -142,6 +171,14 @@
         "type"
       ],
       "type": "object"
+    },
+    "OnBound": {
+      "description": "What happens when a continuous variable reaches its lower bound.",
+      "enum": [
+        "stop",
+        "clamp"
+      ],
+      "type": "string"
     },
     "Pattern": {
       "additionalProperties": false,
@@ -322,6 +359,13 @@
         }
       ],
       "description": "ATP coupling, rules-model/0.2 only (`CRN-R015` in 0.1); a model with it runs only with the `thinning` method. `null` is rejected."
+    },
+    "continuous": {
+      "description": "Continuous variables, rules-model/0.3 only (`CRN-R015` before), at most 64: ODEs between events whose values rule rates and propensities may read. A model with them runs only with the `hybrid` method, and it cannot also have `atp` (`CRN-R015`). `null` is rejected. See [`crate::continuous`].",
+      "items": {
+        "$ref": "#/definitions/ContinuousSpec"
+      },
+      "type": "array"
     },
     "description": {
       "description": "Free text for readers; not interpreted.",

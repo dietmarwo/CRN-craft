@@ -317,18 +317,27 @@ impl Spec {
             })
             .collect::<Result<_, String>>()
             .map_err(|e| ("/trackers", e))?;
-        if let Some(atp) = &compiled.atp {
-            for (_, index, predicate) in &trackers {
-                let mut flags = vec![false; compiled.observables.len()];
-                if let Some(expr) = predicate {
-                    expr.reads(&mut flags);
-                }
-                if *index == atp.index || flags[atp.index] {
-                    return Err((
-                        "/trackers",
-                        "trackers apply to event-driven observables; ATP is continuous".into(),
-                    ));
-                }
+        let continuous: Vec<(usize, &str)> = compiled
+            .atp
+            .iter()
+            .map(|atp| (atp.index, "ATP"))
+            .chain(
+                compiled
+                    .continuous
+                    .iter()
+                    .map(|v| (v.index, v.name.as_str())),
+            )
+            .collect();
+        for (_, index, predicate) in &trackers {
+            let mut flags = vec![false; compiled.observables.len()];
+            if let Some(expr) = predicate {
+                expr.reads(&mut flags);
+            }
+            if let Some((_, name)) = continuous.iter().find(|(i, _)| *index == *i || flags[*i]) {
+                return Err((
+                    "/trackers",
+                    format!("trackers apply to event-driven observables; {name} is continuous"),
+                ));
             }
         }
         let log = log

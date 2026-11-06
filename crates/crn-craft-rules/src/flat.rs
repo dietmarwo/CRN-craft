@@ -269,7 +269,9 @@ impl Network {
         }
         let mut observables = Vec::new();
         for (o, info) in model.observables.iter().enumerate() {
-            if model.atp.as_ref().is_some_and(|atp| atp.index == o) {
+            if model.atp.as_ref().is_some_and(|atp| atp.index == o)
+                || model.continuous.iter().any(|v| v.index == o)
+            {
                 continue;
             }
             let mut terms = Vec::new();
@@ -470,7 +472,7 @@ impl Network {
             rule.rate.reads(&mut hot);
         }
         let mut cold = vec![false; self.observables.len()];
-        if model.atp.is_none() {
+        if model.atp.is_none() && model.continuous.is_empty() {
             for (i, (index, _, terms)) in self.observables.iter().enumerate() {
                 // Retain eager validation for any projection that might
                 // overflow. Summing up to 256 products leaves ample headroom.

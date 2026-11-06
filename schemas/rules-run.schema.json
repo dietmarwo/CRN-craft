@@ -240,6 +240,34 @@
             "step"
           ],
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "rules-run/0.5 and later. Piecewise-deterministic simulation of a closed model with continuous variables (rules-model/0.3): between events the variables and the integrated total propensity follow an adaptive Dormand–Prince 5(4) integration, and the next event happens where the integrated propensity reaches a unit exponential threshold, located on the dense output. Approximate at the given tolerances; sampler `chacha8-u53/rules-approximate-hybrid-dopri54/1`. Also runs models without continuous variables. Refuses ATP models (use `thinning`) and models that do not lower to fixed tuples.",
+          "properties": {
+            "atol": {
+              "description": "Absolute tolerance of the error control, in (0, 1e-2] (`CRN-R020` otherwise). It applies to every variable and to the integrated propensity, which runs from 0 to a unit exponential.",
+              "format": "double",
+              "type": "number"
+            },
+            "kind": {
+              "enum": [
+                "hybrid"
+              ],
+              "type": "string"
+            },
+            "rtol": {
+              "description": "Relative tolerance of the error control, in [1e-12, 1e-2] (`CRN-R020` otherwise).",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "atol",
+            "kind",
+            "rtol"
+          ],
+          "type": "object"
         }
       ]
     },
@@ -303,12 +331,13 @@
       "type": "string"
     },
     "RunVersion": {
-      "description": "The version of a run request, its `schema` field.\n\nEach version adds fields to the previous one; using a field before its version is `CRN-R020` at `/schema`. Version 0.1 returns rules-result/0.1, later versions rules-result/0.2.",
+      "description": "The version of a run request, its `schema` field.\n\nEach version adds fields to the previous one; using a field before its version is `CRN-R020` at `/schema`. Version 0.1 returns rules-result/0.1, versions 0.2 to 0.4 rules-result/0.2 and 0.5 rules-result/0.3.",
       "enum": [
         "crn-craft.rules-run/0.1",
         "crn-craft.rules-run/0.2",
         "crn-craft.rules-run/0.3",
-        "crn-craft.rules-run/0.4"
+        "crn-craft.rules-run/0.4",
+        "crn-craft.rules-run/0.5"
       ],
       "type": "string"
     },
@@ -373,7 +402,7 @@
       "type": "object"
     }
   },
-  "description": "A run request: `crn-craft.rules-run/0.1` to `0.4`.\n\nIt binds one model by hash and states the time grid, the ensemble, the outputs and an explicit budget. Unknown fields and duplicate keys are rejected.",
+  "description": "A run request: `crn-craft.rules-run/0.1` to `0.5`.\n\nIt binds one model by hash and states the time grid, the ensemble, the outputs and an explicit budget. Unknown fields and duplicate keys are rejected.",
   "properties": {
     "budget": {
       "$ref": "#/definitions/Budget"

@@ -24,8 +24,10 @@ if``), as in rebop. It applies while each reactant has enough molecules and
 is 0 otherwise.
 
 A reaction takes at most two reactant molecules, the limit of the rules
-language. Species with attributes, observables with filters and the other
-model fields remain available by editing ``to_dict()`` or writing JSON.
+language. ``add_continuous`` declares a continuous variable, an ODE between
+events that string rates may read; such models run with ``method="hybrid"``.
+Species with attributes, observables with filters and the other model fields
+remain available by editing ``to_dict()`` or writing JSON.
 """
 
 import json
@@ -204,6 +206,42 @@ class Model:
         rule.update(law)
         rule["products"] = [{"type": species} for species in products]
         self._reactions.append(rule)
+        return self
+
+    def add_continuous(
+        self, name, initial, derivative, *, lower_bound=None, on_bound="stop"
+    ):
+        """Declare a continuous variable dx/dt = ``derivative`` between events.
+
+        ``initial`` and ``lower_bound`` are numbers or parameter expressions;
+        ``derivative`` is an expression over parameters, species counts and
+        continuous variables. String rates may read the variable. With a
+        ``lower_bound``, ``on_bound`` is ``"stop"`` (end the replicate when
+        the variable reaches the bound) or ``"clamp"`` (hold it there). Run
+        such a model with ``method="hybrid"``.
+        """
+        _check_name("variable", name)
+        if self._taken(name):
+            raise ValueError(f"name {name!r} is already declared")
+        if not isinstance(derivative, str) or not derivative.strip():
+            raise TypeError("derivative must be an expression string")
+        variable = {
+            "name": name,
+            "initial": initial if isinstance(initial, str) else _number(initial, name),
+            "derivative": derivative,
+        }
+        if lower_bound is not None:
+            if on_bound not in ("stop", "clamp"):
+                raise ValueError(
+                    f"on_bound must be 'stop' or 'clamp', not {on_bound!r}"
+                )
+            variable["lower_bound"] = (
+                lower_bound
+                if isinstance(lower_bound, str)
+                else _number(lower_bound, f"lower bound of {name}")
+            )
+            variable["on_bound"] = on_bound
+        self._continuous.append(variable)
         return self
 
     def to_dict(self):

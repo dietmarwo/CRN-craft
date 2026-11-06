@@ -112,7 +112,8 @@ pub enum ModelVersion {
     V02,
     #[doc = concat!(
         "`crn-craft.rules-model/0.3`: 0.2 plus whole-rule `propensity` ",
-        "expressions in rules."
+        "expressions in rules and `continuous` variables, which require the ",
+        "`hybrid` method."
     )]
     #[serde(rename = "crn-craft.rules-model/0.3")]
     V03,
@@ -161,6 +162,18 @@ pub struct Model {
     )]
     #[schemars(with = "crate::atp::AtpSpec")]
     pub atp: Option<crate::atp::AtpSpec>,
+    /// Continuous variables, rules-model/0.3 only (`CRN-R015` before), at
+    /// most 64: ODEs between events whose values rule rates and
+    /// propensities may read. A model with them runs only with the `hybrid`
+    /// method, and it cannot also have `atp` (`CRN-R015`). `null` is
+    /// rejected. See [`crate::continuous`].
+    #[serde(
+        default,
+        deserialize_with = "crate::present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "Vec<crate::continuous::ContinuousSpec>")]
+    pub continuous: Option<Vec<crate::continuous::ContinuousSpec>>,
 }
 
 /// A species type: a name and its numeric attributes.
@@ -412,6 +425,9 @@ pub(crate) struct Compiled {
     pub stop: Option<Expr>,
     pub stop_program: Option<Predicate>,
     pub atp: Option<crate::atp::Atp>,
+    /// Continuous variables; their values follow the model's observables in
+    /// `observables`, in declaration order.
+    pub continuous: Vec<crate::continuous::Variable>,
 }
 
 const FUNCTIONS: [&str; 14] = [
@@ -431,7 +447,12 @@ const FUNCTIONS: [&str; 14] = [
     "new_id",
 ];
 
-fn invalid(code: &str, path: &str, message: impl Into<String>, hint: &str) -> Diagnostic {
+pub(crate) fn invalid(
+    code: &str,
+    path: &str,
+    message: impl Into<String>,
+    hint: &str,
+) -> Diagnostic {
     Diagnostic::error(code, path, message, hint)
 }
 
@@ -453,7 +474,7 @@ fn check_name(name: &str, path: &str, out: &mut Vec<Diagnostic>) {
     }
 }
 
-fn pointer(parent: &str, key: impl std::fmt::Display) -> String {
+pub(crate) fn pointer(parent: &str, key: impl std::fmt::Display) -> String {
     crn_craft::diagnostic::pointer(parent, key)
 }
 
@@ -462,7 +483,12 @@ struct Names {
     observables: BTreeMap<String, usize>,
 }
 
-fn parse_expr(source: &str, scope: &Scope, path: &str, out: &mut Vec<Diagnostic>) -> Option<Expr> {
+pub(crate) fn parse_expr(
+    source: &str,
+    scope: &Scope,
+    path: &str,
+    out: &mut Vec<Diagnostic>,
+) -> Option<Expr> {
     if source.len() > MAX_EXPRESSION_BYTES {
         out.push(invalid(
             "CRN-R015",
@@ -597,6 +623,41 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
             ));
         }
         names.observables.insert(name.clone(), i);
+    }
+    // Continuous variables share the namespace and follow the observables.
+    let specs = model.continuous.as_deref().unwrap_or(&[]);
+    if model.continuous.is_some() && model.schema < ModelVersion::V03 {
+        out.push(invalid(
+            "CRN-R015",
+            "/continuous",
+            "continuous variables require rules-model/0.3",
+            "Select the 0.3 model contract.",
+        ));
+    }
+    limit(
+        &mut out,
+        specs.len(),
+        crate::continuous::MAX_VARIABLES,
+        "/continuous",
+        "continuous variables",
+    );
+    for (k, spec) in specs.iter().enumerate() {
+        let path = pointer(&pointer("/continuous", k), "name");
+        check_name(&spec.name, &path, &mut out);
+        if names.params.contains_key(&spec.name) || names.observables.contains_key(&spec.name) {
+            out.push(invalid(
+                "CRN-R010",
+                &path,
+                format!(
+                    "continuous variable `{}` repeats a parameter, observable or variable name",
+                    spec.name
+                ),
+                "Give every parameter, observable and continuous variable its own name.",
+            ));
+        }
+        names
+            .observables
+            .insert(spec.name.clone(), model.observables.len() + k);
     }
 
     let mut types: Vec<TypeInfo> = Vec::new();
@@ -782,6 +843,19 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
         .stop
         .as_ref()
         .and_then(|s| parse_expr(s, &global_scope, "/stop", &mut out));
+    if let Some(stop) = &stop {
+        // A stop is checked at events; continuous values change in between.
+        let mut flags = vec![false; model.observables.len() + specs.len()];
+        stop.reads(&mut flags);
+        if let Some(k) = flags[model.observables.len()..].iter().position(|&f| f) {
+            out.push(invalid(
+                "CRN-R012",
+                "/stop",
+                format!("stop reads continuous variable `{}`", specs[k].name),
+                "Stop on a continuous variable with its lower_bound and on_bound \"stop\".",
+            ));
+        }
+    }
 
     // Rules.
     let mut classes: Vec<ClassInfo> = Vec::new();
@@ -1117,6 +1191,30 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
             }
         }
     });
+    if model.atp.is_some() && model.continuous.is_some() {
+        out.push(invalid(
+            "CRN-R015",
+            "/continuous",
+            "a model has either an atp block or continuous variables",
+            "Write ATP as a continuous variable, or keep the legacy atp block alone.",
+        ));
+    }
+    let continuous = crate::continuous::Variable::compile_all(
+        specs,
+        &names.params,
+        &names.observables,
+        &params,
+        model.observables.len(),
+        &mut out,
+    );
+    for variable in &continuous {
+        observables.push(ObservableInfo {
+            name: variable.name.clone(),
+            condition: None,
+            weight: None,
+            reduce: Reduce::Sum,
+        });
+    }
     if out.is_empty() {
         let stop_program = stop
             .as_ref()
@@ -1132,6 +1230,7 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
             stop_program,
             stop,
             atp,
+            continuous,
         })
     } else {
         Err(out)

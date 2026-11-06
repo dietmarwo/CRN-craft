@@ -1,8 +1,8 @@
 # Dynamic, attributed species: the rules language
 
 **Status:** experimental. Contracts `crn-craft.rules-model/0.1` to `0.3`,
-`crn-craft.rules-check/0.1`, `crn-craft.rules-run/0.1` to `0.4`,
-`crn-craft.rules-result/0.1` and `0.2`; crate `crn-craft-rules`; CLI
+`crn-craft.rules-check/0.1`, `crn-craft.rules-run/0.1` to `0.5`,
+`crn-craft.rules-result/0.1` to `0.3`; crate `crn-craft-rules`; CLI
 `rules-check` and `rules`; Python `crn_craft.rules`. This page describes the
 0.1 language and the `tree` method; [mtDNA ensembles](mtdna-rules.md) covers
 the other methods, trackers and later versions. Protocol and gates:
@@ -70,6 +70,7 @@ crn-craft describe rules-model     # JSON Schema; also rules-check, rules-run, r
 | `observables` | Named reductions over the instances of one type (below). |
 | `rules` | `{name, reactants, rate, products}` with zero, one or two reactant patterns; in 0.3 `propensity` may replace `rate`. |
 | `stop` | Optional condition over parameters and observables. Once true, the state is held to the end of the report grid and the replicate is `stopped`. |
+| `continuous` | rules-model/0.3: continuous variables, ODEs between events that rates may read (below). |
 
 Names, including the model's `name`, are ASCII identifiers
 (`[A-Za-z_][A-Za-z0-9_]*`, at most 64 bytes) and cannot be function names. Unknown fields and duplicate keys are rejected.
@@ -188,6 +189,99 @@ must stay below 2⁵³: a model that calls `new_id()` with an initial attribute 
 2⁵³ − 1 or more is rejected (`CRN-R014`), and reaching 2⁵³ during a run fails
 the replicate (`CRN-R030`).
 
+## Continuous variables (rules-model/0.3)
+
+A model may declare continuous variables in `continuous`, each
+`{name, initial, derivative, lower_bound?, on_bound?}`:
+
+```json
+"continuous": [
+  {"name": "ATP", "initial": "ATP0",
+   "derivative": "f * wild_type - v1 * ATP - v2 * N",
+   "lower_bound": 0, "on_bound": "stop"}
+]
+```
+
+| Field | Meaning |
+|---|---|
+| `name` | shares one namespace with parameters and observables (`CRN-R010`); also the result column |
+| `initial` | number or parameter expression, finite and not below the bound (`CRN-R014`) |
+| `derivative` | dx/dt between events, over parameters, observables and continuous variables; a non-finite value fails the replicate (`CRN-R030` at `/continuous/i/derivative`) |
+| `lower_bound`, `on_bound` | together or not at all (`CRN-R013`): a number or parameter expression, and `stop` or `clamp` |
+
+Rule rates and propensities may read the variables, so rates change between
+events. The model's `stop`, observable filters and weights, reactant
+patterns and products cannot read them (`CRN-R012`; a stop is checked at
+events only), and neither can run-request trackers (`CRN-R020`). Results
+list the variables as observable columns after the model's observables, in
+declaration order, and rules-result/0.3 names them in `continuous`.
+
+At a lower bound, `stop` ends the replicate as `stopped` when the variable
+reaches the bound while its derivative there is not positive (also at time 0
+and after an event); the variable reads the bound on every later report and
+the other observables hold their values. This is the rule of the legacy ATP
+block at zero. `clamp` holds the variable at the bound while its derivative
+there is negative, and it follows the ODE again once the derivative is
+positive; rates and reports never read it below the bound.
+
+`models/rules/mtdna-three-class-atp-continuous.rules.json` is the ATP model
+of `mtdna-three-class-atp.rules.json` written this way: the parameters `f`,
+`v1`, `v2`, `c` and `ATP0` replace the `atp` block, and each coupled
+replication rate is multiplied by `c / (c + ATP)` in its expression. A model
+cannot have both `atp` and `continuous` (`CRN-R015`); the legacy block and
+`thinning` keep working unchanged.
+
+### The `hybrid` method (rules-run/0.5)
+
+Only `hybrid` runs a model with continuous variables; every other method
+refuses one with `CRN-R020` at `/method`. The request gives its tolerances:
+
+```json
+"method": {"kind": "hybrid", "rtol": 1e-6, "atol": 1e-9}
+```
+
+with `rtol` in [1e-12, 1e-2] and `atol` in (0, 1e-2] (`CRN-R020` at
+`/method/rtol` or `/method/atol`); `hybrid` needs rules-run/0.5 (`CRN-R020`
+at `/schema`). The Python helper writes these values for `method="hybrid"`.
+
+The model is a piecewise-deterministic Markov process (Davis 1984, DOI
+[10.1111/j.2517-6161.1984.tb01308.x](https://doi.org/10.1111/j.2517-6161.1984.tb01308.x)),
+simulated by integrated propensities (Alfonsi et al. 2005, DOI
+[10.1051/proc:2005001](https://doi.org/10.1051/proc:2005001)):
+
+1. After each event draw a unit exponential threshold E from one open
+   uniform, E = −ln u.
+2. Integrate the variables and the integrated total propensity
+   Λ(t) = ∫ a₀ ds, with Λ = 0 at the event, by the Dormand–Prince 5(4)
+   pair (DOI [10.1016/0771-050X(80)90013-3](https://doi.org/10.1016/0771-050X(80)90013-3)).
+   Steps follow the standard error control of Hairer, Nørsett and Wanner
+   (*Solving Ordinary Differential Equations I*, 2nd ed., 1993, II.4): the
+   root-mean-square of the error estimate over all components, each scaled
+   by `atol + rtol·max(|y₀|, |y₁|)`, must not exceed 1; the next step is
+   h·min(10, max(0.2, 0.9·err^(−1/5))). The first step uses their starting
+   rule, later ones the previous prediction, and each step is at most four
+   times (E − Λ)/a₀ at its start.
+3. The event happens where Λ reaches E, located by the Illinois method on
+   the fourth-order dense output (II.6, after Shampine 1986, DOI
+   [10.1090/S0025-5718-1986-0815836-3](https://doi.org/10.1090/S0025-5718-1986-0815836-3)).
+   It selects channel j with probability a_j/a₀ evaluated at that point,
+   from one uniform, with the resolution rule of Static Direct
+   (`CRN-R031`).
+4. Report values and bound crossings come from the same dense output; a
+   bound crossing that comes first ends the step there.
+
+Rates that do not read a variable are computed once per interval. The
+method lowers the model like the static methods, so it refuses models with
+dynamic instances; it refuses ATP models (use `thinning`); and it also runs
+models without continuous variables, as an exact jump process up to
+rounding. It is approximate at its tolerances. Its sampler is
+`chacha8-u53/rules-approximate-hybrid-dopri54/1`; rules-result/0.3 records
+the request's `method`, tolerances included. Integration steps, accepted or
+rejected, count against `max_sampling_steps_per_replicate` like leap
+iterations (`CRN-R041`), and a step below four rounding units of the time
+fails the replicate (`CRN-R030`). Validation:
+[`validation/hybrid/RESULTS.md`](../validation/hybrid/RESULTS.md).
+
 ## Run request and result
 
 `crn-craft.rules-run/0.1` binds the model by relative path and SHA-256 and
@@ -268,9 +362,9 @@ or stopped.
 | CRN-R010 | invalid, reserved or duplicate name; observable shadowing a parameter |
 | CRN-R011 | unknown type |
 | CRN-R012 | expression syntax, unknown name, out-of-scope name or random draw outside products |
-| CRN-R013 | unsupported rule shape, missing or unknown attribute, bad `copy`; both or neither of `rate` and `propensity`, `where` or `factor` on a propensity rule's reactant |
-| CRN-R014 | invalid initial count or attribute |
-| CRN-R015 | model size limit; a field used before its model version (`atp` in 0.1, `propensity` in 0.1 or 0.2) |
+| CRN-R013 | unsupported rule shape, missing or unknown attribute, bad `copy`; both or neither of `rate` and `propensity`, `where` or `factor` on a propensity rule's reactant; `lower_bound` without `on_bound` or the reverse |
+| CRN-R014 | invalid initial count or attribute; a continuous variable's initial value or bound that is not finite, or an initial value below its bound |
+| CRN-R015 | model size limit (also 64 continuous variables); a field used before its model version (`atp` in 0.1, `propensity` and `continuous` in 0.1 or 0.2); `atp` together with `continuous` |
 | CRN-R020 | invalid run request (hash, path, grid, ensemble, budget, method, tracker, log or version gate; generated-kernel fingerprint mismatch) |
 | CRN-R030 | negative or non-finite rate, factor, weight or product attribute; overflow |
 | CRN-R031 | weight below 53-bit resolution (Static Direct: a channel below 2⁻⁵³ of the total) |
@@ -289,9 +383,11 @@ share one DKW family at alpha 0.001. Results: `validation/rules/RESULTS.md`.
 
 ## Limits of 0.1
 
-- No general time-dependent rates or ODE coupling. rules-model/0.2 adds one
-  case, the ATP flow of Kowald's variable-population model, solved with
-  exact thinning ([mtDNA ensembles](mtdna-rules.md)). No compartments.
+- ODE coupling: rules-model/0.2 adds one fixed case, the ATP flow of
+  Kowald's variable-population model, solved with exact thinning
+  ([mtDNA ensembles](mtdna-rules.md)); rules-model/0.3 adds general
+  continuous variables, simulated approximately by `hybrid` (below). No
+  explicit time dependence of rates, and no compartments.
 - Two different patterns over one type, three or more reactants, and counts
   inside expressions (largest clone *size*) are not supported yet.
 - Models are JSON. `crn_craft.rules` prepares and runs ensembles from Python
@@ -309,4 +405,6 @@ share one DKW family at alpha 0.001. Results: `validation/rules/RESULTS.md`.
 The mtDNA extension adds `crn_craft.rules`, event observation, fixed-channel
 Direct and next reaction, approximate leaps, and ATP thinning. See the
 [mtDNA rules guide](mtdna-rules.md) for rules-run/0.2–0.4, rules-result/0.2 and rules-model/0.2, examples,
-supported model shapes and validation commands.
+supported model shapes and validation commands. rules-run/0.5 adds `hybrid`
+and returns rules-result/0.3 (0.2 plus `method` and `continuous`); see
+[continuous variables](#continuous-variables-rules-model03).

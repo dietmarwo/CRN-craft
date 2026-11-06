@@ -2,6 +2,8 @@
 
 #[path = "flat_path.rs"]
 mod flat_path;
+#[path = "hybrid.rs"]
+mod hybrid;
 #[path = "leap.rs"]
 mod leap;
 #[path = "loop_host.rs"]

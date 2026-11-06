@@ -130,8 +130,12 @@ The shared target directory took about 150 MB; each cached program about
   only be checked by the self-check; such builds should use `source=`.
 - Mid-run cancellation and reached wall-time limits end the run in both
   routes, but which replicates complete then depends on timing, so only a
-  cancel file present before the run and an unreached wall-time limit are
-  compared byte for byte.
+  cancel file present before a one-worker run and an unreached wall-time
+  limit are compared byte for byte. With two workers, even the
+  interpreter's result for a cancel file present before the run depends on
+  whether the second worker starts a replicate before the first poll sees
+  the file; a check run with two workers failed on this once and was
+  changed to one worker.
 - Ctrl-C ends the program; partial results are discarded, as in the
   interpreter.
 - No release profile tuning (LTO, one codegen unit) was tried; the target

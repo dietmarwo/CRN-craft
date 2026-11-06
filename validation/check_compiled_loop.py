@@ -11,7 +11,7 @@ every record column to be byte-identical to the interpreter's:
 - the plain `"static_direct"` method, with the defaults of the request
   version `rules.ensemble` writes, trackers and an event log;
 - event, sampling, instance and output budgets, a wall-time budget that is
-  not reached, and a cancel file that exists before the run.
+  not reached, and a cancel file that exists before a one-worker run.
 
 It checks the refusals: other methods, models outside the generator's forms
 (expression rates, `propensity` rules, continuous variables, ATP blocks,
@@ -206,7 +206,10 @@ def main():
         scratch = Path(scratch)
         cancel = scratch / "cancel"
         cancel.write_text("stop\n")
-        identical("cancel file", ensemble(model, loop), loop, rows, cancel_file=cancel)
+        # One worker: with more, which replicates start before the first poll
+        # sees the file depends on timing, in the interpreter too.
+        cancelled = ensemble(model, loop, threads=1)
+        identical("cancel file", cancelled, loop, rows, cancel_file=cancel)
         late = ensemble(model, loop, wall_time_s=1e-6).simulate()
         require(late.metadata["termination"] == "wall_time_limit", "wall time reached")
         rows.append({"case": "wall time reached", "termination": "wall_time_limit"})

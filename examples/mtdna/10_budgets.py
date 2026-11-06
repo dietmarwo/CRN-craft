@@ -8,9 +8,9 @@ model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
 
 
 def summary(result):
-    terms = [rules.TERMINATIONS[t] for t in result.records["termination"]]
+    terms = sorted(set(result.records["termination"]))
     codes = [d["code"] for d in result.metadata["diagnostics"]]
-    return result.metadata["termination"], sorted(set(terms)), codes
+    return result.metadata["termination"], terms, codes
 
 
 # Too few events for three years: every cell ends with event_limit and the

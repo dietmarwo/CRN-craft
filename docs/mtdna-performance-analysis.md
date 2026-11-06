@@ -202,10 +202,30 @@ For whole ensembles, use trackers, event logs or a Rust observer.
 | `template.bind_parameters({...})` per candidate | 0.28 ms |
 | a fresh `rules.ensemble(...)` per candidate | 0.29 ms |
 
-Both front ends run the same native engine. Python returns NumPy columns
-without copying the records. Preparing a candidate is negligible next to its
-simulation either way. `bind_parameters` is preferred because it keeps the
-settings identical, not because it is faster.
+Both front ends run the same native engine. Preparing a candidate is
+negligible next to its simulation either way. `bind_parameters` is
+preferred because it keeps the settings identical, not because it is
+faster.
+
+Python parses the result document and returns pandas DataFrames. For 4000
+cells with every path kept (`keep_paths="all"`, `mtdna_direct`, two
+threads, pandas 3.1.1; `validation/mtdna/python-results-timing.json`,
+medians of three):
+
+| Step | 37 monthly reports | 155 weekly reports |
+| --- | ---: | ---: |
+| simulation (native) | 7.56 s | 7.92 s |
+| parsing the result JSON | 0.083 s | 0.35 s |
+| records, rule counts and statistics as DataFrames | 0.0012 s | 0.0013 s |
+| `result.paths` (148,000 or 620,000 rows) | 0.039 s | 0.19 s |
+| `result.to_xarray()` | 0.004 s | 0.015 s |
+
+The DataFrames add at most 3% to the simulation, almost all of it for
+`paths`, which is built on first use. That costs about as much as the
+`np.array` over the path lists that code for release 0.2.0 needed (0.034 s
+and 0.17 s). The first `to_xarray()` call also imports xarray, about
+0.06 s. With a mutation log, `result.event_columns()` gave the 8626 logged
+events in 0.012 s.
 
 ## 6. Other models and routes
 

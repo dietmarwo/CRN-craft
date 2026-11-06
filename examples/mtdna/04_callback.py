@@ -3,7 +3,6 @@
 import json
 from collections import Counter
 
-import numpy as np
 from crn_craft import rules
 
 model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
@@ -28,7 +27,8 @@ def watch(replicate, event):
 
 # Callbacks hold the GIL, so use them on few cells.
 result = run.simulate(callback=watch)
-stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
+stopped = result.records["termination"] == "stopped"
 print("events seen by the callback:", sum(seen.values()))
 print("cells stopped at their first advantaged mutation:", stopped.sum())
-print("their stop days:", np.round(result.records["stop_time"][stopped] / 24, 1))
+days = result.records.loc[stopped, "stop_time"] / 24
+print("their stop days:", days.round(1).to_numpy())

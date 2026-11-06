@@ -43,8 +43,11 @@ Contents:
 
 ```sh
 pip install crn-craft                    # Python package (abi3 wheels for CPython 3.10+)
+pip install "crn-craft[xarray]"          # optional: results as xarray Datasets
 cargo install crn-craft-cli --locked     # optional: the native command-line tool
 ```
+
+The Python package needs NumPy and pandas, which pip installs with it.
 
 The Python package contains the native engine, so the CLI is optional. Every
 feature in this manual is in release 0.2.0; features that exist only in Rust
@@ -133,16 +136,17 @@ stop condition. The examples add the takeover rule used throughout this
 manual, `N > 0 && mutants >= 0.9 * N`: a cell is taken over when 90% of its
 molecules are mutants.
 
-The order of observables in results is sorted by name, not the order in the
-file. Look up a column with `result.metadata["observables"].index("N")`
-instead of assuming a position.
+Results are pandas DataFrames whose columns carry the observable names, so
+select a column by name, as in `result.statistics["mean"]["N"]`. Observable
+columns are sorted by name, not in the order of the file; the raw matrices
+in `result.metadata` use the same order.
 
 ## 3. A first ensemble
 
 An *ensemble* is a set of independent replicates of the model. Here each
 replicate is one cell. `rules.ensemble` builds and validates a run request
 and prepares it; `simulate()` runs the cells on native threads and returns
-NumPy columns.
+pandas DataFrames.
 
 ```python
 """Three-class model: 200 cells for three years with the takeover stop."""
@@ -170,23 +174,29 @@ result = run.simulate()
 seconds = time.perf_counter() - start
 
 meta = result.metadata
-records = result.records
-stopped = records["termination"] == rules.TERMINATIONS.index("stopped")
+records = result.records  # one row per cell
+stopped = records["termination"] == "stopped"
 print(meta["sampler"], meta["termination"])
 print(f"{meta['events']:,} events in {seconds:.2f} s")
-print(f"taken over: {stopped.sum()} of {len(stopped)} cells")
-print("takeover days (first five):", np.sort(records["stop_time"][stopped])[:5] / 24)
-names = meta["observables"]
-mean = result.statistics["mean"]
-fraction = mean[:, names.index("mutants")] / mean[:, names.index("N")]
-for day, value in zip(days, fraction, strict=True):
-    print(f"day {day:5d}: mean mutant fraction {value:.4f}")
+print(f"taken over: {stopped.sum()} of {len(records)} cells")
+print(records[["termination", "stop_time", "events"]].head(3))
+first = records.loc[stopped, "stop_time"].nsmallest(5)
+print("takeover days (first five):", first.to_numpy() / 24)
+mean = result.statistics["mean"]  # one row per report time
+fraction = mean["mutants"] / mean["N"]
+for hours, value in fraction.items():
+    print(f"day {hours / 24:5.0f}: mean mutant fraction {value:.4f}")
 ```
 
 ```text
 chacha8-u53-ziggurat/rules-mtdna-direct/1 completed
 28,536,814 events in 0.53 s
 taken over: 23 of 200 cells
+          termination  stop_time  events
+replicate                               
+0           completed    25920.0  148726
+1           completed    25920.0  149476
+2           completed    25920.0  150111
 takeover days (first five): [272.73509567 300.76054915 304.31896137 358.80591137 426.00462126]
 day     0: mean mutant fraction 0.0000
 day    90: mean mutant fraction 0.0004
@@ -205,14 +215,21 @@ day  1080: mean mutant fraction 0.1097
 
 What the result holds:
 
+- `result.records`: a DataFrame with one row per cell, indexed by
+  `replicate`, the cell's index. The columns are `started`, `termination`,
+  `stop_time`, `events`, `rng_words`, `peak_instances`, `created_instances`
+  and `saved_points`. `termination` is categorical: compare it with a name
+  such as `"stopped"` (section 17 lists them).
+- `result.rule_events`: events per cell and rule, one column per rule name.
+- `result.statistics`: a dictionary of DataFrames `mean`, `sample_variance`
+  and `mean_standard_error`, indexed by report `time` with one column per
+  observable, and `samples`, the number of cells. They are withheld (`None`)
+  if any cell ended early for a budget reason.
+- `result.paths`: the kept series of single cells (next section).
 - `result.metadata`: the full result document (sampler, termination,
   totals, statistics, kept paths, observations, diagnostics).
-- `result.records`: one entry per cell. The columns are `id`, `started`,
-  `termination`, `stop_time`, `events`, `rng_words`, `peak_instances`,
-  `created_instances`, `saved_points` and `rule_events` (cells × rules).
-- `result.statistics`: `mean`, `sample_variance` and `mean_standard_error`
-  (report times × observables), and `samples`. They are withheld if any
-  cell ended early for a budget reason.
+
+`.to_numpy()` turns any DataFrame or column into a NumPy array.
 
 Report times are right-continuous: an event exactly at a report time is
 included. A cell that stops holds its state at every later report time.
@@ -229,7 +246,6 @@ larger ensemble.
 
 import json
 
-import numpy as np
 from crn_craft import rules
 
 model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
@@ -245,20 +261,19 @@ def run(seed, threads):
         seed=seed,
         threads=threads,
         method="mtdna_direct",
-        keep_paths=64,
+        keep_paths="all",  # every cell's series, as result.paths
     )
     return ensemble.simulate()
 
 
 one, two, other = run(7, 1), run(7, 2), run(8, 2)
-same = all(np.array_equal(one.records[k], two.records[k]) for k in one.records)
+same = one.records.equals(two.records) and one.rule_events.equals(two.rule_events)
 print("1 vs 2 threads, same seed, identical records:", same)
-print(
-    "same statistics:", np.array_equal(one.statistics["mean"], two.statistics["mean"])
-)
+print("same statistics:", one.statistics["mean"].equals(two.statistics["mean"]))
+print("same paths:", one.paths.equals(two.paths))
 print(
     "seed 7 vs 8, identical stop times:",
-    np.array_equal(one.records["stop_time"], other.records["stop_time"]),
+    one.records["stop_time"].equals(other.records["stop_time"]),
 )
 # Replicate i always uses the same stream, whatever the ensemble size.
 small = rules.ensemble(
@@ -272,16 +287,42 @@ small = rules.ensemble(
 ).simulate()
 print(
     "first 8 of 64 equal an 8-cell run:",
-    np.array_equal(small.records["events"], one.records["events"][:8]),
+    small.records["events"].equals(one.records["events"].head(8)),
 )
+print(one.paths[["N", "mutants"]].head(5))
 ```
 
 ```text
 1 vs 2 threads, same seed, identical records: True
 same statistics: True
+same paths: True
 seed 7 vs 8, identical stop times: False
 first 8 of 64 equal an 8-cell run: True
+                        N  mutants
+replicate time                    
+0         0.0      1000.0      0.0
+          8640.0    998.0      1.0
+          17280.0   997.0      0.0
+          25920.0   999.0      0.0
+1         0.0      1000.0      0.0
 ```
+
+`keep_paths` decides which cells keep their observable series: a count
+keeps cells 0, 1, … up to it, and `"all"` (or `True`) keeps every cell.
+`result.paths` holds them as one DataFrame indexed by (`replicate`,
+`time`), with one column per observable. Some common forms:
+
+- `result.paths.loc[3]`: cell 3's series;
+- `result.paths.xs(8640.0, level="time")`: every kept cell at day 360;
+- `result.paths["mutants"].unstack("time")`: cells × report times;
+- `result.to_xarray()`: an xarray Dataset with dimensions `replicate` and
+  `time`, one variable per observable (`pip install "crn-craft[xarray]"`).
+
+A cell that ended on a budget has rows only up to its last saved report
+time; `to_xarray()` fills the rest with NaN. Kept paths count against
+`max_output_bytes`; the
+[performance analysis](mtdna-performance-analysis.md#8-sizing-a-study)
+gives their size.
 
 Each method has its own sampler identity in `metadata["sampler"]`. The same
 seed gives different trajectories under different methods. Results are
@@ -302,7 +343,6 @@ The two common outputs are:
 
 import json
 
-import numpy as np
 from crn_craft import rules
 
 model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
@@ -316,12 +356,12 @@ result = rules.ensemble(
     threads=2,
     method="mtdna_direct",
 ).simulate()
-stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
+stopped = result.records["termination"] == "stopped"
 for age in (360, 720, 1080):
     taken = (stopped & (result.records["stop_time"] <= 24.0 * age)).mean()
     print(f"taken over by day {age:4d}: {taken:.3f}")
-days = result.records["stop_time"][stopped] / 24
-print(f"days to 90% mutants: first {days.min():.0f}, median {np.median(days):.0f}")
+days = result.records.loc[stopped, "stop_time"] / 24
+print(f"days to 90% mutants: first {days.min():.0f}, median {days.median():.0f}")
 ```
 
 ```text
@@ -362,7 +402,6 @@ report per cell:
 
 import json
 
-import numpy as np
 from crn_craft import rules
 
 model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
@@ -384,10 +423,11 @@ run = rules.ensemble(
 )
 result = run.simulate()
 print("sampler:", result.metadata["sampler"])
+# One DataFrame per tracker, one row per cell.
 neutral = result.tracker_columns(0)
 advantaged = result.tracker_columns(1)
 passage = result.tracker_columns(2)
-stop = result.records["stop_time"]
+print(advantaged[["appearances", "extinctions", "maximum", "integral"]].head(3))
 print("neutral lineages arising per cell:", neutral["appearances"].mean())
 print("neutral lineages lost per cell:   ", neutral["extinctions"].mean())
 print(
@@ -397,12 +437,12 @@ print(
 )
 print("largest advantaged class seen:    ", advantaged["maximum"].max())
 # The integral runs until the replicate's stop or the horizon.
-load = advantaged["integral"] / stop
+load = advantaged["integral"] / result.records["stop_time"]
 print("time-averaged advantaged count, mean over cells:", load.mean())
-hit = ~np.isnan(passage["first_passage"])
+reached = passage["first_passage"].dropna()  # NaN: never reached 60%
 print(
-    f"cells reaching 60% mutants: {hit.sum()}; median day "
-    f"{np.median(passage['first_passage'][hit]) / 24:.0f}"
+    f"cells reaching 60% mutants: {len(reached)}; median day "
+    f"{reached.median() / 24:.0f}"
 )
 # Episodes: each excursion of a class above zero, with start, end, peak.
 first = next(o for o in result.observations if o["trackers"][1]["episodes"])
@@ -412,6 +452,11 @@ for episode in first["trackers"][1]["episodes"]:
 
 ```text
 sampler: chacha8-u53-ziggurat/rules-mtdna-direct/1
+           appearances  extinctions  maximum   integral
+replicate                                              
+0                    0            0      0.0   0.000000
+1                    1            1      1.0  64.109016
+2                    0            0      0.0   0.000000
 neutral lineages arising per cell: 1.566
 neutral lineages lost per cell:    1.472
 advantaged lineages arising/lost:  0.404 0.266
@@ -445,9 +490,7 @@ the rule, the participating instances and the observables after the event.
 """Exact event records: a bounded event log for every cell."""
 
 import json
-from collections import Counter
 
-import numpy as np
 from crn_craft import rules
 
 model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
@@ -462,29 +505,24 @@ run = rules.ensemble(
     event_log={"max_entries": 50, "rules": ["mutation_mt", "mutation_mtAdv"]},
 )
 result = run.simulate()
-# Log entries carry a rule index; result.rule_names turns it into a name.
-total = Counter()
-for observation in result.observations:
-    for entry in observation["log"]:
-        total[result.rule_names[entry["rule"]]] += 1
-print("logged mutation events:", dict(total))
+# Every logged event, indexed by (replicate, entry); rule_name names the rule.
+log = result.event_columns()
+counts = log.groupby("rule_name", observed=True).size()
+print("logged mutation events:", counts.to_dict())
 print("omitted (log full):", sum(o["omitted_log_entries"] for o in result.observations))
-columns = result.event_columns(result.observations[0]["id"])
-print(
-    "cell",
-    result.observations[0]["id"],
-    "mutation days:",
-    np.round(columns["time"] / 24, 1),
-)
-observables = result.metadata["observables"]
-print("N after each logged event:", columns["observables"][:, observables.index("N")])
+cell = log.loc[0]  # the log of cell 0
+print(cell[["time", "rule", "rule_name", "N", "mutants"]])
+print("cell 0 mutation days:", (cell["time"] / 24).round(1).tolist())
 ```
 
 ```text
 logged mutation events: {'mutation_mt': 157, 'mutation_mtAdv': 40}
 omitted (log full): 0
-cell 0 mutation days: [323.4 744.1]
-N after each logged event: [997. 999.]
+               time  rule       rule_name      N  mutants
+entry                                                    
+0       7762.480758     2     mutation_mt  997.0      1.0
+1      17858.018331     3  mutation_mtAdv  999.0      1.0
+cell 0 mutation days: [323.4, 744.1]
 ```
 
 A *live callback* is a Python function called for every committed event of
@@ -497,7 +535,6 @@ rule index; `run.rule_names[event["rule"]]` gives the rule's name:
 import json
 from collections import Counter
 
-import numpy as np
 from crn_craft import rules
 
 model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
@@ -522,10 +559,11 @@ def watch(replicate, event):
 
 # Callbacks hold the GIL, so use them on few cells.
 result = run.simulate(callback=watch)
-stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
+stopped = result.records["termination"] == "stopped"
 print("events seen by the callback:", sum(seen.values()))
 print("cells stopped at their first advantaged mutation:", stopped.sum())
-print("their stop days:", np.round(result.records["stop_time"][stopped] / 24, 1))
+days = result.records.loc[stopped, "stop_time"] / 24
+print("their stop days:", days.round(1).to_numpy())
 ```
 
 ```text
@@ -549,8 +587,12 @@ Rules for observation:
   it on a few cells, and use trackers or logs for whole ensembles.
 - Log retention counts against the admission budget. Large logs need small
   cohorts and a larger `max_output_bytes`.
-- `batch_callback=fn` replays the retained log after the run in chunks, and
-  `result.event_columns(id)` returns time, rule and observables as arrays.
+- `batch_callback=fn` replays the retained log after the run in chunks.
+- `result.event_columns()` returns every logged event as one DataFrame
+  indexed by (`replicate`, `entry`): `time`, `rule` (the index),
+  `rule_name`, then the observables after the event.
+  `result.event_columns(id)` returns one cell's log. Participating
+  instances are in `result.observations`.
 
 ## 8. Choosing a method
 
@@ -600,10 +642,9 @@ for label, method in methods.items():
     result = run.simulate()
     seconds = time.perf_counter() - start
     meta = result.metadata
-    stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
-    mean = result.statistics["mean"]
-    names = meta["observables"]
-    fraction = mean[-1, names.index("mutants")] / mean[-1, names.index("N")]
+    stopped = result.records["termination"] == "stopped"
+    final = result.statistics["mean"].iloc[-1]  # the means at the last report time
+    fraction = final["mutants"] / final["N"]
     print(
         f"{label:24s} {seconds:6.2f} s  {meta['events']:>11,} events  "
         f"taken over {stopped.sum():2d}  final mutant fraction {fraction:.3f}  "
@@ -668,8 +709,7 @@ run = rules.ensemble(
 result = run.simulate()
 print("sampler:", result.metadata["sampler"])
 mean = result.statistics["mean"]
-names = result.metadata["observables"]
-print("mean number of distinct mutant clones:", mean[:, names.index("mutant_clones")])
+print("mean number of distinct mutant clones:", mean["mutant_clones"].to_numpy())
 print(
     "peak instances (clones + wild type), max over cells:",
     result.records["peak_instances"].max(),
@@ -754,14 +794,13 @@ run = rules.ensemble(
 )
 result = run.simulate()
 meta = result.metadata
-names = meta["observables"]
-print("observables:", names)
+print("observables:", meta["observables"])
 print("sampler:", meta["sampler"], "stopped:", meta["stopped_replicates"])
 mean = result.statistics["mean"]
-for day, row in zip(np.arange(0, 1081, 180), mean, strict=True):
+for hours, row in mean.iterrows():
     print(
-        f"day {day:4d}: N {row[names.index('N')]:7.1f}  "
-        f"mutants {row[names.index('mutants')]:6.1f}  ATP {row[names.index('ATP')]:7.2f}"
+        f"day {hours / 24:4.0f}: N {row['N']:7.1f}  "
+        f"mutants {row['mutants']:6.1f}  ATP {row['ATP']:7.2f}"
     )
 ```
 
@@ -813,8 +852,7 @@ for mu in (1e-5, 3e-5, 1e-4):
     row = []
     for sm in (1.0, 1.25, 1.5, 2.0):
         result = template.bind_parameters({"mu": mu, "sm": sm}).simulate()
-        stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
-        row.append(stopped.mean())
+        row.append((result.records["termination"] == "stopped").mean())
     print(f"{mu:9.0e}  " + "".join(f"{v:8.3f}" for v in row))
 print(f"12 candidates in {time.perf_counter() - start:.1f} s")
 # The same seed gives every candidate the same random streams (common
@@ -875,7 +913,7 @@ run = rules.ensemble(
     method="mtdna_direct",
 )
 result = run.simulate()
-stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
+stopped = result.records["termination"] == "stopped"
 print(result.metadata["sampler"])
 print(f"cells past 60% within three years: {stopped.mean():.2%}")
 
@@ -943,9 +981,9 @@ model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
 
 
 def summary(result):
-    terms = [rules.TERMINATIONS[t] for t in result.records["termination"]]
+    terms = sorted(set(result.records["termination"]))
     codes = [d["code"] for d in result.metadata["diagnostics"]]
-    return result.metadata["termination"], sorted(set(terms)), codes
+    return result.metadata["termination"], terms, codes
 
 
 # Too few events for three years: every cell ends with event_limit and the
@@ -1153,12 +1191,41 @@ validate the model against biology.
 | `model` | model bytes from `rules.load`, or a dictionary |
 | `end`, `report_times` | horizon in hours; increasing report times in [0, end] |
 | `replicates`, `seed`, `threads` | number of cells, root seed, 1–64 native threads |
-| `keep_paths` | how many cells keep their full observable series (`metadata["paths"]`) |
+| `keep_paths` | how many cells keep their full observable series (`result.paths`); `"all"` or `True` for every cell |
 | `keep_instances` | how many cells keep their final instances (`metadata["final_instances"]`) |
 | `method` | a method name or dictionary (section 8) |
 | `trackers` | list of `{"observable", "first_passage"?, "keep_episodes"?}` |
 | `event_log` | `{"max_entries": n, "rules": [...]}` |
 | budgets | `max_events`, `max_sampling_steps`, `max_instances`, `max_output_bytes`, `wall_time_s` |
+
+The result, `run.simulate()`:
+
+| Attribute | Content |
+| --- | --- |
+| `records` | DataFrame, one row per cell, index `replicate`: `started` (bool), `termination` (categorical), `stop_time` (float), `events`, `rng_words`, `peak_instances`, `created_instances`, `saved_points` (unsigned integers) |
+| `rule_events` | DataFrame, one row per cell, one column per rule name: events of each rule |
+| `statistics` | `None` if withheld; else `samples` and the DataFrames `mean`, `sample_variance`, `mean_standard_error`, index `time`, one column per observable |
+| `paths` | DataFrame of the kept series, index (`replicate`, `time`), one column per observable; `to_xarray()` gives a Dataset with dimensions `replicate` and `time` |
+| `tracker_columns(i)` | DataFrame of tracker `i`, one row per observed cell; NaN where a time or peak is absent |
+| `event_columns()`, `event_columns(id)` | DataFrame of every logged event, index (`replicate`, `entry`), or of one cell's log, index `entry` |
+| `rule_names` | rule names in declaration order, also on the prepared run |
+| `observations`, `record_diagnostics`, `metadata` | trackers and logs as documents, per-cell errors by id, the full result document |
+
+Every DataFrame and column has `.to_numpy()`. Code written for the NumPy
+results of release 0.2.0 changes as follows:
+
+| 0.2.0 | Now |
+| --- | --- |
+| `records["termination"] == rules.TERMINATIONS.index("stopped")` | `records["termination"] == "stopped"`; the old form is silently all `False` |
+| `records["id"]` | `records.index` |
+| `records["rule_events"]` | `result.rule_events` |
+| `records[name]` (an array) | `records[name].to_numpy()`; integer termination codes are `records["termination"].cat.codes` |
+| `statistics["mean"][:, names.index("N")]` | `statistics["mean"]["N"]` |
+| `statistics["mean"]` (an array) | `statistics["mean"].to_numpy()` |
+| `metadata["paths"]` rows | `result.paths`, or `result.paths.to_numpy()` |
+| `tracker_columns(i)["id"]` and fields | `tracker_columns(i).index` and its columns |
+| `event_columns(id)["observables"]` | `event_columns(id)[list(metadata["observables"])].to_numpy()` |
+| `keep_paths=True` (one cell) | `keep_paths=1`; `True` now keeps every cell |
 
 Result metadata:
 
@@ -1171,9 +1238,10 @@ Result metadata:
 | `paths`, `final_instances`, `observations` | kept series, kept instances, and (with trackers or a log) trackers and logs |
 | `model_sha256`, `run_sha256`, `root_seed` | provenance |
 
-Terminations, indexed by `rules.TERMINATIONS`: `completed`, `stopped`,
-`event_limit`, `sampling_limit`, `instance_limit`, `wall_time_limit`,
-`cancelled`, `failed`, `output_limit`.
+Terminations, the categories of `records["termination"]` in the order of
+`rules.TERMINATIONS`: `completed`, `stopped`, `event_limit`,
+`sampling_limit`, `instance_limit`, `wall_time_limit`, `cancelled`,
+`failed`, `output_limit`.
 
 Frequent diagnostics:
 
@@ -1203,5 +1271,10 @@ Frequent diagnostics:
 - **`CRN-R031`.** A rate is below 2⁻⁵³ of the total, for example a tiny
   mutation probability in a huge population. Static methods select in one
   level; the tree method resolves rules and instances separately.
-- **Column positions.** Observables are sorted by name. Use
+- **No cell stopped, though some should have.** Compare `termination` with
+  a name, `records["termination"] == "stopped"`. A comparison with the
+  integer `rules.TERMINATIONS.index("stopped")`, as in release 0.2.0, is
+  `False` for every cell.
+- **Column positions.** Select DataFrame columns by observable name. In the
+  raw matrices of `result.metadata`, observables are sorted by name; use
   `metadata["observables"].index(name)`.

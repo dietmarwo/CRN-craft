@@ -15,6 +15,7 @@ import subprocess
 import sysconfig
 import tempfile
 import numpy as np
+import pandas as pd
 import crn_craft as c
 from crn_craft import rules
 from crn_craft.importers import import_bng_net
@@ -272,23 +273,68 @@ def main():
         ).simulate()
 
     serial, parallel = rules_run(1), rules_run(2)
-    mean = serial.statistics["mean"][:, 0]
-    error = serial.statistics["mean_standard_error"][:, 0]
+    mean = serial.statistics["mean"]["X"].to_numpy()
+    error = serial.statistics["mean_standard_error"]["X"].to_numpy()
     exact = 10.0 * (1.0 - np.exp(-np.array([0.0, 5.0, 10.0])))
     require(
         mean[0] == 0.0 and bool(np.all(np.abs(mean[1:] - exact[1:]) <= 5 * error[1:])),
         "installed rules ensemble matches the immigration-death law",
     )
     require(
-        all(
-            np.array_equal(serial.records[k], parallel.records[k])
-            for k in serial.records
-        )
-        and np.array_equal(serial.statistics["mean"], parallel.statistics["mean"])
-        and set(serial.tracker_columns(0))
+        serial.records.equals(parallel.records)
+        and serial.rule_events.equals(parallel.rule_events)
+        and serial.statistics["mean"].equals(parallel.statistics["mean"])
+        and set(serial.tracker_columns(0).columns)
         >= {"appearances", "first_passage", "integral"},
         "installed rules results are independent of threads and expose trackers",
     )
+    # Results are pandas objects: records and rule counts by replicate,
+    # statistics by report time, and every path with keep_paths="all".
+    records = serial.records
+    require(
+        isinstance(records, pd.DataFrame)
+        and records.index.name == "replicate"
+        and list(records.index) == list(range(400))
+        and isinstance(records["termination"].dtype, pd.CategoricalDtype)
+        and bool((records["termination"] == "completed").all())
+        and records["events"].dtype == np.uint64
+        and serial.rule_names == ("immigration", "death")
+        and list(serial.rule_events.columns) == ["immigration", "death"]
+        and int(serial.rule_events.to_numpy().sum()) == int(records["events"].sum())
+        and list(serial.statistics["mean"].index) == [0.0, 5.0, 10.0]
+        and serial.statistics["samples"] == 400,
+        "installed rules results are DataFrames",
+    )
+    kept = rules.ensemble(
+        death,
+        end=10.0,
+        report_times=[0.0, 5.0, 10.0],
+        replicates=50,
+        seed=7,
+        keep_paths="all",
+    ).simulate()
+    by_time = kept.paths["X"].groupby(level="time").mean().to_numpy()
+    require(
+        kept.paths.shape == (150, 1)
+        and list(kept.paths.index.names) == ["replicate", "time"]
+        and np.allclose(by_time, kept.statistics["mean"]["X"], rtol=1e-12, atol=0),
+        "installed rules keep every path as a DataFrame",
+    )
+    try:
+        import xarray  # noqa: F401  (optional: crn-craft[xarray])
+    except ImportError:
+        try:
+            kept.to_xarray()
+        except ImportError as error:
+            require("crn-craft[xarray]" in str(error), "to_xarray names the extra")
+        else:
+            raise RuntimeError("to_xarray without xarray")
+    else:
+        data = kept.to_xarray()
+        require(
+            data["X"].dims == ("replicate", "time") and data["X"].shape == (50, 3),
+            "installed to_xarray dimensions",
+        )
     require(
         "mtdna_direct" in str(rules.describe()["methods"]),
         "installed rules describe lists mtdna_direct",

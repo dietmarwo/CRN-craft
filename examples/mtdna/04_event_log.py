@@ -1,9 +1,7 @@
 """Exact event records: a bounded event log for every cell."""
 
 import json
-from collections import Counter
 
-import numpy as np
 from crn_craft import rules
 
 model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
@@ -18,19 +16,11 @@ run = rules.ensemble(
     event_log={"max_entries": 50, "rules": ["mutation_mt", "mutation_mtAdv"]},
 )
 result = run.simulate()
-# Log entries carry a rule index; result.rule_names turns it into a name.
-total = Counter()
-for observation in result.observations:
-    for entry in observation["log"]:
-        total[result.rule_names[entry["rule"]]] += 1
-print("logged mutation events:", dict(total))
+# Every logged event, indexed by (replicate, entry); rule_name names the rule.
+log = result.event_columns()
+counts = log.groupby("rule_name", observed=True).size()
+print("logged mutation events:", counts.to_dict())
 print("omitted (log full):", sum(o["omitted_log_entries"] for o in result.observations))
-columns = result.event_columns(result.observations[0]["id"])
-print(
-    "cell",
-    result.observations[0]["id"],
-    "mutation days:",
-    np.round(columns["time"] / 24, 1),
-)
-observables = result.metadata["observables"]
-print("N after each logged event:", columns["observables"][:, observables.index("N")])
+cell = log.loc[0]  # the log of cell 0
+print(cell[["time", "rule", "rule_name", "N", "mutants"]])
+print("cell 0 mutation days:", (cell["time"] / 24).round(1).tolist())

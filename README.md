@@ -282,6 +282,8 @@ diff mtdna.json mtdna-optimized.json
 python3 validation/check_rules_python.py --output rules-python.json
 python3 -O validation/check_rules_python.py --output rules-python-optimized.json
 diff rules-python.json rules-python-optimized.json
+# Every Python block of the mtDNA manual, run on its own, against its shown output:
+python3 validation/check_manual.py --binary target/release/crn-craft --output manual.json
 ```
 
 The optional real-reference checks use a separate Python environment:

@@ -22,7 +22,7 @@ run = rules.ensemble(
     method="mtdna_direct",
 )
 result = run.simulate()
-stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
+stopped = result.records["termination"] == "stopped"
 print(result.metadata["sampler"])
 print(f"cells past 60% within three years: {stopped.mean():.2%}")
 

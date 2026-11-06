@@ -18,12 +18,11 @@ run = rules.ensemble(
 )
 result = run.simulate()
 meta = result.metadata
-names = meta["observables"]
-print("observables:", names)
+print("observables:", meta["observables"])
 print("sampler:", meta["sampler"], "stopped:", meta["stopped_replicates"])
 mean = result.statistics["mean"]
-for day, row in zip(np.arange(0, 1081, 180), mean, strict=True):
+for hours, row in mean.iterrows():
     print(
-        f"day {day:4d}: N {row[names.index('N')]:7.1f}  "
-        f"mutants {row[names.index('mutants')]:6.1f}  ATP {row[names.index('ATP')]:7.2f}"
+        f"day {hours / 24:4.0f}: N {row['N']:7.1f}  "
+        f"mutants {row['mutants']:6.1f}  ATP {row['ATP']:7.2f}"
     )

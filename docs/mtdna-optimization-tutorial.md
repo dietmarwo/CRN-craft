@@ -79,11 +79,10 @@ def template(cells, seed, threads=2):
 def summaries(result):
     """Fraction of cells taken over by each age, and mean mutant fraction."""
     stop = result.records["stop_time"]
-    stopped = result.records["termination"] == rules.TERMINATIONS.index("stopped")
+    stopped = result.records["termination"] == "stopped"
     taken = np.array([(stopped & (stop <= 24.0 * d)).mean() for d in DAYS])
-    names = result.metadata["observables"]
-    mean = result.statistics["mean"][1:]
-    load = mean[:, names.index("mutants")] / mean[:, names.index("N")]
+    mean = result.statistics["mean"].iloc[1:]  # the report times after day 0
+    load = (mean["mutants"] / mean["N"]).to_numpy()
     return taken, load
 
 
@@ -201,16 +200,15 @@ def template(cells, seed, threads=2):
         seed=seed,
         threads=threads,
         method="mtdna_direct",
-        keep_paths=cells,
+        keep_paths="all",
         max_output_bytes=256 << 20,
     )
 
 
 def heteroplasmy(result):
     """Fraction of cells whose mutant fraction reaches each edge, per age."""
-    names = result.metadata["observables"]
-    values = np.array([path["values"] for path in result.metadata["paths"]])
-    fraction = values[:, :, names.index("mutants")] / values[:, :, names.index("N")]
+    paths = result.paths  # one row per (cell, report time)
+    fraction = (paths["mutants"] / paths["N"]).unstack("time").to_numpy()
     return (fraction[:, :, None] >= EDGES).mean(axis=0)  # ages x edges
 
 
@@ -461,8 +459,8 @@ Practical sizes for this model:
   it fall back to Static Direct, which is about three times slower. Record
   other thresholds with first-passage trackers, or compute them from kept
   paths as here.
-- **Keep only what the loss needs.** `keep_paths=cells` keeps 3 report
-  times × 6 observables per cell. Avoid event logs and Python callbacks
+- **Keep only what the loss needs.** `keep_paths="all"` keeps 3 report
+  times × 6 observables per cell, as one `result.paths` DataFrame. Avoid event logs and Python callbacks
   inside an objective.
 - **Reuse the template.** `bind_parameters` costs about 0.3 ms, as does a
   fresh request. Both are negligible, but a template guarantees that every

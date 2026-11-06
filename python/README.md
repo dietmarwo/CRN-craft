@@ -113,7 +113,7 @@ Models may also declare continuous variables, ODEs between events that
 rates read (for example an ATP pool), which `method="hybrid"` simulates at
 declared tolerances.
 
-Opt-in, with a Rust toolchain (1.85 or newer): `loop = rules.compile_loop(model)`
+New in 0.4.0, opt-in, with a Rust toolchain (1.85 or newer): `loop = rules.compile_loop(model)`
 compiles a model's Static Direct event loop into a cached native program,
 and `rules.ensemble(..., method="static_direct", compiled=loop)` runs it
 with results byte-identical to the interpreter's, about 2.2× faster on

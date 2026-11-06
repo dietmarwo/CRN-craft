@@ -218,7 +218,7 @@
         },
         {
           "additionalProperties": false,
-          "description": "Exact direct method over the lowered network of fixed instance tuples and channels. Every positive channel must be at least 2^-53 of the total (`CRN-R031`). Sampler `chacha8-u53/rules-static-direct/1`. Ziggurat waits change the prefix to `chacha8-u53-ziggurat`, and effective sparse trackers change the suffix to `rules-static-direct-sparse-trackers/1`.",
+          "description": "Exact direct method over the lowered network of fixed instance tuples and channels. Every positive channel must be at least 2^-53 of the total (`CRN-R031`). Sampler `chacha8-u53/rules-static-direct/1`. Ziggurat waits change the prefix to `chacha8-u53-ziggurat`, and effective sparse trackers change the suffix to `rules-static-direct-sparse-trackers/1`. From rules-run/0.6 both are the default: `waiting_time: \"inverse\"` with `sparse_trackers: false` runs the default of rules-run/0.5.",
           "properties": {
             "kind": {
               "enum": [
@@ -227,7 +227,7 @@
               "type": "string"
             },
             "sparse_trackers": {
-              "description": "rules-run/0.4 and later. `true` integrates unweighted single-class count trackers without first-passage predicates over their constant spans, which can change the last bits of an integral. Without such a tracker it changes nothing and warns with `CRN-R051`. `null` is rejected.",
+              "description": "rules-run/0.4 and later. `true` integrates unweighted single-class count trackers without first-passage predicates over their constant spans, which can change the last bits of an integral. Without such a tracker it changes nothing and warns with `CRN-R051`. `false` integrates every tracker at every event. Absent means `false` before rules-run/0.6; from 0.6 it integrates the eligible trackers sparsely and, without one, runs the per-event path without a warning. `null` is rejected.",
               "type": "boolean"
             },
             "waiting_time": {
@@ -236,7 +236,7 @@
                   "$ref": "#/definitions/RulesWaitingTime"
                 }
               ],
-              "description": "rules-run/0.4 and later; absent selects inverse waits. `null` is rejected."
+              "description": "rules-run/0.4 and later. Absent selects inverse waits before rules-run/0.6 and Ziggurat waits from 0.6. `null` is rejected."
             }
           },
           "required": [
@@ -521,7 +521,7 @@
       "type": "object"
     },
     "ResultVersion": {
-      "description": "The version of a result, its `schema` field: rules-result/0.1 answers a rules-run/0.1 request, rules-result/0.2 answers rules-run/0.2 to 0.4 and rules-result/0.3 answers rules-run/0.5.",
+      "description": "The version of a result, its `schema` field: rules-result/0.1 answers a rules-run/0.1 request, rules-result/0.2 answers rules-run/0.2 to 0.4 and rules-result/0.3 answers rules-run/0.5 and 0.6.",
       "enum": [
         "crn-craft.rules-result/0.1",
         "crn-craft.rules-result/0.2",
@@ -530,7 +530,7 @@
       "type": "string"
     },
     "RulesWaitingTime": {
-      "description": "How Static Direct draws waiting times (rules-run/0.4).",
+      "description": "How Static Direct draws waiting times (rules-run/0.4 and later).",
       "enum": [
         "inverse",
         "ziggurat"

@@ -1,6 +1,6 @@
 # Agent context: CRN-craft campaign
 
-Start with README.md, docs/architecture.md, docs/campaign/README.md and `crn-craft describe` (0.10; 0.12 from the native CLI).
+Start with README.md, docs/architecture.md, docs/campaign/README.md and `crn-craft describe` (0.10; 0.13 from the native CLI).
 Default engine MSRV is 1.85; Python/jobs/diffsol are isolated optional workspaces.
 Legacy exact SSA commands are simulate and simulate-cached, with unchanged original
 model/run/result/archive contracts. The separate ssa command implements Direct,

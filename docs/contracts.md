@@ -65,7 +65,7 @@ Discovery advances to `crn-craft.describe/0.3`, adding the legacy-analysis/expor
 `verify DIRECTORY` checks its archive. The original model/run shapes remain
 0.1. Result 0.2 replaces the never-emitted reserved result for actual execution;
 `describe result-v1` retains its old schema. Archive and archive-check begin at
-0.1; discovery is 0.10, or 0.12 from the native CLI (`alternative_exact_ssa`
+0.1; discovery is 0.10, or 0.13 from the native CLI (`alternative_exact_ssa`
 lists the `ssa-run`/`ssa-result` methods, the four accepted request versions
 and the `fast` default of each: none in 0.1, off in 0.2, on in 0.3 and 0.4,
 where `next_reaction` runs the checked policy only; the top-level

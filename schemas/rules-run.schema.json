@@ -83,7 +83,7 @@
       "description": "The event log in a run request's `event_log` (rules-run/0.2 and later).",
       "properties": {
         "max_entries": {
-          "description": "Entries kept per replicate; later matching events are only counted. The reservation for these entries must fit the output budget.",
+          "description": "Entries kept per replicate; later matching events are only counted. Replicates times `max_entries` times a per-entry bound from the model's sizes (observables, attributes and the largest reactant plus product count of a rule) must fit `budget.max_output_bytes`; the `CRN-R020` message names the bytes needed.",
           "format": "uint",
           "minimum": 0.0,
           "type": "integer"

@@ -1314,28 +1314,6 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
             "Use declared observable and rule names.",
         )]
     })?;
-    let attribute_count = compiled
-        .types
-        .iter()
-        .map(|t| t.attributes.len())
-        .max()
-        .unwrap_or(0);
-    let reservation = observations.reservation(
-        attribute_count,
-        compiled.observables.len(),
-        compiled.rules.len(),
-    ) * u128::from(request.ensemble.replicates);
-    if reservation > u128::from(MAX_WORKSPACE_BYTES.min(request.budget.max_output_bytes)) {
-        return Err(vec![request_error(
-            "/budget",
-            "observation reservation exceeds budget",
-            "Reduce event or episode retention or use fewer paths.",
-        )]);
-    }
-    let diagnostics = admission(&compiled, &request, reservation);
-    if !diagnostics.is_empty() {
-        return Err(diagnostics);
-    }
     match request.method {
         Some(Method::Tau { epsilon })
             if !epsilon.is_finite() || epsilon <= 0.0 || epsilon > 0.1 =>
@@ -1391,6 +1369,22 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
             "Select tau or exact SSA for other channels.",
         )]);
     }
+    let sizes = observation_sizes(&compiled, request.method, flat.as_ref());
+    let reserved = observations.reservation(&sizes);
+    let reservation = reserved.per_replicate() * u128::from(request.ensemble.replicates);
+    let budget = MAX_WORKSPACE_BYTES.min(request.budget.max_output_bytes);
+    if reservation > u128::from(budget) {
+        return Err(vec![reservation_error(
+            &reserved,
+            request.ensemble.replicates,
+            reservation,
+            request.budget.max_output_bytes,
+        )]);
+    }
+    let diagnostics = admission(&compiled, &request, reservation);
+    if !diagnostics.is_empty() {
+        return Err(diagnostics);
+    }
     let mut sparse_unused = false;
     if let Some(net) = &mut flat {
         if matches!(
@@ -1435,6 +1429,70 @@ fn workers(request: &RunRequest) -> u64 {
 
 /// Replicates in flight or waiting for ordered reduction, per worker.
 const WINDOW_PER_WORKER: u64 = 4;
+
+/// The sizes that bound one log entry of this model and method.
+fn observation_sizes(
+    compiled: &model::Compiled,
+    method: Option<Method>,
+    flat: Option<&flat::Network>,
+) -> observe::Sizes {
+    observe::Sizes {
+        attributes: compiled
+            .types
+            .iter()
+            .map(|t| t.attributes.len())
+            .max()
+            .unwrap_or(0),
+        observables: compiled.observables.len(),
+        rules: compiled.rules.len(),
+        participants: compiled
+            .rules
+            .iter()
+            .map(|r| r.reactant_types.len() + r.products.len())
+            .max()
+            .unwrap_or(0),
+        leap_channels: match method {
+            Some(Method::Tau { .. } | Method::Binomial { .. }) => flat.map(|n| n.channels.len()),
+            _ => None,
+        },
+    }
+}
+
+/// `CRN-R020` at `/budget` for an observation reservation above the output
+/// budget or the workspace limit. The message itemizes the reservation; the
+/// hint names the smallest `max_output_bytes` that admits it.
+fn reservation_error(
+    reserved: &observe::Reservation,
+    replicates: u64,
+    total: u128,
+    max_output_bytes: u64,
+) -> Diagnostic {
+    let mut parts = Vec::new();
+    if reserved.entries > 0 {
+        parts.push(format!(
+            "{} log entries x {} bytes",
+            reserved.entries, reserved.entry
+        ));
+    }
+    if reserved.trackers > 0 {
+        parts.push(format!("{} tracker bytes", reserved.trackers));
+    }
+    let message = format!(
+        "observation reservation exceeds budget: {replicates} replicates x {} bytes ({}) = {total} bytes, above max_output_bytes = {max_output_bytes}",
+        reserved.per_replicate(),
+        parts.join(" + "),
+    );
+    let hint = if total <= u128::from(MAX_WORKSPACE_BYTES) {
+        format!(
+            "Set max_output_bytes to at least {total}, or reduce replicates, event_log.max_entries or keep_episodes."
+        )
+    } else {
+        format!(
+            "The reservation exceeds the workspace limit of {MAX_WORKSPACE_BYTES} bytes; reduce replicates, event_log.max_entries or keep_episodes."
+        )
+    };
+    request_error("/budget", message, &hint)
+}
 
 /// Workspace and output reservations from sizes alone, checked before any run.
 fn admission(
@@ -2150,5 +2208,7 @@ pub fn schema(kind: &str) -> Option<Value> {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_feedback;
 #[cfg(test)]
 mod tests_review;

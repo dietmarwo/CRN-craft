@@ -158,6 +158,22 @@ series and kept final instances (`keep_instances × max_instances`) stays below
 2 GiB, and if `max_output_bytes` can hold at least 160 bytes per replicate
 record (`CRN-R020`).
 
+Trackers and event logs (rules-run/0.2 and later) reserve output per
+replicate: 256 bytes per tracker plus 64 per kept episode, and `max_entries`
+times a bound on one log entry. The entry bound counts every number at its
+longest compact JSON form (25 bytes with its comma) and uses the model's own
+sizes: 160 bytes for the keys, time and rule, 25 per observable column, and
+per participant of an exact step 62 bytes plus 25 per attribute, where the
+participants are the largest number of reactant patterns plus products of
+any rule. Leap entries (`tau`, `binomial`) list firings instead, 45 bytes per
+lowered channel. Up to 0.2.0 the bound assumed two reactants and 64 products
+for every rule; the smaller of the two bounds applies, so no request admitted
+before is refused now. For the three-class mtDNA model an entry reserves 721
+bytes, so 50 entries for 1,000 cells take 36 MB of the 64 MiB Python default.
+Replicates times this reservation must fit `max_output_bytes` (and 2 GiB). The
+`CRN-R020` message at `/budget` itemizes the reservation, and its hint names
+the smallest `max_output_bytes` that admits the request.
+
 Report values are right-continuous: an event at a report time is included.
 `crn-craft.rules-result/0.1` holds the type, rule and observable names, one
 record per replicate (termination, events, stop time, events per rule, random

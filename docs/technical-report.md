@@ -9,9 +9,10 @@ performance declarations [P01–P10](campaign/performance.md) and
 [P11–P20](campaign/performance-p11-p20.md).
 **Later additions** are documented separately: the `ssa` command with six
 exact aggregators and the `fast` policy ([alternative SSA](alternative-ssa.md)),
-discovery 0.10 (0.11 from the native CLI, 0.12 in 0.3.0 and 0.13 since rules-run/0.6), and the experimental rules engine
+discovery 0.10 (native CLI: 0.11 in 0.2.0, 0.12 in 0.3.0 and 0.13 in
+0.4.0 with rules-run/0.6), and the experimental rules engine
 ([rules language](rules-language.md), [mtDNA ensembles](mtdna-rules.md)).
-All of them are in release 0.2.0 (4 November 2026). The comparisons cited in
+All of them first shipped in release 0.2.0 (4 November 2026). The comparisons cited in
 section 7 were measured on development builds before that release.
 
 ## 1. Summary

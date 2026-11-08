@@ -11,6 +11,16 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 - README: links the [overview of the 18 related repositories](https://github.com/dietmarwo/fcmaes-rust/blob/main/docs/repositories.md).
 
+### Fixed
+
+- Documentation that described 0.3 or pre-0.6 behaviour as current:
+  - The crate READMEs' `Cargo.toml` snippets now use `"0.4"`; `"0.3"` resolved to 0.3.x, which lacks rules-run/0.6 and `compile_loop`.
+  - The performance analysis no longer calls `rules.compile_loop` unreleased.
+  - The kernel checklist labels its 69/135 ns and 1.12× figures as measured with the pre-0.6 default (inverse waits, per-event trackers).
+  - The technical report gives the native discovery version per release.
+  - The user manual shows `add_continuous`'s bound arguments as keyword-only.
+  - The tutorial notes that next reaction defaults to `fast=False`.
+
 ## [0.4.0] - 2026-11-06
 
 Faster generic Static Direct for Python: new defaults in rules-run/0.6

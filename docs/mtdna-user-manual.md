@@ -1169,7 +1169,7 @@ integration step. The error has not yet been measured as a function of the
 tolerances.
 
 **Your own variables.** `rules.Model.add_continuous(name, initial,
-derivative, lower_bound=None, on_bound="stop")` adds a variable to a builder
+derivative, *, lower_bound=None, on_bound="stop")` adds a variable to a builder
 model (section 12); string rates may read it:
 
 ```python
@@ -1377,7 +1377,7 @@ The calls:
 | `add_species(name, initial=0)` | a species type, its count observable and its initial count |
 | `set_initial(mapping)` or `set_initial(S=490, I=10)` | initial counts of declared species |
 | `add_reaction(rate, reactants, products, name=None)` | a rule; species are lists of names, repeated for multiplicity; undeclared species start at 0; names default to `r0`, `r1`, ... |
-| `add_continuous(name, initial, derivative, lower_bound=None, on_bound="stop")` | a continuous variable (section 10) |
+| `add_continuous(name, initial, derivative, *, lower_bound=None, on_bound="stop")` | a continuous variable (section 10); the bound arguments are keyword-only |
 | `to_dict()`, `to_json()` | the JSON document |
 
 `rules.ensemble` and `rules.prepare` accept the `Model` itself. Every method

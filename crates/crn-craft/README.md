@@ -17,7 +17,7 @@ checks, explicit budgets and replayable seeds.
 
 ```toml
 [dependencies]
-crn-craft = "0.3"
+crn-craft = "0.4"
 ```
 
 The command-line interface is the

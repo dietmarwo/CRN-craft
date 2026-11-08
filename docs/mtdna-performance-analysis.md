@@ -48,7 +48,7 @@ measurements in `validation/mtdna/`. Read the
   - Hourly binomial steps cost about as much as exact Static Direct.
 - **Interfaces add little.** The command line and Python took the same
   time, binding new parameters costs 0.3 ms per candidate, and the pandas
-  results add at most 3% to a simulation.
+  and xarray results add at most 3% to a simulation.
 
 ## Measurement setup
 
@@ -256,25 +256,50 @@ negligible next to its simulation either way. `bind_parameters` is
 preferred because it keeps the settings identical, not because it is
 faster.
 
-Python parses the result document and returns pandas DataFrames. For 4000
-cells with every path kept (`keep_paths="all"`, `mtdna_direct`, two
-threads, pandas 3.1.1; `validation/mtdna/python-results-timing.json`,
-medians of three):
+Python parses the result document and returns pandas DataFrames, and
+xarray DataArrays for kept paths and event logs. The tables below are for
+4000 cells with every path kept (`keep_paths="all"`, `mtdna_direct`, two
+threads; NumPy 2.3.5, pandas 3.1.1, xarray 2026.9.0; medians of three;
+`validation/mtdna/python-results-timing.json`). This host ran the
+simulation about 1.5× slower than the host of the other tables, so compare
+the steps with each other:
 
 | Step | 37 monthly reports | 155 weekly reports |
 | --- | ---: | ---: |
-| simulation (native) | 7.56 s | 7.92 s |
-| parsing the result JSON | 0.083 s | 0.35 s |
-| records, rule counts and statistics as DataFrames | 0.0012 s | 0.0013 s |
-| `result.paths` (148,000 or 620,000 rows) | 0.039 s | 0.19 s |
-| `result.to_xarray()` | 0.004 s | 0.015 s |
+| simulation (native) | 11.2 s | 11.6 s |
+| parsing the result JSON | 0.11 s | 0.52 s |
+| records, rule counts and statistics as DataFrames | 0.0015 s | 0.0014 s |
+| `result.paths`, a time × variable × cell DataArray | 0.058 s | 0.30 s |
+| then `result.paths_frame()` (148,000 or 620,000 rows) | 0.006 s | 0.023 s |
+| then `result.to_xarray()` | 0.004 s | 0.018 s |
+| `result.paths_frame()` alone, as `paths` in 0.4.0 | 0.056 s | 0.26 s |
 
-The DataFrames add at most 3% to the simulation, almost all of it for
-`paths`, which is built on first use. That costs about as much as the
-`np.array` over the path lists that code for release 0.2.0 needed (0.034 s
-and 0.17 s). The first `to_xarray()` call also imports xarray, about
-0.06 s. With a mutation log, `result.event_columns()` gave the 8626 logged
-events in 0.012 s.
+The first of `paths`, `paths_frame()` and `to_xarray()` reads the kept
+rows out of the parsed document, which is most of the cost; the others
+reuse them. A DataArray therefore costs about as much as the DataFrame of
+release 0.4.0 did, and both add at most 3% to the simulation. Memory, as
+the peak of traced allocations during the conversion and the size of what
+it returns:
+
+| Conversion | Peak, monthly | Returned, monthly | Peak, weekly | Returned, weekly |
+| --- | ---: | ---: | ---: | ---: |
+| `result.paths` | 16.7 MB | 7.1 MB | 69.5 MB | 29.8 MB |
+| `result.paths_frame()` | 16.5 MB | 7.6 MB | 67.9 MB | 32.3 MB |
+
+The DataArray holds report times × observables × cells × 8 bytes, NaN after
+a budget stop; the frame stores the same values with a (replicate, time)
+index. Event logs of at most 50 entries per cell, monthly reports:
+
+| Log | Entries | `event_columns()` | `event_frame()` |
+| --- | ---: | ---: | ---: |
+| the two mutation rules (at most 10 per cell here) | 8,626 | 0.023 s, 2.9 MB | 0.013 s, 0.6 MB |
+| every rule, so every cell logs 50 | 200,000 | 0.25 s, 14.5 MB | 0.19 s, 13.6 MB |
+
+The DataArray pads every cell to the longest log, so a sparse log takes
+more memory as an array than as a frame; a full log takes about the same.
+Parsing the full log's JSON took 1.4 s, more than either conversion. The
+peak traced allocation was 5.2 MB and 32 MB for `event_columns()`, against
+1.4 MB and 30 MB for `event_frame()`.
 
 ## 6. Other models and routes
 
@@ -383,7 +408,12 @@ budget: `max_events` is per cell and must exceed 2 · δ · K · T.
 Output and memory grow with what is kept, not with the events:
 
 - **Kept paths:** cells × report times × observables × 8 bytes. For example,
-  10,000 cells × 37 reports × 6 observables is 18 MB.
+  10,000 cells × 37 reports × 6 observables is 18 MB, the size of
+  `result.paths`; converting it needs about 2.3 times that at its peak
+  (section 5).
+- **Event-log arrays:** `result.event_columns()` takes cells × the longest
+  log × (observables + 3) × 8 bytes; `event_frame()` only the logged
+  entries.
 - **Event logs:** up to `max_entries` per cell. A request is admitted only
   if its worst-case reservation fits `max_output_bytes` (default 64 MiB).
   For large logs, raise it or log fewer cells.

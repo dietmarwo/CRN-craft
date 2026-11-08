@@ -14,12 +14,22 @@ import subprocess
 import sys
 import tempfile
 import time
+import tracemalloc
 from pathlib import Path
 
 import numpy as np
+import pandas
+import xarray
 from crn_craft import rules
 
-OUT = {"platform": platform.platform(), "python": sys.version.split()[0], "rows": []}
+OUT = {
+    "platform": platform.platform(),
+    "python": sys.version.split()[0],
+    "numpy": np.__version__,
+    "pandas": pandas.__version__,
+    "xarray": xarray.__version__,
+    "rows": [],
+}
 BASE = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
 STOP = dict(BASE, stop="N > 0 && mutants >= 0.9 * N")
 GRID = 24.0 * np.arange(0, 1081, 30)
@@ -218,14 +228,27 @@ if section in ("models", "all"):
         1,
     )
 if section in ("results", "all"):
-    # What the pandas result costs next to the simulation: 4000 cells with
+    # What the Python result costs next to the simulation: 4000 cells with
     # every path kept. The native call returns the result document as JSON
     # and the per-cell records as buffers; each later step is timed alone.
+    # paths (a DataArray) builds the path arrays that paths_frame() and
+    # to_xarray() then reuse; "paths_frame() first" times the 0.4.0 frame
+    # from a fresh Result, including those arrays.
     log = {"max_entries": 50, "rules": ["mutation_mt", "mutation_mtAdv"]}
+    full = {"max_entries": 50, "rules": []}  # every cell logs 50 events
+
+    def array_bytes(array):
+        """Bytes of a DataArray's values and coordinates (pointers for objects)."""
+        return array.nbytes + sum(c.nbytes for c in array.coords.values())
+
+    def frame_bytes(frame):
+        return int(frame.memory_usage(deep=True, index=True).sum())
+
     for label, grid, extra in [
         ("monthly reports", GRID, {}),
         ("weekly reports", 24.0 * np.arange(0, 1081, 7), {}),
         ("monthly reports, mutation log", GRID, {"event_log": log}),
+        ("monthly reports, full 50-entry log", GRID, {"event_log": full}),
     ]:
         prepared = ensemble(
             cells=4000,
@@ -237,7 +260,7 @@ if section in ("results", "all"):
         steps = {}
         for _ in range(3):
             # Free the previous repeat first, so that no step times its release.
-            text = buffers = document = result = paths = None
+            text = buffers = document = result = fresh = paths = None
             clock = time.perf_counter()
             text, buffers = prepared._native.simulate(None, None)
             lap = {"simulate (native)": time.perf_counter() - clock}
@@ -250,27 +273,58 @@ if section in ("results", "all"):
             clock = time.perf_counter()
             paths = result.paths
             lap["paths"] = time.perf_counter() - clock
-            try:
-                clock = time.perf_counter()
-                result.to_xarray()
-                lap["to_xarray"] = time.perf_counter() - clock
-            except ImportError:
-                pass
+            clock = time.perf_counter()
+            result.paths_frame()
+            lap["paths_frame()"] = time.perf_counter() - clock
+            clock = time.perf_counter()
+            result.to_xarray()
+            lap["to_xarray"] = time.perf_counter() - clock
+            fresh = rules.Result(document, buffers)
+            clock = time.perf_counter()
+            fresh.paths_frame()
+            lap["paths_frame() first"] = time.perf_counter() - clock
             if result.observations:
                 clock = time.perf_counter()
                 result.event_columns()
                 lap["event_columns()"] = time.perf_counter() - clock
+                clock = time.perf_counter()
+                result.event_frame()
+                lap["event_frame()"] = time.perf_counter() - clock
             for key, value in lap.items():
                 steps.setdefault(key, []).append(value)
+        # Memory, untimed: the peak of traced allocations during each step
+        # (NumPy reports its buffers to tracemalloc) and the size of what it
+        # returns.
+        memory = {}
+        conversions = [
+            ("paths", lambda r: r.paths, array_bytes),
+            ("paths_frame() first", lambda r: r.paths_frame(), frame_bytes),
+        ]
+        if result.observations:
+            conversions += [
+                ("event_columns()", lambda r: r.event_columns(), array_bytes),
+                ("event_frame()", lambda r: r.event_frame(), frame_bytes),
+            ]
+        for key, convert, size in conversions:
+            fresh = rules.Result(document, buffers)
+            tracemalloc.start()
+            made = convert(fresh)
+            peak = tracemalloc.get_traced_memory()[1]
+            tracemalloc.stop()
+            memory[key] = {"peak_traced_bytes": peak, "result_bytes": size(made)}
+            made = None
         row = {
             "case": f"results 4000 cells, keep_paths all, {label}",
             "report_times": len(grid),
-            "path_rows": len(paths),
+            "path_rows": int(paths.notnull().all("variable").sum()),
+            "path_array_shape": dict(paths.sizes),
             "logged_events": sum(len(o["log"]) for o in result.observations),
             "events": result.metadata["events"],
             "seconds": {key: sorted(v)[1] for key, v in steps.items()},
+            "memory": memory,
             "all": steps,
         }
         OUT["rows"].append(row)
         print(row["case"], json.dumps(row["seconds"]), flush=True)
+        print("  memory", json.dumps(memory), flush=True)
 Path(f"performance-{section}.json").write_text(json.dumps(OUT, indent=2) + "\n")

@@ -3,7 +3,7 @@ requires = ["maturin==1.9.6"]
 build-backend = "maturin"
 [project]
 name = "crn-craft"
-version = "0.4.0"
+version = "0.5.0"
 requires-python = ">=3.10"
 description = "Reproducible well-mixed reaction network simulation and analysis"
 license = "MIT"

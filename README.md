@@ -6,7 +6,7 @@
 
 Native Rust foundations for well-mixed chemical reaction networks, designed for reproducible simulation and optimization workflows.
 
-**Version 0.4.0.** Install the Python package with `pip install crn-craft` and the native CLI with `cargo install crn-craft-cli --locked`; the libraries are the crates `crn-craft` and `crn-craft-rules`. Optional integrations build from this repository. Native Direct, dependency-cached SSA, DirectCR, SortingDirect, RSSACR and next reaction, sparse FSP and explicitly approximate Poisson leaps execute, as does the experimental rules engine with Python ensembles, a Python model builder, pandas and xarray results and continuous variables (`hybrid`). Optional Python bindings, trajectory diagnostics, pinned fcmaes job applications, diffsol BDF/forward sensitivities, global-to-SQP fitting and explicit SBML/BioNetGen import subsets are included. The default Rust engine remains independent of Python, jobs and ODE dependencies. A successful numerical run is not biological validation.
+**Version 0.5.0.** Install the Python package with `pip install crn-craft` and the native CLI with `cargo install crn-craft-cli --locked`; the libraries are the crates `crn-craft` and `crn-craft-rules`. Optional integrations build from this repository. Native Direct, dependency-cached SSA, DirectCR, SortingDirect, RSSACR and next reaction, sparse FSP and explicitly approximate Poisson leaps execute, as does the experimental rules engine with Python ensembles, a Python model builder, pandas and xarray results and continuous variables (`hybrid`). Optional Python bindings, trajectory diagnostics, pinned fcmaes job applications, diffsol BDF/forward sensitivities, global-to-SQP fitting and explicit SBML/BioNetGen import subsets are included. The default Rust engine remains independent of Python, jobs and ODE dependencies. A successful numerical run is not biological validation.
 
 Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/architecture.md), the [technical report](docs/technical-report.md) (design, validation and measured performance), the [comparison with GillesPy2](docs/comparison-gillespy2.md) and `crn-craft describe`. Every document is listed under [Documentation](#documentation). Legacy input/result/archive contracts remain available; new approximate/FSP results use distinct schemas.
 
@@ -275,6 +275,18 @@ Opt-in, `rules.compile_loop` compiles a model's Static Direct event loop
 with a local Rust toolchain into a cached program whose results are
 byte-identical to the interpreter's, about 2.2× faster on that model
 ([manual](docs/mtdna-user-manual.md#optional-compiled-event-loop)).
+
+Release 0.5.0 compiles string rates too: the generated loop now covers
+every model Static Direct runs (expression rates, the builder's whole-rule
+propensities, `distinct`, `max` and `min` observables), about 2× faster on
+the builder's SIR model with byte-identical results. rules-model/0.4 marks
+continuous variables `independent` when they read only parameters and
+other independent variables; `hybrid` integrates them once per run and
+shares the solution with every replicate (`Model.add_ode(...,
+independent=True)`, 2.8× on an eight-compartment forcing). In Python,
+`add_species` and `add_parameter` take mappings, and kept paths and event
+logs are xarray DataArrays (`paths_frame()` and `event_frame()` return the
+old DataFrames); see the [changelog](CHANGELOG.md) for migration.
 
 ## Developer checks
 

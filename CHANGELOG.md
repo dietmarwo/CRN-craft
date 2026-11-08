@@ -7,6 +7,19 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-08
+
+Python ergonomics and two engine extensions from user feedback on 0.4.0.
+Compiled event loops (`rules.compile_loop`) now cover string rates and
+every other model Static Direct runs, byte-identical and 2.0–2.2× faster
+than the interpreter on the builder's SIR model. rules-model/0.4 adds
+independent continuous variables, which `hybrid` integrates once per run
+for all replicates (2.8× on an eight-compartment forcing). In Python,
+`add_species` and `add_parameter` take mappings, `add_ode` (also
+`add_ODE`) replaces `add_continuous`, and kept paths and event logs are
+xarray DataArrays, which makes xarray a required dependency; see
+**Migration**. Stored models and requests replay byte-identically.
+
 ### Added
 
 - Compiled loops for string rates. `generate_rules_loop` (and so
@@ -749,7 +762,8 @@ iterations that make up this release follow.
 - Experimental non-negative Poisson leaping with explicit approximate request/result schemas.
 - Ten performance experiments and same-host reference/quality evidence; no package publishing.
 
-[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/dietmarwo/CRN-craft/releases/tag/v0.2.0

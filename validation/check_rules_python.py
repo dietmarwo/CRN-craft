@@ -58,6 +58,17 @@ def result_bytes(result):
 ATTRS = ("sampler", "method", "root_seed", "model_sha256", "run_sha256")
 
 
+def array_attrs(meta):
+    """DataArray attrs: netCDF-storable, with the method as JSON text."""
+    attrs = {key: meta.get(key) for key in ATTRS}
+    attrs["method"] = json.dumps(attrs["method"], sort_keys=True)
+    require(
+        all(isinstance(value, str | int | float) for value in attrs.values()),
+        "DataArray attrs are netCDF-storable",
+    )
+    return attrs
+
+
 def check_path_array(result, meta):
     """Result.paths: report times x variables x replicates, NaN where unsaved."""
     observables = meta["observables"]
@@ -81,7 +92,7 @@ def check_path_array(result, meta):
         and paths["replicate"].values.tolist() == [p["id"] for p in kept]
         and set(paths.coords) == {"time", "variable", "replicate"}
         and np.array_equal(paths.values, expected, equal_nan=True)
-        and paths.attrs == {key: meta.get(key) for key in ATTRS},
+        and paths.attrs == array_attrs(meta),
         "path array against the raw paths",
     )
     # The 0.4.0 frame is the same data without the unsaved rows.
@@ -160,7 +171,7 @@ def check_event_array(result, meta):
         and log["rule_name"].dims == ("replicate", "entry")
         and log["rule_name"].dtype == object
         and named(log["rule_name"].values) == name.tolist()
-        and log.attrs == {key: meta.get(key) for key in ATTRS},
+        and log.attrs == array_attrs(meta),
         "event array against the raw logs",
     )
     for row, observation in enumerate(observed):

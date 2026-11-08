@@ -330,8 +330,9 @@ keeps cells 0, 1, … up to it, and `"all"` (or `True`) keeps every cell.
 `variable`, `replicate`): report times × observables × cells. The
 coordinates are the report times, the observable names (continuous
 variables last) and the cell indices; the values are floats. `paths.attrs`
-names the `sampler`, the `method` (for results that report one, else
-`None`), the `root_seed`, `model_sha256` and `run_sha256`. Some common
+names the `sampler`, the `method` (as JSON text, `"null"` for results
+that report none; `json.loads` turns it back into a dictionary), the
+`root_seed`, `model_sha256` and `run_sha256`, all of which netCDF can store. Some common
 forms:
 
 - `result.paths.sel(replicate=3)`: cell 3's series, report times ×

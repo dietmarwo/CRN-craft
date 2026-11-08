@@ -179,10 +179,14 @@ class Result:
         return ids, lengths, positions, values
 
     def _array_attrs(self):
-        """Provenance for a DataArray: sampler, method, seed and hashes."""
+        """Provenance for a DataArray: sampler, method, seed and hashes.
+
+        Every value is a string or a number, so netCDF can store it: the
+        method is JSON text (``"null"`` when the result reports none).
+        """
         meta = self.metadata
         attrs = {key: meta.get(key) for key in _ARRAY_ATTRS}
-        attrs["method"] = json.loads(json.dumps(attrs["method"]))
+        attrs["method"] = json.dumps(attrs["method"], sort_keys=True)
         return attrs
 
     @cached_property
@@ -194,8 +198,9 @@ class Result:
         observables in result order: sorted names, then continuous
         variables) and ``replicate`` (the kept replicate ids, int64). Values
         are float64. ``attrs`` holds the result's ``sampler``, ``method``
-        (the method object of rules-result/0.3, else None), ``root_seed``,
-        ``model_sha256`` and ``run_sha256``.
+        (the method object of rules-result/0.3 as JSON text, ``"null"``
+        for older results), ``root_seed``, ``model_sha256`` and
+        ``run_sha256``; netCDF can store all of them.
 
         ``keep_paths`` decides which replicates are kept (``"all"`` keeps
         every one). A replicate that ended on a budget has values only up

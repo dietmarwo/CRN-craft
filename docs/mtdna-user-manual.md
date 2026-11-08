@@ -890,8 +890,8 @@ Direct, at its speed.
 *Opt-in, off by default; needs a Rust toolchain. New in 0.4.0.*
 
 `rules.compile_loop(model)` compiles the whole Static Direct event of one
-model into a small native program; `compiled=` then runs Static Direct
-requests in it. Results are byte-identical to the interpreter's: the same
+model into a small native program; `compiled=loop`, on `rules.ensemble` or
+on `simulate()`, then runs Static Direct requests in it. Results are byte-identical to the interpreter's: the same
 records, statistics, paths, trackers, event logs and sampler identity, so
 replays and stored results keep their meaning. Unlike `mtdna_direct`, it
 keeps Static Direct's use of the random stream and is not limited to the
@@ -955,6 +955,28 @@ and 3.8 s against 7.0 s with inverse waits and per-event trackers (1.86×),
 medians of three on the two-CPU host
 (`validation/mtdna/compiled-loop-python.json`).
 `mtdna_direct` is faster still where it applies.
+
+**`compiled=` on `rules.ensemble` or on `simulate()`.** A loop can be
+given in two places, and both run the same program with the same results:
+
+- `rules.ensemble(..., compiled=loop)` (or `rules.prepare(model, request,
+  compiled=loop)`) attaches the loop to the prepared run. Preparation
+  checks once that the loop was compiled for these model bytes and that
+  the request selects `static_direct`, and raises `CrnError` `CRN-R020`
+  (at `/model` or `/method`) otherwise, before anything runs. Every
+  `run.simulate()` then uses the loop without further arguments. Use it
+  when all runs of a request should be compiled: repeated calls, or code
+  such as a fitting loop that only calls `simulate()`.
+- `run.simulate(compiled=loop)` uses the loop for that call only, on a run
+  prepared without one; the first such call makes the same checks. The
+  same prepared run can then also run interpreted, as the example above
+  does to compare the two.
+
+A run with an attached loop always runs compiled: `simulate(callback=...)`
+raises `ValueError`, so prepare the request without `compiled` to watch
+events. `run.bind_parameters(...)` returns a candidate without the loop,
+which runs interpreted, since a loop serves only the parameter set it was
+compiled for.
 
 **Requirements.** Rust 1.85 or newer, the MSRV of the crates (install it
 with [rustup](https://rustup.rs)), and network access to crates.io: the
@@ -1808,7 +1830,7 @@ validate the model against biology.
 | `keep_paths` | how many cells keep their full observable series (`result.paths`); `"all"` or `True` for every cell |
 | `keep_instances` | how many cells keep their final instances (`metadata["final_instances"]`) |
 | `method` | a method name or dictionary (section 8) |
-| `compiled` | a loop from `rules.compile_loop` for this model, run by `simulate()` (section 8) |
+| `compiled` | a loop from `rules.compile_loop` for this model, checked here and run by every `simulate()`; `simulate(compiled=loop)` uses one for a single call instead (section 8) |
 | `trackers` | list of `{"observable", "first_passage"?, "keep_episodes"?}` |
 | `event_log` | `{"max_entries": n, "rules": [...]}` |
 | budgets | `max_events`, `max_sampling_steps`, `max_instances`, `max_output_bytes`, `wall_time_s` |

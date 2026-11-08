@@ -490,14 +490,17 @@ class PreparedEnsemble:
         batch_callback(id, events) replays the retained log after execution
         and cannot affect the run.
 
-        ``compiled``, a :class:`CompiledLoop` for this model, runs the
-        request in the compiled program instead of the interpreter, with
-        byte-identical results; it defaults to the loop given to
-        ``ensemble`` or ``prepare``. The request must select
-        ``static_direct`` (``CrnError`` ``CRN-R020`` at ``/method``
-        otherwise) and use this loop's model bytes (``CRN-R020`` at
-        ``/model``). Callbacks need the interpreter and are refused with
-        ``ValueError``.
+        ``compiled``, a :class:`CompiledLoop` for this model, runs this
+        call in the compiled program instead of the interpreter, with
+        byte-identical results. The request must select ``static_direct``
+        (``CrnError`` ``CRN-R020`` at ``/method`` otherwise) and use this
+        loop's model bytes (``CRN-R020`` at ``/model``); the first call
+        checks this. ``None``, the default, means the loop attached with
+        ``compiled=`` on ``ensemble`` or ``prepare``, and the interpreter
+        if none was attached. So a run prepared without a loop can be
+        simulated either way, call by call, while a run with an attached
+        loop always runs compiled. Callbacks need the interpreter and are
+        refused with ``ValueError`` whenever a loop runs the call.
         """
         if batch_size < 1:
             raise ValueError("batch_size must be positive")
@@ -535,8 +538,9 @@ def prepare(model, request, *, compiled=None):
     """Prepare a rules-run contract, preserving the supplied model bytes.
 
     ``model`` is bytes, text, a dictionary or a ``Model``. ``compiled`` is
-    an optional :class:`CompiledLoop` for this model that ``simulate`` then
-    uses (see ``PreparedEnsemble.simulate``).
+    an optional :class:`CompiledLoop` for this model, attached as in
+    :func:`ensemble`: the request is checked against it here, once, and
+    every ``simulate()`` of the prepared run uses it.
     """
     if isinstance(model, Model):
         model = model.to_dict()
@@ -622,9 +626,21 @@ def ensemble(
     ``CRN-R051`` warning naming the reason.
 
     ``compiled`` is an optional :class:`CompiledLoop` from
-    :func:`compile_loop` for this model; ``simulate`` then runs the request
-    in the compiled program, with results byte-identical to the
-    interpreter's. It needs ``method="static_direct"`` (with any options).
+    :func:`compile_loop` for this model. It attaches the loop to the
+    prepared run: preparation checks once that the loop was compiled for
+    these model bytes (``CrnError`` ``CRN-R020`` at ``/model`` otherwise)
+    and that the request selects ``static_direct`` with any options
+    (``CRN-R020`` at ``/method``), and every ``simulate()`` then runs in the
+    compiled program, with results byte-identical to the interpreter's.
+    Attach it when every run of this request should use the loop, for
+    example when ``simulate()`` is called repeatedly or by code that knows
+    nothing of compiled loops; a mistake then fails before anything runs.
+    ``simulate(compiled=loop)`` uses a loop for one call instead and leaves
+    the run interpreted otherwise, which suits comparing the two. A run
+    with an attached loop cannot run interpreted or take callbacks; prepare
+    it without ``compiled`` for those. Candidates from
+    ``bind_parameters`` run interpreted, since a loop serves only the
+    parameter set it was compiled for.
     """
     if isinstance(model, Model):
         model = model.to_dict()

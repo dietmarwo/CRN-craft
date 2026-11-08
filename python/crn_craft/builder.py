@@ -7,11 +7,14 @@ count, under the species name) and one rule per reaction::
     from crn_craft import rules
 
     sir = rules.Model("sir")
-    sir.add_species("S", 990).add_species("I", 10).add_species("R")
+    sir.add_species({"S": 990, "I": 10, "R": 0})
     sir.add_reaction(1e-4, ["S", "I"], ["I", "I"], name="infection")
     sir.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
     sir.add_parameter("gamma", 0.05)
     run = rules.ensemble(sir, end=100.0, report_times=range(101), replicates=1000)
+
+``add_species`` and ``add_parameter`` (also named ``add_parameters``) take
+one name and value, or a mapping of several.
 
 A numeric rate is a mass-action constant k, counted like the rest of
 CRN-craft: k times the number of distinct combinations of reactant molecules,
@@ -30,6 +33,7 @@ Species with attributes, observables with filters and the other model fields
 remain available by editing ``to_dict()`` or writing JSON.
 """
 
+from collections.abc import Mapping
 import json
 import math
 import numbers
@@ -63,6 +67,34 @@ def _number(value, what):
     if not math.isfinite(value):
         raise ValueError(f"{what} must be finite, not {value}")
     return value
+
+
+class _Default:
+    """A default argument value that tells "not given" from any given value."""
+
+    def __init__(self, text):
+        self._text = text
+
+    def __repr__(self):
+        return self._text
+
+
+# `add_parameter`'s value has no default; `add_species`'s count defaults to 0.
+_REQUIRED = _Default("<required>")
+_ZERO = _Default("0")
+
+
+def _entries(name, value, method, argument):
+    """The (name, value) pairs of a one-entry call or of a mapping."""
+    if isinstance(name, Mapping):
+        if not isinstance(value, _Default):
+            raise TypeError(
+                f"{method}() takes a mapping or a name and its {argument}, not both"
+            )
+        return list(name.items())
+    if value is _REQUIRED:
+        raise TypeError(f"{method}() is missing the {argument} of {name!r}")
+    return [(name, 0 if value is _ZERO else value)]
 
 
 def _count(value, what):
@@ -121,25 +153,46 @@ class Model:
             or any(c["name"] == name for c in self._continuous)
         )
 
-    def add_parameter(self, name, value):
-        """Declare a parameter that string rates may read."""
-        _check_name("parameter", name)
-        if self._taken(name):
-            raise ValueError(f"name {name!r} is already declared")
-        self._parameters[name] = _number(value, f"parameter {name}")
+    def add_parameter(self, name, value=_REQUIRED):
+        """Declare parameters that string rates may read.
+
+        ``add_parameter("gamma", 0.01)`` declares one;
+        ``add_parameter({"gamma": 0.01, "beta": 2e-4})`` declares every
+        entry of a mapping, in its order, as one call each would. A mapping
+        takes no other argument (``TypeError``). If an entry is invalid,
+        nothing is declared. ``add_parameters`` is the same method.
+        """
+        entries = _entries(name, value, "add_parameter", "value")
+        checked = {}
+        for key, number in entries:
+            _check_name("parameter", key)
+            if self._taken(key):
+                raise ValueError(f"name {key!r} is already declared")
+            checked[key] = _number(number, f"parameter {key}")
+        self._parameters.update(checked)
         return self
 
-    def add_species(self, name, initial=0):
-        """Declare a species with an initial count (default 0).
+    add_parameters = add_parameter
 
-        A species that a reaction already introduced keeps its position and
-        takes the count.
+    def add_species(self, name, initial=_ZERO):
+        """Declare species with initial counts (default 0).
+
+        ``add_species("S", 999)`` declares one; ``add_species({"S": 999,
+        "I": 1})`` declares every entry of a mapping, in its order, as one
+        call each would. A mapping takes no other argument (``TypeError``).
+        If an entry is invalid, nothing is declared. A species that a
+        reaction already introduced keeps its position and takes the count.
         """
-        _check_name("species", name)
-        if self._taken(name) and name not in self._implicit:
-            raise ValueError(f"name {name!r} is already declared")
-        self._species[name] = _count(initial, f"initial count of {name}")
-        self._implicit.discard(name)
+        entries = _entries(name, initial, "add_species", "initial")
+        checked = {}
+        for key, count in entries:
+            _check_name("species", key)
+            if self._taken(key) and key not in self._implicit:
+                raise ValueError(f"name {key!r} is already declared")
+            checked[key] = _count(count, f"initial count of {key}")
+        for key, count in checked.items():
+            self._species[key] = count
+            self._implicit.discard(key)
         return self
 
     def set_initial(self, counts=None, /, **kwargs):

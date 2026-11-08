@@ -36,8 +36,7 @@ for hours, row in mean.iterrows():
 
 # The same ODE, written with the builder for a single wild-type class.
 cell = rules.Model("atp_wild_type")
-for name, value in {"f": 0.1, "v1": 0.2, "v2": 0.01, "c": 1.3034153747670567}.items():
-    cell.add_parameter(name, value)
+cell.add_parameter({"f": 0.1, "v1": 0.2, "v2": 0.01, "c": 1.3034153747670567})
 cell.add_species("W", 1000)
 cell.add_continuous("ATP", 450.0, "f * W - v1 * ATP - v2 * W", lower_bound=0)
 cell.add_reaction("c / (c + ATP) * W", ["W"], ["W", "W"], name="replication")

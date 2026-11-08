@@ -243,6 +243,119 @@ def check_builder():
     )
 
 
+def raises(error, call, *args, **kwargs):
+    """The exception `call` raises, required to be an `error`."""
+    try:
+        call(*args, **kwargs)
+    except error as raised:
+        return raised
+    raise RuntimeError(f"{getattr(call, '__name__', call)} accepted {args} {kwargs}")
+
+
+def check_builder_mappings():
+    """add_species, add_parameter and add_parameters take mappings (0.5.0)."""
+    single = rules.Model("sir")
+    single.add_species("S", 999).add_species("I", 1).add_species("R")
+    single.add_parameter("beta", 2e-4).add_parameter("gamma", 0.01)
+    many = rules.Model("sir")
+    many.add_species({"S": 999, "I": 1, "R": 0})
+    many.add_parameter({"beta": 2e-4}).add_parameters({"gamma": 0.01})
+    for model in (single, many):
+        model.add_reaction("beta * S * I", ["S", "I"], ["I", "I"], name="infection")
+        model.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
+    require(
+        many.to_json() == single.to_json()
+        and many.species == ("S", "I", "R")
+        and list(many.parameters) == ["beta", "gamma"],
+        "a mapping adds every entry, in order, as one call each does",
+    )
+    require(
+        rules.Model.add_parameters is rules.Model.add_parameter
+        and rules.Model("x").add_parameters("k", 1.0).parameters == {"k": 1.0},
+        "add_parameters is add_parameter",
+    )
+    # A species a reaction introduced keeps its place and takes the count.
+    late = rules.Model("late").add_reaction(1.0, ["A"], ["B"])
+    late.add_species({"B": 3, "C": 2})
+    require(
+        late.species == ("A", "B", "C")
+        and late.to_dict()["initial"]
+        == [
+            {"type": "B", "count": 3},
+            {"type": "C", "count": 2},
+        ]
+        and rules.Model("e").add_species({}).add_parameter({}).to_json()
+        == rules.Model("e").to_json(),
+        "mapping entries follow the one-at-a-time rules; an empty mapping adds none",
+    )
+    for call in (
+        lambda m: m.add_species({"S": 1}, 5),
+        lambda m: m.add_species({"S": 1}, initial=5),
+        lambda m: m.add_parameter({"k": 1.0}, 2.0),
+        lambda m: m.add_parameter({"k": 1.0}, value=2.0),
+        lambda m: m.add_parameters({"k": 1.0}, value=2.0),
+        lambda m: m.add_parameter("k"),
+    ):
+        model = rules.Model("mixed")
+        raises(TypeError, call, model)
+        require(model.to_json() == rules.Model("mixed").to_json(), "mixed arguments")
+    # Invalid entries fail as they do one at a time, and leave the model as
+    # it was.
+    for build, bad, single_call in (
+        (
+            lambda m: m.add_species({"S": 1, "I": -1}),
+            ValueError,
+            lambda m: m.add_species("I", -1),
+        ),
+        (
+            lambda m: m.add_species({"S": 1, "min": 2}),
+            ValueError,
+            lambda m: m.add_species("min", 2),
+        ),
+        (
+            lambda m: m.add_species({"S": 1, 3: 2}),
+            TypeError,
+            lambda m: m.add_species(3, 2),
+        ),
+        (
+            lambda m: m.add_species({"S": 1, "I": 1.5}),
+            TypeError,
+            lambda m: m.add_species("I", 1.5),
+        ),
+        (
+            lambda m: m.add_species({"S": 1, "k": 1}),
+            ValueError,
+            lambda m: m.add_species("k", 1),
+        ),
+        (
+            lambda m: m.add_parameter({"a": 1.0, "b": float("nan")}),
+            ValueError,
+            lambda m: m.add_parameter("b", float("nan")),
+        ),
+        (
+            lambda m: m.add_parameter({"a": 1.0, "b": True}),
+            TypeError,
+            lambda m: m.add_parameter("b", True),
+        ),
+        (
+            lambda m: m.add_parameters({"a": 1.0, "k": 2.0}),
+            ValueError,
+            lambda m: m.add_parameter("k", 2.0),
+        ),
+    ):
+
+        def fresh():
+            return rules.Model("strict").add_parameter("k", 1.0)
+
+        model = fresh()
+        mapped = raises(bad, build, model)
+        alone = raises(bad, single_call, fresh())
+        require(
+            str(mapped) == str(alone) and model.to_json() == fresh().to_json(),
+            f"mapping validation equals one call: {alone}",
+        )
+
+
 def check_pandas_results(result):
     """Statistics by name, NumPy access and categorical terminations."""
     meta = result.metadata
@@ -657,6 +770,8 @@ def main():
     checks.append("rules_event_log_default_budget")
     check_builder()
     checks.append("rules_builder")
+    check_builder_mappings()
+    checks.append("rules_builder_mappings")
     check_hybrid()
     checks.append("rules_hybrid")
     check_compiled_loop_refusals()

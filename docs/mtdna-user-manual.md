@@ -1178,8 +1178,7 @@ model (section 12); string rates may read it:
 from crn_craft import rules
 
 cell = rules.Model("atp_wild_type")
-for name, value in {"f": 0.1, "v1": 0.2, "v2": 0.01, "c": 1.3034153747670567}.items():
-    cell.add_parameter(name, value)
+cell.add_parameter({"f": 0.1, "v1": 0.2, "v2": 0.01, "c": 1.3034153747670567})
 cell.add_species("W", 1000)
 cell.add_continuous("ATP", 450.0, "f * W - v1 * ATP - v2 * W", lower_bound=0)
 cell.add_reaction("c / (c + ATP) * W", ["W"], ["W", "W"], name="replication")
@@ -1336,7 +1335,7 @@ every species count is an observable with the species name.
 from crn_craft import rules
 
 sir = rules.Model("sir")
-sir.add_species("S", 490).add_species("I", 10).add_species("R")
+sir.add_species({"S": 490, "I": 10, "R": 0})  # or one at a time: add_species("S", 490)
 sir.add_parameter("gamma", 0.1)
 # A number is a mass-action constant: S + I fires at 5e-4 * S * I.
 sir.add_reaction(5e-4, ["S", "I"], ["I", "I"], name="infection")
@@ -1373,12 +1372,17 @@ The calls:
 | Call | Effect |
 | --- | --- |
 | `rules.Model(name="model")` | a new rules-model/0.3 document |
-| `add_parameter(name, value)` | a parameter that string rates may read |
-| `add_species(name, initial=0)` | a species type, its count observable and its initial count |
+| `add_parameter(name, value)` or `add_parameter(mapping)` | parameters that string rates may read; `add_parameters` is the same method |
+| `add_species(name, initial=0)` or `add_species(mapping)` | species types, their count observables and their initial counts |
 | `set_initial(mapping)` or `set_initial(S=490, I=10)` | initial counts of declared species |
 | `add_reaction(rate, reactants, products, name=None)` | a rule; species are lists of names, repeated for multiplicity; undeclared species start at 0; names default to `r0`, `r1`, ... |
 | `add_continuous(name, initial, derivative, *, lower_bound=None, on_bound="stop")` | a continuous variable (section 10); the bound arguments are keyword-only |
 | `to_dict()`, `to_json()` | the JSON document |
+
+A mapping, as in `add_parameter({"gamma": 0.1, "beta": 5e-4})`, declares
+its entries in order with the checks of one call each. If an entry is
+invalid, the call raises and declares none of them. A mapping takes no
+second argument: `add_species({"S": 490}, 10)` is a `TypeError`.
 
 `rules.ensemble` and `rules.prepare` accept the `Model` itself. Every method
 runs builder models; `tree` is never needed, since the species have no
@@ -1410,9 +1414,8 @@ from crn_craft import rules
 model = rules.Model("mtdna_three_species")
 parameters = {"K": 1000, "delta": 0.0028881132523331052, "sw": 1.0, "sm": 1.5}
 parameters |= {"mu": 3e-05, "fracAdv": 0.2}
-for name, value in parameters.items():
-    model.add_parameter(name, value)
-model.add_species("W", 1000).add_species("M").add_species("A")
+model.add_parameter(parameters)
+model.add_species({"W": 1000, "M": 0, "A": 0})
 vacancy = "max(0, K - W - M - A) / (W + sm * (M + A))"
 model.add_reaction(f"{vacancy} * sw * (1 - mu) * W", ["W"], ["W", "W"], "replication_wt")
 model.add_reaction(f"{vacancy} * sw * mu * (1 - fracAdv) * W", ["W"], ["W", "M"], "mutation_mt")

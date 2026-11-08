@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sysconfig
 import tempfile
+import warnings
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -363,6 +364,98 @@ def check_builder_mappings():
         )
 
 
+# rules.Model("odes") with two continuous variables, as release 0.4.0's
+# add_continuous wrote it (to_json(indent=None)).
+ODES_040 = (
+    '{"schema": "crn-craft.rules-model/0.3", "name": "odes", "parameters": '
+    '{"g": 0.01, "m0": 0.001}, "types": [{"name": "A"}], "initial": [{"type": '
+    '"A", "count": 5}], "observables": {"A": {"type": "A"}}, "rules": [{"name": '
+    '"death", "reactants": [{"label": "x", "type": "A"}], "propensity": '
+    '"mortality * A", "products": []}], "continuous": [{"name": "mortality", '
+    '"initial": "m0", "derivative": "g * mortality"}, {"name": "atp", "initial": '
+    '450.0, "derivative": "0.1 * A - 0.2 * atp", "lower_bound": 0.0, "on_bound": '
+    '"clamp"}]}\n'
+)
+
+
+def odes_model(add, first=None, second=None):
+    """The ODES_040 model, its variables declared with method `add`."""
+    model = rules.Model("odes")
+    model.add_parameter({"g": 0.01, "m0": 1e-3}).add_species("A", 5)
+    getattr(model, add)("mortality", "m0", "g * mortality", **(first or {}))
+    getattr(model, add)(
+        "atp",
+        450.0,
+        "0.1 * A - 0.2 * atp",
+        lower_bound=0,
+        on_bound="clamp",
+        **(second or {}),
+    )
+    model.add_reaction("mortality * A", ["A"], [], name="death")
+    return model
+
+
+def check_builder_odes():
+    """add_ode, its alias add_ODE, independent=True and add_continuous."""
+    plain = odes_model("add_ode")
+    explicit = odes_model("add_ode", {"independent": False}, {"independent": False})
+    require(
+        plain.to_json(indent=None) == ODES_040
+        and explicit.to_json(indent=None) == ODES_040
+        and c.model_bytes(plain.to_dict()) == c.model_bytes(json.loads(ODES_040))
+        and plain.to_json() == json.dumps(json.loads(ODES_040), indent=2) + "\n",
+        "add_ode without independent variables writes the bytes of 0.4.0",
+    )
+    require(rules.Model.add_ODE is rules.Model.add_ode, "add_ODE is add_ode")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        old = odes_model("add_continuous")
+    require(
+        old.to_json(indent=None) == ODES_040
+        and [w.category for w in caught] == [DeprecationWarning] * 2
+        and all("add_ode" in str(w.message) for w in caught)
+        and all(Path(w.filename).resolve() == Path(__file__).resolve() for w in caught),
+        "add_continuous warns, names add_ode, points at the caller, writes 0.4.0",
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        raises(
+            TypeError,
+            rules.Model("x").add_continuous,
+            "y",
+            0.0,
+            "1",
+            independent=True,
+        )
+    # independent=True marks that variable and selects rules-model/0.4.
+    for first, second in (({"independent": True}, None), (None, {"independent": True})):
+        model = odes_model("add_ode", first, second)
+        expected = json.loads(ODES_040)
+        expected["schema"] = "crn-craft.rules-model/0.4"
+        position = 0 if first else 1
+        variable = expected["continuous"][position]
+        expected["continuous"][position] = {
+            "name": variable.pop("name"),
+            "initial": variable.pop("initial"),
+            "derivative": variable.pop("derivative"),
+            "independent": True,
+            **variable,
+        }
+        require(
+            model.to_json(indent=None) == json.dumps(expected) + "\n"
+            and model.to_dict() == expected
+            and "independent" not in model.to_dict()["continuous"][1 - position],
+            "independent=True writes independent: true and rules-model/0.4",
+        )
+    for bad in (1, 0, "yes", None, 1.0):
+        model = rules.Model("x")
+        raises(TypeError, model.add_ode, "y", 0.0, "1", independent=bad)
+        require(
+            model.to_json() == rules.Model("x").to_json(),
+            f"independent={bad!r} is refused and declares nothing",
+        )
+
+
 def check_pandas_results(result):
     """Statistics by name, NumPy access and categorical terminations."""
     meta = result.metadata
@@ -396,7 +489,7 @@ def check_hybrid():
     """A tiny hybrid run: x' = 2 from 0 drives immigration at rate x."""
     ramp = rules.Model("ramp")
     ramp.add_species("A")
-    ramp.add_continuous("x", 0.0, "2")
+    ramp.add_ode("x", 0.0, "2")
     ramp.add_reaction("x", [], ["A"], name="immigration")
     try:
         rules.ensemble(ramp, end=1.0, report_times=[0.0, 1.0], method="static_direct")
@@ -785,6 +878,8 @@ def main():
     checks.append("rules_builder")
     check_builder_mappings()
     checks.append("rules_builder_mappings")
+    check_builder_odes()
+    checks.append("rules_builder_odes")
     check_hybrid()
     checks.append("rules_hybrid")
     check_compiled_loop_refusals()

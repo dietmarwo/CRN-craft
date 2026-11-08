@@ -113,9 +113,9 @@ The means lie within one standard error of the exact 12.64 and 17.29.
 trackers sparsely (rules-run/0.6). `method={"kind": "static_direct",
 "waiting_time": "inverse", "sparse_trackers": False}` gives the numbers of
 release 0.3.0, which printed 12.550 and 17.351 here.
-Models may also declare continuous variables, ODEs between events that
-rates read (for example an ATP pool), which `method="hybrid"` simulates at
-declared tolerances.
+Models may also declare continuous variables (`Model.add_ode`), ODEs
+between events that rates read (for example an ATP pool), which
+`method="hybrid"` simulates at declared tolerances.
 
 New in 0.4.0, opt-in, with a Rust toolchain (1.85 or newer): `loop = rules.compile_loop(model)`
 compiles a model's Static Direct event loop into a cached native program,

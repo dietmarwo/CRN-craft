@@ -1215,9 +1215,13 @@ eleven times as long as thinning on the ATP model, since every event needs an
 integration step. The error has not yet been measured as a function of the
 tolerances.
 
-**Your own variables.** `rules.Model.add_continuous(name, initial,
-derivative, *, lower_bound=None, on_bound="stop")` adds a variable to a builder
-model (section 12); string rates may read it:
+**Your own variables.** `rules.Model.add_ode(name, initial, derivative, *,
+independent=False, lower_bound=None, on_bound="stop")` adds a variable to a
+builder model (section 12); string rates may read it. `independent=True`
+marks an ODE that reads only parameters and other independent variables
+(rules-model/0.4). `add_ODE` is the same method, and `add_continuous`, its
+name before 0.5.0, still works with the same arguments but emits a
+`DeprecationWarning`:
 
 ```python
 """A continuous variable in a builder model."""
@@ -1227,7 +1231,7 @@ from crn_craft import rules
 cell = rules.Model("atp_wild_type")
 cell.add_parameter({"f": 0.1, "v1": 0.2, "v2": 0.01, "c": 1.3034153747670567})
 cell.add_species("W", 1000)
-cell.add_continuous("ATP", 450.0, "f * W - v1 * ATP - v2 * W", lower_bound=0)
+cell.add_ode("ATP", 450.0, "f * W - v1 * ATP - v2 * W", lower_bound=0)
 cell.add_reaction("c / (c + ATP) * W", ["W"], ["W", "W"], name="replication")
 cell.add_reaction(0.0028881132523331052, ["W"], [], name="degradation")
 result = rules.ensemble(
@@ -1418,12 +1422,12 @@ The calls:
 
 | Call | Effect |
 | --- | --- |
-| `rules.Model(name="model")` | a new rules-model/0.3 document |
+| `rules.Model(name="model")` | a new rules-model/0.3 document (0.4 with an independent ODE) |
 | `add_parameter(name, value)` or `add_parameter(mapping)` | parameters that string rates may read; `add_parameters` is the same method |
 | `add_species(name, initial=0)` or `add_species(mapping)` | species types, their count observables and their initial counts |
 | `set_initial(mapping)` or `set_initial(S=490, I=10)` | initial counts of declared species |
 | `add_reaction(rate, reactants, products, name=None)` | a rule; species are lists of names, repeated for multiplicity; undeclared species start at 0; names default to `r0`, `r1`, ... |
-| `add_continuous(name, initial, derivative, *, lower_bound=None, on_bound="stop")` | a continuous variable (section 10); the bound arguments are keyword-only |
+| `add_ode(name, initial, derivative, *, independent=False, lower_bound=None, on_bound="stop")` | a continuous variable (section 10); the other arguments are keyword-only. `independent=True` marks an ODE that reads only parameters and other independent variables and makes `to_dict()` write rules-model/0.4. `add_ODE` is the same method; `add_continuous`, the name before 0.5.0, warns |
 | `to_dict()`, `to_json()` | the JSON document |
 
 A mapping, as in `add_parameter({"gamma": 0.1, "beta": 5e-4})`, declares
@@ -1861,6 +1865,7 @@ release 0.4.0 changes as follows:
 | `result.paths["mutants"].unstack("time")` | `result.paths.sel(variable="mutants").to_pandas().T` |
 | `result.event_columns()`, `result.event_columns(id)`, DataFrames | `result.event_frame()`, `result.event_frame(id)`; `event_columns` returns DataArrays |
 | `pip install "crn-craft[xarray]"` | `pip install crn-craft`: xarray is required; the extra still installs |
+| `Model.add_continuous(...)` | `Model.add_ode(...)` with the same arguments; `add_continuous` still works and emits a `DeprecationWarning` |
 
 Code written for the NumPy results of release 0.2.0 changes as follows:
 

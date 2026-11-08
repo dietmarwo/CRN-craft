@@ -53,7 +53,7 @@ kept paths and event logs are xarray DataArrays (xarray is required since
 0.5.0). The extra `crn-craft[xarray]` of earlier releases still installs.
 
 The Python package contains the native engine, so the CLI is optional. Every
-feature in this manual is in release 0.4.0; features that exist only in
+feature in this manual is in release 0.5.0; features that exist only in
 Rust are marked where they appear.
 
 Both packages install a command named `crn-craft`. The rules commands

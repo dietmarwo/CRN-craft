@@ -2,9 +2,9 @@
 
 ``rules.ensemble(model, ...)`` builds and prepares a run request;
 ``simulate()`` returns a :class:`Result` whose records, statistics, rule
-counts, trackers and event logs are pandas DataFrames, and whose kept paths
-are an xarray DataArray (the 0.4.0 DataFrame is ``paths_frame()``). Every
-frame and array has ``.to_numpy()``, and
+counts and trackers are pandas DataFrames, and whose kept paths and event
+logs are xarray DataArrays (the 0.4.0 DataFrames are ``paths_frame()`` and
+``event_frame()``). Every frame and array has ``.to_numpy()``, and
 ``Result.metadata`` keeps the full result document as the engine returned
 it.
 
@@ -70,8 +70,10 @@ _TRACKER_VALUES = (
     "omitted_duration",
     "omitted_peak",
 )
-# Result metadata that Result.paths carries as attrs.
+# Result metadata that Result.paths and Result.event_columns() carry as attrs.
 _ARRAY_ATTRS = ("sampler", "method", "root_seed", "model_sha256", "run_sha256")
+# The `rule` of an event-array entry past a replicate's logged length.
+_PADDING_RULE = -2
 
 
 def describe():
@@ -111,8 +113,10 @@ class Result:
     - ``paths``: the kept series as an xarray DataArray with dimensions
       (``time``, ``variable``, ``replicate``); ``paths_frame()`` gives the
       DataFrame of release 0.4.0, ``to_xarray()`` a Dataset.
-    - ``tracker_columns(i)`` and ``event_columns(id)``: trackers and event
-      logs as DataFrames.
+    - ``event_columns()``: event logs as a DataArray with dimensions
+      (``replicate``, ``entry``, ``variable``); ``event_frame()`` gives the
+      DataFrame of release 0.4.0.
+    - ``tracker_columns(i)``: a tracker's fields as a DataFrame.
     - ``metadata``: the full result document; ``observations`` its trackers
       and logs; ``record_diagnostics`` replicate errors by id.
 
@@ -257,8 +261,83 @@ class Result:
             },
         )
 
+    def _observed(self, replicate):
+        """The observations of every replicate, or of one replicate id."""
+        if replicate is None:
+            return self.observations
+        chosen = [o for o in self.observations if o["id"] == replicate][:1]
+        if not chosen:
+            raise KeyError(replicate)
+        return chosen
+
     def event_columns(self, replicate=None):
-        """Return retained event logs as a DataFrame.
+        """Return retained event logs as a DataArray.
+
+        Without a replicate id the dimensions are ``("replicate", "entry",
+        "variable")``: one row per observed replicate (int64 ids), entries
+        0, 1, ... in event order, and the observables after each event
+        (result order), NaN past a replicate's last entry. Coordinates over
+        (``replicate``, ``entry``): ``time`` (float64, NaN as padding),
+        ``rule`` (the rule index, -1 for a leap, -2 as padding) and
+        ``rule_name`` (the name; NaN for a leap and as padding); over
+        ``replicate``: ``length``, the number of logged entries. With a
+        replicate id the dimensions are ``("entry", "variable")``, exactly
+        ``length`` entries, with scalar ``replicate`` and ``length``
+        coordinates. ``attrs`` is that of ``paths``.
+
+        A replicate without logged events has ``length`` 0. Participant
+        instances and leap firings are in the observation entries.
+        ``event_frame()`` returns the DataFrame of release 0.4.0.
+        """
+        chosen = self._observed(replicate)
+        observables = list(self.metadata["observables"])
+        lengths = np.fromiter(
+            (len(o["log"]) for o in chosen), dtype=np.int64, count=len(chosen)
+        )
+        width = int(lengths.max(initial=0))
+        rows = np.repeat(np.arange(len(chosen)), lengths)
+        entries = np.arange(int(lengths.sum())) - np.repeat(
+            np.cumsum(lengths) - lengths, lengths
+        )
+        log = [e for o in chosen for e in o["log"]]
+        shape = (len(chosen), width)
+        values = np.full((*shape, len(observables)), np.nan)
+        values[rows, entries] = np.array(
+            [e["observables"] for e in log], dtype=np.float64
+        ).reshape(len(log), len(observables))
+        time = np.full(shape, np.nan)
+        time[rows, entries] = np.fromiter(
+            (e["time"] for e in log), dtype=np.float64, count=len(log)
+        )
+        rule = np.full(shape, _PADDING_RULE, dtype=np.int64)
+        rule[rows, entries] = np.fromiter(
+            (-1 if e["rule"] is None else e["rule"] for e in log),
+            dtype=np.int64,
+            count=len(log),
+        )
+        # Index 0 is the missing name of leaps and padding; rule r is at r + 1.
+        names = np.array([np.nan, *self.rule_names], dtype=object)
+        rule_name = names[np.where(rule < 0, 0, rule + 1)]
+        ids = np.fromiter((o["id"] for o in chosen), dtype=np.int64, count=len(chosen))
+        array = xarray.DataArray(
+            values,
+            dims=("replicate", "entry", "variable"),
+            coords={
+                "replicate": ids,
+                "entry": np.arange(width, dtype=np.int64),
+                "variable": observables,
+                "length": ("replicate", lengths),
+                "time": (("replicate", "entry"), time),
+                "rule": (("replicate", "entry"), rule),
+                "rule_name": (("replicate", "entry"), rule_name),
+            },
+            name="event_log",
+            attrs=self._array_attrs(),
+        )
+        return array if replicate is None else array.isel(replicate=0)
+
+    def event_frame(self, replicate=None):
+        """Return retained event logs as a DataFrame (release 0.4.0's form).
 
         With a replicate id, that replicate's log, indexed by ``entry``;
         without one, every logged event, indexed by (``replicate``,
@@ -267,12 +346,7 @@ class Result:
         leap), then one column per observable after the event. Participant
         instances and leap firings are in the observation entries.
         """
-        if replicate is None:
-            chosen = self.observations
-        else:
-            chosen = [o for o in self.observations if o["id"] == replicate][:1]
-            if not chosen:
-                raise KeyError(replicate)
+        chosen = self._observed(replicate)
         entries = [e for o in chosen for e in o["log"]]
         size = len(entries)
         observables = list(self.metadata["observables"])

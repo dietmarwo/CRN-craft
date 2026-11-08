@@ -64,11 +64,13 @@ callbacks, and the mtDNA methods; see the
 numeric rate is a mass-action constant, a string the reaction's whole
 propensity. `add_species` and `add_parameter` take one name and value or a
 mapping such as `{"S": 999, "I": 1}`. Results are pandas DataFrames:
-per-replicate records and rule counts, statistics by report time, trackers
-and event logs. Kept paths are an xarray DataArray: `result.paths` has the
-dimensions (time, variable, replicate). pandas and xarray are installed with
-the package. `paths_frame()` returns the DataFrame of release 0.4.0, and
-`to_xarray()` the paths as a Dataset. The same immigration–death model:
+per-replicate records and rule counts, statistics by report time and
+trackers. Kept paths and event logs are xarray DataArrays: `result.paths`
+has the dimensions (time, variable, replicate), and `event_columns()`
+(replicate, entry, variable). pandas and xarray are installed with the
+package. `paths_frame()` and `event_frame()` return the DataFrames of
+release 0.4.0, and `to_xarray()` the paths as a Dataset. The same
+immigration–death model:
 
 ```python
 from crn_craft import rules

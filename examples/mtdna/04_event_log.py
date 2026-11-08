@@ -16,11 +16,13 @@ run = rules.ensemble(
     event_log={"max_entries": 50, "rules": ["mutation_mt", "mutation_mtAdv"]},
 )
 result = run.simulate()
-# Every logged event, indexed by (replicate, entry); rule_name names the rule.
+# Every logged event as a DataArray: cells x entries x observables after the
+# event, NaN-padded; time, rule and rule_name are coordinates of each entry.
 log = result.event_columns()
-counts = log.groupby("rule_name", observed=True).size()
-print("logged mutation events:", counts.to_dict())
+names = log["rule_name"].to_series().dropna()  # padding has no name
+print("logged mutation events:", names.value_counts().sort_index().to_dict())
 print("omitted (log full):", sum(o["omitted_log_entries"] for o in result.observations))
-cell = log.loc[0]  # the log of cell 0
-print(cell[["time", "rule", "rule_name", "N", "mutants"]])
-print("cell 0 mutation days:", (cell["time"] / 24).round(1).tolist())
+table = result.event_frame(0)  # the log of cell 0 as a DataFrame
+print(table[["time", "rule", "rule_name", "N", "mutants"]])
+days = result.event_columns(0)["time"] / 24  # cell 0, without padding
+print("cell 0 mutation days:", days.round(1).values.tolist())

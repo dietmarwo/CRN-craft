@@ -49,7 +49,8 @@ cargo install crn-craft-cli --locked     # optional: the native command-line too
 
 The Python package needs NumPy, pandas and xarray, which pip installs with
 it. Results are pandas DataFrames (pandas is required since 0.3.0), and
-kept paths are an xarray DataArray (xarray is required since 0.5.0). The extra `crn-craft[xarray]` of earlier releases still installs.
+kept paths and event logs are xarray DataArrays (xarray is required since
+0.5.0). The extra `crn-craft[xarray]` of earlier releases still installs.
 
 The Python package contains the native engine, so the CLI is optional. Every
 feature in this manual is in release 0.4.0; features that exist only in
@@ -144,8 +145,8 @@ molecules are mutants.
 
 Results are pandas DataFrames whose columns carry the observable names, so
 select a column by name, as in `result.statistics["mean"]["N"]`. Kept paths
-are an xarray DataArray whose `variable` coordinate carries the names, as
-in `result.paths.sel(variable="N")`. Observables are sorted by
+and event logs are xarray DataArrays whose `variable` coordinate carries the
+names, as in `result.paths.sel(variable="N")`. Observables are sorted by
 name, not in the order of the file, and continuous variables follow them
 (section 10); the raw matrices in `result.metadata` use the same order.
 
@@ -535,14 +536,16 @@ run = rules.ensemble(
     event_log={"max_entries": 50, "rules": ["mutation_mt", "mutation_mtAdv"]},
 )
 result = run.simulate()
-# Every logged event, indexed by (replicate, entry); rule_name names the rule.
+# Every logged event as a DataArray: cells x entries x observables after the
+# event, NaN-padded; time, rule and rule_name are coordinates of each entry.
 log = result.event_columns()
-counts = log.groupby("rule_name", observed=True).size()
-print("logged mutation events:", counts.to_dict())
+names = log["rule_name"].to_series().dropna()  # padding has no name
+print("logged mutation events:", names.value_counts().sort_index().to_dict())
 print("omitted (log full):", sum(o["omitted_log_entries"] for o in result.observations))
-cell = log.loc[0]  # the log of cell 0
-print(cell[["time", "rule", "rule_name", "N", "mutants"]])
-print("cell 0 mutation days:", (cell["time"] / 24).round(1).tolist())
+table = result.event_frame(0)  # the log of cell 0 as a DataFrame
+print(table[["time", "rule", "rule_name", "N", "mutants"]])
+days = result.event_columns(0)["time"] / 24  # cell 0, without padding
+print("cell 0 mutation days:", days.round(1).values.tolist())
 ```
 
 ```text
@@ -619,11 +622,19 @@ Rules for observation:
 - Log retention counts against the admission budget. Large logs need small
   cohorts and a larger `max_output_bytes`.
 - `batch_callback=fn` replays the retained log after the run in chunks.
-- `result.event_columns()` returns every logged event as one DataFrame
-  indexed by (`replicate`, `entry`): `time`, `rule` (the index),
-  `rule_name`, then the observables after the event.
-  `result.event_columns(id)` returns one cell's log. Participating
-  instances are in `result.observations`.
+- `result.event_columns()` returns every log as one xarray DataArray with
+  dimensions (`replicate`, `entry`, `variable`): the observables after
+  each event, NaN past a cell's last entry. Over (`replicate`, `entry`) it
+  has the coordinates `time` (NaN as padding), `rule` (the rule index, −1
+  for a leap, −2 as padding) and `rule_name` (NaN for a leap and as
+  padding); over `replicate`, `length`, the number of entries each cell
+  logged (0 for a cell without logged events). `result.event_columns(id)`
+  returns one cell's log with dimensions (`entry`, `variable`) and no
+  padding.
+- `result.event_frame()` and `result.event_frame(id)` return the same
+  entries as the DataFrames of release 0.4.0, indexed by (`replicate`,
+  `entry`) or by `entry`: `time`, `rule`, `rule_name`, then the
+  observables. Participating instances are in `result.observations`.
 
 ## 8. Choosing a method
 
@@ -1813,7 +1824,8 @@ The result, `run.simulate()`:
 | `paths_frame()` | DataFrame of the kept series, index (`replicate`, `time`), one column per observable (release 0.4.0's `paths`) |
 | `to_xarray()` | Dataset of the kept series, dimensions `replicate` and `time`, one variable per observable |
 | `tracker_columns(i)` | DataFrame of tracker `i`, one row per observed cell; NaN where a time or peak is absent |
-| `event_columns()`, `event_columns(id)` | DataFrame of every logged event, index (`replicate`, `entry`), or of one cell's log, index `entry` |
+| `event_columns()`, `event_columns(id)` | DataArray of every log, dimensions (`replicate`, `entry`, `variable`), NaN-padded, with the coordinates `time`, `rule`, `rule_name` and `length`; or of one cell's log, dimensions (`entry`, `variable`) |
+| `event_frame()`, `event_frame(id)` | DataFrame of every logged event, index (`replicate`, `entry`), or of one cell's log, index `entry` (release 0.4.0's `event_columns`) |
 | `rule_names` | rule names in declaration order, also on the prepared run |
 | `observations`, `record_diagnostics`, `metadata` | trackers and logs as documents, per-cell errors by id, the full result document |
 
@@ -1825,6 +1837,7 @@ release 0.4.0 changes as follows:
 | `result.paths`, a DataFrame | `result.paths_frame()`; `result.paths` is a DataArray |
 | `result.paths.loc[3]` | `result.paths.sel(replicate=3)`, or `result.paths_frame().loc[3]` |
 | `result.paths["mutants"].unstack("time")` | `result.paths.sel(variable="mutants").to_pandas().T` |
+| `result.event_columns()`, `result.event_columns(id)`, DataFrames | `result.event_frame()`, `result.event_frame(id)`; `event_columns` returns DataArrays |
 | `pip install "crn-craft[xarray]"` | `pip install crn-craft`: xarray is required; the extra still installs |
 
 Code written for the NumPy results of release 0.2.0 changes as follows:
@@ -1839,7 +1852,7 @@ Code written for the NumPy results of release 0.2.0 changes as follows:
 | `statistics["mean"]` (an array) | `statistics["mean"].to_numpy()` |
 | `metadata["paths"]` rows | `result.paths_frame()`, or `result.paths_frame().to_numpy()` |
 | `tracker_columns(i)["id"]` and fields | `tracker_columns(i).index` and its columns |
-| `event_columns(id)["observables"]` | `event_columns(id)[list(metadata["observables"])].to_numpy()` |
+| `event_columns(id)["observables"]` | `event_columns(id).to_numpy()` |
 | `keep_paths=True` (one cell) | `keep_paths=1`; `True` now keeps every cell |
 
 Result metadata:

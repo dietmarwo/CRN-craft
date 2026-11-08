@@ -155,19 +155,25 @@ def check_event_log_default_budget():
             f"the reported event-log request is rejected: {error}"
         ) from None
     result = run.simulate()
-    log = result.event_columns()
+    log = result.event_columns()  # replicate x entry x variable, NaN-padded
+    frame = result.event_frame()
     omitted = sum(o["omitted_log_entries"] for o in result.observations)
     mutations = result.rule_events[names]
     counts = mutations.sum(axis=1)
-    logged = log.groupby(level="replicate").size().reindex(counts.index, fill_value=0)
+    logged = log["length"].to_pandas().reindex(counts.index, fill_value=0)
+    fired = log["rule_name"].values[log["rule"].values >= 0]
     require(
         result.metadata["termination"] == "completed"
         and bool((result.records["termination"] == "completed").all())
         and len(result.observations) == 400
-        and set(log["rule_name"].unique()) <= set(names)
+        and log.dims == ("replicate", "entry", "variable")
+        and log.sizes["replicate"] == 400
+        and 0 < log.sizes["entry"] <= 50
+        and set(fired) <= set(names)
+        and set(frame["rule_name"].unique()) <= set(names)
         and omitted == 0
-        and len(log) == int(mutations.to_numpy().sum())
-        and len(log) > 0
+        and len(fired) == len(frame) == int(mutations.to_numpy().sum())
+        and len(frame) > 0
         and np.array_equal(logged.to_numpy(), counts.to_numpy()),
         "the reported event log records every mutation of every cell",
     )

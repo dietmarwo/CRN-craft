@@ -260,9 +260,13 @@ For leap methods, the sampling-step budget bounds both random words
 and leap iterations, including iterations with zero firings.
 
 `result.event_columns(replicate)` returns the bounded log of one replicate
-as a DataFrame indexed by `entry`, with `time`, `rule` (the index),
-`rule_name` and one column per observable; without an argument it returns
-every logged event, indexed by (`replicate`, `entry`).
+as an xarray DataArray with dimensions (`entry`, `variable`), the
+observables after each event, and the coordinates `time`, `rule` (the
+index, -1 for a leap) and `rule_name`. Without an argument it returns
+every log with dimensions (`replicate`, `entry`, `variable`), padded with
+NaN (and `rule` -2) past each replicate's `length`.
+`result.event_frame()` returns the DataFrames of earlier releases: one row
+per logged event, indexed by `entry` or by (`replicate`, `entry`).
 `result.tracker_columns(index)` returns the scalar tracker summaries as a
 DataFrame indexed by replicate id, with NaN for missing times or peaks.
 Ragged participant identities, leap multiplicities and episodes remain

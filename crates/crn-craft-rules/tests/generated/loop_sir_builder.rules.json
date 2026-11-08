@@ -1,0 +1,80 @@
+{
+  "schema": "crn-craft.rules-model/0.3",
+  "name": "sir",
+  "parameters": {
+    "beta": 0.3,
+    "gamma": 0.1,
+    "N": 1000.0
+  },
+  "types": [
+    {
+      "name": "S"
+    },
+    {
+      "name": "I"
+    },
+    {
+      "name": "R"
+    }
+  ],
+  "initial": [
+    {
+      "type": "S",
+      "count": 990
+    },
+    {
+      "type": "I",
+      "count": 10
+    }
+  ],
+  "observables": {
+    "S": {
+      "type": "S"
+    },
+    "I": {
+      "type": "I"
+    },
+    "R": {
+      "type": "R"
+    }
+  },
+  "rules": [
+    {
+      "name": "infection",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "S"
+        },
+        {
+          "label": "y",
+          "type": "I"
+        }
+      ],
+      "propensity": "beta * S * I / N",
+      "products": [
+        {
+          "type": "I"
+        },
+        {
+          "type": "I"
+        }
+      ]
+    },
+    {
+      "name": "recovery",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "I"
+        }
+      ],
+      "propensity": "gamma * I",
+      "products": [
+        {
+          "type": "R"
+        }
+      ]
+    }
+  ]
+}

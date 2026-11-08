@@ -13,6 +13,7 @@ use crate::{
     Control, Diagnostic, LoopHalt, LoopHost, Method, Prepared, RulesResult, request_error,
 };
 use std::collections::BTreeMap;
+use std::collections::btree_map::Entry;
 use std::fmt::Write;
 
 /// The whole Static Direct event for one lowered rules model, as emitted by
@@ -75,8 +76,8 @@ fn fingerprint(prepared: &Prepared, template: &str) -> String {
 /// # Errors
 ///
 /// `CRN-R020` at `/method` if the request does not select `static_direct`
-/// or the model is outside the generator's forms, `CRN-R020` at `/model` on
-/// a fingerprint mismatch, and otherwise the errors of [`crate::execute`].
+/// or the source would exceed 1 MiB, `CRN-R020` at `/model` on a
+/// fingerprint mismatch, and otherwise the errors of [`crate::execute`].
 pub fn execute_with_rules_loop(
     prepared: &Prepared,
     control: &Control,
@@ -96,11 +97,16 @@ pub fn execute_with_rules_loop(
 
 /// Emit a Rust module defining `GeneratedRulesLoop` for a prepared Static
 /// Direct request. The caller compiles this source into the application and
-/// runs it with [`execute_with_rules_loop`]. Supports constant and vacancy
-/// rates and sum observables, up to 1 MiB of emitted source. Parameters are
-/// compiled in, so another parameter set needs another loop. Request
-/// settings are not: one loop serves every Static Direct request for the
-/// model bytes.
+/// runs it with [`execute_with_rules_loop`]. Supports every model that
+/// Static Direct runs, up to 1 MiB of emitted source: constant, vacancy and
+/// expression rates, whole-rule `propensity` expressions, and `sum`,
+/// `distinct`, `max` and `min` observables. Rate expressions are emitted
+/// with the interpreter's operations in its order, so results stay
+/// byte-identical: NaN propagation through logic and `if`, short-circuit
+/// `&&` and `||`, `min` and `max` that keep NaN, IEEE division and the same
+/// `libm` functions. Parameters are compiled in, so another parameter set
+/// needs another loop. Request settings are not: one loop serves every
+/// Static Direct request for the model bytes.
 ///
 /// The model's stop predicate is compiled in with the interpreter's
 /// semantics; an undefined value is passed back to the host for the
@@ -109,11 +115,11 @@ pub fn execute_with_rules_loop(
 ///
 /// # Errors
 ///
-/// `CRN-R020` at `/method` if the request does not select `static_direct`,
-/// if a rate or an observable is outside the supported forms (see
-/// [`crate::generate_rules_kernel`]), or if the source would exceed 1 MiB,
-/// which densely coupled networks reach because rate code is repeated in
-/// every dependency row.
+/// `CRN-R020` at `/method` if the request does not select `static_direct`
+/// (models with ATP, continuous variables or instances that change identity
+/// need another method and cannot select it), or if the source would
+/// exceed 1 MiB, which densely coupled networks reach because rate code is
+/// repeated in every dependency row.
 ///
 /// ```
 /// use crn_craft_rules::{generate_rules_loop, prepare};
@@ -160,34 +166,38 @@ fn bits(value: f64) -> String {
     format!("f64::from_bits({:#018x})", value.to_bits())
 }
 
+/// The global factor of one channel's rate.
+enum Global {
+    /// Emitted inline: a constant, or a vacancy base times its factors.
+    Inline(String),
+    /// The rate or propensity expression of this rule, shared by every
+    /// channel of the rule in a dependency row.
+    Rule(usize),
+}
+
 struct Rate {
     /// Vacancy base slot, if any.
     base: Option<usize>,
-    expression: String,
+    global: Global,
+    /// The reactant weight, as the interpreter computes it.
+    weight: String,
+    /// The lowered channel factor.
+    factor: f64,
 }
 
 /// The emitted source with a placeholder for its fingerprint.
+#[allow(clippy::too_many_lines)]
 fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
-    let unsupported = || {
-        request_error(
-            "/method",
-            "generated rules loops support constant or vacancy rates and sum observables",
-            "Use interpreted Static Direct for other expressions or reductions.",
-        )
-    };
+    let model = &prepared.compiled;
     let mut bases: BTreeMap<(u64, usize, usize), usize> = BTreeMap::new();
     let mut base_code = Vec::new();
+    // Rate and propensity expressions with the interpreter's evaluation
+    // order and NaN, infinity and division semantics, per rule.
+    let mut rule_code: BTreeMap<usize, String> = BTreeMap::new();
     let mut rates = Vec::with_capacity(net.channels.len());
-    if net.channels.iter().any(|c| c.whole) {
-        return Err(request_error(
-            "/method",
-            "generated rules loops do not support whole-rule propensities",
-            "Use interpreted Static Direct for models with propensity rules.",
-        ));
-    }
-    for (i, c) in net.channels.iter().enumerate() {
+    for c in &net.channels {
         let (base, global) = match &net.rates[c.rule] {
-            RateKernel::Constant(k) => (None, bits(*k)),
+            RateKernel::Constant(k) => (None, Global::Inline(bits(*k))),
             RateKernel::Vacancy {
                 limit,
                 count,
@@ -207,39 +217,51 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
                 for &factor in factors {
                     write!(expression, " * {}", bits(factor)).unwrap();
                 }
-                (Some(slot), expression)
+                (Some(slot), Global::Inline(expression))
             }
-            RateKernel::Expression(_) => return Err(unsupported()),
+            RateKernel::Expression(expr) => {
+                if let Entry::Vacant(entry) = rule_code.entry(c.rule) {
+                    // Validation lets rates and propensities read only
+                    // parameters and observables, and never draw.
+                    entry.insert(expr.rust_value(&model.params).ok_or_else(|| {
+                        request_error(
+                            "/method",
+                            "generated rules loops support deterministic rate expressions over parameters and observables",
+                            "Use interpreted Static Direct for this rule.",
+                        )
+                    })?);
+                }
+                (None, Global::Rule(c.rule))
+            }
         };
-        let weight = match *c.reactants.as_slice() {
-            [] => "1.0".into(),
-            [s] => format!("counts[{s}] as f64"),
-            [s, t] if s == t => {
+        // The interpreter's reactant weight: the combinatorial count, or for
+        // a whole-rule propensity 1 while every pattern can take a distinct
+        // molecule and 0 otherwise.
+        let weight = match (c.reactants.as_slice(), c.whole) {
+            ([], _) => "1.0".into(),
+            ([s], false) => format!("counts[{s}] as f64"),
+            ([s, t], false) if s == t => {
                 format!("counts[{s}] as f64 * counts[{s}].saturating_sub(1) as f64 * 0.5")
             }
-            [s, t] => format!("counts[{s}] as f64 * counts[{t}] as f64"),
+            ([s, t], false) => format!("counts[{s}] as f64 * counts[{t}] as f64"),
+            ([s], true) => format!("f64::from(u8::from(counts[{s}] > 0))"),
+            ([s, t], true) if s == t => format!("f64::from(u8::from(counts[{s}] > 1))"),
+            ([s, t], true) => {
+                format!("f64::from(u8::from(counts[{s}] > 0 && counts[{t}] > 0))")
+            }
             _ => unreachable!("validated arity"),
         };
         rates.push(Rate {
             base,
-            expression: format!(
-                "{{ let weight = {weight}; let a = if weight == 0.0 {{ 0.0 }} else {{ ({global}) * (weight * {}) }}; \
-                 if !(a.is_finite() && a >= 0.0) {{ return Err(host.rate_error({i})); }} r[{i}] = a; }}",
-                bits(c.factor)
-            ),
+            global,
+            weight,
+            factor: c.factor,
         });
     }
     // Every changed projection is refreshed after each event, including the
     // ones the interpreter defers to reports. Deferred projections cannot
     // overflow: lowering allows at most 256 species, and `plan_observables`
     // defers only weights bounded for 1024 terms.
-    if net
-        .observables
-        .iter()
-        .any(|(_, reduce, _)| !matches!(reduce, Reduce::Sum))
-    {
-        return Err(unsupported());
-    }
     let update = |channels: &mut dyn Iterator<Item = usize>| {
         let channels: Vec<_> = channels.collect();
         let mut code = String::new();
@@ -249,8 +271,36 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
         for slot in needed {
             writeln!(code, "{}", base_code[slot]).unwrap();
         }
+        // An expression shared by several channels of the row is evaluated
+        // once, as the interpreter's per-event rate cache does. Evaluation
+        // has no side effects, so evaluating it when every weight is 0
+        // changes no value.
+        let mut uses: BTreeMap<usize, usize> = BTreeMap::new();
+        for &i in &channels {
+            if let Global::Rule(rule) = rates[i].global {
+                *uses.entry(rule).or_insert(0) += 1;
+            }
+        }
+        for (&rule, &n) in &uses {
+            if n > 1 {
+                writeln!(code, "let g_{rule}: f64 = {};", rule_code[&rule]).unwrap();
+            }
+        }
         for i in channels {
-            writeln!(code, "{}", rates[i].expression).unwrap();
+            let rate = &rates[i];
+            let global = match rate.global {
+                Global::Inline(ref code) => code.clone(),
+                Global::Rule(rule) if uses[&rule] > 1 => format!("g_{rule}"),
+                Global::Rule(rule) => rule_code[&rule].clone(),
+            };
+            writeln!(
+                code,
+                "{{ let weight = {}; let a = if weight == 0.0 {{ 0.0 }} else {{ ({global}) * (weight * {}) }}; \
+                 if !(a.is_finite() && a >= 0.0) {{ return Err(host.rate_error({i})); }} r[{i}] = a; }}",
+                rate.weight,
+                bits(rate.factor)
+            )
+            .unwrap();
         }
         code
     };
@@ -280,7 +330,6 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
     // The stop predicate runs after events that change a projection it
     // reads. The fused guarded fraction is emitted with the interpreter's
     // fused operations.
-    let model = &prepared.compiled;
     let mut stop_reads = vec![false; model.observables.len()];
     if let Some(program) = &model.stop_program {
         program.reads(&mut stop_reads);
@@ -288,7 +337,7 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
     let emitted = model
         .stop
         .as_ref()
-        .and_then(|e| e.rust_predicate(&model.params));
+        .and_then(|e| e.rust_value(&model.params));
     let finish = "host.stopped(&counts[..], &mut values[..])?; return Ok(Some(next));";
     let stop = match (
         model.stop_program.as_ref().and_then(|p| p.fraction()),
@@ -325,14 +374,26 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
         }
         writeln!(code, "host.fired({k}, created, live, next);").unwrap();
         for &index in &net.changed[k] {
-            let (slot, _, terms) = &net.observables[index];
+            // The interpreter's reductions, with the same iterator adapters
+            // over the terms in the same order.
+            let (slot, reduce, terms) = &net.observables[index];
             write!(code, "{{ let v: f64 = [").unwrap();
             for &(species, weight) in terms {
-                write!(code, "counts[{species}] as f64 * {},", bits(weight)).unwrap();
+                if *reduce == Reduce::Sum {
+                    write!(code, "counts[{species}] as f64 * {},", bits(weight)).unwrap();
+                } else {
+                    write!(code, "(counts[{species}] > 0).then_some({}),", bits(weight)).unwrap();
+                }
             }
+            let fold = match reduce {
+                Reduce::Sum => "].into_iter().sum()",
+                Reduce::Distinct => "].into_iter().flatten().sum()",
+                Reduce::Max => "].into_iter().flatten().reduce(f64::max).unwrap_or(0.0)",
+                Reduce::Min => "].into_iter().flatten().reduce(f64::min).unwrap_or(0.0)",
+            };
             writeln!(
                 code,
-                "].into_iter().sum(); if !v.is_finite() {{ return Err(host.overflow_error()); }} values[{slot}] = v; }}"
+                "{fold}; if !v.is_finite() {{ return Err(host.overflow_error()); }} values[{slot}] = v; }}"
             )
             .unwrap();
         }

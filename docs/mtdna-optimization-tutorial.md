@@ -209,9 +209,9 @@ def template(cells, seed, threads=2):
 
 def heteroplasmy(result):
     """Fraction of cells whose mutant fraction reaches each edge, per age."""
-    paths = result.paths  # one row per (cell, report time)
-    fraction = (paths["mutants"] / paths["N"]).unstack("time").to_numpy()
-    return (fraction[:, :, None] >= EDGES).mean(axis=0)  # ages x edges
+    paths = result.paths  # report times x observables x cells
+    fraction = (paths.sel(variable="mutants") / paths.sel(variable="N")).to_numpy()
+    return (fraction[:, :, None] >= EDGES).mean(axis=1)  # ages x edges
 
 
 def loss(simulated, observed, cells):
@@ -464,7 +464,8 @@ Practical sizes for this model:
   paths as here. Other models run on the generic methods, Static Direct
   first.
 - **Keep only what the loss needs.** `keep_paths="all"` keeps 3 report
-  times × 6 observables per cell, as one `result.paths` DataFrame. Avoid event logs and Python callbacks
+  times × 6 observables per cell, as one `result.paths` DataArray (report
+  times × observables × cells). Avoid event logs and Python callbacks
   inside an objective.
 - **Reuse the template.** `bind_parameters` costs about 0.3 ms, as does a
   fresh request. Both are negligible, but a template guarantees that every

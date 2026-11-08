@@ -8,6 +8,7 @@ import tempfile
 
 import numpy as np
 import pandas as pd
+import xarray as xr
 
 from crn_craft import rules
 from check_rules import require
@@ -52,6 +53,143 @@ def result_bytes(result):
                 )
             )
     return out
+
+
+ATTRS = ("sampler", "method", "root_seed", "model_sha256", "run_sha256")
+
+
+def array_attrs(meta):
+    """DataArray attrs: netCDF-storable, with the method as JSON text."""
+    attrs = {key: meta.get(key) for key in ATTRS}
+    attrs["method"] = json.dumps(attrs["method"], sort_keys=True)
+    require(
+        all(isinstance(value, str | int | float) for value in attrs.values()),
+        "DataArray attrs are netCDF-storable",
+    )
+    return attrs
+
+
+def check_path_array(result, meta):
+    """Result.paths: report times x variables x replicates, NaN where unsaved."""
+    observables = meta["observables"]
+    times = meta["report_times"]
+    kept = meta["paths"]
+    paths = result.paths
+    expected = np.full((len(times), len(observables), len(kept)), np.nan)
+    for column, path in enumerate(kept):
+        rows = np.array(path["values"], dtype=np.float64).reshape(-1, len(observables))
+        expected[: len(rows), :, column] = rows
+    require(
+        isinstance(paths, xr.DataArray)
+        and paths.dims == ("time", "variable", "replicate")
+        and paths.name == "paths"
+        and paths.dtype == np.float64
+        and paths.shape == expected.shape
+        and paths["time"].dtype == np.float64
+        and paths["time"].values.tolist() == times
+        and paths["variable"].values.tolist() == observables
+        and paths["replicate"].dtype == np.int64
+        and paths["replicate"].values.tolist() == [p["id"] for p in kept]
+        and set(paths.coords) == {"time", "variable", "replicate"}
+        and np.array_equal(paths.values, expected, equal_nan=True)
+        and paths.attrs == array_attrs(meta),
+        "path array against the raw paths",
+    )
+    # The 0.4.0 frame is the same data without the unsaved rows.
+    frame = result.paths_frame()
+    long = paths.transpose("replicate", "time", "variable").values.reshape(
+        -1, len(observables)
+    )
+    saved = ~np.isnan(long).all(axis=1)
+    require(
+        np.array_equal(long[saved], frame.to_numpy())
+        and list(frame.columns) == observables,
+        "path array and paths_frame hold the same rows",
+    )
+    data = result.to_xarray()
+    split = paths.to_dataset("variable").transpose("replicate", "time")
+    split.attrs = {key: meta[key] for key in ATTRS if key != "method"}
+    require(
+        isinstance(data, xr.Dataset) and data.identical(split),
+        "to_xarray is paths as a Dataset over (replicate, time)",
+    )
+
+
+def named(values):
+    """Rule names as nested lists, with "<missing>" for float NaN only."""
+    if values.ndim > 1:
+        return [named(row) for row in values]
+    return [
+        n if isinstance(n, str) else "<missing>" if n != n else repr(n) for n in values
+    ]
+
+
+def check_event_array(result, meta):
+    """Result.event_columns(): replicates x entries x variables, NaN-padded."""
+    observables = meta["observables"]
+    rules_ = meta["rules"]
+    observed = meta.get("observations", [])
+    lengths = [len(o["log"]) for o in observed]
+    width = max(lengths, default=0)
+    shape = (len(observed), width)
+    values = np.full((*shape, len(observables)), np.nan)
+    time = np.full(shape, np.nan)
+    rule = np.full(shape, -2, dtype=np.int64)
+    name = np.full(shape, "<missing>", dtype=object)
+    for row, observation in enumerate(observed):
+        for entry, event in enumerate(observation["log"]):
+            values[row, entry] = event["observables"]
+            time[row, entry] = event["time"]
+            if event["rule"] is None:
+                rule[row, entry] = -1
+            else:
+                rule[row, entry] = event["rule"]
+                name[row, entry] = rules_[event["rule"]]
+    log = result.event_columns()
+    require(
+        isinstance(log, xr.DataArray)
+        and log.dims == ("replicate", "entry", "variable")
+        and log.name == "event_log"
+        and log.dtype == np.float64
+        and log.shape == values.shape
+        and np.array_equal(log.values, values, equal_nan=True)
+        and set(log.coords)
+        == {"replicate", "entry", "variable", "length", "time", "rule", "rule_name"}
+        and log["replicate"].dtype == np.int64
+        and log["replicate"].values.tolist() == [o["id"] for o in observed]
+        and log["entry"].dtype == np.int64
+        and log["entry"].values.tolist() == list(range(width))
+        and log["variable"].values.tolist() == observables
+        and log["length"].dims == ("replicate",)
+        and log["length"].dtype == np.int64
+        and log["length"].values.tolist() == lengths
+        and all(log[key].dims == ("replicate", "entry") for key in ("time", "rule"))
+        and log["time"].dtype == np.float64
+        and np.array_equal(log["time"].values, time, equal_nan=True)
+        and log["rule"].dtype == np.int64
+        and np.array_equal(log["rule"].values, rule)
+        and log["rule_name"].dims == ("replicate", "entry")
+        and log["rule_name"].dtype == object
+        and named(log["rule_name"].values) == name.tolist()
+        and log.attrs == array_attrs(meta),
+        "event array against the raw logs",
+    )
+    for row, observation in enumerate(observed):
+        one = result.event_columns(observation["id"])
+        require(
+            one.dims == ("entry", "variable")
+            and one.shape == (lengths[row], len(observables))
+            and one.identical(
+                log.sel(replicate=observation["id"]).isel(entry=slice(0, lengths[row]))
+            ),
+            "one replicate's event array is its unpadded row",
+        )
+    try:
+        result.event_columns(-1)
+    except KeyError:
+        pass
+    else:
+        raise RuntimeError("event_columns accepted an unobserved replicate")
 
 
 def check_frames(result, metadata, columns):
@@ -112,7 +250,9 @@ def check_frames(result, metadata, columns):
                 and np.array_equal(frame.to_numpy(), np.array(stats[key])),
                 f"statistic frame {key}",
             )
-    paths = result.paths
+    check_path_array(result, meta)
+    check_event_array(result, meta)
+    paths = result.paths_frame()
     require(
         list(paths.index.names) == ["replicate", "time"]
         and list(paths.columns) == observables
@@ -130,7 +270,7 @@ def check_frames(result, metadata, columns):
         )
     for observation in meta.get("observations", []):
         if observation["log"]:
-            frame = result.event_columns(observation["id"])
+            frame = result.event_frame(observation["id"])
             log = observation["log"]
             require(
                 list(frame.columns) == ["time", "rule", "rule_name", *observables]
@@ -147,12 +287,12 @@ def check_frames(result, metadata, columns):
                 "event log frame",
             )
     observed = meta.get("observations", [])
-    everything = result.event_columns()
+    everything = result.event_frame()
     require(
         list(everything.index.names) == ["replicate", "entry"]
         and len(everything) == sum(len(o["log"]) for o in observed)
         and all(
-            everything.loc[o["id"]].equals(result.event_columns(o["id"]))
+            everything.loc[o["id"]].equals(result.event_frame(o["id"]))
             for o in observed
             if o["log"]
         ),
@@ -387,8 +527,10 @@ def main():
     framed = rules.Result(metadata, columns)
     check_frames(framed, metadata, columns)
     require(
-        len(framed.paths) == 20 * 3
-        and framed.paths.index.get_level_values(0).nunique() == 20,
+        framed.paths.sizes["replicate"] == 20
+        and framed.paths.sizes["time"] == 3
+        and len(framed.paths_frame()) == 20 * 3
+        and framed.paths_frame().index.get_level_values(0).nunique() == 20,
         "keep_paths='all' keeps every replicate",
     )
     require(
@@ -410,14 +552,15 @@ def main():
     metadata = json.loads(metadata)
     partial = rules.Result(metadata, columns)
     check_frames(partial, metadata, columns)
-    saved = partial.paths.groupby(level="replicate").size()
+    saved = partial.paths_frame().groupby(level="replicate").size()
+    filled = partial.paths.notnull().all("variable").sum("time")
     require(
         partial.statistics is None
         and set(partial.records["termination"]) == {"event_limit"}
         and saved.max() < 4
-        and np.array_equal(
-            saved.to_numpy(), partial.records["saved_points"].to_numpy()
-        ),
+        and np.array_equal(saved.to_numpy(), partial.records["saved_points"].to_numpy())
+        and np.array_equal(filled.values, saved.to_numpy())
+        and bool(partial.paths.isnull().any()),
         "partial paths of budget-ended replicates",
     )
     # Leaps of an approximate method are logged with rule -1 and no name.
@@ -441,36 +584,53 @@ def main():
         ),
         "leap entries in the log",
     )
-    try:
-        import xarray  # noqa: F401
-    except ImportError:
-        try:
-            partial.to_xarray()
-        except ImportError as error:
-            require("crn-craft[xarray]" in str(error), "to_xarray hint")
-        else:
-            raise RuntimeError("to_xarray without xarray")
-    else:
-        for result in (framed, partial):
-            data = result.to_xarray()
-            cube = np.stack(
-                [data[name].values for name in result.paths.columns], axis=-1
-            )
+    for result in (framed, partial):
+        data = result.to_xarray()
+        names = result.metadata["observables"]
+        cube = np.stack([data[name].values for name in names], axis=-1)
+        require(
+            list(data.data_vars) == names
+            and data[names[0]].dims == ("replicate", "time")
+            and list(data["time"].values) == result.metadata["report_times"]
+            and list(data["replicate"].values)
+            == [p["id"] for p in result.metadata["paths"]]
+            and data.attrs
+            == {
+                key: result.metadata[key]
+                for key in ("sampler", "model_sha256", "run_sha256", "root_seed")
+            },
+            "to_xarray coordinates",
+        )
+        for kept in result.metadata["paths"]:
+            rows = np.array(kept["values"])
             require(
-                data[result.paths.columns[0]].dims == ("replicate", "time")
-                and list(data["time"].values) == result.metadata["report_times"]
-                and list(data["replicate"].values)
-                == [p["id"] for p in result.metadata["paths"]]
-                and data.attrs["sampler"] == result.metadata["sampler"],
-                "to_xarray coordinates",
+                np.array_equal(cube[kept["id"], : len(rows)], rows)
+                and np.isnan(cube[kept["id"], len(rows) :]).all(),
+                "to_xarray values",
             )
-            for kept in result.metadata["paths"]:
-                rows = np.array(kept["values"])
-                require(
-                    np.array_equal(cube[kept["id"], : len(rows)], rows)
-                    and np.isnan(cube[kept["id"], len(rows) :]).all(),
-                    "to_xarray values",
-                )
+    # Event arrays: replicates without a logged event among logged ones, and
+    # a run of one replicate.
+    for replicates, seed in ((12, 3), (1, 5)):
+        sparse = rules.ensemble(
+            model,
+            end=3.0,
+            report_times=[0.0, 3.0],
+            replicates=replicates,
+            seed=seed,
+            method="static_direct",
+            event_log={"max_entries": 3, "rules": ["mutation_mtAdv"]},
+        )
+        metadata, columns = sparse._native.simulate(None, None)
+        metadata = json.loads(metadata)
+        logged = rules.Result(metadata, columns)
+        check_frames(logged, metadata, columns)
+        lengths = logged.event_columns()["length"].values
+        require(
+            logged.event_columns().sizes["replicate"] == replicates
+            and lengths.max() > 0
+            and (replicates == 1 or lengths.min() == 0),
+            "event array fixtures: empty and nonempty logs",
+        )
     # rules-run/0.6: "static_direct" defaults to Ziggurat waits and sparse
     # trackers; explicit options give the numbers of the 0.3.0 request.
     counts = [{"observable": "neutral_mutants"}, {"observable": "advantaged_mutants"}]
@@ -604,6 +764,8 @@ def main():
                     "frames match the native buffers and metadata",
                     "keep_paths all, True and False",
                     "partial paths and to_xarray",
+                    "path and event arrays match the raw metadata",
+                    "event arrays with empty logs, leaps and one replicate",
                     "static_direct selects the rules-run/0.6 defaults",
                     "explicit options reproduce the 0.3.0 static_direct numbers",
                     "static_direct without an eligible tracker",

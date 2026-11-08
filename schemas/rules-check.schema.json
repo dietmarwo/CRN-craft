@@ -51,7 +51,7 @@
       "type": "string"
     }
   },
-  "description": "The report of a model check: `crn-craft.rules-check/0.1`.\n\nIt covers rules-model/0.1 to 0.3 documents. The check stops at the first stage that fails (parsing, size limits, names and types, then the rest of the model), so `diagnostics` lists the errors of that stage.",
+  "description": "The report of a model check: `crn-craft.rules-check/0.1`.\n\nIt covers rules-model/0.1 to 0.4 documents. The check stops at the first stage that fails (parsing, size limits, names and types, then the rest of the model), so `diagnostics` lists the errors of that stage.",
   "properties": {
     "diagnostics": {
       "description": "Errors with stable codes and JSON Pointer paths into the model: `CRN-E001` to `CRN-E004` from parsing, `CRN-R010` to `CRN-R015` from validation, `CRN-E030` for an unreadable file.",

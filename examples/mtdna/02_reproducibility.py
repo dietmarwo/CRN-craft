@@ -45,4 +45,6 @@ print(
     "first 8 of 64 equal an 8-cell run:",
     small.records["events"].equals(one.records["events"].head(8)),
 )
-print(one.paths[["N", "mutants"]].head(5))
+paths = one.paths  # report times x observables x cells, an xarray DataArray
+print(dict(paths.sizes))
+print(paths.sel(replicate=0, variable=["N", "mutants"]).to_pandas())

@@ -44,13 +44,13 @@ Contents:
 
 ```sh
 pip install crn-craft                    # Python package (abi3 wheels for CPython 3.10+)
-pip install "crn-craft[xarray]"          # optional: results as xarray Datasets
 cargo install crn-craft-cli --locked     # optional: the native command-line tool
 ```
 
-The Python package needs NumPy and pandas, which pip installs with it;
-pandas is a required dependency since 0.3.0, because results are pandas
-DataFrames.
+The Python package needs NumPy, pandas and xarray, which pip installs with
+it. Results are pandas DataFrames (pandas is required since 0.3.0), and
+kept paths and event logs are xarray DataArrays (xarray is required since
+0.5.0). The extra `crn-craft[xarray]` of earlier releases still installs.
 
 The Python package contains the native engine, so the CLI is optional. Every
 feature in this manual is in release 0.4.0; features that exist only in
@@ -144,10 +144,11 @@ manual, `N > 0 && mutants >= 0.9 * N`: a cell is taken over when 90% of its
 molecules are mutants.
 
 Results are pandas DataFrames whose columns carry the observable names, so
-select a column by name, as in `result.statistics["mean"]["N"]`. Observable
-columns are sorted by name, not in the order of the file, and continuous
-variables follow them (section 10); the raw matrices in `result.metadata`
-use the same order.
+select a column by name, as in `result.statistics["mean"]["N"]`. Kept paths
+and event logs are xarray DataArrays whose `variable` coordinate carries the
+names, as in `result.paths.sel(variable="N")`. Observables are sorted by
+name, not in the order of the file, and continuous variables follow them
+(section 10); the raw matrices in `result.metadata` use the same order.
 
 ## 3. A first ensemble
 
@@ -238,11 +239,12 @@ What the result holds:
   and `mean_standard_error`, indexed by report `time` with one column per
   observable, and `samples`, the number of cells. They are withheld (`None`)
   if any cell ended early for a budget reason.
-- `result.paths`: the kept series of single cells (next section).
+- `result.paths`: the kept series of single cells, an xarray DataArray
+  (next section).
 - `result.metadata`: the full result document (sampler, termination,
   totals, statistics, kept paths, observations, diagnostics).
 
-`.to_numpy()` turns any DataFrame or column into a NumPy array.
+`.to_numpy()` turns any DataFrame, column or DataArray into a NumPy array.
 
 Report times are right-continuous: an event exactly at a report time is
 included. A cell that stops holds its state at every later report time.
@@ -302,7 +304,9 @@ print(
     "first 8 of 64 equal an 8-cell run:",
     small.records["events"].equals(one.records["events"].head(8)),
 )
-print(one.paths[["N", "mutants"]].head(5))
+paths = one.paths  # report times x observables x cells, an xarray DataArray
+print(dict(paths.sizes))
+print(paths.sel(replicate=0, variable=["N", "mutants"]).to_pandas())
 ```
 
 ```text
@@ -311,29 +315,41 @@ same statistics: True
 same paths: True
 seed 7 vs 8, identical stop times: False
 first 8 of 64 equal an 8-cell run: True
-                        N  mutants
-replicate time                    
-0         0.0      1000.0      0.0
-          8640.0    998.0      1.0
-          17280.0   997.0      0.0
-          25920.0   999.0      0.0
-1         0.0      1000.0      0.0
+{'time': 4, 'variable': 6, 'replicate': 64}
+variable       N  mutants
+time                     
+0.0       1000.0      0.0
+8640.0     998.0      1.0
+17280.0    997.0      0.0
+25920.0    999.0      0.0
 ```
 
 `keep_paths` decides which cells keep their observable series: a count
 keeps cells 0, 1, … up to it, and `"all"` (or `True`) keeps every cell.
-`result.paths` holds them as one DataFrame indexed by (`replicate`,
-`time`), with one column per observable. Some common forms:
+`result.paths` holds them as one xarray DataArray with dimensions (`time`,
+`variable`, `replicate`): report times × observables × cells. The
+coordinates are the report times, the observable names (continuous
+variables last) and the cell indices; the values are floats. `paths.attrs`
+names the `sampler`, the `method` (as JSON text, `"null"` for results
+that report none; `json.loads` turns it back into a dictionary), the
+`root_seed`, `model_sha256` and `run_sha256`, all of which netCDF can store. Some common
+forms:
 
-- `result.paths.loc[3]`: cell 3's series;
-- `result.paths.xs(8640.0, level="time")`: every kept cell at day 360;
-- `result.paths["mutants"].unstack("time")`: cells × report times;
+- `result.paths.sel(replicate=3)`: cell 3's series, report times ×
+  observables;
+- `result.paths.sel(time=8640.0)`: every kept cell at day 360;
+- `result.paths.sel(variable="mutants")`: report times × cells;
+- `result.paths.sel(variable="mutants").mean("replicate")`: the mean over
+  the kept cells at each report time;
+- `result.paths_frame()`: the DataFrame of release 0.4.0, indexed by
+  (`replicate`, `time`), one column per observable;
 - `result.to_xarray()`: an xarray Dataset with dimensions `replicate` and
-  `time`, one variable per observable (`pip install "crn-craft[xarray]"`).
+  `time`, one variable per observable: the same values as
+  `paths.to_dataset("variable")`.
 
-A cell that ended on a budget has rows only up to its last saved report
-time; `to_xarray()` fills the rest with NaN. Kept paths count against
-`max_output_bytes`; the
+A cell that ended on a budget has values only up to its last saved report
+time and NaN after it; `paths_frame()` has rows only up to that time. Kept
+paths count against `max_output_bytes`; the
 [performance analysis](mtdna-performance-analysis.md#8-sizing-a-study)
 gives their size.
 
@@ -521,14 +537,16 @@ run = rules.ensemble(
     event_log={"max_entries": 50, "rules": ["mutation_mt", "mutation_mtAdv"]},
 )
 result = run.simulate()
-# Every logged event, indexed by (replicate, entry); rule_name names the rule.
+# Every logged event as a DataArray: cells x entries x observables after the
+# event, NaN-padded; time, rule and rule_name are coordinates of each entry.
 log = result.event_columns()
-counts = log.groupby("rule_name", observed=True).size()
-print("logged mutation events:", counts.to_dict())
+names = log["rule_name"].to_series().dropna()  # padding has no name
+print("logged mutation events:", names.value_counts().sort_index().to_dict())
 print("omitted (log full):", sum(o["omitted_log_entries"] for o in result.observations))
-cell = log.loc[0]  # the log of cell 0
-print(cell[["time", "rule", "rule_name", "N", "mutants"]])
-print("cell 0 mutation days:", (cell["time"] / 24).round(1).tolist())
+table = result.event_frame(0)  # the log of cell 0 as a DataFrame
+print(table[["time", "rule", "rule_name", "N", "mutants"]])
+days = result.event_columns(0)["time"] / 24  # cell 0, without padding
+print("cell 0 mutation days:", days.round(1).values.tolist())
 ```
 
 ```text
@@ -605,11 +623,19 @@ Rules for observation:
 - Log retention counts against the admission budget. Large logs need small
   cohorts and a larger `max_output_bytes`.
 - `batch_callback=fn` replays the retained log after the run in chunks.
-- `result.event_columns()` returns every logged event as one DataFrame
-  indexed by (`replicate`, `entry`): `time`, `rule` (the index),
-  `rule_name`, then the observables after the event.
-  `result.event_columns(id)` returns one cell's log. Participating
-  instances are in `result.observations`.
+- `result.event_columns()` returns every log as one xarray DataArray with
+  dimensions (`replicate`, `entry`, `variable`): the observables after
+  each event, NaN past a cell's last entry. Over (`replicate`, `entry`) it
+  has the coordinates `time` (NaN as padding), `rule` (the rule index, −1
+  for a leap, −2 as padding) and `rule_name` (NaN for a leap and as
+  padding); over `replicate`, `length`, the number of entries each cell
+  logged (0 for a cell without logged events). `result.event_columns(id)`
+  returns one cell's log with dimensions (`entry`, `variable`) and no
+  padding.
+- `result.event_frame()` and `result.event_frame(id)` return the same
+  entries as the DataFrames of release 0.4.0, indexed by (`replicate`,
+  `entry`) or by `entry`: `time`, `rule`, `rule_name`, then the
+  observables. Participating instances are in `result.observations`.
 
 ## 8. Choosing a method
 
@@ -862,11 +888,12 @@ Direct, at its speed.
 
 ### Optional: compiled event loop
 
-*Opt-in, off by default; needs a Rust toolchain. New in 0.4.0.*
+*Opt-in, off by default; needs a Rust toolchain. New in 0.4.0; string
+rates since 0.5.0.*
 
 `rules.compile_loop(model)` compiles the whole Static Direct event of one
-model into a small native program; `compiled=` then runs Static Direct
-requests in it. Results are byte-identical to the interpreter's: the same
+model into a small native program; `compiled=loop`, on `rules.ensemble` or
+on `simulate()`, then runs Static Direct requests in it. Results are byte-identical to the interpreter's: the same
 records, statistics, paths, trackers, event logs and sampler identity, so
 replays and stored results keep their meaning. Unlike `mtdna_direct`, it
 keeps Static Direct's use of the random stream and is not limited to the
@@ -878,7 +905,7 @@ three-class structure.
 import json
 import time
 
-from crn_craft import CrnError, rules
+from crn_craft import rules
 
 model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
 model["stop"] = "N > 0 && mutants >= 0.9 * N"
@@ -905,21 +932,12 @@ for label, compiled in (("interpreted", None), ("compiled", loop)):
 # Runs the request both ways; raises unless the results are byte-identical.
 loop.verify(run)
 print("byte-identical")
-
-# Without cargo: does the generator support a model?
-other = json.loads(json.dumps(model))
-other["rules"][0]["rate"] = "delta * (1 + mutants / K)"
-try:
-    rules.loop_source(other)
-except CrnError as error:
-    print(error.diagnostics[0]["code"], error.diagnostics[0]["message"])
 ```
 
 ```text
 interpreted   1.19 s   28,523,982 events  taken over 20  chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1
 compiled      0.51 s   28,523,982 events  taken over 20  chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1
 byte-identical
-CRN-R020 generated rules loops support constant or vacancy rates and sum observables
 ```
 
 On the 1000-cell workload of the
@@ -930,6 +948,87 @@ and 3.8 s against 7.0 s with inverse waits and per-event trackers (1.86×),
 medians of three on the two-CPU host
 (`validation/mtdna/compiled-loop-python.json`).
 `mtdna_direct` is faster still where it applies.
+
+`compile_loop` also compiles string rates. A string rate in `rules.Model`
+is a whole-rule propensity, and the generator emits it, like any rate
+expression, with the interpreter's operations in the interpreter's order:
+the same `libm` functions, NaN propagation through comparisons, logic and
+`if`, short-circuit `&&` and `||`, and `min` and `max` that keep NaN. The
+results stay byte-identical to interpreted Static Direct, which `verify`
+checks:
+
+```python
+"""String rates in a compiled loop: the builder's SIR model (needs cargo)."""
+
+import time
+
+from crn_craft import CrnError, rules
+
+sir = rules.Model("sir")
+sir.add_species({"S": 9_990, "I": 10, "R": 0})
+sir.add_parameter({"beta": 0.3, "gamma": 0.1, "N": 10_000.0})
+sir.add_reaction("beta * S * I / N", ["S", "I"], ["I", "I"], name="infection")
+sir.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
+loop = rules.compile_loop(sir)  # string rates compile like constant ones
+run = rules.ensemble(
+    sir,
+    end=400.0,
+    report_times=[0.0, 100.0, 200.0, 400.0],
+    replicates=500,
+    seed=3,
+    threads=2,
+    method="static_direct",
+)
+for label, compiled in (("interpreted", None), ("compiled", loop)):
+    start = time.perf_counter()
+    result = run.simulate(compiled=compiled)
+    seconds = time.perf_counter() - start
+    print(f"{label:12s} {seconds:5.2f} s  {result.metadata['events']:>11,} events")
+loop.verify(run)
+print("byte-identical")
+
+# Without cargo: the generator still refuses models only another method runs.
+atp = rules.load("models/rules/mtdna-three-class-atp-continuous.rules.json")
+try:
+    rules.loop_source(atp)
+except CrnError as error:
+    print(error.diagnostics[0]["code"], error.diagnostics[0]["message"])
+```
+
+```text
+interpreted   0.61 s    9,400,096 events
+compiled      0.22 s    9,400,096 events
+byte-identical
+CRN-R020 continuous variables require the hybrid method
+```
+
+On the same SIR model with 2,000 replicates (37.6 million events), timed
+from Python including the subprocess, the compiled loop took 1.64 s
+against 3.35 s with inverse waits (2.00×) and 1.36 s against 2.97 s with
+Ziggurat waits (2.18×), medians of three on the two-CPU host
+(`validation/rules/compiled-loop-string-rates.json`).
+
+**`compiled=` on `rules.ensemble` or on `simulate()`.** A loop can be
+given in two places, and both run the same program with the same results:
+
+- `rules.ensemble(..., compiled=loop)` (or `rules.prepare(model, request,
+  compiled=loop)`) attaches the loop to the prepared run. Preparation
+  checks once that the loop was compiled for these model bytes and that
+  the request selects `static_direct`, and raises `CrnError` `CRN-R020`
+  (at `/model` or `/method`) otherwise, before anything runs. Every
+  `run.simulate()` then uses the loop without further arguments. Use it
+  when all runs of a request should be compiled: repeated calls, or code
+  such as a fitting loop that only calls `simulate()`.
+- `run.simulate(compiled=loop)` uses the loop for that call only, on a run
+  prepared without one; the first such call makes the same checks. The
+  same prepared run can then also run interpreted, as the example above
+  does to compare the two.
+
+A run with an attached loop always runs compiled: `simulate(callback=...)`
+raises `ValueError`, so prepare the request without `compiled` to watch
+events. `run.bind_parameters(...)` returns a candidate without the loop,
+which runs interpreted, since a loop serves only the parameter set it was
+compiled for.
 
 **Requirements.** Rust 1.85 or newer, the MSRV of the crates (install it
 with [rustup](https://rustup.rs)), and network access to crates.io: the
@@ -953,11 +1052,13 @@ The cache takes about 160 MB; delete the directory to reclaim it.
 
 - Only `method="static_direct"`, with any options. Other methods are
   refused with `CRN-R020` at `/method`.
-- The generator needs constant or vacancy rates (`max(0, K - N) / D` times
-  constants) and weighted-sum observables, and at most 1 MiB of source.
-  It refuses expression rates, `propensity` rules, max or distinct
-  observables, continuous variables, ATP blocks and models whose instances
-  change identity with `CRN-R020` at `/method`, before cargo runs.
+- The generator emits every model that `method="static_direct"` runs:
+  constant, vacancy and expression rates, string rates (`propensity`
+  rules) and `sum`, `distinct`, `max` and `min` observables. It refuses,
+  with `CRN-R020` at `/method` and before cargo runs, models that only
+  another method runs (continuous variables, ATP blocks, instances that
+  change identity), and loops that would exceed 1 MiB of source, which
+  densely coupled networks with many channels reach.
   `rules.loop_source(model)` returns the source, or that error, without
   cargo.
 - Parameters are compiled in, so another parameter set needs another loop.
@@ -1168,9 +1269,13 @@ eleven times as long as thinning on the ATP model, since every event needs an
 integration step. The error has not yet been measured as a function of the
 tolerances.
 
-**Your own variables.** `rules.Model.add_continuous(name, initial,
-derivative, *, lower_bound=None, on_bound="stop")` adds a variable to a builder
-model (section 12); string rates may read it:
+**Your own variables.** `rules.Model.add_ode(name, initial, derivative, *,
+independent=False, lower_bound=None, on_bound="stop")` adds a variable to a
+builder model (section 12); string rates may read it. `independent=True`
+marks an ODE that reads only parameters and other independent variables
+(rules-model/0.4). `add_ODE` is the same method, and `add_continuous`, its
+name before 0.5.0, still works with the same arguments but emits a
+`DeprecationWarning`:
 
 ```python
 """A continuous variable in a builder model."""
@@ -1178,10 +1283,9 @@ model (section 12); string rates may read it:
 from crn_craft import rules
 
 cell = rules.Model("atp_wild_type")
-for name, value in {"f": 0.1, "v1": 0.2, "v2": 0.01, "c": 1.3034153747670567}.items():
-    cell.add_parameter(name, value)
+cell.add_parameter({"f": 0.1, "v1": 0.2, "v2": 0.01, "c": 1.3034153747670567})
 cell.add_species("W", 1000)
-cell.add_continuous("ATP", 450.0, "f * W - v1 * ATP - v2 * W", lower_bound=0)
+cell.add_ode("ATP", 450.0, "f * W - v1 * ATP - v2 * W", lower_bound=0)
 cell.add_reaction("c / (c + ATP) * W", ["W"], ["W", "W"], name="replication")
 cell.add_reaction(0.0028881132523331052, ["W"], [], name="degradation")
 result = rules.ensemble(
@@ -1219,6 +1323,95 @@ Rules for continuous variables:
 - A bound is checked on the integrator's dense output at each step. A
   variable that dips below its bound and returns within one step can be
   missed; tighter tolerances shorten the steps.
+
+### Independent ODEs
+
+*New in 0.5.0 (rules-model/0.4).*
+
+Some continuous variables do not depend on the molecules at all: a forcing
+such as a daily rhythm, a drug concentration that decays on its own, or a
+hazard that grows with age. Declare such a variable with
+`add_ode(..., independent=True)`, which writes `"independent": true` and
+rules-model/0.4. Its `initial` and `derivative` may then read only
+parameters and other independent variables; anything else is refused with
+`CRN-R012` at the derivative's path. Rates, propensities and the
+derivatives of the other variables read it as before, and results report it
+like any continuous variable.
+
+`hybrid` integrates the independent variables once per prepared run, over
+the whole horizon at the request's `rtol` and `atol`, and every replicate
+and thread reads them from that one solution, so results do not depend on
+`threads`. Each replicate integrates only the other variables and the
+integrated propensity. A large or stiff independent system is then no
+longer integrated again in every replicate: on an eight-compartment pulse
+driving arrivals, `independent=True` was 2.8 times as fast
+(`validation/hybrid/RESULTS.md`, section E). When events dominate, as with
+a two-variable daily rhythm on the three-class model
+(`examples/mtdna/14_independent_ode.py`), the run time hardly changes, but
+the rhythm stays more accurate because it is not restarted at every event.
+
+Bounds keep their meaning. With `on_bound="clamp"` the variable is held at
+its bound. With `"stop"`, reaching the bound ends the replicate, and since
+the variable is the same in every replicate, every replicate that is still
+running stops at the same time. The shared solution is computed while the
+request is prepared, so `cancel_file` and `wall_time_s` do not interrupt it;
+the step budget `max_sampling_steps` bounds it. Without `independent`, a
+rules-model/0.4 document means what it means as 0.3.
+
+```python
+"""An independent ODE: Gompertz mortality (rules-model/0.4, hybrid)."""
+
+import math
+
+from crn_craft import CrnError, rules
+
+# The hazard m grows as dm/dt = g m whatever the molecules do.
+gompertz = rules.Model("gompertz")
+gompertz.add_parameter({"g": 0.5, "m0": 0.1})
+gompertz.add_species({"A": 20})
+gompertz.add_ode("m", "m0", "g * m", independent=True)
+gompertz.add_reaction("m * A", ["A"], [], name="death")
+print("schema:", gompertz.to_dict()["schema"])
+result = rules.ensemble(
+    gompertz,
+    end=4.0,
+    report_times=[0.0, 2.0, 4.0],
+    replicates=4000,
+    seed=1,
+    threads=2,
+    method="hybrid",
+).simulate()
+print(result.metadata["continuous"], result.metadata["sampler"])
+print(result.statistics["mean"].round(3))
+survival = math.exp(-0.1 * (math.exp(2.0) - 1.0) / 0.5)
+print(f"exact mean at t = 4: {20 * survival:.3f}")
+
+# An independent derivative may read only parameters and independent variables.
+model = gompertz.to_dict()
+model["continuous"][0]["derivative"] = "g * m * A"
+try:
+    rules.ensemble(model, end=4.0, report_times=[4.0], method="hybrid")
+except CrnError as error:
+    print(error.diagnostics[0]["code"], error.diagnostics[0]["path"])
+    print(error.diagnostics[0]["message"])
+```
+
+```text
+schema: crn-craft.rules-model/0.4
+['m'] chacha8-u53/rules-approximate-hybrid-dopri54/1
+           A      m
+time               
+0.0   20.000  0.100
+2.0   14.154  0.272
+4.0    5.585  0.739
+exact mean at t = 4: 5.573
+CRN-R012 /continuous/0/derivative
+the derivative of independent variable `m` reads observable `A`
+```
+
+Each molecule survives to time t with probability exp(−∫m), so the count
+at t = 4 is binomial with mean 20 × 0.2786 = 5.573; 4,000 replicates give
+5.585.
 
 ### Stored models: the ATP block and `thinning`
 
@@ -1336,7 +1529,7 @@ every species count is an observable with the species name.
 from crn_craft import rules
 
 sir = rules.Model("sir")
-sir.add_species("S", 490).add_species("I", 10).add_species("R")
+sir.add_species({"S": 490, "I": 10, "R": 0})  # or one at a time: add_species("S", 490)
 sir.add_parameter("gamma", 0.1)
 # A number is a mass-action constant: S + I fires at 5e-4 * S * I.
 sir.add_reaction(5e-4, ["S", "I"], ["I", "I"], name="infection")
@@ -1372,13 +1565,18 @@ The calls:
 
 | Call | Effect |
 | --- | --- |
-| `rules.Model(name="model")` | a new rules-model/0.3 document |
-| `add_parameter(name, value)` | a parameter that string rates may read |
-| `add_species(name, initial=0)` | a species type, its count observable and its initial count |
+| `rules.Model(name="model")` | a new rules-model/0.3 document (0.4 with an independent ODE) |
+| `add_parameter(name, value)` or `add_parameter(mapping)` | parameters that string rates may read; `add_parameters` is the same method |
+| `add_species(name, initial=0)` or `add_species(mapping)` | species types, their count observables and their initial counts |
 | `set_initial(mapping)` or `set_initial(S=490, I=10)` | initial counts of declared species |
 | `add_reaction(rate, reactants, products, name=None)` | a rule; species are lists of names, repeated for multiplicity; undeclared species start at 0; names default to `r0`, `r1`, ... |
-| `add_continuous(name, initial, derivative, *, lower_bound=None, on_bound="stop")` | a continuous variable (section 10); the bound arguments are keyword-only |
+| `add_ode(name, initial, derivative, *, independent=False, lower_bound=None, on_bound="stop")` | a continuous variable (section 10); the other arguments are keyword-only. `independent=True` marks an ODE that reads only parameters and other independent variables and makes `to_dict()` write rules-model/0.4. `add_ODE` is the same method; `add_continuous`, the name before 0.5.0, warns |
 | `to_dict()`, `to_json()` | the JSON document |
+
+A mapping, as in `add_parameter({"gamma": 0.1, "beta": 5e-4})`, declares
+its entries in order with the checks of one call each. If an entry is
+invalid, the call raises and declares none of them. A mapping takes no
+second argument: `add_species({"S": 490}, 10)` is a `TypeError`.
 
 `rules.ensemble` and `rules.prepare` accept the `Model` itself. Every method
 runs builder models; `tree` is never needed, since the species have no
@@ -1410,9 +1608,8 @@ from crn_craft import rules
 model = rules.Model("mtdna_three_species")
 parameters = {"K": 1000, "delta": 0.0028881132523331052, "sw": 1.0, "sm": 1.5}
 parameters |= {"mu": 3e-05, "fracAdv": 0.2}
-for name, value in parameters.items():
-    model.add_parameter(name, value)
-model.add_species("W", 1000).add_species("M").add_species("A")
+model.add_parameter(parameters)
+model.add_species({"W": 1000, "M": 0, "A": 0})
 vacancy = "max(0, K - W - M - A) / (W + sm * (M + A))"
 model.add_reaction(f"{vacancy} * sw * (1 - mu) * W", ["W"], ["W", "W"], "replication_wt")
 model.add_reaction(f"{vacancy} * sw * mu * (1 - fracAdv) * W", ["W"], ["W", "M"], "mutation_mt")
@@ -1727,9 +1924,10 @@ println!("{} cells stopped", result.stopped_replicates);
   returns `ObserverAction::Stop` to end that cell. An observer that always
   continues compiles away and leaves results byte-identical.
 - *Opt-in:* `generate_rules_loop(&prepared)` emits Rust source
-  for the whole Static Direct event of one prepared model. It requires a
-  `static_direct` request, constant or vacancy rates and sum observables,
-  and at most 1 MiB of source; it refuses anything else with `CRN-R020`.
+  for the whole Static Direct event of one prepared model, for every model
+  that Static Direct runs (expression and string rates included). It
+  requires a `static_direct` request and at most 1 MiB of source, and
+  refuses anything else with `CRN-R020`.
   Parameters are compiled in, so another parameter set needs another loop.
   Compile it into your program and run it with `execute_with_rules_loop`,
   which runs only a loop generated for the same model bytes. Results are
@@ -1780,7 +1978,7 @@ validate the model against biology.
 | `keep_paths` | how many cells keep their full observable series (`result.paths`); `"all"` or `True` for every cell |
 | `keep_instances` | how many cells keep their final instances (`metadata["final_instances"]`) |
 | `method` | a method name or dictionary (section 8) |
-| `compiled` | a loop from `rules.compile_loop` for this model, run by `simulate()` (section 8) |
+| `compiled` | a loop from `rules.compile_loop` for this model, checked here and run by every `simulate()`; `simulate(compiled=loop)` uses one for a single call instead (section 8) |
 | `trackers` | list of `{"observable", "first_passage"?, "keep_episodes"?}` |
 | `event_log` | `{"max_entries": n, "rules": [...]}` |
 | budgets | `max_events`, `max_sampling_steps`, `max_instances`, `max_output_bytes`, `wall_time_s` |
@@ -1792,14 +1990,28 @@ The result, `run.simulate()`:
 | `records` | DataFrame, one row per cell, index `replicate`: `started` (bool), `termination` (categorical), `stop_time` (float), `events`, `rng_words`, `peak_instances`, `created_instances`, `saved_points` (unsigned integers) |
 | `rule_events` | DataFrame, one row per cell, one column per rule name: events of each rule |
 | `statistics` | `None` if withheld; else `samples` and the DataFrames `mean`, `sample_variance`, `mean_standard_error`, index `time`, one column per observable |
-| `paths` | DataFrame of the kept series, index (`replicate`, `time`), one column per observable; `to_xarray()` gives a Dataset with dimensions `replicate` and `time` |
+| `paths` | DataArray of the kept series, dimensions (`time`, `variable`, `replicate`), NaN after a budget stop; `attrs` with `sampler`, `method`, `root_seed`, `model_sha256`, `run_sha256` |
+| `paths_frame()` | DataFrame of the kept series, index (`replicate`, `time`), one column per observable (release 0.4.0's `paths`) |
+| `to_xarray()` | Dataset of the kept series, dimensions `replicate` and `time`, one variable per observable |
 | `tracker_columns(i)` | DataFrame of tracker `i`, one row per observed cell; NaN where a time or peak is absent |
-| `event_columns()`, `event_columns(id)` | DataFrame of every logged event, index (`replicate`, `entry`), or of one cell's log, index `entry` |
+| `event_columns()`, `event_columns(id)` | DataArray of every log, dimensions (`replicate`, `entry`, `variable`), NaN-padded, with the coordinates `time`, `rule`, `rule_name` and `length`; or of one cell's log, dimensions (`entry`, `variable`) |
+| `event_frame()`, `event_frame(id)` | DataFrame of every logged event, index (`replicate`, `entry`), or of one cell's log, index `entry` (release 0.4.0's `event_columns`) |
 | `rule_names` | rule names in declaration order, also on the prepared run |
 | `observations`, `record_diagnostics`, `metadata` | trackers and logs as documents, per-cell errors by id, the full result document |
 
-Every DataFrame and column has `.to_numpy()`. Code written for the NumPy
-results of release 0.2.0 changes as follows:
+Every DataFrame, column and DataArray has `.to_numpy()`. Code written for
+release 0.4.0 changes as follows:
+
+| 0.4.0 | Now |
+| --- | --- |
+| `result.paths`, a DataFrame | `result.paths_frame()`; `result.paths` is a DataArray |
+| `result.paths.loc[3]` | `result.paths.sel(replicate=3)`, or `result.paths_frame().loc[3]` |
+| `result.paths["mutants"].unstack("time")` | `result.paths.sel(variable="mutants").to_pandas().T` |
+| `result.event_columns()`, `result.event_columns(id)`, DataFrames | `result.event_frame()`, `result.event_frame(id)`; `event_columns` returns DataArrays |
+| `pip install "crn-craft[xarray]"` | `pip install crn-craft`: xarray is required; the extra still installs |
+| `Model.add_continuous(...)` | `Model.add_ode(...)` with the same arguments; `add_continuous` still works and emits a `DeprecationWarning` |
+
+Code written for the NumPy results of release 0.2.0 changes as follows:
 
 | 0.2.0 | Now |
 | --- | --- |
@@ -1809,9 +2021,9 @@ results of release 0.2.0 changes as follows:
 | `records[name]` (an array) | `records[name].to_numpy()`; integer termination codes are `records["termination"].cat.codes` |
 | `statistics["mean"][:, names.index("N")]` | `statistics["mean"]["N"]` |
 | `statistics["mean"]` (an array) | `statistics["mean"].to_numpy()` |
-| `metadata["paths"]` rows | `result.paths`, or `result.paths.to_numpy()` |
+| `metadata["paths"]` rows | `result.paths_frame()`, or `result.paths_frame().to_numpy()` |
 | `tracker_columns(i)["id"]` and fields | `tracker_columns(i).index` and its columns |
-| `event_columns(id)["observables"]` | `event_columns(id)[list(metadata["observables"])].to_numpy()` |
+| `event_columns(id)["observables"]` | `event_columns(id).to_numpy()` |
 | `keep_paths=True` (one cell) | `keep_paths=1`; `True` now keeps every cell |
 
 Result metadata:

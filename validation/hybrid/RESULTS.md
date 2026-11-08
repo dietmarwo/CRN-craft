@@ -63,6 +63,67 @@ One family of the four tests at family alpha 0.01, Bonferroni: each passes
 when p ≥ 0.0025. Every replicate must complete or stop (no budget limit);
 otherwise the row fails.
 
+### C. Independent variables (rules-model/0.4): exact-law gates
+
+Declared 2026-11-08, before the first run of the rules-model/0.4 engine.
+Every model is rules-model/0.4, runs `hybrid` at the Python defaults
+(`rtol = 1e-6`, `atol = 1e-9`), two threads and rules-run/0.5, with 20,000
+replicates per gate. As in A, the one-sample Kolmogorov distance D against
+the exact law is gated in one DKW family, here of K = 4 comparisons at
+family alpha 0.001: a gate passes when D ≤ ε = sqrt(ln(2K/alpha) / (2n)) =
+0.014989.
+
+| Gate | Model (seed) | Exact law |
+|---|---|---|
+| C1 Gompertz mortality | m' = g m, g = 0.5, m(0) = 0.1, `independent: true`; 20 molecules die at per-molecule rate m (`rate: "m"`), no births; T = 4 (6201) | count at T: Binomial(20, S) with S = exp(−m(0)(e^{gT} − 1)/g) = 0.278647 |
+| C2 dependent variable reads an independent one | as C1, plus a dependent x' = m from 0; the molecules die at rate x instead (6202) | count at T: Binomial(20, exp(−(m(0)/g)((e^{gT} − 1)/g − T))) = Binomial(20, 0.172800) |
+| C3 independent stop bound | x' = −1 from 3, lower bound 0 with `stop`, `independent: true`; 20 molecules die at rate 0.2 each; T = 5 (6203) | count at the stop: Binomial(20, e^−0.6) |
+| C4 eight-compartment pulse | u1' = −k u1 from 1, u_i' = k (u_{i−1} − u_i) from 0 for i = 2..8, all independent, k = 2; arrivals with propensity c max(0, u8), c = 50; deaths at rate d = 0.1 each, from 0; T = 12 (6204) | count at T: Poisson(μ), μ = c e^{−dT} (k/(k−d))^7 P(8, (k−d)T)/(k−d) = 11.34878 (P the regularized lower incomplete gamma function) |
+
+Amendment before the first gate run: C4 was declared with the propensity
+`c * u8`. A smoke run of three replicates (not a gate run, no statistic
+computed) failed every replicate of both arms with `CRN-R030` at
+`/rules/0/propensity`: near t = 0 the integrated u8, exactly 0 there and
+positive after, comes out a little below 0, and a negative propensity fails
+the replicate. The propensity is `c * max(0, u8)`, which has the same exact
+law. No size, seed, test or alpha changed.
+
+Deterministic checks, each a pass or fail row: C1, C2 and C4 complete;
+in C1 the reported m is bit-identical across replicates at every report
+time and within 100 (atol + rtol |m|) of m(0) e^{gt} at t = 0, 1, ..., 4;
+in C3 every replicate stops at |t − 3| ≤ 1e-9, reports x = 1.5 at t = 1.5
+(within 1e-9) and x = 0 at t = 4 and 5; the C4 model with 200 replicates
+gives the same result with one and with two threads (apart from
+`run_sha256`).
+
+### D. Independent against dependent integration
+
+The same four models with `independent` set to `false` on every variable,
+run with their own seeds, against the C samples (the `true` arms). Each
+compares the counts of C1–C4 (at T, or at the stop in D3) by the
+two-sample Kolmogorov–Smirnov test with the asymptotic p-value of B. One
+family of four tests at family alpha 0.01, Bonferroni: each passes when
+p ≥ 0.0025. Every replicate must complete (D1, D2, D4) or stop (D3) in both
+arms; otherwise the row fails.
+
+| Test | Model | `false` arm (seed) |
+|---|---|---|
+| D1 | C1 | 20,000 replicates (6211) |
+| D2 | C2 | 20,000 replicates (6212) |
+| D3 | C3 | 20,000 replicates (6213) |
+| D4 | C4 | 20,000 replicates (6214) |
+
+### E. Speed of independent integration
+
+Script `validation/benchmark_independent_ode.py` (timing, so not part of
+the fixed-work report). Model C4 with 4,000 replicates, seed 6301, two
+threads, the Python default tolerances: `rules.ensemble(...)` plus
+`simulate()` timed for `independent: true` and for `false`, three runs
+each in alternating order. Declared target: the median with `true` is at
+least 2× faster than the median with `false`. The two arms' results are
+reported (events, mean count at T), not compared, because they differ
+within the tolerances.
+
 ## Results
 
 First runs, 2026-11-06, on the 2-vCPU development container with the wheel
@@ -162,3 +223,58 @@ and the ATP model at one set of parameters and the default tolerances; they
 do not measure the error as a function of rtol and atol, and the two-sample
 tests detect only differences of a few percent in the ATP model at these
 sizes.
+
+### C–E. Independent variables (rules-model/0.4)
+
+First run, 2026-11-08, on the 2-vCPU development container with the wheel
+of the engine stream (I6), after the C4 amendment above. **Every gate,
+check and test passed; no failed row to retain.** The report was also
+produced under `python -O` and is identical, and its A and B sections are
+identical to the earlier report: the rules-model/0.3 path did not change.
+
+| Gate (20,000 replicates, ε = 0.014989) | Largest distance D | Outcome |
+|---|---|---|
+| C1 Gompertz mortality | 0.00229 | pass |
+| C2 dependent variable reads an independent one | 0.00372 | pass |
+| C3 independent stop bound | 0.00288 | pass |
+| C4 eight-compartment pulse | 0.00459 | pass |
+
+| Deterministic check | Outcome | Worst value |
+|---|---|---|
+| `C1_complete`, `C2_complete`, `C4_complete` | pass | |
+| `C1_m_shared` | pass | |
+| `C1_m_accuracy` | pass | 0.0043 |
+| `C3_all_stopped` | pass | |
+| `C3_stop_time` | pass | 8.9e-16 |
+| `C3_x_before_stop`, `C3_x_after_stop` | pass | |
+| `C4_threads` | pass | |
+
+`C1_m_accuracy` is the largest error of the shared m as a fraction of
+100 (atol + rtol |m|).
+
+| Test (20,000 per arm) | Mean count (`true`, `false`) | D | p | Outcome (p ≥ 0.0025) |
+|---|---|---|---|---|
+| D1 C1 | 5.577, 5.551 | 0.00765 | 0.600 | pass |
+| D2 C2 | 3.472, 3.440 | 0.00935 | 0.345 | pass |
+| D3 C3 | 10.986, 10.961 | 0.00790 | 0.559 | pass |
+| D4 C4 | 11.322, 11.337 | 0.00335 | 1.000 | pass |
+
+The exact means are 5.573 (C1), 3.456 (C2), 10.976 (C3) and 11.349 (C4).
+
+Speed (E, `validation/hybrid/independent-timing.json`): on model C4 with
+4,000 replicates and two threads, the median of three runs took 0.195 s
+with `independent: true` and 0.541 s with `false` (2.77×; declared target
+2×, met). Both arms had 155,061 events and the same mean count at T,
+11.414. On `examples/mtdna/14_independent_ode.py`, a 24-hour oscillator of
+two variables that modulates the three-class model's degradation, the
+times were about equal (1.2 s for 32 replicates of one year): there the
+two extra components cost little next to the per-event work. The shared
+solution was more accurate there, because it takes long steps over the
+whole year, while per replicate the oscillator restarts at every event: the
+largest error of the mean rhythm was 1.1e-4 against 1.8e-3.
+
+Limitations: the gates use models with one to eight independent variables
+and closed-form laws at the default tolerances. The two-sample tests detect
+only differences of about 1.5% of the count distribution at these sizes.
+The speed gain depends on the model: it is large when the independent
+system is large or forces small steps, and negligible when events dominate.

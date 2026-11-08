@@ -7,8 +7,82 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+### Added
+
+- Compiled loops for string rates. `generate_rules_loop` (and so
+  `rules.compile_loop` and `rules.loop_source`) now emits every model that
+  Static Direct runs: expression rates, whole-rule `propensity` rules (the
+  string rates of `rules.Model.add_reaction`), and `distinct`, `max` and
+  `min` observables besides constant and vacancy rates and sums. The
+  emitted code performs the interpreter's floating-point operations in the
+  same order (the same `libm` functions, NaN through comparisons, logic
+  and `if`, short-circuit `&&` and `||`, NaN-keeping `min` and `max`), so
+  results stay byte-identical. Models whose loops were already supported
+  generate the same source as before. The remaining refusals, `CRN-R020`
+  at `/method`: methods other than `static_direct` (and so models only
+  another method runs: continuous variables, ATP blocks, instances that
+  change identity) and loops over 1 MiB of source. On the builder SIR model
+  (N = 10,000, 2,000 replicates) the compiled loop was 2.00× faster than
+  the interpreter with inverse waits and 2.18× with Ziggurat waits, end to
+  end from Python (declared target 1.5×;
+  `validation/rules/compiled-loop-string-rates.json`). Six new checked-in
+  loops in `crates/crn-craft-rules/tests/generated/` and four new models in
+  `validation/check_compiled_loop.py` cover 1 and 2 threads, both waiting
+  times, trackers, event logs, stops and budgets.
+- `crn-craft.rules-model/0.4`: rules-model/0.3 plus an optional boolean
+  `independent` on a continuous variable (default `false`). An independent
+  variable's `initial` and `derivative` may read only parameters and other
+  independent variables (`CRN-R012` at the derivative's path otherwise);
+  the field in a 0.1–0.3 document is refused with `CRN-R015`. `hybrid`
+  integrates the independent subsystem once per prepared run over
+  [0, end], at the request's tolerances with the same Dormand–Prince 5(4)
+  pair, and every replicate and thread reads it from that dense output, so
+  results stay independent of `threads`; each replicate integrates only the
+  dependent variables and the integrated propensity. A `stop` bound on an
+  independent variable ends every running replicate at the same time. The
+  shared solve runs during preparation (for every `bind_parameters`
+  candidate too), bounded by the step budget, not by `wall_time_s` or the
+  cancel file. Validation (`validation/hybrid/RESULTS.md`, sections C–E,
+  declared before the first run): four exact-law gates (Gompertz mortality,
+  a dependent variable reading an independent one, a stop bound, an
+  eight-compartment pulse; largest D 0.0046 against ε 0.0150), four
+  two-sample tests of `independent: true` against `false` (p ≥ 0.345), and
+  2.77× faster on the pulse model (declared target 2×). The rules-model
+  schema gains 0.4; the native `describe` lists it in `accepted_models`.
+- Python: `rules.Model.add_species` and `add_parameter` take a mapping,
+  `add_species({"S": 999, "I": 1})` and `add_parameter({"gamma": 0.01,
+  "beta": 2e-4})`, declared in mapping order as one call each would; an
+  invalid entry declares nothing. `add_parameters` is the same method.
+- Python: `rules.Model.add_ode(name, initial, derivative, *,
+  independent=False, lower_bound=None, on_bound="stop")`, also named
+  `add_ODE`. `independent=True` writes `"independent": true` and makes the
+  builder write rules-model/0.4; without independent variables the builder
+  writes the same rules-model/0.3 bytes as 0.4.0.
+- Python: `Result.paths_frame()` and `Result.event_frame(replicate=None)`
+  return the DataFrames that `paths` and `event_columns` returned in 0.4.0.
+- `examples/mtdna/14_independent_ode.py`, a daily rhythm as two
+  independent ODEs on the three-class model; user-manual sections on
+  compiled string rates and independent ODEs, and on what `compiled=` on
+  `rules.ensemble` and `rules.prepare` does against `simulate(compiled=)`.
+
 ### Changed
 
+- **Breaking (Python):** `Result.paths` is an xarray DataArray with
+  dimensions `("time", "variable", "replicate")`: report times ×
+  observables (continuous variables last) × kept replicates, float64, NaN
+  after a budget stop. Its `attrs` hold `sampler`, `method` (JSON text),
+  `root_seed`, `model_sha256` and `run_sha256`, all storable in netCDF.
+  Converting 4,000 cells with every path kept took 0.06 s (37 reports) and
+  0.30 s (155 reports), as long as the 0.4.0 frame
+  (`validation/mtdna/python-results-timing.json`).
+- **Breaking (Python):** `Result.event_columns()` returns a DataArray with
+  dimensions `("replicate", "entry", "variable")`, NaN-padded to the
+  longest log, with the coordinates `time`, `rule` (−1 for a leap, −2 as
+  padding), `rule_name` and `length`; `event_columns(id)` returns one
+  replicate's log with dimensions `("entry", "variable")`.
+- Python: xarray (≥ 2024.6) is a required dependency; the
+  `crn-craft[xarray]` extra still installs, and `to_xarray()` no longer
+  raises `ImportError`.
 - README: links the [overview of the 18 related repositories](https://github.com/dietmarwo/fcmaes-rust/blob/main/docs/repositories.md).
 - The optional jobs integration (`integrations/jobs`) pins optimization-jobs `12f9d57` (its 0.4.0 release `602d31a` plus documentation-only changes) and fcmaes-rust `f764a75`, whose crates are unchanged since `583f33a` apart from that pin. `validation/check_jobs.py` records the new revisions; its rerun against a runner built at `12f9d57` matches the review report except for these pins (`validation/campaign/jobs-pin-12f9d57.json`).
 
@@ -21,6 +95,30 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
   - The technical report gives the native discovery version per release.
   - The user manual shows `add_continuous`'s bound arguments as keyword-only.
   - The tutorial notes that next reaction defaults to `fast=False`.
+
+### Deprecated
+
+- Python: `rules.Model.add_continuous` emits a `DeprecationWarning`; use
+  `add_ode` (or `add_ODE`), which takes the same arguments and
+  `independent=`. It keeps working and writes the same document.
+
+### Migration
+
+Python code written for 0.4.0:
+
+| 0.4.0 | Now |
+| --- | --- |
+| `result.paths`, a DataFrame | `result.paths_frame()`; `result.paths` is a DataArray |
+| `result.paths.loc[3]` | `result.paths.sel(replicate=3)`, or `result.paths_frame().loc[3]` |
+| `result.paths["mutants"].unstack("time")` | `result.paths.sel(variable="mutants").to_pandas().T` |
+| `result.event_columns()`, `event_columns(id)`, DataFrames | `result.event_frame()`, `event_frame(id)`; `event_columns` returns DataArrays |
+| `pip install "crn-craft[xarray]"` | `pip install crn-craft`: xarray is required |
+| `Model.add_continuous(...)` | `Model.add_ode(...)` with the same arguments |
+
+Stored rules-model 0.1–0.3 files and rules-run 0.1–0.6 requests keep their
+meaning and replay byte-identically, and `bind_parameters` keeps their
+model hashes, run hashes and result bytes (tested against values recorded
+before the change).
 
 ## [0.4.0] - 2026-11-06
 

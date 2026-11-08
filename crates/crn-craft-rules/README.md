@@ -8,7 +8,8 @@ describe models whose species cannot be listed in advance, such as
 mitochondrial DNA clones, polymers or clusters. A rule gives a rate per
 reactant tuple or, since rules-model/0.3, its whole `propensity`; continuous
 variables (ODEs between events that rates read) are simulated by the
-approximate `hybrid` method. Exact-law gates cover a fixed-population mtDNA
+approximate `hybrid` method, which integrates rules-model/0.4 independent
+variables once per run. Exact-law gates cover a fixed-population mtDNA
 model, immigration–death, immigration–dimerization, aggregation kernels and,
 for `hybrid`, continuous variables with closed-form laws.
 
@@ -30,13 +31,15 @@ println!("{:?}: {} events", result.termination, result.events);
 The [API documentation](https://docs.rs/crn-craft-rules) starts with a
 complete, runnable example.
 
-- **Contracts:** `crn-craft.rules-model/0.1`, `0.2` (the legacy ATP block)
-  and `0.3` (whole-rule `propensity` and `continuous` variables),
+- **Contracts:** `crn-craft.rules-model/0.1`, `0.2` (the legacy ATP block),
+  `0.3` (whole-rule `propensity` and `continuous` variables) and `0.4`
+  (`independent` continuous variables),
   `crn-craft.rules-check/0.1`, `crn-craft.rules-run/0.1` to `0.6` (0.5 adds
   `hybrid` with `rtol` and `atol`; 0.6 makes Ziggurat waits and sparse
   count trackers the `static_direct` defaults) and
   `crn-craft.rules-result/0.1` to `0.3` (0.3 records the method and the
-  continuous columns). Stored 0.1–0.5 requests replay byte-identically. JSON Schemas come from
+  continuous columns). Stored 0.1–0.3 models and 0.1–0.6 requests replay
+  byte-identically. JSON Schemas come from
   `crn_craft_rules::schema`.
 - **Methods:** exact `tree` (dynamic instances), `static_direct`,
   `mtdna_direct` (an opt-in fast path for one model structure, with a
@@ -46,7 +49,9 @@ complete, runnable example.
 - **Observation:** trackers and bounded event logs inside the result, and an
   `EventObserver` interface for live callbacks on the worker threads.
 - **Generated code:** `generate_rules_kernel` and
-  `generate_rules_loop` emit Rust source for a Static Direct model;
+  `generate_rules_loop` emit Rust source for a Static Direct model (the
+  loop for every rate expression, string rate and observable Static Direct
+  runs);
   `execute_with_rules_kernel` and `execute_with_rules_loop` run it with
   results byte-identical to the interpreter. From Python,
   `crn_craft.rules.compile_loop` builds a generated loop against this crate

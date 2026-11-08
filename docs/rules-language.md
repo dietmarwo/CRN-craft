@@ -70,7 +70,7 @@ crn-craft describe rules-model     # JSON Schema; also rules-check, rules-run, r
 | `observables` | Named reductions over the instances of one type (below). |
 | `rules` | `{name, reactants, rate, products}` with zero, one or two reactant patterns; in 0.3 `propensity` may replace `rate`. |
 | `stop` | Optional condition over parameters and observables. Once true, the state is held to the end of the report grid and the replicate is `stopped`. |
-| `continuous` | rules-model/0.3: continuous variables, ODEs between events that rates may read (below). |
+| `continuous` | rules-model/0.3: continuous variables, ODEs between events that rates may read (below); rules-model/0.4 adds `independent` variables. |
 
 Names, including the model's `name`, are ASCII identifiers
 (`[A-Za-z_][A-Za-z0-9_]*`, at most 64 bytes) and cannot be function names. Unknown fields and duplicate keys are rejected.
@@ -147,7 +147,8 @@ samples this for any type. The static methods lower each pattern to its
 tuples, so they accept a propensity rule only when each reactant type has a
 single tuple, as for attribute-free species (`CRN-R020` at `/method`
 otherwise); `mtdna_direct` falls back to Static Direct with `CRN-R051`, and
-generated kernels and loops refuse such models (`CRN-R020`). For one
+generated rates kernels refuse such models (`CRN-R020`), while generated
+event loops emit them with the interpreter's arithmetic. For one
 reactant, `propensity: "k * A"` and `rate: "k"` give the same floating-point
 value, so they reproduce each other's trajectories exactly.
 
@@ -231,6 +232,36 @@ replication rate is multiplied by `c / (c + ATP)` in its expression. A model
 cannot have both `atp` and `continuous` (`CRN-R015`); the legacy block and
 `thinning` keep working unchanged.
 
+### Independent variables (rules-model/0.4)
+
+`crn-craft.rules-model/0.4` is 0.3 plus one optional field of a continuous
+variable, `"independent": true` (default `false`; `null` is rejected with
+`CRN-E003`, and the field in 0.1–0.3 with `CRN-R015` at
+`/continuous/i/independent`). An independent variable's ODE does not depend
+on the stochastic state: its `derivative` may read only parameters and
+other independent variables. A read of an observable or of a variable
+without `independent: true` is refused with `CRN-R012` at
+`/continuous/i/derivative`. `initial` and `lower_bound` read parameters, as
+for every variable. Rule rates and propensities, and the derivatives of the
+other (dependent) variables, read independent variables like any continuous
+variable, and results report them like the others.
+
+```json
+"continuous": [
+  {"name": "m", "initial": "m0", "derivative": "g * m", "independent": true},
+  {"name": "x", "initial": 0, "derivative": "m * A - x"}
+]
+```
+
+Without `independent`, a rules-model/0.4 document means exactly what the
+same document means as 0.3. Stored 0.1–0.3 documents are unchanged.
+
+Bounds keep their meaning. `clamp` holds an independent variable at its
+bound as above. `stop` ends the replicate when the variable reaches its
+bound with a derivative that is not positive; because the variable does not
+depend on the replicate, that happens at the same time in every replicate
+that has not stopped, failed or reached the horizon before.
+
 ### The `hybrid` method (rules-run/0.5)
 
 Only `hybrid` runs a model with continuous variables; every other method
@@ -271,8 +302,27 @@ simulated by integrated propensities (Alfonsi et al. 2005, DOI
 4. Report values and bound crossings come from the same dense output; a
    bound crossing that comes first ends the step there.
 
-Rates that do not read a variable are computed once per interval. The
-method lowers the model like the static methods, so it refuses models with
+Rates that do not read a variable are computed once per interval.
+
+Independent variables (rules-model/0.4) are integrated once per prepared
+run, by the same Dormand–Prince pair, step control and bound handling,
+over [0, end] at the request's `rtol` and `atol`, with their own error
+norm. The accepted steps and their fourth-order dense output are kept, and
+every replicate and worker reads the variables from them, so results stay
+independent of `threads`. Per replicate, the method then integrates only
+the dependent variables and Λ, reading the independent variables from the
+dense output at each stage time; the error norm covers those components
+only. A stop bound of an independent variable ends the shared solution, and
+every replicate that reaches its time stops there (a tie with the
+threshold goes to the stop, as above). If the shared solve fails (a
+non-finite derivative, a step that underflows, or more attempted steps than
+`max_sampling_steps_per_replicate`), it ends at the start of the failing
+step, and every replicate that reaches that time fails with the solve's
+diagnostic (`CRN-R030`, or `CRN-R041` for the step budget). The solve runs
+in `prepare` (and again for every `bind_parameters` candidate); the step
+budget bounds it.
+
+The method lowers the model like the static methods, so it refuses models with
 dynamic instances; it refuses ATP models (use `thinning`); and it also runs
 models without continuous variables, as an exact jump process up to
 rounding. It is approximate at its tolerances. Its sampler is
@@ -362,10 +412,10 @@ or stopped.
 | CRN-E001–E004 | malformed JSON, duplicate keys, unknown fields or wrong types (`E003`), size limits |
 | CRN-R010 | invalid, reserved or duplicate name; observable shadowing a parameter |
 | CRN-R011 | unknown type |
-| CRN-R012 | expression syntax, unknown name, out-of-scope name or random draw outside products |
+| CRN-R012 | expression syntax, unknown name, out-of-scope name or random draw outside products; an independent variable's derivative that reads an observable or a dependent variable |
 | CRN-R013 | unsupported rule shape, missing or unknown attribute, bad `copy`; both or neither of `rate` and `propensity`, `where` or `factor` on a propensity rule's reactant; `lower_bound` without `on_bound` or the reverse |
 | CRN-R014 | invalid initial count or attribute; a continuous variable's initial value or bound that is not finite, or an initial value below its bound |
-| CRN-R015 | model size limit (also 64 continuous variables); a field used before its model version (`atp` in 0.1, `propensity` and `continuous` in 0.1 or 0.2); `atp` together with `continuous` |
+| CRN-R015 | model size limit (also 64 continuous variables); a field used before its model version (`atp` in 0.1, `propensity` and `continuous` in 0.1 or 0.2, `independent` before 0.4); `atp` together with `continuous` |
 | CRN-R020 | invalid run request (hash, path, grid, ensemble, budget, method, tracker, log or version gate; generated-kernel fingerprint mismatch) |
 | CRN-R030 | negative or non-finite rate, factor, weight or product attribute; overflow |
 | CRN-R031 | weight below 53-bit resolution (Static Direct: a channel below 2⁻⁵³ of the total) |
@@ -387,8 +437,10 @@ share one DKW family at alpha 0.001. Results: `validation/rules/RESULTS.md`.
 - ODE coupling: rules-model/0.2 adds one fixed case, the ATP flow of
   Kowald's variable-population model, solved with exact thinning
   ([mtDNA ensembles](mtdna-rules.md)); rules-model/0.3 adds general
-  continuous variables, simulated approximately by `hybrid` (below). No
-  explicit time dependence of rates, and no compartments.
+  continuous variables, simulated approximately by `hybrid` (below), and
+  rules-model/0.4 independent variables, which `hybrid` integrates once per
+  run. An independent variable can carry explicit time dependence (a clock
+  `t' = 1`, or a forcing such as a seasonal oscillator). No compartments.
 - Two different patterns over one type, three or more reactants, and counts
   inside expressions (largest clone *size*) are not supported yet.
 - Models are JSON. `crn_craft.rules` prepares and runs ensembles from Python

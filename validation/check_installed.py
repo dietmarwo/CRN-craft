@@ -14,8 +14,10 @@ import shutil
 import subprocess
 import sysconfig
 import tempfile
+import warnings
 import numpy as np
 import pandas as pd
+import xarray as xr
 import crn_craft as c
 from crn_craft import rules
 from crn_craft.importers import import_bng_net
@@ -154,19 +156,25 @@ def check_event_log_default_budget():
             f"the reported event-log request is rejected: {error}"
         ) from None
     result = run.simulate()
-    log = result.event_columns()
+    log = result.event_columns()  # replicate x entry x variable, NaN-padded
+    frame = result.event_frame()
     omitted = sum(o["omitted_log_entries"] for o in result.observations)
     mutations = result.rule_events[names]
     counts = mutations.sum(axis=1)
-    logged = log.groupby(level="replicate").size().reindex(counts.index, fill_value=0)
+    logged = log["length"].to_pandas().reindex(counts.index, fill_value=0)
+    fired = log["rule_name"].values[log["rule"].values >= 0]
     require(
         result.metadata["termination"] == "completed"
         and bool((result.records["termination"] == "completed").all())
         and len(result.observations) == 400
-        and set(log["rule_name"].unique()) <= set(names)
+        and log.dims == ("replicate", "entry", "variable")
+        and log.sizes["replicate"] == 400
+        and 0 < log.sizes["entry"] <= 50
+        and set(fired) <= set(names)
+        and set(frame["rule_name"].unique()) <= set(names)
         and omitted == 0
-        and len(log) == int(mutations.to_numpy().sum())
-        and len(log) > 0
+        and len(fired) == len(frame) == int(mutations.to_numpy().sum())
+        and len(frame) > 0
         and np.array_equal(logged.to_numpy(), counts.to_numpy()),
         "the reported event log records every mutation of every cell",
     )
@@ -243,6 +251,211 @@ def check_builder():
     )
 
 
+def raises(error, call, *args, **kwargs):
+    """The exception `call` raises, required to be an `error`."""
+    try:
+        call(*args, **kwargs)
+    except error as raised:
+        return raised
+    raise RuntimeError(f"{getattr(call, '__name__', call)} accepted {args} {kwargs}")
+
+
+def check_builder_mappings():
+    """add_species, add_parameter and add_parameters take mappings (0.5.0)."""
+    single = rules.Model("sir")
+    single.add_species("S", 999).add_species("I", 1).add_species("R")
+    single.add_parameter("beta", 2e-4).add_parameter("gamma", 0.01)
+    many = rules.Model("sir")
+    many.add_species({"S": 999, "I": 1, "R": 0})
+    many.add_parameter({"beta": 2e-4}).add_parameters({"gamma": 0.01})
+    for model in (single, many):
+        model.add_reaction("beta * S * I", ["S", "I"], ["I", "I"], name="infection")
+        model.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
+    require(
+        many.to_json() == single.to_json()
+        and many.species == ("S", "I", "R")
+        and list(many.parameters) == ["beta", "gamma"],
+        "a mapping adds every entry, in order, as one call each does",
+    )
+    require(
+        rules.Model.add_parameters is rules.Model.add_parameter
+        and rules.Model("x").add_parameters("k", 1.0).parameters == {"k": 1.0},
+        "add_parameters is add_parameter",
+    )
+    # A species a reaction introduced keeps its place and takes the count.
+    late = rules.Model("late").add_reaction(1.0, ["A"], ["B"])
+    late.add_species({"B": 3, "C": 2})
+    require(
+        late.species == ("A", "B", "C")
+        and late.to_dict()["initial"]
+        == [
+            {"type": "B", "count": 3},
+            {"type": "C", "count": 2},
+        ]
+        and rules.Model("e").add_species({}).add_parameter({}).to_json()
+        == rules.Model("e").to_json(),
+        "mapping entries follow the one-at-a-time rules; an empty mapping adds none",
+    )
+    for call in (
+        lambda m: m.add_species({"S": 1}, 5),
+        lambda m: m.add_species({"S": 1}, initial=5),
+        lambda m: m.add_parameter({"k": 1.0}, 2.0),
+        lambda m: m.add_parameter({"k": 1.0}, value=2.0),
+        lambda m: m.add_parameters({"k": 1.0}, value=2.0),
+        lambda m: m.add_parameter("k"),
+    ):
+        model = rules.Model("mixed")
+        raises(TypeError, call, model)
+        require(model.to_json() == rules.Model("mixed").to_json(), "mixed arguments")
+    # Invalid entries fail as they do one at a time, and leave the model as
+    # it was.
+    for build, bad, single_call in (
+        (
+            lambda m: m.add_species({"S": 1, "I": -1}),
+            ValueError,
+            lambda m: m.add_species("I", -1),
+        ),
+        (
+            lambda m: m.add_species({"S": 1, "min": 2}),
+            ValueError,
+            lambda m: m.add_species("min", 2),
+        ),
+        (
+            lambda m: m.add_species({"S": 1, 3: 2}),
+            TypeError,
+            lambda m: m.add_species(3, 2),
+        ),
+        (
+            lambda m: m.add_species({"S": 1, "I": 1.5}),
+            TypeError,
+            lambda m: m.add_species("I", 1.5),
+        ),
+        (
+            lambda m: m.add_species({"S": 1, "k": 1}),
+            ValueError,
+            lambda m: m.add_species("k", 1),
+        ),
+        (
+            lambda m: m.add_parameter({"a": 1.0, "b": float("nan")}),
+            ValueError,
+            lambda m: m.add_parameter("b", float("nan")),
+        ),
+        (
+            lambda m: m.add_parameter({"a": 1.0, "b": True}),
+            TypeError,
+            lambda m: m.add_parameter("b", True),
+        ),
+        (
+            lambda m: m.add_parameters({"a": 1.0, "k": 2.0}),
+            ValueError,
+            lambda m: m.add_parameter("k", 2.0),
+        ),
+    ):
+
+        def fresh():
+            return rules.Model("strict").add_parameter("k", 1.0)
+
+        model = fresh()
+        mapped = raises(bad, build, model)
+        alone = raises(bad, single_call, fresh())
+        require(
+            str(mapped) == str(alone) and model.to_json() == fresh().to_json(),
+            f"mapping validation equals one call: {alone}",
+        )
+
+
+# rules.Model("odes") with two continuous variables, as release 0.4.0's
+# add_continuous wrote it (to_json(indent=None)).
+ODES_040 = (
+    '{"schema": "crn-craft.rules-model/0.3", "name": "odes", "parameters": '
+    '{"g": 0.01, "m0": 0.001}, "types": [{"name": "A"}], "initial": [{"type": '
+    '"A", "count": 5}], "observables": {"A": {"type": "A"}}, "rules": [{"name": '
+    '"death", "reactants": [{"label": "x", "type": "A"}], "propensity": '
+    '"mortality * A", "products": []}], "continuous": [{"name": "mortality", '
+    '"initial": "m0", "derivative": "g * mortality"}, {"name": "atp", "initial": '
+    '450.0, "derivative": "0.1 * A - 0.2 * atp", "lower_bound": 0.0, "on_bound": '
+    '"clamp"}]}\n'
+)
+
+
+def odes_model(add, first=None, second=None):
+    """The ODES_040 model, its variables declared with method `add`."""
+    model = rules.Model("odes")
+    model.add_parameter({"g": 0.01, "m0": 1e-3}).add_species("A", 5)
+    getattr(model, add)("mortality", "m0", "g * mortality", **(first or {}))
+    getattr(model, add)(
+        "atp",
+        450.0,
+        "0.1 * A - 0.2 * atp",
+        lower_bound=0,
+        on_bound="clamp",
+        **(second or {}),
+    )
+    model.add_reaction("mortality * A", ["A"], [], name="death")
+    return model
+
+
+def check_builder_odes():
+    """add_ode, its alias add_ODE, independent=True and add_continuous."""
+    plain = odes_model("add_ode")
+    explicit = odes_model("add_ode", {"independent": False}, {"independent": False})
+    require(
+        plain.to_json(indent=None) == ODES_040
+        and explicit.to_json(indent=None) == ODES_040
+        and c.model_bytes(plain.to_dict()) == c.model_bytes(json.loads(ODES_040))
+        and plain.to_json() == json.dumps(json.loads(ODES_040), indent=2) + "\n",
+        "add_ode without independent variables writes the bytes of 0.4.0",
+    )
+    require(rules.Model.add_ODE is rules.Model.add_ode, "add_ODE is add_ode")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        old = odes_model("add_continuous")
+    require(
+        old.to_json(indent=None) == ODES_040
+        and [w.category for w in caught] == [DeprecationWarning] * 2
+        and all("add_ode" in str(w.message) for w in caught)
+        and all(Path(w.filename).resolve() == Path(__file__).resolve() for w in caught),
+        "add_continuous warns, names add_ode, points at the caller, writes 0.4.0",
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        raises(
+            TypeError,
+            rules.Model("x").add_continuous,
+            "y",
+            0.0,
+            "1",
+            independent=True,
+        )
+    # independent=True marks that variable and selects rules-model/0.4.
+    for first, second in (({"independent": True}, None), (None, {"independent": True})):
+        model = odes_model("add_ode", first, second)
+        expected = json.loads(ODES_040)
+        expected["schema"] = "crn-craft.rules-model/0.4"
+        position = 0 if first else 1
+        variable = expected["continuous"][position]
+        expected["continuous"][position] = {
+            "name": variable.pop("name"),
+            "initial": variable.pop("initial"),
+            "derivative": variable.pop("derivative"),
+            "independent": True,
+            **variable,
+        }
+        require(
+            model.to_json(indent=None) == json.dumps(expected) + "\n"
+            and model.to_dict() == expected
+            and "independent" not in model.to_dict()["continuous"][1 - position],
+            "independent=True writes independent: true and rules-model/0.4",
+        )
+    for bad in (1, 0, "yes", None, 1.0):
+        model = rules.Model("x")
+        raises(TypeError, model.add_ode, "y", 0.0, "1", independent=bad)
+        require(
+            model.to_json() == rules.Model("x").to_json(),
+            f"independent={bad!r} is refused and declares nothing",
+        )
+
+
 def check_pandas_results(result):
     """Statistics by name, NumPy access and categorical terminations."""
     meta = result.metadata
@@ -273,10 +486,10 @@ def check_pandas_results(result):
 
 
 def check_hybrid():
-    """A tiny hybrid run: x' = 2 from 0 drives immigration at rate x."""
+    """Tiny hybrid runs: x' = 2 drives immigration; an independent ODE."""
     ramp = rules.Model("ramp")
     ramp.add_species("A")
-    ramp.add_continuous("x", 0.0, "2")
+    ramp.add_ode("x", 0.0, "2")
     ramp.add_reaction("x", [], ["A"], name="immigration")
     try:
         rules.ensemble(ramp, end=1.0, report_times=[0.0, 1.0], method="static_direct")
@@ -311,6 +524,43 @@ def check_hybrid():
         and bool(np.all(np.abs(mean["A"].to_numpy()[1:] - exact[1:]) <= 5 * error[1:])),
         "installed hybrid integrates x and matches the Poisson law",
     )
+    # An independent ODE (rules-model/0.4): Gompertz mortality m' = g m, so
+    # each of 20 molecules survives to t with probability exp(-integral of m).
+    gompertz = rules.Model("gompertz")
+    gompertz.add_parameter({"g": 0.5, "m0": 0.1}).add_species({"A": 20})
+    gompertz.add_ode("m", "m0", "g * m", independent=True)
+    gompertz.add_reaction("m * A", ["A"], [], name="death")
+    result = rules.ensemble(
+        gompertz,
+        end=4.0,
+        report_times=[0.0, 4.0],
+        replicates=400,
+        seed=13,
+        threads=2,
+        method="hybrid",
+    ).simulate()
+    survival = np.exp(-0.1 * (np.exp(2.0) - 1.0) / 0.5)
+    mean = result.statistics["mean"]
+    error = result.statistics["mean_standard_error"]["A"].iloc[1]
+    require(
+        gompertz.to_dict()["schema"] == "crn-craft.rules-model/0.4"
+        and result.metadata["continuous"] == ["m"]
+        and np.isclose(mean["m"].iloc[1], 0.1 * np.exp(2.0), rtol=1e-5)
+        and abs(mean["A"].iloc[1] - 20 * survival) <= 5 * error,
+        "installed hybrid solves an independent ODE and matches the binomial law",
+    )
+    dependent = gompertz.to_dict()
+    dependent["continuous"][0]["derivative"] = "g * m * A"
+    try:
+        rules.ensemble(dependent, end=1.0, report_times=[1.0], method="hybrid")
+    except c.CrnError as error:
+        first = error.diagnostics[0]
+        require(
+            (first["code"], first["path"]) == ("CRN-R012", "/continuous/0/derivative"),
+            "an independent ODE that reads a species is refused",
+        )
+    else:
+        raise RuntimeError("an independent ODE that reads a species was accepted")
 
 
 def check_compiled_loop_refusals():
@@ -610,30 +860,36 @@ def main():
         seed=7,
         keep_paths="all",
     ).simulate()
-    by_time = kept.paths["X"].groupby(level="time").mean().to_numpy()
+    paths = kept.paths  # report times x variables x replicates
+    by_time = paths.sel(variable="X").mean("replicate").values
+    frame = kept.paths_frame()
     require(
-        kept.paths.shape == (150, 1)
-        and list(kept.paths.index.names) == ["replicate", "time"]
+        isinstance(paths, xr.DataArray)
+        and paths.dims == ("time", "variable", "replicate")
+        and paths.shape == (3, 1, 50)
+        and paths["time"].values.tolist() == [0.0, 5.0, 10.0]
+        and paths["variable"].values.tolist() == ["X"]
+        and paths["replicate"].values.tolist() == list(range(50))
+        and paths.attrs["sampler"] == kept.metadata["sampler"]
+        and paths.attrs["root_seed"] == 7
         and np.allclose(by_time, kept.statistics["mean"]["X"], rtol=1e-12, atol=0),
-        "installed rules keep every path as a DataFrame",
+        "installed rules keep every path as a DataArray",
     )
-    try:
-        import xarray  # noqa: F401  (optional: crn-craft[xarray])
-    except ImportError:
-        try:
-            kept.to_xarray()
-        except ImportError as error:
-            require("crn-craft[xarray]" in str(error), "to_xarray names the extra")
-        else:
-            raise RuntimeError("to_xarray without xarray")
-    else:
-        data = kept.to_xarray()
-        require(
-            data["X"].dims == ("replicate", "time") and data["X"].shape == (50, 3),
-            "installed to_xarray dimensions",
-        )
     require(
-        kept.paths.equals(
+        frame.shape == (150, 1)
+        and list(frame.index.names) == ["replicate", "time"]
+        and np.array_equal(
+            frame["X"].unstack("time").to_numpy(), paths.sel(variable="X").values.T
+        ),
+        "paths_frame() is the 0.4.0 DataFrame",
+    )
+    data = kept.to_xarray()
+    require(
+        data["X"].dims == ("replicate", "time") and data["X"].shape == (50, 3),
+        "installed to_xarray dimensions",
+    )
+    require(
+        kept.paths.identical(
             rules.ensemble(
                 death,
                 end=10.0,
@@ -657,6 +913,10 @@ def main():
     checks.append("rules_event_log_default_budget")
     check_builder()
     checks.append("rules_builder")
+    check_builder_mappings()
+    checks.append("rules_builder_mappings")
+    check_builder_odes()
+    checks.append("rules_builder_odes")
     check_hybrid()
     checks.append("rules_hybrid")
     check_compiled_loop_refusals()

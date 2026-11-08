@@ -1,10 +1,12 @@
-"""Prepared rules ensembles and their results as pandas objects.
+"""Prepared rules ensembles and their results as pandas and xarray objects.
 
 ``rules.ensemble(model, ...)`` builds and prepares a run request;
 ``simulate()`` returns a :class:`Result` whose records, statistics, rule
-counts, kept paths, trackers and event logs are pandas DataFrames. Every
-frame has ``.to_numpy()``, and ``Result.metadata`` keeps the full result
-document as the engine returned it.
+counts and trackers are pandas DataFrames, and whose kept paths and event
+logs are xarray DataArrays (the 0.4.0 DataFrames are ``paths_frame()`` and
+``event_frame()``). Every frame and array has ``.to_numpy()``, and
+``Result.metadata`` keeps the full result document as the engine returned
+it.
 
 Opt-in, with a Rust toolchain: :func:`compile_loop` compiles a model's
 Static Direct event loop, and ``compiled=`` runs it with byte-identical
@@ -19,6 +21,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import xarray
 
 from . import CrnError, _crn_error, _native, _path, model_bytes
 from ._rules_loop import CompiledLoop, fingerprint_of
@@ -67,6 +70,10 @@ _TRACKER_VALUES = (
     "omitted_duration",
     "omitted_peak",
 )
+# Result metadata that Result.paths and Result.event_columns() carry as attrs.
+_ARRAY_ATTRS = ("sampler", "method", "root_seed", "model_sha256", "run_sha256")
+# The `rule` of an event-array entry past a replicate's logged length.
+_PADDING_RULE = -2
 
 
 def describe():
@@ -103,16 +110,19 @@ class Result:
       (``mean``, ``sample_variance``, ``mean_standard_error``), indexed by
       report time with one column per observable. A statistic that was not
       computed is None.
-    - ``paths``: the kept observable series, indexed by (replicate, time),
-      one column per observable. ``to_xarray()`` gives them as a Dataset.
-    - ``tracker_columns(i)`` and ``event_columns(id)``: trackers and event
-      logs as DataFrames.
+    - ``paths``: the kept series as an xarray DataArray with dimensions
+      (``time``, ``variable``, ``replicate``); ``paths_frame()`` gives the
+      DataFrame of release 0.4.0, ``to_xarray()`` a Dataset.
+    - ``event_columns()``: event logs as a DataArray with dimensions
+      (``replicate``, ``entry``, ``variable``); ``event_frame()`` gives the
+      DataFrame of release 0.4.0.
+    - ``tracker_columns(i)``: a tracker's fields as a DataFrame.
     - ``metadata``: the full result document; ``observations`` its trackers
       and logs; ``record_diagnostics`` replicate errors by id.
 
-    Observable columns are in result order: sorted by name, then any
-    continuous observable such as ``ATP``. Use ``.to_numpy()`` on any frame
-    or column for NumPy arrays.
+    Observables are in result order: sorted by name, then any continuous
+    variable such as ``ATP``. Use ``.to_numpy()`` on any frame, column or
+    array for NumPy arrays.
     """
 
     def __init__(self, metadata, columns):
@@ -168,13 +178,56 @@ class Result:
         positions = np.arange(total) - np.repeat(np.cumsum(lengths) - lengths, lengths)
         return ids, lengths, positions, values
 
+    def _array_attrs(self):
+        """Provenance for a DataArray: sampler, method, seed and hashes.
+
+        Every value is a string or a number, so netCDF can store it: the
+        method is JSON text (``"null"`` when the result reports none).
+        """
+        meta = self.metadata
+        attrs = {key: meta.get(key) for key in _ARRAY_ATTRS}
+        attrs["method"] = json.dumps(attrs["method"], sort_keys=True)
+        return attrs
+
     @cached_property
     def paths(self):
-        """Kept series: (replicate, time) rows, one column per observable.
+        """Kept series as a DataArray: report times x variables x replicates.
+
+        Dimensions are ``("time", "variable", "replicate")`` with the
+        coordinates ``time`` (the report times), ``variable`` (the
+        observables in result order: sorted names, then continuous
+        variables) and ``replicate`` (the kept replicate ids, int64). Values
+        are float64. ``attrs`` holds the result's ``sampler``, ``method``
+        (the method object of rules-result/0.3 as JSON text, ``"null"``
+        for older results), ``root_seed``, ``model_sha256`` and
+        ``run_sha256``; netCDF can store all of them.
 
         ``keep_paths`` decides which replicates are kept (``"all"`` keeps
-        every one). A replicate that ended on a budget has rows only up to
-        its last saved report time.
+        every one). A replicate that ended on a budget has values only up
+        to its last saved report time and NaN after it. For example
+        ``paths.sel(variable="mutants")`` is a time x replicate array and
+        ``paths.sel(replicate=3)`` one replicate's series.
+        ``paths_frame()`` returns the DataFrame of release 0.4.0.
+        """
+        ids, lengths, positions, values = self._path_arrays
+        times = np.asarray(self.metadata["report_times"], dtype=np.float64)
+        observables = list(self.metadata["observables"])
+        cube = np.full((len(times), len(observables), len(ids)), np.nan)
+        cube[positions, :, np.repeat(np.arange(len(ids)), lengths)] = values
+        return xarray.DataArray(
+            cube,
+            dims=("time", "variable", "replicate"),
+            coords={"time": times, "variable": observables, "replicate": ids},
+            name="paths",
+            attrs=self._array_attrs(),
+        )
+
+    def paths_frame(self):
+        """Kept series as a DataFrame: (replicate, time) rows.
+
+        One column per observable, in result order; this is ``paths`` of
+        release 0.4.0. A replicate that ended on a budget has rows only up
+        to its last saved report time.
         """
         ids, lengths, positions, values = self._path_arrays
         times = np.asarray(self.metadata["report_times"], dtype=np.float64)
@@ -189,16 +242,12 @@ class Result:
         """Return the kept paths as an xarray Dataset.
 
         Dimensions are ``replicate`` and ``time`` (the report times), with
-        one variable per observable. Rows a replicate did not save are NaN.
-        Needs the optional ``xarray`` package (``pip install
-        "crn-craft[xarray]"``).
+        one variable per observable; rows a replicate did not save are NaN.
+        It holds the values of ``paths``:
+        ``paths.to_dataset("variable").transpose("replicate", "time")``.
+        ``attrs`` holds ``sampler``, ``model_sha256``, ``run_sha256`` and
+        ``root_seed``, all of which netCDF can store.
         """
-        try:
-            import xarray
-        except ImportError as error:
-            raise ImportError(
-                'Result.to_xarray() needs xarray: pip install "crn-craft[xarray]"'
-            ) from error
         ids, lengths, positions, values = self._path_arrays
         times = np.asarray(self.metadata["report_times"], dtype=np.float64)
         observables = self.metadata["observables"]
@@ -217,8 +266,83 @@ class Result:
             },
         )
 
+    def _observed(self, replicate):
+        """The observations of every replicate, or of one replicate id."""
+        if replicate is None:
+            return self.observations
+        chosen = [o for o in self.observations if o["id"] == replicate][:1]
+        if not chosen:
+            raise KeyError(replicate)
+        return chosen
+
     def event_columns(self, replicate=None):
-        """Return retained event logs as a DataFrame.
+        """Return retained event logs as a DataArray.
+
+        Without a replicate id the dimensions are ``("replicate", "entry",
+        "variable")``: one row per observed replicate (int64 ids), entries
+        0, 1, ... in event order, and the observables after each event
+        (result order), NaN past a replicate's last entry. Coordinates over
+        (``replicate``, ``entry``): ``time`` (float64, NaN as padding),
+        ``rule`` (the rule index, -1 for a leap, -2 as padding) and
+        ``rule_name`` (the name; NaN for a leap and as padding); over
+        ``replicate``: ``length``, the number of logged entries. With a
+        replicate id the dimensions are ``("entry", "variable")``, exactly
+        ``length`` entries, with scalar ``replicate`` and ``length``
+        coordinates. ``attrs`` is that of ``paths``.
+
+        A replicate without logged events has ``length`` 0. Participant
+        instances and leap firings are in the observation entries.
+        ``event_frame()`` returns the DataFrame of release 0.4.0.
+        """
+        chosen = self._observed(replicate)
+        observables = list(self.metadata["observables"])
+        lengths = np.fromiter(
+            (len(o["log"]) for o in chosen), dtype=np.int64, count=len(chosen)
+        )
+        width = int(lengths.max(initial=0))
+        rows = np.repeat(np.arange(len(chosen)), lengths)
+        entries = np.arange(int(lengths.sum())) - np.repeat(
+            np.cumsum(lengths) - lengths, lengths
+        )
+        log = [e for o in chosen for e in o["log"]]
+        shape = (len(chosen), width)
+        values = np.full((*shape, len(observables)), np.nan)
+        values[rows, entries] = np.array(
+            [e["observables"] for e in log], dtype=np.float64
+        ).reshape(len(log), len(observables))
+        time = np.full(shape, np.nan)
+        time[rows, entries] = np.fromiter(
+            (e["time"] for e in log), dtype=np.float64, count=len(log)
+        )
+        rule = np.full(shape, _PADDING_RULE, dtype=np.int64)
+        rule[rows, entries] = np.fromiter(
+            (-1 if e["rule"] is None else e["rule"] for e in log),
+            dtype=np.int64,
+            count=len(log),
+        )
+        # Index 0 is the missing name of leaps and padding; rule r is at r + 1.
+        names = np.array([np.nan, *self.rule_names], dtype=object)
+        rule_name = names[np.where(rule < 0, 0, rule + 1)]
+        ids = np.fromiter((o["id"] for o in chosen), dtype=np.int64, count=len(chosen))
+        array = xarray.DataArray(
+            values,
+            dims=("replicate", "entry", "variable"),
+            coords={
+                "replicate": ids,
+                "entry": np.arange(width, dtype=np.int64),
+                "variable": observables,
+                "length": ("replicate", lengths),
+                "time": (("replicate", "entry"), time),
+                "rule": (("replicate", "entry"), rule),
+                "rule_name": (("replicate", "entry"), rule_name),
+            },
+            name="event_log",
+            attrs=self._array_attrs(),
+        )
+        return array if replicate is None else array.isel(replicate=0)
+
+    def event_frame(self, replicate=None):
+        """Return retained event logs as a DataFrame (release 0.4.0's form).
 
         With a replicate id, that replicate's log, indexed by ``entry``;
         without one, every logged event, indexed by (``replicate``,
@@ -227,12 +351,7 @@ class Result:
         leap), then one column per observable after the event. Participant
         instances and leap firings are in the observation entries.
         """
-        if replicate is None:
-            chosen = self.observations
-        else:
-            chosen = [o for o in self.observations if o["id"] == replicate][:1]
-            if not chosen:
-                raise KeyError(replicate)
+        chosen = self._observed(replicate)
         entries = [e for o in chosen for e in o["log"]]
         size = len(entries)
         observables = list(self.metadata["observables"])
@@ -376,14 +495,17 @@ class PreparedEnsemble:
         batch_callback(id, events) replays the retained log after execution
         and cannot affect the run.
 
-        ``compiled``, a :class:`CompiledLoop` for this model, runs the
-        request in the compiled program instead of the interpreter, with
-        byte-identical results; it defaults to the loop given to
-        ``ensemble`` or ``prepare``. The request must select
-        ``static_direct`` (``CrnError`` ``CRN-R020`` at ``/method``
-        otherwise) and use this loop's model bytes (``CRN-R020`` at
-        ``/model``). Callbacks need the interpreter and are refused with
-        ``ValueError``.
+        ``compiled``, a :class:`CompiledLoop` for this model, runs this
+        call in the compiled program instead of the interpreter, with
+        byte-identical results. The request must select ``static_direct``
+        (``CrnError`` ``CRN-R020`` at ``/method`` otherwise) and use this
+        loop's model bytes (``CRN-R020`` at ``/model``); the first call
+        checks this. ``None``, the default, means the loop attached with
+        ``compiled=`` on ``ensemble`` or ``prepare``, and the interpreter
+        if none was attached. So a run prepared without a loop can be
+        simulated either way, call by call, while a run with an attached
+        loop always runs compiled. Callbacks need the interpreter and are
+        refused with ``ValueError`` whenever a loop runs the call.
         """
         if batch_size < 1:
             raise ValueError("batch_size must be positive")
@@ -421,8 +543,9 @@ def prepare(model, request, *, compiled=None):
     """Prepare a rules-run contract, preserving the supplied model bytes.
 
     ``model`` is bytes, text, a dictionary or a ``Model``. ``compiled`` is
-    an optional :class:`CompiledLoop` for this model that ``simulate`` then
-    uses (see ``PreparedEnsemble.simulate``).
+    an optional :class:`CompiledLoop` for this model, attached as in
+    :func:`ensemble`: the request is checked against it here, once, and
+    every ``simulate()`` of the prepared run uses it.
     """
     if isinstance(model, Model):
         model = model.to_dict()
@@ -508,9 +631,21 @@ def ensemble(
     ``CRN-R051`` warning naming the reason.
 
     ``compiled`` is an optional :class:`CompiledLoop` from
-    :func:`compile_loop` for this model; ``simulate`` then runs the request
-    in the compiled program, with results byte-identical to the
-    interpreter's. It needs ``method="static_direct"`` (with any options).
+    :func:`compile_loop` for this model. It attaches the loop to the
+    prepared run: preparation checks once that the loop was compiled for
+    these model bytes (``CrnError`` ``CRN-R020`` at ``/model`` otherwise)
+    and that the request selects ``static_direct`` with any options
+    (``CRN-R020`` at ``/method``), and every ``simulate()`` then runs in the
+    compiled program, with results byte-identical to the interpreter's.
+    Attach it when every run of this request should use the loop, for
+    example when ``simulate()`` is called repeatedly or by code that knows
+    nothing of compiled loops; a mistake then fails before anything runs.
+    ``simulate(compiled=loop)`` uses a loop for one call instead and leaves
+    the run interpreted otherwise, which suits comparing the two. A run
+    with an attached loop cannot run interpreted or take callbacks; prepare
+    it without ``compiled`` for those. Candidates from
+    ``bind_parameters`` run interpreted, since a loop serves only the
+    parameter set it was compiled for.
     """
     if isinstance(model, Model):
         model = model.to_dict()

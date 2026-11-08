@@ -62,11 +62,15 @@ callbacks, and the mtDNA methods; see the
 [mtDNA user manual](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-user-manual.md).
 `rules.Model` builds models from Python calls, in the style of rebop: a
 numeric rate is a mass-action constant, a string the reaction's whole
-propensity. Results are pandas DataFrames (pandas is installed with the
-package): per-replicate records and rule counts, statistics by report time,
-kept paths by (replicate, time), trackers and event logs.
-`Result.to_xarray()` returns the paths as an xarray Dataset with
-`pip install "crn-craft[xarray]"`. The same immigration–death model:
+propensity. `add_species` and `add_parameter` take one name and value or a
+mapping such as `{"S": 999, "I": 1}`. Results are pandas DataFrames:
+per-replicate records and rule counts, statistics by report time and
+trackers. Kept paths and event logs are xarray DataArrays: `result.paths`
+has the dimensions (time, variable, replicate), and `event_columns()`
+(replicate, entry, variable). pandas and xarray are installed with the
+package. `paths_frame()` and `event_frame()` return the DataFrames of
+release 0.4.0, and `to_xarray()` the paths as a Dataset. The same
+immigration–death model:
 
 ```python
 from crn_craft import rules
@@ -87,7 +91,7 @@ result = rules.ensemble(
 ).simulate()
 print(result.statistics["mean"])
 print(result.rule_events.sum().to_dict())
-print(result.paths["X"].unstack("time").head(3))
+print(result.paths.sel(variable="X").T.to_pandas().head(3))  # cells x times
 ```
 
 ```text
@@ -109,9 +113,9 @@ The means lie within one standard error of the exact 12.64 and 17.29.
 trackers sparsely (rules-run/0.6). `method={"kind": "static_direct",
 "waiting_time": "inverse", "sparse_trackers": False}` gives the numbers of
 release 0.3.0, which printed 12.550 and 17.351 here.
-Models may also declare continuous variables, ODEs between events that
-rates read (for example an ATP pool), which `method="hybrid"` simulates at
-declared tolerances.
+Models may also declare continuous variables (`Model.add_ode`), ODEs
+between events that rates read (for example an ATP pool), which
+`method="hybrid"` simulates at declared tolerances.
 
 New in 0.4.0, opt-in, with a Rust toolchain (1.85 or newer): `loop = rules.compile_loop(model)`
 compiles a model's Static Direct event loop into a cached native program,

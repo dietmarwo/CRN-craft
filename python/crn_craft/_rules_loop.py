@@ -112,12 +112,13 @@ def loop_source(model):
     """Return the generated Static Direct event loop of a model as Rust.
 
     Needs no Rust toolchain. ``model`` is bytes, text, a dictionary or a
-    ``rules.Model``. The generator supports closed models with constant or
-    vacancy rates and sum observables, up to 1 MiB of source; it refuses
-    other models with ``CrnError`` ``CRN-R020`` at ``/method``: expression
-    rates, ``propensity`` rules, max or distinct observables, densely
-    coupled networks, and models that only another method runs (continuous
-    variables, ATP blocks, instances that change identity).
+    ``rules.Model``. The generator emits every model that Static Direct
+    runs: constant, vacancy and expression rates, ``propensity`` rules
+    (the builder's string rates) and sum, distinct, max and min
+    observables, up to 1 MiB of source. It refuses, with ``CrnError``
+    ``CRN-R020`` at ``/method``, models that only another method runs
+    (continuous variables, ATP blocks, instances that change identity) and
+    densely coupled networks whose loop would exceed that size.
     """
     data = _document(model)
     return _source(_prepare(data, _generator_request(data)))

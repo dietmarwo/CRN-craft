@@ -1,0 +1,65 @@
+{
+  "schema": "crn-craft.rules-model/0.3",
+  "name": "loop_expression_invalid",
+  "description": "Expression rates that become negative or undefined during a run.",
+  "parameters": {
+    "d": 0.3,
+    "k": 0.1
+  },
+  "types": [
+    {
+      "name": "A"
+    },
+    {
+      "name": "B"
+    }
+  ],
+  "initial": [
+    {
+      "type": "A",
+      "count": 40
+    }
+  ],
+  "observables": {
+    "nA": {
+      "type": "A"
+    },
+    "nB": {
+      "type": "B"
+    }
+  },
+  "rules": [
+    {
+      "name": "death_a",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A"
+        }
+      ],
+      "rate": "d",
+      "products": []
+    },
+    {
+      "name": "shrinking",
+      "reactants": [],
+      "propensity": "k * (nA - 30)",
+      "products": [
+        {
+          "type": "B"
+        }
+      ]
+    },
+    {
+      "name": "undefined",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "B"
+        }
+      ],
+      "rate": "log(nA - 33) * 0 + 0.2",
+      "products": []
+    }
+  ]
+}

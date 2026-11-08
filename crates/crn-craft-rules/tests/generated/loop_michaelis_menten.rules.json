@@ -1,0 +1,72 @@
+{
+  "schema": "crn-craft.rules-model/0.3",
+  "name": "loop_michaelis_menten",
+  "description": "Influx, Michaelis-Menten conversion as a whole propensity and first-order decay.",
+  "parameters": {
+    "V": 50.0,
+    "Km": 20.0,
+    "k_in": 40.0,
+    "d": 0.5
+  },
+  "types": [
+    {
+      "name": "A"
+    },
+    {
+      "name": "P"
+    }
+  ],
+  "initial": [
+    {
+      "type": "A",
+      "count": 30
+    }
+  ],
+  "observables": {
+    "A": {
+      "type": "A"
+    },
+    "P": {
+      "type": "P"
+    }
+  },
+  "rules": [
+    {
+      "name": "influx",
+      "reactants": [],
+      "rate": "k_in",
+      "products": [
+        {
+          "type": "A"
+        }
+      ]
+    },
+    {
+      "name": "conversion",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A"
+        }
+      ],
+      "propensity": "V * A / (Km + A)",
+      "products": [
+        {
+          "type": "P"
+        }
+      ]
+    },
+    {
+      "name": "decay",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "P"
+        }
+      ],
+      "rate": "d",
+      "products": []
+    }
+  ],
+  "stop": "A >= 140"
+}

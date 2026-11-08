@@ -9,16 +9,17 @@ from crn_craft import rules
 # Numeric rates are mass-action constants; strings are whole propensities
 # over parameters and species counts.
 model = rules.Model("mtdna_three_species")
-for name, value in {
-    "K": 1000,
-    "delta": 0.0028881132523331052,
-    "sw": 1.0,
-    "sm": 1.5,
-    "mu": 3e-05,
-    "fracAdv": 0.2,
-}.items():
-    model.add_parameter(name, value)
-model.add_species("W", 1000).add_species("M").add_species("A")
+model.add_parameter(
+    {
+        "K": 1000,
+        "delta": 0.0028881132523331052,
+        "sw": 1.0,
+        "sm": 1.5,
+        "mu": 3e-05,
+        "fracAdv": 0.2,
+    }
+)
+model.add_species({"W": 1000, "M": 0, "A": 0})
 # Replication fills the vacancy K - N, shared by the competition term.
 vacancy = "max(0, K - W - M - A) / (W + sm * (M + A))"
 model.add_reaction(
@@ -57,10 +58,12 @@ reference = rules.ensemble(
 
 def mutant_fraction(result, mutants, total):
     """Mean and standard error over cells of each cell's mutant fraction."""
-    paths = result.paths  # (replicate, time) rows, one column per observable
-    fraction = paths[mutants].sum(axis=1) / paths[total].sum(axis=1)
-    by_time = fraction.groupby(level="time")
-    return by_time.mean(), by_time.std() / np.sqrt(by_time.size())
+    paths = result.paths  # report times x observables x cells, a DataArray
+    count = paths.sel(variable=mutants).sum("variable")
+    fraction = count / paths.sel(variable=total).sum("variable")  # times x cells
+    cells = fraction.sizes["replicate"]
+    mean = fraction.mean("replicate")
+    return mean.values, fraction.std("replicate", ddof=1).values / np.sqrt(cells)
 
 
 ours = mutant_fraction(built, ["M", "A"], ["W", "M", "A"])

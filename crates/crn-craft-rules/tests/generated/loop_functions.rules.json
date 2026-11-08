@@ -1,0 +1,167 @@
+{
+  "schema": "crn-craft.rules-model/0.3",
+  "name": "loop_functions",
+  "description": "Rates and propensities with every operator and function a rate may use, distinct, max and min observables, whole pairs and a stop.",
+  "parameters": {
+    "d": 0.3,
+    "p": 0.02,
+    "q": 0.01,
+    "e": 0.5,
+    "c": 0.2
+  },
+  "types": [
+    {
+      "name": "A"
+    },
+    {
+      "name": "B"
+    },
+    {
+      "name": "C",
+      "attributes": [
+        "s"
+      ]
+    }
+  ],
+  "initial": [
+    {
+      "type": "A",
+      "count": 40
+    },
+    {
+      "type": "C",
+      "attributes": {
+        "s": 1
+      },
+      "count": 5
+    },
+    {
+      "type": "C",
+      "attributes": {
+        "s": 2
+      },
+      "count": 3
+    }
+  ],
+  "observables": {
+    "nA": {
+      "type": "A"
+    },
+    "nB": {
+      "type": "B"
+    },
+    "w": {
+      "type": "B",
+      "weight": "2.5"
+    },
+    "kinds": {
+      "type": "C",
+      "reduce": "distinct"
+    },
+    "spread": {
+      "type": "C",
+      "weight": "x.s * x.s",
+      "reduce": "distinct"
+    },
+    "top": {
+      "type": "C",
+      "weight": "x.s",
+      "reduce": "max"
+    },
+    "bottom": {
+      "type": "C",
+      "weight": "-x.s",
+      "reduce": "min"
+    }
+  },
+  "rules": [
+    {
+      "name": "death_a",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A"
+        }
+      ],
+      "rate": "d * (1 + floor(nA / 10) / 4) * if(top > 2, 1.25, 1)",
+      "products": []
+    },
+    {
+      "name": "pair_aa",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A"
+        },
+        {
+          "label": "y",
+          "type": "A"
+        }
+      ],
+      "propensity": "p * nA * (nA - 1) / 2 * (nB < 9 || !(w > 4))",
+      "products": [
+        {
+          "type": "B"
+        }
+      ]
+    },
+    {
+      "name": "pair_ab",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A"
+        },
+        {
+          "label": "y",
+          "type": "B"
+        }
+      ],
+      "rate": "q * exp(-nB / 20) * sqrt(1 + nA) / ceil(sqrt(1 + nA))",
+      "products": [
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        }
+      ]
+    },
+    {
+      "name": "death_b",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "B"
+        }
+      ],
+      "rate": "e * max(1, log(1 + nB)) ^ 0.5 - 0 * abs(bottom)",
+      "products": []
+    },
+    {
+      "name": "create_c3",
+      "reactants": [],
+      "propensity": "if(kinds >= 3 && bottom != -3, 0.05, 0.5 * abs(top - 3) + min(0.1, spread / 100))",
+      "products": [
+        {
+          "type": "C",
+          "attributes": {
+            "s": 3
+          }
+        }
+      ]
+    },
+    {
+      "name": "death_c",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "C"
+        }
+      ],
+      "rate": "c + (nA == 0) * 0.3 + (top <= 2) * 0.1 + (spread != 5) * 0.05 + 2 ^ -3 * (kinds >= 2)",
+      "products": []
+    }
+  ],
+  "stop": "nB >= 9 || (nA == 0 && w > 4) || (kinds == 0 && nA < 5)"
+}

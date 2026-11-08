@@ -2,8 +2,9 @@
 //! schemata, observables and an optional stop condition.
 //!
 //! [`Model`] is the JSON document; `crn-craft.rules-model/0.2` adds the
-//! optional [`crate::atp`] block, and `0.3` whole-rule propensities
-//! ([`Rule::propensity`]). A model is parsed strictly and validated by
+//! optional [`crate::atp`] block, `0.3` whole-rule propensities
+//! ([`Rule::propensity`]) and continuous variables, and `0.4` independent
+//! continuous variables ([`crate::continuous::ContinuousSpec::independent`]). A model is parsed strictly and validated by
 //! [`crate::check_model`] or [`crate::prepare`], which compile every
 //! expression. The [rules language
 //! reference](https://github.com/dietmarwo/CRN-craft/blob/main/docs/rules-language.md)
@@ -117,9 +118,15 @@ pub enum ModelVersion {
     )]
     #[serde(rename = "crn-craft.rules-model/0.3")]
     V03,
+    #[doc = concat!(
+        "`crn-craft.rules-model/0.4`: 0.3 plus `independent` continuous ",
+        "variables, which `hybrid` integrates once per prepared run."
+    )]
+    #[serde(rename = "crn-craft.rules-model/0.4")]
+    V04,
 }
 
-/// A rules model: `crn-craft.rules-model/0.1`, `0.2` or `0.3`.
+/// A rules model: `crn-craft.rules-model/0.1`, `0.2`, `0.3` or `0.4`.
 ///
 /// Unknown fields and duplicate keys are rejected. Validation also requires
 /// at least one type and one rule.
@@ -162,8 +169,8 @@ pub struct Model {
     )]
     #[schemars(with = "crate::atp::AtpSpec")]
     pub atp: Option<crate::atp::AtpSpec>,
-    /// Continuous variables, rules-model/0.3 only (`CRN-R015` before), at
-    /// most 64: ODEs between events whose values rule rates and
+    /// Continuous variables, rules-model/0.3 and later (`CRN-R015` before),
+    /// at most 64: ODEs between events whose values rule rates and
     /// propensities may read. A model with them runs only with the `hybrid`
     /// method, and it cannot also have `atp` (`CRN-R015`). `null` is
     /// rejected. See [`crate::continuous`].
@@ -267,8 +274,8 @@ pub struct Rule {
     /// Global factor: parameters and observables only. It is evaluated only
     /// while the reactant weight is positive; a negative or non-finite value
     /// fails the replicate (`CRN-R030`). Required in rules-model/0.1 and 0.2
-    /// (`CRN-E003` when missing); in 0.3 a rule gives exactly one of `rate`
-    /// and `propensity` (`CRN-R013`). `null` is rejected.
+    /// (`CRN-E003` when missing); from 0.3 a rule gives exactly one of
+    /// `rate` and `propensity` (`CRN-R013`). `null` is rejected.
     #[serde(
         default,
         deserialize_with = "crate::present",
@@ -276,9 +283,9 @@ pub struct Rule {
     )]
     #[schemars(with = "String")]
     pub rate: Option<String>,
-    /// rules-model/0.3 (`CRN-R015` before): the rule's whole propensity, an
-    /// expression over parameters and observables, instead of a `rate` per
-    /// reactant tuple. It applies while every reactant type has enough
+    /// rules-model/0.3 and later (`CRN-R015` before): the rule's whole
+    /// propensity, an expression over parameters and observables, instead
+    /// of a `rate` per reactant tuple. It applies while every reactant type has enough
     /// molecules (one per pattern, two for two patterns over one type) and
     /// is 0 otherwise; a firing picks distinct reactant molecules uniformly.
     /// The reactant patterns take no `where` or `factor` (`CRN-R013`), and
@@ -1201,6 +1208,7 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
     }
     let continuous = crate::continuous::Variable::compile_all(
         specs,
+        model.schema,
         &names.params,
         &names.observables,
         &params,

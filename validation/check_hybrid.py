@@ -5,7 +5,10 @@ against exact laws (20,000 replicates each, family alpha 0.001),
 deterministic checks of bounds and of the integrator, and four predeclared
 two-sample tests of hybrid on the continuous ATP model against exact thinning
 on the legacy ATP model (400 replicates per arm, or 4,000 with --large;
-family alpha 0.01, Bonferroni). Uses only the installed wheel, NumPy and the
+family alpha 0.01, Bonferroni). For rules-model/0.4 independent variables:
+four DKW gates (C, 20,000 replicates each, family alpha 0.001) and four
+two-sample tests of independent against dependent integration (D, family
+alpha 0.01, Bonferroni). Uses only the installed wheel, NumPy and the
 standard library. Every row is reported, including failures; the report holds
 fixed-work evidence only and is identical under python -O. Run times are
 printed to standard error.
@@ -36,11 +39,16 @@ SIZES = {"default": (400, 7101, 7102), "large": (4000, 7201, 7202)}
 TAKEOVER = "N > 0 && mutants >= 0.9 * N"
 ATP_END = 25_920.0
 ATP_TIMES = [0.0, 8640.0, 17280.0, ATP_END]
+INDEPENDENT_K = 4
+INDEPENDENT_EPSILON = math.sqrt(math.log(2 * INDEPENDENT_K / GATE_ALPHA) / (2 * GATE_N))
+EQUIVALENCE_ALPHA = 0.01
+EQUIVALENCE_TESTS = 4
+EQUIVALENCE_LEVEL = EQUIVALENCE_ALPHA / EQUIVALENCE_TESTS
 
 
-def model(variables, rules_, *, initial=None, parameters=None):
+def model(variables, rules_, *, initial=None, parameters=None, schema="0.3"):
     return {
-        "schema": "crn-craft.rules-model/0.3",
+        "schema": f"crn-craft.rules-model/{schema}",
         "name": "hybrid_gate",
         "parameters": parameters or {},
         "types": [{"name": "A"}],
@@ -366,6 +374,227 @@ def exact_gates(timings):
     return gates, checks, power
 
 
+def gompertz(independent, integrated=False):
+    """C1 (m drives the deaths) or C2 (x' = m drives them)."""
+    variables = [
+        {
+            "name": "m",
+            "initial": "m0",
+            "derivative": "g * m",
+            "independent": independent,
+        }
+    ]
+    if integrated:
+        variables.append(
+            {"name": "x", "initial": 0, "derivative": "m", "independent": False}
+        )
+    return model(
+        variables,
+        [death("x" if integrated else "m")],
+        initial=20,
+        parameters={"g": 0.5, "m0": 0.1},
+        schema="0.4",
+    )
+
+
+def stop_bound(independent):
+    """C3: x' = -1 from 3 with a stop at 0; deaths at rate 0.2."""
+    return model(
+        [
+            {
+                "name": "x",
+                "initial": 3,
+                "derivative": "-1",
+                "lower_bound": 0,
+                "on_bound": "stop",
+                "independent": independent,
+            }
+        ],
+        [death("0.2")],
+        initial=20,
+        schema="0.4",
+    )
+
+
+def pulse(independent):
+    """C4: an eight-compartment linear chain drives arrivals."""
+    variables = [
+        {
+            "name": "u1",
+            "initial": 1,
+            "derivative": "-k * u1",
+            "independent": independent,
+        }
+    ] + [
+        {
+            "name": f"u{i}",
+            "initial": 0,
+            "derivative": f"k * (u{i - 1} - u{i})",
+            "independent": independent,
+        }
+        for i in range(2, 9)
+    ]
+    return model(
+        variables,
+        # The integrated u8 can come out just below 0 near t = 0.
+        [arrival("c * max(0, u8)"), death("d")],
+        parameters={"k": 2.0, "c": 50.0, "d": 0.1},
+        schema="0.4",
+    )
+
+
+def pulse_mean():
+    """Poisson mean of C4: c e^{-dT} (k/a)^7 P(8, aT) / a with a = k - d."""
+    k, c, d, horizon = 2.0, 50.0, 0.1, 12.0
+    a = k - d
+    x = a * horizon
+    lower = 1.0 - math.exp(-x) * sum(x**i / math.factorial(i) for i in range(8))
+    return c * math.exp(-d * horizon) * (k / a) ** 7 * lower / a
+
+
+# label, model builder, horizon, report times, seed of the true arm and of
+# the false arm
+INDEPENDENT_CASES = (
+    ("C1", lambda flag: gompertz(flag), 4.0, [0.0, 1.0, 2.0, 3.0, 4.0], 6201, 6211),
+    ("C2", lambda flag: gompertz(flag, True), 4.0, [4.0], 6202, 6212),
+    ("C3", stop_bound, 5.0, [1.5, 4.0, 5.0], 6203, 6213),
+    ("C4", pulse, 12.0, [12.0], 6204, 6214),
+)
+
+
+def independent_gates(timings):
+    """C: exact laws with independent variables; returns the true-arm counts."""
+    gates, checks, counts = [], [], {}
+
+    def gate(name, distance):
+        gates.append(
+            {
+                "gate": name,
+                "replicates": GATE_N,
+                "distance": distance,
+                "epsilon": INDEPENDENT_EPSILON,
+                "passed": distance <= INDEPENDENT_EPSILON,
+            }
+        )
+
+    def check(name, condition, detail=None):
+        row = {"check": name, "passed": bool(condition)}
+        if detail is not None:
+            row["detail"] = detail
+        checks.append(row)
+
+    metas = {}
+    for label, build, end, times, seed, _ in INDEPENDENT_CASES:
+        result, timings[label] = simulate(
+            build(True),
+            end=end,
+            times=times,
+            replicates=GATE_N,
+            seed=seed,
+            method=HYBRID,
+        )
+        meta = result.metadata
+        metas[label] = (result, meta)
+        counts[label] = column(meta, "A")[:, -1]
+        if label != "C3":
+            check(
+                f"{label}_complete",
+                meta["completed_replicates"] == GATE_N
+                and meta["stopped_replicates"] == 0,
+            )
+    survival = math.exp(-0.1 * (math.exp(2.0) - 1.0) / 0.5)
+    gate(
+        "C1_gompertz_binomial",
+        ecdf_distance_discrete(counts["C1"], binomial(20, survival)),
+    )
+    m = column(metas["C1"][1], "m")
+    check("C1_m_shared", bool(np.all(m == m[0])))
+    worst = max(
+        abs(float(m[0, j]) - 0.1 * math.exp(0.5 * t))
+        / (100.0 * (ATOL + RTOL * 0.1 * math.exp(0.5 * t)))
+        for j, t in enumerate([0.0, 1.0, 2.0, 3.0, 4.0])
+    )
+    check("C1_m_accuracy", worst <= 1.0, worst)
+    integrated = (0.1 / 0.5) * ((math.exp(2.0) - 1.0) / 0.5 - 4.0)
+    gate(
+        "C2_dependent_reads_independent_binomial",
+        ecdf_distance_discrete(counts["C2"], binomial(20, math.exp(-integrated))),
+    )
+    result, meta = metas["C3"]
+    stops = np.asarray(result.records["stop_time"], dtype=float)
+    check("C3_all_stopped", meta["stopped_replicates"] == GATE_N)
+    check(
+        "C3_stop_time",
+        bool(np.all(np.abs(stops - 3.0) <= 1e-9)),
+        float(np.max(np.abs(stops - 3.0))),
+    )
+    x = column(meta, "x")
+    check("C3_x_before_stop", bool(np.all(np.abs(x[:, 0] - 1.5) <= 1e-9)))
+    check("C3_x_after_stop", bool(np.all(x[:, 1:] == 0.0)))
+    gate(
+        "C3_independent_stop_binomial",
+        ecdf_distance_discrete(counts["C3"], binomial(20, math.exp(-0.6))),
+    )
+    gate(
+        "C4_pulse_poisson", ecdf_distance_discrete(counts["C4"], poisson(pulse_mean()))
+    )
+    by_threads = []
+    for threads in (1, 2):
+        run = rules.ensemble(
+            pulse(True),
+            end=12.0,
+            report_times=[6.0, 12.0],
+            replicates=200,
+            seed=6205,
+            threads=threads,
+            keep_paths=200,
+            method=HYBRID,
+        )
+        meta = dict(run.simulate().metadata)
+        meta.pop("run_sha256")
+        by_threads.append(meta)
+    check("C4_threads", by_threads[0] == by_threads[1])
+    return gates, checks, counts
+
+
+def independent_equivalence(counts, timings):
+    """D: the C models with every variable dependent, against the C samples."""
+    rows = []
+    for (label, build, end, times, _, seed), test in zip(
+        INDEPENDENT_CASES, ("D1", "D2", "D3", "D4"), strict=True
+    ):
+        result, timings[test] = simulate(
+            build(False),
+            end=end,
+            times=times,
+            replicates=GATE_N,
+            seed=seed,
+            method=HYBRID,
+        )
+        meta = result.metadata
+        finished = (
+            meta["stopped_replicates"] == GATE_N
+            if label == "C3"
+            else meta["completed_replicates"] == GATE_N
+            and meta["stopped_replicates"] == 0
+        )
+        other = column(meta, "A")[:, -1]
+        distance, p = ks_two_sample(counts[label], other)
+        rows.append(
+            {
+                "test": f"{test}_{label}_independent_vs_dependent",
+                "kind": "two-sample Kolmogorov-Smirnov",
+                "replicates_per_arm": GATE_N,
+                "seed_dependent": seed,
+                "mean_count": [float(np.mean(counts[label])), float(np.mean(other))],
+                "statistic": distance,
+                "p_value": p,
+                "passed": p >= EQUIVALENCE_LEVEL and finished,
+            }
+        )
+    return rows
+
+
 def atp_equivalence(size, timings):
     replicates, seed_thinning, seed_hybrid = SIZES[size]
     tracker = [{"observable": "mutants", "first_passage": TAKEOVER}]
@@ -464,10 +693,15 @@ def main():
     timings = {}
     gates, checks, power = exact_gates(timings)
     equivalence = atp_equivalence("large" if args.large else "default", timings)
+    independent, independent_checks, counts = independent_gates(timings)
+    against_dependent = independent_equivalence(counts, timings)
     failed = (
         [g["gate"] for g in gates if not g["passed"]]
         + [c["check"] for c in checks if not c["passed"]]
         + [t["test"] for t in equivalence["tests"] if not t["passed"]]
+        + [g["gate"] for g in independent if not g["passed"]]
+        + [c["check"] for c in independent_checks if not c["passed"]]
+        + [t["test"] for t in against_dependent if not t["passed"]]
     )
     report = {
         "schema": "crn-craft.hybrid-validation/0.1",
@@ -482,6 +716,18 @@ def main():
         "checks": checks,
         "power": power,
         "atp_equivalence": equivalence,
+        "independent_gates": {
+            "family_alpha": GATE_ALPHA,
+            "comparisons": INDEPENDENT_K,
+            "epsilon": INDEPENDENT_EPSILON,
+            "rows": independent,
+        },
+        "independent_checks": independent_checks,
+        "independent_vs_dependent": {
+            "family_alpha": EQUIVALENCE_ALPHA,
+            "per_test_level": EQUIVALENCE_LEVEL,
+            "tests": against_dependent,
+        },
         "failed": failed,
     }
     text = json.dumps(report, indent=2) + "\n"

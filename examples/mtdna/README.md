@@ -21,6 +21,7 @@ them all in fresh interpreters and compares their output with the manual.
 | `05_structure.py` | 8, the `mtdna_direct` fast path |
 | `06_clones.py` | 9, the clone model |
 | `13_continuous_atp.py` | 10, continuous variables and `hybrid` |
+| `14_independent_ode.py` | 10, independent ODEs |
 | `07_atp.py` | 10, stored models: the ATP block and `thinning` |
 | `08_sweep.py` | 11, parameter sweeps |
 | `12_builder.py` | 12, building models in Python |

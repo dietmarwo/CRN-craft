@@ -13,12 +13,25 @@ every record column to be byte-identical to the interpreter's:
 - event, sampling, instance and output budgets, a wall-time budget that is
   not reached, and a cancel file that exists before a one-worker run.
 
-It checks the refusals: other methods, models outside the generator's forms
-(expression rates, `propensity` rules, continuous variables, ATP blocks,
-open models), callbacks, a missing cargo, a failed build, a loop for other
-model bytes or a bound candidate, a request the program rejects, and a
-program whose result differs. A second `compile_loop` call must reuse the
-cached build.
+String rates: four more models, written as JSON, are compiled and must be
+byte-identical to the interpreter with 1 and 2 threads, inverse and
+Ziggurat waits, trackers (one with a first-passage predicate), an event log
+and the model's stop:
+
+- the SIR model as `rules.Model` writes it, with the string rates
+  `"beta * S * I / N"` and `"gamma * I"` (whole-rule propensities), and a
+  stop at extinction or a final size;
+- Michaelis-Menten conversion `V * A / (Km + A)` beside constant rates;
+- the three-class model with degradation rates `delta * (1 + mutants / K)`,
+  which read observables, and the takeover stop;
+- rates with `max`, `min`, `if` and the other functions over `distinct`,
+  `max` and `min` observables.
+
+It checks the refusals: other methods, models that only another method runs
+(continuous variables, ATP blocks, open models), callbacks, a missing cargo,
+a failed build, a loop for other model bytes or a bound candidate, a
+request the program rejects, and a program whose result differs. A second
+`compile_loop` call must reuse the cached build.
 
 Without cargo the check is skipped with a message, unless `--require-cargo`
 is given. The report holds no timings or paths, so runs under `-O` compare
@@ -64,6 +77,188 @@ def takeover():
     model = read("mtdna-three-class.rules.json")
     model["stop"] = STOP
     return model
+
+
+def sir():
+    """The SIR model as `rules.Model` writes it, plus a stop."""
+    return {
+        "schema": "crn-craft.rules-model/0.3",
+        "name": "sir",
+        "parameters": {"beta": 0.3, "gamma": 0.1, "N": 1000.0},
+        "types": [{"name": "S"}, {"name": "I"}, {"name": "R"}],
+        "initial": [{"type": "S", "count": 990}, {"type": "I", "count": 10}],
+        "observables": {s: {"type": s} for s in ("S", "I", "R")},
+        "rules": [
+            {
+                "name": "infection",
+                "reactants": [
+                    {"label": "x", "type": "S"},
+                    {"label": "y", "type": "I"},
+                ],
+                "propensity": "beta * S * I / N",
+                "products": [{"type": "I"}, {"type": "I"}],
+            },
+            {
+                "name": "recovery",
+                "reactants": [{"label": "x", "type": "I"}],
+                "propensity": "gamma * I",
+                "products": [{"type": "R"}],
+            },
+        ],
+        "stop": "I == 0 || R >= 600",
+    }
+
+
+def michaelis_menten():
+    return {
+        "schema": "crn-craft.rules-model/0.3",
+        "name": "michaelis_menten",
+        "parameters": {"V": 50.0, "Km": 20.0, "k_in": 40.0, "d": 0.5},
+        "types": [{"name": "A"}, {"name": "P"}],
+        "initial": [{"type": "A", "count": 30}],
+        "observables": {"A": {"type": "A"}, "P": {"type": "P"}},
+        "rules": [
+            {
+                "name": "influx",
+                "reactants": [],
+                "rate": "k_in",
+                "products": [{"type": "A"}],
+            },
+            {
+                "name": "conversion",
+                "reactants": [{"label": "x", "type": "A"}],
+                "propensity": "V * A / (Km + A)",
+                "products": [{"type": "P"}],
+            },
+            {
+                "name": "decay",
+                "reactants": [{"label": "x", "type": "P"}],
+                "rate": "d",
+                "products": [],
+            },
+        ],
+        "stop": "A >= 140",
+    }
+
+
+def three_class_expression():
+    model = takeover()
+    for rule in model["rules"]:
+        if rule["name"].startswith("degradation"):
+            rule["rate"] = "delta * (1 + mutants / K)"
+    return model
+
+
+def functions():
+    """Rates with max, min, if and other functions over distinct, max and min
+    observables, and a whole-rule identical pair."""
+    return {
+        "schema": "crn-craft.rules-model/0.3",
+        "name": "functions",
+        "parameters": {"d": 0.3, "p": 0.02, "q": 0.01, "e": 0.5, "c": 0.2},
+        "types": [{"name": "A"}, {"name": "B"}, {"name": "C", "attributes": ["s"]}],
+        "initial": [
+            {"type": "A", "count": 40},
+            {"type": "C", "attributes": {"s": 1}, "count": 5},
+            {"type": "C", "attributes": {"s": 2}, "count": 3},
+        ],
+        "observables": {
+            "nA": {"type": "A"},
+            "nB": {"type": "B"},
+            "w": {"type": "B", "weight": "2.5"},
+            "kinds": {"type": "C", "reduce": "distinct"},
+            "spread": {"type": "C", "weight": "x.s * x.s", "reduce": "distinct"},
+            "top": {"type": "C", "weight": "x.s", "reduce": "max"},
+            "bottom": {"type": "C", "weight": "-x.s", "reduce": "min"},
+        },
+        "rules": [
+            {
+                "name": "death_a",
+                "reactants": [{"label": "x", "type": "A"}],
+                "rate": "d * (1 + floor(nA / 10) / 4) * if(top > 2, 1.25, 1)",
+                "products": [],
+            },
+            {
+                "name": "pair_aa",
+                "reactants": [
+                    {"label": "x", "type": "A"},
+                    {"label": "y", "type": "A"},
+                ],
+                "propensity": "p * nA * (nA - 1) / 2 * (nB < 9 || !(w > 4))",
+                "products": [{"type": "B"}],
+            },
+            {
+                "name": "pair_ab",
+                "reactants": [
+                    {"label": "x", "type": "A"},
+                    {"label": "y", "type": "B"},
+                ],
+                "rate": "q * exp(-nB / 20) * sqrt(1 + nA) / ceil(sqrt(1 + nA))",
+                "products": [{"type": "A"}, {"type": "A"}],
+            },
+            {
+                "name": "death_b",
+                "reactants": [{"label": "x", "type": "B"}],
+                "rate": "e * max(1, log(1 + nB)) ^ 0.5 - 0 * abs(bottom)",
+                "products": [],
+            },
+            {
+                "name": "create_c3",
+                "reactants": [],
+                "propensity": "if(kinds >= 3 && bottom != -3, 0.05,"
+                " 0.5 * abs(top - 3) + min(0.1, spread / 100))",
+                "products": [{"type": "C", "attributes": {"s": 3}}],
+            },
+            {
+                "name": "death_c",
+                "reactants": [{"label": "x", "type": "C"}],
+                "rate": "c + (nA == 0) * 0.3 + (top <= 2) * 0.1"
+                " + (spread != 5) * 0.05 + 2 ^ -3 * (kinds >= 2)",
+                "products": [],
+            },
+        ],
+        "stop": "nB >= 9 || (nA == 0 && w > 4) || (kinds == 0 && nA < 5)",
+    }
+
+
+# label, model, run settings, trackers, event log
+STRING_RATES = (
+    (
+        "string-rate SIR",
+        sir,
+        {"end": 300.0, "report_times": [30.0 * i for i in range(11)]},
+        [
+            {"observable": "I", "keep_episodes": 2},
+            {"observable": "R", "first_passage": "R >= 300"},
+        ],
+        {"max_entries": 6, "rules": ["recovery"]},
+    ),
+    (
+        "Michaelis-Menten",
+        michaelis_menten,
+        {"end": 40.0, "report_times": [0.0, 0.5, 1.0, 10.0, 20.0, 40.0]},
+        [{"observable": "A"}, {"observable": "P", "first_passage": "P > 60"}],
+        {"max_entries": 5, "rules": ["conversion"]},
+    ),
+    (
+        "three-class expression rates",
+        three_class_expression,
+        {"end": 25_920.0, "report_times": GRID},
+        TRACKERS,
+        LOG,
+    ),
+    (
+        "max, min and if",
+        functions,
+        {"end": 40.0, "report_times": [0.0, 1e-6, 1.0, 10.0, 40.0]},
+        [
+            {"observable": "top", "keep_episodes": 2},
+            {"observable": "spread"},
+            {"observable": "nB", "first_passage": "nB >= 3"},
+        ],
+        {"max_entries": 6, "rules": ["create_c3", "pair_aa"]},
+    ),
+)
 
 
 def identical(label, run, loop, rows, cancel_file=None):
@@ -193,6 +388,37 @@ def main():
     default = ensemble(model, loop, trackers=TRACKERS, event_log=LOG)
     identical("default static_direct", default, loop, rows)
 
+    # String rates and whole-rule propensities.
+    for label, build_model, settings, trackers, log in STRING_RATES:
+        other = build_model()
+        other_loop = rules.compile_loop(other, progress=False, **build)
+        cells = []
+        for threads in (1, 2):
+            for wait in ("inverse", "ziggurat"):
+                method = {"kind": "static_direct", "waiting_time": wait}
+                run = rules.ensemble(
+                    other,
+                    replicates=24,
+                    seed=13,
+                    threads=threads,
+                    method=method,
+                    trackers=trackers,
+                    event_log=log,
+                    keep_paths=3,
+                    keep_instances=2,
+                    compiled=other_loop,
+                    **settings,
+                )
+                cells.append(
+                    identical(
+                        f"{label}: threads {threads}, {wait}", run, other_loop, rows
+                    )
+                )
+        require(
+            any(c.metadata["stopped_replicates"] > 0 for c in cells),
+            f"{label}: the stop never fired",
+        )
+
     # Budgets and cancellation.
     for label, settings in (
         ("event budget", {"max_events": 20_000}),
@@ -223,15 +449,7 @@ def main():
                 rows,
                 ("CRN-R020", "/method"),
             )
-        expression = takeover()
-        expression["rules"][0]["rate"] = "delta * (1 + mutants / K)"
-        propensity = rules.Model("birth_death")
-        propensity.add_parameter("k", 10.0).add_species("A")
-        propensity.add_reaction("k", [], ["A"], name="birth")
-        propensity.add_reaction(1.0, ["A"], [], name="death")
         for label, other in (
-            ("expression rate", expression),
-            ("propensity rule", propensity),
             (
                 "continuous variables",
                 read("mtdna-three-class-atp-continuous.rules.json"),

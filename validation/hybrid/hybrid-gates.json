@@ -180,5 +180,142 @@
       }
     ]
   },
+  "independent_gates": {
+    "family_alpha": 0.001,
+    "comparisons": 4,
+    "epsilon": 0.014989326886706731,
+    "rows": [
+      {
+        "gate": "C1_gompertz_binomial",
+        "replicates": 20000,
+        "distance": 0.0022918199069149603,
+        "epsilon": 0.014989326886706731,
+        "passed": true
+      },
+      {
+        "gate": "C2_dependent_reads_independent_binomial",
+        "replicates": 20000,
+        "distance": 0.003716166861622461,
+        "epsilon": 0.014989326886706731,
+        "passed": true
+      },
+      {
+        "gate": "C3_independent_stop_binomial",
+        "replicates": 20000,
+        "distance": 0.002883356970253631,
+        "epsilon": 0.014989326886706731,
+        "passed": true
+      },
+      {
+        "gate": "C4_pulse_poisson",
+        "replicates": 20000,
+        "distance": 0.004594070156759611,
+        "epsilon": 0.014989326886706731,
+        "passed": true
+      }
+    ]
+  },
+  "independent_checks": [
+    {
+      "check": "C1_complete",
+      "passed": true
+    },
+    {
+      "check": "C2_complete",
+      "passed": true
+    },
+    {
+      "check": "C4_complete",
+      "passed": true
+    },
+    {
+      "check": "C1_m_shared",
+      "passed": true
+    },
+    {
+      "check": "C1_m_accuracy",
+      "passed": true,
+      "detail": 0.004321665629251731
+    },
+    {
+      "check": "C3_all_stopped",
+      "passed": true
+    },
+    {
+      "check": "C3_stop_time",
+      "passed": true,
+      "detail": 8.881784197001252e-16
+    },
+    {
+      "check": "C3_x_before_stop",
+      "passed": true
+    },
+    {
+      "check": "C3_x_after_stop",
+      "passed": true
+    },
+    {
+      "check": "C4_threads",
+      "passed": true
+    }
+  ],
+  "independent_vs_dependent": {
+    "family_alpha": 0.01,
+    "per_test_level": 0.0025,
+    "tests": [
+      {
+        "test": "D1_C1_independent_vs_dependent",
+        "kind": "two-sample Kolmogorov-Smirnov",
+        "replicates_per_arm": 20000,
+        "seed_dependent": 6211,
+        "mean_count": [
+          5.5769,
+          5.55115
+        ],
+        "statistic": 0.00764999999999999,
+        "p_value": 0.6004333769220785,
+        "passed": true
+      },
+      {
+        "test": "D2_C2_independent_vs_dependent",
+        "kind": "two-sample Kolmogorov-Smirnov",
+        "replicates_per_arm": 20000,
+        "seed_dependent": 6212,
+        "mean_count": [
+          3.47235,
+          3.43995
+        ],
+        "statistic": 0.00934999999999997,
+        "p_value": 0.34481118903057467,
+        "passed": true
+      },
+      {
+        "test": "D3_C3_independent_vs_dependent",
+        "kind": "two-sample Kolmogorov-Smirnov",
+        "replicates_per_arm": 20000,
+        "seed_dependent": 6213,
+        "mean_count": [
+          10.9862,
+          10.9608
+        ],
+        "statistic": 0.007899999999999963,
+        "p_value": 0.5589238035084656,
+        "passed": true
+      },
+      {
+        "test": "D4_C4_independent_vs_dependent",
+        "kind": "two-sample Kolmogorov-Smirnov",
+        "replicates_per_arm": 20000,
+        "seed_dependent": 6214,
+        "mean_count": [
+          11.32155,
+          11.3369
+        ],
+        "statistic": 0.0033500000000000023,
+        "p_value": 0.9998709317366293,
+        "passed": true
+      }
+    ]
+  },
   "failed": []
 }

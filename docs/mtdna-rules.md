@@ -42,9 +42,11 @@ dependency): `result.records` is a DataFrame indexed by replicate id with a
 categorical `termination` (compare with a name such as `"stopped"`),
 `result.rule_events` has one column per rule name, `result.statistics` holds
 one DataFrame per statistic indexed by report time with one column per
-observable, and `result.paths` the kept series indexed by (replicate, time).
-`keep_paths="all"` keeps every replicate, and `result.to_xarray()` returns
-the paths as an xarray Dataset when xarray is installed. Every frame has
+observable. Since 0.5.0 `result.paths` holds the kept series as an xarray
+DataArray with dimensions (`time`, `variable`, `replicate`), and xarray is
+a required dependency; `result.paths_frame()` returns the DataFrame indexed
+by (replicate, time) of earlier releases, and `result.to_xarray()` a
+Dataset. `keep_paths="all"` keeps every replicate. Every frame and array has
 `.to_numpy()`; `result.metadata` keeps the full result document, and
 `run.rule_names` and `result.rule_names` name the rules in declaration
 order. The [user manual](mtdna-user-manual.md#18-reference) lists the
@@ -85,10 +87,15 @@ rules-result/0.3, which adds the request's `method` and the names of the
 `continuous` columns. Rules-run/0.6 adds no field: Static Direct defaults
 to Ziggurat waits and sparse trackers (below), and the result is
 rules-result/0.3. Rules-model/0.2 adds the legacy `atp` block, and
-rules-model/0.3 whole-rule `propensity` and `continuous` variables; in 0.3
-a rule gives exactly one of `rate` and `propensity`. Stored rules-model
-0.1/0.2 files and rules-run 0.1–0.5 requests keep their meaning and replay
-byte-identically. Each backend has its own replay identity. Worker count
+rules-model/0.3 whole-rule `propensity` and `continuous` variables; from
+0.3 a rule gives exactly one of `rate` and `propensity`. Rules-model/0.4
+adds `"independent": true` for continuous variables whose derivative reads
+only parameters and other independent variables; `hybrid` integrates them
+once per prepared run and shares the solution by every replicate
+([rules language](rules-language.md#independent-variables-rules-model04)).
+A 0.4 document without the field means what it means as 0.3. Stored
+rules-model 0.1–0.3 files and rules-run 0.1–0.6 requests keep their
+meaning and replay byte-identically. Each backend has its own replay identity. Worker count
 preserves a completed numerical payload apart from its request hash.
 
 | Method | Scope |
@@ -100,7 +107,7 @@ preserves a completed numerical payload apart from its request hash.
 | `tau` with `epsilon` | Approximate adaptive Poisson leaps with competing critical events and exact fallback |
 | `binomial` with `step` | Approximate death-then-birth splitting for single-parent unit reactions |
 | `thinning` | Exact stochastic thinning with analytic ATP flow and a deterministic zero crossing |
-| `hybrid` | Approximate piecewise-deterministic simulation of continuous variables (rules-model/0.3) at declared tolerances; rules-run/0.5 |
+| `hybrid` | Approximate piecewise-deterministic simulation of continuous variables (rules-model/0.3; independent variables once per run in 0.4) at declared tolerances; rules-run/0.5 |
 
 Rules-model/0.3 adds whole-rule propensities
 ([rules language](rules-language.md#whole-rule-propensities-rules-model03)),
@@ -109,7 +116,9 @@ samples them. The static methods need each reactant type of such a rule to
 lower to one tuple, as for attribute-free species, and refuse other models
 with `CRN-R020` at `/method`; `tree` has no such limit. `mtdna_direct` does
 not certify them and runs Static Direct with a `CRN-R051` warning, and the
-generated Rust kernels and loops refuse them.
+generated rates kernels refuse them. Generated event loops emit them, as
+they emit every rate expression and observable that Static Direct runs
+([checklist](specialized-kernels.md#generated-rules-event-loops)).
 
 Static lowering evaluates local predicates and factors once and compiles
 constant and vacancy-rate kernels. It accepts up to 256 tuples and 4096
@@ -251,9 +260,13 @@ For leap methods, the sampling-step budget bounds both random words
 and leap iterations, including iterations with zero firings.
 
 `result.event_columns(replicate)` returns the bounded log of one replicate
-as a DataFrame indexed by `entry`, with `time`, `rule` (the index),
-`rule_name` and one column per observable; without an argument it returns
-every logged event, indexed by (`replicate`, `entry`).
+as an xarray DataArray with dimensions (`entry`, `variable`), the
+observables after each event, and the coordinates `time`, `rule` (the
+index, -1 for a leap) and `rule_name`. Without an argument it returns
+every log with dimensions (`replicate`, `entry`, `variable`), padded with
+NaN (and `rule` -2) past each replicate's `length`.
+`result.event_frame()` returns the DataFrames of earlier releases: one row
+per logged event, indexed by `entry` or by (`replicate`, `entry`).
 `result.tracker_columns(index)` returns the scalar tracker summaries as a
 DataFrame indexed by replicate id, with NaN for missing times or peaks.
 Ragged participant identities, leap multiplicities and episodes remain

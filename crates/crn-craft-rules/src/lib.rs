@@ -129,8 +129,9 @@
 //! `prepare` reports `CRN-R020` at `/method` otherwise. Every method samples
 //! whole-rule propensities (rules-model/0.3); the static methods need each
 //! of their reactant types to lower to one tuple, `mtdna_direct` falls back
-//! to Static Direct with `CRN-R051`, and generated kernels and loops refuse
-//! them with `CRN-R020`.
+//! to Static Direct with `CRN-R051`, and generated rates kernels refuse them
+//! with `CRN-R020`. Generated event loops emit every rate, propensity and
+//! observable that Static Direct runs.
 //!
 //! | `kind` | Exact | Scope |
 //! | --- | --- | --- |

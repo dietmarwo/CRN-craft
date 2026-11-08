@@ -114,8 +114,8 @@ def cases():
         ("trackers", mt(), {"trackers": TRACKERS}, "completed"),
         ("log", mt(), {"log": {"max_entries": 4}}, "completed"),
         ("sparse", sparse(), {}, "completed"),
-        # Max and distinct projections are not generated.
-        ("aggregate", aggregate, {}, "unsupported"),
+        # A closed aggregation model with a max projection.
+        ("aggregate", aggregate, {}, "completed"),
         ("immigration", model, {}, "completed"),
         ("small-stop", small, {"trackers": TRACKERS}, "completed"),
         ("cold-overflow", overflow, {}, "failed"),

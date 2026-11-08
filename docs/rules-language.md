@@ -147,7 +147,8 @@ samples this for any type. The static methods lower each pattern to its
 tuples, so they accept a propensity rule only when each reactant type has a
 single tuple, as for attribute-free species (`CRN-R020` at `/method`
 otherwise); `mtdna_direct` falls back to Static Direct with `CRN-R051`, and
-generated kernels and loops refuse such models (`CRN-R020`). For one
+generated rates kernels refuse such models (`CRN-R020`), while generated
+event loops emit them with the interpreter's arithmetic. For one
 reactant, `propensity: "k * A"` and `rate: "k"` give the same floating-point
 value, so they reproduce each other's trajectories exactly.
 

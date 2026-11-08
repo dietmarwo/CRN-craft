@@ -750,11 +750,14 @@ impl Parser<'_, '_> {
 }
 
 impl Expr {
-    /// Rust source with the stop bytecode's semantics, for generated loops:
-    /// parameters are compiled in, observables are read from `values`, and
+    /// Rust source with the semantics of [`Expr::eval`] (and of the stop
+    /// bytecode, which matches it), for generated loops: the same operations
+    /// in the same order, NaN propagation through logic and `if`,
+    /// short-circuit `&&` and `||`, and `min`/`max` that keep NaN.
+    /// Parameters are compiled in, observables are read from `values`, and
     /// `pow`, `exp`, `log`, `sqrt`, `floor` and `ceil` call the re-exported
     /// `libm`. `None` if the expression reads an attribute or draws.
-    pub(crate) fn rust_predicate(&self, params: &[f64]) -> Option<String> {
+    pub(crate) fn rust_value(&self, params: &[f64]) -> Option<String> {
         fn bits(x: f64) -> String {
             format!("f64::from_bits({:#018x})", x.to_bits())
         }

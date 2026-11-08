@@ -109,7 +109,9 @@ samples them. The static methods need each reactant type of such a rule to
 lower to one tuple, as for attribute-free species, and refuse other models
 with `CRN-R020` at `/method`; `tree` has no such limit. `mtdna_direct` does
 not certify them and runs Static Direct with a `CRN-R051` warning, and the
-generated Rust kernels and loops refuse them.
+generated rates kernels refuse them. Generated event loops emit them, as
+they emit every rate expression and observable that Static Direct runs
+([checklist](specialized-kernels.md#generated-rules-event-loops)).
 
 Static lowering evaluates local predicates and factors once and compiles
 constant and vacancy-rate kernels. It accepts up to 256 tuples and 4096

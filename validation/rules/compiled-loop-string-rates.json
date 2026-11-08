@@ -1,0 +1,144 @@
+{
+  "platform": "Linux-6.18.44-fc-v310-x86_64-with-glibc2.39",
+  "python": "3.12.3",
+  "crn_craft": "0.4.0",
+  "source": "checkout",
+  "declared_target": "compiled >= 1.5x interpreted in every row",
+  "replicates": 2000,
+  "rows": [
+    {
+      "method": "inverse",
+      "route": "interpreted",
+      "repeat": 0,
+      "seconds": 3.7014205190000666,
+      "events": 37597998,
+      "ns_per_event": 98.4472768736268,
+      "sampler": "chacha8-u53/rules-static-direct/1"
+    },
+    {
+      "method": "inverse",
+      "route": "compiled",
+      "repeat": 0,
+      "seconds": 1.8506084970001666,
+      "events": 37597998,
+      "ns_per_event": 49.220931843237146,
+      "sampler": "chacha8-u53/rules-static-direct/1"
+    },
+    {
+      "method": "inverse",
+      "route": "compiled",
+      "repeat": 1,
+      "seconds": 1.6791593850000481,
+      "events": 37597998,
+      "ns_per_event": 44.6608722358049,
+      "sampler": "chacha8-u53/rules-static-direct/1"
+    },
+    {
+      "method": "inverse",
+      "route": "interpreted",
+      "repeat": 1,
+      "seconds": 3.3547649069998897,
+      "events": 37597998,
+      "ns_per_event": 89.2272218057964,
+      "sampler": "chacha8-u53/rules-static-direct/1"
+    },
+    {
+      "method": "inverse",
+      "route": "interpreted",
+      "repeat": 2,
+      "seconds": 3.2298844009999357,
+      "events": 37597998,
+      "ns_per_event": 85.9057549021609,
+      "sampler": "chacha8-u53/rules-static-direct/1"
+    },
+    {
+      "method": "inverse",
+      "route": "compiled",
+      "repeat": 2,
+      "seconds": 1.6439180009999745,
+      "events": 37597998,
+      "ns_per_event": 43.72355147739447,
+      "sampler": "chacha8-u53/rules-static-direct/1"
+    },
+    {
+      "method": "ziggurat",
+      "route": "interpreted",
+      "repeat": 0,
+      "seconds": 3.622527654000123,
+      "events": 37598136,
+      "ns_per_event": 96.34859701555744,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    {
+      "method": "ziggurat",
+      "route": "compiled",
+      "repeat": 0,
+      "seconds": 1.5355874110000514,
+      "events": 37598136,
+      "ns_per_event": 40.84211544423509,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    {
+      "method": "ziggurat",
+      "route": "compiled",
+      "repeat": 1,
+      "seconds": 1.3583498539999255,
+      "events": 37598136,
+      "ns_per_event": 36.12811693643337,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    {
+      "method": "ziggurat",
+      "route": "interpreted",
+      "repeat": 1,
+      "seconds": 2.820791310000004,
+      "events": 37598136,
+      "ns_per_event": 75.02476479153127,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    {
+      "method": "ziggurat",
+      "route": "interpreted",
+      "repeat": 2,
+      "seconds": 2.9650028309999925,
+      "events": 37598136,
+      "ns_per_event": 78.8603677320597,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    {
+      "method": "ziggurat",
+      "route": "compiled",
+      "repeat": 2,
+      "seconds": 1.1421617810001408,
+      "events": 37598136,
+      "ns_per_event": 30.378149092288528,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    }
+  ],
+  "cached_build": false,
+  "summary": {
+    "inverse": {
+      "interpreted": {
+        "median_seconds": 3.3547649069998897,
+        "ns_per_event": 89.2272218057964
+      },
+      "compiled": {
+        "median_seconds": 1.6791593850000481,
+        "ns_per_event": 44.6608722358049
+      },
+      "speedup": 1.9978835463554245
+    },
+    "ziggurat": {
+      "interpreted": {
+        "median_seconds": 2.9650028309999925,
+        "ns_per_event": 78.8603677320597
+      },
+      "compiled": {
+        "median_seconds": 1.3583498539999255,
+        "ns_per_event": 36.12811693643337
+      },
+      "speedup": 2.182797621885823
+    }
+  },
+  "target_met": true
+}

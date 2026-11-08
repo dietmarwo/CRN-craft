@@ -38,6 +38,24 @@ mod empty {
 mod operators {
     include!("generated/loop_stop_operators_loop.rs");
 }
+mod sir_builder {
+    include!("generated/loop_sir_builder_loop.rs");
+}
+mod sir {
+    include!("generated/loop_sir_loop.rs");
+}
+mod michaelis_menten {
+    include!("generated/loop_michaelis_menten_loop.rs");
+}
+mod three_class_expression {
+    include!("generated/loop_three_class_expression_loop.rs");
+}
+mod functions {
+    include!("generated/loop_functions_loop.rs");
+}
+mod expression_invalid {
+    include!("generated/loop_expression_invalid_loop.rs");
+}
 
 const STOP: &[u8] = include_bytes!("generated/mtdna_three_class_stop.rules.json");
 const PAIRS: &[u8] = include_bytes!("generated/loop_pairs.rules.json");
@@ -49,8 +67,29 @@ const COUNT_RANGE: &[u8] = include_bytes!("generated/loop_count_range.rules.json
 const OVERFLOW: &[u8] = include_bytes!("generated/loop_overflow.rules.json");
 const EMPTY: &[u8] = include_bytes!("generated/loop_empty.rules.json");
 const OPERATORS: &[u8] = include_bytes!("generated/loop_stop_operators.rules.json");
+const SIR: &[u8] = include_bytes!("generated/loop_sir.rules.json");
+const MICHAELIS_MENTEN: &[u8] = include_bytes!("generated/loop_michaelis_menten.rules.json");
+const THREE_CLASS_EXPRESSION: &[u8] =
+    include_bytes!("generated/loop_three_class_expression.rules.json");
+const FUNCTIONS: &[u8] = include_bytes!("generated/loop_functions.rules.json");
+const EXPRESSION_INVALID: &[u8] = include_bytes!("generated/loop_expression_invalid.rules.json");
 
 const PLAIN: &[u8] = include_bytes!("../../../models/rules/mtdna-three-class.rules.json");
+
+/// The SIR model as the Python builder writes it, with string rates
+/// (whole-rule propensities): the reported failing case.
+const SIR_BUILDER: &[u8] = include_bytes!("generated/loop_sir_builder.rules.json");
+
+#[test]
+fn the_builder_sir_with_string_rates_is_generated() {
+    let prepared = prepare(
+        SIR_BUILDER,
+        &Run::new(10.0, vec![0.0, 10.0]).request(SIR_BUILDER),
+    )
+    .unwrap();
+    let source = generate_rules_loop(&prepared).unwrap();
+    assert!(source.contains("impl crn_craft_rules::RulesLoop for GeneratedRulesLoop"));
+}
 
 const DEFAULT: (&str, &str) = ("crn-craft.rules-run/0.2", r#"{"kind": "static_direct"}"#);
 /// Every waiting-time and tracker policy, including the rules-run/0.6
@@ -206,6 +245,32 @@ fn generator_output_matches_the_checked_in_loops() {
             OPERATORS,
             include_str!("generated/loop_stop_operators_loop.rs"),
             "loop_stop_operators",
+        ),
+        (
+            SIR_BUILDER,
+            include_str!("generated/loop_sir_builder_loop.rs"),
+            "loop_sir_builder",
+        ),
+        (SIR, include_str!("generated/loop_sir_loop.rs"), "loop_sir"),
+        (
+            MICHAELIS_MENTEN,
+            include_str!("generated/loop_michaelis_menten_loop.rs"),
+            "loop_michaelis_menten",
+        ),
+        (
+            THREE_CLASS_EXPRESSION,
+            include_str!("generated/loop_three_class_expression_loop.rs"),
+            "loop_three_class_expression",
+        ),
+        (
+            FUNCTIONS,
+            include_str!("generated/loop_functions_loop.rs"),
+            "loop_functions",
+        ),
+        (
+            EXPRESSION_INVALID,
+            include_str!("generated/loop_expression_invalid_loop.rs"),
+            "loop_expression_invalid",
         ),
     ] {
         let prepared = prepare(model, &Run::new(10.0, vec![0.0, 10.0]).request(model)).unwrap();
@@ -378,7 +443,7 @@ fn a_loop_for_other_model_bytes_is_rejected() {
 }
 
 #[test]
-fn other_methods_and_rates_are_refused() {
+fn other_methods_are_refused() {
     let run = Run {
         method: ("crn-craft.rules-run/0.2", r#"{"kind": "next_reaction"}"#),
         ..Run::new(10.0, vec![0.0, 10.0])
@@ -392,12 +457,6 @@ fn other_methods_and_rates_are_refused() {
         panic!("next reaction accepted");
     };
     assert_eq!(error.path, "/method");
-
-    let mut model: Value = serde_json::from_slice(PAIRS).unwrap();
-    model["rules"][0]["rate"] = json!("d * (1 + nB)");
-    let model = serde_json::to_vec(&model).unwrap();
-    let prepared = prepare(&model, &Run::new(10.0, vec![0.0, 10.0]).request(&model)).unwrap();
-    assert!(generate_rules_loop(&prepared).is_err());
 }
 
 /// Trackers, first-passage trackers and event logs, over the edge fixtures'
@@ -574,4 +633,191 @@ fn every_stop_operator_is_emitted_like_the_bytecode() {
         let result = replay(OPERATORS, &run, &operators::GeneratedRulesLoop);
         assert!(result.contains("\"stopped\""));
     }
+}
+
+/// Every Static Direct policy with one thread and no observation, and with
+/// one and two threads, trackers and an event log. Each fixture has a stop.
+fn string_rate_matrix(
+    model: &[u8],
+    kernel: &impl RulesLoop,
+    base: &Run,
+    trackers: &Value,
+    event_log: &Value,
+) -> Vec<String> {
+    let mut results = Vec::new();
+    for method in METHODS {
+        for (threads, observed) in [(1, false), (1, true), (2, true)] {
+            let run = Run {
+                method,
+                threads,
+                replicates: base.replicates,
+                trackers: observed.then(|| trackers.clone()),
+                event_log: observed.then(|| event_log.clone()),
+                keep_instances: base.replicates,
+                ..Run::new(base.end, base.reports.clone())
+            };
+            results.push(replay(model, &run, kernel));
+        }
+    }
+    results
+}
+
+#[test]
+fn the_builder_sir_replays_byte_identically() {
+    let run = Run {
+        replicates: 16,
+        ..Run::new(200.0, (0..=10).map(|i| f64::from(i) * 20.0).collect())
+    };
+    for method in METHODS {
+        for threads in [1, 2] {
+            let run = Run {
+                method,
+                threads,
+                ..Run::new(run.end, run.reports.clone())
+            };
+            replay(SIR_BUILDER, &run, &sir_builder::GeneratedRulesLoop);
+        }
+    }
+    let result = replay(SIR_BUILDER, &run, &sir_builder::GeneratedRulesLoop);
+    assert!(result.contains("\"completed\""));
+}
+
+#[test]
+fn a_string_rate_sir_with_a_stop_replays() {
+    let base = Run {
+        replicates: 16,
+        ..Run::new(300.0, (0..=10).map(|i| f64::from(i) * 30.0).collect())
+    };
+    let results = string_rate_matrix(
+        SIR,
+        &sir::GeneratedRulesLoop,
+        &base,
+        &json!([{"observable": "I", "keep_episodes": 2},
+                {"observable": "R", "first_passage": "R >= 300"}]),
+        &json!({"max_entries": 6, "rules": ["recovery"]}),
+    );
+    assert!(results.iter().all(|r| r.contains("\"stopped\"")));
+}
+
+#[test]
+fn michaelis_menten_propensities_replay() {
+    let base = Run {
+        replicates: 16,
+        ..Run::new(40.0, vec![0.0, 0.5, 1.0, 10.0, 20.0, 40.0])
+    };
+    let results = string_rate_matrix(
+        MICHAELIS_MENTEN,
+        &michaelis_menten::GeneratedRulesLoop,
+        &base,
+        &json!([{"observable": "A"}, {"observable": "P", "first_passage": "P > 60"}]),
+        &json!({"max_entries": 5, "rules": ["conversion"]}),
+    );
+    assert!(results.iter().all(|r| r.contains("\"stopped\"")));
+    assert!(results.iter().all(|r| r.contains("\"completed\"")));
+}
+
+#[test]
+fn three_class_expression_rates_reading_observables_replay() {
+    let base = Run {
+        replicates: 8,
+        ..Run::new(25_920.0, vec![0.0, 8640.0, 17_280.0, 25_920.0])
+    };
+    let results = string_rate_matrix(
+        THREE_CLASS_EXPRESSION,
+        &three_class_expression::GeneratedRulesLoop,
+        &base,
+        &json!([{"observable": "neutral_mutants", "keep_episodes": 2},
+                {"observable": "advantaged_mutants"},
+                {"observable": "mutants", "first_passage": "N > 0 && mutants >= 0.5 * N"}]),
+        &json!({"max_entries": 8, "rules": ["mutation_mt", "mutation_mtAdv"]}),
+    );
+    assert!(results.iter().any(|r| r.contains("\"stopped\"")));
+}
+
+#[test]
+fn every_rate_operator_function_and_reduction_replays() {
+    let base = Run {
+        replicates: 16,
+        ..Run::new(40.0, vec![0.0, 1e-6, 1.0, 10.0, 40.0])
+    };
+    let trackers = json!([{"observable": "top", "keep_episodes": 2},
+                          {"observable": "spread"},
+                          {"observable": "nB", "first_passage": "nB >= 3"}]);
+    let log = json!({"max_entries": 6, "rules": ["create_c3", "pair_aa"]});
+    let results = string_rate_matrix(
+        FUNCTIONS,
+        &functions::GeneratedRulesLoop,
+        &base,
+        &trackers,
+        &log,
+    );
+    assert!(results.iter().all(|r| r.contains("\"stopped\"")));
+    // Budgets end paths identically too.
+    for method in METHODS {
+        for (events, words, instances) in [
+            (37, 10_000_000, 1000),
+            (1_000_000, 53, 1000),
+            (1_000_000, 10_000_000, 3),
+        ] {
+            let run = Run {
+                method,
+                replicates: 12,
+                threads: 2,
+                events,
+                words,
+                instances,
+                trackers: Some(trackers.clone()),
+                event_log: Some(log.clone()),
+                ..Run::new(40.0, base.reports.clone())
+            };
+            replay(FUNCTIONS, &run, &functions::GeneratedRulesLoop);
+        }
+    }
+}
+
+#[test]
+fn negative_and_undefined_expression_rates_fail_identically() {
+    let base = Run {
+        replicates: 24,
+        ..Run::new(100.0, vec![0.0, 0.1, 100.0])
+    };
+    let results = string_rate_matrix(
+        EXPRESSION_INVALID,
+        &expression_invalid::GeneratedRulesLoop,
+        &base,
+        &json!([{"observable": "nA"}]),
+        &json!({"max_entries": 3}),
+    );
+    for result in &results {
+        assert!(result.contains("invalid fixed-channel propensity"));
+        assert!(
+            result.contains("/rules/1/propensity"),
+            "no negative propensity"
+        );
+        assert!(result.contains("/rules/2/rate"), "no undefined rate");
+    }
+}
+
+#[test]
+fn random_functions_never_reach_a_static_direct_rate() {
+    // `choice` and the other draws are product-attribute functions: a rate
+    // that uses one is invalid (CRN-R012), and a model that draws product
+    // attributes is open, so Static Direct refuses it before a loop exists.
+    let mut model: Value = serde_json::from_slice(SIR).unwrap();
+    model["rules"][1]["propensity"] = json!("choice(0.5, gamma, 0) * I");
+    let model = serde_json::to_vec(&model).unwrap();
+    let diagnostics = prepare(&model, &Run::new(10.0, vec![0.0, 10.0]).request(&model))
+        .err()
+        .unwrap();
+    assert_eq!(diagnostics[0].code, "CRN-R012");
+    let mut model: Value = serde_json::from_slice(FUNCTIONS).unwrap();
+    model["rules"][4]["products"][0]["attributes"]["s"] = json!("choice(0.5, 3, 1)");
+    let model = serde_json::to_vec(&model).unwrap();
+    let diagnostics = prepare(&model, &Run::new(10.0, vec![0.0, 10.0]).request(&model))
+        .err()
+        .unwrap();
+    assert_eq!(
+        (diagnostics[0].code.as_str(), diagnostics[0].path.as_str()),
+        ("CRN-R020", "/method")
+    );
 }

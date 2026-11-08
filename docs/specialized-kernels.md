@@ -96,8 +96,10 @@ below implements it.
 
 ## Generated rules event loops
 
-The loop generator emits the whole Static Direct event for a lowered model
-with constant or recognized vacancy rates and sum projections. The emitted
+The loop generator emits the whole Static Direct event for every model
+that Static Direct runs: constant, vacancy and expression rates, whole-rule
+`propensity` expressions (the string rates of `rules.Model`), and `sum`,
+`distinct`, `max` and `min` projections. The emitted
 `GeneratedRulesLoop` holds the rates in a fixed-size array and, after each
 event, updates the channels that the fired channel affects. It sums the
 total in channel order, checks resolution, scans for the next channel,
@@ -107,7 +109,16 @@ fraction such as `N > 0 && mutants >= 0.9 * N` keeps the interpreter's
 fused form. Any other predicate is emitted from its expression with the
 bytecode's semantics: NaN propagation, short-circuit `&&` and `||`, and
 the same `libm` functions. An undefined value is passed back to the host
-for the interpreter's diagnostic. All of it is straight-line code with the
+for the interpreter's diagnostic. Rate and propensity expressions are
+emitted the same way, with parameters compiled in as exact bit patterns and
+observables read from the current values. The global factor is multiplied
+by the reactant weight times the lowered channel factor, as in the
+interpreter; for a whole-rule propensity the weight is 1 while every
+pattern can take a distinct molecule and 0 otherwise, and the expression is
+not evaluated at weight 0. A rate expression shared by several channels of
+one rule is evaluated once per dependency row, as the interpreter's
+per-event cache does. Projections use the interpreter's reductions over
+the same terms in the same order. All of it is straight-line code with the
 interpreter's operation order. `LoopHost` supplies the rest at run time:
 polling, inverse or Ziggurat waits, uniforms, reports and the horizon, the
 event, instance and sampling budgets, tracker observation and event logs.
@@ -124,9 +135,11 @@ request for its model bytes: either waiting time, either tracker policy,
 any report grid, budget or worker count. As for the rates kernel, the
 fingerprint is the SHA-256 of the emitted source keyed by the model bytes,
 and a loop for other model bytes or from another generator version is
-refused with `CRN-R020`. Other methods, expression rates and max, min or
-distinct projections are refused by the generator. So is a loop whose
-source would exceed 1 MiB: the rate code is repeated in every dependency
+refused with `CRN-R020`. The generator refuses, with `CRN-R020` at
+`/method`, exactly two kinds of request. One selects a method other than
+`static_direct`; models with ATP, continuous variables or instances that
+change identity need another method, so they never reach the generator.
+The other is a loop whose source would exceed 1 MiB: the rate code is repeated in every dependency
 row, so densely coupled networks grow with the square of their channel
 count. A 64-channel network with one shared vacancy base emits about
 0.8 MB, and 128 channels would exhaust a 7 GB build host. Such networks use
@@ -146,7 +159,7 @@ because lowering allows at most 256 species and the interpreter defers only
 weights bounded for 1024 terms.
 
 `crates/crn-craft-rules/tests/generated_loop.rs` runs checked-in loops for
-ten fixtures under `cargo test`:
+sixteen fixtures under `cargo test`:
 
 - the three-class model with its takeover stop;
 - identical and distinct pairs with extinction and a general stop
@@ -159,18 +172,32 @@ ten fixtures under `cargo test`:
   a stop that becomes undefined;
 - a count that leaves its range;
 - a projection that overflows;
-- a network without channels.
+- a network without channels;
+- the SIR model as `rules.Model` writes it, with the string rates
+  `"beta * S * I / N"` and `"gamma * I"`, and the same model with a stop;
+- Michaelis–Menten conversion `V * A / (Km + A)` beside constant rates;
+- the three-class model with degradation rates `delta * (1 + mutants / K)`
+  and an `if` in a replication rate;
+- rates and propensities with every operator and function a rate may use,
+  `distinct`, `max` and `min` observables and a whole-rule identical pair;
+- expression rates that become negative or undefined.
 
 The tests replay every Static Direct policy and the event, sampling-step
 and instance limits. They also cover trackers, first-passage trackers,
 event logs, reports close together, a horizon before the first event, the
 stops and the errors. They check that cancellation is polled inside the
-loop, and that other model bytes, other methods, expression rates and
-oversized networks are refused. `validation/check_generated_loop.py`
-generates loops for twelve replay cases, among them a stop outside the
-fused form. It replays them against the CLI with one and eight workers. It
-checks that an aggregation model with a max projection and an oversized
-dense network are refused, and it times the probes.
+loop, and that other model bytes, other methods and oversized networks are
+refused. `choice` and the other random functions never reach a rate: a rate
+that uses one is invalid (`CRN-R012`), and a model that draws product
+attributes is open, so Static Direct refuses it before a loop exists. The
+string-rate fixtures run every Static Direct policy with one and two
+threads, trackers, first-passage trackers, an event log and the model's
+stop, and the event, sampling and instance limits.
+`validation/check_generated_loop.py` generates loops for thirteen replay
+cases, among them a stop outside the fused form and a closed aggregation
+model with a max projection. It replays them against the CLI with one and
+eight workers. It checks that an oversized dense network is refused, and
+it times the probes.
 
 On the two-CPU host, the 128-cell probe took about 48 ns per event with the
 generated loop under Ziggurat waits and sparse trackers. That is 2.4× faster
@@ -224,7 +251,17 @@ Direct with its rules-run/0.6 defaults, Ziggurat waits and sparse trackers
 host, a second model 3 s and a cached call 0.06 s
 ([record](decisions/compiled-rules-loop-python-2026-11-06.md),
 `validation/mtdna/compiled-loop-python.json`).
+For string rates the declared target was the same 1.5×, on the SIR model
+as `rules.Model` writes it, scaled to N = 10,000 (2,000 replicates to time
+400, two threads, 37.6 million events). The compiled loop took 1.64 s
+against 3.35 s with inverse waits (2.00×) and 1.36 s against 2.97 s with
+Ziggurat waits (2.18×), medians of three alternating runs end to end from
+Python (`validation/benchmark_compiled_string_rates.py`,
+`validation/rules/compiled-loop-string-rates.json`).
 `validation/check_compiled_loop.py` checks identity over threads, waiting
-times, tracker policies, event logs, stops, budgets and cancellation, and
-the refusals; it runs in CI against the checkout. See the
+times, tracker policies, event logs, stops, budgets and cancellation, on
+the three-class model and on four string-rate models (the builder SIR,
+Michaelis–Menten, expression rates that read observables, and `max`, `min`
+and `if` over `distinct`, `max` and `min` observables), and the refusals;
+it runs in CI against the checkout. See the
 [user manual](mtdna-user-manual.md#optional-compiled-event-loop) for usage.

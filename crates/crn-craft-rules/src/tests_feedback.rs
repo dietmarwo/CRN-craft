@@ -472,27 +472,26 @@ fn invalid_propensities_fail_the_replicate() {
     }
 }
 
-/// Generated kernels and loops refuse models with whole-rule propensities.
+/// Generated rates kernels refuse models with whole-rule propensities;
+/// generated event loops emit them (`tests/generated_loop.rs` replays them).
 #[test]
-fn generated_code_refuses_propensities() {
+fn generated_kernels_refuse_propensities_and_loops_emit_them() {
     let bytes = serde_json::to_vec(&birth_death(true, 5)).unwrap();
     let mut request = run_request(&bytes, json!({"kind": "static_direct"}), 2);
     request["schema"] = json!("crn-craft.rules-run/0.2");
     let prepared = prepare_json(&bytes, &request).unwrap();
-    for error in [
-        generate_rules_kernel(&prepared).err().unwrap(),
-        generate_rules_loop(&prepared).err().unwrap(),
-    ] {
-        assert_eq!(
-            (error.code.as_str(), error.path.as_str()),
-            ("CRN-R020", "/method")
-        );
-        assert!(
-            error.message.contains("whole-rule propensities"),
-            "{}",
-            error.message
-        );
-    }
+    let error = generate_rules_kernel(&prepared).err().unwrap();
+    assert_eq!(
+        (error.code.as_str(), error.path.as_str()),
+        ("CRN-R020", "/method")
+    );
+    assert!(
+        error.message.contains("whole-rule propensities"),
+        "{}",
+        error.message
+    );
+    let source = generate_rules_loop(&prepared).unwrap();
+    assert!(source.contains("f64::from(u8::from(counts["), "{source}");
 }
 
 /// rules-model/0.3 keeps the ATP block, and thinning samples propensity

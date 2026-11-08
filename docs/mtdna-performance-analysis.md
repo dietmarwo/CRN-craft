@@ -320,8 +320,9 @@ peak traced allocation was 5.2 MB and 32 MB for `event_columns()`, against
   took 2.8 s, against 3.9 s for the Java implementation of the same model.
 - **Generated loop.** *Opt-in.* From Rust, the generated
   event loop runs Static Direct requests with byte-identical results. It
-  needs constant or vacancy rates and sum observables, and is compiled for
-  one model and parameter set; other requests are refused with `CRN-R020`.
+  covers every model that Static Direct runs (expression and string rates
+  since 0.5.0) and is compiled for one model and parameter set; other
+  requests are refused with `CRN-R020`.
   On
   the 128-cell probe, with one thread, Ziggurat waits and sparse trackers
   (`validation/mtdna/generated-loop.json`), the costs per event were:
@@ -443,8 +444,8 @@ Output and memory grow with what is kept, not with the events:
    to a few thousand cells, with `mtdna_direct` where the model has its
    structure ([optimization tutorial](mtdna-optimization-tutorial.md)).
 6. **For the largest studies, use Rust.** Call the engine directly, or use
-   the opt-in generated loop for closed models with constant or vacancy
-   rates that `mtdna_direct` does not certify.
+   the opt-in generated loop for closed models that `mtdna_direct` does
+   not certify.
 
 ## Reproducing
 

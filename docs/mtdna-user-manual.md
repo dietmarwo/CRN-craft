@@ -888,7 +888,8 @@ Direct, at its speed.
 
 ### Optional: compiled event loop
 
-*Opt-in, off by default; needs a Rust toolchain. New in 0.4.0.*
+*Opt-in, off by default; needs a Rust toolchain. New in 0.4.0; string
+rates since 0.5.0.*
 
 `rules.compile_loop(model)` compiles the whole Static Direct event of one
 model into a small native program; `compiled=loop`, on `rules.ensemble` or
@@ -904,7 +905,7 @@ three-class structure.
 import json
 import time
 
-from crn_craft import CrnError, rules
+from crn_craft import rules
 
 model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
 model["stop"] = "N > 0 && mutants >= 0.9 * N"
@@ -931,21 +932,12 @@ for label, compiled in (("interpreted", None), ("compiled", loop)):
 # Runs the request both ways; raises unless the results are byte-identical.
 loop.verify(run)
 print("byte-identical")
-
-# Without cargo: does the generator support a model?
-other = json.loads(json.dumps(model))
-other["rules"][0]["rate"] = "delta * (1 + mutants / K)"
-try:
-    rules.loop_source(other)
-except CrnError as error:
-    print(error.diagnostics[0]["code"], error.diagnostics[0]["message"])
 ```
 
 ```text
 interpreted   1.19 s   28,523,982 events  taken over 20  chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1
 compiled      0.51 s   28,523,982 events  taken over 20  chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1
 byte-identical
-CRN-R020 generated rules loops support constant or vacancy rates and sum observables
 ```
 
 On the 1000-cell workload of the
@@ -956,6 +948,65 @@ and 3.8 s against 7.0 s with inverse waits and per-event trackers (1.86×),
 medians of three on the two-CPU host
 (`validation/mtdna/compiled-loop-python.json`).
 `mtdna_direct` is faster still where it applies.
+
+`compile_loop` also compiles string rates. A string rate in `rules.Model`
+is a whole-rule propensity, and the generator emits it, like any rate
+expression, with the interpreter's operations in the interpreter's order:
+the same `libm` functions, NaN propagation through comparisons, logic and
+`if`, short-circuit `&&` and `||`, and `min` and `max` that keep NaN. The
+results stay byte-identical to interpreted Static Direct, which `verify`
+checks:
+
+```python
+"""String rates in a compiled loop: the builder's SIR model (needs cargo)."""
+
+import time
+
+from crn_craft import CrnError, rules
+
+sir = rules.Model("sir")
+sir.add_species({"S": 9_990, "I": 10, "R": 0})
+sir.add_parameter({"beta": 0.3, "gamma": 0.1, "N": 10_000.0})
+sir.add_reaction("beta * S * I / N", ["S", "I"], ["I", "I"], name="infection")
+sir.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
+loop = rules.compile_loop(sir)  # string rates compile like constant ones
+run = rules.ensemble(
+    sir,
+    end=400.0,
+    report_times=[0.0, 100.0, 200.0, 400.0],
+    replicates=500,
+    seed=3,
+    threads=2,
+    method="static_direct",
+)
+for label, compiled in (("interpreted", None), ("compiled", loop)):
+    start = time.perf_counter()
+    result = run.simulate(compiled=compiled)
+    seconds = time.perf_counter() - start
+    print(f"{label:12s} {seconds:5.2f} s  {result.metadata['events']:>11,} events")
+loop.verify(run)
+print("byte-identical")
+
+# Without cargo: the generator still refuses models only another method runs.
+atp = rules.load("models/rules/mtdna-three-class-atp-continuous.rules.json")
+try:
+    rules.loop_source(atp)
+except CrnError as error:
+    print(error.diagnostics[0]["code"], error.diagnostics[0]["message"])
+```
+
+```text
+interpreted   0.61 s    9,400,096 events
+compiled      0.22 s    9,400,096 events
+byte-identical
+CRN-R020 continuous variables require the hybrid method
+```
+
+On the same SIR model with 2,000 replicates (37.6 million events), timed
+from Python including the subprocess, the compiled loop took 1.64 s
+against 3.35 s with inverse waits (2.00×) and 1.36 s against 2.97 s with
+Ziggurat waits (2.18×), medians of three on the two-CPU host
+(`validation/rules/compiled-loop-string-rates.json`).
 
 **`compiled=` on `rules.ensemble` or on `simulate()`.** A loop can be
 given in two places, and both run the same program with the same results:
@@ -1001,11 +1052,13 @@ The cache takes about 160 MB; delete the directory to reclaim it.
 
 - Only `method="static_direct"`, with any options. Other methods are
   refused with `CRN-R020` at `/method`.
-- The generator needs constant or vacancy rates (`max(0, K - N) / D` times
-  constants) and weighted-sum observables, and at most 1 MiB of source.
-  It refuses expression rates, `propensity` rules, max or distinct
-  observables, continuous variables, ATP blocks and models whose instances
-  change identity with `CRN-R020` at `/method`, before cargo runs.
+- The generator emits every model that `method="static_direct"` runs:
+  constant, vacancy and expression rates, string rates (`propensity`
+  rules) and `sum`, `distinct`, `max` and `min` observables. It refuses,
+  with `CRN-R020` at `/method` and before cargo runs, models that only
+  another method runs (continuous variables, ATP blocks, instances that
+  change identity), and loops that would exceed 1 MiB of source, which
+  densely coupled networks with many channels reach.
   `rules.loop_source(model)` returns the source, or that error, without
   cargo.
 - Parameters are compiled in, so another parameter set needs another loop.
@@ -1270,6 +1323,95 @@ Rules for continuous variables:
 - A bound is checked on the integrator's dense output at each step. A
   variable that dips below its bound and returns within one step can be
   missed; tighter tolerances shorten the steps.
+
+### Independent ODEs
+
+*New in 0.5.0 (rules-model/0.4).*
+
+Some continuous variables do not depend on the molecules at all: a forcing
+such as a daily rhythm, a drug concentration that decays on its own, or a
+hazard that grows with age. Declare such a variable with
+`add_ode(..., independent=True)`, which writes `"independent": true` and
+rules-model/0.4. Its `initial` and `derivative` may then read only
+parameters and other independent variables; anything else is refused with
+`CRN-R012` at the derivative's path. Rates, propensities and the
+derivatives of the other variables read it as before, and results report it
+like any continuous variable.
+
+`hybrid` integrates the independent variables once per prepared run, over
+the whole horizon at the request's `rtol` and `atol`, and every replicate
+and thread reads them from that one solution, so results do not depend on
+`threads`. Each replicate integrates only the other variables and the
+integrated propensity. A large or stiff independent system is then no
+longer integrated again in every replicate: on an eight-compartment pulse
+driving arrivals, `independent=True` was 2.8 times as fast
+(`validation/hybrid/RESULTS.md`, section E). When events dominate, as with
+a two-variable daily rhythm on the three-class model
+(`examples/mtdna/14_independent_ode.py`), the run time hardly changes, but
+the rhythm stays more accurate because it is not restarted at every event.
+
+Bounds keep their meaning. With `on_bound="clamp"` the variable is held at
+its bound. With `"stop"`, reaching the bound ends the replicate, and since
+the variable is the same in every replicate, every replicate that is still
+running stops at the same time. The shared solution is computed while the
+request is prepared, so `cancel_file` and `wall_time_s` do not interrupt it;
+the step budget `max_sampling_steps` bounds it. Without `independent`, a
+rules-model/0.4 document means what it means as 0.3.
+
+```python
+"""An independent ODE: Gompertz mortality (rules-model/0.4, hybrid)."""
+
+import math
+
+from crn_craft import CrnError, rules
+
+# The hazard m grows as dm/dt = g m whatever the molecules do.
+gompertz = rules.Model("gompertz")
+gompertz.add_parameter({"g": 0.5, "m0": 0.1})
+gompertz.add_species({"A": 20})
+gompertz.add_ode("m", "m0", "g * m", independent=True)
+gompertz.add_reaction("m * A", ["A"], [], name="death")
+print("schema:", gompertz.to_dict()["schema"])
+result = rules.ensemble(
+    gompertz,
+    end=4.0,
+    report_times=[0.0, 2.0, 4.0],
+    replicates=4000,
+    seed=1,
+    threads=2,
+    method="hybrid",
+).simulate()
+print(result.metadata["continuous"], result.metadata["sampler"])
+print(result.statistics["mean"].round(3))
+survival = math.exp(-0.1 * (math.exp(2.0) - 1.0) / 0.5)
+print(f"exact mean at t = 4: {20 * survival:.3f}")
+
+# An independent derivative may read only parameters and independent variables.
+model = gompertz.to_dict()
+model["continuous"][0]["derivative"] = "g * m * A"
+try:
+    rules.ensemble(model, end=4.0, report_times=[4.0], method="hybrid")
+except CrnError as error:
+    print(error.diagnostics[0]["code"], error.diagnostics[0]["path"])
+    print(error.diagnostics[0]["message"])
+```
+
+```text
+schema: crn-craft.rules-model/0.4
+['m'] chacha8-u53/rules-approximate-hybrid-dopri54/1
+           A      m
+time               
+0.0   20.000  0.100
+2.0   14.154  0.272
+4.0    5.585  0.739
+exact mean at t = 4: 5.573
+CRN-R012 /continuous/0/derivative
+the derivative of independent variable `m` reads observable `A`
+```
+
+Each molecule survives to time t with probability exp(−∫m), so the count
+at t = 4 is binomial with mean 20 × 0.2786 = 5.573; 4,000 replicates give
+5.585.
 
 ### Stored models: the ATP block and `thinning`
 
@@ -1782,9 +1924,10 @@ println!("{} cells stopped", result.stopped_replicates);
   returns `ObserverAction::Stop` to end that cell. An observer that always
   continues compiles away and leaves results byte-identical.
 - *Opt-in:* `generate_rules_loop(&prepared)` emits Rust source
-  for the whole Static Direct event of one prepared model. It requires a
-  `static_direct` request, constant or vacancy rates and sum observables,
-  and at most 1 MiB of source; it refuses anything else with `CRN-R020`.
+  for the whole Static Direct event of one prepared model, for every model
+  that Static Direct runs (expression and string rates included). It
+  requires a `static_direct` request and at most 1 MiB of source, and
+  refuses anything else with `CRN-R020`.
   Parameters are compiled in, so another parameter set needs another loop.
   Compile it into your program and run it with `execute_with_rules_loop`,
   which runs only a loop generated for the same model bytes. Results are

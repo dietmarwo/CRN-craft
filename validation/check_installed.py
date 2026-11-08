@@ -486,7 +486,7 @@ def check_pandas_results(result):
 
 
 def check_hybrid():
-    """A tiny hybrid run: x' = 2 from 0 drives immigration at rate x."""
+    """Tiny hybrid runs: x' = 2 drives immigration; an independent ODE."""
     ramp = rules.Model("ramp")
     ramp.add_species("A")
     ramp.add_ode("x", 0.0, "2")
@@ -524,6 +524,43 @@ def check_hybrid():
         and bool(np.all(np.abs(mean["A"].to_numpy()[1:] - exact[1:]) <= 5 * error[1:])),
         "installed hybrid integrates x and matches the Poisson law",
     )
+    # An independent ODE (rules-model/0.4): Gompertz mortality m' = g m, so
+    # each of 20 molecules survives to t with probability exp(-integral of m).
+    gompertz = rules.Model("gompertz")
+    gompertz.add_parameter({"g": 0.5, "m0": 0.1}).add_species({"A": 20})
+    gompertz.add_ode("m", "m0", "g * m", independent=True)
+    gompertz.add_reaction("m * A", ["A"], [], name="death")
+    result = rules.ensemble(
+        gompertz,
+        end=4.0,
+        report_times=[0.0, 4.0],
+        replicates=400,
+        seed=13,
+        threads=2,
+        method="hybrid",
+    ).simulate()
+    survival = np.exp(-0.1 * (np.exp(2.0) - 1.0) / 0.5)
+    mean = result.statistics["mean"]
+    error = result.statistics["mean_standard_error"]["A"].iloc[1]
+    require(
+        gompertz.to_dict()["schema"] == "crn-craft.rules-model/0.4"
+        and result.metadata["continuous"] == ["m"]
+        and np.isclose(mean["m"].iloc[1], 0.1 * np.exp(2.0), rtol=1e-5)
+        and abs(mean["A"].iloc[1] - 20 * survival) <= 5 * error,
+        "installed hybrid solves an independent ODE and matches the binomial law",
+    )
+    dependent = gompertz.to_dict()
+    dependent["continuous"][0]["derivative"] = "g * m * A"
+    try:
+        rules.ensemble(dependent, end=1.0, report_times=[1.0], method="hybrid")
+    except c.CrnError as error:
+        first = error.diagnostics[0]
+        require(
+            (first["code"], first["path"]) == ("CRN-R012", "/continuous/0/derivative"),
+            "an independent ODE that reads a species is refused",
+        )
+    else:
+        raise RuntimeError("an independent ODE that reads a species was accepted")
 
 
 def check_compiled_loop_refusals():

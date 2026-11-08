@@ -469,7 +469,7 @@ another simulator (it never executes it):
 | Question | Method |
 |---|---|
 | Exact sample paths or ensemble statistics | `simulate` (or `simulate-cached` for networks with more than a few dozen reactions) |
-| Faster exact ensembles without an archive | `ssa` with `crn.ssa_spec` (DirectCR, SortingDirect, RSSACR or next reaction; `fast` by default) |
+| Faster exact ensembles without an archive | `ssa` with `crn.ssa_spec` (DirectCR, SortingDirect, RSSACR or next reaction; `fast` by default except for next reaction) |
 | Species that appear and disappear, or attributed instances | the experimental `rules` engine and `crn_craft.rules` |
 | The exact distribution of a small system | `fsp` |
 | Large populations where exact simulation is too slow | `tau`, with `epsilon` below the relative fluctuation size, checked against `simulate` on a reduced case |

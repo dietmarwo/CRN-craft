@@ -84,7 +84,8 @@ A later loop of structural changes to the interpreter tried inline rate
 factors, a fused total and resolution check, exact incremental sum
 projections and a grouped evaluator that selects a group and then a
 channel. None gained 5% on that path, and the grouped evaluator gained
-1.04× there and 1.12× on default Static Direct. The cost is spread over
+1.04× there and 1.12× with inverse waits and per-event trackers (the
+Static Direct default before rules-run/0.6). The cost is spread over
 rate evaluation, selection, random words, projection maintenance and the
 stop predicate. `mtdna_direct` fuses all of them and refreshes no
 projections between reports. Closing the gap therefore needs generated
@@ -174,8 +175,8 @@ dense network are refused, and it times the probes.
 On the two-CPU host, the 128-cell probe took about 48 ns per event with the
 generated loop under Ziggurat waits and sparse trackers. That is 2.4× faster
 than the interpreter (112 ns) and 1.25–1.34× the cost of `mtdna_direct`
-(36–38 ns across runs). Under default Static Direct the loop took 69 ns,
-against 135 ns. The rates-only kernel took 94 ns and 122 ns. With the stop
+(36–38 ns across runs). With inverse waits and per-event trackers (the
+default before rules-run/0.6) the loop took 69 ns, against 135 ns. The rates-only kernel took 94 ns and 122 ns. With the stop
 written as `N > 0 && mutants / N >= 0.9`, the loop took 48 ns against
 138 ns.
 

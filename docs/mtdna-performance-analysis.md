@@ -311,7 +311,7 @@ events in 0.012 s.
   It brings Static Direct's identity close to the specialized sampler's
   speed. It also works for models `mtdna_direct` does not certify, such
   as other stop conditions. From Python, `rules.compile_loop` builds the
-  same loop with a local Rust toolchain (unreleased; user manual,
+  same loop with a local Rust toolchain (new in 0.4.0; user manual,
   section 8). On the 1000-cell workload of section 2, end to end from
   Python, it took 18.1 against 40.1 ns per event under the Static Direct
   default (Ziggurat waits, sparse trackers; 2.21×) and 26.4 against

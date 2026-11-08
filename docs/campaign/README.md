@@ -34,7 +34,8 @@ unnormalized projections; leakage/series/roundoff have separate meanings.
 
 Default library and CLI have no new dependency over reviewed M2. Optional pins:
 PyO3 0.29.0, diffsol 0.18.0, fcmaes-rust 583f33a and its actual SDK revision
-602d31a. The tested Python fit uses fcmaes-rust 0.2.1 and SQP-craft 0.17.0.
+602d31a (the jobs integration now pins fcmaes-rust f764a75 and SDK revision
+12f9d57; see [M6](M6.md)). The tested Python fit uses fcmaes-rust 0.2.1 and SQP-craft 0.17.0.
 
 Build the package with maturin 1.9.6. The delivered wheel is Linux x86_64 abi3
 (Python 3.10+ ABI); execution is locally checked on Python 3.12. Other-platform

@@ -10,6 +10,7 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 ### Changed
 
 - README: links the [overview of the 18 related repositories](https://github.com/dietmarwo/fcmaes-rust/blob/main/docs/repositories.md).
+- The optional jobs integration (`integrations/jobs`) pins optimization-jobs `12f9d57` (its 0.4.0 release `602d31a` plus documentation-only changes) and fcmaes-rust `f764a75`, whose crates are unchanged since `583f33a` apart from that pin. `validation/check_jobs.py` records the new revisions; its rerun against a runner built at `12f9d57` matches the review report except for these pins (`validation/campaign/jobs-pin-12f9d57.json`).
 
 ### Fixed
 

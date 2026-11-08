@@ -1,0 +1,857 @@
+{
+  "jobs": [
+    {
+      "key": "base",
+      "parameters": {
+        "replicates": 64,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "points": [
+        [
+          1.0986122886681098,
+          -0.2231435513142097
+        ],
+        [
+          0.5,
+          -0.5
+        ]
+      ],
+      "problem": "app.crn.fit-moments",
+      "results": [
+        {
+          "feasible": true,
+          "objective": 0.22882894033866294,
+          "x": [
+            1.0986122886681098,
+            -0.2231435513142097
+          ]
+        },
+        {
+          "feasible": true,
+          "objective": 0.4318410010009489,
+          "x": [
+            0.5,
+            -0.5
+          ]
+        }
+      ],
+      "state": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 2,
+        "failed_evaluations": 0
+      }
+    },
+    {
+      "key": "base_repeat",
+      "parameters": {
+        "replicates": 64,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "points": [
+        [
+          1.0986122886681098,
+          -0.2231435513142097
+        ],
+        [
+          0.5,
+          -0.5
+        ]
+      ],
+      "problem": "app.crn.fit-moments",
+      "results": [
+        {
+          "feasible": true,
+          "objective": 0.22882894033866294,
+          "x": [
+            1.0986122886681098,
+            -0.2231435513142097
+          ]
+        },
+        {
+          "feasible": true,
+          "objective": 0.4318410010009489,
+          "x": [
+            0.5,
+            -0.5
+          ]
+        }
+      ],
+      "state": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 2,
+        "failed_evaluations": 0
+      }
+    },
+    {
+      "key": "base_reversed",
+      "parameters": {
+        "replicates": 64,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "points": [
+        [
+          0.5,
+          -0.5
+        ],
+        [
+          1.0986122886681098,
+          -0.2231435513142097
+        ]
+      ],
+      "problem": "app.crn.fit-moments",
+      "results": [
+        {
+          "feasible": true,
+          "objective": 0.4318410010009489,
+          "x": [
+            0.5,
+            -0.5
+          ]
+        },
+        {
+          "feasible": true,
+          "objective": 0.22882894033866294,
+          "x": [
+            1.0986122886681098,
+            -0.2231435513142097
+          ]
+        }
+      ],
+      "state": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 2,
+        "failed_evaluations": 0
+      }
+    },
+    {
+      "key": "held_out",
+      "parameters": {
+        "replicates": 64,
+        "seed_set": [
+          20261201,
+          20261202
+        ]
+      },
+      "points": [
+        [
+          1.0986122886681098,
+          -0.2231435513142097
+        ],
+        [
+          0.5,
+          -0.5
+        ]
+      ],
+      "problem": "app.crn.fit-moments",
+      "results": [
+        {
+          "feasible": true,
+          "objective": 0.09584389270010833,
+          "x": [
+            1.0986122886681098,
+            -0.2231435513142097
+          ]
+        },
+        {
+          "feasible": true,
+          "objective": 0.5858898763300532,
+          "x": [
+            0.5,
+            -0.5
+          ]
+        }
+      ],
+      "state": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 2,
+        "failed_evaluations": 0
+      }
+    },
+    {
+      "key": "event_limit",
+      "parameters": {
+        "max_events": 1,
+        "replicates": 64,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "points": [
+        [
+          1.0986122886681098,
+          -0.2231435513142097
+        ],
+        [
+          0.5,
+          -0.5
+        ]
+      ],
+      "problem": "app.crn.fit-moments",
+      "results": [
+        {
+          "feasible": false,
+          "objective": null,
+          "x": [
+            1.0986122886681098,
+            -0.2231435513142097
+          ]
+        },
+        {
+          "feasible": false,
+          "objective": null,
+          "x": [
+            0.5,
+            -0.5
+          ]
+        }
+      ],
+      "state": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 2,
+        "failed_evaluations": 2
+      }
+    },
+    {
+      "key": "8_retry",
+      "parameters": {
+        "replicates": 8,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "points": null,
+      "problem": "app.crn.fit-moments",
+      "results": [
+        {
+          "feasible": true,
+          "objective": 0.1139865825351167,
+          "x": [
+            1.0341963098984173,
+            -0.029193794960284514
+          ]
+        }
+      ],
+      "state": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 32,
+        "evaluations": 32,
+        "failed_evaluations": 0,
+        "validation_evaluations": 1
+      }
+    },
+    {
+      "key": "8_surrogate",
+      "parameters": {
+        "replicates": 8,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "points": null,
+      "problem": "app.crn.fit-moments",
+      "results": [
+        {
+          "feasible": true,
+          "objective": 0.0666288390744337,
+          "x": [
+            0.6784747388042165,
+            -1.6123257896771372
+          ]
+        }
+      ],
+      "state": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 32,
+        "evaluations": 32,
+        "failed_evaluations": 0,
+        "model_fits": 10,
+        "validation_evaluations": 1
+      }
+    },
+    {
+      "key": "64_retry",
+      "parameters": {
+        "replicates": 64,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "points": null,
+      "problem": "app.crn.fit-moments",
+      "results": [
+        {
+          "feasible": true,
+          "objective": 0.12590789125953208,
+          "x": [
+            0.8556482005340942,
+            -0.9479702157103809
+          ]
+        }
+      ],
+      "state": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 32,
+        "evaluations": 32,
+        "failed_evaluations": 0,
+        "validation_evaluations": 1
+      }
+    },
+    {
+      "key": "64_surrogate",
+      "parameters": {
+        "replicates": 64,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "points": null,
+      "problem": "app.crn.fit-moments",
+      "results": [
+        {
+          "feasible": true,
+          "objective": 0.024171657941344304,
+          "x": [
+            0.9259044755562333,
+            -0.32615796809863706
+          ]
+        }
+      ],
+      "state": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 32,
+        "evaluations": 32,
+        "failed_evaluations": 0,
+        "model_fits": 10,
+        "validation_evaluations": 1
+      }
+    },
+    {
+      "key": "validation_8_retry",
+      "parameters": {
+        "replicates": 256,
+        "seed_set": [
+          20261250,
+          20261251
+        ]
+      },
+      "points": [
+        [
+          1.0341963098984173,
+          -0.029193794960284514
+        ]
+      ],
+      "problem": "app.crn.fit-moments",
+      "results": [
+        {
+          "feasible": true,
+          "objective": 0.054585383911201935,
+          "x": [
+            1.0341963098984173,
+            -0.029193794960284514
+          ]
+        }
+      ],
+      "state": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      }
+    },
+    {
+      "key": "validation_8_surrogate",
+      "parameters": {
+        "replicates": 256,
+        "seed_set": [
+          20261250,
+          20261251
+        ]
+      },
+      "points": [
+        [
+          0.6784747388042165,
+          -1.6123257896771372
+        ]
+      ],
+      "problem": "app.crn.fit-moments",
+      "results": [
+        {
+          "feasible": true,
+          "objective": 0.055807673693005724,
+          "x": [
+            0.6784747388042165,
+            -1.6123257896771372
+          ]
+        }
+      ],
+      "state": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      }
+    },
+    {
+      "key": "validation_64_retry",
+      "parameters": {
+        "replicates": 256,
+        "seed_set": [
+          20261250,
+          20261251
+        ]
+      },
+      "points": [
+        [
+          0.8556482005340942,
+          -0.9479702157103809
+        ]
+      ],
+      "problem": "app.crn.fit-moments",
+      "results": [
+        {
+          "feasible": true,
+          "objective": 0.06690450917762938,
+          "x": [
+            0.8556482005340942,
+            -0.9479702157103809
+          ]
+        }
+      ],
+      "state": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      }
+    },
+    {
+      "key": "validation_64_surrogate",
+      "parameters": {
+        "replicates": 256,
+        "seed_set": [
+          20261250,
+          20261251
+        ]
+      },
+      "points": [
+        [
+          0.9259044755562333,
+          -0.32615796809863706
+        ]
+      ],
+      "problem": "app.crn.fit-moments",
+      "results": [
+        {
+          "feasible": true,
+          "objective": 0.02597667156830599,
+          "x": [
+            0.9259044755562333,
+            -0.32615796809863706
+          ]
+        }
+      ],
+      "state": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      }
+    },
+    {
+      "key": "threads1",
+      "parameters": {
+        "replicates": 64,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "points": null,
+      "problem": "app.crn.fit-moments",
+      "results": [
+        {
+          "feasible": true,
+          "objective": 0.1065752039664288,
+          "x": [
+            0.7454537521168039,
+            -0.8758921406218139
+          ]
+        }
+      ],
+      "state": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 8,
+        "evaluations": 8,
+        "failed_evaluations": 0,
+        "model_fits": 2,
+        "validation_evaluations": 1
+      }
+    },
+    {
+      "key": "threads8",
+      "parameters": {
+        "replicates": 64,
+        "seed_set": [
+          20261101
+        ]
+      },
+      "points": null,
+      "problem": "app.crn.fit-moments",
+      "results": [
+        {
+          "feasible": true,
+          "objective": 0.1065752039664288,
+          "x": [
+            0.7454537521168039,
+            -0.8758921406218139
+          ]
+        }
+      ],
+      "state": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "cancelled_validation_evaluations": 0,
+        "evaluation_attempts": 8,
+        "evaluations": 8,
+        "failed_evaluations": 0,
+        "model_fits": 2,
+        "validation_evaluations": 1
+      }
+    },
+    {
+      "key": "ring",
+      "parameters": {
+        "amplitude_species": "m2",
+        "burn_in": 0.0,
+        "parameter_names": [
+          "alpha",
+          "gamma_m"
+        ],
+        "replicates": 8,
+        "seed_set": [
+          20261210,
+          20261211
+        ]
+      },
+      "points": [
+        [
+          5.375278407684165,
+          0.0
+        ]
+      ],
+      "problem": "app.crn.circuit-score",
+      "results": [
+        {
+          "feasible": true,
+          "objective": 12.298654008809693,
+          "x": [
+            5.375278407684165,
+            0.0
+          ]
+        }
+      ],
+      "state": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      }
+    },
+    {
+      "key": "broken_ring",
+      "parameters": {
+        "amplitude_species": "m2",
+        "burn_in": 0.0,
+        "parameter_names": [
+          "alpha",
+          "gamma_m"
+        ],
+        "replicates": 8,
+        "seed_set": [
+          20261210,
+          20261211
+        ]
+      },
+      "points": [
+        [
+          5.375278407684165,
+          0.0
+        ]
+      ],
+      "problem": "app.crn.circuit-score",
+      "results": [
+        {
+          "feasible": true,
+          "objective": 3845.412770085942,
+          "x": [
+            5.375278407684165,
+            0.0
+          ]
+        }
+      ],
+      "state": "completed",
+      "work": {
+        "cancelled_evaluations": 0,
+        "evaluations": 1,
+        "failed_evaluations": 0
+      }
+    }
+  ],
+  "passed": true,
+  "protocol_pins": {
+    "fcmaes": "f764a7516f41bf2d88009b156daa70bf0a5445c1",
+    "runner": "12f9d573ade24f57c282dcf9eb7ad7025cfe51bf",
+    "worker_SDK": "12f9d573ade24f57c282dcf9eb7ad7025cfe51bf"
+  },
+  "rows": [
+    {
+      "check": "required_parameters_rejected_when_missing",
+      "jobs": {
+        "no_amplitude_species": true,
+        "no_circuit_seed_set": true,
+        "no_seed_set": true
+      },
+      "passed": true
+    },
+    {
+      "check": "active_deadline",
+      "passed": true
+    },
+    {
+      "check": "existing_command_protocol",
+      "passed": true
+    },
+    {
+      "check": "worker_protocol_and_profiles",
+      "manifests": 18,
+      "passed": true,
+      "runs": 17
+    },
+    {
+      "check": "failed_objective_not_accepted",
+      "passed": true
+    },
+    {
+      "check": "search_and_validation_accounting_8_retry",
+      "passed": true
+    },
+    {
+      "check": "search_and_validation_accounting_8_surrogate",
+      "passed": true
+    },
+    {
+      "check": "search_and_validation_accounting_64_retry",
+      "passed": true
+    },
+    {
+      "check": "search_and_validation_accounting_64_surrogate",
+      "passed": true
+    },
+    {
+      "check": "thread_objective_identity",
+      "objectives": [
+        0.1065752039664288
+      ],
+      "passed": true
+    },
+    {
+      "check": "results_follow_requested_point_order",
+      "jobs": 11,
+      "passed": true
+    },
+    {
+      "check": "repeat_and_permutation_identity",
+      "objectives": [
+        0.22882894033866294,
+        0.4318410010009489
+      ],
+      "passed": true
+    },
+    {
+      "base": [
+        0.22882894033866294,
+        0.4318410010009489
+      ],
+      "check": "true_rates_score_below_offset_rates_on_both_seed_sets",
+      "held_out": [
+        0.09584389270010833,
+        0.5858898763300532
+      ],
+      "passed": true
+    },
+    {
+      "broken_ring": 3845.412770085942,
+      "check": "ring_scores_below_broken_ring",
+      "passed": true,
+      "ring": 12.298654008809693
+    },
+    {
+      "check": "objective_values_match_independent_recomputation",
+      "comparisons": [
+        {
+          "job": "base",
+          "recomputed": 0.22882894033866294,
+          "relative_difference": 0.0,
+          "worker": 0.22882894033866294,
+          "x": [
+            1.0986122886681098,
+            -0.2231435513142097
+          ]
+        },
+        {
+          "job": "base",
+          "recomputed": 0.4318410010009489,
+          "relative_difference": 0.0,
+          "worker": 0.4318410010009489,
+          "x": [
+            0.5,
+            -0.5
+          ]
+        },
+        {
+          "job": "base_repeat",
+          "recomputed": 0.22882894033866294,
+          "relative_difference": 0.0,
+          "worker": 0.22882894033866294,
+          "x": [
+            1.0986122886681098,
+            -0.2231435513142097
+          ]
+        },
+        {
+          "job": "base_repeat",
+          "recomputed": 0.4318410010009489,
+          "relative_difference": 0.0,
+          "worker": 0.4318410010009489,
+          "x": [
+            0.5,
+            -0.5
+          ]
+        },
+        {
+          "job": "base_reversed",
+          "recomputed": 0.4318410010009489,
+          "relative_difference": 0.0,
+          "worker": 0.4318410010009489,
+          "x": [
+            0.5,
+            -0.5
+          ]
+        },
+        {
+          "job": "base_reversed",
+          "recomputed": 0.22882894033866294,
+          "relative_difference": 0.0,
+          "worker": 0.22882894033866294,
+          "x": [
+            1.0986122886681098,
+            -0.2231435513142097
+          ]
+        },
+        {
+          "job": "held_out",
+          "recomputed": 0.09584389270010833,
+          "relative_difference": 0.0,
+          "worker": 0.09584389270010833,
+          "x": [
+            1.0986122886681098,
+            -0.2231435513142097
+          ]
+        },
+        {
+          "job": "held_out",
+          "recomputed": 0.5858898763300532,
+          "relative_difference": 0.0,
+          "worker": 0.5858898763300532,
+          "x": [
+            0.5,
+            -0.5
+          ]
+        },
+        {
+          "job": "validation_8_retry",
+          "recomputed": 0.054585383911201935,
+          "relative_difference": 0.0,
+          "worker": 0.054585383911201935,
+          "x": [
+            1.0341963098984173,
+            -0.029193794960284514
+          ]
+        },
+        {
+          "job": "validation_8_surrogate",
+          "recomputed": 0.055807673693005724,
+          "relative_difference": 0.0,
+          "worker": 0.055807673693005724,
+          "x": [
+            0.6784747388042165,
+            -1.6123257896771372
+          ]
+        },
+        {
+          "job": "validation_64_retry",
+          "recomputed": 0.06690450917762938,
+          "relative_difference": 0.0,
+          "worker": 0.06690450917762938,
+          "x": [
+            0.8556482005340942,
+            -0.9479702157103809
+          ]
+        },
+        {
+          "job": "validation_64_surrogate",
+          "recomputed": 0.02597667156830599,
+          "relative_difference": 0.0,
+          "worker": 0.02597667156830599,
+          "x": [
+            0.9259044755562333,
+            -0.32615796809863706
+          ]
+        },
+        {
+          "job": "ring",
+          "recomputed": 12.298654008809693,
+          "relative_difference": 0.0,
+          "worker": 12.298654008809693,
+          "x": [
+            5.375278407684165,
+            0.0
+          ]
+        },
+        {
+          "job": "broken_ring",
+          "recomputed": 3845.412770085942,
+          "relative_difference": 0.0,
+          "worker": 3845.412770085942,
+          "x": [
+            5.375278407684165,
+            0.0
+          ]
+        }
+      ],
+      "passed": true,
+      "tolerance": "relative 1e-12"
+    }
+  ],
+  "schema": "crn-craft.jobs-validation/0.2"
+}

@@ -1,10 +1,12 @@
-"""Prepared rules ensembles and their results as pandas objects.
+"""Prepared rules ensembles and their results as pandas and xarray objects.
 
 ``rules.ensemble(model, ...)`` builds and prepares a run request;
 ``simulate()`` returns a :class:`Result` whose records, statistics, rule
-counts, kept paths, trackers and event logs are pandas DataFrames. Every
-frame has ``.to_numpy()``, and ``Result.metadata`` keeps the full result
-document as the engine returned it.
+counts, trackers and event logs are pandas DataFrames, and whose kept paths
+are an xarray DataArray (the 0.4.0 DataFrame is ``paths_frame()``). Every
+frame and array has ``.to_numpy()``, and
+``Result.metadata`` keeps the full result document as the engine returned
+it.
 
 Opt-in, with a Rust toolchain: :func:`compile_loop` compiles a model's
 Static Direct event loop, and ``compiled=`` runs it with byte-identical
@@ -19,6 +21,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import xarray
 
 from . import CrnError, _crn_error, _native, _path, model_bytes
 from ._rules_loop import CompiledLoop, fingerprint_of
@@ -67,6 +70,8 @@ _TRACKER_VALUES = (
     "omitted_duration",
     "omitted_peak",
 )
+# Result metadata that Result.paths carries as attrs.
+_ARRAY_ATTRS = ("sampler", "method", "root_seed", "model_sha256", "run_sha256")
 
 
 def describe():
@@ -103,16 +108,17 @@ class Result:
       (``mean``, ``sample_variance``, ``mean_standard_error``), indexed by
       report time with one column per observable. A statistic that was not
       computed is None.
-    - ``paths``: the kept observable series, indexed by (replicate, time),
-      one column per observable. ``to_xarray()`` gives them as a Dataset.
+    - ``paths``: the kept series as an xarray DataArray with dimensions
+      (``time``, ``variable``, ``replicate``); ``paths_frame()`` gives the
+      DataFrame of release 0.4.0, ``to_xarray()`` a Dataset.
     - ``tracker_columns(i)`` and ``event_columns(id)``: trackers and event
       logs as DataFrames.
     - ``metadata``: the full result document; ``observations`` its trackers
       and logs; ``record_diagnostics`` replicate errors by id.
 
-    Observable columns are in result order: sorted by name, then any
-    continuous observable such as ``ATP``. Use ``.to_numpy()`` on any frame
-    or column for NumPy arrays.
+    Observables are in result order: sorted by name, then any continuous
+    variable such as ``ATP``. Use ``.to_numpy()`` on any frame, column or
+    array for NumPy arrays.
     """
 
     def __init__(self, metadata, columns):
@@ -168,13 +174,51 @@ class Result:
         positions = np.arange(total) - np.repeat(np.cumsum(lengths) - lengths, lengths)
         return ids, lengths, positions, values
 
+    def _array_attrs(self):
+        """Provenance for a DataArray: sampler, method, seed and hashes."""
+        meta = self.metadata
+        attrs = {key: meta.get(key) for key in _ARRAY_ATTRS}
+        attrs["method"] = json.loads(json.dumps(attrs["method"]))
+        return attrs
+
     @cached_property
     def paths(self):
-        """Kept series: (replicate, time) rows, one column per observable.
+        """Kept series as a DataArray: report times x variables x replicates.
+
+        Dimensions are ``("time", "variable", "replicate")`` with the
+        coordinates ``time`` (the report times), ``variable`` (the
+        observables in result order: sorted names, then continuous
+        variables) and ``replicate`` (the kept replicate ids, int64). Values
+        are float64. ``attrs`` holds the result's ``sampler``, ``method``
+        (the method object of rules-result/0.3, else None), ``root_seed``,
+        ``model_sha256`` and ``run_sha256``.
 
         ``keep_paths`` decides which replicates are kept (``"all"`` keeps
-        every one). A replicate that ended on a budget has rows only up to
-        its last saved report time.
+        every one). A replicate that ended on a budget has values only up
+        to its last saved report time and NaN after it. For example
+        ``paths.sel(variable="mutants")`` is a time x replicate array and
+        ``paths.sel(replicate=3)`` one replicate's series.
+        ``paths_frame()`` returns the DataFrame of release 0.4.0.
+        """
+        ids, lengths, positions, values = self._path_arrays
+        times = np.asarray(self.metadata["report_times"], dtype=np.float64)
+        observables = list(self.metadata["observables"])
+        cube = np.full((len(times), len(observables), len(ids)), np.nan)
+        cube[positions, :, np.repeat(np.arange(len(ids)), lengths)] = values
+        return xarray.DataArray(
+            cube,
+            dims=("time", "variable", "replicate"),
+            coords={"time": times, "variable": observables, "replicate": ids},
+            name="paths",
+            attrs=self._array_attrs(),
+        )
+
+    def paths_frame(self):
+        """Kept series as a DataFrame: (replicate, time) rows.
+
+        One column per observable, in result order; this is ``paths`` of
+        release 0.4.0. A replicate that ended on a budget has rows only up
+        to its last saved report time.
         """
         ids, lengths, positions, values = self._path_arrays
         times = np.asarray(self.metadata["report_times"], dtype=np.float64)
@@ -189,16 +233,12 @@ class Result:
         """Return the kept paths as an xarray Dataset.
 
         Dimensions are ``replicate`` and ``time`` (the report times), with
-        one variable per observable. Rows a replicate did not save are NaN.
-        Needs the optional ``xarray`` package (``pip install
-        "crn-craft[xarray]"``).
+        one variable per observable; rows a replicate did not save are NaN.
+        It holds the values of ``paths``:
+        ``paths.to_dataset("variable").transpose("replicate", "time")``.
+        ``attrs`` holds ``sampler``, ``model_sha256``, ``run_sha256`` and
+        ``root_seed``, all of which netCDF can store.
         """
-        try:
-            import xarray
-        except ImportError as error:
-            raise ImportError(
-                'Result.to_xarray() needs xarray: pip install "crn-craft[xarray]"'
-            ) from error
         ids, lengths, positions, values = self._path_arrays
         times = np.asarray(self.metadata["report_times"], dtype=np.float64)
         observables = self.metadata["observables"]

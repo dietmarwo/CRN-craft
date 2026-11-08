@@ -44,13 +44,12 @@ Contents:
 
 ```sh
 pip install crn-craft                    # Python package (abi3 wheels for CPython 3.10+)
-pip install "crn-craft[xarray]"          # optional: results as xarray Datasets
 cargo install crn-craft-cli --locked     # optional: the native command-line tool
 ```
 
-The Python package needs NumPy and pandas, which pip installs with it;
-pandas is a required dependency since 0.3.0, because results are pandas
-DataFrames.
+The Python package needs NumPy, pandas and xarray, which pip installs with
+it. Results are pandas DataFrames (pandas is required since 0.3.0), and
+kept paths are an xarray DataArray (xarray is required since 0.5.0). The extra `crn-craft[xarray]` of earlier releases still installs.
 
 The Python package contains the native engine, so the CLI is optional. Every
 feature in this manual is in release 0.4.0; features that exist only in
@@ -144,10 +143,11 @@ manual, `N > 0 && mutants >= 0.9 * N`: a cell is taken over when 90% of its
 molecules are mutants.
 
 Results are pandas DataFrames whose columns carry the observable names, so
-select a column by name, as in `result.statistics["mean"]["N"]`. Observable
-columns are sorted by name, not in the order of the file, and continuous
-variables follow them (section 10); the raw matrices in `result.metadata`
-use the same order.
+select a column by name, as in `result.statistics["mean"]["N"]`. Kept paths
+are an xarray DataArray whose `variable` coordinate carries the names, as
+in `result.paths.sel(variable="N")`. Observables are sorted by
+name, not in the order of the file, and continuous variables follow them
+(section 10); the raw matrices in `result.metadata` use the same order.
 
 ## 3. A first ensemble
 
@@ -238,11 +238,12 @@ What the result holds:
   and `mean_standard_error`, indexed by report `time` with one column per
   observable, and `samples`, the number of cells. They are withheld (`None`)
   if any cell ended early for a budget reason.
-- `result.paths`: the kept series of single cells (next section).
+- `result.paths`: the kept series of single cells, an xarray DataArray
+  (next section).
 - `result.metadata`: the full result document (sampler, termination,
   totals, statistics, kept paths, observations, diagnostics).
 
-`.to_numpy()` turns any DataFrame or column into a NumPy array.
+`.to_numpy()` turns any DataFrame, column or DataArray into a NumPy array.
 
 Report times are right-continuous: an event exactly at a report time is
 included. A cell that stops holds its state at every later report time.
@@ -302,7 +303,9 @@ print(
     "first 8 of 64 equal an 8-cell run:",
     small.records["events"].equals(one.records["events"].head(8)),
 )
-print(one.paths[["N", "mutants"]].head(5))
+paths = one.paths  # report times x observables x cells, an xarray DataArray
+print(dict(paths.sizes))
+print(paths.sel(replicate=0, variable=["N", "mutants"]).to_pandas())
 ```
 
 ```text
@@ -311,29 +314,40 @@ same statistics: True
 same paths: True
 seed 7 vs 8, identical stop times: False
 first 8 of 64 equal an 8-cell run: True
-                        N  mutants
-replicate time                    
-0         0.0      1000.0      0.0
-          8640.0    998.0      1.0
-          17280.0   997.0      0.0
-          25920.0   999.0      0.0
-1         0.0      1000.0      0.0
+{'time': 4, 'variable': 6, 'replicate': 64}
+variable       N  mutants
+time                     
+0.0       1000.0      0.0
+8640.0     998.0      1.0
+17280.0    997.0      0.0
+25920.0    999.0      0.0
 ```
 
 `keep_paths` decides which cells keep their observable series: a count
 keeps cells 0, 1, … up to it, and `"all"` (or `True`) keeps every cell.
-`result.paths` holds them as one DataFrame indexed by (`replicate`,
-`time`), with one column per observable. Some common forms:
+`result.paths` holds them as one xarray DataArray with dimensions (`time`,
+`variable`, `replicate`): report times × observables × cells. The
+coordinates are the report times, the observable names (continuous
+variables last) and the cell indices; the values are floats. `paths.attrs`
+names the `sampler`, the `method` (for results that report one, else
+`None`), the `root_seed`, `model_sha256` and `run_sha256`. Some common
+forms:
 
-- `result.paths.loc[3]`: cell 3's series;
-- `result.paths.xs(8640.0, level="time")`: every kept cell at day 360;
-- `result.paths["mutants"].unstack("time")`: cells × report times;
+- `result.paths.sel(replicate=3)`: cell 3's series, report times ×
+  observables;
+- `result.paths.sel(time=8640.0)`: every kept cell at day 360;
+- `result.paths.sel(variable="mutants")`: report times × cells;
+- `result.paths.sel(variable="mutants").mean("replicate")`: the mean over
+  the kept cells at each report time;
+- `result.paths_frame()`: the DataFrame of release 0.4.0, indexed by
+  (`replicate`, `time`), one column per observable;
 - `result.to_xarray()`: an xarray Dataset with dimensions `replicate` and
-  `time`, one variable per observable (`pip install "crn-craft[xarray]"`).
+  `time`, one variable per observable: the same values as
+  `paths.to_dataset("variable")`.
 
-A cell that ended on a budget has rows only up to its last saved report
-time; `to_xarray()` fills the rest with NaN. Kept paths count against
-`max_output_bytes`; the
+A cell that ended on a budget has values only up to its last saved report
+time and NaN after it; `paths_frame()` has rows only up to that time. Kept
+paths count against `max_output_bytes`; the
 [performance analysis](mtdna-performance-analysis.md#8-sizing-a-study)
 gives their size.
 
@@ -1795,14 +1809,25 @@ The result, `run.simulate()`:
 | `records` | DataFrame, one row per cell, index `replicate`: `started` (bool), `termination` (categorical), `stop_time` (float), `events`, `rng_words`, `peak_instances`, `created_instances`, `saved_points` (unsigned integers) |
 | `rule_events` | DataFrame, one row per cell, one column per rule name: events of each rule |
 | `statistics` | `None` if withheld; else `samples` and the DataFrames `mean`, `sample_variance`, `mean_standard_error`, index `time`, one column per observable |
-| `paths` | DataFrame of the kept series, index (`replicate`, `time`), one column per observable; `to_xarray()` gives a Dataset with dimensions `replicate` and `time` |
+| `paths` | DataArray of the kept series, dimensions (`time`, `variable`, `replicate`), NaN after a budget stop; `attrs` with `sampler`, `method`, `root_seed`, `model_sha256`, `run_sha256` |
+| `paths_frame()` | DataFrame of the kept series, index (`replicate`, `time`), one column per observable (release 0.4.0's `paths`) |
+| `to_xarray()` | Dataset of the kept series, dimensions `replicate` and `time`, one variable per observable |
 | `tracker_columns(i)` | DataFrame of tracker `i`, one row per observed cell; NaN where a time or peak is absent |
 | `event_columns()`, `event_columns(id)` | DataFrame of every logged event, index (`replicate`, `entry`), or of one cell's log, index `entry` |
 | `rule_names` | rule names in declaration order, also on the prepared run |
 | `observations`, `record_diagnostics`, `metadata` | trackers and logs as documents, per-cell errors by id, the full result document |
 
-Every DataFrame and column has `.to_numpy()`. Code written for the NumPy
-results of release 0.2.0 changes as follows:
+Every DataFrame, column and DataArray has `.to_numpy()`. Code written for
+release 0.4.0 changes as follows:
+
+| 0.4.0 | Now |
+| --- | --- |
+| `result.paths`, a DataFrame | `result.paths_frame()`; `result.paths` is a DataArray |
+| `result.paths.loc[3]` | `result.paths.sel(replicate=3)`, or `result.paths_frame().loc[3]` |
+| `result.paths["mutants"].unstack("time")` | `result.paths.sel(variable="mutants").to_pandas().T` |
+| `pip install "crn-craft[xarray]"` | `pip install crn-craft`: xarray is required; the extra still installs |
+
+Code written for the NumPy results of release 0.2.0 changes as follows:
 
 | 0.2.0 | Now |
 | --- | --- |
@@ -1812,7 +1837,7 @@ results of release 0.2.0 changes as follows:
 | `records[name]` (an array) | `records[name].to_numpy()`; integer termination codes are `records["termination"].cat.codes` |
 | `statistics["mean"][:, names.index("N")]` | `statistics["mean"]["N"]` |
 | `statistics["mean"]` (an array) | `statistics["mean"].to_numpy()` |
-| `metadata["paths"]` rows | `result.paths`, or `result.paths.to_numpy()` |
+| `metadata["paths"]` rows | `result.paths_frame()`, or `result.paths_frame().to_numpy()` |
 | `tracker_columns(i)["id"]` and fields | `tracker_columns(i).index` and its columns |
 | `event_columns(id)["observables"]` | `event_columns(id)[list(metadata["observables"])].to_numpy()` |
 | `keep_paths=True` (one cell) | `keep_paths=1`; `True` now keeps every cell |

@@ -62,11 +62,13 @@ callbacks, and the mtDNA methods; see the
 [mtDNA user manual](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-user-manual.md).
 `rules.Model` builds models from Python calls, in the style of rebop: a
 numeric rate is a mass-action constant, a string the reaction's whole
-propensity. Results are pandas DataFrames (pandas is installed with the
-package): per-replicate records and rule counts, statistics by report time,
-kept paths by (replicate, time), trackers and event logs.
-`Result.to_xarray()` returns the paths as an xarray Dataset with
-`pip install "crn-craft[xarray]"`. The same immigration–death model:
+propensity. `add_species` and `add_parameter` take one name and value or a
+mapping such as `{"S": 999, "I": 1}`. Results are pandas DataFrames:
+per-replicate records and rule counts, statistics by report time, trackers
+and event logs. Kept paths are an xarray DataArray: `result.paths` has the
+dimensions (time, variable, replicate). pandas and xarray are installed with
+the package. `paths_frame()` returns the DataFrame of release 0.4.0, and
+`to_xarray()` the paths as a Dataset. The same immigration–death model:
 
 ```python
 from crn_craft import rules
@@ -87,7 +89,7 @@ result = rules.ensemble(
 ).simulate()
 print(result.statistics["mean"])
 print(result.rule_events.sum().to_dict())
-print(result.paths["X"].unstack("time").head(3))
+print(result.paths.sel(variable="X").T.to_pandas().head(3))  # cells x times
 ```
 
 ```text

@@ -16,6 +16,7 @@ import sysconfig
 import tempfile
 import numpy as np
 import pandas as pd
+import xarray as xr
 import crn_craft as c
 from crn_craft import rules
 from crn_craft.importers import import_bng_net
@@ -723,30 +724,36 @@ def main():
         seed=7,
         keep_paths="all",
     ).simulate()
-    by_time = kept.paths["X"].groupby(level="time").mean().to_numpy()
+    paths = kept.paths  # report times x variables x replicates
+    by_time = paths.sel(variable="X").mean("replicate").values
+    frame = kept.paths_frame()
     require(
-        kept.paths.shape == (150, 1)
-        and list(kept.paths.index.names) == ["replicate", "time"]
+        isinstance(paths, xr.DataArray)
+        and paths.dims == ("time", "variable", "replicate")
+        and paths.shape == (3, 1, 50)
+        and paths["time"].values.tolist() == [0.0, 5.0, 10.0]
+        and paths["variable"].values.tolist() == ["X"]
+        and paths["replicate"].values.tolist() == list(range(50))
+        and paths.attrs["sampler"] == kept.metadata["sampler"]
+        and paths.attrs["root_seed"] == 7
         and np.allclose(by_time, kept.statistics["mean"]["X"], rtol=1e-12, atol=0),
-        "installed rules keep every path as a DataFrame",
+        "installed rules keep every path as a DataArray",
     )
-    try:
-        import xarray  # noqa: F401  (optional: crn-craft[xarray])
-    except ImportError:
-        try:
-            kept.to_xarray()
-        except ImportError as error:
-            require("crn-craft[xarray]" in str(error), "to_xarray names the extra")
-        else:
-            raise RuntimeError("to_xarray without xarray")
-    else:
-        data = kept.to_xarray()
-        require(
-            data["X"].dims == ("replicate", "time") and data["X"].shape == (50, 3),
-            "installed to_xarray dimensions",
-        )
     require(
-        kept.paths.equals(
+        frame.shape == (150, 1)
+        and list(frame.index.names) == ["replicate", "time"]
+        and np.array_equal(
+            frame["X"].unstack("time").to_numpy(), paths.sel(variable="X").values.T
+        ),
+        "paths_frame() is the 0.4.0 DataFrame",
+    )
+    data = kept.to_xarray()
+    require(
+        data["X"].dims == ("replicate", "time") and data["X"].shape == (50, 3),
+        "installed to_xarray dimensions",
+    )
+    require(
+        kept.paths.identical(
             rules.ensemble(
                 death,
                 end=10.0,

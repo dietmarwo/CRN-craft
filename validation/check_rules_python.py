@@ -8,6 +8,7 @@ import tempfile
 
 import numpy as np
 import pandas as pd
+import xarray as xr
 
 from crn_craft import rules
 from check_rules import require
@@ -52,6 +53,55 @@ def result_bytes(result):
                 )
             )
     return out
+
+
+ATTRS = ("sampler", "method", "root_seed", "model_sha256", "run_sha256")
+
+
+def check_path_array(result, meta):
+    """Result.paths: report times x variables x replicates, NaN where unsaved."""
+    observables = meta["observables"]
+    times = meta["report_times"]
+    kept = meta["paths"]
+    paths = result.paths
+    expected = np.full((len(times), len(observables), len(kept)), np.nan)
+    for column, path in enumerate(kept):
+        rows = np.array(path["values"], dtype=np.float64).reshape(-1, len(observables))
+        expected[: len(rows), :, column] = rows
+    require(
+        isinstance(paths, xr.DataArray)
+        and paths.dims == ("time", "variable", "replicate")
+        and paths.name == "paths"
+        and paths.dtype == np.float64
+        and paths.shape == expected.shape
+        and paths["time"].dtype == np.float64
+        and paths["time"].values.tolist() == times
+        and paths["variable"].values.tolist() == observables
+        and paths["replicate"].dtype == np.int64
+        and paths["replicate"].values.tolist() == [p["id"] for p in kept]
+        and set(paths.coords) == {"time", "variable", "replicate"}
+        and np.array_equal(paths.values, expected, equal_nan=True)
+        and paths.attrs == {key: meta.get(key) for key in ATTRS},
+        "path array against the raw paths",
+    )
+    # The 0.4.0 frame is the same data without the unsaved rows.
+    frame = result.paths_frame()
+    long = paths.transpose("replicate", "time", "variable").values.reshape(
+        -1, len(observables)
+    )
+    saved = ~np.isnan(long).all(axis=1)
+    require(
+        np.array_equal(long[saved], frame.to_numpy())
+        and list(frame.columns) == observables,
+        "path array and paths_frame hold the same rows",
+    )
+    data = result.to_xarray()
+    split = paths.to_dataset("variable").transpose("replicate", "time")
+    split.attrs = {key: meta[key] for key in ATTRS if key != "method"}
+    require(
+        isinstance(data, xr.Dataset) and data.identical(split),
+        "to_xarray is paths as a Dataset over (replicate, time)",
+    )
 
 
 def check_frames(result, metadata, columns):
@@ -112,7 +162,8 @@ def check_frames(result, metadata, columns):
                 and np.array_equal(frame.to_numpy(), np.array(stats[key])),
                 f"statistic frame {key}",
             )
-    paths = result.paths
+    check_path_array(result, meta)
+    paths = result.paths_frame()
     require(
         list(paths.index.names) == ["replicate", "time"]
         and list(paths.columns) == observables
@@ -387,8 +438,10 @@ def main():
     framed = rules.Result(metadata, columns)
     check_frames(framed, metadata, columns)
     require(
-        len(framed.paths) == 20 * 3
-        and framed.paths.index.get_level_values(0).nunique() == 20,
+        framed.paths.sizes["replicate"] == 20
+        and framed.paths.sizes["time"] == 3
+        and len(framed.paths_frame()) == 20 * 3
+        and framed.paths_frame().index.get_level_values(0).nunique() == 20,
         "keep_paths='all' keeps every replicate",
     )
     require(
@@ -410,14 +463,15 @@ def main():
     metadata = json.loads(metadata)
     partial = rules.Result(metadata, columns)
     check_frames(partial, metadata, columns)
-    saved = partial.paths.groupby(level="replicate").size()
+    saved = partial.paths_frame().groupby(level="replicate").size()
+    filled = partial.paths.notnull().all("variable").sum("time")
     require(
         partial.statistics is None
         and set(partial.records["termination"]) == {"event_limit"}
         and saved.max() < 4
-        and np.array_equal(
-            saved.to_numpy(), partial.records["saved_points"].to_numpy()
-        ),
+        and np.array_equal(saved.to_numpy(), partial.records["saved_points"].to_numpy())
+        and np.array_equal(filled.values, saved.to_numpy())
+        and bool(partial.paths.isnull().any()),
         "partial paths of budget-ended replicates",
     )
     # Leaps of an approximate method are logged with rule -1 and no name.
@@ -441,36 +495,30 @@ def main():
         ),
         "leap entries in the log",
     )
-    try:
-        import xarray  # noqa: F401
-    except ImportError:
-        try:
-            partial.to_xarray()
-        except ImportError as error:
-            require("crn-craft[xarray]" in str(error), "to_xarray hint")
-        else:
-            raise RuntimeError("to_xarray without xarray")
-    else:
-        for result in (framed, partial):
-            data = result.to_xarray()
-            cube = np.stack(
-                [data[name].values for name in result.paths.columns], axis=-1
-            )
+    for result in (framed, partial):
+        data = result.to_xarray()
+        names = result.metadata["observables"]
+        cube = np.stack([data[name].values for name in names], axis=-1)
+        require(
+            list(data.data_vars) == names
+            and data[names[0]].dims == ("replicate", "time")
+            and list(data["time"].values) == result.metadata["report_times"]
+            and list(data["replicate"].values)
+            == [p["id"] for p in result.metadata["paths"]]
+            and data.attrs
+            == {
+                key: result.metadata[key]
+                for key in ("sampler", "model_sha256", "run_sha256", "root_seed")
+            },
+            "to_xarray coordinates",
+        )
+        for kept in result.metadata["paths"]:
+            rows = np.array(kept["values"])
             require(
-                data[result.paths.columns[0]].dims == ("replicate", "time")
-                and list(data["time"].values) == result.metadata["report_times"]
-                and list(data["replicate"].values)
-                == [p["id"] for p in result.metadata["paths"]]
-                and data.attrs["sampler"] == result.metadata["sampler"],
-                "to_xarray coordinates",
+                np.array_equal(cube[kept["id"], : len(rows)], rows)
+                and np.isnan(cube[kept["id"], len(rows) :]).all(),
+                "to_xarray values",
             )
-            for kept in result.metadata["paths"]:
-                rows = np.array(kept["values"])
-                require(
-                    np.array_equal(cube[kept["id"], : len(rows)], rows)
-                    and np.isnan(cube[kept["id"], len(rows) :]).all(),
-                    "to_xarray values",
-                )
     # rules-run/0.6: "static_direct" defaults to Ziggurat waits and sparse
     # trackers; explicit options give the numbers of the 0.3.0 request.
     counts = [{"observable": "neutral_mutants"}, {"observable": "advantaged_mutants"}]
@@ -604,6 +652,7 @@ def main():
                     "frames match the native buffers and metadata",
                     "keep_paths all, True and False",
                     "partial paths and to_xarray",
+                    "path arrays match the raw metadata",
                     "static_direct selects the rules-run/0.6 defaults",
                     "explicit options reproduce the 0.3.0 static_direct numbers",
                     "static_direct without an eligible tracker",

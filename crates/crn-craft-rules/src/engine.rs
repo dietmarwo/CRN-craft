@@ -4,6 +4,7 @@
 mod flat_path;
 #[path = "hybrid.rs"]
 mod hybrid;
+pub(crate) use hybrid::Shared;
 #[path = "leap.rs"]
 mod leap;
 #[path = "loop_host.rs"]
@@ -53,6 +54,7 @@ pub(crate) struct PathOutput {
     pub instances: Option<Vec<InstanceRecord>>,
 }
 
+#[derive(Clone)]
 pub(crate) enum Halt {
     Limit(Termination, Diagnostic),
     Numerical(Diagnostic),
@@ -588,6 +590,8 @@ pub(crate) struct Path<'a> {
     pub generated_loop: Option<&'a dyn crate::RulesLoop>,
     pub mtdna: Option<&'a crate::mtdna::Kernel>,
     pub method: crate::Method,
+    /// The `hybrid` solution of the independent continuous variables.
+    pub independent: Option<&'a Shared>,
 }
 
 impl Path<'_> {

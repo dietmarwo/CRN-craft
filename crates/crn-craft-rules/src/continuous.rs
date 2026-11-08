@@ -1,4 +1,4 @@
-//! Continuous variables (rules-model/0.3) and the `hybrid` method.
+//! Continuous variables (rules-model/0.3 and 0.4) and the `hybrid` method.
 //!
 //! A model may declare continuous variables ([`ContinuousSpec`]): each has an
 //! initial value, a derivative written as an expression over parameters,
@@ -34,6 +34,19 @@
 //! bound value on every later report. With `"clamp"` the variable is held at
 //! the bound while its derivative there is negative and follows the ODE
 //! again once it is positive.
+//!
+//! Rules-model/0.4 adds [`ContinuousSpec::independent`]. An independent
+//! variable's derivative reads only parameters and other independent
+//! variables, so its trajectory is the same in every replicate. `hybrid`
+//! integrates the independent subsystem once per prepared run over
+//! [0, end], with the same integrator, step control and bound handling at
+//! the request's tolerances, and keeps the dense output of every accepted
+//! step. Each replicate integrates only the other variables and Λ and reads
+//! the independent ones from that dense output, so the results do not
+//! depend on the number of threads. A stop bound of an independent variable
+//! ends every replicate that reaches it at the same time. A failure of the
+//! shared solve (a non-finite derivative, an underflowing step or the step
+//! budget) fails every replicate that reaches its time, with its diagnostic.
 
 use crate::expr::{Env, Expr, Scope};
 use crate::model::{Value, invalid, parse_expr, pointer};
@@ -63,7 +76,7 @@ pub enum OnBound {
     Clamp,
 }
 
-/// A continuous variable of a rules-model/0.3 model.
+/// A continuous variable of a rules-model/0.3 or 0.4 model.
 ///
 /// Its name shares one namespace with parameters and observables
 /// (`CRN-R010`). Rule rates and propensities may read it, and so may the
@@ -107,6 +120,18 @@ pub struct ContinuousSpec {
     )]
     #[schemars(with = "OnBound")]
     pub on_bound: Option<OnBound>,
+    /// rules-model/0.4 (`CRN-R015` before): `true` declares an independent
+    /// ODE, whose `derivative` reads only parameters and other independent
+    /// variables (`CRN-R012` otherwise). `hybrid` integrates the independent
+    /// variables once per prepared run and shares the solution by every
+    /// replicate. Default `false`; `null` is rejected.
+    #[serde(
+        default,
+        deserialize_with = "crate::present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "bool")]
+    pub independent: Option<bool>,
 }
 
 /// A compiled continuous variable.
@@ -118,6 +143,8 @@ pub(crate) struct Variable {
     pub initial: f64,
     pub derivative: Expr,
     pub bound: Option<(f64, OnBound)>,
+    /// Declared `independent: true` (rules-model/0.4).
+    pub independent: bool,
 }
 
 fn parameter_value(
@@ -160,6 +187,7 @@ impl Variable {
     /// Compiles the declared variables; their columns start at `first`.
     pub(crate) fn compile_all(
         specs: &[ContinuousSpec],
+        version: crate::model::ModelVersion,
         params: &BTreeMap<String, usize>,
         names: &BTreeMap<String, usize>,
         values: &[f64],
@@ -210,6 +238,46 @@ impl Variable {
                     ));
                 }
             }
+            let independent = spec.independent == Some(true);
+            if spec.independent.is_some() && version < crate::model::ModelVersion::V04 {
+                out.push(invalid(
+                    "CRN-R015",
+                    &pointer(&path, "independent"),
+                    "independent requires rules-model/0.4",
+                    "Select the 0.4 model contract.",
+                ));
+            }
+            if let (true, Some(derivative)) = (independent, &derivative) {
+                // Only parameters and independent variables, so that one
+                // solution serves every replicate.
+                let mut flags = vec![false; first + specs.len()];
+                derivative.reads(&mut flags);
+                let name = |i: usize| {
+                    names
+                        .iter()
+                        .find(|&(_, &j)| j == i)
+                        .map_or("?", |(n, _)| n.as_str())
+                };
+                if let Some(i) = flags.iter().enumerate().position(|(i, &read)| {
+                    read && !(i >= first && specs[i - first].independent == Some(true))
+                }) {
+                    let what = if i < first {
+                        "observable"
+                    } else {
+                        "dependent continuous variable"
+                    };
+                    out.push(invalid(
+                        "CRN-R012",
+                        &pointer(&path, "derivative"),
+                        format!(
+                            "the derivative of independent variable `{}` reads {what} `{}`",
+                            spec.name,
+                            name(i)
+                        ),
+                        "An independent derivative reads only parameters and independent continuous variables; drop `independent` or the read.",
+                    ));
+                }
+            }
             if let (Some(initial), Some(derivative), Some(bound)) = (initial, derivative, bound) {
                 compiled.push(Self {
                     name: spec.name.clone(),
@@ -217,6 +285,7 @@ impl Variable {
                     initial,
                     derivative,
                     bound,
+                    independent,
                 });
             }
         }
@@ -298,12 +367,24 @@ pub(crate) struct Dense {
     r: [Vec<f64>; 5],
 }
 
+/// The continuous extension at θ in [0, 1] from the five coefficients of
+/// one component.
+#[inline]
+pub(crate) fn interpolate(r: [f64; 5], theta: f64) -> f64 {
+    let other = 1.0 - theta;
+    r[0] + theta * (r[1] + other * (r[2] + theta * (r[3] + other * r[4])))
+}
+
 impl Dense {
     /// Component `i` at θ in [0, 1].
     pub fn component(&self, i: usize, theta: f64) -> f64 {
+        interpolate(self.coefficients(i), theta)
+    }
+
+    /// The five coefficients of component `i`.
+    pub fn coefficients(&self, i: usize) -> [f64; 5] {
         let [r1, r2, r3, r4, r5] = &self.r;
-        let other = 1.0 - theta;
-        r1[i] + theta * (r2[i] + other * (r3[i] + theta * (r4[i] + other * r5[i])))
+        [r1[i], r2[i], r3[i], r4[i], r5[i]]
     }
 
     /// The whole state at θ.

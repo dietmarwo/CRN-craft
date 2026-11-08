@@ -95,7 +95,7 @@
 //!
 //! The model types live in [`model`], observation in [`observe`], the ATP
 //! coupling of rules-model/0.2 in [`atp`] and the continuous variables of
-//! rules-model/0.3 with the `hybrid` method in [`continuous`].
+//! rules-model/0.3 and 0.4 with the `hybrid` method in [`continuous`].
 //!
 //! # Contracts
 //!
@@ -108,6 +108,7 @@
 //! | `crn-craft.rules-model/0.1` | [`Model`] | Types, parameters, initial instances, observables, rules and stop |
 //! | `crn-craft.rules-model/0.2` | [`Model`] | 0.1 plus the [`atp`] block |
 //! | `crn-craft.rules-model/0.3` | [`Model`] | 0.2 plus whole-rule `propensity` expressions ([`model::Rule::propensity`]) and [`continuous`] variables |
+//! | `crn-craft.rules-model/0.4` | [`Model`] | 0.3 plus `independent` continuous variables ([`continuous::ContinuousSpec::independent`]), integrated once per prepared run by `hybrid` |
 //! | `crn-craft.rules-check/0.1` | [`RulesCheck`] | Validity, model hash and diagnostics |
 //! | `crn-craft.rules-run/0.1` | [`RunRequest`] | Time grid, ensemble, outputs and budget; always the `tree` method |
 //! | `crn-craft.rules-run/0.2` | [`RunRequest`] | 0.1 plus `method`, `trackers` and `event_log` |
@@ -993,6 +994,9 @@ pub struct Prepared {
     compiled: model::Compiled,
     observations: observe::Spec,
     flat: Option<flat::Network>,
+    /// `hybrid`: the shared solution of the independent continuous
+    /// variables (rules-model/0.4), solved once here.
+    independent: Option<engine::Shared>,
     request: RunRequest,
     model_sha256: String,
     run_sha256: String,
@@ -1245,7 +1249,7 @@ pub enum CheckVersion {
 
 /// The report of a model check: `crn-craft.rules-check/0.1`.
 ///
-/// It covers rules-model/0.1 to 0.3 documents. The check stops at the first
+/// It covers rules-model/0.1 to 0.4 documents. The check stops at the first
 /// stage that fails (parsing, size limits, names and types, then the rest of
 /// the model), so `diagnostics` lists the errors of that stage.
 ///
@@ -1520,6 +1524,19 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
         }
         _ => (None, None),
     };
+    // The independent subsystem does not depend on the replicate, so one
+    // solution at the request's tolerances serves every replicate and
+    // thread.
+    let independent = match request.method {
+        Some(Method::Hybrid { rtol, atol }) => engine::Shared::solve(
+            &compiled,
+            rtol,
+            atol,
+            request.time.end,
+            request.budget.max_sampling_steps_per_replicate,
+        ),
+        _ => None,
+    };
     Ok(Prepared {
         source: model,
         mtdna,
@@ -1528,6 +1545,7 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
         method: effective_method(&request),
         compiled,
         flat,
+        independent,
         observations,
         request,
         model_sha256,
@@ -1990,6 +2008,7 @@ fn execute_inner<O: EventObserver>(
                         generated_loop,
                         mtdna: prepared.mtdna.as_ref(),
                         method: prepared.method,
+                        independent: prepared.independent.as_ref(),
                         id,
                     };
                     let output = path.run(&mut stream(request.ensemble.root_seed, id), observer);
@@ -2320,7 +2339,7 @@ pub fn describe() -> Value {
         "crate": "crn-craft-rules",
         "commands": ["rules-check", "rules"],
         "model": "crn-craft.rules-model/0.1",
-        "accepted_models": ["crn-craft.rules-model/0.1","crn-craft.rules-model/0.2","crn-craft.rules-model/0.3"],
+        "accepted_models": ["crn-craft.rules-model/0.1","crn-craft.rules-model/0.2","crn-craft.rules-model/0.3","crn-craft.rules-model/0.4"],
         "check": "crn-craft.rules-check/0.1",
         "request": "crn-craft.rules-run/0.1",
         "result": "crn-craft.rules-result/0.1",

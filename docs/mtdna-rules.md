@@ -85,10 +85,15 @@ rules-result/0.3, which adds the request's `method` and the names of the
 `continuous` columns. Rules-run/0.6 adds no field: Static Direct defaults
 to Ziggurat waits and sparse trackers (below), and the result is
 rules-result/0.3. Rules-model/0.2 adds the legacy `atp` block, and
-rules-model/0.3 whole-rule `propensity` and `continuous` variables; in 0.3
-a rule gives exactly one of `rate` and `propensity`. Stored rules-model
-0.1/0.2 files and rules-run 0.1–0.5 requests keep their meaning and replay
-byte-identically. Each backend has its own replay identity. Worker count
+rules-model/0.3 whole-rule `propensity` and `continuous` variables; from
+0.3 a rule gives exactly one of `rate` and `propensity`. Rules-model/0.4
+adds `"independent": true` for continuous variables whose derivative reads
+only parameters and other independent variables; `hybrid` integrates them
+once per prepared run and shares the solution by every replicate
+([rules language](rules-language.md#independent-variables-rules-model04)).
+A 0.4 document without the field means what it means as 0.3. Stored
+rules-model 0.1–0.3 files and rules-run 0.1–0.6 requests keep their
+meaning and replay byte-identically. Each backend has its own replay identity. Worker count
 preserves a completed numerical payload apart from its request hash.
 
 | Method | Scope |
@@ -100,7 +105,7 @@ preserves a completed numerical payload apart from its request hash.
 | `tau` with `epsilon` | Approximate adaptive Poisson leaps with competing critical events and exact fallback |
 | `binomial` with `step` | Approximate death-then-birth splitting for single-parent unit reactions |
 | `thinning` | Exact stochastic thinning with analytic ATP flow and a deterministic zero crossing |
-| `hybrid` | Approximate piecewise-deterministic simulation of continuous variables (rules-model/0.3) at declared tolerances; rules-run/0.5 |
+| `hybrid` | Approximate piecewise-deterministic simulation of continuous variables (rules-model/0.3; independent variables once per run in 0.4) at declared tolerances; rules-run/0.5 |
 
 Rules-model/0.3 adds whole-rule propensities
 ([rules language](rules-language.md#whole-rule-propensities-rules-model03)),

@@ -1,0 +1,64 @@
+{
+  "platform": "Linux-6.18.44-fc-v310-x86_64-with-glibc2.39",
+  "python": "3.12.3",
+  "crn_craft": "0.4.0",
+  "declared_target": "independent >= 2.0x faster than dependent",
+  "model": "C4: eight-compartment pulse, rules-model/0.4",
+  "replicates": 4000,
+  "rows": [
+    {
+      "arm": "independent",
+      "repeat": 0,
+      "seconds": 0.25664962399969227,
+      "events": 155061,
+      "completed": 4000,
+      "mean_count": 11.41425
+    },
+    {
+      "arm": "dependent",
+      "repeat": 0,
+      "seconds": 0.5468563960002939,
+      "events": 155061,
+      "completed": 4000,
+      "mean_count": 11.41425
+    },
+    {
+      "arm": "dependent",
+      "repeat": 1,
+      "seconds": 0.5411727290002091,
+      "events": 155061,
+      "completed": 4000,
+      "mean_count": 11.41425
+    },
+    {
+      "arm": "independent",
+      "repeat": 1,
+      "seconds": 0.1953433139997287,
+      "events": 155061,
+      "completed": 4000,
+      "mean_count": 11.41425
+    },
+    {
+      "arm": "independent",
+      "repeat": 2,
+      "seconds": 0.17839381900012086,
+      "events": 155061,
+      "completed": 4000,
+      "mean_count": 11.41425
+    },
+    {
+      "arm": "dependent",
+      "repeat": 2,
+      "seconds": 0.49014971299993704,
+      "events": 155061,
+      "completed": 4000,
+      "mean_count": 11.41425
+    }
+  ],
+  "median_seconds": {
+    "independent": 0.1953433139997287,
+    "dependent": 0.5411727290002091
+  },
+  "speedup": 2.7703672980635554,
+  "target_met": true
+}

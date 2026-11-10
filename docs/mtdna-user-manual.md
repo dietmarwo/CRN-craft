@@ -56,7 +56,7 @@ From R, the Python package works through reticulate; see
 [Using CRN-craft from R](using-from-r.md).
 
 The Python package contains the native engine, so the CLI is optional. Every
-feature in this manual is in release 0.5.0; features that exist only in
+feature in this manual is in release 0.6.0; features that exist only in
 Rust are marked where they appear.
 
 Both packages install a command named `crn-craft`. The rules commands

@@ -7,6 +7,15 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-10
+
+Two small Python changes from user feedback on 0.5.0, and R documentation.
+`Result.paths` is ordered (replicate, time, variable), like
+`event_columns()`; this breaks code that indexes the 0.5.0 array by
+position (see **Migration**). `rules.Model.set_stop` sets a builder model's
+stop condition. `docs/using-from-r.md` shows CRN-craft from R through
+reticulate. The engine, the contracts and stored models are unchanged.
+
 ### Added
 
 - Python: `rules.Model.set_stop(condition)` sets the model's stop condition
@@ -797,7 +806,8 @@ iterations that make up this release follow.
 - Experimental non-negative Poisson leaping with explicit approximate request/result schemas.
 - Ten performance experiments and same-host reference/quality evidence; no package publishing.
 
-[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.2.0...v0.3.0

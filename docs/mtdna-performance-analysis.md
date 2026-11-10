@@ -260,24 +260,28 @@ Python parses the result document and returns pandas DataFrames, and
 xarray DataArrays for kept paths and event logs. The tables below are for
 4000 cells with every path kept (`keep_paths="all"`, `mtdna_direct`, two
 threads; NumPy 2.3.5, pandas 3.1.1, xarray 2026.9.0; medians of three;
-`validation/mtdna/python-results-timing.json`). This host ran the
-simulation about 1.5× slower than the host of the other tables, so compare
-the steps with each other:
+`validation/mtdna/python-results-timing.json`, measured for 0.6.0). This
+host ran the simulation about 1.3× slower than the host of the other
+tables, so compare the steps with each other:
 
 | Step | 37 monthly reports | 155 weekly reports |
 | --- | ---: | ---: |
-| simulation (native) | 11.2 s | 11.6 s |
-| parsing the result JSON | 0.11 s | 0.52 s |
-| records, rule counts and statistics as DataFrames | 0.0015 s | 0.0014 s |
-| `result.paths`, a time × variable × cell DataArray | 0.058 s | 0.30 s |
+| simulation (native) | 9.6 s | 9.8 s |
+| parsing the result JSON | 0.11 s | 0.43 s |
+| records, rule counts and statistics as DataFrames | 0.0016 s | 0.0018 s |
+| `result.paths`, a cell × time × variable DataArray | 0.046 s | 0.21 s |
 | then `result.paths_frame()` (148,000 or 620,000 rows) | 0.006 s | 0.023 s |
-| then `result.to_xarray()` | 0.004 s | 0.018 s |
-| `result.paths_frame()` alone, as `paths` in 0.4.0 | 0.056 s | 0.26 s |
+| then `result.to_xarray()` | 0.004 s | 0.017 s |
+| `result.paths_frame()` alone, as `paths` in 0.4.0 | 0.047 s | 0.23 s |
 
 The first of `paths`, `paths_frame()` and `to_xarray()` reads the kept
 rows out of the parsed document, which is most of the cost; the others
 reuse them. A DataArray therefore costs about as much as the DataFrame of
-release 0.4.0 did, and both add at most 3% to the simulation. Memory, as
+release 0.4.0 did, and both add at most 3% to the simulation. The cell-first
+order of 0.6.0 fills the array in the order of the kept rows; with the
+time-first order of 0.5.0, `paths` took 1.02 and 1.15 times as long as
+`paths_frame()` alone in the 0.5.0 measurement, against 0.98 and 0.93
+times here. Memory, as
 the peak of traced allocations during the conversion and the size of what
 it returns:
 
@@ -286,18 +290,18 @@ it returns:
 | `result.paths` | 16.7 MB | 7.1 MB | 69.5 MB | 29.8 MB |
 | `result.paths_frame()` | 16.5 MB | 7.6 MB | 67.9 MB | 32.3 MB |
 
-The DataArray holds report times × observables × cells × 8 bytes, NaN after
+The DataArray holds cells × report times × observables × 8 bytes, NaN after
 a budget stop; the frame stores the same values with a (replicate, time)
 index. Event logs of at most 50 entries per cell, monthly reports:
 
 | Log | Entries | `event_columns()` | `event_frame()` |
 | --- | ---: | ---: | ---: |
 | the two mutation rules (at most 10 per cell here) | 8,626 | 0.023 s, 2.9 MB | 0.013 s, 0.6 MB |
-| every rule, so every cell logs 50 | 200,000 | 0.25 s, 14.5 MB | 0.19 s, 13.6 MB |
+| every rule, so every cell logs 50 | 200,000 | 0.23 s, 14.5 MB | 0.19 s, 13.6 MB |
 
 The DataArray pads every cell to the longest log, so a sparse log takes
 more memory as an array than as a frame; a full log takes about the same.
-Parsing the full log's JSON took 1.4 s, more than either conversion. The
+Parsing the full log's JSON took 1.2 s, more than either conversion. The
 peak traced allocation was 5.2 MB and 32 MB for `event_columns()`, against
 1.4 MB and 30 MB for `event_frame()`.
 

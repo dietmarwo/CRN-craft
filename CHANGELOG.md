@@ -7,6 +7,41 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+### Added
+
+- Python: `rules.Model.set_stop(condition)` sets the model's stop condition
+  (the rules-model `stop` field), an expression over parameters and species
+  counts such as `"I == 0"`; `set_stop(None)` removes it. A `Model` is not
+  a dictionary, so `model["stop"] = ...` raises `TypeError`; the manual's
+  troubleshooting section now says so. Models without a stop write the same
+  bytes as before.
+- `docs/using-from-r.md` and `examples/r/sir.R`: CRN-craft from R through
+  reticulate (setup, an SIR ensemble with a stop and kept paths as an R
+  array, event logs, pitfalls such as integer counts and length-1 vectors),
+  tested with R 4.3.3 and reticulate 1.47.0; linked from the README, the
+  Python README and the mtDNA manual.
+
+### Changed
+
+- **Breaking (Python):** `Result.paths` has the dimensions
+  `("replicate", "time", "variable")`, the order of `event_columns()`, instead
+  of 0.5.0's `("time", "variable", "replicate")`. Code that selects by name
+  (`sel`, `mean("replicate")`) is unchanged; code that indexes positions or
+  uses `.values` changes. `result.paths.transpose("time", "variable",
+  "replicate")` gives the 0.5.0 order. Coordinates, values, attrs,
+  `paths_frame()` and `to_xarray()` are unchanged. The conversion is as fast
+  as before or faster (`validation/mtdna/python-results-timing.json`,
+  re-measured): 0.046 s and 0.21 s for 4,000 cells with 37 and 155 reports.
+
+### Migration
+
+| 0.5.0 | Now |
+| --- | --- |
+| `result.paths.values[t, v, r]` | `result.paths.values[r, t, v]` |
+| `result.paths.sel(variable="X").to_pandas()` (times × cells) | the same call gives cells × times; add `.T` for the old shape |
+| `result.paths.transpose("replicate", "time", "variable")` | `result.paths` |
+| `model.to_dict()` edited to add `"stop"` | `model.set_stop(...)` (the dictionary still works) |
+
 ## [0.5.0] - 2026-11-08
 
 Python ergonomics and two engine extensions from user feedback on 0.4.0.

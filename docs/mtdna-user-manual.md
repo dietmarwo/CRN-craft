@@ -52,6 +52,9 @@ it. Results are pandas DataFrames (pandas is required since 0.3.0), and
 kept paths and event logs are xarray DataArrays (xarray is required since
 0.5.0). The extra `crn-craft[xarray]` of earlier releases still installs.
 
+From R, the Python package works through reticulate; see
+[Using CRN-craft from R](using-from-r.md).
+
 The Python package contains the native engine, so the CLI is optional. Every
 feature in this manual is in release 0.5.0; features that exist only in
 Rust are marked where they appear.
@@ -304,7 +307,7 @@ print(
     "first 8 of 64 equal an 8-cell run:",
     small.records["events"].equals(one.records["events"].head(8)),
 )
-paths = one.paths  # report times x observables x cells, an xarray DataArray
+paths = one.paths  # cells x report times x observables, an xarray DataArray
 print(dict(paths.sizes))
 print(paths.sel(replicate=0, variable=["N", "mutants"]).to_pandas())
 ```
@@ -315,7 +318,7 @@ same statistics: True
 same paths: True
 seed 7 vs 8, identical stop times: False
 first 8 of 64 equal an 8-cell run: True
-{'time': 4, 'variable': 6, 'replicate': 64}
+{'replicate': 64, 'time': 4, 'variable': 6}
 variable       N  mutants
 time                     
 0.0       1000.0      0.0
@@ -326,10 +329,11 @@ time
 
 `keep_paths` decides which cells keep their observable series: a count
 keeps cells 0, 1, … up to it, and `"all"` (or `True`) keeps every cell.
-`result.paths` holds them as one xarray DataArray with dimensions (`time`,
-`variable`, `replicate`): report times × observables × cells. The
-coordinates are the report times, the observable names (continuous
-variables last) and the cell indices; the values are floats. `paths.attrs`
+`result.paths` holds them as one xarray DataArray with dimensions
+(`replicate`, `time`, `variable`): cells × report times × observables, the
+order of `event_columns()` (section 7). The coordinates are the cell
+indices, the report times and the observable names (continuous variables
+last); the values are floats. `paths.attrs`
 names the `sampler`, the `method` (as JSON text, `"null"` for results
 that report none; `json.loads` turns it back into a dictionary), the
 `root_seed`, `model_sha256` and `run_sha256`, all of which netCDF can store. Some common
@@ -338,9 +342,11 @@ forms:
 - `result.paths.sel(replicate=3)`: cell 3's series, report times ×
   observables;
 - `result.paths.sel(time=8640.0)`: every kept cell at day 360;
-- `result.paths.sel(variable="mutants")`: report times × cells;
+- `result.paths.sel(variable="mutants")`: cells × report times;
 - `result.paths.sel(variable="mutants").mean("replicate")`: the mean over
   the kept cells at each report time;
+- `result.paths.transpose("time", "variable", "replicate")`: the
+  dimension order of release 0.5.0;
 - `result.paths_frame()`: the DataFrame of release 0.4.0, indexed by
   (`replicate`, `time`), one column per observable;
 - `result.to_xarray()`: an xarray Dataset with dimensions `replicate` and
@@ -361,6 +367,8 @@ comparable across methods in distribution, not path by path.
 
 A `stop` condition ends a cell the first time it is true after an event.
 The cell's termination is `stopped` and `stop_time` is the event time.
+Here it is a field of the model dictionary; a model built with `rules.Model`
+sets it with `model.set_stop(...)` (section 12).
 The two common outputs are:
 
 - **Takeover fraction by age:** the share of cells whose stop time lies
@@ -1571,6 +1579,7 @@ The calls:
 | `set_initial(mapping)` or `set_initial(S=490, I=10)` | initial counts of declared species |
 | `add_reaction(rate, reactants, products, name=None)` | a rule; species are lists of names, repeated for multiplicity; undeclared species start at 0; names default to `r0`, `r1`, ... |
 | `add_ode(name, initial, derivative, *, independent=False, lower_bound=None, on_bound="stop")` | a continuous variable (section 10); the other arguments are keyword-only. `independent=True` marks an ODE that reads only parameters and other independent variables and makes `to_dict()` write rules-model/0.4. `add_ODE` is the same method; `add_continuous`, the name before 0.5.0, warns |
+| `set_stop(condition)` | the model's stop condition, an expression over parameters and species counts such as `"I == 0"`; `None` removes it |
 | `to_dict()`, `to_json()` | the JSON document |
 
 A mapping, as in `add_parameter({"gamma": 0.1, "beta": 5e-4})`, declares
@@ -1581,6 +1590,54 @@ second argument: `add_species({"S": 490}, 10)` is a `TypeError`.
 `rules.ensemble` and `rules.prepare` accept the `Model` itself. Every method
 runs builder models; `tree` is never needed, since the species have no
 attributes.
+
+**Stop conditions.** A `Model` is not a dictionary, so `model["stop"] = ...`
+raises `TypeError: 'Model' object does not support item assignment`. Use
+`set_stop`, which writes the same `stop` field (section 5): once the
+condition is true, checked at time 0 and after every event, the cell keeps
+its state to the end of the report grid, its termination is `stopped` and
+`stop_time` is the event time. The condition reads parameters and species
+counts, not continuous variables (a `lower_bound` of `add_ode` stops on
+those), and `set_stop(None)` removes it. `model.to_dict()` returns a
+dictionary that can be edited like a model file, for fields the builder
+does not cover:
+
+```python
+"""A stop condition in a builder model: the end of an SIR epidemic."""
+
+from crn_craft import rules
+
+sir = rules.Model("sir")
+sir.add_species({"S": 490, "I": 10, "R": 0})
+sir.add_parameter({"beta": 5e-4, "gamma": 0.1})
+sir.add_reaction("beta * S * I", ["S", "I"], ["I", "I"], name="infection")
+sir.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
+sir.set_stop("I == 0")  # the epidemic is over
+result = rules.ensemble(
+    sir,
+    end=1000.0,
+    report_times=[0.0, 1000.0],
+    replicates=1000,
+    seed=1,
+    threads=2,
+    method="static_direct",
+).simulate()
+print(result.records["termination"].value_counts().to_dict())
+print(f"mean end of the epidemic: day {result.records['stop_time'].mean():.1f}")
+print(result.statistics["mean"].round(1))
+```
+
+```text
+{'stopped': 1000, 'completed': 0, 'event_limit': 0, 'sampling_limit': 0, 'instance_limit': 0, 'wall_time_limit': 0, 'cancelled': 0, 'failed': 0, 'output_limit': 0}
+mean end of the epidemic: day 110.5
+           I      R      S
+time                      
+0.0     10.0    0.0  490.0
+1000.0   0.0  446.1   53.9
+```
+
+A stopped cell keeps its state, so the means at day 1000 are the final
+sizes of the epidemics.
 
 **Rates.** A numeric rate k is a mass-action constant, counted like the rest
 of CRN-craft: k times the number of distinct combinations of reactant
@@ -1990,7 +2047,7 @@ The result, `run.simulate()`:
 | `records` | DataFrame, one row per cell, index `replicate`: `started` (bool), `termination` (categorical), `stop_time` (float), `events`, `rng_words`, `peak_instances`, `created_instances`, `saved_points` (unsigned integers) |
 | `rule_events` | DataFrame, one row per cell, one column per rule name: events of each rule |
 | `statistics` | `None` if withheld; else `samples` and the DataFrames `mean`, `sample_variance`, `mean_standard_error`, index `time`, one column per observable |
-| `paths` | DataArray of the kept series, dimensions (`time`, `variable`, `replicate`), NaN after a budget stop; `attrs` with `sampler`, `method`, `root_seed`, `model_sha256`, `run_sha256` |
+| `paths` | DataArray of the kept series, dimensions (`replicate`, `time`, `variable`), NaN after a budget stop; `attrs` with `sampler`, `method`, `root_seed`, `model_sha256`, `run_sha256` |
 | `paths_frame()` | DataFrame of the kept series, index (`replicate`, `time`), one column per observable (release 0.4.0's `paths`) |
 | `to_xarray()` | Dataset of the kept series, dimensions `replicate` and `time`, one variable per observable |
 | `tracker_columns(i)` | DataFrame of tracker `i`, one row per observed cell; NaN where a time or peak is absent |
@@ -2000,13 +2057,20 @@ The result, `run.simulate()`:
 | `observations`, `record_diagnostics`, `metadata` | trackers and logs as documents, per-cell errors by id, the full result document |
 
 Every DataFrame, column and DataArray has `.to_numpy()`. Code written for
-release 0.4.0 changes as follows:
+release 0.5.0 changes as follows:
+
+| 0.5.0 | Now |
+| --- | --- |
+| `result.paths` with dimensions (`time`, `variable`, `replicate`) | dimensions (`replicate`, `time`, `variable`); `result.paths.transpose("time", "variable", "replicate")` gives the old order |
+| `result.paths.values[t, v, r]` | `result.paths.values[r, t, v]`; code that selects by name (`sel`, `mean("replicate")`) is unchanged |
+
+Code written for release 0.4.0 changes as follows:
 
 | 0.4.0 | Now |
 | --- | --- |
 | `result.paths`, a DataFrame | `result.paths_frame()`; `result.paths` is a DataArray |
 | `result.paths.loc[3]` | `result.paths.sel(replicate=3)`, or `result.paths_frame().loc[3]` |
-| `result.paths["mutants"].unstack("time")` | `result.paths.sel(variable="mutants").to_pandas().T` |
+| `result.paths["mutants"].unstack("time")` | `result.paths.sel(variable="mutants").to_pandas()` |
 | `result.event_columns()`, `result.event_columns(id)`, DataFrames | `result.event_frame()`, `result.event_frame(id)`; `event_columns` returns DataArrays |
 | `pip install "crn-craft[xarray]"` | `pip install crn-craft`: xarray is required; the extra still installs |
 | `Model.add_continuous(...)` | `Model.add_ode(...)` with the same arguments; `add_continuous` still works and emits a `DeprecationWarning` |
@@ -2076,6 +2140,9 @@ Frequent diagnostics:
   block need `thinning`.
 - **A Python callback is slow.** It holds the interpreter lock. Use trackers
   or event logs for whole ensembles.
+- **`'Model' object does not support item assignment`.** A `rules.Model` is
+  not a dictionary: set a stop with `model.set_stop(...)`, or edit
+  `model.to_dict()` and pass that dictionary (section 12).
 - **`rules.compile_loop` fails.** `CompiledLoopError.reason` says why:
   `"cargo_missing"` (install Rust with rustup), `"build_failed"` (read
   `error.log`; for a version that is not on crates.io pass `source=` a

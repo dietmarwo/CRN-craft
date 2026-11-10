@@ -43,8 +43,8 @@ categorical `termination` (compare with a name such as `"stopped"`),
 `result.rule_events` has one column per rule name, `result.statistics` holds
 one DataFrame per statistic indexed by report time with one column per
 observable. Since 0.5.0 `result.paths` holds the kept series as an xarray
-DataArray with dimensions (`time`, `variable`, `replicate`), and xarray is
-a required dependency; `result.paths_frame()` returns the DataFrame indexed
+DataArray, with dimensions (`replicate`, `time`, `variable`) since 0.6.0,
+and xarray is a required dependency; `result.paths_frame()` returns the DataFrame indexed
 by (replicate, time) of earlier releases, and `result.to_xarray()` a
 Dataset. `keep_paths="all"` keeps every replicate. Every frame and array has
 `.to_numpy()`; `result.metadata` keeps the full result document, and

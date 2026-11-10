@@ -70,18 +70,18 @@ def array_attrs(meta):
 
 
 def check_path_array(result, meta):
-    """Result.paths: report times x variables x replicates, NaN where unsaved."""
+    """Result.paths: replicates x report times x variables, NaN where unsaved."""
     observables = meta["observables"]
     times = meta["report_times"]
     kept = meta["paths"]
     paths = result.paths
-    expected = np.full((len(times), len(observables), len(kept)), np.nan)
-    for column, path in enumerate(kept):
+    expected = np.full((len(kept), len(times), len(observables)), np.nan)
+    for index, path in enumerate(kept):
         rows = np.array(path["values"], dtype=np.float64).reshape(-1, len(observables))
-        expected[: len(rows), :, column] = rows
+        expected[index, : len(rows), :] = rows
     require(
         isinstance(paths, xr.DataArray)
-        and paths.dims == ("time", "variable", "replicate")
+        and paths.dims == ("replicate", "time", "variable")
         and paths.name == "paths"
         and paths.dtype == np.float64
         and paths.shape == expected.shape
@@ -97,9 +97,7 @@ def check_path_array(result, meta):
     )
     # The 0.4.0 frame is the same data without the unsaved rows.
     frame = result.paths_frame()
-    long = paths.transpose("replicate", "time", "variable").values.reshape(
-        -1, len(observables)
-    )
+    long = paths.values.reshape(-1, len(observables))
     saved = ~np.isnan(long).all(axis=1)
     require(
         np.array_equal(long[saved], frame.to_numpy())
@@ -107,7 +105,7 @@ def check_path_array(result, meta):
         "path array and paths_frame hold the same rows",
     )
     data = result.to_xarray()
-    split = paths.to_dataset("variable").transpose("replicate", "time")
+    split = paths.to_dataset("variable")
     split.attrs = {key: meta[key] for key in ATTRS if key != "method"}
     require(
         isinstance(data, xr.Dataset) and data.identical(split),

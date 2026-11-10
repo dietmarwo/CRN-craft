@@ -15,7 +15,7 @@ for `hybrid`, continuous variables with closed-form laws.
 
 ```toml
 [dependencies]
-crn-craft-rules = "0.5"
+crn-craft-rules = "0.6"
 ```
 
 ```rust

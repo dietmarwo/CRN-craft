@@ -395,6 +395,43 @@ def odes_model(add, first=None, second=None):
     return model
 
 
+def check_builder_stop():
+    """set_stop writes the model's stop condition; None removes it."""
+    sir = rules.Model("sir").add_species({"S": 50, "I": 1, "R": 0})
+    sir.add_parameter({"beta": 0.01, "gamma": 0.1})
+    sir.add_reaction("beta * S * I", ["S", "I"], ["I", "I"], name="infection")
+    sir.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
+    plain = sir.to_json()
+    require(
+        sir.set_stop("I == 0") is sir
+        and list(sir.to_dict())[-2:] == ["rules", "stop"]
+        and sir.to_dict()["stop"] == "I == 0",
+        "set_stop writes stop after the rules and returns the model",
+    )
+    result = rules.ensemble(
+        sir, end=1000.0, report_times=[0.0, 1000.0], replicates=40, seed=3
+    ).simulate()
+    require(
+        (result.records["termination"] == "stopped").all()
+        and result.metadata["stopped_replicates"] == 40
+        and (result.records["stop_time"] < 1000.0).all(),
+        "every SIR replicate stops when the infection dies out",
+    )
+    require(
+        sir.set_stop(None).to_json() == plain and "stop" not in sir.to_dict(),
+        "set_stop(None) removes the stop and restores the bytes",
+    )
+    raises(TypeError, sir.set_stop, 0)
+    raises(ValueError, sir.set_stop, "  ")
+    unknown = rules.Model("u").add_species({"A": 1}).add_reaction(0.1, ["A"], [])
+    unknown.set_stop("B == 0")
+    error = raises(c.CrnError, rules.ensemble, unknown, end=1.0, report_times=[1.0])
+    require(
+        error.diagnostics[0]["path"] == "/stop",
+        "a stop that reads an undeclared name is refused at /stop",
+    )
+
+
 def check_builder_odes():
     """add_ode, its alias add_ODE, independent=True and add_continuous."""
     plain = odes_model("add_ode")
@@ -860,13 +897,13 @@ def main():
         seed=7,
         keep_paths="all",
     ).simulate()
-    paths = kept.paths  # report times x variables x replicates
+    paths = kept.paths  # replicates x report times x variables
     by_time = paths.sel(variable="X").mean("replicate").values
     frame = kept.paths_frame()
     require(
         isinstance(paths, xr.DataArray)
-        and paths.dims == ("time", "variable", "replicate")
-        and paths.shape == (3, 1, 50)
+        and paths.dims == ("replicate", "time", "variable")
+        and paths.shape == (50, 3, 1)
         and paths["time"].values.tolist() == [0.0, 5.0, 10.0]
         and paths["variable"].values.tolist() == ["X"]
         and paths["replicate"].values.tolist() == list(range(50))
@@ -879,7 +916,7 @@ def main():
         frame.shape == (150, 1)
         and list(frame.index.names) == ["replicate", "time"]
         and np.array_equal(
-            frame["X"].unstack("time").to_numpy(), paths.sel(variable="X").values.T
+            frame["X"].unstack("time").to_numpy(), paths.sel(variable="X").values
         ),
         "paths_frame() is the 0.4.0 DataFrame",
     )
@@ -917,6 +954,8 @@ def main():
     checks.append("rules_builder_mappings")
     check_builder_odes()
     checks.append("rules_builder_odes")
+    check_builder_stop()
+    checks.append("rules_builder_stop")
     check_hybrid()
     checks.append("rules_hybrid")
     check_compiled_loop_refusals()

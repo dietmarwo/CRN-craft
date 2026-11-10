@@ -65,9 +65,9 @@ numeric rate is a mass-action constant, a string the reaction's whole
 propensity. `add_species` and `add_parameter` take one name and value or a
 mapping such as `{"S": 999, "I": 1}`. Results are pandas DataFrames:
 per-replicate records and rule counts, statistics by report time and
-trackers. Kept paths and event logs are xarray DataArrays: `result.paths`
-has the dimensions (time, variable, replicate), and `event_columns()`
-(replicate, entry, variable). pandas and xarray are installed with the
+trackers. Kept paths and event logs are xarray DataArrays with the
+replicate first: `result.paths` has the dimensions (replicate, time,
+variable), and `event_columns()` (replicate, entry, variable). pandas and xarray are installed with the
 package. `paths_frame()` and `event_frame()` return the DataFrames of
 release 0.4.0, and `to_xarray()` the paths as a Dataset. The same
 immigration–death model:
@@ -91,7 +91,7 @@ result = rules.ensemble(
 ).simulate()
 print(result.statistics["mean"])
 print(result.rule_events.sum().to_dict())
-print(result.paths.sel(variable="X").T.to_pandas().head(3))  # cells x times
+print(result.paths.sel(variable="X").to_pandas().head(3))  # cells x times
 ```
 
 ```text
@@ -113,9 +113,11 @@ The means lie within one standard error of the exact 12.64 and 17.29.
 trackers sparsely (rules-run/0.6). `method={"kind": "static_direct",
 "waiting_time": "inverse", "sparse_trackers": False}` gives the numbers of
 release 0.3.0, which printed 12.550 and 17.351 here.
-Models may also declare continuous variables (`Model.add_ode`), ODEs
-between events that rates read (for example an ATP pool), which
-`method="hybrid"` simulates at declared tolerances.
+`Model.set_stop("I == 0")` sets a stop condition: a replicate keeps its
+state from the first time it holds and is recorded as `stopped`. Models
+may also declare continuous variables (`Model.add_ode`), ODEs between
+events that rates read (for example an ATP pool), which `method="hybrid"`
+simulates at declared tolerances.
 
 Opt-in since 0.4.0, with a Rust toolchain (1.85 or newer): `loop = rules.compile_loop(model)`
 compiles a model's Static Direct event loop, string rates included since
@@ -143,6 +145,7 @@ the repository and are not part of the wheel.
 - [Tutorial](https://github.com/dietmarwo/CRN-craft/blob/main/docs/tutorial.md)
 - [Alternative exact SSA methods and the `fast` switch](https://github.com/dietmarwo/CRN-craft/blob/main/docs/alternative-ssa.md)
 - [Rules language](https://github.com/dietmarwo/CRN-craft/blob/main/docs/rules-language.md) and [mtDNA user manual](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-user-manual.md)
+- [Using CRN-craft from R](https://github.com/dietmarwo/CRN-craft/blob/main/docs/using-from-r.md) through reticulate
 - [Optimization tutorials C1–C4](https://github.com/dietmarwo/CRN-craft/blob/main/tutorials/optimization/README.md)
 - [Agent context](https://github.com/dietmarwo/CRN-craft/blob/main/docs/ai-context.md)
 - [Changelog](https://github.com/dietmarwo/CRN-craft/blob/main/CHANGELOG.md)

@@ -58,9 +58,9 @@ reference = rules.ensemble(
 
 def mutant_fraction(result, mutants, total):
     """Mean and standard error over cells of each cell's mutant fraction."""
-    paths = result.paths  # report times x observables x cells, a DataArray
+    paths = result.paths  # cells x report times x observables, a DataArray
     count = paths.sel(variable=mutants).sum("variable")
-    fraction = count / paths.sel(variable=total).sum("variable")  # times x cells
+    fraction = count / paths.sel(variable=total).sum("variable")  # cells x times
     cells = fraction.sizes["replicate"]
     mean = fraction.mean("replicate")
     return mean.values, fraction.std("replicate", ddof=1).values / np.sqrt(cells)

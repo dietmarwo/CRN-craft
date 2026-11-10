@@ -31,8 +31,10 @@ A reaction takes at most two reactant molecules, the limit of the rules
 language. ``add_ode`` (also ``add_ODE``; ``add_continuous`` is its
 deprecated name) declares a continuous variable, an ODE between events that
 string rates may read; such models run with ``method="hybrid"``.
-Species with attributes, observables with filters and the other model fields
-remain available by editing ``to_dict()`` or writing JSON.
+``set_stop`` sets the model's stop condition, for example
+``sir.set_stop("I == 0")``. Species with attributes, observables with filters
+and the other model fields remain available by editing ``to_dict()`` or
+writing JSON.
 """
 
 from collections.abc import Mapping
@@ -131,6 +133,7 @@ class Model:
         self._implicit = set()
         self._reactions = []
         self._continuous = []
+        self._stop = None
 
     @property
     def name(self):
@@ -267,6 +270,27 @@ class Model:
         self._reactions.append(rule)
         return self
 
+    def set_stop(self, condition):
+        """Set the stop condition, or remove it with ``None``.
+
+        ``condition`` is an expression over parameters and species counts,
+        for example ``"I == 0"`` or ``"N > 0 && mutants >= 0.9 * N"``. Once
+        it is true (it is checked at time 0 and after every event), a
+        replicate keeps its state to the end of the report grid and is
+        recorded as ``"stopped"``, with its ``stop_time``. It cannot read
+        continuous variables; a bound of ``add_ode`` stops on those.
+        """
+        if condition is not None:
+            if not isinstance(condition, str):
+                raise TypeError(
+                    "a stop condition is an expression string or None, "
+                    f"not {type(condition).__name__}"
+                )
+            if not condition.strip():
+                raise ValueError("a stop condition must be an expression")
+        self._stop = condition
+        return self
+
     def add_ode(
         self,
         name,
@@ -361,6 +385,8 @@ class Model:
             "observables": {s: {"type": s} for s in self._species},
             "rules": json.loads(json.dumps(self._reactions)),
         }
+        if self._stop is not None:
+            document["stop"] = self._stop
         if self._continuous:
             document["continuous"] = json.loads(json.dumps(self._continuous))
         return document

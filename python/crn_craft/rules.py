@@ -111,7 +111,7 @@ class Result:
       report time with one column per observable. A statistic that was not
       computed is None.
     - ``paths``: the kept series as an xarray DataArray with dimensions
-      (``time``, ``variable``, ``replicate``); ``paths_frame()`` gives the
+      (``replicate``, ``time``, ``variable``); ``paths_frame()`` gives the
       DataFrame of release 0.4.0, ``to_xarray()`` a Dataset.
     - ``event_columns()``: event logs as a DataArray with dimensions
       (``replicate``, ``entry``, ``variable``); ``event_frame()`` gives the
@@ -191,12 +191,13 @@ class Result:
 
     @cached_property
     def paths(self):
-        """Kept series as a DataArray: report times x variables x replicates.
+        """Kept series as a DataArray: replicates x report times x variables.
 
-        Dimensions are ``("time", "variable", "replicate")`` with the
-        coordinates ``time`` (the report times), ``variable`` (the
-        observables in result order: sorted names, then continuous
-        variables) and ``replicate`` (the kept replicate ids, int64). Values
+        Dimensions are ``("replicate", "time", "variable")``, the order of
+        ``event_columns()``, with the coordinates ``replicate`` (the kept
+        replicate ids, int64), ``time`` (the report times) and ``variable``
+        (the observables in result order: sorted names, then continuous
+        variables). Values
         are float64. ``attrs`` holds the result's ``sampler``, ``method``
         (the method object of rules-result/0.3 as JSON text, ``"null"``
         for older results), ``root_seed``, ``model_sha256`` and
@@ -205,19 +206,21 @@ class Result:
         ``keep_paths`` decides which replicates are kept (``"all"`` keeps
         every one). A replicate that ended on a budget has values only up
         to its last saved report time and NaN after it. For example
-        ``paths.sel(variable="mutants")`` is a time x replicate array and
-        ``paths.sel(replicate=3)`` one replicate's series.
-        ``paths_frame()`` returns the DataFrame of release 0.4.0.
+        ``paths.sel(variable="mutants")`` is a replicate x time array and
+        ``paths.sel(replicate=3)`` one replicate's series. Release 0.5.0
+        ordered the dimensions ``("time", "variable", "replicate")``;
+        ``paths.transpose("time", "variable", "replicate")`` gives that
+        order. ``paths_frame()`` returns the DataFrame of release 0.4.0.
         """
         ids, lengths, positions, values = self._path_arrays
         times = np.asarray(self.metadata["report_times"], dtype=np.float64)
         observables = list(self.metadata["observables"])
-        cube = np.full((len(times), len(observables), len(ids)), np.nan)
-        cube[positions, :, np.repeat(np.arange(len(ids)), lengths)] = values
+        cube = np.full((len(ids), len(times), len(observables)), np.nan)
+        cube[np.repeat(np.arange(len(ids)), lengths), positions, :] = values
         return xarray.DataArray(
             cube,
-            dims=("time", "variable", "replicate"),
-            coords={"time": times, "variable": observables, "replicate": ids},
+            dims=("replicate", "time", "variable"),
+            coords={"replicate": ids, "time": times, "variable": observables},
             name="paths",
             attrs=self._array_attrs(),
         )
@@ -243,8 +246,7 @@ class Result:
 
         Dimensions are ``replicate`` and ``time`` (the report times), with
         one variable per observable; rows a replicate did not save are NaN.
-        It holds the values of ``paths``:
-        ``paths.to_dataset("variable").transpose("replicate", "time")``.
+        It holds the values of ``paths``: ``paths.to_dataset("variable")``.
         ``attrs`` holds ``sampler``, ``model_sha256``, ``run_sha256`` and
         ``root_seed``, all of which netCDF can store.
         """

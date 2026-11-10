@@ -33,9 +33,9 @@ def template(cells, seed, threads=2):
 
 def heteroplasmy(result):
     """Fraction of cells whose mutant fraction reaches each edge, per age."""
-    paths = result.paths  # report times x observables x cells
+    paths = result.paths  # cells x report times x observables
     fraction = (paths.sel(variable="mutants") / paths.sel(variable="N")).to_numpy()
-    return (fraction[:, :, None] >= EDGES).mean(axis=1)  # ages x edges
+    return (fraction[:, :, None] >= EDGES).mean(axis=0)  # ages x edges
 
 
 def loss(simulated, observed, cells):

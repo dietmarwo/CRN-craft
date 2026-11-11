@@ -286,3 +286,31 @@ Written and committed before the gate run.
   conversion error, not rerun with other seeds.
 - Output: `validation/merge/laws/static_direct.json` (every row, failed rows
   included), summarized below.
+
+### M2 (converted models, `static_direct`): results
+
+2026-11-11, this host, under the CPU lock, engine at `d5fb778` (wheel
+`_native` SHA-256 `77d90cd7…`), 2 threads: 18 min 36 s wall, 34.7 CPU
+minutes, 1.56e10 events. Report: `validation/merge/laws/static_direct.json`.
+
+| Model | Cells | Comparisons (reference) | Failures | max \|z\| | Comparisons (FSP) | Failures | max \|z\| |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| W1 | 6 | 12 | 0 | 2.45 | 12 | 0 | 2.28 |
+| W2 | 198 | 396 | 0 | 3.39 | – | – | – |
+| W3 | 36 | 72 | 0 | 1.88 | – | – | – |
+| W4 | refused (`CRN-R016`, order 8), as declared | | | | | | |
+| W5 | refused (`CRN-R016`, 256 species), as declared | | | | | | |
+| W6 | 160 | 320 | 0 | 3.33 | – | – | – |
+| W7 | refused (`CRN-R016`, 96 species), as declared | | | | | | |
+| enzyme-mechanism | 20 | 40 | 0 | 1.78 | 40 | 0 | 2.16 |
+| immigration-death | 5 | 10 | 0 | 1.55 | 10 | 0 | 1.81 |
+| michaelis-menten | 10 | 20 | 0 | 1.90 | 20 | 0 | 2.20 |
+| repressilator | 30 | 60 | 0 | 1.88 | – | – | – |
+| vilar-noise | 45 | 90 | 0 | 2.94 | – | – | – |
+| **Total** | 510 | 1,102 (N), 204 at t = 0 | **0** | 3.39 | | | |
+
+**Gate passed:** 0 failures among 1,102 comparisons, as declared; the
+refusals are exactly W4, W5 and W7. W3 and repressilator convert to the same
+bytes and run with the same seeds, so their cells at t = 0, 2, 5 and 10 are
+the same comparisons (the 0.6.0 references share seeds in the same way): 48
+of the 1,102 comparisons repeat others, 36 of them stochastic.

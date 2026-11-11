@@ -883,6 +883,31 @@ def check_quantiles(model):
         "quantiles change the schemas and hashes, not the numbers",
     )
     check_numpy_quantiles(result, QUANTILES, "SIR")
+    # Widely spread values: x[j] + g (x[j+1] - x[j]) as written rounds
+    # differently from numpy.quantile in some cells; the engine is NumPy's.
+    spread = (0.01, 0.03, 0.07, 0.12, 0.2, 0.3, 0.38, 0.45, 0.55, 0.62)
+    spread += (0.7, 0.8, 0.88, 0.93, 0.97, 0.99)
+    epidemics = rules.ensemble(
+        {**sir.to_dict(), "schema": rules.MODEL_1_0},
+        end=100.0,
+        report_times=[0.0, 20.0, 30.0, 40.0, 50.0, 100.0],
+        replicates=10,
+        seed=17,
+        keep_paths="all",
+        method="static_direct",
+        quantiles=spread,
+    ).simulate()
+    check_numpy_quantiles(epidemics, spread, "SIR, ten epidemics")
+    ordered = np.sort(epidemics.paths.values, axis=0)
+    as_written = 0
+    for p in spread:
+        h = 9 * p
+        j = int(np.floor(h))
+        written = ordered[j] + (h - j) * (ordered[j + 1] - ordered[j])
+        as_written += int(
+            (written != np.quantile(epidemics.paths.values, p, axis=0)).sum()
+        )
+    require(as_written > 0, "the ten epidemics tell the two evaluations apart")
     # Every method, on models of its scope; bytes from rules.load keep every
     # byte but the schema string.
     data = model

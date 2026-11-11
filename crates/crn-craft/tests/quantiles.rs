@@ -242,6 +242,72 @@ fn quantiles_equal_the_linear_definition_on_the_kept_paths_bit_for_bit() {
     check_against_paths(&run(&model, &with), &probabilities, "binomial");
 }
 
+/// The formula as written, without NumPy's evaluation of the upper half.
+#[allow(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
+fn as_written(sorted: &[f64], p: f64) -> f64 {
+    let n = sorted.len();
+    let h = (n - 1) as f64 * p;
+    let j = h.floor() as usize;
+    if j + 1 >= n {
+        return sorted[n - 1];
+    }
+    sorted[j] + (h - j as f64) * (sorted[j + 1] - sorted[j])
+}
+
+#[test]
+fn widely_spread_values_take_numpys_upper_branch() {
+    // Ten SIR epidemics: adjacent order statistics differ by tens of
+    // counts, so x[j] + g (x[j+1] - x[j]) and NumPy's
+    // x[j+1] - (1 - g) (x[j+1] - x[j]) round differently in some cells.
+    let model = serde_json::to_vec(&json!({
+        "schema": "crn-craft.model/1.0",
+        "name": "sir",
+        "parameters": {"beta": 0.0002, "gamma": 0.01},
+        "types": [{"name": "S"}, {"name": "I"}, {"name": "R"}],
+        "initial": [{"type": "S", "count": 999}, {"type": "I", "count": 1}],
+        "observables": {"S": {"type": "S"}, "I": {"type": "I"}, "R": {"type": "R"}},
+        "rules": [
+            {"name": "infection", "reactants": [{"label": "x", "type": "S"},
+             {"label": "y", "type": "I"}], "rate": "beta",
+             "products": [{"type": "I"}, {"type": "I"}]},
+            {"name": "recovery", "reactants": [{"label": "x", "type": "I"}],
+             "rate": "gamma", "products": [{"type": "R"}]}
+        ]
+    }))
+    .unwrap();
+    let probabilities = [
+        0.01, 0.03, 0.07, 0.12, 0.2, 0.3, 0.38, 0.45, 0.55, 0.62, 0.7, 0.8, 0.88, 0.93, 0.97, 0.99,
+    ];
+    let mut with = request(&model, Some(json!(probabilities)));
+    with["time"] = json!({"end": 100.0, "report_times": [0.0, 20.0, 30.0, 40.0, 50.0, 100.0]});
+    with["ensemble"] = json!({"replicates": 10, "root_seed": 17});
+    with["outputs"]["keep_paths"] = 10.into();
+    with["budget"]["max_instances"] = 3.into();
+    let result = run(&model, &with);
+    check_against_paths(&result, &probabilities, "SIR");
+    // The test discriminates: the formula as written differs somewhere.
+    let paths = result["paths"].as_array().unwrap();
+    let mut differing = 0;
+    for row in 0..6 {
+        for column in 0..3 {
+            let mut cell: Vec<f64> = paths
+                .iter()
+                .map(|p| p["values"][row][column].as_f64().unwrap())
+                .collect();
+            cell.sort_by(f64::total_cmp);
+            differing += probabilities
+                .iter()
+                .filter(|&&p| linear(&cell, p).to_bits() != as_written(&cell, p).to_bits())
+                .count();
+        }
+    }
+    assert!(differing > 0, "no cell tells the two evaluations apart");
+}
+
 #[test]
 fn a_single_replicate_and_a_stop_give_the_held_values() {
     let model = immigration_death("crn-craft.model/1.0");

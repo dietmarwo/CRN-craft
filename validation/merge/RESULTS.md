@@ -337,11 +337,13 @@ Written and committed before the gate run. Script:
   empirical distribution function at n = 100,000 (0.00049).
 - **Gate:** for each method and p, the reported quantile at t = 10 lies
   within one count of Q(p): |q̂ − Q(p)| ≤ 1. 9 comparisons. A failure
-  needs the sample quantile to cross a value whose distribution function
-  differs from p by at least 0.024 (F(15) = 0.95126 at p = 0.975), more
-  than 48 standard errors: **0 failures are expected**. A failure is
-  investigated, not rerun with another seed. At t = 0 every quantile must
-  be exactly 0.
+  needs the empirical distribution function to miss F by at least 0.0178
+  at Q(p) − 2 or Q(p) + 1 (closest: p = 0.975, F(18) − 0.975 = 0.01782;
+  then p = 0.025, 0.025 − F(2) = 0.02223), at least 36 standard errors:
+  **0 failures are expected**. A failure is investigated, not rerun with
+  another seed. At t = 0 every quantile must be exactly 0.
+  (Corrected before the gate run: the first committed text gave this
+  margin as 0.024 and 48 standard errors, from F(15) at p = 0.975 only.)
 - Informative, not gated: whether q̂ equals Q(p) exactly; the mean
   and variance at t = 10 against λ (|x̄ − λ| in standard errors).
 - Contract checks in the same script (exact, no tolerance): the request

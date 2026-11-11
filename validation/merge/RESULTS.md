@@ -337,6 +337,23 @@ Written and committed before the gate run.
   rows included). The wall time per model is printed on stderr and recorded
   in the M4a log; it is not gated here (the speed gate is M4d).
 
+### M4a (W5 and W7, `static_direct`): results
+
+2026-11-11, this host, under the CPU lock, engine at `66560f4` (wheel
+`_native` SHA-256 `32d62d00…`), `crn-craft.run/1.0`, sampler
+`chacha8-u53-ziggurat/rules-static-direct/1`, 2 threads: 5 min 43 s wall
+for both models. Report: `validation/merge/laws/m4a-static_direct.json`.
+
+| Model | Cells | Comparisons (reference) | Failures | max \|z\| | Events (gate) | Events (0.6.0 reference) | Wall time |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| W5 | 1,280 | 2,560 | 0 | 3.88 | 407,994,800 | 408,007,617 | 221.2 s |
+| W7 | 480 | 960 | 0 | 2.91 | 676,470,648 | 676,431,647 | 121.9 s |
+| **Total** | 1,760 | 3,520 (N), 704 at t = 0 | **0** | 3.88 | | | |
+
+**Gate passed:** 0 failures among 3,520 comparisons, as declared; both
+models convert. The wall time covers conversion, simulation with every path
+kept and the decoding in Python (2 worker threads); it is informative only.
+
 ### M4b (higher-order reactions): declaration
 
 Written and committed before the FSP references were computed and before

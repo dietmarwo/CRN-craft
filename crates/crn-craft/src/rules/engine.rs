@@ -15,13 +15,13 @@ mod mtdna_path;
 #[path = "thinning.rs"]
 mod thinning;
 
-use crate::expr::{Draw, Env};
-use crate::model::{Compiled, MAX_COUNT, Reduce, Shape, Source};
-use crate::observe::{Event, EventObserver, Monitor, Observation, ObserverAction, Spec};
-use crate::tree::{MaxTree, PairChoice, PairTree, SumTree};
-use crate::{Control, InstanceRecord, Termination};
-use crn_craft::diagnostic::Diagnostic;
-use crn_craft::sampling::uniform_closed_open;
+use crate::diagnostic::Diagnostic;
+use crate::rules::expr::{Draw, Env};
+use crate::rules::model::{Compiled, MAX_COUNT, Reduce, Shape, Source};
+use crate::rules::observe::{Event, EventObserver, Monitor, Observation, ObserverAction, Spec};
+use crate::rules::tree::{MaxTree, PairChoice, PairTree, SumTree};
+use crate::rules::{Control, InstanceRecord, Termination};
+use crate::sampling::uniform_closed_open;
 use rand_core::RngCore;
 use std::collections::HashMap;
 use std::time::Instant;
@@ -136,7 +136,7 @@ fn grow(v: &mut Vec<f64>, slot: usize, fill: f64) {
 
 /// A `where` condition; an undefined (NaN) value is an error, not true.
 fn condition(
-    expr: Option<&crate::expr::Expr>,
+    expr: Option<&crate::rules::expr::Expr>,
     env: &Env,
     path: &str,
     attrs: &[f64],
@@ -236,7 +236,7 @@ impl<'m> State<'m> {
         }
         for &o in &model.types[t].observables {
             let info = &model.observables[o];
-            let at = crn_craft::diagnostic::pointer("/observables", &info.name);
+            let at = crate::diagnostic::pointer("/observables", &info.name);
             let matched = condition(info.condition.as_ref(), &env, &format!("{at}/where"), attrs)?;
             let w = if matched {
                 info.weight.as_ref().map_or(1.0, |e| e.eval(&env))
@@ -245,7 +245,7 @@ impl<'m> State<'m> {
             };
             if matched && !w.is_finite() {
                 return Err(numerical(
-                    &crn_craft::diagnostic::pointer("/observables", &info.name),
+                    &crate::diagnostic::pointer("/observables", &info.name),
                     format!("weight is {w} for attributes {attrs:?}"),
                     "Observable weights must be finite.",
                 ));
@@ -292,7 +292,7 @@ impl<'m> State<'m> {
                 };
                 if !leaf.is_finite() {
                     return Err(numerical(
-                        &crn_craft::diagnostic::pointer("/observables", &model.observables[o].name),
+                        &crate::diagnostic::pointer("/observables", &model.observables[o].name),
                         "observable weight overflows",
                         "Reduce the weight or the population.",
                     ));
@@ -388,10 +388,7 @@ impl<'m> State<'m> {
             };
             if !value.is_finite() {
                 return Err(numerical(
-                    &crn_craft::diagnostic::pointer(
-                        "/observables",
-                        &self.model.observables[o].name,
-                    ),
+                    &crate::diagnostic::pointer("/observables", &self.model.observables[o].name),
                     "observable total overflows",
                     "Rescale the weights; observables must stay finite.",
                 ));
@@ -585,11 +582,11 @@ pub(crate) struct Path<'a> {
     pub keep_instances: bool,
     pub observations: &'a Spec,
     pub id: u64,
-    pub flat: Option<&'a crate::flat::Network>,
-    pub generated: Option<&'a dyn crate::RulesKernel>,
-    pub generated_loop: Option<&'a dyn crate::RulesLoop>,
-    pub mtdna: Option<&'a crate::mtdna::Kernel>,
-    pub method: crate::Method,
+    pub flat: Option<&'a crate::rules::flat::Network>,
+    pub generated: Option<&'a dyn crate::rules::RulesKernel>,
+    pub generated_loop: Option<&'a dyn crate::rules::RulesLoop>,
+    pub mtdna: Option<&'a crate::rules::mtdna::Kernel>,
+    pub method: crate::rules::Method,
     /// The `hybrid` solution of the independent continuous variables.
     pub independent: Option<&'a Shared>,
 }
@@ -924,7 +921,7 @@ impl Path<'_> {
             // A product equal to a reactant cancels its consumption, so a kept
             // reactant (`copy` without overrides) is never removed and re-created.
             let mut kept = [false; 2];
-            let mut skip = [false; crate::model::MAX_PRODUCTS];
+            let mut skip = [false; crate::rules::model::MAX_PRODUCTS];
             for (j, (t, values)) in products.iter().enumerate() {
                 for (k, &rt) in rule.reactant_types.iter().enumerate() {
                     if !kept[k]

@@ -335,7 +335,7 @@ mod tests {
         // Two-stage selection as in the engine, against exact pair weights
         // h(x)h(y) over unordered pairs of distinct molecules.
         use rand_core::RngCore;
-        let mut rng = crate::stream(5, 0);
+        let mut rng = crate::rules::stream(5, 0);
         let mut u = || (rng.next_u64() >> 11) as f64 / 9_007_199_254_740_992.0;
         let draws = 400_000;
         let mut counts = std::collections::BTreeMap::new();

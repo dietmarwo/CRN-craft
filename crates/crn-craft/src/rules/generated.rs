@@ -4,10 +4,10 @@
 //! prepared model as Rust source; [`execute_with_rules_kernel`] runs a
 //! compiled kernel under the Static Direct scheduler. See the
 //! [rules kernel checklist](https://github.com/dietmarwo/CRN-craft/blob/main/docs/specialized-kernels.md#ahead-of-time-generated-rules-kernels).
-use crate::expr::RateKernel;
-use crate::flat::Network;
-use crate::model::Reduce;
-use crate::{Control, Diagnostic, Method, Prepared, RulesResult, request_error};
+use crate::rules::expr::RateKernel;
+use crate::rules::flat::Network;
+use crate::rules::model::Reduce;
+use crate::rules::{Control, Diagnostic, Method, Prepared, RulesResult, request_error};
 use std::collections::BTreeMap;
 use std::fmt::Write;
 
@@ -54,11 +54,11 @@ const PLACEHOLDER: &str = "@FINGERPRINT@";
 /// Covers the whole emitted source, so a kernel left stale by a change in
 /// lowering, constants, projections or dependency rows is refused.
 fn fingerprint(prepared: &Prepared, template: &str) -> String {
-    crn_craft::sha256(format!("rules-kernel/2\n{}\n{template}", prepared.model_sha256).as_bytes())
+    crate::sha256(format!("rules-kernel/2\n{}\n{template}", prepared.model_sha256).as_bytes())
 }
 
 /// Run a prepared Static Direct request with a generated kernel. Results are
-/// byte-identical to [`crate::execute`]. Fails with `CRN-R020` at `/model`
+/// byte-identical to [`crate::rules::execute`]. Fails with `CRN-R020` at `/model`
 /// unless the kernel was generated for these exact model bytes by this
 /// version of the generator. Observers are not supported on this path.
 ///
@@ -70,7 +70,7 @@ fn fingerprint(prepared: &Prepared, template: &str) -> String {
 ///
 /// `CRN-R020` at `/method` if the request does not select `static_direct`,
 /// `CRN-R020` at `/model` on a fingerprint mismatch, and otherwise the
-/// errors of [`crate::execute`].
+/// errors of [`crate::rules::execute`].
 pub fn execute_with_rules_kernel(
     prepared: &Prepared,
     control: &Control,
@@ -87,7 +87,13 @@ pub fn execute_with_rules_kernel(
             "Generate and rebuild the kernel for these exact model bytes.",
         ));
     }
-    crate::execute_inner(prepared, control, &crate::NoObserver, Some(kernel), None)
+    crate::rules::execute_inner(
+        prepared,
+        control,
+        &crate::rules::NoObserver,
+        Some(kernel),
+        None,
+    )
 }
 
 fn bits(value: f64) -> String {
@@ -112,7 +118,7 @@ fn bits(value: f64) -> String {
 /// or if a rate or an observable is outside the supported forms.
 ///
 /// ```
-/// use crn_craft_rules::{generate_rules_kernel, prepare};
+/// use crn_craft::rules::{generate_rules_kernel, prepare};
 /// # use serde_json::json;
 /// # let model = serde_json::to_vec(&json!({
 /// #     "schema": "crn-craft.rules-model/0.1", "name": "immigration_death",
@@ -282,10 +288,10 @@ mod tests {
     fn the_fingerprint_covers_the_emitted_arithmetic() {
         // Same model bytes and channel shapes; a projection weight changes as
         // it would after a change in lowering. A stale kernel must not pass.
-        let model = include_bytes!("../../../models/rules/mtdna-three-class.rules.json");
+        let model = include_bytes!("../../../../models/rules/mtdna-three-class.rules.json");
         let request = serde_json::json!({
             "schema": "crn-craft.rules-run/0.2",
-            "model": {"path": "m.rules.json", "sha256": crn_craft::sha256(model)},
+            "model": {"path": "m.rules.json", "sha256": crate::sha256(model)},
             "time": {"end": 1.0, "report_times": [0.0, 1.0]},
             "ensemble": {"replicates": 1, "root_seed": 1},
             "outputs": {"statistics": ["mean"], "keep_paths": 0, "keep_instances": 0},
@@ -294,7 +300,8 @@ mod tests {
                        "max_output_bytes": 1u64 << 20},
             "method": {"kind": "static_direct"}
         });
-        let mut prepared = crate::prepare(model, &serde_json::to_vec(&request).unwrap()).unwrap();
+        let mut prepared =
+            crate::rules::prepare(model, &serde_json::to_vec(&request).unwrap()).unwrap();
         let before = generate_rules_kernel(&prepared).unwrap();
         prepared.flat.as_mut().unwrap().observables[0].2[0].1 *= 2.0;
         let after = generate_rules_kernel(&prepared).unwrap();

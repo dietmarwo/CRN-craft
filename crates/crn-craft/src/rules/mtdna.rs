@@ -1,8 +1,8 @@
 //! Preparation-time recognition for the three-class fixed-population sampler.
-use crate::engine::RESOLUTION;
-use crate::expr::RateKernel;
-use crate::flat::Network;
-use crate::model::{Compiled, Reduce};
+use crate::rules::engine::RESOLUTION;
+use crate::rules::expr::RateKernel;
+use crate::rules::flat::Network;
+use crate::rules::model::{Compiled, Reduce};
 
 const DEATH: [usize; 3] = [0, 4, 6];
 const BIRTH: [usize; 3] = [1, 5, 7];
@@ -47,7 +47,7 @@ impl Kernel {
     pub(crate) fn compile(
         net: &Network,
         model: &Compiled,
-        spec: &crate::observe::Spec,
+        spec: &crate::rules::observe::Spec,
     ) -> Result<Self, &'static str> {
         if net.channels.iter().any(|c| c.whole) {
             return Err(WHOLE);
@@ -249,16 +249,16 @@ impl Kernel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::expr::Env;
-    use crate::observe::Spec;
+    use crate::rules::expr::Env;
+    use crate::rules::observe::Spec;
 
     #[test]
     fn grouped_hazards_match_every_original_channel() {
-        let source: crate::Model = serde_json::from_str(include_str!(
-            "../../../models/rules/mtdna-three-class.rules.json"
+        let source: crate::rules::Model = serde_json::from_str(include_str!(
+            "../../../../models/rules/mtdna-three-class.rules.json"
         ))
         .unwrap();
-        let model = crate::model::compile(&source).unwrap();
+        let model = crate::rules::model::compile(&source).unwrap();
         let net = Network::compile(&model).unwrap();
         let spec = Spec::compile(&source, &model, &[], None).unwrap();
         let kernel = Kernel::compile(&net, &model, &spec).ok().unwrap();

@@ -154,6 +154,7 @@ pub mod network;
 pub mod next_reaction;
 pub mod parameters;
 mod rates;
+pub mod rules;
 pub mod sampling;
 pub mod simulation;
 pub mod ssa;

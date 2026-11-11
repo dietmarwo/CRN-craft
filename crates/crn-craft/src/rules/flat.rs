@@ -1,8 +1,8 @@
 //! Fixed-instance lowering and direct SSA over the resulting channels.
-use crate::InstanceRecord;
-use crate::engine::{Halt, Limits, Words, numerical};
-use crate::expr::{Env, RateKernel};
-use crate::model::{Compiled, MAX_COUNT, Reduce, Shape, Source};
+use crate::rules::InstanceRecord;
+use crate::rules::engine::{Halt, Limits, Words, numerical};
+use crate::rules::expr::{Env, RateKernel};
+use crate::rules::model::{Compiled, MAX_COUNT, Reduce, Shape, Source};
 use rand_core::RngCore;
 
 pub(crate) struct Species {
@@ -75,8 +75,8 @@ fn slot(species: &[Species], ty: usize, attrs: &[f64]) -> Option<usize> {
 
 fn local(
     env: &Env<'_>,
-    condition: Option<&crate::expr::Expr>,
-    weight: Option<&crate::expr::Expr>,
+    condition: Option<&crate::rules::expr::Expr>,
+    weight: Option<&crate::rules::expr::Expr>,
 ) -> Result<Option<f64>, String> {
     let matched = condition.map_or(1.0, |e| e.eval(env));
     if matched.is_nan() {
@@ -444,7 +444,7 @@ impl Network {
         self.species.iter().map(|s| s.initial).collect()
     }
 
-    pub fn plan_observables(&mut self, model: &Compiled, spec: &crate::observe::Spec) {
+    pub fn plan_observables(&mut self, model: &Compiled, spec: &crate::rules::observe::Spec) {
         let mut stop = vec![false; model.observables.len()];
         if let Some(expr) = &model.stop_program {
             expr.reads(&mut stop);
@@ -512,7 +512,7 @@ impl Network {
         counts: &[u64],
         values: &mut [f64],
         full: bool,
-        kernel: &dyn crate::RulesKernel,
+        kernel: &dyn crate::rules::RulesKernel,
     ) -> Result<(), Halt> {
         let changed = if full {
             &self.changed
@@ -769,8 +769,8 @@ pub(crate) fn check_instances(live: u64, limits: &Limits) -> Result<(), Halt> {
         return Ok(());
     }
     Err(Halt::Limit(
-        crate::Termination::InstanceLimit,
-        crn_craft::diagnostic::Diagnostic::error(
+        crate::rules::Termination::InstanceLimit,
+        crate::diagnostic::Diagnostic::error(
             "CRN-R042",
             "/budget/max_instances",
             "instance limit reached",
@@ -828,7 +828,7 @@ pub(crate) fn direct_with<R: RngCore>(
     if total == 0.0 {
         return Ok(None);
     }
-    let floor = total * crate::engine::RESOLUTION;
+    let floor = total * crate::rules::engine::RESOLUTION;
     let unresolved = if smallest.is_nan() {
         rates.iter().any(|&a| a > 0.0 && a < floor)
     } else {
@@ -838,7 +838,7 @@ pub(crate) fn direct_with<R: RngCore>(
         // Static channels are selected in one flat level; the tree engine
         // resolves rules and instances separately and can still run.
         if total.is_finite() {
-            return Err(Halt::Numerical(crn_craft::diagnostic::Diagnostic::error(
+            return Err(Halt::Numerical(crate::diagnostic::Diagnostic::error(
                 "CRN-R031",
                 "/rules",
                 "a positive channel is below 53-bit resolution of the total",

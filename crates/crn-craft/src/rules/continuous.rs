@@ -48,9 +48,9 @@
 //! shared solve (a non-finite derivative, an underflowing step or the step
 //! budget) fails every replicate that reaches its time, with its diagnostic.
 
-use crate::expr::{Env, Expr, Scope};
-use crate::model::{Value, invalid, parse_expr, pointer};
-use crn_craft::diagnostic::Diagnostic;
+use crate::diagnostic::Diagnostic;
+use crate::rules::expr::{Env, Expr, Scope};
+use crate::rules::model::{Value, invalid, parse_expr, pointer};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -104,7 +104,7 @@ pub struct ContinuousSpec {
     )]
     #[serde(
         default,
-        deserialize_with = "crate::present",
+        deserialize_with = "crate::rules::present",
         skip_serializing_if = "Option::is_none"
     )]
     #[schemars(with = "Value")]
@@ -115,7 +115,7 @@ pub struct ContinuousSpec {
     )]
     #[serde(
         default,
-        deserialize_with = "crate::present",
+        deserialize_with = "crate::rules::present",
         skip_serializing_if = "Option::is_none"
     )]
     #[schemars(with = "OnBound")]
@@ -127,7 +127,7 @@ pub struct ContinuousSpec {
     /// replicate. Default `false`; `null` is rejected.
     #[serde(
         default,
-        deserialize_with = "crate::present",
+        deserialize_with = "crate::rules::present",
         skip_serializing_if = "Option::is_none"
     )]
     #[schemars(with = "bool")]
@@ -187,7 +187,7 @@ impl Variable {
     /// Compiles the declared variables; their columns start at `first`.
     pub(crate) fn compile_all(
         specs: &[ContinuousSpec],
-        version: crate::model::ModelVersion,
+        version: crate::rules::model::ModelVersion,
         params: &BTreeMap<String, usize>,
         names: &BTreeMap<String, usize>,
         values: &[f64],
@@ -239,7 +239,7 @@ impl Variable {
                 }
             }
             let independent = spec.independent == Some(true);
-            if spec.independent.is_some() && version < crate::model::ModelVersion::V04 {
+            if spec.independent.is_some() && version < crate::rules::model::ModelVersion::V04 {
                 out.push(invalid(
                     "CRN-R015",
                     &pointer(&path, "independent"),

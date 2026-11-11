@@ -1,7 +1,7 @@
 //! Fixed-channel trajectory loop, with the same result and control accounting.
 use super::*;
-use crate::flat::{Network, check_instances, direct, direct_with};
-use crn_craft::next_reaction::Clocks;
+use crate::next_reaction::Clocks;
+use crate::rules::flat::{Network, check_instances, direct, direct_with};
 
 impl Path<'_> {
     #[allow(clippy::too_many_arguments)]
@@ -33,14 +33,14 @@ impl Path<'_> {
         if self.stop_values(values)? {
             return Ok(Some(0.0));
         }
-        if let crate::Method::Hybrid { rtol, atol } = self.method {
+        if let crate::rules::Method::Hybrid { rtol, atol } = self.method {
             return self.simulate_hybrid(
                 rtol, atol, net, counts, values, words, out, time, monitor, observer,
             );
         }
         if matches!(
             self.method,
-            crate::Method::Tau { .. } | crate::Method::Binomial { .. }
+            crate::rules::Method::Tau { .. } | crate::rules::Method::Binomial { .. }
         ) {
             return self.simulate_leaps(net, counts, values, words, out, time, monitor, observer);
         }
@@ -65,13 +65,13 @@ impl Path<'_> {
         let mut rates = vec![0.0; net.channels.len()];
         let mut clocks = Clocks::default();
         let mut previous = None;
-        if matches!(self.method, crate::Method::NextReaction {}) {
+        if matches!(self.method, crate::rules::Method::NextReaction {}) {
             clocks.reset(rates.len());
         }
         let ziggurat = matches!(
             self.method,
-            crate::Method::StaticDirect {
-                waiting_time: Some(crate::RulesWaitingTime::Ziggurat),
+            crate::rules::Method::StaticDirect {
+                waiting_time: Some(crate::rules::RulesWaitingTime::Ziggurat),
                 ..
             }
         );
@@ -85,7 +85,7 @@ impl Path<'_> {
                 attributes: [&[], &[]],
             };
             cache.reset();
-            let candidate = if matches!(self.method, crate::Method::NextReaction {}) {
+            let candidate = if matches!(self.method, crate::rules::Method::NextReaction {}) {
                 let mut update = |i, fired| {
                     let rate = cache.channel(net, i, counts, &env)?;
                     let fresh = if clocks.needs_draw(i, rate, fired) {
@@ -131,7 +131,7 @@ impl Path<'_> {
                 }
                 if ziggurat {
                     direct_with(&rates, *time, words, |words, total| {
-                        let unit = crn_craft::ssa::exponential_from_words(|retry| {
+                        let unit = crate::ssa::exponential_from_words(|retry| {
                             if retry {
                                 self.poll()?;
                             }

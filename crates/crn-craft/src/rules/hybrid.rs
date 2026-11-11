@@ -1,9 +1,9 @@
 //! The `hybrid` method: jump times by integrated propensities, continuous
 //! variables by Dormand–Prince 5(4) with dense output. See
-//! [`crate::continuous`] for the method and its references.
+//! [`crate::rules::continuous`] for the method and its references.
 use super::*;
-use crate::continuous::{Attempt, Dense, OnBound, Stepper, Variable, interpolate};
-use crate::flat::{Network, RateCache};
+use crate::rules::continuous::{Attempt, Dense, OnBound, Stepper, Variable, interpolate};
+use crate::rules::flat::{Network, RateCache};
 
 /// Where a step ends.
 #[derive(Clone, Copy, PartialEq)]
@@ -54,7 +54,7 @@ impl Shared {
     /// most `max_steps` attempted steps, as one replicate's budget.
     #[allow(clippy::too_many_lines)]
     pub(crate) fn solve(
-        model: &crate::model::Compiled,
+        model: &crate::rules::model::Compiled,
         rtol: f64,
         atol: f64,
         end: f64,
@@ -295,7 +295,7 @@ fn store(
 impl<'a> Flow<'a> {
     fn new(
         net: &'a Network,
-        model: &'a crate::model::Compiled,
+        model: &'a crate::rules::model::Compiled,
         shared: Option<&'a Shared>,
     ) -> Self {
         let vars = model.continuous.as_slice();

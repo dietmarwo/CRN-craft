@@ -1,14 +1,14 @@
 //! Run-time services for a generated rules event loop.
 //!
-//! A [`crate::RulesLoop`] emitted by [`crate::generate_rules_loop`] owns the
+//! A [`crate::rules::RulesLoop`] emitted by [`crate::rules::generate_rules_loop`] owns the
 //! arithmetic of every event: rates, selection, state updates and
 //! projections. [`LoopHost`] supplies what depends on the request or on run
 //! control, in the order interpreted Static Direct uses it: polling, waiting
 //! times and uniforms, reports and the horizon, budgets and counters, tracker
 //! observation and the stop predicate.
 use super::*;
-use crate::NoObserver;
-use crate::flat::{Network, check_instances};
+use crate::rules::NoObserver;
+use crate::rules::flat::{Network, check_instances};
 use rand_chacha::ChaCha8Rng;
 
 /// Why a generated loop stopped early. Opaque: return it unchanged.
@@ -46,7 +46,7 @@ impl LoopHost<'_, '_> {
         let next = if self.ziggurat {
             let path = self.path;
             let words = &mut self.words;
-            let unit = crn_craft::ssa::exponential_from_words(|retry| {
+            let unit = crate::ssa::exponential_from_words(|retry| {
                 if retry {
                     path.poll()?;
                 }
@@ -231,7 +231,7 @@ impl Path<'_> {
     #[allow(clippy::too_many_arguments)]
     pub(super) fn simulate_generated_loop<R: RngCore + 'static>(
         &self,
-        kernel: &dyn crate::RulesLoop,
+        kernel: &dyn crate::rules::RulesLoop,
         net: &Network,
         counts: &mut [u64],
         values: &mut [f64],
@@ -258,8 +258,8 @@ impl Path<'_> {
             live,
             ziggurat: matches!(
                 self.method,
-                crate::Method::StaticDirect {
-                    waiting_time: Some(crate::RulesWaitingTime::Ziggurat),
+                crate::rules::Method::StaticDirect {
+                    waiting_time: Some(crate::rules::RulesWaitingTime::Ziggurat),
                     ..
                 }
             ),

@@ -2,7 +2,7 @@
 use super::*;
 use serde_json::{Value, json};
 
-const THREE_CLASS: &str = include_str!("../../../models/rules/mtdna-three-class.rules.json");
+const THREE_CLASS: &str = include_str!("../../../../models/rules/mtdna-three-class.rules.json");
 
 fn three_class() -> Value {
     serde_json::from_str(THREE_CLASS).unwrap()
@@ -11,7 +11,7 @@ fn three_class() -> Value {
 fn request_v(schema: &str, model: &[u8], replicates: u64, end: f64, times: &[f64]) -> Value {
     json!({
         "schema": schema,
-        "model": {"path": "m.rules.json", "sha256": crn_craft::sha256(model)},
+        "model": {"path": "m.rules.json", "sha256": crate::sha256(model)},
         "time": {"end": end, "report_times": times},
         "ensemble": {"replicates": replicates, "root_seed": 23},
         "outputs": {"statistics": ["mean", "variance"], "keep_paths": replicates, "keep_instances": 0},
@@ -356,7 +356,7 @@ fn replicates_that_fail_before_tracking_carry_no_partial_observation() {
     }
 }
 
-const ATP: &str = include_str!("../../../models/rules/mtdna-three-class-atp.rules.json");
+const ATP: &str = include_str!("../../../../models/rules/mtdna-three-class-atp.rules.json");
 
 fn atp_run(edit: &[(&str, f64)], replicates: u64, end: f64) -> RulesResult {
     let mut model: Value = serde_json::from_str(ATP).unwrap();

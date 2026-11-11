@@ -1,7 +1,7 @@
 //! Fused exact Direct loop for the recognized fixed-population topology.
 use super::*;
-use crate::flat::{Network, check_instances};
-use crate::mtdna::Kernel;
+use crate::rules::flat::{Network, check_instances};
+use crate::rules::mtdna::Kernel;
 
 impl Path<'_> {
     #[allow(clippy::too_many_arguments)]
@@ -41,7 +41,7 @@ impl Path<'_> {
             if rate == 0.0 {
                 return Ok(None);
             }
-            let wait = crn_craft::ssa::exponential_from_words(|retry| {
+            let wait = crate::ssa::exponential_from_words(|retry| {
                 if retry {
                     self.poll()?;
                 }

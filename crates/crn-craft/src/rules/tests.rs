@@ -4,7 +4,7 @@ use serde_json::json;
 fn request(model: &[u8], replicates: u64, end: f64, times: &[f64]) -> Value {
     json!({
         "schema": "crn-craft.rules-run/0.1",
-        "model": {"path": "m.rules.json", "sha256": crn_craft::sha256(model)},
+        "model": {"path": "m.rules.json", "sha256": crate::sha256(model)},
         "time": {"end": end, "report_times": times},
         "ensemble": {"replicates": replicates, "root_seed": 11},
         "outputs": {"statistics": ["mean", "variance"], "keep_paths": replicates.min(3), "keep_instances": replicates.min(3)},
@@ -620,7 +620,7 @@ fn generic_sparse_tracking_is_independent_of_continue_observer() {
             observe::ObserverAction::Continue
         }
     }
-    let model = include_bytes!("../../../models/rules/mtdna-three-class-cme.rules.json");
+    let model = include_bytes!("../../../../models/rules/mtdna-three-class-cme.rules.json");
     let mut run = request(model, 16, 10.0, &[0.0, 1.0, 10.0]);
     run["schema"] = json!("crn-craft.rules-run/0.4");
     run["method"] =

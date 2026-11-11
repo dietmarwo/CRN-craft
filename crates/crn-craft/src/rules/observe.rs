@@ -6,10 +6,10 @@
 //!   summarize one observable per replicate (crossings of zero, extrema,
 //!   time integral, first passage and episodes), and a [`LogSpec`] retains a
 //!   bounded number of events. Both appear per replicate in
-//!   [`crate::RulesResult::observations`] as an [`Observation`]. Their
-//!   retention counts enter the admission check of [`crate::prepare`].
+//!   [`crate::rules::RulesResult::observations`] as an [`Observation`]. Their
+//!   retention counts enter the admission check of [`crate::rules::prepare`].
 //! - **Live**: an [`EventObserver`] passed to
-//!   [`crate::execute_with_observer`] receives every committed [`Event`] on
+//!   [`crate::rules::execute_with_observer`] receives every committed [`Event`] on
 //!   the worker threads and can stop a replicate.
 //!
 //! Observation never changes the numbers: a run with trackers, a log or an
@@ -18,7 +18,7 @@
 //! loops support trackers and logs but not observers.
 //!
 //! ```
-//! use crn_craft_rules::{Control, execute, prepare};
+//! use crn_craft::rules::{Control, execute, prepare};
 //! use serde_json::json;
 //!
 //! // Molecules of A appear one at a time and die; an episode is a span with
@@ -60,9 +60,9 @@
 //!     assert_eq!(observation.log.len() as u64 + observation.omitted_log_entries, events);
 //! }
 //! ```
-use crate::InstanceRecord;
-use crate::expr::{Env, Expr, Predicate, Scope};
-use crate::model::{Compiled, Model};
+use crate::rules::InstanceRecord;
+use crate::rules::expr::{Env, Expr, Predicate, Scope};
+use crate::rules::model::{Compiled, Model};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -72,7 +72,7 @@ use std::collections::BTreeMap;
 pub enum ObserverAction {
     /// Keep simulating the replicate.
     Continue,
-    /// End the replicate now, as [`Termination::Stopped`](crate::Termination::Stopped)
+    /// End the replicate now, as [`Termination::Stopped`](crate::rules::Termination::Stopped)
     /// at the event's time. Its state is held to the end of the report grid
     /// and it counts as complete for statistics. Other replicates continue.
     Stop,
@@ -82,9 +82,9 @@ pub enum ObserverAction {
 /// identify the aggregate firings. Reactants and products describe exact steps.
 ///
 /// Indices refer to the result's lists: types to
-/// [`RulesResult::types`](crate::RulesResult::types), rules to
-/// [`RulesResult::rules`](crate::RulesResult::rules) and observable values
-/// to [`RulesResult::observables`](crate::RulesResult::observables). The
+/// [`RulesResult::types`](crate::rules::RulesResult::types), rules to
+/// [`RulesResult::rules`](crate::rules::RulesResult::rules) and observable values
+/// to [`RulesResult::observables`](crate::rules::RulesResult::observables). The
 /// borrowed slices are valid only during the call; copy what you keep, for
 /// example with [`log_entry`].
 pub struct Event<'a> {
@@ -109,14 +109,14 @@ pub struct Event<'a> {
     pub firings: &'a [(usize, u64)],
 }
 
-/// Receives committed events during [`crate::execute_with_observer`].
+/// Receives committed events during [`crate::rules::execute_with_observer`].
 ///
 /// `on_event` runs on the native worker threads, concurrently for different
 /// replicates, so implementations must be [`Sync`] and should use atomics or
 /// locks for shared state. It is called once per event, after the state
 /// update and tracker observation and before the model's stop condition.
 /// Keep it cheap: it sits in the event loop. It must not panic; see the
-/// panics section of [`crate::execute_with_observer`].
+/// panics section of [`crate::rules::execute_with_observer`].
 pub trait EventObserver: Sync {
     /// An observer that sets this to false is never called, and the engine
     /// compiles the per-event observation away.
@@ -306,7 +306,7 @@ impl Spec {
                     .first_passage
                     .as_ref()
                     .map(|p| {
-                        if p.len() > crate::model::MAX_EXPRESSION_BYTES {
+                        if p.len() > crate::rules::model::MAX_EXPRESSION_BYTES {
                             return Err("first passage expression exceeds length limit".into());
                         }
                         Expr::parse(p, &scope)
@@ -369,7 +369,7 @@ impl Spec {
         self.sparse.iter().any(|&v| v)
     }
 
-    pub(crate) fn enable_sparse(&mut self, net: &crate::flat::Network) {
+    pub(crate) fn enable_sparse(&mut self, net: &crate::rules::flat::Network) {
         self.sparse = self
             .trackers
             .iter()
@@ -377,7 +377,7 @@ impl Spec {
                 predicate.is_none()
                     && net.observables.iter().any(|(i, reduce, terms)| {
                         *i == *index
-                            && matches!(reduce, crate::model::Reduce::Sum)
+                            && matches!(reduce, crate::rules::model::Reduce::Sum)
                             && matches!(terms.as_slice(), [(_, 1.0)])
                     })
             })
@@ -406,14 +406,17 @@ impl Spec {
     }
 
     /// Direct count trackers can integrate each constant span in one operation.
-    pub(crate) fn count_trackers(&self, net: &crate::flat::Network) -> Option<[Vec<usize>; 3]> {
+    pub(crate) fn count_trackers(
+        &self,
+        net: &crate::rules::flat::Network,
+    ) -> Option<[Vec<usize>; 3]> {
         if self.log.is_some() {
             return None;
         }
         let mut by_species: [Vec<usize>; 3] = Default::default();
         for (tracker, (_, index, predicate)) in self.trackers.iter().enumerate() {
             let (_, reduce, terms) = net.observables.iter().find(|(i, _, _)| i == index)?;
-            if predicate.is_some() || !matches!(reduce, crate::model::Reduce::Sum) {
+            if predicate.is_some() || !matches!(reduce, crate::rules::model::Reduce::Sum) {
                 return None;
             }
             let &[(species, 1.0)] = terms.as_slice() else {
@@ -474,7 +477,7 @@ impl Sizes {
         let legacy = 160
             + self.observables as u128 * 8
             + self.rules as u128 * 16
-            + (2 + crate::model::MAX_PRODUCTS as u128) * (48 + 8 * attributes);
+            + (2 + crate::rules::model::MAX_PRODUCTS as u128) * (48 + 8 * attributes);
         let body = match self.leap_channels {
             Some(channels) => channels as u128 * 45,
             None => self.participants as u128 * (62 + NUMBER * attributes),

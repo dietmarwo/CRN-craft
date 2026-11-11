@@ -4,8 +4,8 @@
 //! section III with first differences (Gillespie & Petzold 2003,
 //! DOI 10.1063/1.1613254).
 use super::*;
-use crate::flat::{Network, RateCache, check_instances, direct};
-use crate::model::MAX_COUNT;
+use crate::rules::flat::{Network, RateCache, check_instances, direct};
+use crate::rules::model::MAX_COUNT;
 
 struct LeapWorkspace {
     cache: RateCache,
@@ -255,9 +255,8 @@ impl LeapWorkspace {
             self.begin(counts);
             for i in 0..self.rates.len() {
                 if self.critical[i] == 0.0 {
-                    let k = crn_craft::tau::poisson_with(self.rates[i] * (end - time), || {
-                        words.open()
-                    })?;
+                    let k =
+                        crate::tau::poisson_with(self.rates[i] * (end - time), || words.open())?;
                     self.fire(net, i, k);
                 }
             }
@@ -473,7 +472,7 @@ impl Path<'_> {
                 },
             )?;
             let next = match self.method {
-                crate::Method::Tau { epsilon } => work.tau(
+                crate::rules::Method::Tau { epsilon } => work.tau(
                     net,
                     counts,
                     values,
@@ -483,7 +482,7 @@ impl Path<'_> {
                     epsilon,
                     words,
                 )?,
-                crate::Method::Binomial { step } => {
+                crate::rules::Method::Binomial { step } => {
                     // Steps lie on the lattice k * step, independent of the
                     // report grid; a report between lattice points holds the
                     // state of the last step.

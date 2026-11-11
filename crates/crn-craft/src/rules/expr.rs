@@ -1165,7 +1165,7 @@ mod tests {
         };
         let id = Expr::parse("new_id()", &scope).unwrap();
         let coin = Expr::parse("choice(0.25, 10, 20)", &scope).unwrap();
-        let mut rng = crate::stream(1, 2);
+        let mut rng = crate::rules::stream(1, 2);
         let (mut next, mut words, mut overflow) = (5.0, 0, false);
         let env = Env {
             params: &[],

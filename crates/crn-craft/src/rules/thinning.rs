@@ -1,7 +1,7 @@
 //! Exact thinning for the monotone ATP flow on each fixed-count interval.
 use super::*;
-use crate::atp::{Atp, Flow};
-use crate::flat::Network;
+use crate::rules::atp::{Atp, Flow};
+use crate::rules::flat::Network;
 
 impl Path<'_> {
     #[allow(clippy::too_many_arguments)]

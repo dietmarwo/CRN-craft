@@ -2,7 +2,7 @@
 use super::*;
 use serde_json::{Value, json};
 
-const THREE_CLASS: &str = include_str!("../../../models/rules/mtdna-three-class.rules.json");
+const THREE_CLASS: &str = include_str!("../../../../models/rules/mtdna-three-class.rules.json");
 
 /// The default `max_output_bytes` of the Python helper `rules.ensemble`.
 const PYTHON_DEFAULT_OUTPUT: u64 = 64 << 20;
@@ -17,7 +17,7 @@ fn python_request(model: &[u8], method: &str, replicates: u64, log: &Value) -> V
         } else {
             "crn-craft.rules-run/0.2"
         },
-        "model": {"path": "model.rules.json", "sha256": crn_craft::sha256(model)},
+        "model": {"path": "model.rules.json", "sha256": crate::sha256(model)},
         "time": {"end": 25_920.0, "report_times": [0.0, 25_920.0]},
         "ensemble": {"replicates": replicates, "root_seed": 4},
         "outputs": {"statistics": ["mean", "variance"], "keep_paths": 0, "keep_instances": 0},
@@ -84,7 +84,7 @@ fn log_bound_and_measured(model: &[u8], method: Value, entries: usize) -> (u128,
 #[test]
 fn reservation_covers_a_full_log() {
     let three = THREE_CLASS.as_bytes();
-    let clones = include_bytes!("../../../models/rules/mtdna-fixed.rules.json");
+    let clones = include_bytes!("../../../../models/rules/mtdna-fixed.rules.json");
     let noisy = serde_json::to_vec(&json!({
         "schema": "crn-craft.rules-model/0.1", "name": "noisy",
         "parameters": {"k": 1.0},
@@ -201,7 +201,7 @@ fn run_request(model: &[u8], method: Value, replicates: u64) -> Value {
         .clone();
     json!({
         "schema": "crn-craft.rules-run/0.4",
-        "model": {"path": "m.rules.json", "sha256": crn_craft::sha256(model)},
+        "model": {"path": "m.rules.json", "sha256": crate::sha256(model)},
         "time": {"end": 4.0, "report_times": [0.0, 1.0, 2.0, 4.0]},
         "ensemble": {"replicates": replicates, "root_seed": 11},
         "outputs": {"statistics": ["mean", "variance"], "keep_paths": replicates.min(3),
@@ -499,7 +499,7 @@ fn generated_kernels_refuse_propensities_and_loops_emit_them() {
 #[test]
 fn thinning_runs_propensities_in_atp_models() {
     let mut model: Value = serde_json::from_str(include_str!(
-        "../../../models/rules/mtdna-three-class-atp.rules.json"
+        "../../../../models/rules/mtdna-three-class-atp.rules.json"
     ))
     .unwrap();
     model["schema"] = json!(V03);
@@ -538,9 +538,9 @@ fn thinning_runs_propensities_in_atp_models() {
 // ---------------------------------------------------------------------------
 // I5: continuous variables and the hybrid method
 
-const ATP_LEGACY: &str = include_str!("../../../models/rules/mtdna-three-class-atp.rules.json");
+const ATP_LEGACY: &str = include_str!("../../../../models/rules/mtdna-three-class-atp.rules.json");
 const ATP_CONTINUOUS: &str =
-    include_str!("../../../models/rules/mtdna-three-class-atp-continuous.rules.json");
+    include_str!("../../../../models/rules/mtdna-three-class-atp-continuous.rules.json");
 
 /// One variable `x` with `derivative`, and molecules `A` that die at rate
 /// `death` per molecule (an expression that may read `x`).
@@ -565,7 +565,7 @@ fn continuous_model(derivative: &str, x0: f64, bound: Option<&str>, death: &str,
 fn hybrid_request(model: &[u8], replicates: u64, end: f64, times: &[f64]) -> Value {
     json!({
         "schema": "crn-craft.rules-run/0.5",
-        "model": {"path": "m.rules.json", "sha256": crn_craft::sha256(model)},
+        "model": {"path": "m.rules.json", "sha256": crate::sha256(model)},
         "time": {"end": end, "report_times": times},
         "ensemble": {"replicates": replicates, "root_seed": 5},
         "outputs": {"statistics": ["mean", "variance"], "keep_paths": replicates, "keep_instances": 0},
@@ -589,7 +589,7 @@ fn hybrid_run(model: &Value, replicates: u64, end: f64, times: &[f64]) -> RulesR
 fn first_error(model: &Value, request: &Value) -> (String, String, String) {
     let bytes = serde_json::to_vec(model).unwrap();
     let mut request = request.clone();
-    request["model"]["sha256"] = json!(crn_craft::sha256(&bytes));
+    request["model"]["sha256"] = json!(crate::sha256(&bytes));
     let d = prepare_json(&bytes, &request).err().unwrap();
     (d[0].code.clone(), d[0].path.clone(), d[0].message.clone())
 }
@@ -845,8 +845,10 @@ fn methods_refuse_what_they_cannot_run() {
     assert_eq!((code.as_str(), path.as_str()), ("CRN-R020", "/method"));
     assert!(message.contains("thinning"), "{message}");
     // Dynamic instances do not lower to fixed tuples.
-    let clones: Value =
-        serde_json::from_str(include_str!("../../../models/rules/mtdna-fixed.rules.json")).unwrap();
+    let clones: Value = serde_json::from_str(include_str!(
+        "../../../../models/rules/mtdna-fixed.rules.json"
+    ))
+    .unwrap();
     assert_eq!(first_error(&clones, &base).1, "/method");
     // Generated kernels and loops need Static Direct.
     let prepared = prepare_json(&bytes, &base).unwrap();

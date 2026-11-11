@@ -2,10 +2,10 @@
 //! schemata, observables and an optional stop condition.
 //!
 //! [`Model`] is the JSON document; `crn-craft.rules-model/0.2` adds the
-//! optional [`crate::atp`] block, `0.3` whole-rule propensities
+//! optional [`crate::rules::atp`] block, `0.3` whole-rule propensities
 //! ([`Rule::propensity`]) and continuous variables, and `0.4` independent
-//! continuous variables ([`crate::continuous::ContinuousSpec::independent`]). A model is parsed strictly and validated by
-//! [`crate::check_model`] or [`crate::prepare`], which compile every
+//! continuous variables ([`crate::rules::continuous::ContinuousSpec::independent`]). A model is parsed strictly and validated by
+//! [`crate::rules::check_model`] or [`crate::rules::prepare`], which compile every
 //! expression. The [rules language
 //! reference](https://github.com/dietmarwo/CRN-craft/blob/main/docs/rules-language.md)
 //! defines the propensities, the expression syntax and which names each
@@ -31,7 +31,7 @@
 //! `CRN-R015` (`CRN-R010` for names, `CRN-R014` for counts).
 //!
 //! ```
-//! use crn_craft_rules::model::{Model, Reduce};
+//! use crn_craft::rules::model::{Model, Reduce};
 //!
 //! // Clusters merge pairwise; the observables count clusters and mass.
 //! // `check_model` and `prepare` parse strictly; plain `serde_json` does not
@@ -56,11 +56,11 @@
 //!     "stop": "clusters == 1"
 //! }"#).unwrap();
 //! assert_eq!(model.observables["largest"].reduce, Reduce::Max);
-//! assert!(crn_craft_rules::check_model(&serde_json::to_vec(&model).unwrap()).valid);
+//! assert!(crn_craft::rules::check_model(&serde_json::to_vec(&model).unwrap()).valid);
 //! ```
 
-use crate::expr::{Expr, Predicate, Scope};
-use crn_craft::diagnostic::Diagnostic;
+use crate::diagnostic::Diagnostic;
+use crate::rules::expr::{Expr, Predicate, Scope};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -164,23 +164,26 @@ pub struct Model {
     /// it runs only with the `thinning` method. `null` is rejected.
     #[serde(
         default,
-        deserialize_with = "crate::present",
+        deserialize_with = "crate::rules::present",
         skip_serializing_if = "Option::is_none"
     )]
-    #[schemars(with = "crate::atp::AtpSpec")]
-    pub atp: Option<crate::atp::AtpSpec>,
+    #[schemars(with = "crate::rules::atp::AtpSpec")]
+    pub atp: Option<crate::rules::atp::AtpSpec>,
     /// Continuous variables, rules-model/0.3 and later (`CRN-R015` before),
     /// at most 64: ODEs between events whose values rule rates and
     /// propensities may read. A model with them runs only with the `hybrid`
     /// method, and it cannot also have `atp` (`CRN-R015`). `null` is
     /// rejected. See [`crate::continuous`].
+    // schemars copies this doc text into the rules-model schema, so it keeps
+    // the 0.6.0 path, which rustdoc cannot resolve inside `crn_craft`.
+    #[allow(rustdoc::broken_intra_doc_links)]
     #[serde(
         default,
-        deserialize_with = "crate::present",
+        deserialize_with = "crate::rules::present",
         skip_serializing_if = "Option::is_none"
     )]
-    #[schemars(with = "Vec<crate::continuous::ContinuousSpec>")]
-    pub continuous: Option<Vec<crate::continuous::ContinuousSpec>>,
+    #[schemars(with = "Vec<crate::rules::continuous::ContinuousSpec>")]
+    pub continuous: Option<Vec<crate::rules::continuous::ContinuousSpec>>,
 }
 
 /// A species type: a name and its numeric attributes.
@@ -278,7 +281,7 @@ pub struct Rule {
     /// `rate` and `propensity` (`CRN-R013`). `null` is rejected.
     #[serde(
         default,
-        deserialize_with = "crate::present",
+        deserialize_with = "crate::rules::present",
         skip_serializing_if = "Option::is_none"
     )]
     #[schemars(with = "String")]
@@ -294,7 +297,7 @@ pub struct Rule {
     /// rejected.
     #[serde(
         default,
-        deserialize_with = "crate::present",
+        deserialize_with = "crate::rules::present",
         skip_serializing_if = "Option::is_none"
     )]
     #[schemars(with = "String")]
@@ -431,10 +434,10 @@ pub(crate) struct Compiled {
     pub rules: Vec<RuleInfo>,
     pub stop: Option<Expr>,
     pub stop_program: Option<Predicate>,
-    pub atp: Option<crate::atp::Atp>,
+    pub atp: Option<crate::rules::atp::Atp>,
     /// Continuous variables; their values follow the model's observables in
     /// `observables`, in declaration order.
-    pub continuous: Vec<crate::continuous::Variable>,
+    pub continuous: Vec<crate::rules::continuous::Variable>,
 }
 
 const FUNCTIONS: [&str; 14] = [
@@ -482,7 +485,7 @@ fn check_name(name: &str, path: &str, out: &mut Vec<Diagnostic>) {
 }
 
 pub(crate) fn pointer(parent: &str, key: impl std::fmt::Display) -> String {
-    crn_craft::diagnostic::pointer(parent, key)
+    crate::diagnostic::pointer(parent, key)
 }
 
 struct Names {
@@ -537,7 +540,7 @@ fn constant(
                 random: false,
             };
             let e = parse_expr(source, &scope, path, out)?;
-            Some(e.eval(&crate::expr::Env {
+            Some(e.eval(&crate::rules::expr::Env {
                 params,
                 observables: &[],
                 attributes: [&[], &[]],
@@ -644,7 +647,7 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
     limit(
         &mut out,
         specs.len(),
-        crate::continuous::MAX_VARIABLES,
+        crate::rules::continuous::MAX_VARIABLES,
         "/continuous",
         "continuous variables",
     );
@@ -1172,7 +1175,7 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
                 .any(|a| matches!(a, Source::Expression(e) if e.uses_new_id()))
         })
     });
-    if uses_new_id && first_id >= crate::expr::ID_LIMIT {
+    if uses_new_id && first_id >= crate::rules::expr::ID_LIMIT {
         out.push(invalid(
             "CRN-R014",
             "/initial",
@@ -1187,7 +1190,7 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
             out.push(invalid("CRN-R015", "/atp", "ATP requires rules-model/0.2", "Select the 0.2 model contract."));
             return None;
         }
-        match crate::atp::Atp::compile(spec, &observables, &rules) {
+        match crate::rules::atp::Atp::compile(spec, &observables, &rules) {
             Ok(atp) => {
                 observables.push(ObservableInfo { name: "ATP".into(), condition: None, weight: None, reduce: Reduce::Sum });
                 Some(atp)
@@ -1206,7 +1209,7 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
             "Write ATP as a continuous variable, or keep the legacy atp block alone.",
         ));
     }
-    let continuous = crate::continuous::Variable::compile_all(
+    let continuous = crate::rules::continuous::Variable::compile_all(
         specs,
         model.schema,
         &names.params,

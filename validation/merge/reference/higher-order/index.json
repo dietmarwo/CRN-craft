@@ -1,0 +1,31 @@
+{
+  "schema": "crn-craft.merge-reference-index/0.1",
+  "manifest_sha256": "fc8d9a3514db9b40d127588f28346edebf43bbe52f970e42836a36017ad4b2a5",
+  "tools": {
+    "crn_craft_cli": {
+      "sha256": "40b10dac2bf715df401543b5f19cfd2f59a6b711277ba866afad09a1052acf3e",
+      "version": {
+        "milestone": "SSA-acceleration",
+        "version": "0.6.0"
+      }
+    }
+  },
+  "files": {
+    "third-order-decay.fsp-moments.json": {
+      "sha256": "e57fd7a510dfea5598dd5bce5c2414f4da6675e7756a0802fe5230dc087d5bb4",
+      "bytes": 1500
+    },
+    "third-order-decay.fsp.json.gz": {
+      "sha256": "df9ea1802846ae955e724e10a2cc8c53e4a83132541121695dced68014e2d045",
+      "bytes": 1677
+    },
+    "trimolecular.fsp-moments.json": {
+      "sha256": "3faf46325aeff1e5e7ccd5150ddd17267ae9b3ae2f05e653f8292d9418726ccf",
+      "bytes": 2080
+    },
+    "trimolecular.fsp.json.gz": {
+      "sha256": "d803cf8b8adb234bb658511497260cd690a38a15329fc5e87e265d2733391dc7",
+      "bytes": 2058
+    }
+  }
+}

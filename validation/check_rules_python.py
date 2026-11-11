@@ -1,8 +1,10 @@
 """Exercise the installed wheel's rules API, buffers and callback contracts."""
 
 import argparse
+import copy
 import hashlib
 import json
+import math
 from pathlib import Path
 import tempfile
 
@@ -10,8 +12,10 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+import crn_craft
 from crn_craft import rules
-from check_rules import require
+from crn_craft._rules_loop import CompiledLoop, fingerprint_of
+from check_rules import no_duplicates, require
 
 ROOT = Path(__file__).resolve().parents[1]
 RECORD_DTYPES = {
@@ -318,6 +322,659 @@ def check_frames(result, metadata, columns):
             ),
             "tracker frame",
         )
+
+
+# Result.save and rules.load_report: the report layout of crn-craft.report/1.0.
+REPORT_KEYS = ["schema", "crn_craft_version", "model", "request", "result"]
+REPORT_RESULT_KEYS = [
+    "model_sha256",
+    "run_sha256",
+    "sampler",
+    "report_times",
+    "observables",
+    "terminations",
+    "rule_events_mean",
+    "statistics",
+    "paths",
+]
+REPORT_STATISTICS = ("mean", "mean_standard_error", "sample_variance")
+NON_FINITE = ("nan", "inf", "-inf")
+
+
+def report_floats(value):
+    """Report numbers as floats; non-finite ones are written as strings."""
+    if isinstance(value, list):
+        return [report_floats(v) for v in value]
+    require(
+        value in NON_FINITE
+        or (
+            isinstance(value, int | float)
+            and not isinstance(value, bool)
+            and math.isfinite(value)
+        ),
+        f"report number {value!r}",
+    )
+    return float(value)
+
+
+def same_values(written, expected):
+    """Written report numbers equal `expected` exactly, NaN where NaN."""
+    return np.array_equal(
+        np.array(report_floats(written), dtype=np.float64),
+        np.asarray(expected, dtype=np.float64),
+        equal_nan=True,
+    )
+
+
+def read_report(path):
+    """A JSON report parsed strictly, and the same through load_report."""
+    text = Path(path).read_text("utf-8")
+
+    def constant(name):
+        raise RuntimeError(f"non-standard JSON constant {name} in a report")
+
+    data = json.loads(text, parse_constant=constant, object_pairs_hook=no_duplicates)
+    require(
+        text.endswith("}\n") and not text.endswith("\n\n") and "\r" not in text,
+        "a JSON report ends with one newline",
+    )
+    require(rules.load_report(path) == data, "load_report returns the document")
+    return data
+
+
+def termination_counts(result):
+    """Counts of the terminations that occurred, in TERMINATIONS order."""
+    counts = result.records["termination"].value_counts()
+    return {name: int(counts[name]) for name in rules.TERMINATIONS if counts[name]}
+
+
+def mean_events(result):
+    """Mean event count per rule, from the exact integer sums."""
+    events = result.rule_events
+    return {name: int(events[name].sum()) / len(events) for name in result.rule_names}
+
+
+def report_statistics(result):
+    """(key, title, DataFrame) of every statistic a report shows, in order."""
+    stats = result.statistics
+    out = [
+        (key, f"### {key}", stats[key])
+        for key in REPORT_STATISTICS
+        if stats.get(key) is not None
+    ]
+    for p, frame in sorted((stats.get("quantiles") or {}).items()):
+        # The percentage with the shortest exact decimal: 2.5, 97.5, 25.
+        text = format(float(rules_decimal(p) * 100), "f")
+        if "." in text:
+            text = text.rstrip("0").rstrip(".")
+        title = "### median" if p == 0.5 else f"### {text}% percentile"
+        out.append((p, title, frame))
+    return out
+
+
+def rules_decimal(p):
+    """The decimal that the shortest repr of p denotes."""
+    from decimal import Decimal
+
+    return Decimal(repr(float(p)))
+
+
+def check_report_json(result, report, *, paths=True):
+    """Every number of a JSON report against the Result it was saved from."""
+    meta = result.metadata
+    observables = meta["observables"]
+    require(
+        list(report) == REPORT_KEYS
+        and report["schema"] == "crn-craft.report/1.0"
+        and report["crn_craft_version"] == crn_craft.__version__
+        and report["model"] == result.model
+        and report["request"] == result.request,
+        "report header, model and request",
+    )
+    body = report["result"]
+    require(
+        list(body) == REPORT_RESULT_KEYS
+        and all(body[k] == meta[k] for k in ("model_sha256", "run_sha256", "sampler"))
+        and same_values(body["report_times"], meta["report_times"])
+        and body["observables"] == observables,
+        "report provenance, grid and observables (result order)",
+    )
+    expected = termination_counts(result)
+    events = mean_events(result)
+    require(
+        body["terminations"] == expected
+        and list(body["terminations"]) == list(expected)
+        and all(isinstance(v, int) for v in body["terminations"].values())
+        and list(body["rule_events_mean"]) == list(result.rule_names)
+        and all(
+            same_values(body["rule_events_mean"][name], events[name])
+            for name in result.rule_names
+        ),
+        "report terminations and mean rule events",
+    )
+    stats = result.statistics
+    if stats is None:
+        require(body["statistics"] is None, "withheld statistics are null")
+    else:
+        written = body["statistics"]
+        quantiles = stats.get("quantiles") or {}
+        require(
+            list(written) == ["samples", *REPORT_STATISTICS, "quantiles"]
+            and written["samples"] == stats["samples"]
+            and [q["p"] for q in written["quantiles"]] == sorted(quantiles)
+            and all(list(q) == ["p", "values"] for q in written["quantiles"]),
+            "report statistics keys and quantile order",
+        )
+        tables = [(written[key], stats.get(key)) for key in REPORT_STATISTICS]
+        tables += [(q["values"], quantiles[q["p"]]) for q in written["quantiles"]]
+        for table, frame in tables:
+            if frame is None:
+                require(table is None, "a statistic not computed is null")
+                continue
+            require(
+                list(table) == observables
+                and all(
+                    same_values(table[name], frame[name].to_numpy())
+                    for name in observables
+                ),
+                "report statistics equal the DataFrames",
+            )
+    if paths and meta["paths"]:
+        cube = result.paths
+        kept = body["paths"]
+        require(
+            list(kept) == ["replicates", "values"]
+            and kept["replicates"] == cube["replicate"].values.tolist()
+            and list(kept["values"]) == observables
+            and all(
+                same_values(kept["values"][name], cube.sel(variable=name).values)
+                for name in observables
+            ),
+            "report paths equal the kept paths",
+        )
+    else:
+        require(body["paths"] is None, "a report without paths has paths null")
+
+
+def markdown_sections(text):
+    """(heading, nonempty lines) of a markdown report, in file order."""
+    sections = []
+    for line in text.split("\n"):
+        if line.startswith("#"):
+            sections.append((line, []))
+        elif line:
+            require(sections, "a markdown report starts with a heading")
+            sections[-1][1].append(line)
+    return sections
+
+
+def split_values(line, label):
+    """The numbers of a `<label>: a, b, ...` line."""
+    head, _, values = line.partition(": ")
+    require(head == label, f"markdown line {line[:40]!r} is labeled {label}")
+    return [v if v in NON_FINITE else float(v) for v in values.split(", ")]
+
+
+def check_report_markdown(result, text, order, *, paths=True):
+    """A markdown report's simulation and results sections against a Result.
+
+    `order` is the observable order the report must use.
+    """
+    meta = result.metadata
+    require(
+        sorted(order) == sorted(meta["observables"])
+        and text.startswith("# Model\n\nName: ")
+        and text.endswith("\n")
+        and not text.endswith("\n\n")
+        and "\r" not in text,
+        "markdown report frame",
+    )
+    sections = markdown_sections(text)
+    headings = [heading for heading, _ in sections]
+    found = dict(sections)
+    require(
+        headings.index("# Model")
+        < headings.index("# Simulation")
+        < headings.index("# Results")
+        < headings.index("## Terminations")
+        < headings.index("## rule_events (mean per replicate)")
+        < headings.index("## Summary statistics"),
+        "markdown report section order",
+    )
+    simulation = dict(line.split(" = ", 1) for line in found["# Simulation"])
+    request = result.request
+    require(
+        list(simulation)[:5] == ["seed", "end", "replicates", "report_times", "method"]
+        and list(simulation)[-4:]
+        == ["sampler", "crn-craft", "model_sha256", "run_sha256"]
+        and int(simulation["seed"]) == request["ensemble"]["root_seed"]
+        and float(simulation["end"]) == request["time"]["end"]
+        and int(simulation["replicates"]) == request["ensemble"]["replicates"]
+        and [float(t) for t in simulation["report_times"].split(", ")]
+        == meta["report_times"]
+        and simulation["sampler"] == meta["sampler"]
+        and simulation["crn-craft"] == crn_craft.__version__
+        and simulation["model_sha256"] == meta["model_sha256"]
+        and simulation["run_sha256"] == meta["run_sha256"],
+        "markdown simulation section",
+    )
+    require(
+        found["## Terminations"]
+        == [f"{k} = {v}" for k, v in termination_counts(result).items()],
+        "markdown terminations",
+    )
+    events = mean_events(result)
+    lines = found["## rule_events (mean per replicate)"]
+    require(
+        [line.split(" = ")[0] for line in lines] == list(result.rule_names)
+        and all(
+            float(line.split(" = ")[1]) == events[name]
+            for line, name in zip(lines, result.rule_names, strict=True)
+        ),
+        "markdown mean rule events",
+    )
+    heading = "## Single trajectories for " + ", ".join(order)
+    if paths and meta["paths"]:
+        cube = result.paths
+        ids = cube["replicate"].values.tolist()
+        width = max(3, len(str(max(ids))))
+        labels = [f"{name}{i:0{width}d}" for i in ids for name in order]
+        lines = found[heading]
+        require(
+            len(lines) == len(labels)
+            and all(
+                same_values(
+                    split_values(line, label),
+                    cube.sel(replicate=int(label[len(name) :]), variable=name).values,
+                )
+                for line, label, name in zip(
+                    lines, labels, [n for _ in ids for n in order], strict=True
+                )
+            ),
+            "markdown trajectories equal the kept paths",
+        )
+    else:
+        require(
+            not any(h.startswith("## Single trajectories") for h in headings),
+            "no trajectories without kept paths",
+        )
+    position = headings.index("## Summary statistics")
+    if result.statistics is None:
+        reason = found["## Summary statistics"]
+        require(
+            len(reason) == 1
+            and reason[0].startswith("statistics withheld (")
+            and reason[0].endswith(")")
+            and meta["termination"] in reason[0]
+            and headings[position + 1 :] == [],
+            "markdown withheld statistics line names the termination",
+        )
+        return
+    shown = report_statistics(result)
+    require(
+        found["## Summary statistics"] == [f"samples = {result.statistics['samples']}"]
+        and headings[position + 1 :] == [title for _, title, _ in shown],
+        "markdown statistics subsections and their order",
+    )
+    for _, title, frame in shown:
+        lines = found[title]
+        require(
+            len(lines) == len(order)
+            and all(
+                same_values(split_values(line, name), frame[name].to_numpy())
+                for line, name in zip(lines, order, strict=True)
+            ),
+            f"markdown {title[4:]} equals the DataFrame",
+        )
+
+
+def with_quantiles(result, probabilities):
+    """`result` with quantiles of its kept paths, as M4e will add them."""
+    mean = result.statistics["mean"]
+    quantiles = {
+        p: pd.DataFrame(
+            np.quantile(result.paths.values, p, axis=0),
+            index=mean.index,
+            columns=mean.columns,
+        )
+        for p in probabilities
+    }
+    result.statistics["quantiles"] = quantiles
+    if 0.5 in quantiles:
+        result.statistics["median"] = quantiles[0.5]
+    return result
+
+
+def saved(result, folder, name, **kwargs):
+    """Save `result` under `folder` and return (returned path, text)."""
+    path = result.save(Path(folder) / name, **kwargs)
+    return path, path.read_text("utf-8")
+
+
+def sir_model():
+    """The SIR builder model of the report example."""
+    sir = rules.Model("sir")
+    sir.add_species({"S": 999, "I": 1, "R": 0})
+    sir.add_parameter({"beta": 2e-4, "gamma": 0.01})
+    sir.add_reaction("beta * S * I", ["S", "I"], ["I", "I"], name="infection")
+    sir.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
+    sir.set_stop("I == 0")
+    return sir
+
+
+def check_result_documents(model):
+    """result.model and result.request are the documents that ran."""
+    sir = sir_model()
+    run = rules.ensemble(
+        sir, end=50.0, report_times=[0.0, 50.0], replicates=4, seed=3, threads=2
+    )
+    result = run.simulate()
+    require(
+        result.model == sir.to_dict()
+        and result.request == json.loads(run._documents[1])
+        and result.request["model"]["sha256"] == result.metadata["model_sha256"]
+        and result.model is not result.model,
+        "result.model and result.request are new dictionaries of what ran",
+    )
+    # A hand-built Result knows neither document and cannot be saved.
+    metadata, columns = run._native.simulate(None, None)
+    bare = rules.Result(json.loads(metadata), columns)
+    require(bare.model is None and bare.request is None, "a bare Result")
+    with tempfile.TemporaryDirectory() as folder:
+        try:
+            bare.save(Path(folder) / "bare.md")
+        except ValueError:
+            pass
+        else:
+            raise RuntimeError("a Result without its documents was saved")
+        require(not list(Path(folder).iterdir()), "a refused save writes nothing")
+    # bind_parameters: the bound values and the candidate's model hash, and
+    # the documents replay the candidate's numbers.
+    fixed = {
+        "end": 3.0,
+        "report_times": [0.0, 1.0, 3.0],
+        "replicates": 6,
+        "seed": 1234,
+        "method": "static_direct",
+        "keep_paths": "all",
+    }
+    template = rules.ensemble(model, **fixed)
+    candidate = template.bind_parameters({"mu": 0.3, "sm": 1.8})
+    bound = candidate.simulate()
+    again = candidate.bind_parameters({"mu": 0.2}).simulate()
+    expected = json.loads(model)
+    require(
+        template.simulate().model == expected
+        and bound.model["parameters"]
+        == {
+            k: float(v)
+            for k, v in sorted({**expected["parameters"], "mu": 0.3, "sm": 1.8}.items())
+        }
+        and again.model["parameters"]["mu"] == 0.2
+        and again.model["parameters"]["sm"] == 1.8
+        and {k: v for k, v in bound.model.items() if k != "parameters"}
+        == {k: v for k, v in expected.items() if k != "parameters"}
+        and bound.request["model"]["sha256"] == bound.metadata["model_sha256"]
+        and again.request["model"]["sha256"] == again.metadata["model_sha256"]
+        and bound.metadata["model_sha256"] != again.metadata["model_sha256"],
+        "a bound candidate reports its bound parameter values and model hash",
+    )
+    for result in (bound, again):
+        request = result.request
+        request["model"]["sha256"] = hashlib.sha256(
+            crn_craft.model_bytes(result.model)
+        ).hexdigest()
+        replay = rules.prepare(result.model, request).simulate()
+        require(
+            replay.metadata["sampler"] == result.metadata["sampler"]
+            and result_bytes(replay) == result_bytes(result)
+            and replay.paths.equals(result.paths),
+            "a bound candidate's documents replay its numbers",
+        )
+    # The compiled path, with a stand-in loop that runs the interpreter: its
+    # results know the documents of the run they came from.
+    loop = CompiledLoop(
+        fingerprint=fingerprint_of(template._native.loop_source()),
+        model_sha256=hashlib.sha256(model).hexdigest(),
+        version=crn_craft._native.__version__,
+        directory=tempfile.gettempdir(),
+        cached=True,
+    )
+    loop.execute = lambda request, cancel_file=None: template._native.simulate(
+        None, None
+    )
+    compiled = template.simulate(compiled=loop)
+    verified = loop.verify(template)
+    require(
+        compiled.model == verified.model == expected
+        and compiled.request == verified.request == json.loads(template._documents[1]),
+        "results of the compiled path know their documents",
+    )
+
+
+def check_reports(model):
+    """Result.save: markdown and JSON reports of builder, attributed and
+    hybrid models, with and without paths, statistics and quantiles."""
+    sir = rules.ensemble(
+        sir_model(),
+        end=250.0,
+        report_times=[0, 50, 100, 150, 200, 250],
+        replicates=10,
+        seed=1,
+        keep_paths="all",
+        method="static_direct",
+    ).simulate()
+    before = (copy.deepcopy(sir.metadata), result_bytes(sir))
+    with tempfile.TemporaryDirectory() as folder:
+        path, markdown = saved(sir, folder, "sir.md")
+        require(
+            isinstance(path, Path) and path == Path(folder) / "sir.md",
+            "save returns the path as a pathlib.Path",
+        )
+        check_report_markdown(sir, markdown, ["S", "I", "R"])
+        require(
+            "\n## Reactions\nS + I -> I + I, beta * S * I\nI -> R, gamma * I\n"
+            "\n## Start values\nS = 999\nI = 1\nR = 0\n"
+            "\n## Parameter values\nbeta = 0.0002\ngamma = 0.01\n"
+            "\n## Stop condition\nI == 0\n\n# Simulation\nseed = 1\nend = 250\n"
+            "replicates = 10\nreport_times = 0, 50, 100, 150, 200, 250\n"
+            "method = static_direct\n"
+            in markdown
+            and "## Species types" not in markdown,
+            "markdown model section of the SIR example",
+        )
+        path, text = saved(sir, folder, "sir.json")
+        check_report_json(sir, read_report(path))
+        # Result numbers in the report form; the documents as they ran.
+        require(
+            '\n    "report_times": [0, 50, 100, 150, 200, 250],\n' in text
+            and '\n      "report_times": [0.0, 50.0, 100.0, 150.0, 200.0, 250.0]\n'
+            in text
+            and '\n    "observables": ["I", "R", "S"],\n' in text,
+            "JSON report number forms and observables in result order",
+        )
+        # The extension decides, case-insensitively; a file is replaced.
+        (Path(folder) / "SIR.MARKDOWN").write_text("old")
+        for name, same in (("SIR.MD", markdown), ("SIR.MARKDOWN", markdown)):
+            require(saved(sir, folder, name)[1] == same, f"{name} is markdown")
+        require(saved(sir, folder, "SIR.Json")[1] == text, "SIR.Json is JSON")
+        # paths=False leaves the trajectories out.
+        _, short = saved(sir, folder, "short.md", paths=False)
+        check_report_markdown(sir, short, ["S", "I", "R"], paths=False)
+        _, short = saved(sir, folder, "short.json", paths=False)
+        check_report_json(sir, read_report(Path(folder) / "short.json"), paths=False)
+        for bad in ("sir.txt", "sir", "sir.md.bak", "sir.jsonl"):
+            try:
+                sir.save(Path(folder) / bad)
+            except ValueError as error:
+                require(
+                    all(s in str(error) for s in (".md", ".markdown", ".json")),
+                    "the refusal names the supported extensions",
+                )
+            else:
+                raise RuntimeError(f"unsupported report extension {bad} accepted")
+            require(not (Path(folder) / bad).exists(), "a refused save writes nothing")
+        try:
+            sir.save(Path(folder) / "flag.md", paths=1)
+        except TypeError:
+            pass
+        else:
+            raise RuntimeError("paths=1 accepted")
+        # A failed write raises OSError and leaves no file behind.
+        names = sorted(p.name for p in Path(folder).iterdir())
+        target = Path(folder) / "directory.md"
+        target.mkdir()
+        for path in (Path(folder) / "missing" / "sir.md", target):
+            try:
+                sir.save(path)
+            except OSError:
+                pass
+            else:
+                raise RuntimeError(f"saving to {path} did not fail")
+        require(
+            sorted(p.name for p in Path(folder).iterdir())
+            == sorted([*names, "directory.md"])
+            and not list(target.iterdir()),
+            "a failed write leaves no temporary file",
+        )
+    require(
+        (sir.metadata, result_bytes(sir)) == before,
+        "saving changes nothing about the result",
+    )
+    # Quantiles, as M4e will add them to result.statistics: after the
+    # sample variance, in ascending order, 0.5 as the median.
+    quantiled = with_quantiles(sir, (0.975, 0.025, 0.5, 0.25))
+    with tempfile.TemporaryDirectory() as folder:
+        _, markdown = saved(quantiled, folder, "q.md")
+        check_report_markdown(quantiled, markdown, ["S", "I", "R"])
+        require(
+            [h for h in markdown.split("\n") if h.startswith("### ")]
+            == [
+                "### mean",
+                "### mean_standard_error",
+                "### sample_variance",
+                "### 2.5% percentile",
+                "### 25% percentile",
+                "### median",
+                "### 97.5% percentile",
+            ],
+            "quantile subsection titles",
+        )
+        path, _ = saved(quantiled, folder, "q.json")
+        report = read_report(path)
+        check_report_json(quantiled, report)
+        require(
+            [q["p"] for q in report["result"]["statistics"]["quantiles"]]
+            == [0.025, 0.25, 0.5, 0.975],
+            "JSON quantiles in ascending order",
+        )
+    # Withheld statistics and partial paths (NaN after a budget stop).
+    partial = rules.ensemble(
+        model,
+        end=3.0,
+        report_times=[0.0, 1.0, 2.0, 3.0],
+        replicates=6,
+        seed=5,
+        max_events=20,
+        keep_paths=True,
+        method="static_direct",
+    ).simulate()
+    require(
+        partial.statistics is None and bool(partial.paths.isnull().any()),
+        "the partial run withholds statistics and has NaN paths",
+    )
+    order = partial.metadata["observables"]
+    with tempfile.TemporaryDirectory() as folder:
+        _, markdown = saved(partial, folder, "partial.md")
+        check_report_markdown(partial, markdown, order)
+        path, text = saved(partial, folder, "partial.json")
+        check_report_json(partial, read_report(path))
+        require(
+            '"nan"' in text and "NaN" not in text and ", nan" in markdown,
+            "non-finite values are the strings nan, inf and -inf",
+        )
+    # The three-class model: attributes, filtered observables, rules that
+    # need JSON, attributed start values.
+    attributed = rules.ensemble(
+        model,
+        end=3.0,
+        report_times=[0.0, 1.0, 3.0],
+        replicates=5,
+        seed=2,
+        keep_paths=2,
+        method="static_direct",
+    ).simulate()
+    with tempfile.TemporaryDirectory() as folder:
+        _, markdown = saved(attributed, folder, "mtdna.md")
+        check_report_markdown(attributed, markdown, attributed.metadata["observables"])
+        found = dict(markdown_sections(markdown))
+        rules_json = [
+            json.dumps(r, separators=(",", ":")) for r in attributed.model["rules"]
+        ]
+        require(
+            found["## Species types"] == ["mtDNA: clone, s, wt"]
+            and found["## Reactions"]
+            == [
+                f"{r['name']}: {j}"
+                for r, j in zip(attributed.model["rules"], rules_json, strict=True)
+            ]
+            and found["## Start values"] == ["mtDNA {clone=0, s=sw, wt=1} = w0"]
+            and found["## Parameter values"][0] == "K = 20"
+            and "## Single trajectories for "
+            + ", ".join(attributed.metadata["observables"])
+            in found
+            and len(
+                found[
+                    "## Single trajectories for "
+                    + ", ".join(attributed.metadata["observables"])
+                ]
+            )
+            == 2 * len(attributed.metadata["observables"]),
+            "markdown sections of an attributed model",
+        )
+        path, _ = saved(attributed, folder, "mtdna.json")
+        check_report_json(attributed, read_report(path))
+    # A continuous variable: its section, and its column after the species.
+    ramp = rules.Model("ramp")
+    ramp.add_species("A")
+    ramp.add_ode("x", 0.0, "2", lower_bound=0, on_bound="clamp")
+    ramp.add_reaction("x", [], ["A"], name="immigration")
+    hybrid = rules.ensemble(
+        ramp,
+        end=3.0,
+        report_times=[0.0, 1.5, 3.0],
+        replicates=8,
+        seed=13,
+        keep_paths=3,
+        method="hybrid",
+    ).simulate()
+    with tempfile.TemporaryDirectory() as folder:
+        _, markdown = saved(hybrid, folder, "ramp.md")
+        check_report_markdown(hybrid, markdown, ["A", "x"])
+        found = dict(markdown_sections(markdown))
+        require(
+            found["## Continuous variables"]
+            == ["x: initial = 0, derivative = 2, lower_bound = 0, on_bound = clamp"]
+            and found["## Reactions"] == ["0 -> A, x"]
+            and found["## Start values"] == ["A = 0"]
+            and "## Parameter values" not in found
+            and "method = hybrid, rtol = 1e-06, atol = 1e-09" in found["# Simulation"],
+            "markdown sections of a model with a continuous variable",
+        )
+        path, _ = saved(hybrid, folder, "ramp.json")
+        check_report_json(hybrid, read_report(path))
+    # load_report checks the schema string.
+    with tempfile.TemporaryDirectory() as folder:
+        other = Path(folder) / "other.json"
+        for document in ({"schema": "crn-craft.report/0.9"}, [1], {"result": {}}):
+            other.write_text(json.dumps(document))
+            try:
+                rules.load_report(other)
+            except ValueError:
+                pass
+            else:
+                raise RuntimeError(f"load_report accepted {document}")
+    require(crn_craft.load_report is rules.load_report, "crn_craft.load_report")
 
 
 def main():
@@ -752,6 +1409,8 @@ def main():
             pass
         else:
             raise RuntimeError(f"keep_paths {bad!r} accepted")
+    check_result_documents(model)
+    check_reports(model)
     args.output.write_text(
         json.dumps(
             {
@@ -779,6 +1438,8 @@ def main():
                     "NumPy arguments and strict counts",
                     "tracker index bounds",
                     "trackers without a method",
+                    "result model and request of every path",
+                    "markdown and JSON reports",
                 ],
             },
             indent=2,

@@ -6,6 +6,7 @@ import hashlib
 import importlib.metadata
 import json
 from . import _native
+from .report import load_report as load_report
 
 try:
     __version__ = importlib.metadata.version("crn-craft")

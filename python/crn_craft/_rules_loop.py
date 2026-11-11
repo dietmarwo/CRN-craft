@@ -367,13 +367,11 @@ class CompiledLoop:
         metadata and every record column are byte-identical. Returns the
         result.
         """
-        from .rules import Result
-
         request = run._compiled_request(self)
         interpreted = run._native.simulate(None, None)
         compiled = self.execute(request)
         _compare(interpreted, compiled, self.directory / "mismatch")
-        return Result(json.loads(compiled[0]), compiled[1])
+        return run._result(*compiled)
 
 
 def _frames(data):

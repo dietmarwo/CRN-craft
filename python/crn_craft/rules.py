@@ -24,6 +24,7 @@ import pandas as pd
 import xarray
 
 from . import CrnError, _crn_error, _native, _path, model_bytes
+from . import report as _report
 from ._rules_loop import CompiledLoop, fingerprint_of
 
 # The compiled-loop API is part of this module.
@@ -31,6 +32,7 @@ from ._rules_loop import CompiledLoopError as CompiledLoopError
 from ._rules_loop import compile_loop as compile_loop
 from ._rules_loop import loop_source as loop_source
 from .builder import Model
+from .report import load_report as load_report
 
 # Tolerances `ensemble` writes for method="hybrid" unless the method
 # dictionary gives its own.
@@ -119,11 +121,19 @@ class Result:
     - ``tracker_columns(i)``: a tracker's fields as a DataFrame.
     - ``metadata``: the full result document; ``observations`` its trackers
       and logs; ``record_diagnostics`` replicate errors by id.
+    - ``model`` and ``request``: the model and request documents that ran,
+      and ``save(path)``, which writes them with the results to one
+      markdown or JSON report.
 
     Observables are in result order: sorted by name, then any continuous
     variable such as ``ATP``. Use ``.to_numpy()`` on any frame, column or
     array for NumPy arrays.
     """
+
+    # The documents that ran: (model bytes, request bytes, bound), where
+    # `bound` marks a bind_parameters candidate (see PreparedEnsemble). None
+    # for a Result built from a metadata document and columns.
+    _ran = None
 
     def __init__(self, metadata, columns):
         self.metadata = metadata["result"]
@@ -160,6 +170,67 @@ class Result:
                         columns=observables,
                     )
                 self.statistics[key] = value
+
+    @property
+    def model(self):
+        """The model document that ran, as a new dictionary.
+
+        For a run from ``ensemble`` or ``prepare`` (also with a compiled
+        loop) it is the parsed model bytes whose SHA-256 is
+        ``metadata["model_sha256"]``. For a ``bind_parameters`` candidate
+        it is the template's model with the bound parameter values, all
+        parameters as floats in name order: the document the engine
+        re-serialized and ran, apart from fields that serialization adds
+        with their default values. None for a Result built directly from
+        a metadata document and columns.
+        """
+        return None if self._ran is None else json.loads(self._ran[0])
+
+    @property
+    def request(self):
+        """The request document that ran, as a new dictionary.
+
+        For a ``bind_parameters`` candidate it is the template's request
+        bound to the candidate's model: ``model.sha256`` is
+        ``metadata["model_sha256"]``. None for a Result built directly from
+        a metadata document and columns.
+        """
+        if self._ran is None:
+            return None
+        request = json.loads(self._ran[1])
+        if self._ran[2]:
+            request["model"]["sha256"] = self.metadata["model_sha256"]
+        return request
+
+    def save(self, path, *, paths=True):
+        """Write the model, the request and the results to one report file.
+
+        The extension of ``path`` decides the format: ``.md`` or
+        ``.markdown`` for markdown, ``.json`` for JSON (schema
+        ``crn-craft.report/1.0``, read back with :func:`load_report`), in
+        any case; another extension raises ``ValueError``. ``paths=False``
+        leaves the single trajectories out. An existing file is replaced;
+        the report is written to a temporary file in the same directory and
+        renamed, so a failed write (``OSError``) leaves no partial file.
+        Returns ``path`` as a ``pathlib.Path``.
+
+        The same result always gives the same bytes: there is no timestamp,
+        host name or timing. The markdown report lists the model (reactions,
+        start values, parameters, stop condition, continuous variables),
+        the simulation settings with the sampler, the package version and
+        both hashes, and the results: terminations, mean events per rule,
+        the kept trajectories and the summary statistics (quantiles, when
+        the result has them, in ascending order). Observables follow the
+        model's species declaration order when every observable is named
+        after a species type, then continuous variables; otherwise result
+        order. Numbers are written in shortest round-trip form, integral
+        values without ``.0``.
+
+        A report is a readable record of a run; an archive is the sealed,
+        verifiable record of a run for replay. ``save`` changes nothing
+        about the result.
+        """
+        return _report.save(self, path, paths=paths)
 
     @cached_property
     def _path_arrays(self):
@@ -417,11 +488,16 @@ class Result:
 
 
 class PreparedEnsemble:
-    def __init__(self, native, rule_names, documents=None, compiled=None):
+    def __init__(self, native, rule_names, documents=None, compiled=None, *, ran=None):
         self._native = native
         self._rule_names = tuple(rule_names)
         # The exact (model, request) bytes, which a compiled loop runs.
         self._documents = documents
+        # What results report as Result.model and Result.request:
+        # (model bytes, request bytes, bound); see Result._ran.
+        if ran is None and documents is not None:
+            ran = (*documents, False)
+        self._ran = ran
         self._fingerprint = None
         self._compiled = None
         if compiled is not None:
@@ -453,6 +529,12 @@ class PreparedEnsemble:
             )
         return self._documents[1]
 
+    def _result(self, metadata, columns):
+        """A Result of this run that knows the documents that ran."""
+        result = Result(json.loads(metadata), columns)
+        result._ran = self._ran
+        return result
+
     @property
     def rule_names(self):
         """Rule names in declaration order.
@@ -468,12 +550,26 @@ class PreparedEnsemble:
         The candidate's model and run hashes cover the re-serialized bound
         model and request, not the original file. It runs interpreted: a
         compiled loop serves only the model bytes it was compiled for.
+
+        Its results' ``model`` is this run's model with the bound values,
+        and their ``request`` this run's request bound to it (see
+        ``Result.model``).
         """
+        overrides = dict(overrides)
         try:
-            native = self._native.bind_parameters(dict(overrides))
+            native = self._native.bind_parameters(overrides)
         except _native.NativeError as error:
             raise _crn_error(error) from None
-        return PreparedEnsemble(native, self._rule_names)
+        ran = None
+        if self._ran is not None:
+            # The engine re-serializes the parsed model with the bound values
+            # (parameters are a sorted map of floats) and binds the request to
+            # the new bytes; results carry that model hash.
+            model = json.loads(self._ran[0])
+            parameters = {**(model.get("parameters") or {}), **overrides}
+            model["parameters"] = {k: float(v) for k, v in sorted(parameters.items())}
+            ran = (model_bytes(model), self._ran[1], True)
+        return PreparedEnsemble(native, self._rule_names, ran=ran)
 
     def simulate(
         self,
@@ -521,7 +617,7 @@ class PreparedEnsemble:
                 )
             request = self._compiled_request(compiled)
             metadata, columns = compiled.execute(request, cancel_file=cancel_file)
-            return Result(json.loads(metadata), columns)
+            return self._result(metadata, columns)
 
         def dispatch(replicate, event):
             return callback(replicate, json.loads(event))
@@ -532,7 +628,7 @@ class PreparedEnsemble:
             )
         except _native.NativeError as error:
             raise _crn_error(error) from None
-        result = Result(json.loads(metadata), columns)
+        result = self._result(metadata, columns)
         if batch_callback is not None:
             for observation in result.observations:
                 log = observation["log"]

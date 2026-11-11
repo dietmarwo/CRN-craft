@@ -359,3 +359,54 @@ Measurement (no target): the added time and memory of quantiles 0.025,
 `validation/merge/measure_quantiles.py`: wall time of `simulate()`, median
 of five, and peak resident memory of a fresh process, with and without
 quantiles, under the CPU lock.
+
+### M4e (quantile statistics): results
+
+2026-11-11, this host, under the CPU lock, engine at `bea803a` (CLI
+`target/release/crn-craft` of the task worktree), 2 threads. Report:
+`validation/merge/laws/quantiles-immigration-death.json`.
+
+| Method | p | q̂ at t = 10 | Q(p) | \|q̂ − Q\| | Passed |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `static_direct` | 0.025 | 4 | 4 | 0 | yes |
+| `static_direct` | 0.5 | 10 | 10 | 0 | yes |
+| `static_direct` | 0.975 | 17 | 17 | 0 | yes |
+| `tree` | 0.025 | 4 | 4 | 0 | yes |
+| `tree` | 0.5 | 10 | 10 | 0 | yes |
+| `tree` | 0.975 | 17 | 17 | 0 | yes |
+| `next_reaction` | 0.025 | 4 | 4 | 0 | yes |
+| `next_reaction` | 0.5 | 10 | 10 | 0 | yes |
+| `next_reaction` | 0.975 | 17 | 17 | 0 | yes |
+
+**Gate passed:** 9 comparisons, 0 failures, every quantile equal to the
+Poisson quantile; every quantile at t = 0 is 0. Informative: the means at
+t = 10 lie 0.73, −1.46 and −1.23 standard errors from λ (static_direct,
+tree, next_reaction). Contract checks: requests and results valid against the
+committed 1.0 schemas, quantiles in request order shaped like the mean, and
+the `rules-run/0.6` refusal (`CRN-R020` at `/schema`).
+
+Run history, failed run kept: the first started run was cut off by a server
+restart before it wrote anything. The first complete run gave the same 9
+rows (byte-identical) and failed one contract check, the `rules-run/0.6`
+refusal: the engine refused correctly (exit 1, `CRN-R020` at `/schema`), but
+the script read the CLI's output as a bare list of diagnostics, while the CLI
+prints `{"success": false, "diagnostics": [...]}`. The parser was fixed (no
+tolerance or row changed) and the script rerun: all checks pass, and the
+report is byte-identical under `python -O`.
+
+**Measurement** (`validation/merge/measure_quantiles.py`, report
+`validation/merge/quantile-cost.json`): 4,000 cells of the three-class CME
+model, 37 report times, 6 observables, `static_direct`, 2 threads, about
+1.30e9 events per ensemble; three fresh processes per configuration, five
+timed `simulate()` calls each.
+
+| Configuration | Median `simulate()` | Range | Peak RSS (three processes) |
+| --- | ---: | ---: | --- |
+| no quantiles | 66.21 s | 63.62–68.60 s | 88,808 / 88,896 / 88,812 KiB |
+| quantiles 0.025, 0.5, 0.975 | 64.31 s | 61.77–66.69 s | 95,756 / 95,992 / 96,048 KiB |
+
+Added memory: 7,180 KiB (median of the peaks), against a buffer of
+4,000 × 37 × 6 × 8 = 7,104,000 bytes (6,938 KiB) plus a 32,000-byte sort
+column. Added time: −1.90 s, inside the run-to-run spread of about ±3 s; the
+quantile work (222 columns of 4,000 values sorted once, three evaluations
+each) is not measurable against 65 s of simulation.

@@ -1,0 +1,412 @@
+{
+  "schema": "crn-craft.merge-models/0.1",
+  "declared_in": "validation/merge/RESULTS.md",
+  "seeds": "chunk k (0-based) of a model uses root seed reference_seed + k (0.6.0 reference) or gate_seed + k (engine under test); chunks hold `chunk` replicates",
+  "rows": [
+    {
+      "name": "W1",
+      "path": "validation/ssa-acceleration/models/W1.model.json",
+      "sha256": "d2fa8a1f5bdc9976c0bce4f36e8e472690f2ecd1ca3c0f3a4cf642059a37b61e",
+      "species": 1,
+      "reactions": 2,
+      "end": 10.0,
+      "report_times": [
+        0.0,
+        0.5,
+        1.0,
+        2.0,
+        5.0,
+        10.0
+      ],
+      "replicates": 200000,
+      "chunk": 10000,
+      "reference_seed": 1000000,
+      "gate_seed": 2000000,
+      "fsp": {
+        "bounds": {
+          "X": 250
+        },
+        "max_states": 251,
+        "tolerance": 1e-12
+      },
+      "timing": {
+        "end": 100.0,
+        "save_times": [
+          0.0,
+          100.0
+        ],
+        "replicates": 64,
+        "threads": 1,
+        "seed": 4242
+      }
+    },
+    {
+      "name": "W2",
+      "path": "validation/ssa-acceleration/models/W2.model.json",
+      "sha256": "d0f6a86b31cd697b821b5ed2bf384323c8eb1328868fe2274777bac0f5e73355",
+      "species": 33,
+      "reactions": 66,
+      "end": 20.0,
+      "report_times": [
+        0.0,
+        1.0,
+        2.0,
+        5.0,
+        10.0,
+        20.0
+      ],
+      "replicates": 200000,
+      "chunk": 10000,
+      "reference_seed": 1000000,
+      "gate_seed": 2000000,
+      "fsp": null,
+      "timing": {
+        "end": 100.0,
+        "save_times": [
+          0.0,
+          100.0
+        ],
+        "replicates": 64,
+        "threads": 1,
+        "seed": 4242
+      }
+    },
+    {
+      "name": "W3",
+      "path": "validation/ssa-acceleration/models/W3.model.json",
+      "sha256": "69f9ff6bfec8a473b70111caf6ba2d57e9ce6d363f537eac185f0f88097c8637",
+      "species": 6,
+      "reactions": 12,
+      "end": 30.0,
+      "report_times": [
+        0.0,
+        2.0,
+        5.0,
+        10.0,
+        20.0,
+        30.0
+      ],
+      "replicates": 200000,
+      "chunk": 10000,
+      "reference_seed": 1000000,
+      "gate_seed": 2000000,
+      "fsp": null,
+      "timing": {
+        "end": 100.0,
+        "save_times": [
+          0.0,
+          100.0
+        ],
+        "replicates": 64,
+        "threads": 1,
+        "seed": 4242
+      }
+    },
+    {
+      "name": "W4",
+      "path": "validation/ssa-acceleration/models/W4.model.json",
+      "sha256": "fb9204e42395eb3eeef76de4e2d54bf33611bdd43435eb7a4eb8fda652df8715",
+      "species": 8,
+      "reactions": 66,
+      "end": 20.0,
+      "report_times": [
+        0.0,
+        1.0,
+        2.0,
+        5.0,
+        10.0,
+        20.0
+      ],
+      "replicates": 200000,
+      "chunk": 10000,
+      "reference_seed": 1000000,
+      "gate_seed": 2000000,
+      "fsp": {
+        "bounds": {
+          "X0": 1000,
+          "X1": 1000,
+          "X2": 1000,
+          "X3": 1000,
+          "X4": 1000,
+          "X5": 1000,
+          "X6": 1000,
+          "X7": 1000
+        },
+        "max_states": 1001,
+        "tolerance": 1e-12
+      },
+      "timing": {
+        "end": 100.0,
+        "save_times": [
+          0.0,
+          100.0
+        ],
+        "replicates": 64,
+        "threads": 1,
+        "seed": 4242
+      }
+    },
+    {
+      "name": "W5",
+      "path": "validation/ssa-acceleration/models/W5.model.json",
+      "sha256": "c8c2671550a2c67562262f1c2ea22da468bf5acbce6a21309094db3e9aba2681",
+      "species": 256,
+      "reactions": 510,
+      "end": 2.0,
+      "report_times": [
+        0.0,
+        0.25,
+        0.5,
+        1.0,
+        2.0
+      ],
+      "replicates": 200000,
+      "chunk": 5000,
+      "reference_seed": 1000000,
+      "gate_seed": 2000000,
+      "fsp": null,
+      "timing": {
+        "end": 20.0,
+        "save_times": [
+          0.0,
+          20.0
+        ],
+        "replicates": 16,
+        "threads": 1,
+        "seed": 4242
+      }
+    },
+    {
+      "name": "W6",
+      "path": "validation/ssa-acceleration/models/W6.model.json",
+      "sha256": "4333e9086f36c5d713c16e7f8f12b43ff9163d2709459820bd92161a9c28f7e0",
+      "species": 32,
+      "reactions": 992,
+      "end": 2.0,
+      "report_times": [
+        0.0,
+        0.25,
+        0.5,
+        1.0,
+        2.0
+      ],
+      "replicates": 200000,
+      "chunk": 10000,
+      "reference_seed": 1000000,
+      "gate_seed": 2000000,
+      "fsp": null,
+      "timing": {
+        "end": 20.0,
+        "save_times": [
+          0.0,
+          20.0
+        ],
+        "replicates": 16,
+        "threads": 1,
+        "seed": 4242
+      }
+    },
+    {
+      "name": "W7",
+      "path": "validation/ssa-acceleration/models/W7.model.json",
+      "sha256": "5b6c5f5e329e9fe7146b68cb0ac7d54ee503b64b0e91c6d796c438575edf7ca1",
+      "species": 96,
+      "reactions": 126,
+      "end": 10.0,
+      "report_times": [
+        0.0,
+        1.0,
+        2.0,
+        5.0,
+        10.0
+      ],
+      "replicates": 200000,
+      "chunk": 10000,
+      "reference_seed": 1000000,
+      "gate_seed": 2000000,
+      "fsp": null,
+      "timing": {
+        "end": 20.0,
+        "save_times": [
+          0.0,
+          20.0
+        ],
+        "replicates": 16,
+        "threads": 1,
+        "seed": 4242
+      }
+    },
+    {
+      "name": "enzyme-mechanism",
+      "path": "models/examples/enzyme-mechanism.model.json",
+      "sha256": "ec6f357ca915619cab5ac84297becc2cbba6add041662a88d665b1f5bd135cfd",
+      "species": 4,
+      "reactions": 3,
+      "end": 10.0,
+      "report_times": [
+        0.0,
+        1.0,
+        2.0,
+        5.0,
+        10.0
+      ],
+      "replicates": 200000,
+      "chunk": 10000,
+      "reference_seed": 1000000,
+      "gate_seed": 2000000,
+      "fsp": {
+        "bounds": {
+          "S": 50,
+          "E": 10,
+          "ES": 10,
+          "P": 50
+        },
+        "max_states": 1000,
+        "tolerance": 1e-12
+      },
+      "timing": {
+        "end": 10.0,
+        "save_times": [
+          0.0,
+          10.0
+        ],
+        "replicates": 10000,
+        "threads": 1,
+        "seed": 4242
+      }
+    },
+    {
+      "name": "immigration-death",
+      "path": "models/examples/immigration-death.model.json",
+      "sha256": "3f647f5a88bfbaf5136ccbcb45b90ca8c16737a0ba88e157ef40f4a86810f1b4",
+      "species": 1,
+      "reactions": 2,
+      "end": 10.0,
+      "report_times": [
+        0.0,
+        1.0,
+        2.0,
+        5.0,
+        10.0
+      ],
+      "replicates": 200000,
+      "chunk": 10000,
+      "reference_seed": 1000000,
+      "gate_seed": 2000000,
+      "fsp": {
+        "bounds": {
+          "A": 150
+        },
+        "max_states": 151,
+        "tolerance": 1e-12
+      },
+      "timing": {
+        "end": 10.0,
+        "save_times": [
+          0.0,
+          10.0
+        ],
+        "replicates": 10000,
+        "threads": 1,
+        "seed": 4242
+      }
+    },
+    {
+      "name": "michaelis-menten",
+      "path": "models/examples/michaelis-menten.model.json",
+      "sha256": "943e9ae32dd89b374ce364fb87afd96d789c33fdbd43ae142724e6dcae3173fb",
+      "species": 2,
+      "reactions": 1,
+      "end": 10.0,
+      "report_times": [
+        0.0,
+        1.0,
+        2.0,
+        5.0,
+        10.0
+      ],
+      "replicates": 200000,
+      "chunk": 10000,
+      "reference_seed": 1000000,
+      "gate_seed": 2000000,
+      "fsp": {
+        "bounds": {
+          "S": 50,
+          "P": 50
+        },
+        "max_states": 51,
+        "tolerance": 1e-12
+      },
+      "timing": {
+        "end": 10.0,
+        "save_times": [
+          0.0,
+          10.0
+        ],
+        "replicates": 10000,
+        "threads": 1,
+        "seed": 4242
+      }
+    },
+    {
+      "name": "repressilator",
+      "path": "models/examples/repressilator.model.json",
+      "sha256": "e6ac65f12409384160123b1a5346a8f64043af1e6b5e3ca1cc92b6859f1577df",
+      "species": 6,
+      "reactions": 12,
+      "end": 10.0,
+      "report_times": [
+        0.0,
+        1.0,
+        2.0,
+        5.0,
+        10.0
+      ],
+      "replicates": 200000,
+      "chunk": 10000,
+      "reference_seed": 1000000,
+      "gate_seed": 2000000,
+      "fsp": null,
+      "timing": {
+        "end": 10.0,
+        "save_times": [
+          0.0,
+          10.0
+        ],
+        "replicates": 1000,
+        "threads": 1,
+        "seed": 4242
+      }
+    },
+    {
+      "name": "vilar-noise",
+      "path": "models/examples/vilar-noise.model.json",
+      "sha256": "4df499785e8d178721eb5559b09aac4c6e42b48eb7bd41c85746ee896194edb7",
+      "species": 9,
+      "reactions": 16,
+      "end": 10.0,
+      "report_times": [
+        0.0,
+        1.0,
+        2.0,
+        5.0,
+        10.0
+      ],
+      "replicates": 200000,
+      "chunk": 10000,
+      "reference_seed": 1000000,
+      "gate_seed": 2000000,
+      "fsp": null,
+      "timing": {
+        "end": 10.0,
+        "save_times": [
+          0.0,
+          10.0
+        ],
+        "replicates": 256,
+        "threads": 1,
+        "seed": 4242
+      }
+    }
+  ]
+}

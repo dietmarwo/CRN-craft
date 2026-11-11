@@ -208,4 +208,58 @@ models do not count. The committed file decides; M4c does not remeasure.
 
 ## Results
 
-(Filled in after the runs.)
+### M0c (2026-11-11, 0.6.0 engine, this host)
+
+Host: Intel Xeon @ 2.10 GHz, 2 logical CPUs, Linux 6.18, 7.8 GiB. Every
+run under `flock /home/claude/craft5/cpu.lock`, with the kept 0.6.0 build.
+
+**References** (`references.py`, 2 worker threads): 39 min 57 s wall,
+74.5 CPU minutes, 1.74e10 events, 52 files (513 KB).
+
+| Check | Declared | Result |
+| --- | --- | --- |
+| `cached_direct` = `direct` paths (1,000 replicates per model) | identical | identical for 12 of 12 models |
+| FSP leakage + mass defect | ≤ 1e-9 | largest 6.1e-13 |
+| Self-check, SSA reference against FSP law | 178 comparisons, 0 failures | 178 comparisons, **0 failures**, largest \|z\| 2.08 |
+| Kinetics refusals | W4, W5, W6, W7 | W4, W5, W6, W7 (`CRN-E080`) |
+| `crn-craft analyze` | every model | 12 reports, exit 0 |
+
+Self-check per model (comparisons, failures, largest |z|): W1 12, 0, 2.01;
+W4 96, 0, 1.67; enzyme-mechanism 40, 0, 2.08; immigration-death 10, 0, 1.49;
+michaelis-menten 20, 0, 1.08.
+
+**Baseline** (`baseline.py`): 18 min 21 s wall, 252 rows (12 models × 21
+methods). Best 0.6.0 method per model, gated CLI boundary, median of three
+(the full table, including the best checked method, is in the M0c log):
+
+| Model | Best method | Seconds | Events |
+| --- | --- | ---: | ---: |
+| W1 | `cached_direct/ziggurat/fast` | 0.0478 | 1,272,658 |
+| W2 | `direct_cr/ziggurat/fast` | 0.0942 | 1,235,619 |
+| W3 | `cached_direct/ziggurat/fast` | 0.2224 | 3,656,543 |
+| W4 | `rssa_cr/ziggurat/fast` | 0.1062 | 1,227,674 |
+| W5 | `direct_cr/ziggurat/fast` | 0.0677 | 325,267 |
+| W6 | `rssa_cr/ziggurat/fast` | 0.0630 | 229,211 |
+| W7 | `rssa_cr/ziggurat/fast` | 0.0209 | 108,058 |
+| enzyme-mechanism | `cached_direct/ziggurat/fast` | 0.0765 | 460,645 |
+| immigration-death | `cached_direct/ziggurat/fast` | 0.0724 | 626,862 |
+| michaelis-menten | `direct/ziggurat/fast` | 0.0612 | 307,345 |
+| repressilator | `sorting_direct/ziggurat/fast` | 0.2867 | 4,194,928 |
+| vilar-noise | `cached_direct/ziggurat/fast` | 1.0809 | 14,224,888 |
+
+**Selector rule (M4c).** t_cr / t_sort per workload W1–W7: 1.158, 0.746,
+**1.315**, 1.090, 0.367, 0.598, 0.890. t_cr / t_rssa: 0.856, 0.822, 0.874,
+**8.030**, 0.938, **3.351**, 1.071. Sorting reaches 1.3 on W3 and RSSA-CR on
+W4 and W6: **both are ported**. The sorting margin is small (1.315 against
+1.3); at the informative Python boundary it is 1.384 on W3.
+
+**M0c gate.**
+
+| Check | Result |
+| --- | --- |
+| Outputs committed, total size | 1.05 MB |
+| `references.py` rerun (immigration-death, michaelis-menten, enzyme-mechanism, W1), normal | 24 of 24 files byte-identical |
+| The same under `python -O` | 24 of 24 files byte-identical |
+| `baseline.py` rerun (W1, W7, immigration-death), non-timing fields, normal | 63 of 63 rows identical (host and tools too) |
+| The same under `python -O` | 63 of 63 rows identical |
+| ruff 0.11.13 format and check on `validation/merge` | pass |

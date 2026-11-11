@@ -434,3 +434,80 @@ fn convert_prints_the_converted_model_bytes_or_coded_refusals() {
     assert_eq!(code, 1);
     assert_eq!(value["diagnostics"][0]["code"], "CRN-E031");
 }
+
+#[test]
+fn network_commands_refuse_1_0_documents_and_rules_commands_run_them() {
+    let temp = Temp::new();
+    let path = |name: &str| temp.0.join(name).to_str().unwrap().to_string();
+    let network =
+        std::fs::read(root().join("models/examples/immigration-death.model.json")).unwrap();
+    let converted = crn_craft::rules::convert::from_network(&network).unwrap();
+    std::fs::write(temp.0.join("model.json"), &converted).unwrap();
+    let mut run: Value = serde_json::from_slice(
+        &std::fs::read(root().join("models/examples/immigration-death.run.json")).unwrap(),
+    )
+    .unwrap();
+    run["model"] =
+        serde_json::json!({"path": "model.json", "sha256": crn_craft::sha256(&converted)});
+    std::fs::write(temp.0.join("run.json"), serde_json::to_vec(&run).unwrap()).unwrap();
+    let request = serde_json::json!({
+        "schema": "crn-craft.run/1.0",
+        "model": {"path": "model.json", "sha256": crn_craft::sha256(&converted)},
+        "time": {"end": 5.0, "report_times": [0.0, 5.0]},
+        "ensemble": {"replicates": 8, "root_seed": 1},
+        "outputs": {"statistics": ["mean"], "keep_paths": 0, "keep_instances": 0},
+        "budget": {"max_events_per_replicate": 100000, "max_sampling_steps_per_replicate": 1000000,
+                   "max_instances": 1, "threads": 1, "max_output_bytes": 1048576},
+        "method": {"kind": "static_direct"}
+    });
+    std::fs::write(
+        temp.0.join("request.json"),
+        serde_json::to_vec(&request).unwrap(),
+    )
+    .unwrap();
+    let names = [
+        path("model.json"),
+        path("run.json"),
+        path("request.json"),
+        path("out"),
+    ];
+    let [model, run, request, out] = names.each_ref().map(String::as_str);
+    for args in [
+        vec!["check", model],
+        vec!["check", model, run],
+        vec!["analyze", model],
+        vec!["export", model, "gillespy2"],
+        vec!["simulate", model, run, out],
+        vec!["fsp", model, run],
+        vec!["ssa", model, request],
+        vec!["tau", model, request],
+    ] {
+        let (code, report) = invoke(&args);
+        assert_eq!(code, 1, "{args:?}");
+        let diagnostics = report["diagnostics"].as_array().unwrap();
+        assert!(
+            diagnostics
+                .iter()
+                .any(|d| d["code"] == "CRN-E032" && d["path"] == "/schema"),
+            "{args:?}: {report}"
+        );
+    }
+    assert!(!temp.0.join("out").exists());
+    let (code, report) = invoke(&["rules-check", model]);
+    assert_eq!(
+        (code, &report["schema"]),
+        (0, &Value::from("crn-craft.check/1.0"))
+    );
+    let (code, result) = invoke(&["rules", model, request]);
+    assert_eq!(code, 0, "{result}");
+    assert_eq!(result["schema"], "crn-craft.result/1.0");
+    for kind in ["model-1.0", "run-1.0", "result-1.0", "check-1.0"] {
+        let (code, schema) = invoke(&["describe", kind]);
+        assert_eq!(code, 0);
+        let snapshot: Value = serde_json::from_slice(
+            &std::fs::read(root().join(format!("schemas/{kind}.schema.json"))).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(schema, snapshot, "{kind}");
+    }
+}

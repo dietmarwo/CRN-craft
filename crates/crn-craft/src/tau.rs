@@ -451,7 +451,9 @@ pub fn solve(
     request_bytes: &[u8],
     control: &Control,
 ) -> Result<TauResult, Vec<Diagnostic>> {
-    let request: Request = crate::strict_json::parse(request_bytes).map_err(|e| vec![e])?;
+    let request: Request =
+        crate::parse_network(request_bytes, "`crn-craft.tau-request/0.1` requests")
+            .map_err(|e| vec![e])?;
     if !request.epsilon.is_finite()
         || !(0.001..=0.2).contains(&request.epsilon)
         || request.max_leaps_per_replicate == 0
@@ -586,7 +588,8 @@ pub fn solve_files(
 ) -> Result<TauResult, Vec<Diagnostic>> {
     let model = crate::read_document(model_path).map_err(|e| vec![e])?;
     let bytes = crate::read_document(request_path).map_err(|e| vec![e])?;
-    let request: Request = crate::strict_json::parse(&bytes).map_err(|e| vec![e])?;
+    let request: Request = crate::parse_network(&bytes, "`crn-craft.tau-request/0.1` requests")
+        .map_err(|e| vec![e])?;
     let parent = request_path
         .parent()
         .filter(|p| !p.as_os_str().is_empty())

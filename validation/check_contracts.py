@@ -63,6 +63,10 @@ def main():
         "rules-check",
         "rules-run",
         "rules-result",
+        "model-1.0",
+        "check-1.0",
+        "run-1.0",
+        "result-1.0",
     ):
         code, schema = invoke("describe", kind)
         Draft7Validator.check_schema(schema)

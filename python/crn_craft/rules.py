@@ -593,7 +593,10 @@ def ensemble(
     ``max_instances`` are per replicate; ``wall_time_s`` covers the run and
     ``max_output_bytes`` the result. ``trackers`` and ``event_log`` select
     the observation. The lowest request version that fits the arguments is
-    used; ``"static_direct"`` selects rules-run/0.6 for its defaults.
+    used; ``"static_direct"`` selects rules-run/0.6 for its defaults, and a
+    ``crn-craft.model/1.0`` model (from :func:`crn_craft.convert`) always
+    selects ``crn-craft.run/1.0``, which has the fields and defaults of
+    rules-run/0.6.
 
     ``method`` is a name or a dictionary such as ``{"kind": "tau",
     "epsilon": 0.03}``. The generic methods run every model in their scope:
@@ -711,4 +714,8 @@ def ensemble(
         ):
             # Options left out take the rules-run/0.6 defaults.
             request["schema"] = "crn-craft.rules-run/0.6"
+    if json.loads(data).get("schema") == "crn-craft.model/1.0":
+        # A crn-craft.model/1.0 model runs only with crn-craft.run/1.0,
+        # which has the fields and defaults of rules-run/0.6.
+        request["schema"] = "crn-craft.run/1.0"
     return prepare(data, request, compiled=compiled)

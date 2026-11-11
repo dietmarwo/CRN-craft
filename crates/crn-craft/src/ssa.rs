@@ -442,7 +442,8 @@ pub struct Prepared {
 /// [`crate::check_bytes`] error of the model and the run fields; and
 /// `CRN-E060` when the workspace or work accounting exceeds its limits.
 pub fn prepare(model: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec<Diagnostic>> {
-    let mut request: Request = crate::strict_json::parse(request_bytes).map_err(|e| vec![e])?;
+    let mut request: Request =
+        crate::parse_network(request_bytes, "`crn-craft.ssa-run` requests").map_err(|e| vec![e])?;
     if request.method.fast_for(request.schema) && request.schema == RequestVersion::V01 {
         return Err(vec![Diagnostic::error(
             "CRN-E020",
@@ -1210,7 +1211,8 @@ pub fn solve_files(
 ) -> Result<SsaResult, Vec<Diagnostic>> {
     let model = crate::read_document(model_path).map_err(|e| vec![e])?;
     let bytes = crate::read_document(request_path).map_err(|e| vec![e])?;
-    let request: Request = crate::strict_json::parse(&bytes).map_err(|e| vec![e])?;
+    let request: Request =
+        crate::parse_network(&bytes, "`crn-craft.ssa-run` requests").map_err(|e| vec![e])?;
     let parent = request_path
         .parent()
         .filter(|p| !p.as_os_str().is_empty())

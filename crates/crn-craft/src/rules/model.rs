@@ -124,12 +124,26 @@ pub enum ModelVersion {
     )]
     #[serde(rename = "crn-craft.rules-model/0.4")]
     V04,
+    #[doc = concat!(
+        "`crn-craft.model/1.0`: the unified model contract. A document means ",
+        "what it means as `rules-model/0.4`; it runs only with ",
+        "`crn-craft.run/1.0` requests (`CRN-R020` at `/schema` otherwise)."
+    )]
+    #[serde(rename = "crn-craft.model/1.0")]
+    V10,
 }
 
 /// A rules model: `crn-craft.rules-model/0.1`, `0.2`, `0.3` or `0.4`.
 ///
 /// Unknown fields and duplicate keys are rejected. Validation also requires
 /// at least one type and one rule.
+///
+// The `concat!` paragraph reaches rustdoc but not the rules-model schema;
+// the model-1.0 schema gets its own description in `rules::schema`.
+#[doc = concat!(
+    "The same type reads `crn-craft.model/1.0`, the unified model contract, ",
+    "which means what `rules-model/0.4` means."
+)]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Model {

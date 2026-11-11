@@ -21,6 +21,7 @@ Every diagnostic contains `severity`, `code`, `path`, `message`, `hint`. Paths u
 | CRN-E023 | Missing/invalid FSP bounds, capacity or tolerance | Supply a finite truncation containing the initial state |
 | CRN-E030 | Input/output filesystem or stream failure | Supply a readable regular file or writable output stream |
 | CRN-E031 | Unsupported command or wrong arguments | Use `--help` for the command list |
+| CRN-E032 | A rules-engine document (`crn-craft.model/1.0`, `crn-craft.run/1.0` or a `crn-craft.rules-*` contract) given to a network command or reader, reported at `/schema` | Use `rules-check` and `rules`; `convert` writes a network model as `crn-craft.model/1.0` |
 | CRN-E040 | Dependency graph exceeds 1000000 edges | Reduce network coupling or size; edges are never silently dropped |
 | CRN-E041 | Invalid state length, missing/extra name, count or safety limit | Provide all species with valid non-negative i64 counts |
 | CRN-E042 | Evaluated rate overflows, is non-finite/negative, or a positive rate becomes zero | Revise/rescale the model; do not treat underflow as an absorbing channel |
@@ -83,7 +84,8 @@ species, 1,024 parameters or 1,024 reactions, no reaction, more than two
 reactant or 64 product molecules in a reaction, an initial count above 2^53,
 or a population limit; the path points into the network model),
 `CRN-R020` run requests (including method, tracker, log and version
-gates and a generated-kernel fingerprint mismatch), `CRN-R030` numerical
+gates, a `crn-craft.model/1.0` model with a `rules-run` request, and a
+generated-kernel fingerprint mismatch), `CRN-R030` numerical
 failures during a replicate, `CRN-R031` weights below 53-bit resolution (in
 the tree a rule or instance weight; in Static Direct and its fallbacks a
 channel below 2⁻⁵³ of the total, so use `tree` or rescale),

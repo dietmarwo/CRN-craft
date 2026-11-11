@@ -119,6 +119,13 @@
 //! | `crn-craft.rules-result/0.1` | [`RulesResult`] | Result of a rules-run/0.1 request |
 //! | `crn-craft.rules-result/0.2` | [`RulesResult`] | Result of a rules-run/0.2–0.4 request, with `observations` |
 //! | `crn-craft.rules-result/0.3` | [`RulesResult`] | Result of a rules-run/0.5 or 0.6 request: 0.2 plus `method` and `continuous` |
+//! | `crn-craft.model/1.0` | [`Model`] | The unified model contract: means what rules-model/0.4 means; runs only with run/1.0 |
+//! | `crn-craft.run/1.0` | [`RunRequest`] | The unified request contract: the fields and defaults of rules-run/0.6; accepts model/1.0 and every rules-model version |
+//! | `crn-craft.result/1.0` | [`RulesResult`] | Result of a run/1.0 request, with the fields of rules-result/0.3 |
+//! | `crn-craft.check/1.0` | [`RulesCheck`] | Check report of a model/1.0 document, with the fields of rules-check/0.1 |
+//!
+//! [`convert::from_network`] writes a network model (`crn-craft.model/0.1`)
+//! as a `crn-craft.model/1.0` model.
 //!
 //! # Methods
 //!
@@ -412,6 +419,13 @@ pub enum RunVersion {
     )]
     #[serde(rename = "crn-craft.rules-run/0.6")]
     V06,
+    #[doc = concat!(
+        "`crn-craft.run/1.0`: the unified request contract, with the fields ",
+        "and defaults of 0.6. It accepts `crn-craft.model/1.0` and every ",
+        "rules-model version and returns `crn-craft.result/1.0`."
+    )]
+    #[serde(rename = "crn-craft.run/1.0")]
+    V10,
 }
 
 /// The simulated horizon and the report grid of a run request.
@@ -610,7 +624,11 @@ pub enum Method {
 ///
 #[doc = concat!(
     "Parse and validate it together with its model bytes with [`prepare`] ",
-    "or [`solve`]; [`RunRequest::trackers`] reads the tracker list."
+    "or [`solve`]; [`RunRequest::trackers`] reads the tracker list.\n\n",
+    "The same type reads `crn-craft.run/1.0`, the unified request contract, ",
+    "which means what `rules-run/0.6` means, also accepts ",
+    "`crn-craft.model/1.0` models and returns `crn-craft.result/1.0`. A ",
+    "`rules-run` request refuses a `model/1.0` model (`CRN-R020` at `/schema`)."
 )]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -707,6 +725,12 @@ pub enum ResultVersion {
     )]
     #[serde(rename = "crn-craft.rules-result/0.3")]
     V03,
+    #[doc = concat!(
+        "`crn-craft.result/1.0`, for `crn-craft.run/1.0` requests, with the ",
+        "fields of rules-result/0.3."
+    )]
+    #[serde(rename = "crn-craft.result/1.0")]
+    V10,
 }
 
 /// How a replicate, or the whole ensemble, ended.
@@ -888,7 +912,9 @@ pub struct Statistics {
 ///
 #[doc = concat!(
     "Returned by [`execute`], [`solve`] and the generated-code entry points. ",
-    "Serialize it with `serde_json` to obtain the JSON document."
+    "Serialize it with `serde_json` to obtain the JSON document. A ",
+    "`crn-craft.run/1.0` request returns `crn-craft.result/1.0`, with the ",
+    "fields of rules-result/0.3."
 )]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -1246,6 +1272,12 @@ pub enum CheckVersion {
     #[doc = concat!("`crn-craft.rules-check/0.1`.")]
     #[serde(rename = "crn-craft.rules-check/0.1")]
     V01,
+    #[doc = concat!(
+        "`crn-craft.check/1.0`, the report of a `crn-craft.model/1.0` document, ",
+        "with the fields of rules-check/0.1."
+    )]
+    #[serde(rename = "crn-craft.check/1.0")]
+    V10,
 }
 
 /// The report of a model check: `crn-craft.rules-check/0.1`.
@@ -1256,7 +1288,8 @@ pub enum CheckVersion {
 ///
 #[doc = concat!(
     "Returned by [`check_model`] and [`check_model_file`], and printed by ",
-    "`crn-craft rules-check`."
+    "`crn-craft rules-check`. A `crn-craft.model/1.0` document gets a ",
+    "`crn-craft.check/1.0` report with the same fields."
 )]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -1305,13 +1338,24 @@ pub struct RulesCheck {
 /// assert_eq!(report.diagnostics[0].path, "/rules/0/products/0/type");
 /// ```
 pub fn check_model(model_bytes: &[u8]) -> RulesCheck {
-    let diagnostics = crate::strict_json::parse::<Model>(model_bytes)
+    let parsed = crate::strict_json::parse::<Model>(model_bytes);
+    // The report version follows the model's: also for a model/1.0
+    // document that does not parse.
+    let unified = match &parsed {
+        Ok(model) => model.schema == model::ModelVersion::V10,
+        Err(_) => crate::schema_field(model_bytes).as_deref() == Some("crn-craft.model/1.0"),
+    };
+    let diagnostics = parsed
         .map_err(|e| vec![e])
         .and_then(|model| model::compile(&model).map(|_| ()))
         .err()
         .unwrap_or_default();
     RulesCheck {
-        schema: CheckVersion::V01,
+        schema: if unified {
+            CheckVersion::V10
+        } else {
+            CheckVersion::V01
+        },
         valid: diagnostics.is_empty(),
         model_sha256: Some(crate::sha256(model_bytes)),
         diagnostics,
@@ -1387,6 +1431,14 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
     let request: RunRequest = crate::strict_json::parse(request_bytes).map_err(|e| vec![e])?;
     let model_sha256 = crate::sha256(model_bytes);
     let mut diagnostics = validate_request(&request, &model_sha256);
+    if model.schema == model::ModelVersion::V10 && request.schema != RunVersion::V10 {
+        // Old requests cannot reach the features of the 1.0 contracts.
+        diagnostics.push(request_error(
+            "/schema",
+            "a crn-craft.model/1.0 model runs only with a crn-craft.run/1.0 request",
+            "Select the crn-craft.run/1.0 request contract.",
+        ));
+    }
     let compiled = match model::compile(&model) {
         Ok(c) => Some(c),
         Err(mut d) => {
@@ -2124,6 +2176,7 @@ fn execute_inner<O: EventObserver>(
             RunVersion::V01 => ResultVersion::V01,
             RunVersion::V02 | RunVersion::V03 | RunVersion::V04 => ResultVersion::V02,
             RunVersion::V05 | RunVersion::V06 => ResultVersion::V03,
+            RunVersion::V10 => ResultVersion::V10,
         },
         model_sha256: prepared.model_sha256.clone(),
         run_sha256: prepared.run_sha256.clone(),
@@ -2325,8 +2378,9 @@ pub fn check_model_file(model_path: &Path) -> RulesCheck {
 /// commands, the accepted contract versions (`accepted_models`,
 /// `accepted_requests`), the request version that introduced each option
 /// or default, the methods (and which of them are approximate), the
-/// converter from network models (`convert`), the tree sampler identity and
-/// the model and run limits.
+/// converter from network models (`convert`), the 1.0 contracts
+/// (`contracts_1_0`), the tree sampler identity and the model and run
+/// limits.
 ///
 /// ```
 /// let entry = crn_craft::rules::describe();
@@ -2363,6 +2417,19 @@ pub fn describe() -> Value {
             "command": "convert", "python": "crn_craft.convert",
             "from": "crn-craft.model/0.1", "to": convert::converted_schema()
         },
+        "contracts_1_0": {
+            "model": "crn-craft.model/1.0", "request": "crn-craft.run/1.0",
+            "result": "crn-craft.result/1.0", "check": "crn-craft.check/1.0",
+            "means": {
+                "model": "crn-craft.rules-model/0.4", "request": "crn-craft.rules-run/0.6",
+                "result": "crn-craft.rules-result/0.3", "check": "crn-craft.rules-check/0.1"
+            },
+            "request_accepts_models": [
+                "crn-craft.rules-model/0.1", "crn-craft.rules-model/0.2", "crn-craft.rules-model/0.3",
+                "crn-craft.rules-model/0.4", "crn-craft.model/1.0"
+            ],
+            "schemas": ["model-1.0", "run-1.0", "result-1.0", "check-1.0"]
+        },
         "sampler": SAMPLER,
         "reference": "docs/rules-language.md",
         "limits": {
@@ -2379,26 +2446,83 @@ pub fn describe() -> Value {
 /// JSON Schemas generated from the Rust contract types.
 ///
 /// `kind` is `rules-model` ([`Model`]), `rules-check` ([`RulesCheck`]),
-/// `rules-run` ([`RunRequest`]) or `rules-result` ([`RulesResult`]); any
-/// other kind gives `None`. The schemas are JSON Schema draft 07 and are
-/// committed under `schemas/` in the repository. They express the shape and
-/// some local bounds; [`prepare`] enforces the remaining rules.
+/// `rules-run` ([`RunRequest`]) or `rules-result` ([`RulesResult`]), or one
+/// of the 1.0 contracts generated from the same types: `model-1.0`,
+/// `check-1.0`, `run-1.0` and `result-1.0`. Any other kind gives `None`.
+/// Each schema lists only its own versions in its `schema` field: the
+/// `rules-*` schemas the 0.x versions, the 1.0 schemas the 1.0 version,
+/// with a description of that contract. The schemas are JSON Schema draft
+/// 07 and are committed under `schemas/` in the repository. They express
+/// the shape and some local bounds; [`prepare`] enforces the remaining
+/// rules.
 ///
 /// ```
 /// let run = crn_craft::rules::schema("rules-run").unwrap();
 /// assert_eq!(run["$schema"], "http://json-schema.org/draft-07/schema#");
 /// assert!(run["properties"]["budget"].is_object());
 /// assert!(crn_craft::rules::schema("model").is_none());
+/// let unified = crn_craft::rules::schema("run-1.0").unwrap();
+/// assert_eq!(unified["definitions"]["RunVersion"]["enum"][0], "crn-craft.run/1.0");
 /// ```
 pub fn schema(kind: &str) -> Option<Value> {
-    match kind {
-        "rules-model" => serde_json::to_value(schema_for!(Model)).ok(),
-        "rules-check" => serde_json::to_value(schema_for!(RulesCheck)).ok(),
-        "rules-run" => serde_json::to_value(schema_for!(RunRequest)).ok(),
-        "rules-result" => serde_json::to_value(schema_for!(RulesResult)).ok(),
-        _ => None,
+    let (schema, definition, unified) = match kind {
+        "rules-model" => (schema_for!(Model), "ModelVersion", None),
+        "rules-check" => (schema_for!(RulesCheck), "CheckVersion", None),
+        "rules-run" => (schema_for!(RunRequest), "RunVersion", None),
+        "rules-result" => (schema_for!(RulesResult), "ResultVersion", None),
+        "model-1.0" => (schema_for!(Model), "ModelVersion", Some(MODEL_1_0)),
+        "check-1.0" => (schema_for!(RulesCheck), "CheckVersion", Some(CHECK_1_0)),
+        "run-1.0" => (schema_for!(RunRequest), "RunVersion", Some(RUN_1_0)),
+        "result-1.0" => (schema_for!(RulesResult), "ResultVersion", Some(RESULT_1_0)),
+        _ => return None,
+    };
+    let mut value = serde_json::to_value(schema).ok()?;
+    let version = value.get_mut("definitions")?.get_mut(definition)?;
+    version
+        .get_mut("enum")?
+        .as_array_mut()?
+        .retain(|v| v.as_str().is_some_and(is_unified) == unified.is_some());
+    if let Some((description, version_description)) = unified {
+        version["description"] = version_description.into();
+        value["description"] = description.into();
+        // The rules-model text keeps a rustdoc path of 0.6.0 (see the field).
+        if let Some(text) = value.pointer_mut("/properties/continuous/description") {
+            *text = text
+                .as_str()?
+                .replace(
+                    "See [`crate::continuous`].",
+                    "See `crn_craft::rules::continuous`.",
+                )
+                .into();
+        }
     }
+    Some(value)
 }
+
+/// Whether a `schema` string names a 1.0 contract.
+fn is_unified(version: &str) -> bool {
+    version.ends_with("/1.0")
+}
+
+/// Descriptions of a 1.0 schema and of its version definition.
+type Descriptions = (&'static str, &'static str);
+
+const MODEL_1_0: Descriptions = (
+    "A model: `crn-craft.model/1.0`, the unified model contract. A document means what the same document means as `crn-craft.rules-model/0.4`.\n\nUnknown fields and duplicate keys are rejected. Validation also requires at least one type and one rule. It runs only with `crn-craft.run/1.0` requests; `crn-craft convert` writes network models in this contract.",
+    "The version of a model, its `schema` field.",
+);
+const CHECK_1_0: Descriptions = (
+    "The report of a model check of a `crn-craft.model/1.0` document: `crn-craft.check/1.0`, with the fields of `crn-craft.rules-check/0.1`.\n\nThe check stops at the first stage that fails (parsing, size limits, names and types, then the rest of the model), so `diagnostics` lists the errors of that stage.",
+    "The version of a model check report, its `schema` field.",
+);
+const RUN_1_0: Descriptions = (
+    "A run request: `crn-craft.run/1.0`, the unified request contract, with the fields and defaults of `crn-craft.rules-run/0.6`.\n\nIt binds one model, `crn-craft.model/1.0` or any `crn-craft.rules-model` version, by hash and states the time grid, the ensemble, the outputs and an explicit budget. Unknown fields and duplicate keys are rejected. It returns `crn-craft.result/1.0`.",
+    "The version of a run request, its `schema` field.",
+);
+const RESULT_1_0: Descriptions = (
+    "The result of a `crn-craft.run/1.0` request: `crn-craft.result/1.0`, with the fields of `crn-craft.rules-result/0.3`.\n\nA result is returned even when replicates hit limits or fail: check `termination`, the per-replicate records and `diagnostics`. Matrices are indexed by report time, then observable.",
+    "The version of a result, its `schema` field.",
+);
 
 #[cfg(test)]
 mod tests;

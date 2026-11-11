@@ -63,10 +63,14 @@ def _document(model):
 
 
 def _generator_request(data):
-    """A minimal Static Direct request; the loop does not depend on it."""
+    """A minimal Static Direct request; the loop does not depend on it.
+
+    A ``crn-craft.model/1.0`` model runs only with ``crn-craft.run/1.0``.
+    """
+    unified = json.loads(data).get("schema") == "crn-craft.model/1.0"
     return model_bytes(
         {
-            "schema": "crn-craft.rules-run/0.2",
+            "schema": "crn-craft.run/1.0" if unified else "crn-craft.rules-run/0.2",
             "model": {
                 "path": "model.rules.json",
                 "sha256": hashlib.sha256(data).hexdigest(),

@@ -234,7 +234,10 @@ pub fn sha256(bytes: &[u8]) -> String {
 ///
 /// # Errors
 ///
-/// The [`strict_json`] codes `CRN-E001` to `CRN-E004` and `CRN-E015`.
+/// The [`strict_json`] codes `CRN-E001` to `CRN-E004` and `CRN-E015`, and
+/// `CRN-E032` at `/schema` for a document of the rules engine
+/// (`crn-craft.model/1.0` or a `crn-craft.rules-*` contract), which the
+/// network commands do not read.
 ///
 /// ```
 /// let duplicate = br#"{"schema": "crn-craft.model/0.1", "name": "m",
@@ -244,16 +247,59 @@ pub fn sha256(bytes: &[u8]) -> String {
 /// assert_eq!((error.code.as_str(), error.path.as_str()), ("CRN-E002", "/parameters/k"));
 /// ```
 pub fn parse_model(bytes: &[u8]) -> Result<Model, Diagnostic> {
-    strict_json::parse(bytes)
+    parse_network(bytes, "`crn-craft.model/0.1` network models")
 }
 /// Strictly parses a `crn-craft.run/0.1` document; like [`parse_model`], not
 /// semantic validation.
 ///
 /// # Errors
 ///
-/// The [`strict_json`] codes `CRN-E001` to `CRN-E004` and `CRN-E015`.
+/// The [`strict_json`] codes `CRN-E001` to `CRN-E004` and `CRN-E015`, and
+/// `CRN-E032` for a request of the rules engine (`crn-craft.run/1.0` or
+/// `crn-craft.rules-run`).
 pub fn parse_run(bytes: &[u8]) -> Result<Run, Diagnostic> {
-    strict_json::parse(bytes)
+    parse_network(bytes, "`crn-craft.run/0.1` requests")
+}
+
+/// The top-level `schema` string of a JSON document, if it has one; read
+/// leniently, for choosing a diagnostic or a report version.
+pub(crate) fn schema_field(bytes: &[u8]) -> Option<String> {
+    #[derive(Deserialize)]
+    struct Peek {
+        schema: Option<Value>,
+    }
+    serde_json::from_slice::<Peek>(bytes)
+        .ok()?
+        .schema?
+        .as_str()
+        .map(str::to_string)
+}
+
+/// Strictly parses a document of a network contract. A shape error
+/// (`CRN-E003`) in a document whose `schema` names a rules-engine contract,
+/// a `crn-craft.rules-*` or a 1.0 contract, becomes `CRN-E032` at `/schema`:
+/// such a document never parses as a network contract, and the strict
+/// parser would report the first field it does not know.
+pub(crate) fn parse_network<T: serde::de::DeserializeOwned>(
+    bytes: &[u8],
+    reads: &str,
+) -> Result<T, Diagnostic> {
+    strict_json::parse(bytes).map_err(|error| {
+        if error.code != "CRN-E003" {
+            return error;
+        }
+        match schema_field(bytes) {
+            Some(schema) if schema.starts_with("crn-craft.rules-") || schema.ends_with("/1.0") => {
+                Diagnostic::error(
+                    "CRN-E032",
+                    "/schema",
+                    format!("`{schema}` is a rules-engine contract; this command reads {reads}"),
+                    "Check rules-engine models with `crn-craft rules-check` and run them with `crn-craft rules`; `crn-craft convert` writes a network model as a crn-craft.model/1.0 model.",
+                )
+            }
+            _ => error,
+        }
+    })
 }
 
 /// Reads a model file and an optional `crn-craft.state/0.1` file, then runs
@@ -438,7 +484,8 @@ pub fn check_files(model_path: &Path, run_path: Option<&Path>) -> CheckReport {
 /// Kinds: `model`, `run`, `result`, `result-v1`, `archive`, `archive-check`,
 /// `check`, `state`, `analysis`, `analysis-v1`, `export`, `tau-request`,
 /// `tau-result`, `fsp-result`, `ssa-run` and `ssa-result`. The `rules-*`
-/// kinds belong to `crn-craft-rules`.
+/// kinds and the 1.0 contracts (`model-1.0`, ...) come from
+/// [`rules::schema`].
 ///
 /// ```
 /// let schema = crn_craft::schema("model").unwrap();

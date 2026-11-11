@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 use std::path::PathBuf;
 
 /// The schema string the converter writes.
-const CONVERTED: &str = "crn-craft.rules-model/0.3";
+const CONVERTED: &str = "crn-craft.model/1.0";
 /// The converter's refusal code.
 const REFUSED: &str = "CRN-R016";
 
@@ -351,8 +351,15 @@ fn invalid_network_models_keep_their_network_diagnostics() {
     );
     let diagnostics = from_network(b"{\"schema\": ").unwrap_err();
     assert_eq!(diagnostics[0].code, "CRN-E001");
+    // A rules-engine model is not a network model.
     let diagnostics = from_network(&read("models/rules/immigration-death.rules.json")).unwrap_err();
-    assert!(diagnostics[0].code.starts_with("CRN-E"), "{diagnostics:?}");
+    assert!(has(&diagnostics, "CRN-E032", "/schema"), "{diagnostics:?}");
+    let converted = from_network(&read("models/examples/repressilator.model.json")).unwrap();
+    assert!(has(
+        &from_network(&converted).unwrap_err(),
+        "CRN-E032",
+        "/schema"
+    ));
     // Warnings do not block conversion.
     let mut model = base();
     model["reactions"][0]["rate"]["coefficient"] = json!(0.0);
@@ -363,7 +370,7 @@ fn invalid_network_models_keep_their_network_diagnostics() {
 fn a_converted_model_runs_with_static_direct() {
     let converted = from_network(&read("models/examples/immigration-death.model.json")).unwrap();
     let request = serde_json::to_vec(&json!({
-        "schema": "crn-craft.rules-run/0.6",
+        "schema": "crn-craft.run/1.0",
         "model": {"path": "m.json", "sha256": crn_craft::sha256(&converted)},
         "time": {"end": 10.0, "report_times": [0.0, 10.0]},
         "ensemble": {"replicates": 400, "root_seed": 3},

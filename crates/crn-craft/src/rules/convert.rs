@@ -1,8 +1,9 @@
 //! Conversion of network models (`crn-craft.model/0.1`) into rules models.
 //!
-//! [`from_network`] writes one attribute-free species type per network
-//! species and one rule per reaction, so the converted model has the same
-//! species, reactions and propensities:
+//! [`from_network`] writes a `crn-craft.model/1.0` document with one
+//! attribute-free species type per network species and one rule per
+//! reaction, so the converted model has the same species, reactions and
+//! propensities; run it with `crn-craft.run/1.0` requests:
 //!
 //! | Network model | Rules model |
 //! | --- | --- |
@@ -60,7 +61,7 @@ use crate::rules::model::{
 use std::collections::{BTreeMap, BTreeSet};
 
 /// The contract version of a converted model.
-pub const CONVERTED_VERSION: ModelVersion = ModelVersion::V03;
+pub const CONVERTED_VERSION: ModelVersion = ModelVersion::V10;
 
 /// The `schema` string of a converted model.
 pub(crate) fn converted_schema() -> serde_json::Value {

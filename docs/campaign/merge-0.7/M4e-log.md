@@ -261,7 +261,10 @@ tolerance did not change.
   first complete run, and every check passes. Both runs are recorded in
   RESULTS.md.
 - Before the final gate the wheel was rebuilt and reinstalled from the
-  committed tree.
+  committed tree. `check_compiled_loop.py`, `check_quantiles.py` and the
+  measurement ran before that rebuild, on a wheel and CLI built from the
+  same engine sources; the Rust tests, I2 and the other Python checks ran
+  after it.
 
 ## Fixture diff (`validation/fixtures/sir-report.md`)
 
@@ -297,12 +300,12 @@ Venv `/home/claude/m07/venv-m4e` (wheel built from the worktree root with
 | `cargo test --release --workspace --locked` | pass: `crn-craft` lib 115 (4 new), `quantiles` 13 (new), `contracts_v1` 7, CLI 14, facade 3, generated kernels 3, generated loops 25 (I3), `quantiles_loop` 1 (new), `static_direct_defaults` 9 and `stored_requests` 2 (I1), all other tests, doctests 34 + 1 |
 | `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked` | pass |
 | Every schema file against `crn-craft describe KIND` | 24 of 24 equal (22 unchanged, `run-1.0` and `result-1.0` regenerated) |
-| `ruff format --check --exclude '*.md' .`, `ruff check .` | GATE_RUFF |
-| `check_contracts.py` | GATE_CONTRACTS |
-| `check_rules.py` | GATE_RULES |
-| `check_rules_python.py` | GATE_RULES_PYTHON |
-| `check_installed.py` (`python -I`, from `/tmp`, outside the tree) | GATE_INSTALLED |
-| I2 `check_manual.py --binary target/release/crn-craft --require-cargo` (`CRN_CRAFT_SOURCE` = worktree) | GATE_MANUAL |
+| `ruff format --check --exclude '*.md' .`, `ruff check .` | pass |
+| `check_contracts.py` | 90 of 90 (the 1.0 snapshots include the regenerated schemas); `-O` identical |
+| `check_rules.py` | 47 of 47; `-O` identical |
+| `check_rules_python.py` | pass, 25 checks (new: "quantiles equal numpy.quantile of the paths"); `-O` identical |
+| `check_installed.py` (`python -I`, from `/tmp`, outside the tree) | pass, 17 checks (`rules_result_report` with quantiles and the new fixture); `-O` identical |
+| I2 `check_manual.py --binary target/release/crn-craft --require-cargo` (`CRN_CRAFT_SOURCE` = worktree) | pass, 22 of 22 blocks, including both compiled-loop blocks; `-O` identical |
 | `check_compiled_loop.py --require-cargo` (`CRN_CRAFT_SOURCE`, `CARGO_TARGET_DIR` as in CI) | pass, 53 rows; `-O` identical |
 | `validation/merge/check_quantiles.py` | pass, 9 comparisons, 0 failures; `-O` identical |
 

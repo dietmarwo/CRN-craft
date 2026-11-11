@@ -362,8 +362,8 @@ quantiles, under the CPU lock.
 
 ### M4e (quantile statistics): results
 
-2026-11-11, this host, under the CPU lock, engine at `bea803a` (CLI
-`target/release/crn-craft` of the task worktree), 2 threads. Report:
+2026-11-11, this host, under the CPU lock, engine as committed in `bea803a`
+(CLI `target/release/crn-craft` of the task worktree), 2 threads. Report:
 `validation/merge/laws/quantiles-immigration-death.json`.
 
 | Method | p | q̂ at t = 10 | Q(p) | \|q̂ − Q\| | Passed |

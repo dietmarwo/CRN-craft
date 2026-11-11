@@ -411,3 +411,34 @@ no `--expect-refused`): every model must convert; N = 4,814 comparisons
 (4,636 against the references, 178 against FSP laws), 940 at t = 0;
 **0 failures are expected**. Wall time per model is printed on stderr and
 recorded in the M4b log (not gated; the speed gate is M4d).
+
+### M4b (higher-order reactions): results
+
+**References** (2026-11-11, kept 0.6.0 CLI, `higher_order_references.py`):
+third-order-decay 14 reachable states, trimolecular 16; leakage + mass
+defect at most 5.0e-13 and 5.5e-13 (limit 1e-9). Rerun under `python -O`
+into another directory: all five files byte-identical. The means agree with
+the independent dense-matrix solution used to choose the parameters
+(third-order-decay at t = 0.5: 25.248 both).
+
+**Failing-first run** (engine at `39aecef`, M4a wheel, before the M4b
+implementation): both models refused by the converter (`CRN-R016`, order
+3), exit 1, 0 comparisons. Report:
+`validation/merge/laws/higher-order-before-m4b.json`. Not a gate run.
+
+**Exact-law check** (engine at `1f66966`, wheel `_native` SHA-256
+`85673a83…`, `crn-craft.run/1.0`, 2 threads): 12 s wall. Report:
+`validation/merge/laws/higher-order.json`; the run under `python -O` wrote
+a byte-identical report. The converted models hold
+`{"label": "x", "type": "A", "count": 3}` and
+`{"label": "x", "type": "A", "count": 2}, {"label": "y", "type": "B"}`.
+
+| Model | Method | Sampler | Comparisons | at t = 0 | Failures | max \|z\| |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| third-order-decay | `static_direct` | `chacha8-u53-ziggurat/rules-static-direct/1` | 53 | 4 | 0 | 2.83 |
+| third-order-decay | `next_reaction` | `chacha8-u53/rules-next-reaction/1` | 53 | 4 | 0 | 2.56 |
+| trimolecular | `static_direct` | `chacha8-u53-ziggurat/rules-static-direct/1` | 83 | 8 | 0 | 1.77 |
+| trimolecular | `next_reaction` | `chacha8-u53/rules-next-reaction/1` | 83 | 8 | 0 | 2.48 |
+| **Total** | | | 272 (N) | 24 | **0** | 2.83 |
+
+**Passed:** N = 272 as declared (53 + 83 per method), 0 failures.

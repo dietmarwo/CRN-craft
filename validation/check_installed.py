@@ -645,6 +645,65 @@ def check_compiled_loop_refusals():
             raise RuntimeError("a loop for other model bytes was accepted")
 
 
+# Expected output of Result.save, next to this script (not in the package).
+SIR_REPORT = Path(__file__).resolve().parent / "fixtures" / "sir-report.md"
+
+
+def check_report():
+    """Result.save: the SIR example's markdown report, byte for byte.
+
+    The expected file is validation/fixtures/sir-report.md. Its line
+    `crn-craft = <version>` names the version it was written with; that one
+    line is compared with the installed version instead, so the file stays
+    valid across version bumps. Every other byte must be equal.
+    """
+    sir = rules.Model("sir")
+    sir.add_species({"S": 999, "I": 1, "R": 0})
+    sir.add_parameter({"beta": 2e-4, "gamma": 0.01})
+    sir.add_reaction("beta * S * I", ["S", "I"], ["I", "I"], name="infection")
+    sir.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
+    sir.set_stop("I == 0")
+    result = rules.ensemble(
+        sir,
+        end=250.0,
+        report_times=[0, 50, 100, 150, 200, 250],
+        replicates=10,
+        seed=1,
+        keep_paths="all",
+        method="static_direct",
+    ).simulate()
+    expected = SIR_REPORT.read_bytes().split(b"\n")
+    version = [i for i, line in enumerate(expected) if line.startswith(b"crn-craft = ")]
+    require(len(version) == 1, "the SIR fixture has one crn-craft version line")
+    expected[version[0]] = b"crn-craft = " + c.__version__.encode()
+    expected = b"\n".join(expected)
+    with tempfile.TemporaryDirectory() as tmp:
+        first = result.save(Path(tmp) / "sir.md")
+        second = result.save(Path(tmp) / "again.md")
+        written = first.read_bytes()
+        require(
+            isinstance(first, Path)
+            and first == Path(tmp) / "sir.md"
+            and written == second.read_bytes(),
+            "saving a result twice gives identical bytes",
+        )
+        require(
+            written == expected,
+            f"the SIR report differs from {SIR_REPORT}:\n{written.decode()}",
+        )
+        report = c.load_report(result.save(Path(tmp) / "sir.json"))
+        require(
+            report["schema"] == "crn-craft.report/1.0"
+            and report["crn_craft_version"] == c.__version__
+            and report["model"] == sir.to_dict() == result.model
+            and report["request"] == result.request
+            and report["result"]["observables"] == ["I", "R", "S"]
+            and report["result"]["terminations"] == {"completed": 10}
+            and rules.load_report is c.load_report,
+            "the JSON report holds the model and request that ran",
+        )
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--output", type=Path, required=True)
@@ -960,6 +1019,8 @@ def main():
     checks.append("rules_hybrid")
     check_compiled_loop_refusals()
     checks.append("rules_compiled_loop_refusals")
+    check_report()
+    checks.append("rules_result_report")
     args.output.write_text(
         json.dumps(
             {

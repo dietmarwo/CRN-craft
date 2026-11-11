@@ -115,7 +115,8 @@ fn bits(value: f64) -> String {
 /// # Errors
 ///
 /// `CRN-R020` at `/method` if the request does not select `static_direct`,
-/// or if a rate or an observable is outside the supported forms.
+/// or if a rate or an observable is outside the supported forms, including
+/// whole-rule propensities and higher-order rules (`crn-craft.model/1.0`).
 ///
 /// ```
 /// use crn_craft::rules::{generate_rules_kernel, prepare};
@@ -175,6 +176,13 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
             "/method",
             "generated rules kernels do not support whole-rule propensities",
             "Use interpreted Static Direct for models with propensity rules.",
+        ));
+    }
+    if net.channels.iter().any(|c| c.multi.is_some()) {
+        return Err(request_error(
+            "/method",
+            "generated rules kernels do not support higher-order rules",
+            "Use interpreted Static Direct or a generated event loop for rules of more than two reactant molecules.",
         ));
     }
     for (i, c) in net.channels.iter().enumerate() {

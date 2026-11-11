@@ -200,7 +200,11 @@ impl LeapWorkspace {
                 .changes
                 .iter()
                 .any(|&(s, d)| counts[s] <= 10 * d.unsigned_abs())
-                || c.reactants.iter().any(|&s| counts[s] <= 10);
+                || match &c.multi {
+                    None => c.reactants.iter().any(|&s| counts[s] <= 10),
+                    // Within ten firings of losing a reactant's count.
+                    Some(list) => list.iter().any(|&(s, k)| counts[s] <= k.saturating_mul(10)),
+                };
             self.critical[i] = if critical { a } else { 0.0 };
             if !critical {
                 for &(s, d) in &c.changes {

@@ -26,6 +26,11 @@
 //!   n(n − 1)/2 for `A + A` and n_A n_B for `A + B`.
 //! - A rule with a `propensity` P (rules-model/0.3) fires at P while every
 //!   reactant pattern can take a distinct molecule, and at 0 otherwise.
+//! - `crn-craft.model/1.0` adds higher-order rules: a pattern may take
+//!   `count` molecules and a rule may have any number of patterns (see
+//!   [`Pattern::count`]). A `rate` g then gives g × Π C(nᵢ, kᵢ) over the
+//!   distinct types, kᵢ the type's total count; a `propensity` applies while
+//!   every type has at least kᵢ molecules.
 //!
 //! The limits below are checked during validation and reported as
 //! `CRN-R015` (`CRN-R010` for names, `CRN-R014` for counts).
@@ -93,6 +98,9 @@ pub const MAX_INITIAL: usize = 100_000;
 pub const MAX_EXPRESSION_BYTES: usize = 4096;
 /// Longest name in bytes (`CRN-R010`).
 pub const MAX_NAME_BYTES: usize = 64;
+/// Largest `count` of one reactant pattern (`crn-craft.model/1.0`;
+/// `CRN-R013` above it).
+pub const MAX_PATTERN_COUNT: u64 = 2_147_483_647;
 /// Counts and identities stay exact integers in f64.
 ///
 /// Initial counts may be at most 2^53 (`CRN-R014`). Identities from
@@ -295,6 +303,12 @@ pub struct Rule {
     pub name: String,
     /// Zero, one or two patterns. Reactants are consumed; list a `copy`
     /// product to keep one.
+    ///
+    // schemars does not see the `concat!` paragraph (see `rules::schema`).
+    #[doc = concat!(
+        "In `crn-craft.model/1.0` a rule may have any number of patterns, and ",
+        "a pattern may take several molecules ([`Pattern::count`])."
+    )]
     pub reactants: Vec<Pattern>,
     /// Global factor: parameters and observables only. It is evaluated only
     /// while the reactant weight is positive; a negative or non-finite value
@@ -349,6 +363,22 @@ pub struct Pattern {
     /// Default 1; an instance that fails `where` has h = 0.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub factor: Option<String>,
+    /// `crn-craft.model/1.0` only: the number of molecules this pattern
+    /// takes, 1 to 2147483647 (default 1; `CRN-R013` outside). A pattern
+    /// with a count above 1, and every pattern of a rule with more than two
+    /// patterns, is over a type without attributes and has no `where` or
+    /// `factor` (`CRN-R013`). Patterns over one type add their counts k; a
+    /// `rate` g gives g × Π C(n, k) over the types, a `propensity` applies
+    /// while every type has at least k molecules. A rule of at most two
+    /// molecules is the rule with one count-1 pattern per molecule
+    /// (`count: 2` is a pair). `null` is rejected.
+    #[serde(
+        default,
+        deserialize_with = "crate::rules::present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "u64", range(min = 1, max = 2_147_483_647))]
+    pub count: Option<u64>,
 }
 
 /// A product of a rule: a new instance built from constants, parameters,
@@ -396,7 +426,7 @@ pub(crate) struct ObservableInfo {
     pub reduce: Reduce,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Shape {
     Source,
     Single(usize),
@@ -404,6 +434,11 @@ pub(crate) enum Shape {
     Pair(usize),
     /// Two patterns over different types.
     Cross(usize, usize),
+    /// A higher-order rule (`crn-craft.model/1.0`): (class, count) per
+    /// pattern in label order, used only when the rule is none of the
+    /// shapes above. Patterns of one class are over one attribute-free type;
+    /// their counts add.
+    Multi(Vec<(usize, u64)>),
 }
 
 #[derive(Debug)]
@@ -427,7 +462,9 @@ pub(crate) struct RuleInfo {
     /// available instead of per reactant tuple.
     pub whole: bool,
     pub shape: Shape,
-    /// Reactant type ids in label order.
+    /// Reactant type ids in label order: one per molecule in rules of at
+    /// most two molecules (a `count: 2` pattern gives two entries), one per
+    /// pattern in `Multi` rules.
     pub reactant_types: Vec<usize>,
     pub products: Vec<ProductInfo>,
 }
@@ -577,6 +614,28 @@ fn constant(
 
 fn normalize(x: f64) -> f64 {
     if x == 0.0 { 0.0 } else { x }
+}
+
+/// Before `crn-craft.model/1.0` a pattern has no `count` field: the error
+/// the strict parser gave in 0.6.0 for the first pattern that has one, in
+/// document order.
+pub(crate) fn legacy_count(model: &Model) -> Option<Diagnostic> {
+    if model.schema == ModelVersion::V10 {
+        return None;
+    }
+    model.rules.iter().enumerate().find_map(|(r, rule)| {
+        rule.reactants
+            .iter()
+            .position(|p| p.count.is_some())
+            .map(|i| {
+                invalid(
+                    "CRN-E003",
+                    &format!("/rules/{r}/reactants/{i}/count"),
+                    "unknown field `count`, expected one of `label`, `type`, `where`, `factor`",
+                    "Compare this field with the schema emitted by describe.",
+                )
+            })
+    })
 }
 
 pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
@@ -985,7 +1044,8 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
                 }
             }
         }
-        if rule.reactants.len() > 2 {
+        let unified = model.schema == ModelVersion::V10;
+        if rule.reactants.len() > 2 && !unified {
             out.push(invalid(
                 "CRN-R013",
                 &pointer(&path, "reactants"),
@@ -1042,6 +1102,81 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
             ));
             continue;
         }
+        // Higher-order patterns (model/1.0; a 0.x model has no counts and at
+        // most two patterns here).
+        let counts: Vec<u64> = rule
+            .reactants
+            .iter()
+            .map(|p| p.count.unwrap_or(1))
+            .collect();
+        let before = out.len();
+        if let Some(i) = (1..rule.reactants.len()).find(|&i| {
+            rule.reactants[..i]
+                .iter()
+                .any(|p| p.label == rule.reactants[i].label)
+        }) {
+            out.push(invalid(
+                "CRN-R010",
+                &format!("{path}/reactants/{i}/label"),
+                "duplicate reactant label",
+                "Give every reactant pattern its own label.",
+            ));
+        }
+        for (i, &k) in counts.iter().enumerate() {
+            if !(1..=MAX_PATTERN_COUNT).contains(&k) {
+                out.push(invalid(
+                    "CRN-R013",
+                    &format!("{path}/reactants/{i}/count"),
+                    format!("count {k} is outside 1 to {MAX_PATTERN_COUNT}"),
+                    "Give a pattern count from 1 to 2147483647.",
+                ));
+            }
+        }
+        let higher = rule.reactants.len() > 2 || counts.iter().any(|&k| k > 1);
+        if higher {
+            for (i, (p, &k)) in rule.reactants.iter().zip(&counts).enumerate() {
+                if k == 1 && rule.reactants.len() <= 2 {
+                    continue;
+                }
+                let pp = format!("{path}/reactants/{i}");
+                let hint = "Patterns with count above 1, and the patterns of rules with more than two patterns, take molecules of attribute-free types without where or factor.";
+                if !types[pattern_types[i]].attributes.is_empty() {
+                    out.push(invalid(
+                        "CRN-R013",
+                        &format!("{pp}/type"),
+                        format!(
+                            "type `{}` has attributes; a higher-order pattern needs an attribute-free type",
+                            p.species_type
+                        ),
+                        hint,
+                    ));
+                }
+                for (key, present) in [
+                    ("where", p.condition.is_some()),
+                    ("factor", p.factor.is_some()),
+                ] {
+                    if present {
+                        out.push(invalid(
+                            "CRN-R013",
+                            &format!("{pp}/{key}"),
+                            format!("a higher-order pattern takes no `{key}`"),
+                            hint,
+                        ));
+                    }
+                }
+            }
+        }
+        if out.len() > before {
+            continue;
+        }
+        let molecules: u64 = counts.iter().sum();
+        if higher && molecules <= 2 {
+            // One pattern with count 2: the pair of two identical patterns.
+            let pattern = compiled.pop().expect("one pattern");
+            compiled.push(pattern.clone());
+            compiled.push(pattern);
+            pattern_types.push(pattern_types[0]);
+        }
         let same = |a: &(usize, Option<Expr>, Option<Expr>, String),
                     b: &(usize, Option<Expr>, Option<Expr>, String)| {
             a.0 == b.0
@@ -1069,6 +1204,29 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
             classes.len() - 1
         };
         let shape = match compiled.len() {
+            _ if molecules > 2 => {
+                // Patterns over one type must be identical (one class).
+                let mut multi = Vec::with_capacity(compiled.len());
+                let mut mixed = false;
+                for (i, c) in compiled.iter().enumerate() {
+                    if compiled[..i].iter().any(|d| d.0 == c.0 && !same(c, d)) {
+                        mixed = true;
+                    }
+                }
+                if mixed {
+                    out.push(invalid(
+                        "CRN-R013",
+                        &pointer(&path, "reactants"),
+                        "two different patterns over the same type",
+                        "Use identical patterns (same where and factor) or patterns over different types; rules-model/0.1 has no other same-type pairs.",
+                    ));
+                    continue;
+                }
+                for (c, &k) in compiled.into_iter().zip(&counts) {
+                    multi.push((class_of(c, false), k));
+                }
+                Shape::Multi(multi)
+            }
             0 => Shape::Source,
             1 => Shape::Single(class_of(compiled.pop().expect("one pattern"), false)),
             _ => {

@@ -209,6 +209,8 @@
 // `concat!` form; rustdoc and `missing_docs` treat it as a doc comment.
 
 pub mod atp;
+mod combination;
+pub use combination::combination_rate;
 pub mod continuous;
 pub mod convert;
 mod engine;
@@ -1339,7 +1341,7 @@ pub struct RulesCheck {
 /// assert_eq!(report.diagnostics[0].path, "/rules/0/products/0/type");
 /// ```
 pub fn check_model(model_bytes: &[u8]) -> RulesCheck {
-    let parsed = crate::strict_json::parse::<Model>(model_bytes);
+    let parsed = parse_model(model_bytes);
     // The report version follows the model's: also for a model/1.0
     // document that does not parse.
     let unified = match &parsed {
@@ -1428,7 +1430,7 @@ pub fn check_model(model_bytes: &[u8]) -> RulesCheck {
 ///            ("CRN-R020", "/model/sha256"));
 /// ```
 pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec<Diagnostic>> {
-    let model: Model = crate::strict_json::parse(model_bytes).map_err(|e| vec![e])?;
+    let model: Model = parse_model(model_bytes).map_err(|e| vec![e])?;
     let request: RunRequest = crate::strict_json::parse(request_bytes).map_err(|e| vec![e])?;
     let model_sha256 = crate::sha256(model_bytes);
     let mut diagnostics = validate_request(&request, &model_sha256);
@@ -1496,6 +1498,9 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
             )]);
         }
         _ => {}
+    }
+    if let Some(diagnostic) = higher_order_method(&compiled, request.method.unwrap_or_default()) {
+        return Err(vec![diagnostic]);
     }
     let hybrid = matches!(request.method, Some(Method::Hybrid { .. }));
     if !compiled.continuous.is_empty() && !hybrid {
@@ -1605,6 +1610,39 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
         model_sha256,
         run_sha256: crate::sha256(request_bytes),
     })
+}
+
+/// Parses a rules model strictly. A pattern `count` before
+/// `crn-craft.model/1.0` gets the strict parser's unknown-field error of
+/// 0.6.0.
+fn parse_model(model_bytes: &[u8]) -> Result<Model, Diagnostic> {
+    let model: Model = crate::strict_json::parse(model_bytes)?;
+    match model::legacy_count(&model) {
+        Some(diagnostic) => Err(diagnostic),
+        None => Ok(model),
+    }
+}
+
+/// `CRN-R020` at `/method` for a higher-order rule on a method that cannot
+/// sample it: `tree` (also the default) and `mtdna_direct`.
+fn higher_order_method(compiled: &model::Compiled, method: Method) -> Option<Diagnostic> {
+    let name = match method {
+        Method::Tree {} => "tree",
+        Method::MtdnaDirect {} => "mtdna_direct",
+        _ => return None,
+    };
+    let rule = compiled
+        .rules
+        .iter()
+        .find(|r| matches!(r.shape, model::Shape::Multi(_)))?;
+    Some(request_error(
+        "/method",
+        format!(
+            "rule `{}` takes more than two reactant molecules, which {name} does not sample",
+            rule.name
+        ),
+        "Select static_direct, next_reaction, tau or hybrid for higher-order rules.",
+    ))
 }
 
 /// How a request asks for sparse tracker integration on Static Direct.
@@ -2482,6 +2520,13 @@ pub fn schema(kind: &str) -> Option<Value> {
         _ => return None,
     };
     let mut value = serde_json::to_value(schema).ok()?;
+    if kind == "rules-model" {
+        // `count` is a model/1.0 field; the 0.x schema keeps its 0.6.0 shape.
+        value
+            .pointer_mut("/definitions/Pattern/properties")?
+            .as_object_mut()?
+            .remove("count")?;
+    }
     let version = value.get_mut("definitions")?.get_mut(definition)?;
     version
         .get_mut("enum")?
@@ -2517,7 +2562,19 @@ pub fn schema(kind: &str) -> Option<Value> {
 
 /// Descriptions of `crn-craft.model/1.0` fields whose `rules-model` text
 /// states a 0.x limit.
-const MODEL_1_0_FIELDS: [(&str, &str); 3] = [
+const MODEL_1_0_FIELDS: [(&str, &str); 6] = [
+    (
+        "/definitions/Rule/properties/reactants/description",
+        "Reactant patterns, any number (see `count`). Reactants are consumed; list a `copy` product to keep one.",
+    ),
+    (
+        "/definitions/Pattern/properties/label/description",
+        "Name of the matched instance in this pattern's expressions and in the rule's products, for example `x` in `x.size`. The patterns of a rule need different labels.",
+    ),
+    (
+        "/definitions/Pattern/properties/type/description",
+        "Name of a declared type. Two different patterns over the same type are not supported (`CRN-R013`); identical ones form pairs, or with more molecules a higher-order rule.",
+    ),
     (
         "/properties/types/description",
         "Species types, 1 to 4096, with unique names.",

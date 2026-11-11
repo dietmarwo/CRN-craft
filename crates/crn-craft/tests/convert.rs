@@ -298,7 +298,9 @@ fn models_beyond_the_rules_limits_are_refused() {
 }
 
 #[test]
-fn higher_order_reactions_are_refused() {
+fn higher_order_reactions_convert_with_counts() {
+    // Since M4b any stoichiometry converts; tests/higher_order.rs checks
+    // the mapping. W4 has order 8.
     for reactants in [
         json!({"A": 3}),
         json!({"A": 2, "B": 1}),
@@ -306,16 +308,11 @@ fn higher_order_reactions_are_refused() {
     ] {
         let mut model = base();
         model["reactions"][0]["reactants"] = reactants.clone();
-        let diagnostics = refused(&model);
-        assert!(
-            has(&diagnostics, REFUSED, "/reactions/0/reactants"),
-            "{reactants}: {diagnostics:?}"
-        );
+        let converted = convert(&model).unwrap_or_else(|d| panic!("{reactants}: {d:?}"));
+        assert_eq!(converted["schema"], "crn-craft.model/1.0");
     }
-    // W4 has order 8 (M4b); W5 and W7 convert since M4a.
-    let w4 = from_network(&read("validation/ssa-acceleration/models/W4.model.json")).unwrap_err();
-    assert!(w4.iter().all(|d| d.code == REFUSED), "{w4:?}");
-    assert!(w4.iter().any(|d| d.path.ends_with("/reactants")), "{w4:?}");
+    let w4 = from_network(&read("validation/ssa-acceleration/models/W4.model.json")).unwrap();
+    assert!(crn_craft::rules::check_model(&w4).valid);
 }
 
 #[test]

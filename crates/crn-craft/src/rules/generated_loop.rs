@@ -105,7 +105,9 @@ pub fn execute_with_rules_loop(
 /// Direct request. The caller compiles this source into the application and
 /// runs it with [`execute_with_rules_loop`]. Supports every model that
 /// Static Direct runs, up to 1 MiB of emitted source: constant, vacancy and
-/// expression rates, whole-rule `propensity` expressions, and `sum`,
+/// expression rates, whole-rule `propensity` expressions, higher-order rules
+/// (through [`crate::rules::combination_rate`], the interpreter's
+/// arithmetic), and `sum`,
 /// `distinct`, `max` and `min` observables. Rate expressions are emitted
 /// with the interpreter's operations in its order, so results stay
 /// byte-identical: NaN propagation through logic and `if`, short-circuit
@@ -189,6 +191,9 @@ struct Rate {
     weight: String,
     /// The lowered channel factor.
     factor: f64,
+    /// A higher-order channel with a `rate`: its (species, count) list as
+    /// Rust source, for `combination_rate`.
+    higher_order: Option<String>,
 }
 
 /// The emitted source with a placeholder for its fingerprint.
@@ -242,7 +247,24 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
         };
         // The interpreter's reactant weight: the combinatorial count, or for
         // a whole-rule propensity 1 while every pattern can take a distinct
-        // molecule and 0 otherwise.
+        // molecule and 0 otherwise. A higher-order channel's weight is its
+        // availability; the interpreter's `combination_rate` then gives the
+        // rate, emitted as a call.
+        if let Some(list) = &c.multi {
+            let available: Vec<String> = list
+                .iter()
+                .map(|(s, k)| format!("counts[{s}] >= {k}"))
+                .collect();
+            let reactants: Vec<String> = list.iter().map(|(s, k)| format!("({s}, {k})")).collect();
+            rates.push(Rate {
+                base,
+                global,
+                weight: format!("f64::from(u8::from({}))", available.join(" && ")),
+                factor: c.factor,
+                higher_order: (!c.whole).then(|| reactants.join(", ")),
+            });
+            continue;
+        }
         let weight = match (c.reactants.as_slice(), c.whole) {
             ([], _) => "1.0".into(),
             ([s], false) => format!("counts[{s}] as f64"),
@@ -262,6 +284,7 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
             global,
             weight,
             factor: c.factor,
+            higher_order: None,
         });
     }
     // Every changed projection is refreshed after each event, including the
@@ -299,12 +322,18 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
                 Global::Rule(rule) if uses[&rule] > 1 => format!("g_{rule}"),
                 Global::Rule(rule) => rule_code[&rule].clone(),
             };
+            let value = match &rate.higher_order {
+                None => format!("({global}) * (weight * {})", bits(rate.factor)),
+                Some(list) => format!(
+                    "crn_craft_rules::combination_rate({global}, {}, &counts[..], &[{list}])",
+                    bits(rate.factor)
+                ),
+            };
             writeln!(
                 code,
-                "{{ let weight = {}; let a = if weight == 0.0 {{ 0.0 }} else {{ ({global}) * (weight * {}) }}; \
+                "{{ let weight = {}; let a = if weight == 0.0 {{ 0.0 }} else {{ {value} }}; \
                  if !(a.is_finite() && a >= 0.0) {{ return Err(host.rate_error({i})); }} r[{i}] = a; }}",
                 rate.weight,
-                bits(rate.factor)
             )
             .unwrap();
         }

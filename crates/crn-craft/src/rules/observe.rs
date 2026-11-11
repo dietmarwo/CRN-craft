@@ -96,6 +96,11 @@ pub struct Event<'a> {
     pub rule: Option<usize>,
     /// The consumed instances of an exact step as (type index, attribute
     /// values), one per reactant pattern in rule order. Empty for a leap.
+    ///
+    /// In a `crn-craft.model/1.0` rule of at most two molecules a pattern
+    /// with `count` 2 is listed twice (it is the pair of two identical
+    /// patterns); a higher-order rule lists each pattern once, whatever its
+    /// count.
     pub reactants: &'a [(usize, &'a [f64])],
     /// The produced instances of an exact step as (type index, attribute
     /// values), one per product in rule order. A product that copies a
@@ -237,6 +242,11 @@ pub struct LogEntry {
     pub rule: Option<usize>,
     /// Consumed instances of an exact step, one per reactant pattern, each
     /// with count 1. Empty for a leap.
+    // A `///` line here would change the rules-result schema.
+    #[doc = concat!(
+        "A higher-order rule (`crn-craft.model/1.0`) lists each pattern once ",
+        "with count 1; the model's pattern counts give the molecules."
+    )]
     pub reactants: Vec<InstanceRecord>,
     /// Produced instances of an exact step, one per product, each with count
     /// 1; a product that copies a reactant appears in both lists. Empty for

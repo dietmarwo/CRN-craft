@@ -420,6 +420,7 @@ impl<'m> State<'m> {
                     .expect("pair class keeps a pair tree")
                     .total_pairs(),
                 Shape::Cross(c, d) => self.classes[c].weight() * self.classes[d].weight(),
+                Shape::Multi(_) => unreachable!("prepare refuses higher-order rules on the tree"),
             };
             if rule.whole && weight > 0.0 {
                 // A whole-rule propensity applies once while the reactants
@@ -487,6 +488,7 @@ impl<'m> State<'m> {
                         let m = tree.min_factor();
                         !self.classes[c].resolved() || m * m < tree.total_pairs() * RESOLUTION
                     }
+                    Shape::Multi(_) => unreachable!("prepare refuses higher-order rules"),
                 };
             if unresolved {
                 return Err(Halt::Numerical(Diagnostic::error(
@@ -854,6 +856,7 @@ impl Path<'_> {
                     let second = &state.classes[d];
                     slots[1] = second.select(words.uniform()? * second.weight());
                 }
+                Shape::Multi(_) => unreachable!("prepare refuses higher-order rules"),
             }
             for (k, &t) in rule.reactant_types.iter().enumerate() {
                 reactants[k].clear();

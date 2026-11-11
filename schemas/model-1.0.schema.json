@@ -186,6 +186,13 @@
       "additionalProperties": false,
       "description": "A reactant pattern: the instances of one type that may react, and their local factor.",
       "properties": {
+        "count": {
+          "description": "`crn-craft.model/1.0` only: the number of molecules this pattern takes, 1 to 2147483647 (default 1; `CRN-R013` outside). A pattern with a count above 1, and every pattern of a rule with more than two patterns, is over a type without attributes and has no `where` or `factor` (`CRN-R013`). Patterns over one type add their counts k; a `rate` g gives g × Π C(n, k) over the types, a `propensity` applies while every type has at least k molecules. A rule of at most two molecules is the rule with one count-1 pattern per molecule (`count: 2` is a pair). `null` is rejected.",
+          "format": "uint64",
+          "maximum": 2147483647.0,
+          "minimum": 1.0,
+          "type": "integer"
+        },
         "factor": {
           "description": "Local factor h(x) >= 0: parameters and this reactant's attributes. Default 1; an instance that fails `where` has h = 0.",
           "type": [
@@ -194,11 +201,11 @@
           ]
         },
         "label": {
-          "description": "Name of the matched instance in this pattern's expressions and in the rule's products, for example `x` in `x.size`. The two patterns of a rule need different labels.",
+          "description": "Name of the matched instance in this pattern's expressions and in the rule's products, for example `x` in `x.size`. The patterns of a rule need different labels.",
           "type": "string"
         },
         "type": {
-          "description": "Name of a declared type. Two different patterns over the same type are not supported (`CRN-R013`); identical ones form pairs.",
+          "description": "Name of a declared type. Two different patterns over the same type are not supported (`CRN-R013`); identical ones form pairs, or with more molecules a higher-order rule.",
           "type": "string"
         },
         "where": {
@@ -301,7 +308,7 @@
           "type": "string"
         },
         "reactants": {
-          "description": "Zero, one or two patterns. Reactants are consumed; list a `copy` product to keep one.",
+          "description": "Reactant patterns, any number (see `count`). Reactants are consumed; list a `copy` product to keep one.",
           "items": {
             "$ref": "#/definitions/Pattern"
           },

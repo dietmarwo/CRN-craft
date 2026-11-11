@@ -14,7 +14,12 @@ pub(crate) struct Species {
 
 pub(crate) struct Channel {
     pub rule: usize,
+    /// One species per reactant molecule; for a higher-order rule one per
+    /// pattern (the event participants).
     pub reactants: Vec<usize>,
+    /// A higher-order rule's (species, count) list, sorted by species with
+    /// equal species merged; `None` for the 0.6.0 shapes.
+    pub multi: Option<Vec<(usize, u64)>>,
     pub products: Vec<usize>,
     pub changes: Vec<(usize, i64)>,
     pub(crate) factor: f64,
@@ -52,6 +57,10 @@ enum Factor {
     },
     General(Option<usize>),
 }
+
+/// The arity of a higher-order channel's rate plan: its reactants are in
+/// `Channel::multi`.
+const HIGHER_ORDER: usize = usize::MAX;
 
 struct ChannelRate {
     factor: Factor,
@@ -248,12 +257,19 @@ impl Network {
 
         let mut channels = Vec::new();
         for (r, rule) in model.rules.iter().enumerate() {
-            let mut add = |reactants: &[usize], factor| -> Result<(), String> {
+            // `reactants` holds one species per molecule, or per pattern with
+            // `multi` the merged (species, count) list of a higher-order rule.
+            let mut add = |reactants: &[usize],
+                           multi: Option<Vec<(usize, u64)>>,
+                           factor|
+             -> Result<(), String> {
                 if channels.len() >= max_channels {
                     return Err("static channel limit exceeded".into());
                 }
+                // Rules of more than two patterns have attribute-free
+                // reactants only.
                 let mut attrs = [&[][..]; 2];
-                for (i, s) in reactants.iter().enumerate() {
+                for (i, s) in reactants.iter().take(2).enumerate() {
                     attrs[i] = &species[*s].attrs;
                 }
                 let env = Env {
@@ -277,10 +293,19 @@ impl Network {
                         .ok_or("products can create new attribute tuples")?;
                     products.push(i);
                 }
+                let changes = match &multi {
+                    None => changes_of(reactants.iter().map(|&s| (s, -1)), &products),
+                    Some(list) => changes_of(
+                        list.iter()
+                            .map(|&(s, k)| (s, -i64::try_from(k).expect("validated count"))),
+                        &products,
+                    ),
+                };
                 channels.push(Channel {
                     rule: r,
                     reactants: reactants.to_vec(),
-                    changes: changes_of(reactants.iter().map(|&s| (s, -1)), &products),
+                    multi,
+                    changes,
                     products,
                     factor,
                     whole: rule.whole,
@@ -291,10 +316,11 @@ impl Network {
                 // Firing picks molecules uniformly, which one channel per
                 // tuple could express only with the type's total count.
                 let several = |c: usize| classes[c].len() > 1;
-                let single = match rule.shape {
+                let single = match &rule.shape {
                     Shape::Source => true,
-                    Shape::Single(c) | Shape::Pair(c) => !several(c),
-                    Shape::Cross(c, d) => !several(c) && !several(d),
+                    Shape::Single(c) | Shape::Pair(c) => !several(*c),
+                    Shape::Cross(c, d) => !several(*c) && !several(*d),
+                    Shape::Multi(patterns) => patterns.iter().all(|&(c, _)| !several(c)),
                 };
                 if !single {
                     return Err(format!(
@@ -303,26 +329,74 @@ impl Network {
                     ));
                 }
             }
-            match rule.shape {
-                Shape::Source => add(&[], 1.0)?,
-                Shape::Single(c) => {
+            match &rule.shape {
+                Shape::Source => add(&[], None, 1.0)?,
+                &Shape::Single(c) => {
                     for &(i, w) in &classes[c] {
-                        add(&[i], w)?;
+                        add(&[i], None, w)?;
                     }
                 }
-                Shape::Cross(c, d) => {
+                &Shape::Cross(c, d) => {
                     for &(i, w) in &classes[c] {
                         for &(j, v) in &classes[d] {
-                            add(&[i, j], w * v)?;
+                            add(&[i, j], None, w * v)?;
                         }
                     }
                 }
-                Shape::Pair(c) => {
+                &Shape::Pair(c) => {
                     if classes[c].len() > 1 {
                         return Err("static identical pairs require one matching instance".into());
                     }
                     if let Some(&(i, w)) = classes[c].first() {
-                        add(&[i, i], w * w)?;
+                        add(&[i, i], None, w * w)?;
+                    }
+                }
+                Shape::Multi(patterns) => {
+                    // One channel per choice of a member for every pattern.
+                    // Patterns of one class are over an attribute-free type,
+                    // whose class has at most one member, so they agree.
+                    if patterns.iter().all(|&(c, _)| !classes[c].is_empty()) {
+                        let mut choice = vec![0; patterns.len()];
+                        loop {
+                            let members: Vec<(usize, f64)> = patterns
+                                .iter()
+                                .zip(&choice)
+                                .map(|(&(c, _), &j)| classes[c][j])
+                                .collect();
+                            let participants: Vec<usize> =
+                                members.iter().map(|&(s, _)| s).collect();
+                            let mut merged: Vec<(usize, u64)> = participants
+                                .iter()
+                                .zip(patterns)
+                                .map(|(&s, &(_, k))| (s, k))
+                                .collect();
+                            merged.sort_by_key(|&(s, _)| s);
+                            merged.dedup_by(|next, kept| {
+                                let same = next.0 == kept.0;
+                                if same {
+                                    kept.1 += next.1;
+                                }
+                                same
+                            });
+                            let factor = members.iter().map(|&(_, w)| w).product();
+                            add(&participants, Some(merged), factor)?;
+                            // The next choice, last pattern fastest.
+                            let mut k = patterns.len();
+                            loop {
+                                if k == 0 {
+                                    break;
+                                }
+                                k -= 1;
+                                choice[k] += 1;
+                                if choice[k] < classes[patterns[k].0].len() {
+                                    break;
+                                }
+                                choice[k] = 0;
+                            }
+                            if choice.iter().all(|&j| j == 0) {
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -474,11 +548,16 @@ impl Network {
                     _ => Factor::General(rate_slots[c.rule]),
                 };
                 let mut reactants = [0; 2];
-                reactants[..c.reactants.len()].copy_from_slice(&c.reactants);
+                let arity = if c.multi.is_some() {
+                    HIGHER_ORDER
+                } else {
+                    reactants[..c.reactants.len()].copy_from_slice(&c.reactants);
+                    c.reactants.len()
+                };
                 ChannelRate {
                     factor,
                     reactants,
-                    arity: c.reactants.len(),
+                    arity,
                     weight: c.factor,
                     rule: c.rule,
                     whole: c.whole,
@@ -801,6 +880,9 @@ impl RateCache {
         env: &Env<'_>,
     ) -> Result<f64, Halt> {
         let c = &net.plans[i];
+        if c.arity == HIGHER_ORDER {
+            return self.higher_order(net, i, counts, env);
+        }
         let [s, t] = c.reactants;
         let weight = match (c.arity, c.whole) {
             (0, _) => 1.0,
@@ -815,7 +897,19 @@ impl RateCache {
         if weight == 0.0 {
             return Ok(0.0);
         }
-        let global = match c.factor {
+        let global = self.global(net, c, env);
+        let value = global * (weight * c.weight);
+        if value.is_finite() && value >= 0.0 {
+            Ok(value)
+        } else {
+            Err(net.rate_error(i))
+        }
+    }
+
+    /// The global factor of a channel whose reactants are available.
+    #[inline]
+    fn global(&mut self, net: &Network, c: &ChannelRate, env: &Env<'_>) -> f64 {
+        match c.factor {
             Factor::Constant(k) => k,
             Factor::Vacancy {
                 slot,
@@ -834,8 +928,33 @@ impl RateCache {
                 factors.iter().fold(*base, |x, f| x * f)
             }
             Factor::General(slot) => self.rule(net, c.rule, slot, env),
+        }
+    }
+
+    /// A higher-order channel: 0 unless every reactant type has its count;
+    /// then the whole propensity, or rate × factor × Π C(n, k) as the
+    /// overflow-safe scaled product of [`crate::rules::combination_rate`].
+    fn higher_order(
+        &mut self,
+        net: &Network,
+        i: usize,
+        counts: &[u64],
+        env: &Env<'_>,
+    ) -> Result<f64, Halt> {
+        let c = &net.plans[i];
+        let reactants = net.channels[i]
+            .multi
+            .as_deref()
+            .expect("higher-order channel");
+        if reactants.iter().any(|&(s, k)| counts[s] < k) {
+            return Ok(0.0);
+        }
+        let global = self.global(net, c, env);
+        let value = if c.whole {
+            global * (1.0 * c.weight)
+        } else {
+            crate::rules::combination_rate(global, c.weight, counts, reactants)
         };
-        let value = global * (weight * c.weight);
         if value.is_finite() && value >= 0.0 {
             Ok(value)
         } else {
@@ -954,7 +1073,9 @@ pub(crate) fn direct_with<R: RngCore>(
 impl Network {
     pub fn supports_binomial(&self) -> bool {
         self.channels.iter().all(|c| {
-            c.reactants.len() == 1
+            // A higher-order channel takes at least three molecules.
+            c.multi.is_none()
+                && c.reactants.len() == 1
                 && c.changes.len() == 1
                 && (c.changes[0] == (c.reactants[0], -1) || c.changes[0].1 == 1)
         })
@@ -986,8 +1107,17 @@ mod tests {
             .iter()
             .map(|c| {
                 let mut delta = vec![0i64; species.len()];
-                for &s in &c.reactants {
-                    delta[s] -= 1;
+                match &c.multi {
+                    None => {
+                        for &s in &c.reactants {
+                            delta[s] -= 1;
+                        }
+                    }
+                    Some(list) => {
+                        for &(s, k) in list {
+                            delta[s] -= i64::try_from(k).unwrap();
+                        }
+                    }
                 }
                 for &s in &c.products {
                     delta[s] += 1;

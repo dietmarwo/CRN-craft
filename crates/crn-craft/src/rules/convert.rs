@@ -10,8 +10,9 @@
 //! | `name`, `parameters` | the same names and values |
 //! | species `X` with `initial_count` n | type `X` without attributes, an `initial` entry with count n (none when n is 0) and the observable `X: {"type": "X"}` |
 //! | reactants `{"A": 1}`, `{"A": 1, "B": 1}`, `{"A": 2}` | the patterns `x: A`; `x: A, y: B`; `x: A, y: A` (a pair) |
+//! | three or more reactant molecules, for example `{"A": 2, "B": 1}` or `{"A": 1, "B": 1, "C": 1}` | one pattern per species with its stoichiometry as `count` (omitted when 1): `x: A count 2, y: B`; three or more species are labeled `x1`, `x2`, … |
 //! | products `{"C": 2}` | the product `C` listed twice |
-//! | `mass_action` with coefficient c | `"rate": "c"`, per reactant combination: c, c·n, c·n_A·n_B or c·n(n − 1)/2 |
+//! | `mass_action` with coefficient c | `"rate": "c"`, per reactant combination: c, c·n, c·n_A·n_B, c·n(n − 1)/2 or c·Π C(nᵢ, kᵢ) |
 //! | `hill_activation` with regulator R | `"propensity": "basal + vmax / (1 + (k / R)^n)"` |
 //! | `hill_repression` with regulator R | `"propensity": "basal + vmax / (1 + (R / k)^n)"` |
 //! | `michaelis_menten` with substrate S | `"propensity": "vmax * (S / (km + S))"` |
@@ -33,9 +34,8 @@
 //! The output is canonical: pretty-printed JSON with a trailing newline, keys
 //! in the order of the rules contract types, parameters and observables
 //! sorted by name. Models the rules language cannot hold yet are refused
-//! with `CRN-R016`: no reaction, more than two reactant molecules or 64
-//! product molecules in a reaction, an initial count above 2^53 or a
-//! population limit. The size limits of `crn-craft.model/1.0` (4,096 types,
+//! with `CRN-R016`: no reaction, more than 64 product molecules in a
+//! reaction, an initial count above 2^53 or a population limit. The size limits of `crn-craft.model/1.0` (4,096 types,
 //! 16,384 parameters, 65,536 rules) equal those of the network contract.
 //!
 //! ```
@@ -67,9 +67,6 @@ pub const CONVERTED_VERSION: ModelVersion = ModelVersion::V10;
 pub(crate) fn converted_schema() -> serde_json::Value {
     serde_json::to_value(CONVERTED_VERSION).expect("a version serializes")
 }
-
-/// Most reactant molecules of one converted reaction.
-const MAX_ORDER: i64 = 2;
 
 fn refusal(path: &str, message: impl Into<String>, hint: &str) -> Diagnostic {
     Diagnostic::error("CRN-R016", path, message, hint)
@@ -180,14 +177,6 @@ fn limits(network: &contracts::Model) -> Vec<Diagnostic> {
     }
     for (i, reaction) in network.reactions.iter().enumerate() {
         let base = pointer("/reactions", i);
-        let order: i64 = reaction.reactants.values().sum();
-        if order > MAX_ORDER {
-            out.push(refusal(
-                &pointer(&base, "reactants"),
-                format!("reaction of order {order}; rules hold at most two reactant molecules"),
-                "Run this model with the network commands, or split the reaction into elementary steps.",
-            ));
-        }
         let products: i64 = reaction.products.values().sum();
         if products > MAX_PRODUCTS as i64 {
             out.push(refusal(
@@ -347,15 +336,38 @@ fn convert(network: &contracts::Model) -> Model {
         .reactions
         .iter()
         .map(|reaction| {
+            let order: i64 = reaction.reactants.values().sum();
             let mut reactants = Vec::new();
-            for (name, &count) in &reaction.reactants {
-                for _ in 0..count {
-                    let label = ["x", "y"][reactants.len()];
+            if order <= 2 {
+                // One count-1 pattern per molecule, as before model/1.0.
+                for (name, &count) in &reaction.reactants {
+                    for _ in 0..count {
+                        let label = ["x", "y"][reactants.len()];
+                        reactants.push(Pattern {
+                            label: label.into(),
+                            species_type: species(name),
+                            condition: None,
+                            factor: None,
+                            count: None,
+                        });
+                    }
+                }
+            } else {
+                // A higher-order rule: one pattern per species with its count
+                // (validated stoichiometry is 1 to 2^31 - 1).
+                let many = reaction.reactants.len() > 2;
+                for (i, (name, &count)) in reaction.reactants.iter().enumerate() {
+                    let label = if many {
+                        format!("x{}", i + 1)
+                    } else {
+                        ["x", "y"][i].to_string()
+                    };
                     reactants.push(Pattern {
-                        label: label.into(),
+                        label,
                         species_type: species(name),
                         condition: None,
                         factor: None,
+                        count: (count > 1).then(|| u64::try_from(count).expect("validated")),
                     });
                 }
             }

@@ -56,6 +56,9 @@ mod functions {
 mod expression_invalid {
     include!("generated/loop_expression_invalid_loop.rs");
 }
+mod higher_order {
+    include!("generated/loop_higher_order_loop.rs");
+}
 
 const STOP: &[u8] = include_bytes!("generated/mtdna_three_class_stop.rules.json");
 const PAIRS: &[u8] = include_bytes!("generated/loop_pairs.rules.json");
@@ -73,6 +76,8 @@ const THREE_CLASS_EXPRESSION: &[u8] =
     include_bytes!("generated/loop_three_class_expression.rules.json");
 const FUNCTIONS: &[u8] = include_bytes!("generated/loop_functions.rules.json");
 const EXPRESSION_INVALID: &[u8] = include_bytes!("generated/loop_expression_invalid.rules.json");
+/// A `crn-craft.model/1.0` model with higher-order rules (M4b).
+const HIGHER_ORDER: &[u8] = include_bytes!("generated/loop_higher_order.rules.json");
 
 const PLAIN: &[u8] = include_bytes!("../../../models/rules/mtdna-three-class.rules.json");
 
@@ -820,4 +825,74 @@ fn random_functions_never_reach_a_static_direct_rate() {
         (diagnostics[0].code.as_str(), diagnostics[0].path.as_str()),
         ("CRN-R020", "/method")
     );
+}
+
+/// Static Direct policies of `crn-craft.run/1.0`, which a `model/1.0` model
+/// needs.
+const UNIFIED_METHODS: [(&str, &str); 3] = [
+    ("crn-craft.run/1.0", r#"{"kind": "static_direct"}"#),
+    (
+        "crn-craft.run/1.0",
+        r#"{"kind": "static_direct", "waiting_time": "inverse", "sparse_trackers": false}"#,
+    ),
+    (
+        "crn-craft.run/1.0",
+        r#"{"kind": "static_direct", "sparse_trackers": true}"#,
+    ),
+];
+
+#[test]
+fn higher_order_rules_are_generated_and_replay_the_interpreter() {
+    // The checked-in loop is the generator's output.
+    let golden = include_str!("generated/loop_higher_order_loop.rs");
+    let run = Run {
+        method: UNIFIED_METHODS[0],
+        ..Run::new(10.0, vec![0.0, 10.0])
+    };
+    let prepared = prepare(HIGHER_ORDER, &run.request(HIGHER_ORDER)).unwrap();
+    assert!(
+        generate_rules_loop(&prepared).unwrap() == golden,
+        "generator output changed; regenerate loop_higher_order_loop.rs"
+    );
+    assert!(golden.contains("crn_craft_rules::combination_rate("));
+    let observed = [
+        (None, None),
+        (
+            Some(json!([{"observable": "nA"}, {"observable": "nC", "keep_episodes": 2}])),
+            None,
+        ),
+        (
+            Some(json!([{"observable": "nB", "first_passage": "nC >= 10"}])),
+            Some(json!({"max_entries": 6, "rules": ["third_order", "bind", "three_patterns"]})),
+        ),
+    ];
+    let mut stopped = false;
+    for method in UNIFIED_METHODS {
+        for (trackers, event_log) in observed.clone() {
+            for threads in [1, 2] {
+                for (end, events, words, instances) in [
+                    (5.0, 1_000_000, 10_000_000, 1000),
+                    (60.0, 1_000_000, 10_000_000, 1000),
+                    (60.0, 25, 10_000_000, 1000),
+                    (60.0, 1_000_000, 41, 1000),
+                    (60.0, 1_000_000, 10_000_000, 2),
+                ] {
+                    let run = Run {
+                        method,
+                        replicates: 12,
+                        threads,
+                        events,
+                        words,
+                        instances,
+                        trackers: trackers.clone(),
+                        event_log: event_log.clone(),
+                        ..Run::new(end, vec![0.0, end * 0.25, end * 0.5, end])
+                    };
+                    let result = replay(HIGHER_ORDER, &run, &higher_order::GeneratedRulesLoop);
+                    stopped |= result.contains("\"stopped\"");
+                }
+            }
+        }
+    }
+    assert!(stopped, "the stop predicate never fired");
 }

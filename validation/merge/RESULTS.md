@@ -314,3 +314,46 @@ refusals are exactly W4, W5 and W7. W3 and repressilator convert to the same
 bytes and run with the same seeds, so their cells at t = 0, 2, 5 and 10 are
 the same comparisons (the 0.6.0 references share seeds in the same way): 48
 of the 1,102 comparisons repeat others, 36 of them stochastic.
+
+### M4e (quantile statistics): declaration
+
+Written and committed before the gate run. Script:
+`validation/merge/check_quantiles.py --binary target/release/crn-craft`.
+
+- Model: `models/rules/immigration-death.rules.json` (k_in = 10, k_out = 1,
+  X(0) = 0) with only its schema string rewritten to
+  `crn-craft.model/1.0`. Exact law at time t: Poisson with mean
+  λ(t) = 10 (1 − e^−t); at the late report time t = 10,
+  λ = 9.999546.
+- Request: `crn-craft.run/1.0`, `end` 10, report times 0 and 10,
+  100,000 replicates, root seed 20261111, 2 threads, statistics mean and
+  variance, `outputs.quantiles` [0.025, 0.5, 0.975], no kept paths.
+- Methods: `static_direct` (run/1.0 defaults), `tree`, `next_reaction`.
+- Poisson quantile: Q(p) = the smallest integer k with F(k) ≥ p, F the
+  Poisson distribution function of mean λ(10). Q(0.025) = 4,
+  Q(0.5) = 10, Q(0.975) = 17. Margins: F(3) = 0.01034, F(4) = 0.02926;
+  F(9) = 0.45799, F(10) = 0.58310; F(16) = 0.97297, F(17) = 0.98573. The
+  smallest margin, 0.975 − F(16) = 0.00203, is 4.1 standard errors of the
+  empirical distribution function at n = 100,000 (0.00049).
+- **Gate:** for each method and p, the reported quantile at t = 10 lies
+  within one count of Q(p): |q̂ − Q(p)| ≤ 1. 9 comparisons. A failure
+  needs the sample quantile to cross a value whose distribution function
+  differs from p by at least 0.024 (F(15) = 0.95126 at p = 0.975), more
+  than 48 standard errors: **0 failures are expected**. A failure is
+  investigated, not rerun with another seed. At t = 0 every quantile must
+  be exactly 0.
+- Informative, not gated: whether q̂ equals Q(p) exactly; the mean
+  and variance at t = 10 against λ (|x̄ − λ| in standard errors).
+- Contract checks in the same script (exact, no tolerance): the request
+  validates against `schemas/run-1.0.schema.json` and each result against
+  `schemas/result-1.0.schema.json`; the result lists the quantiles in
+  request order with values shaped like `statistics.mean`; the same request
+  as `crn-craft.rules-run/0.6` is refused with `CRN-R020` at `/schema`.
+
+Measurement (no target): the added time and memory of quantiles 0.025,
+0.5 and 0.975 for 4,000 cells × 37 report times × 6 observables
+(`models/rules/mtdna-three-class-cme.rules.json`, `static_direct`, the
+37-point grid of `check_compiled_loop.py`, 2 threads), by
+`validation/merge/measure_quantiles.py`: wall time of `simulate()`, median
+of five, and peak resident memory of a fresh process, with and without
+quantiles, under the CPU lock.

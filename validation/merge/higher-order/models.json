@@ -1,0 +1,74 @@
+{
+ "schema": "crn-craft.merge-higher-order/0.1",
+ "declared_in": "validation/merge/RESULTS.md",
+ "seeds": "chunk k (0-based) of a model and method uses root seed gate_seed + k; chunks hold `chunk` replicates",
+ "state_probability_floor": 0.001,
+ "rows": [
+  {
+   "name": "third-order-decay",
+   "path": "validation/merge/higher-order/third-order-decay.model.json",
+   "sha256": "7ab4595335ac3981a21cc38b371c39716b430ea3f9501e6b8a5643be4f5a812c",
+   "end": 10.0,
+   "report_times": [
+    0.0,
+    0.5,
+    1.0,
+    2.0,
+    5.0,
+    10.0
+   ],
+   "replicates": 200000,
+   "chunk": 50000,
+   "gate_seed": 3000000,
+   "methods": [
+    {
+     "kind": "static_direct"
+    },
+    {
+     "kind": "next_reaction"
+    }
+   ],
+   "fsp": {
+    "bounds": {
+     "A": 40
+    },
+    "max_states": 41,
+    "tolerance": 1e-12
+   }
+  },
+  {
+   "name": "trimolecular",
+   "path": "validation/merge/higher-order/trimolecular.model.json",
+   "sha256": "066c80a3f7e5cf1003e1b601c18e828ee39d7caf60660cf5eaea95855c4af5eb",
+   "end": 5.0,
+   "report_times": [
+    0.0,
+    0.25,
+    0.5,
+    1.0,
+    2.0,
+    5.0
+   ],
+   "replicates": 200000,
+   "chunk": 50000,
+   "gate_seed": 3000000,
+   "methods": [
+    {
+     "kind": "static_direct"
+    },
+    {
+     "kind": "next_reaction"
+    }
+   ],
+   "fsp": {
+    "bounds": {
+     "A": 30,
+     "B": 20,
+     "C": 20
+    },
+    "max_states": 100,
+    "tolerance": 1e-12
+   }
+  }
+ ]
+}

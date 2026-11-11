@@ -336,3 +336,61 @@ Written and committed before the gate run.
 - Output: `validation/merge/laws/m4a-static_direct.json` (every row, failed
   rows included). The wall time per model is printed on stderr and recorded
   in the M4a log; it is not gated here (the speed gate is M4d).
+
+### M4b (higher-order reactions): declaration
+
+Written and committed before the FSP references were computed and before
+any run of the checks below.
+
+**Models** (`validation/merge/higher-order/models.json`, network models
+`crn-craft.model/0.1`, converted by the engine under test):
+
+| Model | Reaction | Initial | c | Report times | FSP bounds, max states |
+| --- | --- | --- | ---: | --- | --- |
+| third-order-decay | 3A → ∅, mass action | A = 40 | 0.002 | 0, 0.5, 1, 2, 5, 10 | A ≤ 40, 41 |
+| trimolecular | 2A + B → C, mass action | A = 30, B = 20, C = 0 | 0.002 | 0, 0.25, 0.5, 1, 2, 5 | A ≤ 30, B ≤ 20, C ≤ 20, 100 |
+
+The parameters were chosen with an independent dense-matrix solution of the
+two chains (not the engine under test) so that every report time after 0
+has between 5 and 9 states of probability at least 1e-3.
+
+**References.** `higher_order_references.py` runs the kept 0.6.0 CLI
+(`/home/claude/m07/bin060/crn-craft fsp`, `run/0.1`, tolerance 1e-12) and
+stores the full FSP results and their moments under
+`validation/merge/reference/higher-order/`, with the M0c rule: leakage +
+mass defect ≤ 1e-9 at every report time, otherwise the task stops.
+
+**Exact-law check** (`check_higher_order.py`, Python with the wheel under
+test, 2 threads): each model with `static_direct` and `next_reaction`
+(`crn-craft.run/1.0`), n = 200,000 replicates per model and method in
+chunks of 50,000, chunk k with root seed 3,000,000 + k. Comparisons per
+model, method and report time:
+
+1. mean and variance of each species against the FSP law (formulas 3 and
+   4 of the law gate, factor 5);
+2. each joint state with FSP probability p ≥ 1e-3 (normalized by the
+   retained mass): |p̂ − p| ≤ 5·sqrt(p(1 − p)/n);
+3. the remaining states together, with the same bound.
+
+The independent solution gives 53 comparisons per method for
+third-order-decay (12 moments, 35 states, 6 remainders) and 83 for
+trimolecular (36, 41, 6): N = 272 for both methods, of which 24 are at
+t = 0 and demand equality. The count follows from the stored references;
+the M4b log reports it. About 1.5e-4 failures are expected under a correct
+engine: **0 failures are expected**. Before M4b is implemented the
+converter refuses both models (order 3), so the check fails first; that run
+is recorded below as the failing-first run, not as a gate run. A failure
+after the implementation is investigated once, not rerun with other seeds.
+
+**Law gate for W4** (`check_laws.py --python ... --method '{"kind":
+"static_direct"}' --models W4 --label m4b-static_direct`, gate seeds of
+`models.json`): 48 cells, 96 comparisons against the reference and 96
+against the FSP law, N = 192, of which 32 at t = 0; **0 failures are
+expected**.
+
+**Regression run after M4a and M4b** (`check_laws.py --python ... --method
+'{"kind": "static_direct"}' --label m4-static_direct`, all twelve models,
+no `--expect-refused`): every model must convert; N = 4,814 comparisons
+(4,636 against the references, 178 against FSP laws), 940 at t = 0;
+**0 failures are expected**. Wall time per model is printed on stderr and
+recorded in the M4b log (not gated; the speed gate is M4d).

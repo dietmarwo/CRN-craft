@@ -131,7 +131,8 @@
 //!
 //! [`Method`] selects the algorithm. Every method except `tree` first lowers
 //! the model to a fixed network: the initial tuples plus the products with
-//! constant attributes (at most 256 tuples), and at most 4096 channels. A
+//! constant attributes (at most 256 tuples), and at most 4096 channels
+//! (4,096 tuples and 65,536 channels for a `crn-craft.model/1.0` model). A
 //! model whose products can leave that set, for example through random
 //! attributes, `new_id()` or attribute arithmetic, runs only on `tree`;
 //! `prepare` reports `CRN-R020` at `/method` otherwise. Every method samples
@@ -2428,7 +2429,11 @@ pub fn describe() -> Value {
                 "crn-craft.rules-model/0.1", "crn-craft.rules-model/0.2", "crn-craft.rules-model/0.3",
                 "crn-craft.rules-model/0.4", "crn-craft.model/1.0"
             ],
-            "schemas": ["model-1.0", "run-1.0", "result-1.0", "check-1.0"]
+            "schemas": ["model-1.0", "run-1.0", "result-1.0", "check-1.0"],
+            "limits": {
+                "types": model::MAX_TYPES_1_0, "parameters": model::MAX_PARAMETERS_1_0,
+                "observables": model::MAX_OBSERVABLES_1_0, "rules": model::MAX_RULES_1_0
+            }
         },
         "sampler": SAMPLER,
         "reference": "docs/rules-language.md",
@@ -2495,9 +2500,37 @@ pub fn schema(kind: &str) -> Option<Value> {
                 )
                 .into();
         }
+        // Field texts that state the limits of the 0.x model versions.
+        let fields: &[(&str, &str)] = if kind == "model-1.0" {
+            &MODEL_1_0_FIELDS
+        } else {
+            &[]
+        };
+        for (pointer, text) in fields {
+            if let Some(description) = value.pointer_mut(pointer) {
+                *description = (*text).into();
+            }
+        }
     }
     Some(value)
 }
+
+/// Descriptions of `crn-craft.model/1.0` fields whose `rules-model` text
+/// states a 0.x limit.
+const MODEL_1_0_FIELDS: [(&str, &str); 3] = [
+    (
+        "/properties/types/description",
+        "Species types, 1 to 4096, with unique names.",
+    ),
+    (
+        "/properties/observables/description",
+        "Observables by name, at most 4096. Results list them sorted by name.",
+    ),
+    (
+        "/properties/rules/description",
+        "Rules, 1 to 65536, with unique names. Results count events per rule in this order.",
+    ),
+];
 
 /// Whether a `schema` string names a 1.0 contract.
 fn is_unified(version: &str) -> bool {

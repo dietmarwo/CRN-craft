@@ -30,6 +30,8 @@ methods and selectors reuse the script:
 
 `--replicates N` makes a smoke run with N replicates per model (chunks of at
 most the declared size); its report says so and does not count as a gate run.
+The wall time of each model (conversion, simulation and decoding) is printed
+on stderr and kept out of the report.
 Exit status: 0 when every compared model passes and the refusals are as
 expected, 1 otherwise.
 """
@@ -42,6 +44,7 @@ import math
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -462,10 +465,17 @@ def main():
                 "method": method,
             }
             print(f"{name}: {replicates} replicates", file=sys.stderr, flush=True)
+            start = time.monotonic()
             if args.python:
                 answer = run_worker(args.python, __file__, job, Path(scratch))
             else:
                 answer = cli_model(args.binary.resolve(), job, scratch)
+            # Wall time on stderr only: the report holds no timings.
+            print(
+                f"{name}: {time.monotonic() - start:.1f} s wall",
+                file=sys.stderr,
+                flush=True,
+            )
             entry = {"name": name, "path": row["path"], "sha256": row["sha256"]}
             if "refused" in answer:
                 entry["status"] = "refused"

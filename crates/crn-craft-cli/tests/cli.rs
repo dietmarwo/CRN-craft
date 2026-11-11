@@ -418,15 +418,20 @@ fn convert_prints_the_converted_model_bytes_or_coded_refusals() {
         crn_craft::rules::convert::from_network(&network).unwrap()
     );
     assert!(crn_craft::rules::check_model(&output.stdout).valid);
-    // W5 has 256 species, above the rules limit.
-    let (code, value) = invoke(&[
-        "convert",
-        "validation/ssa-acceleration/models/W5.model.json",
-    ]);
+    // A population limit has no rules equivalent.
+    let temp = Temp::new();
+    let limited = temp.0.join("limited.model.json");
+    let mut model: Value = serde_json::from_slice(&network).unwrap();
+    model["species"][0]["population_limit"] = 1000.into();
+    std::fs::write(&limited, serde_json::to_vec(&model).unwrap()).unwrap();
+    let (code, value) = invoke(&["convert", limited.to_str().unwrap()]);
     assert_eq!(code, 1);
     assert_eq!(value["success"], false);
     assert_eq!(value["diagnostics"][0]["code"], "CRN-R016");
-    assert_eq!(value["diagnostics"][0]["path"], "/species");
+    assert_eq!(
+        value["diagnostics"][0]["path"],
+        "/species/0/population_limit"
+    );
     let (code, value) = invoke(&["convert", "not-present.json"]);
     assert_eq!(code, 1);
     assert_eq!(value["diagnostics"][0]["code"], "CRN-E030");

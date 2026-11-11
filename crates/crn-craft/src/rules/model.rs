@@ -65,17 +65,25 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-/// Most species types in a model.
+/// Most species types in a rules-model/0.1 to 0.4 model.
 pub const MAX_TYPES: usize = 64;
 /// Most attributes of one type.
 pub const MAX_ATTRIBUTES: usize = 64;
-/// Most parameters in a model.
+/// Most parameters in a rules-model/0.1 to 0.4 model.
 pub const MAX_PARAMETERS: usize = 1024;
-/// Most observables in a model; also the most trackers in a run request
-/// (`CRN-R020` there).
+/// Most observables in a rules-model/0.1 to 0.4 model; also the most
+/// trackers in a run request of any version (`CRN-R020` there).
 pub const MAX_OBSERVABLES: usize = 256;
-/// Most rules in a model.
+/// Most rules in a rules-model/0.1 to 0.4 model.
 pub const MAX_RULES: usize = 1024;
+/// Most species types in a `crn-craft.model/1.0` model.
+pub const MAX_TYPES_1_0: usize = 4096;
+/// Most parameters in a `crn-craft.model/1.0` model.
+pub const MAX_PARAMETERS_1_0: usize = 16_384;
+/// Most observables in a `crn-craft.model/1.0` model.
+pub const MAX_OBSERVABLES_1_0: usize = 4096;
+/// Most rules in a `crn-craft.model/1.0` model.
+pub const MAX_RULES_1_0: usize = 65_536;
 /// Most products of one rule.
 pub const MAX_PRODUCTS: usize = 64;
 /// Most entries in `initial` (before equal attribute vectors merge).
@@ -438,6 +446,9 @@ impl RuleInfo {
 
 #[derive(Debug)]
 pub(crate) struct Compiled {
+    /// The model's contract version; it selects the size limits of the
+    /// static lowering.
+    pub version: ModelVersion,
     pub params: Vec<f64>,
     pub types: Vec<TypeInfo>,
     /// (type, attributes, count), merged and without zero counts.
@@ -580,22 +591,33 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
             ));
         }
     };
-    limit(&mut out, model.types.len(), MAX_TYPES, "/types", "types");
+    let (max_types, max_parameters, max_observables, max_rules) =
+        if model.schema == ModelVersion::V10 {
+            (
+                MAX_TYPES_1_0,
+                MAX_PARAMETERS_1_0,
+                MAX_OBSERVABLES_1_0,
+                MAX_RULES_1_0,
+            )
+        } else {
+            (MAX_TYPES, MAX_PARAMETERS, MAX_OBSERVABLES, MAX_RULES)
+        };
+    limit(&mut out, model.types.len(), max_types, "/types", "types");
     limit(
         &mut out,
         model.parameters.len(),
-        MAX_PARAMETERS,
+        max_parameters,
         "/parameters",
         "parameters",
     );
     limit(
         &mut out,
         model.observables.len(),
-        MAX_OBSERVABLES,
+        max_observables,
         "/observables",
         "observables",
     );
-    limit(&mut out, model.rules.len(), MAX_RULES, "/rules", "rules");
+    limit(&mut out, model.rules.len(), max_rules, "/rules", "rules");
     limit(
         &mut out,
         model.initial.len(),
@@ -1027,17 +1049,11 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
                 && Expr::same_option(a.2.as_ref(), b.2.as_ref())
         };
         let mut class_of = |c: (usize, Option<Expr>, Option<Expr>, String), squares: bool| {
-            let key = (c.0, c.1.clone(), c.2.clone(), String::new());
-            if let Some(i) = classes.iter().position(|k| {
-                same(
-                    &(
-                        k.type_id,
-                        k.condition.clone(),
-                        k.factor.clone(),
-                        String::new(),
-                    ),
-                    &key,
-                )
+            // The first equal class: the classes of a type are listed in
+            // increasing order, and equal classes have equal types.
+            if let Some(i) = types[c.0].classes.iter().copied().find(|&k| {
+                Expr::same_option(classes[k].condition.as_ref(), c.1.as_ref())
+                    && Expr::same_option(classes[k].factor.as_ref(), c.2.as_ref())
             }) {
                 classes[i].squares |= squares;
                 return i;
@@ -1246,6 +1262,7 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
             .as_ref()
             .map(|e| Predicate::compile(e, observables.len()));
         Ok(Compiled {
+            version: model.schema,
             params,
             types,
             initial,

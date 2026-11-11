@@ -890,6 +890,33 @@ impl Expr {
         visit(&self.root, flags);
     }
 
+    /// The observables (and continuous variables) this expression reads, in
+    /// increasing order without repeats: [`Self::reads`] without a flag per
+    /// observable, for lowering large models.
+    pub(crate) fn read_list(&self) -> Vec<usize> {
+        fn visit(node: &Node, list: &mut Vec<usize>) {
+            match node {
+                Node::Var(Slot::Observable(i)) => list.push(*i),
+                Node::Neg(a) | Node::Not(a) => visit(a, list),
+                Node::Bin(_, a, b) => {
+                    visit(a, list);
+                    visit(b, list);
+                }
+                Node::Call(_, args) => {
+                    for arg in args {
+                        visit(arg, list);
+                    }
+                }
+                Node::Num(_) | Node::Var(_) => {}
+            }
+        }
+        let mut list = Vec::new();
+        visit(&self.root, &mut list);
+        list.sort_unstable();
+        list.dedup();
+        list
+    }
+
     pub(crate) fn kernel(&self, params: &[f64]) -> RateKernel {
         if self.parameter_only() {
             return RateKernel::Constant(self.eval(&Env {

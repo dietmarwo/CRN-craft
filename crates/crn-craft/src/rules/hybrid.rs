@@ -299,15 +299,16 @@ impl<'a> Flow<'a> {
         shared: Option<&'a Shared>,
     ) -> Self {
         let vars = model.continuous.as_slice();
-        let dynamic = net
-            .channels
+        // Whether each rule's rate reads a continuous variable.
+        let reads: Vec<bool> = model
+            .rules
             .iter()
-            .map(|c| {
-                let mut flags = vec![false; model.observables.len()];
-                model.rules[c.rule].rate.reads(&mut flags);
-                vars.iter().any(|v| flags[v.index])
+            .map(|rule| {
+                let list = rule.rate.read_list();
+                vars.iter().any(|v| list.binary_search(&v.index).is_ok())
             })
             .collect();
+        let dynamic = net.channels.iter().map(|c| reads[c.rule]).collect();
         Self {
             net,
             vars,

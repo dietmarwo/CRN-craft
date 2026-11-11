@@ -33,10 +33,10 @@
 //! The output is canonical: pretty-printed JSON with a trailing newline, keys
 //! in the order of the rules contract types, parameters and observables
 //! sorted by name. Models the rules language cannot hold yet are refused
-//! with `CRN-R016`: more than 64 species, 1,024 parameters or 1,024
-//! reactions, no reaction, more than two reactant molecules or 64 product
-//! molecules in a reaction, an initial count above 2^53 or a population
-//! limit.
+//! with `CRN-R016`: no reaction, more than two reactant molecules or 64
+//! product molecules in a reaction, an initial count above 2^53 or a
+//! population limit. The size limits of `crn-craft.model/1.0` (4,096 types,
+//! 16,384 parameters, 65,536 rules) equal those of the network contract.
 //!
 //! ```
 //! use crn_craft::rules::{check_model, convert::from_network};
@@ -55,8 +55,8 @@
 use crate::contracts::{self, Rate, Scalar};
 use crate::diagnostic::{Diagnostic, Severity, pointer};
 use crate::rules::model::{
-    FUNCTIONS, Initial, MAX_COUNT, MAX_PARAMETERS, MAX_PRODUCTS, MAX_RULES, MAX_TYPES, Model,
-    ModelVersion, Observable, Pattern, Product, Reduce, Rule, SpeciesType, Value,
+    FUNCTIONS, Initial, MAX_COUNT, MAX_PARAMETERS_1_0, MAX_PRODUCTS, MAX_RULES_1_0, MAX_TYPES_1_0,
+    Model, ModelVersion, Observable, Pattern, Product, Reduce, Rule, SpeciesType, Value,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -121,34 +121,37 @@ pub fn from_network_file(path: &std::path::Path) -> Result<Vec<u8>, Vec<Diagnost
 
 fn limits(network: &contracts::Model) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    if network.species.len() > MAX_TYPES {
+    // The model/1.0 limits equal the network contract's own (4,096 species,
+    // 16,384 parameters, 65,536 reactions), so a valid network model passes
+    // these checks; they guard the mapping if either limit changes.
+    if network.species.len() > MAX_TYPES_1_0 {
         out.push(refusal(
             "/species",
             format!(
-                "{} species exceed the rules limit of {MAX_TYPES} types",
+                "{} species exceed the rules limit of {MAX_TYPES_1_0} types",
                 network.species.len()
             ),
-            "Run this model with the network commands, or reduce it to at most 64 species.",
+            "Run this model with the network commands, or reduce it to at most 4096 species.",
         ));
     }
-    if network.parameters.len() > MAX_PARAMETERS {
+    if network.parameters.len() > MAX_PARAMETERS_1_0 {
         out.push(refusal(
             "/parameters",
             format!(
-                "{} parameters exceed the rules limit of {MAX_PARAMETERS}",
+                "{} parameters exceed the rules limit of {MAX_PARAMETERS_1_0}",
                 network.parameters.len()
             ),
-            "Run this model with the network commands, or reduce it to at most 1024 parameters.",
+            "Run this model with the network commands, or reduce it to at most 16384 parameters.",
         ));
     }
-    if network.reactions.len() > MAX_RULES {
+    if network.reactions.len() > MAX_RULES_1_0 {
         out.push(refusal(
             "/reactions",
             format!(
-                "{} reactions exceed the rules limit of {MAX_RULES} rules",
+                "{} reactions exceed the rules limit of {MAX_RULES_1_0} rules",
                 network.reactions.len()
             ),
-            "Run this model with the network commands, or reduce it to at most 1024 reactions.",
+            "Run this model with the network commands, or reduce it to at most 65536 reactions.",
         ));
     }
     if network.reactions.is_empty() {

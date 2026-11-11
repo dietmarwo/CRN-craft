@@ -392,7 +392,7 @@
         "$ref": "#/definitions/Observable"
       },
       "default": {},
-      "description": "Observables by name, at most 256. Results list them sorted by name.",
+      "description": "Observables by name, at most 4096. Results list them sorted by name.",
       "type": "object"
     },
     "parameters": {
@@ -405,7 +405,7 @@
       "type": "object"
     },
     "rules": {
-      "description": "Rules, 1 to 1024, with unique names. Results count events per rule in this order.",
+      "description": "Rules, 1 to 65536, with unique names. Results count events per rule in this order.",
       "items": {
         "$ref": "#/definitions/Rule"
       },
@@ -422,7 +422,7 @@
       ]
     },
     "types": {
-      "description": "Species types, 1 to 64, with unique names.",
+      "description": "Species types, 1 to 4096, with unique names.",
       "items": {
         "$ref": "#/definitions/SpeciesType"
       },

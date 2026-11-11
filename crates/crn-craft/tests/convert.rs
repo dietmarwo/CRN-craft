@@ -269,21 +269,28 @@ fn omega_does_not_change_the_converted_rules() {
 
 #[test]
 fn models_beyond_the_rules_limits_are_refused() {
-    // More than 64 species.
+    // The model/1.0 limits (M4a) equal the network contract's: a network
+    // model above them keeps its own diagnostic, and one at them converts.
     let mut model = base();
-    model["species"] = species(65);
+    model["species"] = species(4097);
     model["reactions"] = json!([decay("d", "S0")]);
-    assert!(has(&refused(&model), REFUSED, "/species"));
-    // More than 1,024 reactions.
+    let diagnostics = refused(&model);
+    assert!(
+        diagnostics.iter().all(|d| d.code != REFUSED),
+        "{diagnostics:?}"
+    );
+    let mut model = base();
+    model["species"] = species(4096);
+    model["reactions"] = json!([decay("d", "S0")]);
+    assert!(convert(&model).is_ok());
     let mut model = base();
     model["reactions"] = (0..1025).map(|i| decay(&format!("d{i}"), "A")).collect();
-    assert!(has(&refused(&model), REFUSED, "/reactions"));
-    // More than 1,024 parameters.
+    assert!(convert(&model).is_ok(), "1,025 reactions fit model/1.0");
     let mut model = base();
     for i in 0..1024 {
         model["parameters"][format!("p{i}")] = json!(1.0);
     }
-    assert!(has(&refused(&model), REFUSED, "/parameters"));
+    assert!(convert(&model).is_ok(), "1,025 parameters fit model/1.0");
     // No reaction: a rules model needs one rule.
     let mut model = base();
     model["reactions"] = json!([]);
@@ -305,16 +312,10 @@ fn higher_order_reactions_are_refused() {
             "{reactants}: {diagnostics:?}"
         );
     }
-    // The workloads of later milestones: W4 has order 8, W5 and W7 more
-    // than 64 species.
+    // W4 has order 8 (M4b); W5 and W7 convert since M4a.
     let w4 = from_network(&read("validation/ssa-acceleration/models/W4.model.json")).unwrap_err();
     assert!(w4.iter().all(|d| d.code == REFUSED), "{w4:?}");
     assert!(w4.iter().any(|d| d.path.ends_with("/reactants")), "{w4:?}");
-    for workload in ["W5", "W7"] {
-        let path = format!("validation/ssa-acceleration/models/{workload}.model.json");
-        let diagnostics = from_network(&read(&path)).unwrap_err();
-        assert!(has(&diagnostics, REFUSED, "/species"), "{diagnostics:?}");
-    }
 }
 
 #[test]

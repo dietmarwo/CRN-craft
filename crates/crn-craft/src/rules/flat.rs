@@ -2,8 +2,9 @@
 use crate::rules::InstanceRecord;
 use crate::rules::engine::{Halt, Limits, Words, numerical};
 use crate::rules::expr::{Env, RateKernel};
-use crate::rules::model::{Compiled, MAX_COUNT, Reduce, Shape, Source};
+use crate::rules::model::{Compiled, MAX_COUNT, ModelVersion, Reduce, Shape, Source};
 use rand_core::RngCore;
+use std::collections::HashMap;
 
 pub(crate) struct Species {
     pub ty: usize,
@@ -61,16 +62,65 @@ struct ChannelRate {
     whole: bool,
 }
 
-fn same(a: &[f64], b: &[f64]) -> bool {
-    a.iter()
-        .map(|x| x.to_bits())
-        .eq(b.iter().map(|x| x.to_bits()))
+/// Static lowering limits: instance tuples and channels of a
+/// rules-model/0.1 to 0.4 model, and of a `crn-craft.model/1.0` model.
+const MAX_TUPLES: usize = 256;
+const MAX_CHANNELS: usize = 4096;
+const MAX_TUPLES_1_0: usize = 4096;
+const MAX_CHANNELS_1_0: usize = 65_536;
+
+/// The lowered species by type and attribute bits, so a product finds its
+/// slot without a scan over every species.
+#[derive(Default)]
+struct SpeciesIndex(HashMap<(usize, Vec<u64>), usize>);
+
+impl SpeciesIndex {
+    fn key(ty: usize, attrs: &[f64]) -> (usize, Vec<u64>) {
+        (ty, attrs.iter().map(|x| x.to_bits()).collect())
+    }
+
+    /// The first species of type `ty` whose attributes have the same bits.
+    fn slot(&self, ty: usize, attrs: &[f64]) -> Option<usize> {
+        self.0.get(&Self::key(ty, attrs)).copied()
+    }
+
+    /// Records `slot` unless an equal species is already recorded.
+    fn insert(&mut self, ty: usize, attrs: &[f64], slot: usize) {
+        self.0.entry(Self::key(ty, attrs)).or_insert(slot);
+    }
 }
 
-fn slot(species: &[Species], ty: usize, attrs: &[f64]) -> Option<usize> {
-    species
-        .iter()
-        .position(|s| s.ty == ty && same(&s.attrs, attrs))
+/// Sorted, merged species changes of one firing: -1 per reactant molecule,
+/// +1 per product, zero sums left out.
+fn changes_of(
+    reactants: impl IntoIterator<Item = (usize, i64)>,
+    products: &[usize],
+) -> Vec<(usize, i64)> {
+    let mut delta: Vec<(usize, i64)> = reactants
+        .into_iter()
+        .chain(products.iter().map(|&s| (s, 1)))
+        .collect();
+    delta.sort_by_key(|&(s, _)| s);
+    let mut out: Vec<(usize, i64)> = Vec::with_capacity(delta.len());
+    for (s, d) in delta {
+        match out.last_mut() {
+            Some(last) if last.0 == s => last.1 += d,
+            _ => out.push((s, d)),
+        }
+    }
+    out.retain(|&(_, d)| d != 0);
+    out
+}
+
+/// The sorted union of `lists[k]` over `keys`.
+fn union(lists: &[Vec<usize>], keys: impl IntoIterator<Item = usize>) -> Vec<usize> {
+    let mut out: Vec<usize> = keys
+        .into_iter()
+        .flat_map(|k| lists[k].iter().copied())
+        .collect();
+    out.sort_unstable();
+    out.dedup();
+    out
 }
 
 fn local(
@@ -94,7 +144,18 @@ fn local(
 }
 
 impl Network {
+    /// Lowers a closed model. Every table is built from indices (species by
+    /// type, readers by species, projections by species), so the work grows
+    /// with the size of the tables rather than with the square of the
+    /// number of species or channels.
+    #[allow(clippy::too_many_lines)]
     pub fn compile(model: &Compiled) -> Result<Self, String> {
+        let (max_tuples, max_channels) = if model.version == ModelVersion::V10 {
+            (MAX_TUPLES_1_0, MAX_CHANNELS_1_0)
+        } else {
+            (MAX_TUPLES, MAX_CHANNELS)
+        };
+        let too_many = || format!("static backend supports up to {max_tuples} instances");
         let mut species: Vec<_> = model
             .initial
             .iter()
@@ -104,8 +165,12 @@ impl Network {
                 initial: *count,
             })
             .collect();
-        if species.len() > 256 {
-            return Err("static backend supports up to 256 instances".into());
+        if species.len() > max_tuples {
+            return Err(too_many());
+        }
+        let mut index = SpeciesIndex::default();
+        for (i, s) in species.iter().enumerate() {
+            index.insert(s.ty, &s.attrs, i);
         }
         let env = Env {
             params: &model.params,
@@ -136,10 +201,11 @@ impl Network {
                     if attrs.iter().any(|x| !x.is_finite()) {
                         return Err("nonfinite fixed product attribute".into());
                     }
-                    if slot(&species, p.type_id, &attrs).is_none() {
-                        if species.len() == 256 {
-                            return Err("static backend supports up to 256 instances".into());
+                    if index.slot(p.type_id, &attrs).is_none() {
+                        if species.len() == max_tuples {
+                            return Err(too_many());
                         }
+                        index.insert(p.type_id, &attrs, species.len());
                         species.push(Species {
                             ty: p.type_id,
                             attrs,
@@ -149,18 +215,22 @@ impl Network {
                 }
             }
         }
-        if species.len() > 256 {
-            return Err("static backend supports up to 256 instances".into());
+        if species.len() > max_tuples {
+            return Err(too_many());
+        }
+        // Species of each type, in increasing order.
+        let mut by_type = vec![Vec::new(); model.types.len()];
+        for (i, s) in species.iter().enumerate() {
+            by_type[s.ty].push(i);
         }
         let classes = model
             .classes
             .iter()
             .map(|c| {
-                species
+                by_type[c.type_id]
                     .iter()
-                    .enumerate()
-                    .filter(|(_, s)| s.ty == c.type_id)
-                    .filter_map(|(i, s)| {
+                    .filter_map(|&i| {
+                        let s = &species[i];
                         let env = Env {
                             attributes: [&s.attrs, &[]],
                             ..env
@@ -179,7 +249,7 @@ impl Network {
         let mut channels = Vec::new();
         for (r, rule) in model.rules.iter().enumerate() {
             let mut add = |reactants: &[usize], factor| -> Result<(), String> {
-                if channels.len() >= 4096 {
+                if channels.len() >= max_channels {
                     return Err("static channel limit exceeded".into());
                 }
                 let mut attrs = [&[][..]; 2];
@@ -202,28 +272,18 @@ impl Network {
                             })
                         })
                         .collect();
-                    let i = slot(&species, p.type_id, &values)
+                    let i = index
+                        .slot(p.type_id, &values)
                         .ok_or("products can create new attribute tuples")?;
                     products.push(i);
-                }
-                let mut delta = vec![0i64; species.len()];
-                for &s in reactants {
-                    delta[s] -= 1;
-                }
-                for &s in &products {
-                    delta[s] += 1;
                 }
                 channels.push(Channel {
                     rule: r,
                     reactants: reactants.to_vec(),
+                    changes: changes_of(reactants.iter().map(|&s| (s, -1)), &products),
                     products,
                     factor,
                     whole: rule.whole,
-                    changes: delta
-                        .into_iter()
-                        .enumerate()
-                        .filter(|(_, d)| *d != 0)
-                        .collect(),
                 });
                 Ok(())
             };
@@ -267,7 +327,17 @@ impl Network {
                 }
             }
         }
+        // The type of each model observable (ATP and continuous variables
+        // have none).
+        let mut owner = vec![None; model.observables.len()];
+        for (t, info) in model.types.iter().enumerate() {
+            for &o in &info.observables {
+                owner[o] = Some(t);
+            }
+        }
         let mut observables = Vec::new();
+        // The projection of each model observable.
+        let mut projection = vec![None; model.observables.len()];
         for (o, info) in model.observables.iter().enumerate() {
             if model.atp.as_ref().is_some_and(|atp| atp.index == o)
                 || model.continuous.iter().any(|v| v.index == o)
@@ -275,49 +345,69 @@ impl Network {
                 continue;
             }
             let mut terms = Vec::new();
-            for (i, s) in species.iter().enumerate() {
-                if model.types[s.ty].observables.contains(&o) {
-                    let env = Env {
-                        attributes: [&s.attrs, &[]],
-                        ..env
-                    };
-                    if let Some(w) = local(&env, info.condition.as_ref(), info.weight.as_ref())? {
-                        terms.push((i, w));
-                    }
+            for &i in owner[o].map_or(&[][..], |t| by_type[t].as_slice()) {
+                let s = &species[i];
+                let env = Env {
+                    attributes: [&s.attrs, &[]],
+                    ..env
+                };
+                if let Some(w) = local(&env, info.condition.as_ref(), info.weight.as_ref())? {
+                    terms.push((i, w));
                 }
             }
+            projection[o] = Some(observables.len());
             observables.push((o, info.reduce, terms));
         }
-        let reads: Vec<_> = channels
+        // Species read by each rule's rate through its observables.
+        let rule_reads: Vec<Vec<usize>> = model
+            .rules
             .iter()
-            .map(|c| {
-                let mut obs = vec![false; model.observables.len()];
-                model.rules[c.rule].rate.reads(&mut obs);
-                let mut flags = vec![false; species.len()];
-                for (i, _, terms) in &observables {
-                    if obs[*i] {
-                        for &(s, _) in terms {
-                            flags[s] = true;
-                        }
-                    }
-                }
-                for &s in &c.reactants {
-                    flags[s] = true;
-                }
-                flags
+            .map(|rule| {
+                let read: Vec<usize> = rule
+                    .rate
+                    .read_list()
+                    .into_iter()
+                    .filter_map(|o| projection[o])
+                    .collect();
+                let mut out: Vec<usize> = read
+                    .iter()
+                    .flat_map(|&p| observables[p].2.iter().map(|&(s, _)| s))
+                    .collect();
+                out.sort_unstable();
+                out.dedup();
+                out
             })
             .collect();
+        // The channels whose rate reads each species, in increasing order.
+        let mut readers = vec![Vec::new(); species.len()];
+        for (j, c) in channels.iter().enumerate() {
+            let mut reads: Vec<usize> = rule_reads[c.rule]
+                .iter()
+                .copied()
+                .chain(c.reactants.iter().copied())
+                .collect();
+            reads.sort_unstable();
+            reads.dedup();
+            for s in reads {
+                readers[s].push(j);
+            }
+        }
         let affected = channels
             .iter()
-            .map(|c| {
-                reads
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(j, flags)| {
-                        (c.changes.iter().any(|&(s, _)| flags[s])).then_some(j)
-                    })
-                    .collect()
-            })
+            .map(|c| union(&readers, c.changes.iter().map(|&(s, _)| s)))
+            .collect();
+        // The projections whose terms hold each species.
+        let mut holders = vec![Vec::new(); species.len()];
+        for (i, (_, _, terms)) in observables.iter().enumerate() {
+            for &(s, _) in terms {
+                if holders[s].last() != Some(&i) {
+                    holders[s].push(i);
+                }
+            }
+        }
+        let changed: Vec<Vec<usize>> = channels
+            .iter()
+            .map(|c| union(&holders, c.changes.iter().map(|&(s, _)| s)))
             .collect();
         let rates: Vec<_> = model
             .rules
@@ -407,21 +497,6 @@ impl Network {
                 _ => None,
             })
             .collect();
-        let changed: Vec<Vec<usize>> = channels
-            .iter()
-            .map(|c| {
-                observables
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(i, (_, _, terms))| {
-                        terms
-                            .iter()
-                            .any(|&(s, _)| c.changes.iter().any(|&(x, _)| s == x))
-                            .then_some(i)
-                    })
-                    .collect()
-            })
-            .collect();
         Ok(Self {
             species,
             channels,
@@ -475,11 +550,16 @@ impl Network {
         if model.atp.is_none() && model.continuous.is_empty() {
             for (i, (index, _, terms)) in self.observables.iter().enumerate() {
                 // Retain eager validation for any projection that might
-                // overflow. Summing up to 256 products leaves ample headroom.
+                // overflow: a deferred sum of at most `bound` products, each
+                // at most f64::MAX / bound, stays finite. The bound is 1024
+                // for every projection of up to 1024 terms (all of them
+                // before model/1.0, whose lowering has at most 256 species).
+                #[allow(clippy::cast_precision_loss)]
+                let bound = terms.len().max(1024) as f64;
                 if !hot[*index]
                     && terms
                         .iter()
-                        .all(|&(_, w)| w.abs() <= f64::MAX / (1024.0 * MAX_COUNT as f64))
+                        .all(|&(_, w)| w.abs() <= f64::MAX / (bound * MAX_COUNT as f64))
                 {
                     cold[i] = true;
                     self.cold.push(i);
@@ -878,5 +958,179 @@ impl Network {
                 && c.changes.len() == 1
                 && (c.changes[0] == (c.reactants[0], -1) || c.changes[0].1 == 1)
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! The index-based lowering (M4a) against the quadratic construction it
+    //! replaced, on every closed model of the repository.
+    use super::*;
+    use crate::rules::model;
+
+    /// The tables as the 0.6.0 lowering built them: dense deltas, a scan of
+    /// every species per observable, every channel against every channel.
+    #[allow(clippy::type_complexity)]
+    fn quadratic(
+        net: &Network,
+        model: &Compiled,
+    ) -> (
+        Vec<Vec<(usize, i64)>>,
+        Vec<Vec<(usize, f64)>>,
+        Vec<Vec<usize>>,
+        Vec<Vec<usize>>,
+    ) {
+        let species = &net.species;
+        let changes = net
+            .channels
+            .iter()
+            .map(|c| {
+                let mut delta = vec![0i64; species.len()];
+                for &s in &c.reactants {
+                    delta[s] -= 1;
+                }
+                for &s in &c.products {
+                    delta[s] += 1;
+                }
+                delta
+                    .into_iter()
+                    .enumerate()
+                    .filter(|(_, d)| *d != 0)
+                    .collect()
+            })
+            .collect();
+        let env = Env {
+            params: &model.params,
+            observables: &[],
+            attributes: [&[], &[]],
+        };
+        let terms = net
+            .observables
+            .iter()
+            .map(|&(o, _, _)| {
+                let info = &model.observables[o];
+                let mut terms = Vec::new();
+                for (i, s) in species.iter().enumerate() {
+                    if model.types[s.ty].observables.contains(&o) {
+                        let env = Env {
+                            attributes: [&s.attrs, &[]],
+                            ..env
+                        };
+                        if let Some(w) =
+                            local(&env, info.condition.as_ref(), info.weight.as_ref()).unwrap()
+                        {
+                            terms.push((i, w));
+                        }
+                    }
+                }
+                terms
+            })
+            .collect();
+        let reads: Vec<_> = net
+            .channels
+            .iter()
+            .map(|c| {
+                let mut obs = vec![false; model.observables.len()];
+                model.rules[c.rule].rate.reads(&mut obs);
+                let mut flags = vec![false; species.len()];
+                for (i, _, terms) in &net.observables {
+                    if obs[*i] {
+                        for &(s, _) in terms {
+                            flags[s] = true;
+                        }
+                    }
+                }
+                for &s in &c.reactants {
+                    flags[s] = true;
+                }
+                flags
+            })
+            .collect();
+        let affected = net
+            .channels
+            .iter()
+            .map(|c| {
+                reads
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(j, flags)| {
+                        (c.changes.iter().any(|&(s, _)| flags[s])).then_some(j)
+                    })
+                    .collect()
+            })
+            .collect();
+        let changed = net
+            .channels
+            .iter()
+            .map(|c| {
+                net.observables
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, (_, _, terms))| {
+                        terms
+                            .iter()
+                            .any(|&(s, _)| c.changes.iter().any(|&(x, _)| s == x))
+                            .then_some(i)
+                    })
+                    .collect()
+            })
+            .collect();
+        (changes, terms, affected, changed)
+    }
+
+    fn corpus() -> Vec<(String, Vec<u8>)> {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let mut out = Vec::new();
+        for folder in ["models/rules", "crates/crn-craft-rules/tests/generated"] {
+            for entry in std::fs::read_dir(root.join(folder)).unwrap() {
+                let path = entry.unwrap().path();
+                if path.to_string_lossy().ends_with(".rules.json") {
+                    out.push((path.display().to_string(), std::fs::read(&path).unwrap()));
+                }
+            }
+        }
+        let networks = ["models/examples", "validation/ssa-acceleration/models"];
+        for folder in networks {
+            for entry in std::fs::read_dir(root.join(folder)).unwrap() {
+                let path = entry.unwrap().path();
+                if path.to_string_lossy().ends_with(".model.json") {
+                    let bytes = std::fs::read(&path).unwrap();
+                    if let Ok(rules) = crate::rules::convert::from_network(&bytes) {
+                        out.push((path.display().to_string(), rules));
+                    }
+                }
+            }
+        }
+        out.sort();
+        out
+    }
+
+    #[test]
+    fn index_based_lowering_equals_the_quadratic_construction() {
+        let mut lowered = 0;
+        for (name, bytes) in corpus() {
+            let source: model::Model = serde_json::from_slice(&bytes).unwrap();
+            let Ok(compiled) = model::compile(&source) else {
+                continue;
+            };
+            let Ok(net) = Network::compile(&compiled) else {
+                continue;
+            };
+            let (changes, terms, affected, changed) = quadratic(&net, &compiled);
+            for (i, c) in net.channels.iter().enumerate() {
+                assert_eq!(c.changes, changes[i], "{name}: changes of channel {i}");
+            }
+            for (i, (_, _, t)) in net.observables.iter().enumerate() {
+                let bits = |v: &[(usize, f64)]| -> Vec<(usize, u64)> {
+                    v.iter().map(|&(s, w)| (s, w.to_bits())).collect()
+                };
+                assert_eq!(bits(t), bits(&terms[i]), "{name}: terms of projection {i}");
+            }
+            assert_eq!(net.affected, affected, "{name}: affected");
+            assert_eq!(net.changed, changed, "{name}: changed");
+            lowered += 1;
+        }
+        // Every workload, example and closed rules model of the repository.
+        assert!(lowered >= 30, "{lowered} models lowered");
     }
 }

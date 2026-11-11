@@ -78,11 +78,13 @@ The experimental rules engine for dynamic, attributed species
 input and the read error `CRN-E030`, and has its own codes: `CRN-R010` names,
 `CRN-R011` unknown types, `CRN-R012` expressions and scopes, `CRN-R013` rule
 shapes and product attributes, `CRN-R014` initial state, `CRN-R015` model
-limits, `CRN-R016` a network model that the converter (`crn-craft convert`,
-`crn_craft.convert`) cannot write as a rules model yet (more than 64
-species, 1,024 parameters or 1,024 reactions, no reaction, more than two
-reactant or 64 product molecules in a reaction, an initial count above 2^53,
-or a population limit; the path points into the network model),
+limits (64 types, 1,024 parameters, 256 observables and 1,024 rules up to
+`rules-model/0.4`; 4,096 types, 16,384 parameters, 4,096 observables and
+65,536 rules in `crn-craft.model/1.0`), `CRN-R016` a network model that the
+converter (`crn-craft convert`, `crn_craft.convert`) cannot write as a rules
+model yet (no reaction, more than two reactant or 64 product molecules in a
+reaction, an initial count above 2^53, or a population limit; the path
+points into the network model),
 `CRN-R020` run requests (including method, tracker, log and version
 gates, a `crn-craft.model/1.0` model with a `rules-run` request, and a
 generated-kernel fingerprint mismatch), `CRN-R030` numerical

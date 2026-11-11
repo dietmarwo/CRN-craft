@@ -266,8 +266,8 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
     }
     // Every changed projection is refreshed after each event, including the
     // ones the interpreter defers to reports. Deferred projections cannot
-    // overflow: lowering allows at most 256 species, and `plan_observables`
-    // defers only weights bounded for 1024 terms.
+    // overflow: `plan_observables` defers only weights bounded for the
+    // projection's number of terms (at least 1024).
     let update = |channels: &mut dyn Iterator<Item = usize>| {
         let channels: Vec<_> = channels.collect();
         let mut code = String::new();

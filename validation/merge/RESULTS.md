@@ -314,3 +314,25 @@ refusals are exactly W4, W5 and W7. W3 and repressilator convert to the same
 bytes and run with the same seeds, so their cells at t = 0, 2, 5 and 10 are
 the same comparisons (the 0.6.0 references share seeds in the same way): 48
 of the 1,102 comparisons repeat others, 36 of them stochastic.
+
+### M4a (W5 and W7, `static_direct`): declaration
+
+Written and committed before the gate run.
+
+- Engine under test: branch `merge-0.7` with the M4a limits (wheel built
+  from the checkout), through Python with 2 worker threads:
+  `check_laws.py --python ... --method '{"kind": "static_direct"}'
+  --models W5,W7 --label m4a-static_direct`. The converted models are
+  `crn-craft.model/1.0`, so the requests are `crn-craft.run/1.0` (Ziggurat
+  waits, sampler `chacha8-u53-ziggurat/rules-static-direct/1`).
+- Models: W5 (256 species, 510 reactions) and W7 (96 species, 126
+  reactions), the rows of `models.json`; both must convert (no expected
+  refusal).
+- Size: W5 1,280 cells, W7 480 cells: 1,760 cells, 3,520 comparisons
+  against the reference (no FSP law), of which 704 at t = 0. At about
+  5.7e-7 per stochastic comparison, about 1.6e-3 failures are expected:
+  **0 failures are expected**. A failure is investigated once, not rerun
+  with other seeds.
+- Output: `validation/merge/laws/m4a-static_direct.json` (every row, failed
+  rows included). The wall time per model is printed on stderr and recorded
+  in the M4a log; it is not gated here (the speed gate is M4d).

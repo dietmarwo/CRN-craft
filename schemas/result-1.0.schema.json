@@ -433,6 +433,33 @@
       ],
       "type": "object"
     },
+    "Quantile": {
+      "additionalProperties": false,
+      "description": "One quantile statistic of a `crn-craft.result/1.0` result.",
+      "properties": {
+        "p": {
+          "description": "The probability, as requested.",
+          "format": "double",
+          "type": "number"
+        },
+        "values": {
+          "description": "report time × observable: the linear-interpolation quantile of the replicates' values (NumPy's default, type 7).",
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "p",
+        "values"
+      ],
+      "type": "object"
+    },
     "Record": {
       "additionalProperties": false,
       "description": "The accounting of one replicate. Every replicate has a record, including replicates that a cancellation or the wall-time limit kept from starting.",
@@ -574,6 +601,13 @@
             "array",
             "null"
           ]
+        },
+        "quantiles": {
+          "description": "`crn-craft.result/1.0`: one entry per probability of the request's `outputs.quantiles`, in request order, each with the linear-interpolation quantile (NumPy's default, type 7; see the request field) of every report time and observable, indexed like `mean`. Present only when the request asked for quantiles; withheld with the other statistics.",
+          "items": {
+            "$ref": "#/definitions/Quantile"
+          },
+          "type": "array"
         },
         "sample_variance": {
           "description": "Sample variance (divisor `samples - 1`), report time × observable; present when `variance` was requested and `samples` is at least 2.",
@@ -748,7 +782,7 @@
       "type": "object"
     }
   },
-  "description": "The result of a `crn-craft.run/1.0` request: `crn-craft.result/1.0`, with the fields of `crn-craft.rules-result/0.3`.\n\nA result is returned even when replicates hit limits or fail: check `termination`, the per-replicate records and `diagnostics`. Matrices are indexed by report time, then observable.",
+  "description": "The result of a `crn-craft.run/1.0` request: `crn-craft.result/1.0`, with the fields of `crn-craft.rules-result/0.3` plus `statistics.quantiles`.\n\nA result is returned even when replicates hit limits or fail: check `termination`, the per-replicate records and `diagnostics`. Matrices are indexed by report time, then observable.",
   "properties": {
     "completed_replicates": {
       "description": "Replicates that completed or stopped.",

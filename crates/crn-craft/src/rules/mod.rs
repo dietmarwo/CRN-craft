@@ -120,8 +120,8 @@
 //! | `crn-craft.rules-result/0.2` | [`RulesResult`] | Result of a rules-run/0.2–0.4 request, with `observations` |
 //! | `crn-craft.rules-result/0.3` | [`RulesResult`] | Result of a rules-run/0.5 or 0.6 request: 0.2 plus `method` and `continuous` |
 //! | `crn-craft.model/1.0` | [`Model`] | The unified model contract: means what rules-model/0.4 means; runs only with run/1.0 |
-//! | `crn-craft.run/1.0` | [`RunRequest`] | The unified request contract: the fields and defaults of rules-run/0.6; accepts model/1.0 and every rules-model version |
-//! | `crn-craft.result/1.0` | [`RulesResult`] | Result of a run/1.0 request, with the fields of rules-result/0.3 |
+//! | `crn-craft.run/1.0` | [`RunRequest`] | The unified request contract: the fields and defaults of rules-run/0.6 plus quantile statistics ([`Outputs::quantiles`]); accepts model/1.0 and every rules-model version |
+//! | `crn-craft.result/1.0` | [`RulesResult`] | Result of a run/1.0 request, with the fields of rules-result/0.3 plus [`Statistics::quantiles`] |
 //! | `crn-craft.check/1.0` | [`RulesCheck`] | Check report of a model/1.0 document, with the fields of rules-check/0.1 |
 //!
 //! [`convert::from_network`] writes a network model (`crn-craft.model/0.1`)
@@ -225,6 +225,7 @@ pub use libm;
 pub mod model;
 mod mtdna;
 pub mod observe;
+mod quantile;
 mod tree;
 use observe::{EventObserver, LogSpec, NoObserver, Observation, TrackerSpec};
 
@@ -267,6 +268,8 @@ pub const MAX_RESULT_BYTES: u64 = 1 << 30;
 /// conservative admission estimate (`CRN-R020` at `/budget` when exceeded),
 /// not a cap on allocator or OS memory.
 pub const MAX_WORKSPACE_BYTES: u64 = 2 << 30;
+/// Largest number of entries in `outputs.quantiles` (`crn-craft.run/1.0`).
+pub const MAX_QUANTILES: usize = 16;
 
 /// The random stream of one replicate.
 ///
@@ -421,8 +424,9 @@ pub enum RunVersion {
     V06,
     #[doc = concat!(
         "`crn-craft.run/1.0`: the unified request contract, with the fields ",
-        "and defaults of 0.6. It accepts `crn-craft.model/1.0` and every ",
-        "rules-model version and returns `crn-craft.result/1.0`."
+        "and defaults of 0.6 plus `outputs.quantiles`. It accepts ",
+        "`crn-craft.model/1.0` and every rules-model version and returns ",
+        "`crn-craft.result/1.0`."
     )]
     #[serde(rename = "crn-craft.run/1.0")]
     V10,
@@ -455,6 +459,37 @@ pub struct Outputs {
     /// Final instances of replicates 0..keep_instances, at most
     /// `replicates`.
     pub keep_instances: u64,
+    /// `crn-craft.run/1.0` only (earlier versions refuse the field with
+    /// `CRN-R020` at `/schema`): probabilities of quantile statistics, at
+    /// most 16, strictly increasing, each in (0, 1); absent or empty means
+    /// none. The result's `statistics.quantiles` then holds, for every
+    /// report time and observable, the linear-interpolation quantile of the
+    /// values of all replicates, NumPy's default (Hyndman and Fan type 7):
+    /// with the n values sorted ascending, `h = (n - 1) * p`, `j = floor(h)`
+    /// and `g = h - j`, the quantile is `x[j] + g * (x[j+1] - x[j])`,
+    /// evaluated as `numpy.quantile(x, p)` evaluates it
+    /// (`x[j+1] - (1 - g) * (x[j+1] - x[j])` for `g >= 0.5`, `x[n-1]` for
+    /// `h >= n - 1`, NaN if a value is NaN), so the values equal NumPy's bit
+    /// for bit. Quantiles are withheld with the other statistics. They keep
+    /// replicates x report times x observables values in memory during the
+    /// run, counted against the 2 GiB workspace limit (`CRN-R020` at
+    /// `/outputs/quantiles` above it).
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "Vec<f64>", length(max = 16))]
+    pub quantiles: Option<Vec<f64>>,
+}
+
+impl Outputs {
+    /// The requested quantile probabilities; an absent list and an empty
+    /// list are equal.
+    #[must_use]
+    pub fn quantiles(&self) -> &[f64] {
+        self.quantiles.as_deref().unwrap_or(&[])
+    }
 }
 
 /// Explicit work, memory and output limits of a run request.
@@ -626,7 +661,8 @@ pub enum Method {
     "Parse and validate it together with its model bytes with [`prepare`] ",
     "or [`solve`]; [`RunRequest::trackers`] reads the tracker list.\n\n",
     "The same type reads `crn-craft.run/1.0`, the unified request contract, ",
-    "which means what `rules-run/0.6` means, also accepts ",
+    "which means what `rules-run/0.6` means, adds quantile statistics ",
+    "([`Outputs::quantiles`]), also accepts ",
     "`crn-craft.model/1.0` models and returns `crn-craft.result/1.0`. A ",
     "`rules-run` request refuses a `model/1.0` model (`CRN-R020` at `/schema`)."
 )]
@@ -727,7 +763,7 @@ pub enum ResultVersion {
     V03,
     #[doc = concat!(
         "`crn-craft.result/1.0`, for `crn-craft.run/1.0` requests, with the ",
-        "fields of rules-result/0.3."
+        "fields of rules-result/0.3 plus `statistics.quantiles`."
     )]
     #[serde(rename = "crn-craft.result/1.0")]
     V10,
@@ -902,6 +938,30 @@ pub struct Statistics {
     /// Standard error of the mean, `sqrt(sample_variance / samples)`, under
     /// the same conditions as `sample_variance`.
     pub mean_standard_error: Option<Vec<Vec<f64>>>,
+    /// `crn-craft.result/1.0`: one entry per probability of the request's
+    /// `outputs.quantiles`, in request order, each with the
+    /// linear-interpolation quantile (NumPy's default, type 7; see the
+    /// request field) of every report time and observable, indexed like
+    /// `mean`. Present only when the request asked for quantiles; withheld
+    /// with the other statistics.
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "Vec<Quantile>")]
+    pub quantiles: Option<Vec<Quantile>>,
+}
+
+/// One quantile statistic of a `crn-craft.result/1.0` result.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct Quantile {
+    /// The probability, as requested.
+    pub p: f64,
+    /// report time × observable: the linear-interpolation quantile of the
+    /// replicates' values (NumPy's default, type 7).
+    pub values: Vec<Vec<f64>>,
 }
 
 /// The result of a rules run: `crn-craft.rules-result/0.1`, `0.2` or `0.3`.
@@ -914,7 +974,7 @@ pub struct Statistics {
     "Returned by [`execute`], [`solve`] and the generated-code entry points. ",
     "Serialize it with `serde_json` to obtain the JSON document. A ",
     "`crn-craft.run/1.0` request returns `crn-craft.result/1.0`, with the ",
-    "fields of rules-result/0.3."
+    "fields of rules-result/0.3 plus [`Statistics::quantiles`]."
 )]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -1216,6 +1276,31 @@ fn validate_request(request: &RunRequest, model_sha256: &str) -> Vec<Diagnostic>
             "cannot keep more replicates than requested",
             "Keep at most `replicates` paths and instance sets.",
         ));
+    }
+    if let Some(quantiles) = &request.outputs.quantiles {
+        if request.schema < RunVersion::V10 {
+            out.push(request_error(
+                "/schema",
+                "outputs.quantiles requires crn-craft.run/1.0",
+                "Select the crn-craft.run/1.0 request contract or remove outputs.quantiles.",
+            ));
+        } else if quantiles.len() > MAX_QUANTILES {
+            out.push(request_error(
+                "/outputs/quantiles",
+                "at most 16 quantiles may be requested",
+                "Request at most 16 probabilities.",
+            ));
+        } else if let Some(i) = quantiles
+            .iter()
+            .enumerate()
+            .position(|(i, &p)| !(p > 0.0 && p < 1.0 && (i == 0 || p > quantiles[i - 1])))
+        {
+            out.push(request_error(
+                &format!("/outputs/quantiles/{i}"),
+                "quantile probabilities must be strictly increasing within (0, 1)",
+                "Give increasing probabilities such as [0.025, 0.5, 0.975].",
+            ));
+        }
     }
     let mut seen = std::collections::BTreeSet::new();
     if !request
@@ -1750,6 +1835,21 @@ fn admission(
             format!("execution reservation of {workspace} bytes exceeds {MAX_WORKSPACE_BYTES}"),
             "Use fewer replicates, report times, kept paths or kept instance sets, or a smaller max_instances.",
         ));
+    } else if !request.outputs.quantiles().is_empty() {
+        // Quantiles keep every replicate's series, plus one column to sort.
+        let quantiles = n * series + n * 8;
+        if workspace + quantiles > u128::from(MAX_WORKSPACE_BYTES) {
+            out.push(request_error(
+                "/outputs/quantiles",
+                format!(
+                    "the quantile buffer of {n} replicates x {} report times x {} observables x 8 bytes, with its sort column {quantiles} bytes, brings the execution reservation to {} bytes, above {MAX_WORKSPACE_BYTES}",
+                    request.time.report_times.len(),
+                    model.observables.len(),
+                    workspace + quantiles
+                ),
+                "Request fewer report times, fewer replicates or no quantiles.",
+            ));
+        }
     }
     if evidence > u128::from(request.budget.max_output_bytes.min(MAX_RESULT_BYTES)) {
         out.push(request_error(
@@ -1804,7 +1904,8 @@ fn fits_json(value: &impl Serialize, limit: u64) -> bool {
 }
 
 /// Ordered reduction: replicates are folded in id order (Welford), so the
-/// statistics do not depend on the thread count; only kept series stay.
+/// statistics do not depend on the thread count; only kept series stay, and
+/// with quantiles every complete replicate's series at its index.
 struct Reducer {
     next: u64,
     pending: BTreeMap<u64, engine::PathOutput>,
@@ -1815,6 +1916,9 @@ struct Reducer {
     samples: u64,
     mean: Vec<f64>,
     m2: Vec<f64>,
+    /// Replicate × report time × observable, for quantiles; empty when the
+    /// request asks for none.
+    quantiles: Vec<f64>,
     halted: bool,
 }
 
@@ -1832,6 +1936,11 @@ impl Reducer {
                 let delta = x - *m;
                 *m += delta / k;
                 *s += delta * (x - *m);
+            }
+            if !self.quantiles.is_empty() {
+                let cells = self.mean.len();
+                let start = usize::try_from(id).expect("replicate index fits usize") * cells;
+                self.quantiles[start..start + cells].copy_from_slice(&path.values[..cells]);
             }
         }
         if id < keep_paths {
@@ -1854,7 +1963,13 @@ impl Reducer {
 }
 
 #[allow(clippy::cast_precision_loss)]
-fn statistics(wanted: &[Statistic], reducer: &Reducer, columns: usize) -> Statistics {
+fn statistics(
+    wanted: &[Statistic],
+    probabilities: &[f64],
+    reducer: &Reducer,
+    rows: usize,
+    columns: usize,
+) -> Statistics {
     let n = reducer.samples;
     let chunk = |flat: Vec<f64>| -> Vec<Vec<f64>> {
         if columns == 0 {
@@ -1877,6 +1992,17 @@ fn statistics(wanted: &[Statistic], reducer: &Reducer, columns: usize) -> Statis
         mean_standard_error: has_variance
             .then(|| chunk(variance.iter().map(|v| libm::sqrt(v / n as f64)).collect())),
         sample_variance: has_variance.then(|| chunk(variance)),
+        // Statistics are reported only when every replicate completed, so
+        // the buffer holds all of them.
+        quantiles: (!probabilities.is_empty()).then(|| {
+            quantile::statistics(
+                &reducer.quantiles,
+                usize::try_from(n).expect("replicate count fits usize"),
+                rows,
+                columns,
+                probabilities,
+            )
+        }),
     }
 }
 
@@ -2024,6 +2150,12 @@ fn execute_inner<O: EventObserver>(
         samples: 0,
         mean: vec![0.0; rows * columns],
         m2: vec![0.0; rows * columns],
+        quantiles: if request.outputs.quantiles().is_empty() {
+            Vec::new()
+        } else {
+            // Admitted by `prepare` against the workspace limit.
+            vec![0.0; usize::try_from(n).expect("replicate count fits usize") * rows * columns]
+        },
         halted: false,
     });
     let reduced = Condvar::new();
@@ -2132,8 +2264,18 @@ fn execute_inner<O: EventObserver>(
         })
         .max()
         .unwrap_or(Termination::Failed);
-    let statistics = (complete && !request.outputs.statistics.is_empty())
-        .then(|| statistics(&request.outputs.statistics, &reducer, columns));
+    // Quantiles are statistics too: withheld by the same rule.
+    let statistics = (complete
+        && !(request.outputs.statistics.is_empty() && request.outputs.quantiles().is_empty()))
+    .then(|| {
+        statistics(
+            &request.outputs.statistics,
+            request.outputs.quantiles(),
+            &reducer,
+            rows,
+            columns,
+        )
+    });
     let paths = std::mem::take(&mut reducer.paths);
     let final_instances = std::mem::take(&mut reducer.finals);
     let mut diagnostics = Vec::new();
@@ -2428,7 +2570,11 @@ pub fn describe() -> Value {
                 "crn-craft.rules-model/0.1", "crn-craft.rules-model/0.2", "crn-craft.rules-model/0.3",
                 "crn-craft.rules-model/0.4", "crn-craft.model/1.0"
             ],
-            "schemas": ["model-1.0", "run-1.0", "result-1.0", "check-1.0"]
+            "schemas": ["model-1.0", "run-1.0", "result-1.0", "check-1.0"],
+            "quantiles": {
+                "request": "outputs.quantiles", "result": "statistics.quantiles",
+                "max": MAX_QUANTILES, "definition": "numpy-linear-type-7"
+            }
         },
         "sampler": SAMPLER,
         "reference": "docs/rules-language.md",
@@ -2477,7 +2623,23 @@ pub fn schema(kind: &str) -> Option<Value> {
         _ => return None,
     };
     let mut value = serde_json::to_value(schema).ok()?;
-    let version = value.get_mut("definitions")?.get_mut(definition)?;
+    let definitions = value.get_mut("definitions")?.as_object_mut()?;
+    if unified.is_none() {
+        // A rules-* document cannot hold the fields of the 1.0 contracts.
+        for (name, property) in ONLY_1_0 {
+            if let Some(properties) = definitions
+                .get_mut(*name)
+                .and_then(|d| d.get_mut("properties"))
+                .and_then(Value::as_object_mut)
+            {
+                properties.remove(*property);
+            }
+        }
+        for name in ONLY_1_0_DEFINITIONS {
+            definitions.remove(*name);
+        }
+    }
+    let version = definitions.get_mut(definition)?;
     version
         .get_mut("enum")?
         .as_array_mut()?
@@ -2499,6 +2661,12 @@ pub fn schema(kind: &str) -> Option<Value> {
     Some(value)
 }
 
+/// Properties (definition, property) of the shared contract types that only
+/// the 1.0 contracts have: the `rules-*` schemas leave them out.
+const ONLY_1_0: &[(&str, &str)] = &[("Outputs", "quantiles"), ("Statistics", "quantiles")];
+/// Definitions that only the 1.0 schemas use.
+const ONLY_1_0_DEFINITIONS: &[&str] = &["Quantile"];
+
 /// Whether a `schema` string names a 1.0 contract.
 fn is_unified(version: &str) -> bool {
     version.ends_with("/1.0")
@@ -2516,11 +2684,11 @@ const CHECK_1_0: Descriptions = (
     "The version of a model check report, its `schema` field.",
 );
 const RUN_1_0: Descriptions = (
-    "A run request: `crn-craft.run/1.0`, the unified request contract, with the fields and defaults of `crn-craft.rules-run/0.6`.\n\nIt binds one model, `crn-craft.model/1.0` or any `crn-craft.rules-model` version, by hash and states the time grid, the ensemble, the outputs and an explicit budget. Unknown fields and duplicate keys are rejected. It returns `crn-craft.result/1.0`.",
+    "A run request: `crn-craft.run/1.0`, the unified request contract, with the fields and defaults of `crn-craft.rules-run/0.6` plus `outputs.quantiles`.\n\nIt binds one model, `crn-craft.model/1.0` or any `crn-craft.rules-model` version, by hash and states the time grid, the ensemble, the outputs and an explicit budget. Unknown fields and duplicate keys are rejected. It returns `crn-craft.result/1.0`.",
     "The version of a run request, its `schema` field.",
 );
 const RESULT_1_0: Descriptions = (
-    "The result of a `crn-craft.run/1.0` request: `crn-craft.result/1.0`, with the fields of `crn-craft.rules-result/0.3`.\n\nA result is returned even when replicates hit limits or fail: check `termination`, the per-replicate records and `diagnostics`. Matrices are indexed by report time, then observable.",
+    "The result of a `crn-craft.run/1.0` request: `crn-craft.result/1.0`, with the fields of `crn-craft.rules-result/0.3` plus `statistics.quantiles`.\n\nA result is returned even when replicates hit limits or fail: check `termination`, the per-replicate records and `diagnostics`. Matrices are indexed by report time, then observable.",
     "The version of a result, its `schema` field.",
 );
 

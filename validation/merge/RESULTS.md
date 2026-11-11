@@ -22,7 +22,8 @@ maturin build --release --locked --out dist
 - CLI: `/home/claude/m07/bin060/crn-craft` (copy of `target/release/crn-craft`).
 - Wheel: `/home/claude/m07/bin060/crn_craft-0.6.0-cp310-abi3-manylinux_2_34_x86_64.whl`.
 - Python: `/home/claude/m07/venv060` (`uv venv -p 3.12`; the wheel, numpy
-  2.3.5, pandas 3.1.1, xarray 2026.9.0, jsonschema 4.26.0, ruff).
+  2.3.5, pandas 3.1.1, xarray 2026.9.0, jsonschema 4.26.0, rebop 0.10.0,
+  ruff 0.11.13).
 - Kinetics printer: `validation/merge/kinetics-reference` (a standalone Cargo
   package against the 0.6.0 `crn-craft` crate), binary copied to
   `/home/claude/m07/bin060/kinetics-reference`.
@@ -263,3 +264,4 @@ W4 and W6: **both are ported**. The sorting margin is small (1.315 against
 | `baseline.py` rerun (W1, W7, immigration-death), non-timing fields, normal | 63 of 63 rows identical (host and tools too) |
 | The same under `python -O` | 63 of 63 rows identical |
 | ruff 0.11.13 format and check on `validation/merge` | pass |
+| Workspace checks (fmt, clippy, release tests incl. I1/I3, rustdoc, manual I2 normal and `-O`) | pass |

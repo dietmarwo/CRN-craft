@@ -388,6 +388,37 @@ def main():
     default = ensemble(model, loop, trackers=TRACKERS, event_log=LOG)
     identical("default static_direct", default, loop, rows)
 
+    # Quantiles need crn-craft.run/1.0 and run the model as
+    # crn-craft.model/1.0: a loop compiled for that document serves them,
+    # byte-identically, also through verify().
+    quantiles = (0.025, 0.5, 0.975)
+    unified = {**model, "schema": rules.MODEL_1_0}
+    unified_loop = rules.compile_loop(unified, progress=False, **build)
+    for threads in (1, 2):
+        quantile_run = ensemble(
+            model,
+            unified_loop,
+            threads=threads,
+            quantiles=quantiles,
+            keep_paths="all",
+            trackers=TRACKERS,
+        )
+        result = identical(
+            f"quantiles, threads {threads}", quantile_run, unified_loop, rows
+        )
+        require(
+            result.metadata["schema"] == "crn-craft.result/1.0"
+            and list(result.statistics["quantiles"]) == list(quantiles)
+            and result.statistics["median"] is result.statistics["quantiles"][0.5],
+            f"quantiles, threads {threads}: quantile statistics",
+        )
+    verified = unified_loop.verify(quantile_run)
+    require(
+        verified.metadata == result.metadata
+        and list(verified.statistics["quantiles"]) == list(quantiles),
+        "verify() of a quantile run",
+    )
+
     # String rates and whole-rule propensities.
     for label, build_model, settings, trackers, log in STRING_RATES:
         other = build_model()
@@ -492,6 +523,12 @@ def main():
         refused(
             "loop for other model bytes",
             lambda: ensemble(other, loop),
+            rows,
+            ("CRN-R020", "/model"),
+        )
+        refused(
+            "quantiles with the rules-model loop",
+            lambda: ensemble(model, loop, quantiles=(0.5,)),
             rows,
             ("CRN-R020", "/model"),
         )

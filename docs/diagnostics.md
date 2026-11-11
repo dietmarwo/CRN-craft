@@ -84,8 +84,11 @@ species, 1,024 parameters or 1,024 reactions, no reaction, more than two
 reactant or 64 product molecules in a reaction, an initial count above 2^53,
 or a population limit; the path points into the network model),
 `CRN-R020` run requests (including method, tracker, log and version
-gates, a `crn-craft.model/1.0` model with a `rules-run` request, and a
-generated-kernel fingerprint mismatch), `CRN-R030` numerical
+gates, a `crn-craft.model/1.0` model with a `rules-run` request,
+`outputs.quantiles` in a request before `crn-craft.run/1.0` (at `/schema`),
+more than 16 or not strictly increasing quantile probabilities in (0, 1),
+a quantile buffer above the 2 GiB workspace limit (at
+`/outputs/quantiles`), and a generated-kernel fingerprint mismatch), `CRN-R030` numerical
 failures during a replicate, `CRN-R031` weights below 53-bit resolution (in
 the tree a rule or instance weight; in Static Direct and its fallbacks a
 channel below 2⁻⁵³ of the total, so use `tree` or rescale),

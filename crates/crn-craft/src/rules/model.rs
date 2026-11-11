@@ -440,7 +440,8 @@ pub(crate) struct Compiled {
     pub continuous: Vec<crate::rules::continuous::Variable>,
 }
 
-const FUNCTIONS: [&str; 14] = [
+/// Function names of the expression language; no name may equal one.
+pub(crate) const FUNCTIONS: [&str; 14] = [
     "min",
     "max",
     "exp",

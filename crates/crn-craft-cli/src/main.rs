@@ -11,7 +11,7 @@ use std::{
     process::ExitCode,
 };
 
-const HELP: &str = "crn-craft — CRN solvers and network analysis\n\nUsage:\n  crn-craft describe [model|run|result|result-v1|archive|archive-check|check|state|analysis|analysis-v1|export|fsp-result|tau-request|tau-result|ssa-run|ssa-result|rules-model|rules-check|rules-run|rules-result]\n  crn-craft check MODEL [RUN]\n  crn-craft analyze MODEL [STATE]\n  crn-craft analyze-v1 MODEL [STATE]\n  crn-craft export MODEL gillespy2\n  crn-craft simulate MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft verify DIRECTORY\n  crn-craft simulate-cached MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft fsp MODEL RUN [--cancel-file PATH]\n  crn-craft tau MODEL REQUEST [--cancel-file PATH]\n  crn-craft ssa MODEL REQUEST [--cancel-file PATH]\n  crn-craft rules-check RULES_MODEL\n  crn-craft rules RULES_MODEL REQUEST [--cancel-file PATH]\n  crn-craft --version\n\nAll data output is JSON. simulate exits 0 only for a completed ensemble.\nverify exits 0 for a valid archive, including an incomplete simulation.\nOther errors and incomplete simulations exit 1. Optional ODE uses crn-diffsol.\n";
+const HELP: &str = "crn-craft — CRN solvers and network analysis\n\nUsage:\n  crn-craft describe [model|run|result|result-v1|archive|archive-check|check|state|analysis|analysis-v1|export|fsp-result|tau-request|tau-result|ssa-run|ssa-result|rules-model|rules-check|rules-run|rules-result]\n  crn-craft check MODEL [RUN]\n  crn-craft analyze MODEL [STATE]\n  crn-craft analyze-v1 MODEL [STATE]\n  crn-craft export MODEL gillespy2\n  crn-craft simulate MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft verify DIRECTORY\n  crn-craft simulate-cached MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft fsp MODEL RUN [--cancel-file PATH]\n  crn-craft tau MODEL REQUEST [--cancel-file PATH]\n  crn-craft ssa MODEL REQUEST [--cancel-file PATH]\n  crn-craft rules-check RULES_MODEL\n  crn-craft rules RULES_MODEL REQUEST [--cancel-file PATH]\n  crn-craft convert MODEL\n  crn-craft --version\n\nAll data output is JSON; convert prints the converted rules model. simulate exits 0 only for a completed ensemble.\nverify exits 0 for a valid archive, including an incomplete simulation.\nOther errors and incomplete simulations exit 1. Optional ODE uses crn-diffsol.\n";
 
 fn emit(value: &Value) -> io::Result<()> {
     let mut out = io::stdout().lock();
@@ -43,14 +43,17 @@ fn main() -> ExitCode {
             Err(_) => ExitCode::FAILURE,
         };
     }
+    if args.len() == 2 && args[0] == "convert" {
+        return convert(Path::new(&args[1]));
+    }
     let mut compact = false;
     let (value, success) = match args.first().and_then(|arg| arg.to_str()) {
         Some("describe") if args.len() == 1 => {
             // The native CLI adds the rules engine to the core description.
             let mut value = describe();
-            value["schema"] = "crn-craft.describe/0.13".into();
+            value["schema"] = "crn-craft.describe/0.14".into();
             if let Some(commands) = value["commands"].as_array_mut() {
-                commands.extend(["rules-check".into(), "rules".into()]);
+                commands.extend(["rules-check".into(), "rules".into(), "convert".into()]);
             }
             value["dynamic_species"] = crn_craft_rules::describe();
             (value, true)
@@ -216,12 +219,31 @@ fn main() -> ExitCode {
     }
 }
 
+/// Prints the converted model's exact bytes, or the refusal as JSON.
+fn convert(path: &Path) -> ExitCode {
+    let (written, success) = match crn_craft::rules::convert::from_network_file(path) {
+        Ok(bytes) => (io::stdout().lock().write_all(&bytes), true),
+        Err(errors) => (
+            emit(&serde_json::json!({"success": false, "diagnostics": errors})),
+            false,
+        ),
+    };
+    match written {
+        Ok(()) if success => ExitCode::SUCCESS,
+        Ok(()) => ExitCode::FAILURE,
+        Err(error) => {
+            eprintln!("CRN-E030: cannot write JSON output: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 fn usage_error() -> (Value, bool) {
     let report = CheckReport::from_error(Diagnostic::error(
         "CRN-E031",
         "",
         "unknown command or wrong argument count",
-        "Use --help. Supported: describe, check, analyze, analyze-v1, export, simulate, simulate-cached, fsp, tau and verify.",
+        "Use --help. Supported: describe, check, analyze, analyze-v1, export, simulate, simulate-cached, fsp, tau, ssa, rules-check, rules, convert and verify.",
     ));
     (
         serde_json::to_value(report).expect("finite usage report"),

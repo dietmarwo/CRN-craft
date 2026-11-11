@@ -265,3 +265,24 @@ W4 and W6: **both are ported**. The sorting margin is small (1.315 against
 | The same under `python -O` | 63 of 63 rows identical |
 | ruff 0.11.13 format and check on `validation/merge` | pass |
 | Workspace checks (fmt, clippy, release tests incl. I1/I3, rustdoc, manual I2 normal and `-O`) | pass |
+
+### M2 (converted models, `static_direct`): declaration
+
+Written and committed before the gate run.
+
+- Engine under test: branch `merge-0.7` with the M2 converter, through
+  Python (the wheel built from the checkout) with 2 worker threads:
+  `check_laws.py --python ... --method '{"kind": "static_direct"}'
+  --expect-refused W4,W5,W7`. The method runs in `crn-craft.rules-run/0.6`,
+  so with Ziggurat waits (sampler `chacha8-u53-ziggurat/rules-static-direct/1`).
+- Models: all twelve rows of `models.json`. The converter must refuse W4
+  (order 8), W5 (256 species) and W7 (96 species) with `CRN-R016`, and
+  convert the other nine.
+- Size: the nine converted models have 510 cells, 1,020 comparisons against
+  the reference and 82 against FSP laws (W1, enzyme-mechanism,
+  immigration-death, michaelis-menten): N = 1,102, of which 204 are at t = 0.
+  At about 5.7e-7 per stochastic comparison, about 5e-4 failures are
+  expected: **0 failures are expected**. A failure is investigated once for a
+  conversion error, not rerun with other seeds.
+- Output: `validation/merge/laws/static_direct.json` (every row, failed rows
+  included), summarized below.

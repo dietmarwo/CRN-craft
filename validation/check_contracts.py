@@ -91,9 +91,10 @@ def main():
             "ssa",
             "rules-check",
             "rules",
+            "convert",
         ]
         and capabilities["dynamic_species"]["model"] == "crn-craft.rules-model/0.1"
-        and capabilities["schema"] == "crn-craft.describe/0.13"
+        and capabilities["schema"] == "crn-craft.describe/0.14"
         and capabilities["dynamic_species"]["accepted_requests"][-1]
         == "crn-craft.rules-run/0.6",
     )

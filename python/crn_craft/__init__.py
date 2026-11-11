@@ -60,6 +60,25 @@ def describe():
     return json.loads(_native.describe_json())
 
 
+def convert(model):
+    """Convert a network model (``crn-craft.model/0.1``) into a rules model.
+
+    ``model`` is bytes, text or a dictionary. Returns the converted model's
+    exact bytes (pretty-printed JSON with a trailing newline), the same
+    bytes ``crn-craft convert MODEL`` prints; run them with
+    :mod:`crn_craft.rules`. Every species becomes a type and an observable
+    of the same name, every reaction a rule with the same propensity. A
+    model the rules language cannot hold yet (more than 64 species, more
+    than two reactant molecules in a reaction, a population limit, ...)
+    raises ``CrnError`` with ``CRN-R016``; an invalid network model raises
+    ``CrnError`` with its validation diagnostics.
+    """
+    try:
+        return _native.convert_network(model_bytes(model))
+    except _native.NativeError as error:
+        raise _crn_error(error) from None
+
+
 def check(model, run=None):
     return json.loads(
         _native.check_json(

@@ -29,8 +29,17 @@ fn cli_description_and_example_check() {
     // The rules entry gained `hybrid_request` and `hybrid_result` in 0.3.0,
     // so the native discovery moved from 0.11 to 0.12; it gained
     // `static_direct_defaults_request` and `accepted_requests` with
-    // rules-run/0.6, so it moved to 0.13.
-    assert_eq!(value["schema"], "crn-craft.describe/0.13");
+    // rules-run/0.6, so it moved to 0.13. The `convert` command and the
+    // rules entry's `convert` key moved it to 0.14.
+    assert_eq!(value["schema"], "crn-craft.describe/0.14");
+    assert_eq!(
+        value["commands"].as_array().unwrap().last().unwrap(),
+        "convert"
+    );
+    assert_eq!(
+        value["dynamic_species"]["convert"]["from"],
+        "crn-craft.model/0.1"
+    );
     assert_eq!(
         value["dynamic_species"]["hybrid_request"],
         "crn-craft.rules-run/0.5"
@@ -391,4 +400,37 @@ fn tau_accepts_a_cancel_file_and_stops_before_any_replicate() {
             .all(|r| r["started"] == false)
     );
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn convert_prints_the_converted_model_bytes_or_coded_refusals() {
+    let path = "models/examples/repressilator.model.json";
+    let output = Command::new(env!("CARGO_BIN_EXE_crn-craft"))
+        .current_dir(root())
+        .args(["convert", path])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    assert!(output.stderr.is_empty());
+    let network = std::fs::read(root().join(path)).unwrap();
+    assert_eq!(
+        output.stdout,
+        crn_craft::rules::convert::from_network(&network).unwrap()
+    );
+    assert!(crn_craft::rules::check_model(&output.stdout).valid);
+    // W5 has 256 species, above the rules limit.
+    let (code, value) = invoke(&[
+        "convert",
+        "validation/ssa-acceleration/models/W5.model.json",
+    ]);
+    assert_eq!(code, 1);
+    assert_eq!(value["success"], false);
+    assert_eq!(value["diagnostics"][0]["code"], "CRN-R016");
+    assert_eq!(value["diagnostics"][0]["path"], "/species");
+    let (code, value) = invoke(&["convert", "not-present.json"]);
+    assert_eq!(code, 1);
+    assert_eq!(value["diagnostics"][0]["code"], "CRN-E030");
+    let (code, value) = invoke(&["convert"]);
+    assert_eq!(code, 1);
+    assert_eq!(value["diagnostics"][0]["code"], "CRN-E031");
 }

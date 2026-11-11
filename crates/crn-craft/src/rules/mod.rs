@@ -202,6 +202,7 @@
 
 pub mod atp;
 pub mod continuous;
+pub mod convert;
 mod engine;
 mod expr;
 mod flat;
@@ -2317,14 +2318,15 @@ pub fn check_model_file(model_path: &Path) -> RulesCheck {
     }
 }
 
-/// Discovery entry for the native CLI's `describe` (`describe/0.13`).
+/// Discovery entry for the native CLI's `describe` (`describe/0.14`).
 ///
 /// The native CLI embeds it as `dynamic_species`; Python's
 /// `crn_craft.rules.describe()` returns it. It names the status, the
 /// commands, the accepted contract versions (`accepted_models`,
 /// `accepted_requests`), the request version that introduced each option
-/// or default, the methods (and which of them are approximate), the tree
-/// sampler identity and the model and run limits.
+/// or default, the methods (and which of them are approximate), the
+/// converter from network models (`convert`), the tree sampler identity and
+/// the model and run limits.
 ///
 /// ```
 /// let entry = crn_craft::rules::describe();
@@ -2357,6 +2359,10 @@ pub fn describe() -> Value {
         "hybrid_result": "crn-craft.rules-result/0.3",
         "python": "crn_craft.rules",
         "approximate_methods": ["tau", "binomial", "hybrid"],
+        "convert": {
+            "command": "convert", "python": "crn_craft.convert",
+            "from": "crn-craft.model/0.1", "to": convert::converted_schema()
+        },
         "sampler": SAMPLER,
         "reference": "docs/rules-language.md",
         "limits": {

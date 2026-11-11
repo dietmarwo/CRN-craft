@@ -130,6 +130,15 @@ fn check_rules_json(model: &[u8]) -> String {
     serde_json::to_string(&crn_craft_rules::check_model(model)).expect("serializable check")
 }
 
+/// The rules model converted from a network model's bytes; a refusal raises
+/// `NativeError` with the diagnostics.
+#[pyfunction]
+fn convert_network<'py>(py: Python<'py>, model: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
+    crn_craft::rules::convert::from_network(model)
+        .map(|bytes| PyBytes::new(py, &bytes))
+        .map_err(|d| failure(&d))
+}
+
 #[pyfunction]
 fn prepare_rules(py: Python<'_>, model: Vec<u8>, request: Vec<u8>) -> PyResult<PreparedRules> {
     py.detach(move || crn_craft_rules::prepare(&model, &request))
@@ -142,6 +151,7 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(describe_rules_json, module)?)?;
     module.add_function(wrap_pyfunction!(check_rules_json, module)?)?;
     module.add_function(wrap_pyfunction!(prepare_rules, module)?)?;
+    module.add_function(wrap_pyfunction!(convert_network, module)?)?;
     module.add_function(wrap_pyfunction!(rules_loop_driver, module)?)?;
     Ok(())
 }

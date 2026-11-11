@@ -14,7 +14,46 @@ Wheels for CPython 3.10 and newer (stable ABI) on Linux x86_64, Windows x64
 and macOS (x86_64 and arm64); other platforms build from the source
 distribution with a Rust toolchain.
 
+## Two engines, two Python APIs
+
+CRN-craft contains two simulation engines. They ship in the same package but
+solve different problems, so each has its own model format, its own Python
+API and its own documentation. Pick one engine for a model; their models,
+requests and results are not interchangeable.
+
+| | Network engine | Rules engine |
+| --- | --- | --- |
+| Purpose | Classic reaction networks: every species and reaction is listed in advance | Models whose species carry attributes and appear or disappear (mtDNA clones, polymers, cell lineages); plain networks work too |
+| Python | `import crn_craft as crn`: `crn.run_spec`, `crn.simulate`, `crn.simulate_ssa`, `crn.fsp`, `crn.tau`, `crn.analyze` | `from crn_craft import rules`: `rules.Model`, `rules.ensemble`, `run.simulate()`, `rules.compile_loop` |
+| Models | JSON documents (`crn-craft.model`), also imported from SBML and BioNetGen | Built in Python with `rules.Model`, or JSON documents (`crn-craft.rules-model`) |
+| Results | Plain dictionaries, the same JSON the command line writes | pandas DataFrames and xarray DataArrays |
+| Only here | Exact distributions (finite state projection), network analysis, sealed archives, SBML/BioNetGen import, DirectCR and other exact SSA variants | Stop conditions, trackers and event logs, ODEs between events (`hybrid`), compiled event loops |
+| Command line | `crn-craft check`, `simulate`, `ssa`, `fsp`, `tau`, `analyze` | `crn-craft rules-check`, `crn-craft rules` |
+| Rust crate | `crn-craft` | `crn-craft-rules` |
+| Start reading | [Tutorial](https://github.com/dietmarwo/CRN-craft/blob/main/docs/tutorial.md) | [mtDNA user manual](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-user-manual.md) |
+| Reference | [Contracts](https://github.com/dietmarwo/CRN-craft/blob/main/docs/contracts.md), [direct SSA guide](https://github.com/dietmarwo/CRN-craft/blob/main/docs/direct-ssa.md) | [Rules language](https://github.com/dietmarwo/CRN-craft/blob/main/docs/rules-language.md), [mtDNA ensembles](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-rules.md) |
+
+**Why two APIs?** The network engine came first and is built around
+versioned JSON contracts: a request is a document bound to the exact model
+bytes, and a result is a document that can be sealed in an archive and
+replayed. Its Python functions pass those documents through unchanged, which
+suits pipelines, optimizers and AI agents. The rules engine was added for
+models the network engine cannot express, and its Python API was shaped by
+interactive research use: a model builder, ensembles of replicates, and
+results as data frames and arrays. The two engines share the strict input
+checks, diagnostic codes, budgets and seed handling, but no code path
+converts a model or result of one into the other.
+
+**Which one should I use?** For work in Python or R on stochastic models,
+start with the rules engine and the mtDNA user manual, also for ordinary
+networks such as SIR. Use the network engine when you need an exact
+distribution, network analysis, SBML or BioNetGen import, sealed archives, or
+the JSON and command-line workflow.
+
 ## Example
+
+This example uses the network engine; a rules-engine example follows under
+"What is included".
 
 Immigration–death (birth rate 4, death rate 0.2, starting from zero) has a
 Poisson law with mean `20 (1 - exp(-0.2 t))`: 12.64 at t = 5 and 17.29 at

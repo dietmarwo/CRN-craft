@@ -8,6 +8,13 @@ package. `examples/tutorial/make_assets.py` regenerates both, and
 `validation/check_tutorial.py` runs every `bash` and `python` block of this
 page in order, so the examples stay correct as the code changes.
 
+> **This tutorial covers the network engine** (`import crn_craft as crn`,
+> JSON models, dictionary results). CRN-craft has a second engine, the rules
+> engine (`from crn_craft import rules`, `rules.Model`, `rules.ensemble`,
+> pandas and xarray results), with a different Python API. It is documented
+> in the [mtDNA user manual](mtdna-user-manual.md). The README explains
+> [what each engine is for](../README.md#two-engines-two-python-apis).
+
 Contents:
 
 1. [Build and install](#1-build-and-install)
@@ -186,7 +193,13 @@ cmp runs/plain/result.json runs/cached/result.json && echo identical
 
 ## 5. The Python interface
 
-The Python package takes models and runs as dictionaries, strings or bytes and
+This section shows the Python API of the network engine. The functions
+`crn.run_spec` and `crn.simulate` are not the rules engine's `rules.Model`
+and `rules.ensemble` under other names: they take other options and return
+plain dictionaries, not data frames
+([two engines](../README.md#two-engines-two-python-apis)).
+
+The network API takes models and runs as dictionaries, strings or bytes and
 returns plain dictionaries. `run_spec` builds a run bound to the exact model
 bytes:
 

@@ -8,7 +8,43 @@ Native Rust foundations for well-mixed chemical reaction networks, designed for 
 
 **Version 0.6.0.** Install the Python package with `pip install crn-craft` and the native CLI with `cargo install crn-craft-cli --locked`; the libraries are the crates `crn-craft` and `crn-craft-rules`. Optional integrations build from this repository. Native Direct, dependency-cached SSA, DirectCR, SortingDirect, RSSACR and next reaction, sparse FSP and explicitly approximate Poisson leaps execute, as does the experimental rules engine with Python ensembles, a Python model builder, pandas and xarray results and continuous variables (`hybrid`). Optional Python bindings, trajectory diagnostics, pinned fcmaes job applications, diffsol BDF/forward sensitivities, global-to-SQP fitting and explicit SBML/BioNetGen import subsets are included. The default Rust engine remains independent of Python, jobs and ODE dependencies. A successful numerical run is not biological validation.
 
-Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/architecture.md), the [technical report](docs/technical-report.md) (design, validation and measured performance), the [comparison with GillesPy2](docs/comparison-gillespy2.md) and `crn-craft describe`. Every document is listed under [Documentation](#documentation). Legacy input/result/archive contracts remain available; new approximate/FSP results use distinct schemas.
+## Two engines, two Python APIs
+
+CRN-craft contains two simulation engines. They ship in the same package but
+solve different problems, so each has its own model format, its own Python
+API and its own documentation. Pick one engine for a model; their models,
+requests and results are not interchangeable.
+
+| | Network engine | Rules engine |
+| --- | --- | --- |
+| Purpose | Classic reaction networks: every species and reaction is listed in advance | Models whose species carry attributes and appear or disappear (mtDNA clones, polymers, cell lineages); plain networks work too |
+| Python | `import crn_craft as crn`: `crn.run_spec`, `crn.simulate`, `crn.simulate_ssa`, `crn.fsp`, `crn.tau`, `crn.analyze` | `from crn_craft import rules`: `rules.Model`, `rules.ensemble`, `run.simulate()`, `rules.compile_loop` |
+| Models | JSON documents (`crn-craft.model`), also imported from SBML and BioNetGen | Built in Python with `rules.Model`, or JSON documents (`crn-craft.rules-model`) |
+| Results | Plain dictionaries, the same JSON the command line writes | pandas DataFrames and xarray DataArrays |
+| Only here | Exact distributions (finite state projection), network analysis, sealed archives, SBML/BioNetGen import, DirectCR and other exact SSA variants | Stop conditions, trackers and event logs, ODEs between events (`hybrid`), compiled event loops |
+| Command line | `crn-craft check`, `simulate`, `ssa`, `fsp`, `tau`, `analyze` | `crn-craft rules-check`, `crn-craft rules` |
+| Rust crate | `crn-craft` | `crn-craft-rules` |
+| Start reading | [Tutorial](docs/tutorial.md) | [mtDNA user manual](docs/mtdna-user-manual.md) |
+| Reference | [Contracts](docs/contracts.md), [direct SSA guide](docs/direct-ssa.md) | [Rules language](docs/rules-language.md), [mtDNA ensembles](docs/mtdna-rules.md) |
+
+**Why two APIs?** The network engine came first and is built around
+versioned JSON contracts: a request is a document bound to the exact model
+bytes, and a result is a document that can be sealed in an archive and
+replayed. Its Python functions pass those documents through unchanged, which
+suits pipelines, optimizers and AI agents. The rules engine was added for
+models the network engine cannot express, and its Python API was shaped by
+interactive research use: a model builder, ensembles of replicates, and
+results as data frames and arrays. The two engines share the strict input
+checks, diagnostic codes, budgets and seed handling, but no code path
+converts a model or result of one into the other.
+
+**Which one should I use?** For work in Python or R on stochastic models,
+start with the rules engine and the mtDNA user manual, also for ordinary
+networks such as SIR. Use the network engine when you need an exact
+distribution, network analysis, SBML or BioNetGen import, sealed archives, or
+the JSON and command-line workflow.
+
+For the network engine, start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/architecture.md), the [technical report](docs/technical-report.md) (design, validation and measured performance), the [comparison with GillesPy2](docs/comparison-gillespy2.md) and `crn-craft describe`. Every document is listed under [Documentation](#documentation). Legacy input/result/archive contracts remain available; new approximate/FSP results use distinct schemas.
 
 ## Optimization tutorials
 
@@ -18,7 +54,8 @@ The [four CRN optimization lessons](tutorials/optimization/README.md) cover reus
 
 **Start here**
 
-- [Tutorial](docs/tutorial.md): from a first model to exact ensembles, FSP, tau leaping and the Python interface, with screenshots and figures
+- [Two engines, two Python APIs](#two-engines-two-python-apis): which engine and which documentation to use
+- [Tutorial](docs/tutorial.md): the network engine, from a first model to exact ensembles, FSP, tau leaping and the Python interface, with screenshots and figures
 - [Architecture overview](docs/architecture.md): packages, contracts, both engines, parallelism, budgets and archives
 - [Technical report](docs/technical-report.md): numerical methods, validation evidence and measured performance
 - [Comparison with GillesPy2](docs/comparison-gillespy2.md): same models, timed against GillesPy2's C++ and NumPy solvers

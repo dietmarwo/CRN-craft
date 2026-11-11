@@ -1,0 +1,199 @@
+{
+  "schema": "crn-craft.merge-quantile-check/0.1",
+  "model": "models/rules/immigration-death.rules.json as crn-craft.model/1.0",
+  "model_sha256": "b70b64cc66ec3bc97abbbf2b06f5cc56d58d7497e74499ceb86c8f3451712810",
+  "replicates": 100000,
+  "root_seed": 20261111,
+  "law_mean": 9.999546000702376,
+  "poisson_quantiles": {
+    "0.025": 4,
+    "0.5": 10,
+    "0.975": 17
+  },
+  "comparisons": 9,
+  "failures": 0,
+  "rows": [
+    {
+      "method": "static_direct",
+      "p": 0.025,
+      "time": 10.0,
+      "quantile": 4.0,
+      "poisson_quantile": 4,
+      "difference": 0.0,
+      "exact": true,
+      "passed": true
+    },
+    {
+      "method": "static_direct",
+      "p": 0.5,
+      "time": 10.0,
+      "quantile": 10.0,
+      "poisson_quantile": 10,
+      "difference": 0.0,
+      "exact": true,
+      "passed": true
+    },
+    {
+      "method": "static_direct",
+      "p": 0.975,
+      "time": 10.0,
+      "quantile": 17.0,
+      "poisson_quantile": 17,
+      "difference": 0.0,
+      "exact": true,
+      "passed": true
+    },
+    {
+      "method": "tree",
+      "p": 0.025,
+      "time": 10.0,
+      "quantile": 4.0,
+      "poisson_quantile": 4,
+      "difference": 0.0,
+      "exact": true,
+      "passed": true
+    },
+    {
+      "method": "tree",
+      "p": 0.5,
+      "time": 10.0,
+      "quantile": 10.0,
+      "poisson_quantile": 10,
+      "difference": 0.0,
+      "exact": true,
+      "passed": true
+    },
+    {
+      "method": "tree",
+      "p": 0.975,
+      "time": 10.0,
+      "quantile": 17.0,
+      "poisson_quantile": 17,
+      "difference": 0.0,
+      "exact": true,
+      "passed": true
+    },
+    {
+      "method": "next_reaction",
+      "p": 0.025,
+      "time": 10.0,
+      "quantile": 4.0,
+      "poisson_quantile": 4,
+      "difference": 0.0,
+      "exact": true,
+      "passed": true
+    },
+    {
+      "method": "next_reaction",
+      "p": 0.5,
+      "time": 10.0,
+      "quantile": 10.0,
+      "poisson_quantile": 10,
+      "difference": 0.0,
+      "exact": true,
+      "passed": true
+    },
+    {
+      "method": "next_reaction",
+      "p": 0.975,
+      "time": 10.0,
+      "quantile": 17.0,
+      "poisson_quantile": 17,
+      "difference": 0.0,
+      "exact": true,
+      "passed": true
+    }
+  ],
+  "checks": [
+    {
+      "check": "static_direct: request valid",
+      "passed": true
+    },
+    {
+      "check": "static_direct: exit status 0",
+      "passed": true,
+      "status": 0
+    },
+    {
+      "check": "static_direct: result valid",
+      "passed": true
+    },
+    {
+      "check": "static_direct: quantiles in request order, shaped like mean",
+      "passed": true
+    },
+    {
+      "check": "static_direct: quantiles at t = 0 are 0",
+      "passed": true
+    },
+    {
+      "check": "static_direct: completed, mean informative",
+      "passed": true,
+      "mean": 10.00687000000001,
+      "law_mean": 9.999546000702376,
+      "z": 0.7331480271497136
+    },
+    {
+      "check": "tree: request valid",
+      "passed": true
+    },
+    {
+      "check": "tree: exit status 0",
+      "passed": true,
+      "status": 0
+    },
+    {
+      "check": "tree: result valid",
+      "passed": true
+    },
+    {
+      "check": "tree: quantiles in request order, shaped like mean",
+      "passed": true
+    },
+    {
+      "check": "tree: quantiles at t = 0 are 0",
+      "passed": true
+    },
+    {
+      "check": "tree: completed, mean informative",
+      "passed": true,
+      "mean": 9.984970000000104,
+      "law_mean": 9.999546000702376,
+      "z": -1.4573534971874862
+    },
+    {
+      "check": "next_reaction: request valid",
+      "passed": true
+    },
+    {
+      "check": "next_reaction: exit status 0",
+      "passed": true,
+      "status": 0
+    },
+    {
+      "check": "next_reaction: result valid",
+      "passed": true
+    },
+    {
+      "check": "next_reaction: quantiles in request order, shaped like mean",
+      "passed": true
+    },
+    {
+      "check": "next_reaction: quantiles at t = 0 are 0",
+      "passed": true
+    },
+    {
+      "check": "next_reaction: completed, mean informative",
+      "passed": true,
+      "mean": 9.987210000000077,
+      "law_mean": 9.999546000702376,
+      "z": -1.228499654271904
+    },
+    {
+      "check": "rules-run/0.6 refuses outputs.quantiles",
+      "passed": true,
+      "status": 1
+    }
+  ],
+  "passed": true
+}

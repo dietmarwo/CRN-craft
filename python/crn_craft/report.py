@@ -347,9 +347,10 @@ def _markdown_report(result, model, request, version, paths):
     out = ["# Model", "", f"Name: {model.get('name')}", ""]
 
     def section(title, lines):
-        out.append(title)
-        out.extend(lines)
-        out.append("")
+        # The data lines go in a fenced block, so a renderer keeps one line
+        # per entry. Names are identifiers and the engine has validated every
+        # expression, so no data line contains a backtick.
+        out.extend([title, "", "```text", *lines, "```", ""])
 
     if any(attributes.values()):
         section(

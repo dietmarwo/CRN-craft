@@ -76,8 +76,11 @@ exactly.
 
 ## Markdown layout decisions
 
-The layout and content rules of the plan are followed. Where the plan left
-a choice open, this is what the code does:
+The content rules of the plan are followed: sections, their order, their
+lines, the observable order and the number rules. The line layout differs
+in one point, decided by the coordinator after the first version (see
+"Fenced sections" below). Where the plan left a choice open, this is what
+the code does:
 
 - **Withheld statistics.** `## Summary statistics` stays as a heading,
   followed by the single line `statistics withheld (<reason>)`; nothing
@@ -114,6 +117,47 @@ a choice open, this is what the code does:
 - Trajectories and statistics use the plan's observable order; ids are
   sorted ascending even if a result lists kept paths in another order.
 
+### Fenced sections (decision after the first version)
+
+The plan's layout writes the lines of a section directly under its heading,
+without blank lines. A markdown renderer (GitHub, for example) joins such
+lines into one paragraph, so the first version rendered each section as a
+single run-on line. Decision: a markdown file must render as intended, and
+a fenced code block keeps the user's line layout intact. So the data lines
+of every section are in a fenced block: a line with three backticks and
+`text` before them, a line with three backticks after them. Headings stay
+outside the fences; there is a blank line before each heading (except the
+first), after it, and around each fence. `Name: <model name>` stays a plain
+paragraph under `# Model`, and `# Results` has no lines of its own.
+
+Fenced: Species types, Reactions, Start values, Parameter values,
+Observables, Stop condition, Continuous variables, ATP coupling,
+Simulation, Terminations, rule_events, Single trajectories, the lines of
+Summary statistics itself (`samples = N`, or the `statistics withheld
+(...)` line) and each statistics subsection. The coordinator's list did
+not name Species types and the Summary statistics lines; they are fenced
+too under its rule "the data lines of every section". Content, order,
+number rules and deterministic bytes are unchanged; the file still ends
+with one newline (after the closing fence of the last section).
+
+No data line can contain a backtick (names are identifiers, and the engine
+has validated every expression before the run), so three backticks always
+close the fence.
+
+Tests first: the markdown parser of `check_rules_python.py` now checks the
+layout (blank lines around headings and fences, exactly one ```` ```text ````
+fence per section with data, no text outside a fence except the `Name:`
+paragraph), the SIR model-section check uses the fenced text, and
+`validation/fixtures/sir-report.md` was converted from the committed
+version by a separate throwaway script (wrap each section's lines in a
+fence, blank lines around). Both scripts failed against the unfenced
+writer (`blank lines around the heading '## Reactions'`; `the SIR report
+differs from .../sir-report.md`), and passed after the writer change; the
+writer reproduced the converted fixture byte for byte. Five layout
+mutations (an unfenced Species types section, no blank line before a
+fence, none after a fence, two fences in one section, an unfenced
+`samples` line) were each caught.
+
 ## JSON layout decisions
 
 - Keys and nesting as in the plan; objects one member per line with two
@@ -144,14 +188,16 @@ test extends by hand with `np.quantile(result.paths.values, p, axis=0)`.
 `check_installed.check_report`, or switch it to the top-level API whose
 default these are, after M6a) and review the diff: it must add exactly the
 three subsections `### 2.5% percentile`, `### median`, `### 97.5%
-percentile` after `### sample_variance` (and new hashes if the request
-version changes).
+percentile`, each with its fenced lines, after `### sample_variance` (and
+new hashes if the request version changes).
 
 The fixture was written test-first and independently of the
 implementation: a throwaway script built the expected text from the plan's
 rules and the result's raw metadata (its own number formatting, its own
 section assembly). The implementation, written afterwards, reproduced it
-byte for byte on the first run.
+byte for byte on the first run. After the fence decision the fixture was
+converted by another separate script, and the changed writer again
+reproduced it byte for byte.
 
 `check_installed.py` compares the report with the fixture byte for byte
 except the one line `crn-craft = <version>`, which must name the installed
@@ -254,9 +300,17 @@ Cargo.lock` is empty), so they cannot change; running them would have
 built a second full `target/` on the shared machine. The coordinator's
 runs on `merge-0.7` cover them.
 
-Measured (no target declared): `Result.save` of a three-class CME
-ensemble with 4,000 cells x 37 report times x 6 observables, every path
-kept, median of three under the CPU lock:
+After the fence change (markdown section helper in `report.py`, the
+`save` docstring, tests, fixture, docs): `check_rules_python.py` and
+`check_installed.py` (outside the tree, `-I`) were rerun normally and under
+`-O` and passed with identical reports; ruff format and check are clean.
+`check_manual.py` and `check_compiled_loop.py` were not rerun: they do not
+call `save`, and nothing else changed.
+
+Measured (no target declared, before the fence change, which adds four
+short lines per section): `Result.save` of a three-class CME ensemble with
+4,000 cells x 37 report times x 6 observables, every path kept, median of
+three under the CPU lock:
 
 | Call | Time | File size |
 | --- | --- | --- |
@@ -273,13 +327,9 @@ kept, median of three under the CPU lock:
   would provide them; M6a, which changes the bindings anyway, could add
   it. Exact equality with the engine's bytes is not
   claimed, only that the documents run to the same numbers.
-- The plan's markdown layout has no blank lines between the lines of a
-  section, so a markdown renderer (GitHub, for example) joins them into one
-  paragraph per section. The file reads correctly as plain text and in an
-  editor. Keeping each line on its own line in rendered form would need a
-  layout change (code fences around the line blocks, or a trailing
-  backslash or two spaces per line); not done, since the plan fixes the
-  layout. Owner decision.
+- The manual draft shows the report in a four-backtick fence because the
+  report contains fences; `check_manual.py` must learn longer fences before
+  M10b adds that block (noted in the draft).
 - The markdown report shows the model's `description` nowhere (the JSON
   report holds the full model).
 - The fixture depends on the request version and hashes that
@@ -297,6 +347,11 @@ kept, median of three under the CPU lock:
 - Two conditional markdown sections the plan does not list (`## Observables`,
   `## ATP coupling`), and the interpretation of withheld statistics as the
   heading plus the one line.
+- Fenced sections (coordinator decision): the data lines of every section
+  are in a ```` ```text ```` fence, with blank lines before each heading and
+  around each fence, instead of the plan's bare lines. Reason: a markdown
+  file must render as intended, and fences keep the user's line layout
+  intact; the plan's layout rendered each section as one paragraph.
 - The manual text is in `M6b-manual-draft.md` for M10b, as the plan
   schedules the docs in M10b and I2 freezes the manual.
 

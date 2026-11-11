@@ -497,14 +497,53 @@ def check_report_json(result, report, *, paths=True):
 
 
 def markdown_sections(text):
-    """(heading, nonempty lines) of a markdown report, in file order."""
-    sections = []
-    for line in text.split("\n"):
+    """(heading, data lines) of a markdown report, in file order.
+
+    Checks the rendered layout on the way: a blank line before every heading
+    but the first, after every heading, and around every fence; the data
+    lines of a section in one ```text fence; no other text than the
+    `Name:` paragraph of `# Model`.
+    """
+    lines = text.split("\n")
+    require(lines[-1] == "" and lines[-2] != "", "one trailing newline")
+    lines = lines[:-1]
+    sections, fenced, index = [], set(), 0
+    while index < len(lines):
+        line = lines[index]
         if line.startswith("#"):
+            require(
+                (index == 0 or lines[index - 1] == "")
+                and index + 1 < len(lines)
+                and lines[index + 1] == "",
+                f"blank lines around the heading {line!r}",
+            )
             sections.append((line, []))
+        elif line == "```text":
+            heading = sections[-1][0]
+            end = lines.index("```", index + 1)
+            require(
+                lines[index - 1] == ""
+                and (end + 1 == len(lines) or lines[end + 1] == "")
+                and heading not in fenced
+                and end > index + 1
+                and not any(x.startswith("```") for x in lines[index + 1 : end]),
+                f"one fenced block of data lines under {heading!r}",
+            )
+            fenced.add(heading)
+            sections[-1][1].extend(lines[index + 1 : end])
+            index = end
         elif line:
-            require(sections, "a markdown report starts with a heading")
+            require(
+                line.startswith("Name: ") and sections[-1] == ("# Model", []),
+                f"markdown text outside a fence: {line[:40]!r}",
+            )
             sections[-1][1].append(line)
+        index += 1
+    require(
+        {heading for heading, data in sections if data and heading != "# Model"}
+        == fenced,
+        "every section with data lines is fenced",
+    )
     return sections
 
 
@@ -773,13 +812,18 @@ def check_reports(model):
         )
         check_report_markdown(sir, markdown, ["S", "I", "R"])
         require(
-            "\n## Reactions\nS + I -> I + I, beta * S * I\nI -> R, gamma * I\n"
-            "\n## Start values\nS = 999\nI = 1\nR = 0\n"
-            "\n## Parameter values\nbeta = 0.0002\ngamma = 0.01\n"
-            "\n## Stop condition\nI == 0\n\n# Simulation\nseed = 1\nend = 250\n"
-            "replicates = 10\nreport_times = 0, 50, 100, 150, 200, 250\n"
-            "method = static_direct\n"
-            in markdown
+            markdown.startswith(
+                "# Model\n\nName: sir\n\n## Reactions\n\n```text\n"
+                "S + I -> I + I, beta * S * I\nI -> R, gamma * I\n```\n"
+                "\n## Start values\n\n```text\nS = 999\nI = 1\nR = 0\n```\n"
+                "\n## Parameter values\n\n```text\nbeta = 0.0002\ngamma = 0.01\n```\n"
+                "\n## Stop condition\n\n```text\nI == 0\n```\n"
+                "\n# Simulation\n\n```text\nseed = 1\nend = 250\n"
+                "replicates = 10\nreport_times = 0, 50, 100, 150, 200, 250\n"
+                "method = static_direct\n"
+            )
+            and "\n```\n\n# Results\n\n## Terminations\n\n```text\n" in markdown
+            and markdown.endswith("\n```\n")
             and "## Species types" not in markdown,
             "markdown model section of the SIR example",
         )

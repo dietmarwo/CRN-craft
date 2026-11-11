@@ -223,8 +223,9 @@ class Result:
         the result has them, in ascending order). Observables follow the
         model's species declaration order when every observable is named
         after a species type, then continuous variables; otherwise result
-        order. Numbers are written in shortest round-trip form, integral
-        values without ``.0``.
+        order. Each section's lines are in a fenced ``text`` block, so a
+        markdown renderer keeps one line per entry. Numbers are written in
+        shortest round-trip form, integral values without ``.0``.
 
         A report is a readable record of a run; an archive is the sealed,
         verifiable record of a run for replay. ``save`` changes nothing

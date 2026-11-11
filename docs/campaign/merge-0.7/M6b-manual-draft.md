@@ -23,6 +23,14 @@ the 0.6.0 wheel through `crn_craft.rules`; the first output equals
   version (M11) must update this output too, or the block should print the
   report without that line. `check_installed.py` already substitutes the
   installed version for that one line of the fixture.
+- The printed report contains ```` ```text ```` fences, so the manual shows
+  it in a four-backtick fence (````` ````text `````), as below. Today
+  `check_manual.py` recognizes only three-backtick fences
+  (`FENCE = re.compile(r"^```(\w*)\s*$")`) and ends a block at any line
+  that starts with three backticks, so it would read the report's own
+  fences as blocks. M10b must teach it fences of any length (an opening
+  run of three or more backticks, closed by a run of the same length)
+  before adding this block, or print the report without its fences.
 - Suggested place: a new subsection at the end of section 3 ("A first
   ensemble") or a short section of its own after section 17 ("Checking
   results"), plus the reference rows below in section 18.
@@ -66,28 +74,42 @@ with tempfile.TemporaryDirectory() as folder:
     print(path.read_text(), end="")
 ```
 
-```text
+````text
 # Model
 
 Name: sir
 
 ## Reactions
+
+```text
 S + I -> I + I, beta * S * I
 I -> R, gamma * I
+```
 
 ## Start values
+
+```text
 S = 999
 I = 1
 R = 0
+```
 
 ## Parameter values
+
+```text
 beta = 0.0002
 gamma = 0.01
+```
 
 ## Stop condition
+
+```text
 I == 0
+```
 
 # Simulation
+
+```text
 seed = 1
 end = 250
 replicates = 10
@@ -97,17 +119,26 @@ sampler = chacha8-u53-ziggurat/rules-static-direct/1
 crn-craft = 0.6.0
 model_sha256 = 3a56995648ee284605c18b4e13aaed5afcc8abf5136fdd9c475c2fa403195575
 run_sha256 = 837c92783f25c7a1202fb90c0d1ef8014dae7d5657a4117417125f48913d968e
+```
 
 # Results
 
 ## Terminations
+
+```text
 completed = 10
+```
 
 ## rule_events (mean per replicate)
+
+```text
 infection = 999
 recovery = 877.7
+```
 
 ## Single trajectories for S, I, R
+
+```text
 S000: 999, 221, 0, 0, 0, 0
 I000: 1, 705, 583, 357, 218, 135
 R000: 0, 74, 417, 643, 782, 865
@@ -138,27 +169,42 @@ R008: 0, 122, 451, 674, 805, 876
 S009: 999, 63, 0, 0, 0, 0
 I009: 1, 795, 520, 321, 204, 128
 R009: 0, 142, 480, 679, 796, 872
+```
 
 ## Summary statistics
+
+```text
 samples = 10
+```
 
 ### mean
+
+```text
 S: 999, 124.69999999999999, 0, 0, 0, 0
 I: 1, 758.1, 542.3000000000001, 326.2, 199.29999999999998, 122.30000000000001
 R: 0, 117.20000000000002, 457.7, 673.8, 800.7, 877.7
+```
 
 ### mean_standard_error
+
+```text
 S: 0, 40.423329347736264, 0, 0, 0, 0
 I: 0, 29.556142433605157, 9.70458081984425, 6.343500610861484, 3.932909581693657, 3.0841890704401083
 R: 0, 12.462209541917785, 9.70458081984425, 6.343500610861485, 3.932909581693662, 3.08418907044011
+```
 
 ### sample_variance
+
+```text
 S: 0, 16340.455555555556, 0, 0, 0, 0
 I: 0, 8735.655555555553, 941.7888888888888, 402.40000000000015, 154.67777777777772, 95.12222222222219
 R: 0, 1553.0666666666668, 941.7888888888888, 402.4000000000002, 154.67777777777815, 95.12222222222229
 ```
+````
 
-The report has three parts:
+The report has three parts. Each section's lines are in a fenced `text`
+block, so a markdown viewer such as GitHub shows them one per line in a
+monospace font, and an editor shows the same lines:
 
 - **Model**: one line per reaction (`reactants -> products, rate`; a rate
   marked `(mass action)` is a constant per reactant combination, anything

@@ -1,6 +1,6 @@
 //! Sealed archives of rules runs: `crn-craft.archive/1.0`.
 //!
-//! [`run_files`] (the `crn-craft rules MODEL REQUEST --archive NEW_DIRECTORY`
+//! [`run_files`] (the `crn-craft run MODEL REQUEST --archive NEW_DIRECTORY`
 //! command) and [`write()`] (the byte API behind Python's
 //! `crn_craft.rules.archive`) run a rules request, a simulation request of
 //! any rules-run version or a `crn-craft.run/1.0` request whose method is
@@ -10,7 +10,7 @@
 //! | --- | --- |
 //! | `model.json` | the exact model bytes |
 //! | `request.json` | the exact request bytes, with its original `model.path` |
-//! | `result.json` | the result as `crn-craft rules MODEL REQUEST` prints it: compact JSON with sorted keys and a trailing newline |
+//! | `result.json` | the result as `crn-craft run MODEL REQUEST` prints it: compact JSON with sorted keys and a trailing newline |
 //! | `manifest.json` | `crn-craft.archive/1.0`: length and SHA-256 of the three payloads |
 //! | `COMPLETE` | the SHA-256 of the manifest bytes and a newline, written last |
 //!
@@ -191,10 +191,10 @@ impl ArchiveReport {
 
 /// Runs a request file against the model it references and archives the
 /// run in `output`, a new directory whose parent exists: the
-/// `crn-craft rules MODEL REQUEST --archive NEW_DIRECTORY` command.
+/// `crn-craft run MODEL REQUEST --archive NEW_DIRECTORY` command.
 ///
 /// The request's `model.path`, resolved from the request's directory, must
-/// name `model_path` inside that directory, as for `crn-craft rules`
+/// name `model_path` inside that directory, as for `crn-craft run`
 /// (`CRN-R020` at `/model/path` otherwise). Then as [`write()`].
 ///
 /// Never panics on bad input; failures are an invalid report.
@@ -291,7 +291,7 @@ fn output_limit(max_output_bytes: u64) -> u64 {
     max_output_bytes.min(rules::MAX_RESULT_BYTES)
 }
 
-/// A result as `crn-craft rules` prints it: compact JSON of its value (keys
+/// A result as `crn-craft run` prints it: compact JSON of its value (keys
 /// sorted) and a newline, within `limit` bytes.
 fn printed<T: Serialize>(result: &T, limit: u64) -> Result<Vec<u8>, Diagnostic> {
     let value = serde_json::to_value(result).map_err(|e| error(e.to_string()))?;

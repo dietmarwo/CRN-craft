@@ -1,6 +1,6 @@
 //! Exact stochastic simulation of dynamic, attributed species.
 //!
-//! **Status: experimental.** The rules engine of
+//! **Status: experimental.** The engine of
 //! [CRN-craft](https://github.com/dietmarwo/CRN-craft) is validated against
 //! exact laws (master equations and Poisson laws, see the
 //! [K1 gates](https://github.com/dietmarwo/CRN-craft/blob/main/validation/rules/RESULTS.md)),
@@ -16,8 +16,9 @@
 //! Instances appear when a rule produces a new attribute vector and disappear
 //! when their count reaches zero, so the species need not be listed in
 //! advance: mitochondrial DNA clones, polymers with a length or clusters with
-//! a size. Rules are schemata over zero, one or two reactant patterns. A
-//! rule's propensity is a global rate over parameters and observables times
+//! a size. Rules are schemata over reactant patterns: at most two up to
+//! `crn-craft.rules-model/0.4`, any number with a pattern `count` in
+//! `crn-craft.model/1.0`. A rule's propensity is a global rate over parameters and observables times
 //! local factors over each matched instance's attributes. Observables reduce
 //! the instances of one type to a number; an optional stop predicate over
 //! them ends a replicate early. Models whose species are fixed are the
@@ -187,10 +188,10 @@
 //!   version, analysis, finite state projection, archives and export, and
 //!   the shared diagnostics and strict JSON parsing.
 //! - [`crn-craft-cli`](https://crates.io/crates/crn-craft-cli): the native
-//!   CLI, with `crn-craft rules-check`, `crn-craft rules` and
-//!   `crn-craft describe rules-run`.
+//!   CLI, with `crn-craft check`, `crn-craft run` and
+//!   `crn-craft describe run-1.0` (`rules-check` and `rules` remain aliases).
 //! - [`crn-craft` on PyPI](https://pypi.org/project/crn-craft/): Python
-//!   ensembles through `crn_craft.rules`.
+//!   ensembles through `crn_craft` (and `crn_craft.rules`, the 0.6.0 API).
 //! - [Rules language](https://github.com/dietmarwo/CRN-craft/blob/main/docs/rules-language.md):
 //!   the model language, propensities, expressions and numerical policy.
 //! - [mtDNA ensembles](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-rules.md)
@@ -2701,7 +2702,7 @@ pub(crate) fn read(path: &Path) -> Result<Vec<u8>, Diagnostic> {
 ///
 /// The request's `model.path` is resolved against the request file's
 /// directory and must name the same file as `model_path`, inside that
-/// directory. This is the `crn-craft rules MODEL REQUEST` command.
+/// directory. This is the `crn-craft run MODEL REQUEST` command.
 ///
 /// # Errors
 ///
@@ -2755,7 +2756,7 @@ pub(crate) fn references_model(model_path: &Path, request_path: &Path, relative:
 }
 
 /// Reads a model file and checks it like [`check_model`]; this is the
-/// `crn-craft rules-check MODEL` command.
+/// `crn-craft check MODEL` command for a rules model.
 ///
 /// A file that cannot be read gives an invalid report with one `CRN-E030`
 /// diagnostic (or `CRN-E004` above 16 MiB) and no `model_sha256`.

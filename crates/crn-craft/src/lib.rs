@@ -19,9 +19,10 @@
 //! The engine is [`rules`]: models are `crn-craft.model/1.0` (and the older
 //! `crn-craft.rules-model` versions, which keep replaying byte for byte),
 //! requests `crn-craft.run/1.0` (and `crn-craft.rules-run`). Exact methods
-//! are Static Direct with four event selectors, the tree method, next
-//! reaction and the mtDNA path; tau leaping, binomial steps, thinning and the
-//! hybrid method are explicitly approximate. Beyond that:
+//! are Static Direct with four event selectors (and `auto`), the tree method,
+//! next reaction, the mtDNA path and thinning for the ATP block; tau leaping,
+//! binomial steps and the hybrid method are explicitly approximate. Beyond
+//! that:
 //!
 //! - [`fsp`] reports its truncation and leakage terms separately; they are
 //!   estimates, not a certified floating-point error bound.

@@ -168,9 +168,9 @@ pub(super) fn parse(bytes: &[u8]) -> Result<Model, Diagnostic> {
                     "CRN-E032",
                     "/schema",
                     format!(
-                        "`{schema}` is a rules-engine contract; this command reads `crn-craft.model/0.1` network models"
+                        "`{schema}` is not a network model; the converter reads `crn-craft.model/0.1` network models"
                     ),
-                    "Check rules-engine models with `crn-craft rules-check` and run them with `crn-craft rules`; `crn-craft convert` writes a network model as a crn-craft.model/1.0 model.",
+                    "This model needs no conversion: check it with `crn-craft check` and run it with `crn-craft run`. `crn-craft convert` writes a network model as a crn-craft.model/1.0 model.",
                 )
             }
             _ => error,

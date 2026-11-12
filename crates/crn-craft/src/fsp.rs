@@ -639,7 +639,7 @@ pub mod v1 {
         request_error(
             "/method",
             "the fsp method computes a distribution, not an ensemble",
-            "Solve FSP requests with crn_craft::fsp::v1::solve, `crn-craft rules MODEL REQUEST` or crn_craft.rules.fsp.",
+            "Solve FSP requests with crn_craft::fsp::v1::solve, `crn-craft run MODEL REQUEST`, Model.fsp or crn_craft.rules.fsp.",
         )
     }
 
@@ -981,7 +981,7 @@ pub mod v1 {
 
     /// Solves a request file against the model it references, which must be
     /// the supplied model file below the request's directory, as
-    /// [`crate::rules::solve_files`] requires. `crn-craft rules MODEL
+    /// [`crate::rules::solve_files`] requires. `crn-craft run MODEL
     /// REQUEST` calls it for an FSP request ([`is_fsp_request_file`]).
     ///
     /// # Errors

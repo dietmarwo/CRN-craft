@@ -7,6 +7,8 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-12
+
 One engine. The network engine and the rules engine are merged into a
 single engine in the `crn-craft` crate: every network model converts to a
 rules model, and one event loop, one expression language, one random
@@ -1027,7 +1029,8 @@ iterations that make up this release follow.
 - Experimental non-negative Poisson leaping with explicit approximate request/result schemas.
 - Ten performance experiments and same-host reference/quality evidence; no package publishing.
 
-[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.3.0...v0.4.0

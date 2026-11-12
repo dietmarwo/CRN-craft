@@ -10,7 +10,7 @@ results. New code depends on `crn-craft` and uses `crn_craft::rules`:
 
 ```toml
 [dependencies]
-crn-craft = "0.6"
+crn-craft = "0.7"
 ```
 
 ```rust

@@ -1,7 +1,7 @@
 # CRN-craft technical report
 
-**Version:** 0.7.0 (unreleased), source of 12 November 2026: the branch
-that merged the network engine and the rules engine into one engine.
+**Version:** 0.7.0, source of 12 November 2026: the release that merged
+the network engine and the rules engine into one engine.
 **Scope:** design, numerical methods, validation evidence and measured
 performance of the one engine. Companion documents: the
 [architecture overview](architecture.md), the [contracts](contracts.md), the

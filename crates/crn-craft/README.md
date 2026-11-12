@@ -31,7 +31,7 @@ replayable seeds.
 
 ```toml
 [dependencies]
-crn-craft = "0.6"
+crn-craft = "0.7"
 ```
 
 The command-line interface is the

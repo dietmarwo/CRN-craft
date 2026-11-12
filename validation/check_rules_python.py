@@ -1003,7 +1003,11 @@ def check_archives():
         for name in ("model.json", "run.json", "result.json", "provenance.json"):
             (old / name).write_bytes(b"{}\n")
             files.append(
-                {"path": name, "bytes": 3, "sha256": hashlib.sha256(b"{}\n").hexdigest()}
+                {
+                    "path": name,
+                    "bytes": 3,
+                    "sha256": hashlib.sha256(b"{}\n").hexdigest(),
+                }
             )
         manifest = json.dumps(
             {"schema": "crn-craft.archive/0.1", "files": files}

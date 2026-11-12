@@ -243,7 +243,8 @@ def main():
             code == 1
             and not report["valid"]
             and coded(report, "CRN-E033", "/schema")
-            and run["model"]["sha256"] == hashlib.sha256(model.read_bytes()).hexdigest(),
+            and run["model"]["sha256"]
+            == hashlib.sha256(model.read_bytes()).hexdigest(),
         )
         with tempfile.TemporaryDirectory() as folder:
             outcomes = [

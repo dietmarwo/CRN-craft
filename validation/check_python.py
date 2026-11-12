@@ -550,9 +550,7 @@ def check_cli(rows, binary):
         require(
             code == 0
             and converted
-            == run(native, "convert", ROOT / "models/legacy/vilar-noise.model.json")[
-                1
-            ],
+            == run(native, "convert", ROOT / "models/legacy/vilar-noise.model.json")[1],
             "convert prints the native bytes",
         )
         network = ROOT / "models/legacy/immigration-death.model.json"
@@ -840,9 +838,9 @@ def main():
         rows.append({"check": "keyboard_interrupt", "passed": True})
     circuit = crn.load_example("repressilator")
     # The first species of the network model, as the 0.6.0 study used.
-    species = json.loads(
-        (ROOT / "models/legacy/repressilator.model.json").read_text()
-    )["species"][0]["name"]
+    species = json.loads((ROOT / "models/legacy/repressilator.model.json").read_text())[
+        "species"
+    ][0]["name"]
     study = []
     for split, seeds in [("development", [3101, 3102]), ("held_out", [3201, 3202])]:
         for seed in seeds:

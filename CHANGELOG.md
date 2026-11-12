@@ -112,27 +112,34 @@ to 1.00× the time of 0.6.0, with identical results.
 
 - The network engine of 0.6.0: its event loops (Direct, cached Direct,
   composition–rejection, sorting Direct, RSSA-CR, next reaction and the
-  checked tau leap of the network crate), the xoshiro256++ stream and the
-  `fast` policy. Its algorithms live on as selectors of the one engine;
-  see **Migration**.
-- Commands `simulate`, `simulate-cached`, `ssa`, `tau` and `fsp` with a
-  network run, and `check MODEL RUN` with a `crn-craft.run/0.1` run.
-- Contracts and schemas `run/0.1`, `result/0.1`, `result-v1`,
-  `ssa-run/0.1`–`0.4`, `ssa-result/0.1`–`0.4`, `tau-request/0.1`,
-  `tau-result/0.1`, `archive/0.1`, `archive-check/0.1`, `analysis/0.2`,
-  `analysis/0.1`, `check/0.1` and `fsp-result/0.1`. The `state` schema
-  stays (`crn-craft analyze MODEL STATE` reads it), and network
-  `model/0.1` files are still read through the converter.
+  network tau leap), the xoshiro256++ stream and the `fast` policy. Its
+  algorithms live on as selectors of the one engine; see **Migration**.
+- Commands `simulate`, `simulate-cached`, `ssa`, `tau` and `fsp` (now usage
+  errors, `CRN-E031`). `check MODEL RUN` with a network `run/0.1` request
+  now answers `check/1.0` with `CRN-E033`, and `verify` refuses
+  `archive/0.1` directories with `CRN-E065`.
+- Schemas `run`, `result`, `result-v1`, `ssa-run`, `ssa-result`,
+  `tau-request`, `tau-result`, `archive`, `archive-check`, `check`,
+  `fsp-result`, `analysis` and `analysis-v1` (all 0.x). The `state` schema
+  stays (`crn-craft analyze MODEL STATE` reads it), and so does the network
+  `model` schema: network `model/0.1` files are still read through the
+  converter.
 - Python: the top-level network functions (`run_spec`, `simulate`,
   `prepare` for network runs, `ssa_spec`, `simulate_ssa`, `prepare_ssa`,
-  `prepare_parameters` and `ParameterTemplate`, `mass_action_kernel_source`,
-  `tau`, `fsp`, `model_bytes`) and the PyO3 functions behind them.
-- Rust: the modules `simulation`, `ssa` (except the Ziggurat sampler),
-  `selectors`, `bounds`, `next_reaction` (its clock heap is
-  `rules::clocks`), `tau`, `rates`, `network`, `parameters`, `codegen`,
-  `validate` and `contracts`, and the network FSP entry point.
-  `ModelRef`, `Ensemble` and `Statistic` moved into `crn_craft::rules`
-  unchanged.
+  `prepare_parameters`, `mass_action_kernel_source`, `tau`, `fsp`,
+  `model_bytes`), the classes `PreparedRun`, `PreparedSsaRun`,
+  `ParameterTemplateRun` and `BoundParameterRun`, the packaged network
+  models, and the native functions behind them.
+- Rust: the modules `simulation`, `tau`, `network`, `parameters`,
+  `codegen`, `validate`, `contracts` and `next_reaction` (its clock heap is
+  `rules::clocks`); everything in `ssa` except `exponential_from_words`;
+  `CheckReport`, `CompiledNetwork`, `parse_model`, `parse_run`,
+  `check_bytes`, `check_files` and `describe_network` at the crate root;
+  the 0.1 archive types and functions (`simulate_files`,
+  `simulate_cached_files`, `verify_archive`, `validate_result`); the 0.1
+  FSP result types and `fsp::solve`; the network sampling helpers in
+  `sampling`; `Kinetics::compile`. `ModelRef`, `Ensemble` and `Statistic`
+  moved into `crn_craft::rules` unchanged.
 - The example network files moved to `models/legacy/`; `models/examples/`
   holds their converted `model/1.0` files.
 
@@ -206,9 +213,10 @@ means what `rules-model/0.4` means.
   `Outputs { .., quantiles: None }`, `Statistics { .., quantiles: None }`,
   `RulesCheck { .., run_sha256: None }`.
 - `crn_craft::describe()` is `describe/1.0`.
-- `Kinetics::from_bytes` reads every model version; the public fields
-  `Kinetics::model` and `Kinetics::network` are gone (use `species()`,
-  `initial()`, `parameter_values()`).
+- `Kinetics::compile(&contracts::Model)` → `Kinetics::from_bytes`, which
+  reads every model version; the public fields `Kinetics::model` and
+  `Kinetics::network` are gone (use `species()`, `initial()`,
+  `parameter_values()`).
 - The analysis functions take a `&crn_craft::rules::FlatView`.
 - `parameters::ParameterTemplate` → `rules::prepare(model,
   request)?.bind_parameters(&values)`.

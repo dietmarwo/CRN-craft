@@ -122,6 +122,11 @@ jobs:
       - run: python validation/check_python.py --binary target/release/crn-craft --output python.json
       - run: python -O validation/check_python.py --binary target/release/crn-craft --output python-optimized.json
       - run: diff python.json python-optimized.json
+      # The 0.6.0 network functions, now in the private crn_craft._legacy,
+      # until task M8a migrates their checks and M8b deletes them.
+      - run: python validation/legacy/check_python_network.py --binary target/release/crn-craft --output python-network.json
+      - run: python -O validation/legacy/check_python_network.py --binary target/release/crn-craft --output python-network-optimized.json
+      - run: diff python-network.json python-network-optimized.json
       - run: python validation/check_rules_python.py --output rules-python.json
       - run: python -O validation/check_rules_python.py --output rules-python-optimized.json
       - run: diff rules-python.json rules-python-optimized.json

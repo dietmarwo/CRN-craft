@@ -496,7 +496,7 @@ def save(result, path, *, paths=True):
             "this Result does not know the model and request that ran; save the "
             "result of a prepared run's simulate()"
         )
-    from . import __version__
+    from ._common import __version__
 
     write = _markdown_report if suffix in MARKDOWN else _json_report
     _write(target, write(result, model, request, __version__, paths).encode("utf-8"))

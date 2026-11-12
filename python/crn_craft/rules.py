@@ -26,8 +26,9 @@ import numpy as np
 import pandas as pd
 import xarray
 
-from . import CrnError, _crn_error, _native, _path, model_bytes
+from . import _native
 from . import report as _report
+from ._common import CrnError, _crn_error, _path, convert, model_bytes
 from ._rules_loop import CompiledLoop, fingerprint_of
 
 # The compiled-loop API is part of this module.
@@ -79,7 +80,7 @@ _TRACKER_VALUES = (
 _ARRAY_ATTRS = ("sampler", "method", "root_seed", "model_sha256", "run_sha256")
 # The `rule` of an event-array entry past a replicate's logged length.
 _PADDING_RULE = -2
-# Quantile statistics need the 1.0 contracts (see ensemble).
+# Quantile statistics and selectors need the 1.0 contracts (see ensemble).
 MODEL_1_0 = "crn-craft.model/1.0"
 RUN_1_0 = "crn-craft.run/1.0"
 # What `fsp` requests when max_states or tolerance is not given: the engine's
@@ -87,8 +88,18 @@ RUN_1_0 = "crn-craft.run/1.0"
 FSP_MAX_STATES = 100_000
 FSP_TOLERANCE = 1e-12
 _RULES_MODEL = "crn-craft.rules-model/"
+_RULES_RUN = "crn-craft.rules-run/"
+_NETWORK_MODEL = "crn-craft.model/0.1"
+# The quantiles the top-level API (crn_craft.ensemble, crn_craft.prepare)
+# requests unless told otherwise; crn_craft.rules requests none.
+DEFAULT_QUANTILES = (0.025, 0.5, 0.975)
+# Static Direct selectors of crn-craft.run/1.0 (method.selector).
+SELECTORS = ("linear", "composition_rejection", "sorting", "rssa_cr", "auto")
 # Request versions whose Static Direct defaults differ from run/1.0's: inverse
 # waits and per-event trackers unless the method says otherwise.
+# `quantiles=` of the top-level prepare: the default quantiles unless the
+# request states its own.
+_DEFAULT = object()
 _BEFORE_ZIGGURAT_DEFAULTS = (
     "crn-craft.rules-run/0.2",
     "crn-craft.rules-run/0.3",
@@ -115,14 +126,16 @@ def _probabilities(quantiles):
     return [float(p) for p in values]
 
 
-def _as_model_1_0(model):
+def _as_model_1_0(model, *, network=False):
     """The model's bytes as ``crn-craft.model/1.0``, only the schema changed.
 
     A rules-model document gets the schema string ``crn-craft.model/1.0``,
     which means what rules-model/0.4 means; every other byte is kept. A
     dictionary or ``Model`` is serialized as without quantiles, with the
-    ``schema`` value replaced in place. A model/1.0 document, and anything
-    that is no rules model (the engine refuses it), is returned unchanged.
+    ``schema`` value replaced in place. With ``network=True`` (the top-level
+    API) a network ``crn-craft.model/0.1`` document is converted
+    (:func:`crn_craft.convert`). A model/1.0 document, and anything else
+    (the engine refuses it), is returned unchanged.
     """
     if isinstance(model, Model):
         model = model.to_dict()
@@ -130,12 +143,16 @@ def _as_model_1_0(model):
         schema = model.get("schema")
         if isinstance(schema, str) and schema.startswith(_RULES_MODEL):
             model = {**model, "schema": MODEL_1_0}
+        elif network and schema == _NETWORK_MODEL:
+            return convert(model)
         return model_bytes(model)
     data = model_bytes(model)
     try:
         schema = json.loads(data).get("schema")
     except (ValueError, AttributeError):
         return data
+    if network and schema == _NETWORK_MODEL:
+        return convert(data)
     if not (isinstance(schema, str) and schema.startswith(_RULES_MODEL)):
         return data
     old = json.dumps(schema).encode()
@@ -165,13 +182,40 @@ def _unique_keys(pairs):
     return dict(pairs)
 
 
-def _request_with_quantiles(request, probabilities, old_sha256, new_sha256):
-    """A request as ``crn-craft.run/1.0`` with ``outputs.quantiles``.
+def _selector(selector):
+    """``selector=`` checked: None or one of :data:`SELECTORS`."""
+    if selector is not None and selector not in SELECTORS:
+        raise ValueError(
+            f"selector must be one of {', '.join(map(repr, SELECTORS))}: {selector!r}"
+        )
+    return selector
 
-    The request keeps its meaning: a Static Direct method of rules-run/0.2
-    to 0.5 gets its version's defaults (inverse waits, per-event trackers)
-    written out, and a model hash of the original model bytes is replaced by
-    the hash of the model/1.0 bytes.
+
+def _with_selector(method, selector):
+    """A Static Direct method dictionary with ``selector`` added."""
+    if not (isinstance(method, Mapping) and method.get("kind") == "static_direct"):
+        raise ValueError(
+            "selector= chooses the event selector of method='static_direct'; "
+            f"the request's method is {method!r}"
+        )
+    if "selector" in method:
+        raise ValueError(
+            "the method already has a selector; give selector= or the field, not both"
+        )
+    return {**method, "selector": selector}
+
+
+def _request_1_0(request, probabilities, selector, old_sha256, new_sha256):
+    """A request as ``crn-craft.run/1.0``, with quantiles and a selector.
+
+    A rules-run request becomes run/1.0 and keeps its meaning: a Static
+    Direct method gets that version's defaults written out (rules-run/0.2 to 0.5:
+    inverse waits and per-event trackers; every rules-run version: the
+    linear selector, unless ``selector`` is given), and a model hash of the
+    original model bytes is replaced by the hash of the model/1.0 bytes.
+    Another version is left as it is, so the engine judges it.
+    ``probabilities`` are added as ``outputs.quantiles`` (``ValueError`` if
+    the request has the field already).
     """
     if isinstance(request, bytes | str):
         request = json.loads(request, object_pairs_hook=_unique_keys)
@@ -180,7 +224,7 @@ def _request_with_quantiles(request, probabilities, old_sha256, new_sha256):
     if not isinstance(request, dict):
         raise TypeError("the request must be a JSON object")
     outputs = request.get("outputs")
-    if isinstance(outputs, dict):
+    if probabilities and isinstance(outputs, dict):
         if "quantiles" in outputs:
             raise ValueError(
                 "the request already has outputs.quantiles; give quantiles= or "
@@ -188,14 +232,23 @@ def _request_with_quantiles(request, probabilities, old_sha256, new_sha256):
             )
         outputs["quantiles"] = probabilities
     method = request.get("method")
+    if selector is not None:
+        method = request["method"] = _with_selector(method, selector)
+    schema = request.get("schema")
     if (
-        request.get("schema") in _BEFORE_ZIGGURAT_DEFAULTS
+        isinstance(schema, str)
+        and schema.startswith(_RULES_RUN)
         and isinstance(method, dict)
         and method.get("kind") == "static_direct"
     ):
-        method.setdefault("waiting_time", "inverse")
-        method.setdefault("sparse_trackers", False)
-    request["schema"] = RUN_1_0
+        if schema in _BEFORE_ZIGGURAT_DEFAULTS:
+            method.setdefault("waiting_time", "inverse")
+            method.setdefault("sparse_trackers", False)
+        # rules-run requests always scan linearly; run/1.0 defaults to auto.
+        method.setdefault("selector", "linear")
+    if isinstance(schema, str) and schema.startswith(_RULES_RUN):
+        request["schema"] = RUN_1_0
+    # Any other version (run/1.0 itself, or one the engine refuses) is kept.
     bound = request.get("model")
     if isinstance(bound, dict) and bound.get("sha256") == old_sha256:
         bound["sha256"] = new_sha256
@@ -635,9 +688,14 @@ class PreparedEnsemble:
         *,
         ran=None,
         unified_from=None,
+        unified=False,
     ):
         self._native = native
         self._rule_names = tuple(rule_names)
+        # The one flag of the unified API: prepared through the top-level
+        # names (crn_craft.ensemble, crn_craft.prepare), which write the 1.0
+        # documents. Candidates of bind_parameters keep it.
+        self._unified = unified
         # SHA-256 of the rules-model bytes that quantiles= rewrote to
         # crn-craft.model/1.0, so a loop compiled for them is explained.
         self._unified_from = unified_from
@@ -738,6 +796,23 @@ class PreparedEnsemble:
         ``Result.model``).
         """
         overrides = dict(overrides)
+        if self._unified:
+            # The top-level API refuses what float() would turn into a number.
+            for key, value in overrides.items():
+                if isinstance(value, bool | np.bool_) or not isinstance(
+                    value, numbers.Real
+                ):
+                    raise CrnError(
+                        [
+                            {
+                                "code": "CRN-R020",
+                                "path": f"/parameters/{key}",
+                                "message": "a bound parameter value must be a real "
+                                f"number, not {type(value).__name__}",
+                                "hint": "Pass a float or an int for every parameter.",
+                            }
+                        ]
+                    )
         try:
             native = self._native.bind_parameters(overrides)
         except _native.NativeError as error:
@@ -751,7 +826,9 @@ class PreparedEnsemble:
             parameters = {**(model.get("parameters") or {}), **overrides}
             model["parameters"] = {k: float(v) for k, v in sorted(parameters.items())}
             ran = (model_bytes(model), self._ran[1], True)
-        return PreparedEnsemble(native, self._rule_names, ran=ran)
+        return PreparedEnsemble(
+            native, self._rule_names, ran=ran, unified=self._unified
+        )
 
     def simulate(
         self,
@@ -819,7 +896,7 @@ class PreparedEnsemble:
         return result
 
 
-def prepare(model, request, *, compiled=None, quantiles=None):
+def prepare(model, request, *, compiled=None, quantiles=None, selector=None):
     """Prepare a rules-run contract, preserving the supplied model bytes.
 
     ``model`` is bytes, text, a dictionary or a ``Model``. ``compiled`` is
@@ -828,34 +905,89 @@ def prepare(model, request, *, compiled=None, quantiles=None):
     every ``simulate()`` of the prepared run uses it.
 
     ``quantiles``, a sequence of increasing probabilities in (0, 1), adds
-    ``outputs.quantiles`` to the request, as in :func:`ensemble`: the
-    request is written as ``crn-craft.run/1.0`` and a rules-model as
-    ``crn-craft.model/1.0`` (only its schema string changes; the request's
-    model hash follows when it was the hash of the supplied bytes). A
-    Static Direct request of rules-run/0.2 to 0.5 gets the defaults of its
-    version written out (``"waiting_time": "inverse"``,
-    ``"sparse_trackers": False``), so it runs the same paths. A request
-    that already has ``outputs.quantiles`` raises ``ValueError``. ``None``
-    or an empty sequence, the default, leaves both documents as supplied; a
-    ``crn-craft.run/1.0`` request may also carry ``outputs.quantiles``
+    ``outputs.quantiles`` to the request, as in :func:`ensemble`, and
+    ``selector`` (one of :data:`SELECTORS`) adds the event selector to a
+    ``static_direct`` method (``ValueError`` for another method). Both exist
+    only in the 1.0 contracts: the request is written as
+    ``crn-craft.run/1.0`` and a rules-model as ``crn-craft.model/1.0`` (only
+    its schema string changes; the request's model hash follows when it
+    was the hash of the supplied bytes). A Static Direct request of a
+    rules-run version keeps its meaning: the defaults of its version are
+    written out (``"waiting_time": "inverse"`` and ``"sparse_trackers":
+    False`` for rules-run/0.2 to 0.5, and ``"selector": "linear"`` unless
+    ``selector`` is given), so it runs the same paths. A request that
+    already has ``outputs.quantiles`` (or a selector) raises ``ValueError``
+    when the argument is given too. ``None`` or an empty sequence, the
+    default, leaves both documents as supplied; a ``crn-craft.run/1.0``
+    request may also carry ``outputs.quantiles`` and ``method.selector``
     itself.
     """
+    return _prepare(model, request, compiled, quantiles, _selector(selector), False)
+
+
+def _prepare(model, request, compiled, quantiles, selector, unified):
+    """``prepare``; with ``unified`` (the top-level name) every request is
+    written as run/1.0 and every model as model/1.0, ``quantiles`` may be
+    :data:`_DEFAULT` (the default quantiles unless the request states its
+    own) and network models are converted."""
+    if quantiles is _DEFAULT:
+        quantiles = () if _has_quantiles(request) else DEFAULT_QUANTILES
     probabilities = _probabilities(quantiles)
     if isinstance(model, Model):
         model = model.to_dict()
     unified_from = None
-    if probabilities:
-        original = model_bytes(model)
-        data = _as_model_1_0(model)
+    original = model_bytes(model)
+    if unified or probabilities or selector is not None:
+        data = _as_model_1_0(model, network=unified)
         old, new = (hashlib.sha256(d).hexdigest() for d in (original, data))
-        request = _request_with_quantiles(request, probabilities, old, new)
+        schema = _request_schema(request)
+        if unified and (
+            schema is _UNREADABLE
+            or (
+                schema == RUN_1_0
+                and not probabilities
+                and selector is None
+                and old == new
+            )
+        ):
+            # Already the 1.0 documents, or a request that does not parse:
+            # its exact bytes go to the engine.
+            pass
+        else:
+            request = _request_1_0(request, probabilities, selector, old, new)
         unified_from = old if old != new else None
     else:
-        data = model_bytes(model)
-    return _prepared(data, request, compiled, unified_from)
+        data = original
+    return _prepared(data, request, compiled, unified_from, unified)
 
 
-def _prepared(data, request, compiled, unified_from):
+# `_request_schema` of a request that is no JSON object.
+_UNREADABLE = object()
+
+
+def _request_schema(request):
+    """The request's ``schema`` value, read leniently; :data:`_UNREADABLE`
+    for a request that is no JSON object."""
+    if isinstance(request, bytes | str):
+        try:
+            request = json.loads(request)
+        except ValueError:
+            return _UNREADABLE
+    return request.get("schema") if isinstance(request, Mapping) else _UNREADABLE
+
+
+def _has_quantiles(request):
+    """Whether a request (bytes, text or a dictionary) states outputs.quantiles."""
+    if isinstance(request, bytes | str):
+        try:
+            request = json.loads(request)
+        except ValueError:
+            return False
+    outputs = request.get("outputs") if isinstance(request, Mapping) else None
+    return isinstance(outputs, Mapping) and "quantiles" in outputs
+
+
+def _prepared(data, request, compiled, unified_from, unified):
     """Prepare exact model bytes with a request (bytes or a dictionary)."""
     request = model_bytes(request)
     try:
@@ -865,7 +997,12 @@ def _prepared(data, request, compiled, unified_from):
     # The engine has validated the model; results list rules in this order.
     names = [r["name"] for r in json.loads(data)["rules"]]
     return PreparedEnsemble(
-        native, names, (data, request), compiled, unified_from=unified_from
+        native,
+        names,
+        (data, request),
+        compiled,
+        unified_from=unified_from,
+        unified=unified,
     )
 
 
@@ -889,6 +1026,7 @@ def ensemble(
     method=None,
     compiled=None,
     quantiles=None,
+    selector=None,
 ):
     """Build and prepare a rules request with explicit work/output budgets.
 
@@ -987,13 +1125,75 @@ def ensemble(
     :class:`Model`: ``d = m.to_dict(); d["schema"] = "crn-craft.model/1.0";
     loop = compile_loop(d)``); a loop compiled for the rules-model bytes is
     refused with ``CRN-R020`` at ``/model``.
+
+    ``selector`` chooses the event selector of ``method="static_direct"``
+    (``ValueError`` for another method): ``"linear"``, the scan of every
+    rules-run version; ``"composition_rejection"``, ``"sorting"`` and
+    ``"rssa_cr"``, ported from the network engine; or ``"auto"``, linear
+    below 512 lowered channels and composition-rejection from there on
+    (``crn_craft.describe()`` lists the thresholds). The selector exists
+    only in ``crn-craft.run/1.0``, so passing it writes the 1.0 documents,
+    as ``quantiles`` does. A ``crn-craft.run/1.0`` Static Direct request
+    without a selector runs ``"auto"``; on a model of 512 or more lowered
+    channels that is composition-rejection, so a run with quantiles then
+    differs from the same run without them unless ``selector="linear"``.
+    The selector is part of the sampler identity.
     """
+    return _ensemble(
+        model,
+        end=end,
+        report_times=report_times,
+        replicates=replicates,
+        seed=seed,
+        threads=threads,
+        keep_paths=keep_paths,
+        keep_instances=keep_instances,
+        max_events=max_events,
+        max_sampling_steps=max_sampling_steps,
+        max_instances=max_instances,
+        max_output_bytes=max_output_bytes,
+        wall_time_s=wall_time_s,
+        trackers=trackers,
+        event_log=event_log,
+        method=method,
+        compiled=compiled,
+        quantiles=quantiles,
+        selector=_selector(selector),
+        unified=False,
+    )
+
+
+def _ensemble(
+    model,
+    *,
+    end,
+    report_times,
+    replicates,
+    seed,
+    threads,
+    keep_paths,
+    keep_instances,
+    max_events,
+    max_sampling_steps,
+    max_instances,
+    max_output_bytes,
+    wall_time_s,
+    trackers,
+    event_log,
+    method,
+    compiled,
+    quantiles,
+    selector,
+    unified,
+):
+    """``ensemble``; with ``unified`` (the top-level name) the documents are
+    always model/1.0 and run/1.0 and network models are converted."""
     probabilities = _probabilities(quantiles)
     if isinstance(model, Model):
         model = model.to_dict()
     unified_from = None
-    if probabilities:
-        data = _as_model_1_0(model)
+    if unified or probabilities or selector is not None:
+        data = _as_model_1_0(model, network=unified)
         original = hashlib.sha256(model_bytes(model)).hexdigest()
         if original != hashlib.sha256(data).hexdigest():
             unified_from = original
@@ -1058,14 +1258,22 @@ def ensemble(
         ):
             # Options left out take the rules-run/0.6 defaults.
             request["schema"] = "crn-craft.rules-run/0.6"
-    if json.loads(data).get("schema") == MODEL_1_0 or probabilities:
+    if selector is not None:
+        request["method"] = _with_selector(request.get("method"), selector)
+    if (
+        json.loads(data).get("schema") == MODEL_1_0
+        or probabilities
+        or selector is not None
+        or unified
+    ):
         # A crn-craft.model/1.0 model runs only with crn-craft.run/1.0,
-        # which has the fields and defaults of rules-run/0.6; quantiles
-        # exist only there. Static Direct is already rules-run/0.6 above.
+        # which has the fields and defaults of rules-run/0.6; quantiles and
+        # selectors exist only there. Static Direct is already rules-run/0.6
+        # above.
         request["schema"] = RUN_1_0
     if probabilities:
         request["outputs"]["quantiles"] = probabilities
-    return _prepared(data, request, compiled, unified_from)
+    return _prepared(data, request, compiled, unified_from, unified)
 
 
 def fsp(model, end, report_times, bounds, max_states=None, tolerance=None):
@@ -1131,6 +1339,80 @@ def fsp(model, end, report_times, bounds, max_states=None, tolerance=None):
     except _native.NativeError as error:
         raise _crn_error(error) from None
     return json.loads(text)
+
+
+# The error terms of an FSP snapshot, the columns of FspResult.truncation.
+_FSP_ERRORS = (
+    "physical_leakage_estimate",
+    "series_tail_upper_bound",
+    "discarded_weight_estimate",
+    "mass_defect",
+    "roundoff_mass_residual",
+)
+
+
+class FspResult:
+    """A finite state projection as pandas and xarray objects.
+
+    :meth:`Model.fsp` returns it; :func:`fsp` returns the document it wraps.
+
+    - ``states``: the projected states, a DataFrame indexed by ``state``
+      (0 is the initial state) with one int64 column per species label.
+    - ``probabilities``: a DataArray with dimensions ``("time", "state")``,
+      the probability of each state at each report time (the mass that left
+      the bounds is not in it; see ``truncation``).
+    - ``mean``: the projected first moment of each species at each report
+      time, a DataFrame indexed by ``time``: Σ p(x)·x over the retained
+      states, not renormalized, so it is the mean of the full process only
+      up to the leaked mass.
+    - ``truncation``: the error terms per report time, a DataFrame with the
+      columns ``physical_leakage_estimate`` (mass that left the bounds),
+      ``series_tail_upper_bound``, ``discarded_weight_estimate``,
+      ``mass_defect`` and ``roundoff_mass_residual``.
+    - ``species``: the species labels; ``metadata``: the
+      ``crn-craft.fsp-result/1.0`` document.
+    """
+
+    def __init__(self, document):
+        self.metadata = document
+        self.species = tuple(document["species"])
+        snapshots = document["snapshots"]
+        times = pd.Index([s["time"] for s in snapshots], dtype=np.float64, name="time")
+        columns = pd.Index(self.species, name="species")
+        count = len(document["states"])
+        self.states = pd.DataFrame(
+            np.array(document["states"], dtype=np.int64).reshape(
+                count, len(self.species)
+            ),
+            index=pd.RangeIndex(count, name="state"),
+            columns=columns,
+        )
+        self.probabilities = xarray.DataArray(
+            np.array([s["probabilities"] for s in snapshots], dtype=np.float64).reshape(
+                len(snapshots), count
+            ),
+            dims=("time", "state"),
+            coords={"time": times.to_numpy(), "state": np.arange(count)},
+            name="probability",
+        )
+        self.mean = pd.DataFrame(
+            np.array(
+                [s["projected_first_moment"] for s in snapshots], dtype=np.float64
+            ).reshape(len(snapshots), len(self.species)),
+            index=times,
+            columns=columns,
+        )
+        self.truncation = pd.DataFrame(
+            {key: [s[key] for s in snapshots] for key in _FSP_ERRORS},
+            index=times,
+            dtype=np.float64,
+        )
+
+    def __repr__(self):
+        return (
+            f"FspResult({len(self.states)} states of {', '.join(self.species)}, "
+            f"{len(self.truncation)} report times)"
+        )
 
 
 def archive(model, request, directory, *, cancel_file=None):

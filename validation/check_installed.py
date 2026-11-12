@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import crn_craft as c
+import crn_craft._legacy as legacy
 from crn_craft import rules
 from crn_craft.importers import import_bng_net
 from crn_craft.observables import oscillation, sampled_first_passage
@@ -439,7 +440,8 @@ def check_builder_odes():
     require(
         plain.to_json(indent=None) == ODES_040
         and explicit.to_json(indent=None) == ODES_040
-        and c.model_bytes(plain.to_dict()) == c.model_bytes(json.loads(ODES_040))
+        and legacy.model_bytes(plain.to_dict())
+        == legacy.model_bytes(json.loads(ODES_040))
         and plain.to_json() == json.dumps(json.loads(ODES_040), indent=2) + "\n",
         "add_ode without independent variables writes the bytes of 0.4.0",
     )
@@ -659,22 +661,35 @@ def check_report():
     for the quantiles 0.025, 0.5 and 0.975, so the documents are
     crn-craft.run/1.0 and crn-craft.model/1.0.
     """
-    sir = rules.Model("sir")
+    sir = c.Model("sir")
     sir.add_species({"S": 999, "I": 1, "R": 0})
     sir.add_parameter({"beta": 2e-4, "gamma": 0.01})
     sir.add_reaction("beta * S * I", ["S", "I"], ["I", "I"], name="infection")
     sir.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
     sir.set_stop("I == 0")
-    result = rules.ensemble(
-        sir,
-        end=250.0,
-        report_times=[0, 50, 100, 150, 200, 250],
-        replicates=10,
-        seed=1,
-        keep_paths="all",
-        method="static_direct",
-        quantiles=(0.025, 0.5, 0.975),
-    ).simulate()
+    settings = {
+        "end": 250.0,
+        "report_times": [0, 50, 100, 150, 200, 250],
+        "replicates": 10,
+        "seed": 1,
+        "keep_paths": "all",
+        "method": "static_direct",
+    }
+    # The top-level API asks for these quantiles by default; through
+    # crn_craft.rules they are asked for, and the documents are the same.
+    prepared = c.ensemble(sir, **settings)
+    old = rules.Model("sir")
+    old.add_species({"S": 999, "I": 1, "R": 0})
+    old.add_parameter({"beta": 2e-4, "gamma": 0.01})
+    old.add_reaction("beta * S * I", ["S", "I"], ["I", "I"], name="infection")
+    old.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
+    old.set_stop("I == 0")
+    require(
+        rules.ensemble(old, quantiles=(0.025, 0.5, 0.975), **settings)._documents
+        == prepared._documents,
+        "the top-level SIR documents equal rules.ensemble(quantiles=...)",
+    )
+    result = prepared.simulate()
     require(
         list(result.statistics["quantiles"]) == [0.025, 0.5, 0.975]
         and result.statistics["median"] is result.statistics["quantiles"][0.5],
@@ -704,7 +719,8 @@ def check_report():
             report["schema"] == "crn-craft.report/1.0"
             and report["crn_craft_version"] == c.__version__
             and report["model"]
-            == {**sir.to_dict(), "schema": "crn-craft.model/1.0"}
+            == sir.to_dict()
+            == {**old.to_dict(), "schema": "crn-craft.model/1.0"}
             == result.model
             and report["request"]["schema"] == "crn-craft.run/1.0"
             and report["request"] == result.request
@@ -713,6 +729,133 @@ def check_report():
             and rules.load_report is c.load_report,
             "the JSON report holds the model and request that ran",
         )
+
+
+def poisson(n, mean):
+    """The Poisson probability of n, in floating point."""
+    return math.exp(n * math.log(mean) - mean - math.lgamma(n + 1)) if mean else n == 0
+
+
+def check_unified():
+    """The unified API from the installed wheel (M6a): the top-level names,
+    Model.fsp against the Poisson law of immigration-death, Model.analyze of
+    the enzyme model and a third-order reaction (FSP against its exact law,
+    and an ensemble against the FSP mean within 5 standard errors)."""
+    require(
+        set(c.__all__)
+        == {
+            "CompiledLoopError",
+            "CrnError",
+            "Model",
+            "archive",
+            "check",
+            "compile_loop",
+            "convert",
+            "describe",
+            "ensemble",
+            "load",
+            "load_example",
+            "load_report",
+            "loop_source",
+            "prepare",
+            "read_bngl",
+            "read_sbml",
+            "verify_archive",
+        }
+        and not hasattr(c, "run_spec")
+        and not hasattr(c, "simulate_ssa")
+        and c.describe()["schema"] == "crn-craft.describe/1.0",
+        "installed top level",
+    )
+    death = c.load_example("immigration-death")
+    times = [0.0, 2.0, 5.0, 10.0]
+    fsp = death.fsp(end=10.0, report_times=times, bounds={"A": 150})
+    states = fsp.states["A"].to_numpy()
+    for i, t in enumerate(times):
+        # Immigration-death from zero: Poisson with mean 20 (1 - exp(-0.2 t)).
+        mean = 20.0 * (1.0 - math.exp(-0.2 * t))
+        exact = np.array([poisson(int(n), mean) for n in states])
+        probabilities = fsp.probabilities.isel(time=i).to_numpy()
+        require(
+            float(np.max(np.abs(probabilities - exact))) <= 1e-10
+            and abs(fsp.mean["A"].iloc[i] - mean) < 1e-9
+            and fsp.truncation["physical_leakage_estimate"].iloc[i] < 1e-12,
+            f"installed Model.fsp matches the Poisson law at t = {t}",
+        )
+    report = c.load_example("enzyme-mechanism").analyze()
+    conservation = report["analysis"]["conservation"]
+    require(
+        report["schema"] == "crn-craft.analysis/1.0"
+        and report["success"]
+        and report["analysis"]["species"] == ["S", "E", "ES", "P"]
+        and conservation["status"] == "exact"
+        and [b["coefficients"] for b in conservation["basis"]]
+        == [["0", "1", "1", "0"], ["1", "0", "1", "1"]]
+        and [b["initial_total"] for b in conservation["basis"]] == ["10", "50"],
+        "installed Model.analyze: the enzyme and substrate totals are conserved",
+    )
+    # 3A -> 0 at k C(A, 3) from A = 10: a pure-death chain 10 -> 7 -> 4 -> 1
+    # with rates 120 k, 35 k and 4 k; 1 molecule is absorbing.
+    k = 0.01
+    tri = c.Model("third_order").add_species("A", 10)
+    tri.add_reaction(k, ["A", "A", "A"], [], name="triple")
+    require(
+        tri.to_dict()["rules"][0]["reactants"]
+        == [{"label": "x", "type": "A", "count": 3}]
+        and c.check(tri)["valid"],
+        "a third-order reaction is one pattern with count 3",
+    )
+    a, b, d = 120 * k, 35 * k, 4 * k
+    times = [0.0, 1.0, 5.0, 20.0]
+    law = c.Model.fsp(tri, end=20.0, report_times=times, bounds={"A": 10})
+    for i, t in enumerate(times):
+        p10 = math.exp(-a * t)
+        p7 = a / (b - a) * (math.exp(-a * t) - math.exp(-b * t))
+        p4 = (
+            a
+            * b
+            * (
+                math.exp(-a * t) / ((b - a) * (d - a))
+                + math.exp(-b * t) / ((a - b) * (d - b))
+                + math.exp(-d * t) / ((a - d) * (b - d))
+            )
+        )
+        exact = {10: p10, 7: p7, 4: p4, 1: 1.0 - p10 - p7 - p4}
+        got = dict(
+            zip(
+                law.states["A"].tolist(),
+                law.probabilities.isel(time=i).to_numpy().tolist(),
+                strict=True,
+            )
+        )
+        require(
+            set(got) == {10, 7, 4, 1}
+            and max(abs(got[n] - exact[n]) for n in exact) <= 1e-10,
+            f"installed third-order FSP matches the exact law at t = {t}",
+        )
+    ensemble = c.ensemble(
+        tri,
+        end=20.0,
+        report_times=times,
+        replicates=2000,
+        seed=11,
+        threads=2,
+        keep_paths=50,
+        method="static_direct",
+    ).simulate()
+    values = ensemble.paths.sel(variable="A").to_numpy()
+    mean = ensemble.statistics["mean"]["A"].to_numpy()
+    error = ensemble.statistics["mean_standard_error"]["A"].to_numpy()
+    require(
+        set(np.unique(values).tolist()) <= {10.0, 7.0, 4.0, 1.0}
+        and bool(np.all(np.diff(values, axis=1) <= 0))
+        and mean[0] == 10.0
+        and bool(
+            np.all(np.abs(mean[1:] - law.mean["A"].to_numpy()[1:]) <= 5 * error[1:])
+        )
+        and ensemble.statistics["median"]["A"].iloc[0] == 10.0,
+        "installed third-order ensemble matches its exact law",
+    )
 
 
 def main():
@@ -730,24 +873,26 @@ def main():
     reported = subprocess.run([cli, "--version"], capture_output=True, check=False)
     require(
         reported.returncode == 0
-        and json.loads(reported.stdout) == {"version": version, "interface": "python"},
+        and json.loads(reported.stdout)
+        == {"version": version, "interface": "python", "milestone": "unified-engine"},
         "installed entry point is the Python CLI",
     )
     checks.append("version_and_entry_points")
-    m = c.load_example("immigration-death")
-    r = c.run_spec(m, end=2.0, replicates=32, seed=77, keep=32)
-    a = c.simulate(m, r)
-    b = c.simulate(m, r, cached=True)
+    m = legacy.load_example("immigration-death")
+    r = legacy.run_spec(m, end=2.0, replicates=32, seed=77, keep=32)
+    a = legacy.simulate(m, r)
+    b = legacy.simulate(m, r, cached=True)
     require(a == b, "installed cached identity")
     checks.append("native_API_exact_identity")
     require(
-        c.describe()["schema"] == "crn-craft.describe/0.11", "installed capabilities"
+        legacy.describe()["schema"] == "crn-craft.describe/0.11",
+        "installed capabilities",
     )
     checks.append("discovery")
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
         (folder / "model.json").write_bytes(m)
-        (folder / "run.json").write_bytes(c.model_bytes(r))
+        (folder / "run.json").write_bytes(legacy.model_bytes(r))
         proc = subprocess.run(
             [
                 cli,
@@ -786,7 +931,7 @@ def main():
             "max_leaps_per_replicate": 100000,
             "reference_run": r,
         }
-        (folder / "tau.json").write_bytes(c.model_bytes(tau_request))
+        (folder / "tau.json").write_bytes(legacy.model_bytes(tau_request))
         extra = subprocess.run(
             [cli, "tau", str(folder / "model.json"), str(folder / "tau.json")],
             capture_output=True,
@@ -814,7 +959,7 @@ def main():
         decay = json.loads((folder / "decay.json").read_bytes())["model"]
         # The importers return the converted crn-craft.model/1.0 (M5f).
         require(
-            c.analyze(decay)["success"]
+            legacy.analyze(decay)["success"]
             and decay["schema"] == "crn-craft.model/1.0"
             and float(decay["rules"][0]["rate"]) == 0.5,
             "installed SBML import script",
@@ -831,7 +976,7 @@ def main():
     fsp["budget"] = {
         k: v for k, v in r["budget"].items() if k != "max_events_per_replicate"
     }
-    result = c.fsp(m, fsp)
+    result = legacy.fsp(m, fsp)
     require(not result["numerical_error_certified"], "installed FSP semantics")
     # Immigration-death from zero is Poisson with mean 20 (1 - exp(-0.2 t)).
     final = result["snapshots"][-1]
@@ -842,7 +987,7 @@ def main():
         "installed FSP matches the Poisson moments",
     )
     checks.append("FSP")
-    approx = c.tau(
+    approx = legacy.tau(
         m,
         {
             "schema": "crn-craft.tau-request/0.1",
@@ -858,7 +1003,9 @@ def main():
     checks.append("tau")
     net = b"begin species\n1 A() 2\nend species\nbegin reactions\n1 1 0 1.0\nend reactions\n"
     require(
-        c.analyze(import_bng_net(net, rate_convention="binomial")["model"])["success"],
+        legacy.analyze(import_bng_net(net, rate_convention="binomial")["model"])[
+            "success"
+        ],
         "installed importer",
     )
     from crn_craft.importers import ImportFailure
@@ -883,7 +1030,7 @@ def main():
         "installed oscillation detector",
     )
     try:
-        c.fsp(m, dict(fsp, schema="crn-craft.run/9"))
+        legacy.fsp(m, dict(fsp, schema="crn-craft.run/9"))
     except c.CrnError as error:
         require(error.diagnostics[0]["code"] == "CRN-E003", "installed CrnError")
     else:
@@ -1034,6 +1181,8 @@ def main():
     checks.append("rules_compiled_loop_refusals")
     check_report()
     checks.append("rules_result_report")
+    check_unified()
+    checks.append("unified_api")
     args.output.write_text(
         json.dumps(
             {

@@ -1,4 +1,10 @@
-"""Independent JSON Schema and subprocess acceptance. Safe under python -O."""
+"""Independent JSON Schema and subprocess acceptance of the unified command
+line (describe, check, run, verify, analyze, convert, export; rules and
+rules-check are aliases). Safe under python -O.
+
+Rows marked LEGACY test the network engine's contracts and hidden commands,
+which stay until task M8b; task M8a removes or migrates them.
+"""
 
 import argparse
 import hashlib
@@ -10,6 +16,43 @@ import tempfile
 from jsonschema import Draft7Validator
 
 ROOT = Path(__file__).resolve().parents[1]
+COMMANDS = ["describe", "check", "run", "verify", "analyze", "convert", "export"]
+HIDDEN = ["simulate", "simulate-cached", "ssa", "tau", "fsp"]
+# The 1.0 contracts and current reports, then the older contracts still read.
+SCHEMAS = [
+    "model-1.0",
+    "run-1.0",
+    "result-1.0",
+    "check-1.0",
+    "fsp-result-1.0",
+    "analysis-1.0",
+    "archive-1.0",
+    "archive-check-1.0",
+    "export",
+    "state",
+]
+STILL_READ = [
+    "rules-model",
+    "rules-run",
+    "rules-result",
+    "rules-check",
+    "model",
+    "archive",
+    "archive-check",
+]
+# LEGACY (M8b deletes them): schemas of the hidden network commands, still
+# served by `describe KIND` but listed nowhere.
+HIDDEN_SCHEMAS = [
+    "run",
+    "result",
+    "result-v1",
+    "check",
+    "fsp-result",
+    "tau-request",
+    "tau-result",
+    "ssa-run",
+    "ssa-result",
+]
 
 
 def require(condition, message):
@@ -27,89 +70,109 @@ def main():
     binary = args.binary.resolve()
     rows = []
 
-    def invoke(*command):
+    def call(*command):
         result = subprocess.run(
             [str(binary), *map(str, command)],
             cwd=ROOT,
             capture_output=True,
-            timeout=15,
+            timeout=30,
             check=False,
         )
         require(not result.stderr, f"unexpected stderr: {result.stderr!r}")
-        return result.returncode, json.loads(result.stdout)
+        return result.returncode, result.stdout
+
+    def invoke(*command):
+        code, stdout = call(*command)
+        return code, json.loads(stdout)
 
     def record(name, condition):
         rows.append({"check": name, "passed": bool(condition)})
 
+    def coded(report, code, path=None):
+        return any(
+            d["code"] == code and (path is None or d["path"] == path)
+            for d in report.get("diagnostics", [])
+        )
+
     validators = {}
-    for kind in (
-        "model",
-        "run",
-        "result",
-        "result-v1",
-        "archive",
-        "archive-check",
-        "check",
-        "state",
-        "analysis-1.0",
-        "export",
-        "fsp-result",
-        "tau-request",
-        "tau-result",
-        "ssa-run",
-        "ssa-result",
-        "rules-model",
-        "rules-check",
-        "rules-run",
-        "rules-result",
-        "model-1.0",
-        "check-1.0",
-        "run-1.0",
-        "result-1.0",
-        "fsp-result-1.0",
-        "archive-1.0",
-        "archive-check-1.0",
-    ):
+    for kind in SCHEMAS + STILL_READ + HIDDEN_SCHEMAS:
         code, schema = invoke("describe", kind)
         Draft7Validator.check_schema(schema)
         validators[kind] = Draft7Validator(schema)
         snapshot = json.loads((ROOT / f"schemas/{kind}.schema.json").read_text())
         record(f"schema_snapshot_{kind}", code == 0 and snapshot == schema)
 
+    # Discovery, help and version list the unified command set only.
     code, capabilities = invoke("describe")
     record(
-        "honest_capabilities",
+        "describe_1_0",
         code == 0
-        and capabilities["simulation_available"] is True
-        and capabilities["rate_evaluation_available"] is True
-        and capabilities["commands"]
-        == [
-            "describe",
-            "check",
-            "analyze",
-            "export",
-            "simulate",
-            "verify",
-            "simulate-cached",
-            "fsp",
-            "tau",
-            "ssa",
-            "rules-check",
-            "rules",
-            "convert",
-        ]
-        and capabilities["dynamic_species"]["model"] == "crn-craft.rules-model/0.1"
-        and capabilities["schema"] == "crn-craft.describe/0.15"
-        and capabilities["dynamic_species"]["accepted_requests"][-1]
-        == "crn-craft.rules-run/0.6",
+        and capabilities["schema"] == "crn-craft.describe/1.0"
+        and capabilities["crate"] == "crn-craft"
+        and capabilities["commands"] == COMMANDS
+        and capabilities["aliases"] == {"rules": "run", "rules-check": "check"}
+        and capabilities["schemas"] == SCHEMAS
+        and capabilities["legacy"]["schemas"] == STILL_READ
+        and capabilities["contracts"]["model"] == "crn-craft.model/1.0"
+        and capabilities["contracts"]["request"] == "crn-craft.run/1.0"
+        and capabilities["contracts"]["result"] == "crn-craft.result/1.0"
+        and capabilities["legacy"]["requests"][-1] == "crn-craft.rules-run/0.6"
+        and "crn-craft.model/0.1" in capabilities["legacy"]["models"]
+        and capabilities["legacy"]["rules"]["crate"] == "crn-craft",
+    )
+    record(
+        "describe_hides_the_network_commands",
+        not set(HIDDEN) & set(capabilities["commands"])
+        and not set(HIDDEN_SCHEMAS)
+        & set(capabilities["schemas"] + capabilities["legacy"]["schemas"]),
+    )
+    code, help_text = call("--help")
+    listed = [
+        line.split()[1]
+        for line in help_text.decode().splitlines()
+        if line.startswith("  crn-craft ")
+    ]
+    record(
+        "help_lists_the_unified_commands",
+        code == 0
+        and listed == COMMANDS + ["--version"]
+        and not any(f"crn-craft {name} " in help_text.decode() for name in HIDDEN),
+    )
+    code, version = invoke("--version")
+    record(
+        "version_and_milestone",
+        code == 0 and set(version) == {"version", "milestone"},
     )
 
+    # Network examples: check (of the conversion), convert, analyze, export.
     examples = ROOT / "models/examples"
     for path in sorted(examples.glob("*.model.json")):
         validators["model"].validate(json.loads(path.read_text()))
         code, report = invoke("check", path)
-        validators["check"].validate(report)
-        record(f"model_{path.name}", code == 0 and report["valid"])
+        validators["check-1.0"].validate(report)
+        record(
+            f"model_{path.name}",
+            code == 0
+            and report["valid"]
+            and report["schema"] == "crn-craft.check/1.0"
+            and report["model_sha256"] == hashlib.sha256(path.read_bytes()).hexdigest(),
+        )
+        code, converted = call("convert", path)
+        document = json.loads(converted)
+        validators["model-1.0"].validate(document)
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / "converted.json"
+            target.write_bytes(converted)
+            check_code, checked = invoke("check", target)
+            alias_code, alias = invoke("rules-check", target)
+        record(
+            f"convert_{path.name}",
+            code == 0
+            and document["schema"] == "crn-craft.model/1.0"
+            and (check_code, alias_code) == (0, 0)
+            and checked == alias
+            and checked["schema"] == "crn-craft.check/1.0",
+        )
         code, analysis = invoke("analyze", path)
         validators["analysis-1.0"].validate(analysis)
         record(
@@ -139,6 +202,8 @@ def main():
             and exported["artifact"] is not None
             and ("propensity_function=" in exported["artifact"]["source"]) == custom,
         )
+    # LEGACY (M8a): a network model with a network run/0.1 request gets the
+    # network engine's check/0.1, which the hidden commands use.
     for path in sorted(examples.glob("*.run.json")):
         run = json.loads(path.read_text())
         validators["run"].validate(run)
@@ -147,9 +212,10 @@ def main():
         code, report = invoke("check", model, path)
         validators["check"].validate(report)
         record(
-            f"run_{path.name}",
+            f"legacy_run_{path.name}",
             code == 0
             and report["valid"]
+            and report["schema"] == "crn-craft.check/0.1"
             and not report["execution_available"]
             and run["model"]["sha256"] == expected == report["model_sha256"]
             and report["run_sha256"] == hashlib.sha256(path.read_bytes()).hexdigest(),
@@ -157,12 +223,15 @@ def main():
 
     for path in sorted((ROOT / "models/rules").glob("*.rules.json")):
         validators["rules-model"].validate(json.loads(path.read_text()))
-        code, report = invoke("rules-check", path)
+        code, report = invoke("check", path)
         validators["rules-check"].validate(report)
+        alias = invoke("rules-check", path)
         record(
             f"rules_{path.name}",
             code == 0
             and report["valid"]
+            and report["schema"] == "crn-craft.rules-check/0.1"
+            and alias == (code, report)
             and report["model_sha256"] == hashlib.sha256(path.read_bytes()).hexdigest(),
         )
         # Analysis reads rules models. Models with ATP, continuous variables,
@@ -187,10 +256,11 @@ def main():
             ),
         )
 
-    # rules-model/0.3 through the CLI: a hybrid run of the continuous ATP
-    # model (rules-run/0.5, rules-result/0.3), its refusal by Static Direct,
-    # and a whole-rule propensity under Static Direct (rules-result/0.2, and
-    # rules-result/0.3 with the Ziggurat default of rules-run/0.6).
+    # rules-model/0.3 through `run` (and its alias `rules`): a hybrid run of
+    # the continuous ATP model (rules-run/0.5, rules-result/0.3), its refusal
+    # by Static Direct, and a whole-rule propensity under Static Direct
+    # (rules-result/0.2, and rules-result/0.3 with the Ziggurat default of
+    # rules-run/0.6). `check MODEL REQUEST` reports what `run` refuses.
     with tempfile.TemporaryDirectory(prefix="crn-rules-03-") as folder:
         temp = Path(folder)
         atp = temp / "atp.rules.json"
@@ -286,13 +356,19 @@ def main():
             validators["rules-run"].validate(document)
             path = temp / f"{name}.run.json"
             path.write_text(json.dumps(document))
-            code, report = invoke("rules", model, path)
+            code, text = call("run", model, path)
+            alias = call("rules", model, path)
+            report = json.loads(text)
+            check_code, checked = invoke("check", model, path)
+            validators["check-1.0"].validate(checked)
             if name == "rules_run_static_refuses_continuous":
                 record(
                     name,
                     code == 1
-                    and report["diagnostics"][0]["code"] == "CRN-R020"
-                    and report["diagnostics"][0]["path"] == "/method",
+                    and alias == (code, text)
+                    and coded(report, "CRN-R020", "/method")
+                    and check_code == 1
+                    and checked["diagnostics"] == report["diagnostics"],
                 )
                 continue
             validators["rules-result"].validate(report)
@@ -317,6 +393,11 @@ def main():
             record(
                 name,
                 code == 0
+                and alias == (code, text)
+                and check_code == 0
+                and checked["valid"]
+                and checked["run_sha256"]
+                == hashlib.sha256(path.read_bytes()).hexdigest()
                 and report["termination"] == "completed"
                 and report["schema"]
                 == (
@@ -328,7 +409,7 @@ def main():
             )
 
         # crn-craft.run/1.0 with method fsp: crn-craft.fsp-result/1.0 from
-        # `rules`, and a missing bound refused at its label.
+        # `run`, and a missing bound refused at its label by run and check.
         fsp = {
             "schema": "crn-craft.run/1.0",
             "model": {
@@ -347,23 +428,70 @@ def main():
         validators["run-1.0"].validate(fsp)
         path = temp / "fsp.run.json"
         path.write_text(json.dumps(fsp))
-        code, report = invoke("rules", propensity, path)
+        code, report = invoke("run", propensity, path)
         validators["fsp-result-1.0"].validate(report)
+        check_code, checked = invoke("check", propensity, path)
         record(
             "run_1_0_fsp",
             code == 0
+            and check_code == 0
+            and checked["valid"]
             and report["schema"] == "crn-craft.fsp-result/1.0"
             and report["species"] == ["A"]
             and len(report["snapshots"]) == 2,
         )
         fsp["method"]["bounds"] = {}
         path.write_text(json.dumps(fsp))
-        code, report = invoke("rules", propensity, path)
+        code, report = invoke("run", propensity, path)
+        check_code, checked = invoke("check", propensity, path)
         record(
             "run_1_0_fsp_missing_bound",
             code == 1
-            and report["diagnostics"][0]["code"] == "CRN-R020"
-            and report["diagnostics"][0]["path"] == "/method/bounds/A",
+            and coded(report, "CRN-R020", "/method/bounds/A")
+            and check_code == 1
+            and checked["diagnostics"] == report["diagnostics"],
+        )
+
+        # Strict request handling of `run` and `check`: unknown fields,
+        # duplicate keys, size limits; every refusal exits 1 with JSON.
+        base = request(propensity, "crn-craft.rules-run/0.6", {"kind": "static_direct"})
+        text = json.dumps(base)
+        for name, raw, expected in [
+            ("unknown_field", json.dumps({**base, "typo": 1}).encode(), "CRN-E003"),
+            (
+                "duplicate_key",
+                text.replace('"time":', '"ensemble": {}, "time":', 1).encode(),
+                "CRN-E002",
+            ),
+            ("trailing_document", (text + "{}").encode(), "CRN-E001"),
+            ("oversized", b" " * (16 * 1024 * 1024 + 1), "CRN-E004"),
+            ("deep", b"[" * 1000 + b"0" + b"]" * 1000, "CRN-E004"),
+        ]:
+            path = temp / f"{name}.run.json"
+            path.write_bytes(raw)
+            code, report = invoke("run", propensity, path)
+            check_code, checked = invoke("check", propensity, path)
+            record(
+                f"run_rejects_{name}",
+                code == 1
+                and coded(report, expected)
+                and check_code == 1
+                and coded(checked, expected),
+            )
+        # A network model where a rules or 1.0 model is read: CRN-E033.
+        network = temp / "network.json"
+        network.write_bytes((examples / "immigration-death.model.json").read_bytes())
+        document = request(network, "crn-craft.run/1.0", {"kind": "static_direct"})
+        path = temp / "network.run.json"
+        path.write_text(json.dumps(document))
+        code, report = invoke("run", network, path)
+        check_code, checked = invoke("check", network, path)
+        record(
+            "run_refuses_network_models",
+            code == 1
+            and coded(report, "CRN-E033", "/schema")
+            and check_code == 1
+            and coded(checked, "CRN-E033", "/schema"),
         )
 
     invalid = ROOT / "models/invalid"
@@ -372,15 +500,14 @@ def main():
         if row["run"] is not None:
             command.append(invalid / row["run"])
         code, report = invoke(*command)
-        validators["check"].validate(report)
+        # A network model alone is checked by converting it (check/1.0); with
+        # a network run/0.1 request it gets the network check (LEGACY).
+        validators["check" if row["run"] is not None else "check-1.0"].validate(report)
         record(
             row["name"],
             code == 1
             and not report["valid"]
-            and any(
-                d["code"] == row["code"] and d["path"] == row["path"]
-                for d in report["diagnostics"]
-            ),
+            and coded(report, row["code"], row["path"]),
         )
 
     # Schema validation is structural; semantic cross-references are Rust checks.
@@ -398,6 +525,28 @@ def main():
         record(
             f"schema_rejects_unknown_{path}", not validators["model"].is_valid(value)
         )
+    unified = json.loads(
+        subprocess.run(
+            [str(binary), "convert", examples / "immigration-death.model.json"],
+            capture_output=True,
+            check=True,
+        ).stdout
+    )
+    for name, value in [
+        ("unknown_top_level", {**unified, "typo": 1}),
+        ("wrong_version", {**unified, "schema": "crn-craft.model/99"}),
+        ("rules_version", {**unified, "schema": "crn-craft.rules-model/0.4"}),
+    ]:
+        record(
+            f"schema_1_0_rejects_{name}", not validators["model-1.0"].is_valid(value)
+        )
+    pattern = json.loads(json.dumps(unified))
+    pattern["rules"][1]["reactants"][0]["typo"] = 1
+    record(
+        "schema_1_0_rejects_unknown_pattern_field",
+        not validators["model-1.0"].is_valid(pattern)
+        and validators["model-1.0"].is_valid(unified),
+    )
 
     with tempfile.TemporaryDirectory(prefix="crn-schema-check-") as folder:
         temp = Path(folder)
@@ -407,32 +556,36 @@ def main():
             ("non_utf8", b"\xff", "CRN-E001"),
             ("deep_input", b"[" * 1000 + b"0" + b"]" * 1000, "CRN-E004"),
             ("oversized_input", b" " * (16 * 1024 * 1024 + 1), "CRN-E004"),
+            (
+                "duplicate_key",
+                b'{"schema": "crn-craft.model/1.0", "name": "a", "name": "b"}',
+                "CRN-E002",
+            ),
+            (
+                "unknown_field",
+                json.dumps({**unified, "typo": 1}).encode(),
+                "CRN-E003",
+            ),
         ]:
             mutated.write_bytes(raw)
             code, report = invoke("check", mutated)
-            record(
-                name,
-                code == 1
-                and any(d["code"] == expected_code for d in report["diagnostics"]),
-            )
+            record(name, code == 1 and coded(report, expected_code))
 
-    for command in ("run", "report"):
-        code, report = invoke(command)
+    for command in (["run"], ["rules"], ["report"], ["export"], ["check"], []):
+        code, report = invoke(*command)
+        hint = report["diagnostics"][0]["hint"] if report.get("diagnostics") else ""
         record(
-            f"unimplemented_{command}_fails",
-            code == 1 and report["diagnostics"][0]["code"] == "CRN-E031",
+            f"usage_error_{'_'.join(command) or 'none'}",
+            code == 1
+            and report["diagnostics"][0]["code"] == "CRN-E031"
+            and not any(name in hint for name in ("simulate", "ssa", "tau")),
         )
-    code, report = invoke("export")
-    record(
-        "export_missing_arguments_fails",
-        code == 1 and report["diagnostics"][0]["code"] == "CRN-E031",
-    )
     first = invoke("check", examples / "immigration-death.model.json")
     second = invoke("check", examples / "immigration-death.model.json")
     record("deterministic_check_report", first == second)
 
     summary = {
-        "schema": "crn-craft.contract-validation/0.1",
+        "schema": "crn-craft.contract-validation/0.2",
         "scope": "contracts_only_no_simulation",
         "checks": rows,
         "passed": sum(row["passed"] for row in rows),

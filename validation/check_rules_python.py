@@ -741,7 +741,7 @@ def check_result_documents(model):
     for result in (bound, again):
         request = result.request
         request["model"]["sha256"] = hashlib.sha256(
-            crn_craft.model_bytes(result.model)
+            rules.model_bytes(result.model)
         ).hexdigest()
         replay = rules.prepare(result.model, request).simulate()
         require(
@@ -963,7 +963,7 @@ def check_archives():
         decay = rules.Model("decay")
         decay.add_species({"X": 5})
         decay.add_reaction(1.0, ["X"], [])
-        data = crn_craft.model_bytes(decay.to_dict())
+        data = rules.model_bytes(decay.to_dict())
         fsp_request = {
             "schema": rules.RUN_1_0,
             "model": {"path": "model.json", "sha256": hashlib.sha256(data).hexdigest()},
@@ -1204,7 +1204,8 @@ def check_quantiles(model):
     ).simulate()
     require(limited.statistics is None, "quantiles are withheld")
     # prepare(): a rules-run/0.4 Static Direct request keeps its meaning
-    # (inverse waits, per-event trackers), as bytes, text or a dictionary.
+    # (inverse waits, per-event trackers, and since M4c's selectors the
+    # linear scan, which run/1.0 must name), as bytes, text or a dictionary.
     base = json.loads(
         rules.ensemble(model, method="static_direct", **common)._documents[1]
     )
@@ -1221,6 +1222,7 @@ def check_quantiles(model):
                 "kind": "static_direct",
                 "waiting_time": "inverse",
                 "sparse_trackers": False,
+                "selector": "linear",
             }
             and prepared.request["model"]["sha256"] == prepared.metadata["model_sha256"]
             and prepared.model["schema"] == rules.MODEL_1_0
@@ -1317,7 +1319,7 @@ def check_quantiles(model):
     def stand_in(document):
         loop = CompiledLoop(
             fingerprint=fingerprint_of(rules.loop_source(document)),
-            model_sha256=hashlib.sha256(crn_craft.model_bytes(document)).hexdigest(),
+            model_sha256=hashlib.sha256(rules.model_bytes(document)).hexdigest(),
             version=crn_craft._native.__version__,
             directory=tempfile.gettempdir(),
             cached=True,

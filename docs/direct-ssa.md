@@ -77,7 +77,8 @@ composition–rejection for the candidate draw).
 `waiting_time` is `ziggurat` or `inverse`. Ziggurat draws exponential waits
 from tables adapted from the Julia ecosystem (see
 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)); the inverse transform is
-`-ln(u) / total`. From `rules-run/0.6` and in `run/1.0`, `static_direct`
+`-ln(1 - u) / total`, with `u` a 53-bit uniform in [0, 1) that is drawn again
+when it is 0. From `rules-run/0.6` and in `run/1.0`, `static_direct`
 defaults to Ziggurat waits and to sparse integration of eligible count
 trackers. `{"kind": "static_direct", "waiting_time": "inverse",
 "sparse_trackers": false}` reproduces the Static Direct of release 0.3.0.

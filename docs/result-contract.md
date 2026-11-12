@@ -20,7 +20,7 @@ The schemas are `crn-craft describe result-1.0`, `fsp-result-1.0` and
 | `types`, `rules`, `observables`, `report_times` | names and grid; observables are sorted by name, continuous variables follow |
 | `requested_replicates`, `completed_replicates`, `stopped_replicates`, `events` | totals |
 | `termination` | `completed` when every replicate completed or stopped; otherwise the most severe replicate termination |
-| `replicates` | one record per replicate: termination, events, stop time, events per rule, random words, peak and created instances, optional diagnostic |
+| `replicates` | one record per replicate: whether it started, termination, events, stop time, events per rule, random words, peak and created instances, optional diagnostic. A replicate that a cancellation or the wall-time limit kept from starting has `started: false` and zero counters. A cancellation or wall-time limit that comes before the run can still start one replicate per worker thread: such a replicate is recorded as started, ends at its first poll (`cancelled` or `wall_time_limit`) and has 0 events and 0 random words |
 | `paths`, `final_instances`, `observations` | kept series, kept final instances, and tracker and log results |
 | `statistics` | `mean`, `sample_variance`, `mean_standard_error`, `samples` and `quantiles` (below). Withheld unless every replicate completed or stopped. |
 | `method`, `continuous` | the request's method with its tolerances, and the names of the continuous columns |

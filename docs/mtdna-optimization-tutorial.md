@@ -486,7 +486,7 @@ Practical sizes for this model:
   (`method="thinning"`) and for the clone model (tree method), at the costs
   given in the [performance analysis](mtdna-performance-analysis.md).
 - **Rust.** For very large studies, an optimizer in Rust can call
-  `crn_craft_rules::execute` directly, or a generated event loop
+  `crn_craft::rules::execute` directly, or a generated event loop
   ([user manual, section 16](mtdna-user-manual.md#16-rust)).
 
 ## 9. Checklist

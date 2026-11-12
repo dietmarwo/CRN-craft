@@ -9,11 +9,11 @@ shown below it, timings from a two-CPU Linux host.
 `validation/check_manual.py` runs every block and compares its output with
 the manual.
 
-The blocks use `import crn_craft as crn`. The module `crn_craft.rules` is the
-same module under its name in release 0.6.0: code written for 0.6.0 with
+The blocks use `import crn_craft as crn`. The module `crn_craft.rules` keeps
+the API of release 0.6.0 under its old name: code written for 0.6.0 with
 `from crn_craft import rules` keeps running with the same documents and the
-same results. The differences between the two spellings are listed in
-section 18.
+same results. The top level has the same names with the defaults of the 1.0
+contracts; section 18 lists the differences.
 
 Companion documents:
 

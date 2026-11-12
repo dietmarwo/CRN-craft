@@ -526,9 +526,11 @@ larger limits, change only the `schema` string to `crn-craft.model/1.0`.
 
 ## Prepared Python ensembles and static methods
 
-The module `crn_craft.rules` is the same module as the top-level `crn_craft`
-under its 0.6.0 name. It adds event observation, fixed-channel Direct and next
-reaction, approximate leaps, and ATP thinning. See the
+Python prepares these runs through the top-level `crn_craft`, which writes
+`crn-craft.model/1.0` and `crn-craft.run/1.0`, or through `crn_craft.rules`,
+the API of release 0.6.0 under its old name, which writes the `rules-*`
+versions unless a call needs a 1.0 feature. Both have event observation, Static Direct and next reaction,
+approximate leaps, and ATP thinning. See the
 [mtDNA rules guide](mtdna-rules.md) for rules-run/0.2–0.4, rules-result/0.2 and rules-model/0.2, examples,
 supported model shapes and validation commands. rules-run/0.5 adds `hybrid`
 and returns rules-result/0.3 (0.2 plus `method` and `continuous`); see

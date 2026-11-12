@@ -113,8 +113,8 @@ crn-craft.analysis/1.0 exact
   (`run.bind_parameters(...)`), trackers, event logs and callbacks, and
   an opt-in compiled event loop (`crn.compile_loop`, needs a Rust toolchain).
 - Exact distributions (`Model.fsp`), network analysis and conservation laws
-  (`Model.analyze`), ODE right-hand sides and GillesPy2 export
-  (`Model.to_gillespy2`), and strict SBML and BioNetGen import
+  (`Model.analyze`), GillesPy2 export (`Model.to_gillespy2`), and strict
+  SBML and BioNetGen import
   (`crn.read_sbml`, `crn.read_bngl`, `crn-craft-import`).
 - Quantile statistics and the median, and `Result.save` to markdown or JSON.
 - The `crn-craft` command for `check`, `run`, `verify` (sealed archives),
@@ -123,12 +123,13 @@ crn-craft.analysis/1.0 exact
 - `pip install "crn-craft[fit]"` adds the pinned SciPy, fcmaes-rust and
   SQP-craft versions used by the fitting examples.
 
-`crn_craft.rules` is the same module under its name in release 0.6.0. Code
-written for 0.6.0 keeps running with the same results. Release 0.7.0 merged
-the earlier network engine into the one engine; the
+`crn_craft.rules` keeps the API of release 0.6.0 under its old name, with its
+defaults, so code written for 0.6.0 keeps running with the same results.
+Release 0.7.0 merged the earlier network engine into the one engine; the
 [changelog](https://github.com/dietmarwo/CRN-craft/blob/main/CHANGELOG.md)
-has the migration tables. The optional diffsol BDF integrator with forward
-sensitivities and the job worker for
+has the migration tables. ODE right-hand sides and Jacobians are in the Rust
+crate (`crn_craft::kinetics`). The optional diffsol BDF integrator with
+forward sensitivities and the job worker for
 [optimization-jobs](https://github.com/dietmarwo/optimization-jobs) build from
 the repository and are not part of the wheel.
 

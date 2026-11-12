@@ -1,4 +1,4 @@
-# C4 — Infer aggregation rates with the rules engine
+# C4 — Infer aggregation rates with attributed rules
 
 Dynamic species require different semantics from a fixed reaction network.
 This lesson uses the native `crn-craft run` command with `crn-craft.run/1.0`

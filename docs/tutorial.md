@@ -71,8 +71,8 @@ a script or an agent can discover the interface without reading this page.
 
 Release 0.7.0 merged two earlier engines into this one. Models written for
 the old network engine convert with `crn-craft convert` (section 14), and
-code written for `crn_craft.rules` keeps running, because `crn_craft.rules`
-is the same module under its old name.
+code written for `crn_craft.rules` keeps running: that module keeps the API
+and defaults of release 0.6.0 under its old name.
 
 ## 2. A first model with the builder
 

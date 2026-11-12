@@ -91,7 +91,7 @@ unified engine replaced. Their successors are:
 
 | Earlier topic | Now |
 | --- | --- |
-| network `model/0.1`, `run/0.1`, `state/0.1` | [model reference](rules-language.md); `crn-craft convert` writes an old model as `model/1.0` |
+| network `model/0.1`, `run/0.1` | [model reference](rules-language.md); `crn-craft convert` writes an old model as `model/1.0`. `state/0.1` stays current (above) |
 | `analysis/0.1`, `0.2` and `analyze-v1` | `crn-craft.analysis/1.0` ([network analysis](network-api.md)) |
 | `result/0.1` and `0.2`, `archive/0.1` | [result contract](result-contract.md), [archive contract](archive-contract.md) |
 | `ssa-run`, `tau-request` | `crn-craft.run/1.0` methods `static_direct`, `next_reaction` and `tau` ([methods](direct-ssa.md)) |

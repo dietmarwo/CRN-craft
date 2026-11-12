@@ -1,7 +1,7 @@
 # Parameter optimization comparison: reproduction
 
-> **Since 0.7.0 (task M5g of the engine merge).** The worker runs the rules
-> engine: the frozen network models are converted to `crn-craft.model/1.0`,
+> **Since 0.7.0 (task M5g of the engine merge).** The worker runs the one
+> engine (`crn_craft::rules`): the frozen network models are converted to `crn-craft.model/1.0`,
 > the routes are `crn_fresh` (every candidate prepared afresh) and
 > `crn_reuse` (`Prepared::bind_parameters`), both interpreted Static Direct
 > with Ziggurat waits. There is no generated CRN route: generated rules

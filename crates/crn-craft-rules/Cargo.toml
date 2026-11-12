@@ -1,6 +1,6 @@
 [package]
 name = "crn-craft-rules"
-description = "Exact stochastic simulation of dynamic, attributed species with rule schemata"
+description = "Deprecated: the 0.6.0 name of crn_craft::rules, the CRN-craft engine, kept as a re-export"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

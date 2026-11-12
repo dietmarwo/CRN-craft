@@ -662,3 +662,45 @@ on the network command; every row equals the old script's row except F3
 the network `crn-craft fsp` command of this build gives a report
 byte-identical to the 0.6.0 binary's (it includes the SHA-256 of every
 result), so the old command's output is unchanged.
+
+### M5b (network analysis on the flat view): declaration
+
+Written and committed before the first run of the checks below. The engine
+under test analyzes a model with `crn-craft analyze MODEL`, which reads a
+network `crn-craft.model/0.1` through the converter and a rules model or
+`crn-craft.model/1.0` directly, and reports `crn-craft.analysis/1.0`.
+
+**Reference gate** (`validation/merge/check_analysis_references.py --binary
+target/release/crn-craft`, standard library only). For each of the twelve
+models of `models.json`, two runs of `crn-craft analyze`:
+
+1. on the network model file (the input of the 0.6.0 reference);
+2. on the model converted by the engine under test (`crn-craft convert`).
+
+Each parsed report is compared with the stored 0.6.0 report
+(`reference/<name>.analysis.json.gz`) leaf by leaf: every object key, every
+list length and every value. Ignored: `schema` (0.6.0
+`crn-craft.analysis/0.2`, now `crn-craft.analysis/1.0`, checked to be that
+string), and in run 2 `model_sha256`, which is the hash of the converted
+bytes there (checked to be that hash). The exit code must be 0 as in the
+reference. Values must be equal, with one declared exception: an element of
+`propensities` may differ when the 0.6.0 channel is a Hill law (relative
+difference ≤ 1e-14 · max(1, n)) or mass action over two molecules (relative
+difference ≤ 4 ε), the rate tolerances M2 declared and measured for the
+converted laws. Every such difference is listed in the report; a difference
+outside it, or in any other leaf, is a failure. N is the number of leaves
+compared, counted by the script. **0 failures are expected.** The report,
+`validation/merge/analysis/references.json`, holds no timings and must be
+identical normally and under `python -O`.
+
+**Migrated `check_network.py` and `check_structure.py`**: the same random
+network streams (seeds 20261101 and 20261103, unchanged fixture hashes),
+example models and special cases, analyzed by `crn-craft analyze` of the
+engine under test on the network files, with every structural and numerical
+check and tolerance of the 0.6.0 scripts. Cases whose expected outcome
+changes with the converter are counted and listed in the reports: a network
+without reactions is refused (`CRN-R016`, a rules model needs a rule); a
+propensity that overflows f64 fails with `CRN-R030` (0.6.0: `CRN-E042`); a
+positive propensity that underflows to 0 is reported as 0 (0.6.0: refused
+with `CRN-E042`); its tolerance check against the exact value applies as
+before. Both reports must be identical normally and under `python -O`.

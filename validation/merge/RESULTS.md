@@ -1074,3 +1074,88 @@ use a rate with a function and a stop condition (`CRN-E050`).
 **Migrated `check_importers.py`**: 49 of 49 checks (the 48 of 0.6.0 and the
 new rejection of an SBML model without reactions), identical under
 `python -O`.
+
+### M4f (per-event cost, RSSA-CR clock and threshold, `auto`): declaration
+
+Written and committed before any run of the checks below. Engine under test:
+branch `merge-0.7` at the M4f commits (clock fix `5d99986`, RSSA-CR
+threshold reuse `dccc6da` and the result-preserving changes between and
+after them), CLI `target/release/crn-craft` and the wheel built from the
+checkout, under the CPU lock.
+
+**1. RSSA-CR law gate, rerun as a new row.** Two M4f changes alter RSSA-CR
+results under `crn-craft.run/1.0`: a positive wait below half an ulp of the
+time is accepted (at most 1,000,000 consecutive steps; the M4c failure of
+vilar-noise was such a wait), and the acceptance test reuses the
+composition's threshold instead of drawing another uniform. So the whole
+RSSA-CR gate runs again: `check_laws.py --python ... --method '{"kind":
+"static_direct", "selector": "rssa_cr"}' --label m4f-rssa_cr`, all twelve
+models, the gate seeds of `models.json` (chunk k: root seed 2,000,000 + k),
+2 threads, report `validation/merge/laws/m4f-rssa_cr.json`. N = 4,814
+comparisons (4,636 against the references, 178 against FSP laws), 940 at
+t = 0; **0 failures are expected**. The M4c rows (eleven models passed,
+vilar-noise failed) stay as recorded. A failure is investigated once, not
+rerun with other seeds.
+
+**2. The other selectors are unchanged.** Every other M4f change keeps the
+arithmetic and the random words (byte-identical outputs on 156 requests:
+twelve models × every selector, both waiting times, `next_reaction`, kept
+paths and instances). The clock change differs from M4c only where a wait
+leaves the rounded time unchanged, which failed a replicate in M4c; every
+chunk of the M4c `linear`, `composition_rejection` and `sorting` gates
+completed, so no such wait occurred there. Check: chunks 0 and 1 of every
+model are rerun for each of the three selectors with `check_laws.py
+--state` into new state directories, and their stored power sums S1–S4,
+event counts and samplers must equal the M4c chunks
+(`/home/claude/m07/m4c/state-<selector>`) exactly (72 chunks).
+
+**3. Exact-law check per selector** (`check_selectors.py`, as declared in
+M4c: 168 DKW tests, ε = 0.00798, 16 power checks, family α = 0.001), rerun
+on the M4f engine because RSSA-CR changed; report
+`validation/merge/laws/selectors-exact-m4f.json`. **0 failures are
+expected**; the M4c report stays.
+
+**4. `auto` benchmark** (`selector_rule.py`, output
+`validation/merge/selector-rule.json`). Features of a lowered network: the
+channel count n; `pinned`, whether some rule's rate reads two or more
+lowered species (RSSA-CR bounds of such rules are points); the population
+P̄, the mean initial count of the lowered species with a positive initial
+count (∞ when every species starts at zero: such counts carry no scale).
+Synthetic families of `crn-craft.model/1.0` models, each at the M4c grid of
+channel counts (8 … 4,096; `dense` m = 3 … 64):
+
+| Family | Network | Molecules per species | Rates | pinned |
+| --- | --- | --- | --- | --- |
+| `ring4`, `ring32`, `ring256` | X_i → X_(i+1 mod n) | 4, 32, 256 | 1 | no |
+| `dense4`, `dense32`, `dense256` | every X_i → X_j, i ≠ j | 4, 32, 256 | 1 | no |
+| `michaelis` | the ring | 100 | vmax X_i / (km + X_i), vmax 1, km 10 | no |
+| `two_reads` | the ring | 100 | X_i X_(i+1) / (1 + X_(i+1)) | yes |
+
+Each point runs `linear`, `composition_rejection` and `rssa_cr` as in M4c
+(one replicate, one thread, root seed 4242, Ziggurat waits, about 10⁶
+events, median of three processes after a warm-up, nanoseconds per event).
+The target models are W1–W7 and the five examples, timed by `compare_speed.py
+--selectors linear,composition_rejection,sorting,rssa_cr` at the speed-gate
+sizes (report `validation/merge/speed-m4f-selectors.json`, after the
+benchmark, same engine).
+
+Rule family, with parameters N_small, N_large, N_cr ∈ {1, 2, 4, 8, 16, 32,
+64, 128, 256, 512, 1,024, 2,048, 4,096, ∞} and P_cut ∈ {8, 16, 32}:
+`auto` = `rssa_cr` if not pinned and n ≥ (N_small if P̄ < P_cut else
+N_large); else `composition_rejection` if n ≥ N_cr; else `linear` (never
+`sorting`). The parameters are chosen by this order of criteria, each
+breaking the ties of the one before: (a) fewest target models whose pick is
+more than 1.10 × slower than their fastest of the four selectors; (b) the
+smallest largest ratio pick / fastest over the target models; (c) the
+smallest largest ratio pick / fastest of the three measured selectors over
+the synthetic points; (d) the largest N_cr, then N_large, then N_small;
+(e) P_cut = 16, then 8, then 32. The chosen rule and every target model's
+pick and ratio are recorded; no target is expected to miss (a) but a miss is
+reported, not hidden. The M4c result (`selector-threshold.json`) stays as
+the earlier row.
+
+**5. Timing evidence for M4f** is the M4d speed gate (declared in M0c and
+above under "Speed gate (M4d)"); its unified methods are the four selectors
+(and `auto`) of Static Direct and `next_reaction`, all interpreted. The
+compiled event loop of the unified engine (`compile_loop`, linear scan) is
+timed at the Python boundary for information only.

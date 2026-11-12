@@ -38,7 +38,14 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 HERE = ROOT / "validation" / "merge"
-SELECTORS = ["linear", "composition_rejection", "sorting", "rssa_cr", "auto"]
+SELECTORS = [
+    "linear",
+    "composition_rejection",
+    "sorting",
+    "rssa_cr",
+    "auto",
+    "next_reaction",
+]
 
 
 def dump(value):
@@ -71,7 +78,10 @@ def timed(binary, args, cwd, repeats):
 def unified_request(row, model_bytes, converted, selector):
     request = row["request"]
     method = {"kind": "static_direct"}
-    if selector != "default":
+    if selector == "next_reaction":
+        # Not a selector: the exact next-reaction method of the engine.
+        method = {"kind": "next_reaction"}
+    elif selector != "default":
         method["selector"] = selector
     return {
         "schema": "crn-craft.run/1.0",
@@ -111,7 +121,8 @@ def main():
     parser.add_argument(
         "--selectors",
         default=",".join(SELECTORS),
-        help="comma-separated selectors; 'default' omits the field",
+        help="comma-separated selectors; 'default' omits the field, "
+        "'next_reaction' runs that method",
     )
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--output", type=Path, required=True)

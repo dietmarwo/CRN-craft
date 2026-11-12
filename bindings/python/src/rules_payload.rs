@@ -3,10 +3,10 @@
 //!
 //! The extension compiles this file, and `crn_craft.rules.compile_loop`
 //! copies it unchanged into every compiled event loop project, so both
-//! paths encode results with the same code. It may use only
-//! `crn_craft_rules` and `serde_json`.
+//! paths encode results with the same code. It may use only `crn_craft`
+//! and `serde_json`.
 
-use crn_craft_rules::{Record, RulesResult, Termination};
+use crn_craft::rules::{Record, RulesResult, Termination};
 
 /// Splits a result into its metadata document (the result without its
 /// records, plus the record diagnostics by replicate id) and the record

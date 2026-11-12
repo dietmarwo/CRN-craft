@@ -29,8 +29,8 @@ from check_mtdna import ROOT, read_model, require, rules_files
 import probe_structural_rules as probe_models
 
 RUNNER = """
-use crn_craft_rules::{Control, execute, execute_with_rules_kernel,
-                      execute_with_rules_loop, prepare};
+use crn_craft::rules::{Control, execute, execute_with_rules_kernel,
+                       execute_with_rules_loop, prepare};
 mod kernel { include!("kernel.rs"); }
 @MODULES@
 fn main() -> Result<(), String> {
@@ -162,11 +162,11 @@ def build(folder, loops, kernel_source):
     (source / "kernel.rs").write_bytes(kernel_source)
     main_rs = RUNNER.replace("@MODULES@", "\n".join(modules))
     (source / "main.rs").write_text(main_rs.replace("@ARMS@", "\n".join(arms)))
-    crate = ROOT / "crates/crn-craft-rules"
+    crate = ROOT / "crates/crn-craft"
     (folder / "Cargo.toml").write_text(
         '[package]\nname = "rules-loop-probe"\nversion = "0.1.0"\n'
         'edition = "2024"\n[workspace]\n'
-        f'[dependencies]\ncrn-craft-rules = {{path = "{crate}"}}\n'
+        f'[dependencies]\ncrn-craft = {{path = "{crate}"}}\n'
         'serde_json = "1"\n'
     )
     target = Path(os.environ.get("CARGO_TARGET_DIR", folder / "target")).resolve()

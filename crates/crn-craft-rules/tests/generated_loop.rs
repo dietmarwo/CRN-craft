@@ -105,7 +105,30 @@ fn the_builder_sir_with_string_rates_is_generated() {
     )
     .unwrap();
     let source = generate_rules_loop(&prepared).unwrap();
-    assert!(source.contains("impl crn_craft_rules::RulesLoop for GeneratedRulesLoop"));
+    assert!(source.contains("impl crn_craft::rules::RulesLoop for GeneratedRulesLoop"));
+}
+
+/// Since 0.7.0 generated code names the engine as `crn_craft::rules`, so it
+/// builds against the `crn-craft` crate alone; the facade crate
+/// `crn-craft-rules` is not needed.
+#[test]
+fn every_checked_in_fixture_names_the_crn_craft_crate() {
+    let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/generated");
+    let mut sources = 0;
+    for entry in std::fs::read_dir(&folder).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().is_some_and(|e| e == "rs") {
+            let source = std::fs::read_to_string(&path).unwrap();
+            assert!(
+                source.contains("impl crn_craft::rules::Rules"),
+                "{}",
+                path.display()
+            );
+            assert!(!source.contains("crn_craft_rules"), "{}", path.display());
+            sources += 1;
+        }
+    }
+    assert_eq!(sources, 20, "the loop and kernel fixtures");
 }
 
 const DEFAULT: (&str, &str) = ("crn-craft.rules-run/0.2", r#"{"kind": "static_direct"}"#);
@@ -866,7 +889,7 @@ fn higher_order_rules_are_generated_and_replay_the_interpreter() {
         generate_rules_loop(&prepared).unwrap() == golden,
         "generator output changed; regenerate loop_higher_order_loop.rs"
     );
-    assert!(golden.contains("crn_craft_rules::combination_rate("));
+    assert!(golden.contains("crn_craft::rules::combination_rate("));
     let observed = [
         (None, None),
         (

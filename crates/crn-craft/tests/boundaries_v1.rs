@@ -401,3 +401,66 @@ fn unstarted_replicates_are_accounted_for() {
     assert_eq!(expired.termination, Termination::WallTimeLimit);
     assert!(idle(&expired), "{:?}", expired.replicates);
 }
+
+/// M8b, from the network engine's `tests/ssa_alternatives.rs`: an absorbing
+/// state (here a pair rule with one molecule) ends the path at the horizon
+/// without a random word, also where an RSSA-CR box has enabled neighbors.
+#[test]
+fn absorbing_states_draw_no_random_words() {
+    let model = serde_json::to_vec(&json!({
+        "schema": "crn-craft.model/1.0", "name": "absorbed",
+        "parameters": {"k": 1.0}, "types": [{"name": "X"}],
+        "initial": [{"type": "X", "count": 1}], "observables": {"X": {"type": "X"}},
+        "rules": [{"name": "pair", "reactants": [{"label": "x", "type": "X"}, {"label": "y", "type": "X"}],
+                   "rate": "k", "products": []}]
+    }))
+    .unwrap();
+    for (name, method) in methods() {
+        let mut document: Value =
+            serde_json::from_slice(&request(&model, method, 10.0, 100)).unwrap();
+        document["budget"]["max_sampling_steps_per_replicate"] = json!(1);
+        let result = run(
+            &model,
+            &serde_json::to_vec(&document).unwrap(),
+            &Control::default(),
+        );
+        assert_eq!(result.termination, Termination::Completed, "{name}");
+        assert!(
+            result
+                .replicates
+                .iter()
+                .all(|r| r.events == 0 && r.rng_words == 0),
+            "{name}: {:?}",
+            result.replicates
+        );
+    }
+}
+
+/// M8b, from `tests/ssa_alternatives.rs`: every exact method replays the
+/// same result whatever the thread count; only the request hash (it covers
+/// `threads`) differs.
+#[test]
+fn every_method_replays_across_thread_counts() {
+    let model = decay(40, 0.5);
+    for (name, method) in methods() {
+        let results: Vec<Value> = [1, 3]
+            .into_iter()
+            .map(|threads| {
+                let mut document: Value =
+                    serde_json::from_slice(&request(&model, method.clone(), 5.0, 1000)).unwrap();
+                document["ensemble"]["replicates"] = json!(16);
+                document["outputs"]["keep_paths"] = json!(16);
+                document["budget"]["threads"] = json!(threads);
+                let result = run(
+                    &model,
+                    &serde_json::to_vec(&document).unwrap(),
+                    &Control::default(),
+                );
+                let mut value = serde_json::to_value(result).unwrap();
+                value.as_object_mut().unwrap().remove("run_sha256");
+                value
+            })
+            .collect();
+        assert_eq!(results[0], results[1], "{name}");
+    }
+}

@@ -51,7 +51,7 @@ impl Run {
             if r != 0.0 {
                 let relative = (x - r).abs() / r.abs();
                 self.largest = self.largest.max(relative);
-                if !(relative <= RELATIVE) {
+                if relative.is_nan() || relative > RELATIVE {
                     self.fail(json!({"point": point, "array": array, "index": index,
                                      "reference": r, "value": x, "relative": relative}));
                 }
@@ -63,7 +63,7 @@ impl Run {
                     let entry = json!({"point": point, "array": array, "index": index,
                                        "value": x, "array_scale": scale});
                     self.zero_inexact.push(entry.clone());
-                    if !(x.abs() <= RELATIVE * scale) {
+                    if x.is_nan() || x.abs() > RELATIVE * scale {
                         self.fail(entry);
                     }
                 }

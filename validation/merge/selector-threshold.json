@@ -1,0 +1,2568 @@
+{
+ "schema": "crn-craft.selector-threshold/0.1",
+ "declared_in": "validation/merge/RESULTS.md",
+ "host": {
+  "machine": "x86_64",
+  "python": "3.13.18"
+ },
+ "events_per_run": 1000000,
+ "repeats": 3,
+ "boundary": "wall time of one crn-craft rules process, median of three after a warm-up",
+ "rows": [
+  {
+   "family": "ring",
+   "channels": 8,
+   "end": 1250.0,
+   "selectors": {
+    "linear": {
+     "seconds": 0.07694685100068455,
+     "runs": [
+      0.07782337499975256,
+      0.07694685100068455,
+      0.07317842599968571
+     ],
+     "events": 1000068,
+     "ns_per_event": 76.94161897059455,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.10895881600026769,
+     "runs": [
+      0.11521877799987124,
+      0.10895881600026769,
+      0.10691577900070115
+     ],
+     "events": 1000592,
+     "ns_per_event": 108.8943505447452,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.09788846599985845,
+     "runs": [
+      0.09788846599985845,
+      0.09636154799954966,
+      0.09870530900025187
+     ],
+     "events": 1000068,
+     "ns_per_event": 97.88181003677596,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.06995021300008375,
+     "runs": [
+      0.06995021300008375,
+      0.06992900500063115,
+      0.07027993700012303
+     ],
+     "events": 1001128,
+     "ns_per_event": 69.8713980630686,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring",
+   "channels": 16,
+   "end": 625.0,
+   "selectors": {
+    "linear": {
+     "seconds": 0.07912230999954772,
+     "runs": [
+      0.07889337699998578,
+      0.08062937300019257,
+      0.07912230999954772
+     ],
+     "events": 1000068,
+     "ns_per_event": 79.11693004830444,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.11928016300043964,
+     "runs": [
+      0.12544567999975698,
+      0.11928016300043964,
+      0.11318155199933244
+     ],
+     "events": 999538,
+     "ns_per_event": 119.33529590714875,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.10701152599995112,
+     "runs": [
+      0.10775384099997609,
+      0.10701152599995112,
+      0.10660062900024059
+     ],
+     "events": 1000068,
+     "ns_per_event": 107.00424971097078,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.07170185300037701,
+     "runs": [
+      0.07170185300037701,
+      0.0712806340006864,
+      0.07575785999961226
+     ],
+     "events": 1000549,
+     "ns_per_event": 71.66251028223206,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring",
+   "channels": 32,
+   "end": 312.5,
+   "selectors": {
+    "linear": {
+     "seconds": 0.10325064700009534,
+     "runs": [
+      0.10325064700009534,
+      0.10059237099994789,
+      0.1054019650000555
+     ],
+     "events": 1000068,
+     "ns_per_event": 103.24362643349787,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.11711492399990675,
+     "runs": [
+      0.11711492399990675,
+      0.1192399640003714,
+      0.11585166199984087
+     ],
+     "events": 999961,
+     "ns_per_event": 117.1194916600815,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.12409854600082326,
+     "runs": [
+      0.12594092299968906,
+      0.12069954199978383,
+      0.12409854600082326
+     ],
+     "events": 1000068,
+     "ns_per_event": 124.09010787348787,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.07468727700052114,
+     "runs": [
+      0.07364586900075665,
+      0.07468727700052114,
+      0.07638956899972982
+     ],
+     "events": 999488,
+     "ns_per_event": 74.72553647519644,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring",
+   "channels": 64,
+   "end": 156.25,
+   "selectors": {
+    "linear": {
+     "seconds": 0.1331830250001076,
+     "runs": [
+      0.13957696600027703,
+      0.1331830250001076,
+      0.12993993500003853
+     ],
+     "events": 1000068,
+     "ns_per_event": 133.173969170204,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.13195540200013056,
+     "runs": [
+      0.13195540200013056,
+      0.1291704679997565,
+      0.13326504100041348
+     ],
+     "events": 1000471,
+     "ns_per_event": 131.8932802651257,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.15408525899965753,
+     "runs": [
+      0.15408525899965753,
+      0.19185432000085711,
+      0.15332521600066684
+     ],
+     "events": 1000068,
+     "ns_per_event": 154.07478191448732,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.08301057399967249,
+     "runs": [
+      0.08301057399967249,
+      0.08273219500006235,
+      0.08421279600042908
+     ],
+     "events": 998864,
+     "ns_per_event": 83.10498125838201,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring",
+   "channels": 128,
+   "end": 78.125,
+   "selectors": {
+    "linear": {
+     "seconds": 0.2118842070003666,
+     "runs": [
+      0.2118842070003666,
+      0.22456683599921234,
+      0.20854314000007435
+     ],
+     "events": 1000068,
+     "ns_per_event": 211.86979985397653,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.13999686199986172,
+     "runs": [
+      0.13870524400044815,
+      0.13999686199986172,
+      0.14555620700048166
+     ],
+     "events": 1000509,
+     "ns_per_event": 139.92563984917848,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.20241171100042266,
+     "runs": [
+      0.19841575999998895,
+      0.20241171100042266,
+      0.20338095000079193
+     ],
+     "events": 1000068,
+     "ns_per_event": 202.39794793996273,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.0799420529992858,
+     "runs": [
+      0.0799420529992858,
+      0.08693309200043586,
+      0.07759584699942934
+     ],
+     "events": 998537,
+     "ns_per_event": 80.05917957900989,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring",
+   "channels": 256,
+   "end": 39.0625,
+   "selectors": {
+    "linear": {
+     "seconds": 0.34422357299990836,
+     "runs": [
+      0.35145768000074895,
+      0.34422357299990836,
+      0.3379490339993936
+     ],
+     "events": 1000068,
+     "ns_per_event": 344.2001673885259,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.14338014999975712,
+     "runs": [
+      0.14338014999975712,
+      0.1402289980005662,
+      0.15116261499952088
+     ],
+     "events": 999888,
+     "ns_per_event": 143.39621037531916,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.2973737860002075,
+     "runs": [
+      0.2883317880005052,
+      0.33426530299948354,
+      0.2973737860002075
+     ],
+     "events": 1000068,
+     "ns_per_event": 297.35356595772237,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.08515071900001203,
+     "runs": [
+      0.08350753700051428,
+      0.08515071900001203,
+      0.11274988600052893
+     ],
+     "events": 1000435,
+     "ns_per_event": 85.11369454288587,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring",
+   "channels": 512,
+   "end": 19.53125,
+   "selectors": {
+    "linear": {
+     "seconds": 0.6466442079999979,
+     "runs": [
+      0.6945691110004191,
+      0.6442064030006804,
+      0.6466442079999979
+     ],
+     "events": 1000068,
+     "ns_per_event": 646.6002391837334,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.15313801400043303,
+     "runs": [
+      0.15264269099952799,
+      0.15313801400043303,
+      0.1548383310000645
+     ],
+     "events": 999442,
+     "ns_per_event": 153.2235127205311,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.4990742820000378,
+     "runs": [
+      0.5609465709994765,
+      0.4616683890008062,
+      0.4990742820000378
+     ],
+     "events": 1000068,
+     "ns_per_event": 499.04034725642435,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.09966432799956237,
+     "runs": [
+      0.10044441699938034,
+      0.09670538899990788,
+      0.09966432799956237
+     ],
+     "events": 999881,
+     "ns_per_event": 99.67618946610884,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring",
+   "channels": 1024,
+   "end": 9.765625,
+   "selectors": {
+    "linear": {
+     "seconds": 1.4138311300002897,
+     "runs": [
+      1.4138311300002897,
+      1.5530896379996193,
+      1.3849194650001664
+     ],
+     "events": 1000068,
+     "ns_per_event": 1413.7349960205602,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.20646359500005929,
+     "runs": [
+      0.18944091999946977,
+      0.21548954699937894,
+      0.20646359500005929
+     ],
+     "events": 999557,
+     "ns_per_event": 206.55509890887592,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.8563880749998134,
+     "runs": [
+      0.8383981130000393,
+      0.8563880749998134,
+      0.9291929719993277
+     ],
+     "events": 1000068,
+     "ns_per_event": 856.3298445703826,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.10695175300043047,
+     "runs": [
+      0.10573731300064537,
+      0.10695175300043047,
+      0.1380125980003868
+     ],
+     "events": 1000703,
+     "ns_per_event": 106.87661873745803,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring",
+   "channels": 2048,
+   "end": 4.8828125,
+   "selectors": {
+    "linear": {
+     "seconds": 2.550263975999769,
+     "runs": [
+      2.4287635440005033,
+      2.5523393570001645,
+      2.550263975999769
+     ],
+     "events": 1000068,
+     "ns_per_event": 2550.09056984102,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.20349405799970555,
+     "runs": [
+      0.20676179499969294,
+      0.19995733999985532,
+      0.20349405799970555
+     ],
+     "events": 1000870,
+     "ns_per_event": 203.31717206001335,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 1.5293090509994727,
+     "runs": [
+      1.5293090509994727,
+      1.5681020880001597,
+      1.518525423999563
+     ],
+     "events": 1000068,
+     "ns_per_event": 1529.2050650550489,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.13199425599941605,
+     "runs": [
+      0.13199425599941605,
+      0.1347840839998753,
+      0.1312727549993724
+     ],
+     "events": 999830,
+     "ns_per_event": 132.01669883821856,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring",
+   "channels": 4096,
+   "end": 2.44140625,
+   "selectors": {
+    "linear": {
+     "seconds": 4.977461543000572,
+     "runs": [
+      5.003031385999748,
+      4.977461543000572,
+      4.6723290910003925
+     ],
+     "events": 1000068,
+     "ns_per_event": 4977.123098629865,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.2902205539994611,
+     "runs": [
+      0.2902205539994611,
+      0.3063659990002634,
+      0.27355871999952797
+     ],
+     "events": 1000237,
+     "ns_per_event": 290.15178802569903,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 3.1382032770006845,
+     "runs": [
+      3.130589601999418,
+      3.1382032770006845,
+      3.140279115999874
+     ],
+     "events": 1000068,
+     "ns_per_event": 3137.9898936879135,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.20348791100059316,
+     "runs": [
+      0.20896600499963824,
+      0.20348791100059316,
+      0.18502463500044541
+     ],
+     "events": 999825,
+     "ns_per_event": 203.5235276179263,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring_small",
+   "channels": 8,
+   "end": 31250.0,
+   "selectors": {
+    "linear": {
+     "seconds": 0.07438321199970233,
+     "runs": [
+      0.0758152179996614,
+      0.07438321199970233,
+      0.07116067600054521
+     ],
+     "events": 1000068,
+     "ns_per_event": 74.37815428521093,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.1599366700002065,
+     "runs": [
+      0.15689245900011883,
+      0.1599366700002065,
+      0.20844738699997833
+     ],
+     "events": 998714,
+     "ns_per_event": 160.14261340104025,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.10231852500055538,
+     "runs": [
+      0.10231852500055538,
+      0.10077782200005458,
+      0.1077857110003606
+     ],
+     "events": 1000068,
+     "ns_per_event": 102.31156781394404,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.19519602699983807,
+     "runs": [
+      0.19519602699983807,
+      0.20669742799964297,
+      0.19254333099979704
+     ],
+     "events": 998279,
+     "ns_per_event": 195.53253849859414,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring_small",
+   "channels": 16,
+   "end": 15625.0,
+   "selectors": {
+    "linear": {
+     "seconds": 0.08447055900069245,
+     "runs": [
+      0.08913873599976796,
+      0.08447055900069245,
+      0.0822553030002382
+     ],
+     "events": 1000068,
+     "ns_per_event": 84.4648153932457,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.16703811500065058,
+     "runs": [
+      0.1697956250000061,
+      0.1636183880000317,
+      0.16703811500065058
+     ],
+     "events": 1000351,
+     "ns_per_event": 166.97950519432737,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.11248185100066621,
+     "runs": [
+      0.11718248299985135,
+      0.10931123200043658,
+      0.11248185100066621
+     ],
+     "events": 1000068,
+     "ns_per_event": 112.47420275487889,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.1900412459999643,
+     "runs": [
+      0.18779518700011977,
+      0.1900412459999643,
+      0.1924135600002046
+     ],
+     "events": 999889,
+     "ns_per_event": 190.0623429200284,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring_small",
+   "channels": 32,
+   "end": 7812.5,
+   "selectors": {
+    "linear": {
+     "seconds": 0.11166445999970165,
+     "runs": [
+      0.10962941999969189,
+      0.11506295999970462,
+      0.11166445999970165
+     ],
+     "events": 1000068,
+     "ns_per_event": 111.65686733272302,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.17220440699929895,
+     "runs": [
+      0.16421911700035707,
+      0.17220440699929895,
+      0.1886968810003964
+     ],
+     "events": 1000307,
+     "ns_per_event": 172.15155647146221,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.12710242499997548,
+     "runs": [
+      0.12647386400021787,
+      0.12710242499997548,
+      0.13410670600023877
+     ],
+     "events": 1000068,
+     "ns_per_event": 127.09378262275715,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.19134127699999226,
+     "runs": [
+      0.19057868599975336,
+      0.19134127699999226,
+      0.202035713999976
+     ],
+     "events": 998772,
+     "ns_per_event": 191.57653298249477,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring_small",
+   "channels": 64,
+   "end": 3906.25,
+   "selectors": {
+    "linear": {
+     "seconds": 0.14075613200020598,
+     "runs": [
+      0.1371373029996903,
+      0.14075613200020598,
+      0.14697137500024837
+     ],
+     "events": 1000068,
+     "ns_per_event": 140.74656123404208,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.16528423199997633,
+     "runs": [
+      0.17584746699958487,
+      0.16528423199997633,
+      0.16465702900040924
+     ],
+     "events": 999393,
+     "ns_per_event": 165.38462046459836,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.1560415429994464,
+     "runs": [
+      0.1560415429994464,
+      0.15153362000000925,
+      0.16168570799982263
+     ],
+     "events": 1000068,
+     "ns_per_event": 156.03093289600946,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.20675856900015788,
+     "runs": [
+      0.20675856900015788,
+      0.20179377400017984,
+      0.22937081300005957
+     ],
+     "events": 999991,
+     "ns_per_event": 206.76042984402645,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring_small",
+   "channels": 128,
+   "end": 1953.125,
+   "selectors": {
+    "linear": {
+     "seconds": 0.21291449799991824,
+     "runs": [
+      0.21291449799991824,
+      0.21202899400032038,
+      0.2373949539996829
+     ],
+     "events": 1000068,
+     "ns_per_event": 212.90002079850396,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.17355138800030545,
+     "runs": [
+      0.17075021599976026,
+      0.17355138800030545,
+      0.1863851540001633
+     ],
+     "events": 998254,
+     "ns_per_event": 173.85493872331637,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.21033760600039386,
+     "runs": [
+      0.21033760600039386,
+      0.2081074459993033,
+      0.2145236490005118
+     ],
+     "events": 1000068,
+     "ns_per_event": 210.3233040157208,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.20319622100032575,
+     "runs": [
+      0.19931522300066717,
+      0.20998129600047832,
+      0.20319622100032575
+     ],
+     "events": 999386,
+     "ns_per_event": 203.32106013124633,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring_small",
+   "channels": 256,
+   "end": 976.5625,
+   "selectors": {
+    "linear": {
+     "seconds": 0.34903890500027046,
+     "runs": [
+      0.3446602130006795,
+      0.34903890500027046,
+      0.3533953289997953
+     ],
+     "events": 1000068,
+     "ns_per_event": 349.0151719685766,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.19331462799982546,
+     "runs": [
+      0.19050280500050576,
+      0.19668236300003628,
+      0.19331462799982546
+     ],
+     "events": 1000165,
+     "ns_per_event": 193.28273634832797,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.32573922899973695,
+     "runs": [
+      0.33586616599950503,
+      0.32573922899973695,
+      0.3113745700002255
+     ],
+     "events": 1000068,
+     "ns_per_event": 325.71708023828074,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.21053331199982495,
+     "runs": [
+      0.21242462800000794,
+      0.21053331199982495,
+      0.20829855000010866
+     ],
+     "events": 1000815,
+     "ns_per_event": 210.36186707815625,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring_small",
+   "channels": 512,
+   "end": 488.28125,
+   "selectors": {
+    "linear": {
+     "seconds": 0.6521247700002277,
+     "runs": [
+      0.7262045779998516,
+      0.6443331750006109,
+      0.6521247700002277
+     ],
+     "events": 1000068,
+     "ns_per_event": 652.0804285310876,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.19732911200026138,
+     "runs": [
+      0.19635533600012423,
+      0.19732911200026138,
+      0.20187358900057006
+     ],
+     "events": 1000301,
+     "ns_per_event": 197.26973381038445,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.4701842869999382,
+     "runs": [
+      0.4701842869999382,
+      0.4677399439997316,
+      0.4749949370007016
+     ],
+     "events": 1000068,
+     "ns_per_event": 470.1523166424065,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.24081466999996337,
+     "runs": [
+      0.24081466999996337,
+      0.24572116400031518,
+      0.2176836340004229
+     ],
+     "events": 998835,
+     "ns_per_event": 241.09554631141617,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring_small",
+   "channels": 1024,
+   "end": 244.140625,
+   "selectors": {
+    "linear": {
+     "seconds": 1.2678925250002067,
+     "runs": [
+      1.2249731889996838,
+      1.3105170799999541,
+      1.2678925250002067
+     ],
+     "events": 1000068,
+     "ns_per_event": 1267.806314170843,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.21006594299979042,
+     "runs": [
+      0.20980945999963296,
+      0.21006594299979042,
+      0.21573285599970404
+     ],
+     "events": 999159,
+     "ns_per_event": 210.24275715856078,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.8750303939996229,
+     "runs": [
+      0.8750303939996229,
+      0.8476382059998286,
+      0.8816224020001755
+     ],
+     "events": 1000068,
+     "ns_per_event": 874.9708959786964,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.23551772299924778,
+     "runs": [
+      0.23551772299924778,
+      0.23915811799997755,
+      0.2333350850003626
+     ],
+     "events": 999340,
+     "ns_per_event": 235.67326735570256,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring_small",
+   "channels": 2048,
+   "end": 122.0703125,
+   "selectors": {
+    "linear": {
+     "seconds": 2.47730859100011,
+     "runs": [
+      2.5426357149999603,
+      2.4094076250003127,
+      2.47730859100011
+     ],
+     "events": 1000068,
+     "ns_per_event": 2477.140145470218,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.26276860699999816,
+     "runs": [
+      0.27604765399973985,
+      0.25385620999986713,
+      0.26276860699999816
+     ],
+     "events": 1000243,
+     "ns_per_event": 262.7047697409511,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 1.5647888269995747,
+     "runs": [
+      1.5647888269995747,
+      1.5301461749995724,
+      1.605902841999523
+     ],
+     "events": 1000068,
+     "ns_per_event": 1564.6824285944303,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.26887366799928714,
+     "runs": [
+      0.26887366799928714,
+      0.2643987309993463,
+      0.272447184000157
+     ],
+     "events": 1000036,
+     "ns_per_event": 268.8639888956869,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "ring_small",
+   "channels": 4096,
+   "end": 61.03515625,
+   "selectors": {
+    "linear": {
+     "seconds": 4.833869324000261,
+     "runs": [
+      5.112255766999624,
+      4.833869324000261,
+      4.824942430000192
+     ],
+     "events": 1000068,
+     "ns_per_event": 4833.540643236522,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.3384183970001686,
+     "runs": [
+      0.3195795989995531,
+      0.3384183970001686,
+      0.40690909000022657
+     ],
+     "events": 1001264,
+     "ns_per_event": 337.9911761535106,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 3.1131058930004656,
+     "runs": [
+      3.0858054999998785,
+      3.1918588070002443,
+      3.1131058930004656
+     ],
+     "events": 1000068,
+     "ns_per_event": 3112.8942161937644,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.35179130699998495,
+     "runs": [
+      0.3542925270003252,
+      0.3373596699993868,
+      0.35179130699998495
+     ],
+     "events": 999979,
+     "ns_per_event": 351.79869477257523,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "dense",
+   "channels": 6,
+   "end": 5208.333333333333,
+   "selectors": {
+    "linear": {
+     "seconds": 0.08468448199982959,
+     "runs": [
+      0.08468448199982959,
+      0.09007381500032352,
+      0.08390610999958881
+     ],
+     "events": 1000068,
+     "ns_per_event": 84.67872384660802,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.17743631899975298,
+     "runs": [
+      0.17743631899975298,
+      0.1898035060003167,
+      0.16975881700000173
+     ],
+     "events": 999797,
+     "ns_per_event": 177.47234588596785,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.13439274999927875,
+     "runs": [
+      0.13274176300001272,
+      0.13448431199958577,
+      0.13439274999927875
+     ],
+     "events": 1000068,
+     "ns_per_event": 134.38361191366863,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.10636267300014879,
+     "runs": [
+      0.10636267300014879,
+      0.10957422199953726,
+      0.10346085599940125
+     ],
+     "events": 1000562,
+     "ns_per_event": 106.30293075306557,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "dense",
+   "channels": 12,
+   "end": 2604.1666666666665,
+   "selectors": {
+    "linear": {
+     "seconds": 0.11306027499995253,
+     "runs": [
+      0.11464307999995071,
+      0.10878002500066941,
+      0.11306027499995253
+     ],
+     "events": 1000068,
+     "ns_per_event": 113.0525874240077,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.23751686599916866,
+     "runs": [
+      0.2259319830000095,
+      0.2469440239992764,
+      0.23751686599916866
+     ],
+     "events": 1000967,
+     "ns_per_event": 237.28740907459354,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.18472892600038904,
+     "runs": [
+      0.18006407399934687,
+      0.20040577800045867,
+      0.18472892600038904
+     ],
+     "events": 1000068,
+     "ns_per_event": 184.71636528754948,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.11021586000060779,
+     "runs": [
+      0.1091300180005419,
+      0.11438537300000462,
+      0.11021586000060779
+     ],
+     "events": 1000425,
+     "ns_per_event": 110.16903815939004,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "dense",
+   "channels": 30,
+   "end": 1041.6666666666667,
+   "selectors": {
+    "linear": {
+     "seconds": 0.16261054700044042,
+     "runs": [
+      0.16112223899926903,
+      0.17444942300062394,
+      0.16261054700044042
+     ],
+     "events": 1000068,
+     "ns_per_event": 162.59949023510444,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.3291964410000219,
+     "runs": [
+      0.3291964410000219,
+      0.32841375899988634,
+      0.3376047310002832
+     ],
+     "events": 998966,
+     "ns_per_event": 329.53718244667175,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.272781257999668,
+     "runs": [
+      0.272781257999668,
+      0.2758901800007152,
+      0.2642902759998833
+     ],
+     "events": 1000068,
+     "ns_per_event": 272.76271013537877,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.12364471500040963,
+     "runs": [
+      0.1276096299998244,
+      0.12238776699996379,
+      0.12364471500040963
+     ],
+     "events": 999808,
+     "ns_per_event": 123.6684593446038,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "dense",
+   "channels": 56,
+   "end": 558.0357142857143,
+   "selectors": {
+    "linear": {
+     "seconds": 0.2289242219994776,
+     "runs": [
+      0.2289242219994776,
+      0.21220627799993963,
+      0.2655937780000386
+     ],
+     "events": 1000068,
+     "ns_per_event": 228.90865621085527,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.4249984689995472,
+     "runs": [
+      0.43232459499995457,
+      0.41956843200023286,
+      0.4249984689995472
+     ],
+     "events": 1000310,
+     "ns_per_event": 424.86676030385297,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.3694047680000949,
+     "runs": [
+      0.3936142180000388,
+      0.3694047680000949,
+      0.3567309079999177
+     ],
+     "events": 1000068,
+     "ns_per_event": 369.3796501838824,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.12750066399985371,
+     "runs": [
+      0.12575680800000555,
+      0.13381318699975964,
+      0.12750066399985371
+     ],
+     "events": 999458,
+     "ns_per_event": 127.56980683515837,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "dense",
+   "channels": 132,
+   "end": 236.74242424242425,
+   "selectors": {
+    "linear": {
+     "seconds": 0.3926072279991786,
+     "runs": [
+      0.3926072279991786,
+      0.36869459099943924,
+      0.4446369440001945
+     ],
+     "events": 1000068,
+     "ns_per_event": 392.580532522967,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.6296031910005695,
+     "runs": [
+      0.6265909749999992,
+      0.7791474569994534,
+      0.6296031910005695
+     ],
+     "events": 998202,
+     "ns_per_event": 630.7372565879145,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.5568439830003626,
+     "runs": [
+      0.5620457559998613,
+      0.5543503709996003,
+      0.5568439830003626
+     ],
+     "events": 1000068,
+     "ns_per_event": 556.8061201841901,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.14500171599956957,
+     "runs": [
+      0.14500171599956957,
+      0.14274382599978708,
+      0.14728593600011664
+     ],
+     "events": 999597,
+     "ns_per_event": 145.06017525019539,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "dense",
+   "channels": 240,
+   "end": 130.20833333333334,
+   "selectors": {
+    "linear": {
+     "seconds": 0.570388180000009,
+     "runs": [
+      0.6457572460003576,
+      0.570388180000009,
+      0.5508226830006606
+     ],
+     "events": 1000068,
+     "ns_per_event": 570.3493962410647,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.7607931149996148,
+     "runs": [
+      0.7659842559996832,
+      0.7603105270000015,
+      0.7607931149996148
+     ],
+     "events": 998774,
+     "ns_per_event": 761.7269922921649,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.7927502949996779,
+     "runs": [
+      0.8089134249994459,
+      0.7712822220000817,
+      0.7927502949996779
+     ],
+     "events": 1000068,
+     "ns_per_event": 792.696391645046,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.1616297440004928,
+     "runs": [
+      0.17054327999994712,
+      0.1616297440004928,
+      0.16097289800018189
+     ],
+     "events": 1000965,
+     "ns_per_event": 161.473921666085,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "dense",
+   "channels": 506,
+   "end": 61.758893280632414,
+   "selectors": {
+    "linear": {
+     "seconds": 0.9975964340001156,
+     "runs": [
+      1.0237195199997586,
+      0.9975964340001156,
+      0.9652969899998425
+     ],
+     "events": 1000068,
+     "ns_per_event": 997.5286020551757,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 1.1384344190000775,
+     "runs": [
+      1.0595114119996651,
+      1.1384344190000775,
+      1.162462594000317
+     ],
+     "events": 998993,
+     "ns_per_event": 1139.5819780519757,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 1.2442505369999708,
+     "runs": [
+      1.254198283999358,
+      1.1979167139998026,
+      1.2442505369999708
+     ],
+     "events": 1000068,
+     "ns_per_event": 1244.1659337164779,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.19591343799947936,
+     "runs": [
+      0.19404329799999687,
+      0.1969475390005755,
+      0.19591343799947936
+     ],
+     "events": 1000055,
+     "ns_per_event": 195.90266335299495,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "dense",
+   "channels": 992,
+   "end": 31.50201612903226,
+   "selectors": {
+    "linear": {
+     "seconds": 1.5540181039999936,
+     "runs": [
+      1.6230233599999906,
+      1.5509262939999928,
+      1.5540181039999936
+     ],
+     "events": 1000068,
+     "ns_per_event": 1553.9124379542127,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 1.4609186229999978,
+     "runs": [
+      1.4441413809999943,
+      1.500504537999987,
+      1.4609186229999978
+     ],
+     "events": 999407,
+     "ns_per_event": 1461.7854617788328,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 1.7891178339999954,
+     "runs": [
+      1.7834594130000028,
+      1.7977062489999867,
+      1.7891178339999954
+     ],
+     "events": 1000068,
+     "ns_per_event": 1788.9961822596017,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.23830143300000373,
+     "runs": [
+      0.2338261279999756,
+      0.23830143300000373,
+      0.2390198420000047
+     ],
+     "events": 1002397,
+     "ns_per_event": 237.73159037786797,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "dense",
+   "channels": 2070,
+   "end": 15.096618357487923,
+   "selectors": {
+    "linear": {
+     "seconds": 3.0049047100000053,
+     "runs": [
+      3.0049047100000053,
+      3.0398479300000076,
+      2.984580397000002
+     ],
+     "events": 1000068,
+     "ns_per_event": 3004.70039037346,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 2.2818233399999883,
+     "runs": [
+      2.24867150999998,
+      2.2818233399999883,
+      2.315619824999999
+     ],
+     "events": 1001396,
+     "ns_per_event": 2278.642355272029,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 3.2357074930000067,
+     "runs": [
+      3.21924079599998,
+      3.2357074930000067,
+      3.299209920999999
+     ],
+     "events": 1000068,
+     "ns_per_event": 3235.487479851377,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.3089545850000093,
+     "runs": [
+      0.3151479220000226,
+      0.30053379800000357,
+      0.3089545850000093
+     ],
+     "events": 1000180,
+     "ns_per_event": 308.89898318303636,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "dense",
+   "channels": 4032,
+   "end": 7.750496031746032,
+   "selectors": {
+    "linear": {
+     "seconds": 5.6863386679999905,
+     "runs": [
+      5.73504559600002,
+      5.616834425999997,
+      5.6863386679999905
+     ],
+     "events": 1000068,
+     "ns_per_event": 5685.952023262409,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 3.350887044000018,
+     "runs": [
+      3.350887044000018,
+      3.412532343999999,
+      3.2047129780000034
+     ],
+     "events": 1001049,
+     "ns_per_event": 3347.3756469463715,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 5.255970299000012,
+     "runs": [
+      5.228999837999993,
+      5.364731464000016,
+      5.255970299000012
+     ],
+     "events": 1000068,
+     "ns_per_event": 5255.612917321633,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.41454504300000394,
+     "runs": [
+      0.4032789510000043,
+      0.41505416399999717,
+      0.41454504300000394
+     ],
+     "events": 1000322,
+     "ns_per_event": 414.4116024640105,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "michaelis",
+   "channels": 8,
+   "end": 137500.0,
+   "selectors": {
+    "linear": {
+     "seconds": 0.1304510710000102,
+     "runs": [
+      0.12980634199999486,
+      0.13340530600001443,
+      0.1304510710000102
+     ],
+     "events": 992043,
+     "ns_per_event": 131.49739577821748,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.16517398099998104,
+     "runs": [
+      0.16872479999997836,
+      0.16517398099998104,
+      0.1551107069999773
+     ],
+     "events": 991953,
+     "ns_per_event": 166.513918502168,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.15340894199999866,
+     "runs": [
+      0.1570575789999964,
+      0.1517428779999932,
+      0.15340894199999866
+     ],
+     "events": 991371,
+     "ns_per_event": 154.74422996032632,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.07756533799999943,
+     "runs": [
+      0.0768918820000124,
+      0.07756533799999943,
+      0.07781424899999934
+     ],
+     "events": 990163,
+     "ns_per_event": 78.33592852893861,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "michaelis",
+   "channels": 16,
+   "end": 68750.0,
+   "selectors": {
+    "linear": {
+     "seconds": 0.13955485799999678,
+     "runs": [
+      0.138505447,
+      0.15066518500000825,
+      0.13955485799999678
+     ],
+     "events": 991595,
+     "ns_per_event": 140.73775886324233,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.16327891100002034,
+     "runs": [
+      0.15987474199999951,
+      0.16327891100002034,
+      0.19579294900000832
+     ],
+     "events": 992037,
+     "ns_per_event": 164.58953748702956,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.16199103399998194,
+     "runs": [
+      0.1615689670000222,
+      0.16199103399998194,
+      0.165751030999985
+     ],
+     "events": 991660,
+     "ns_per_event": 163.35340136738594,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.07777893100001165,
+     "runs": [
+      0.07714746199999922,
+      0.07777893100001165,
+      0.08031753799997432
+     ],
+     "events": 991659,
+     "ns_per_event": 78.43314183606628,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "michaelis",
+   "channels": 32,
+   "end": 34375.0,
+   "selectors": {
+    "linear": {
+     "seconds": 0.1811953200000005,
+     "runs": [
+      0.21563858400000413,
+      0.1811953200000005,
+      0.1645408249999889
+     ],
+     "events": 992524,
+     "ns_per_event": 182.5601396036776,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.17257075999998506,
+     "runs": [
+      0.17257075999998506,
+      0.17326942500000087,
+      0.1702852690000043
+     ],
+     "events": 991449,
+     "ns_per_event": 174.05913970359046,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.18207177899998328,
+     "runs": [
+      0.2479548750000049,
+      0.18207177899998328,
+      0.1820164040000236
+     ],
+     "events": 991963,
+     "ns_per_event": 183.54694580340524,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.07954916400001366,
+     "runs": [
+      0.07954916400001366,
+      0.0779288539999925,
+      0.08166025299999546
+     ],
+     "events": 990995,
+     "ns_per_event": 80.2720134814138,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "michaelis",
+   "channels": 64,
+   "end": 17187.5,
+   "selectors": {
+    "linear": {
+     "seconds": 0.19572815600000126,
+     "runs": [
+      0.19175741099999755,
+      0.210943914000012,
+      0.19572815600000126
+     ],
+     "events": 992387,
+     "ns_per_event": 197.22966544301894,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.18328704099999982,
+     "runs": [
+      0.18395943400000192,
+      0.17604421400000092,
+      0.18328704099999982
+     ],
+     "events": 992962,
+     "ns_per_event": 184.58615838269725,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.2166670599999918,
+     "runs": [
+      0.2651014049999958,
+      0.2166670599999918,
+      0.20759016700000643
+     ],
+     "events": 992933,
+     "ns_per_event": 218.2091440207867,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.08151764599998046,
+     "runs": [
+      0.08151764599998046,
+      0.08067058099999258,
+      0.0899049029999901
+     ],
+     "events": 991207,
+     "ns_per_event": 82.24078925994314,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "michaelis",
+   "channels": 128,
+   "end": 8593.75,
+   "selectors": {
+    "linear": {
+     "seconds": 0.268579686999999,
+     "runs": [
+      0.27585341500000027,
+      0.2652166320000049,
+      0.268579686999999
+     ],
+     "events": 993100,
+     "ns_per_event": 270.4457627630641,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.20381428799998957,
+     "runs": [
+      0.22098242500001675,
+      0.2009627289999969,
+      0.20381428799998957
+     ],
+     "events": 992750,
+     "ns_per_event": 205.30273281288297,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.26209740499999157,
+     "runs": [
+      0.26209740499999157,
+      0.259644293000008,
+      0.28424806399999625
+     ],
+     "events": 992858,
+     "ns_per_event": 263.98276994292394,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.10693704900000967,
+     "runs": [
+      0.09591478199999415,
+      0.1370780310000157,
+      0.10693704900000967
+     ],
+     "events": 989958,
+     "ns_per_event": 108.02180395532909,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "michaelis",
+   "channels": 256,
+   "end": 4296.875,
+   "selectors": {
+    "linear": {
+     "seconds": 0.4190661250000005,
+     "runs": [
+      0.4190661250000005,
+      0.4118439570000021,
+      0.5122232579999775
+     ],
+     "events": 993901,
+     "ns_per_event": 421.63769329138466,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.19892982400000392,
+     "runs": [
+      0.20348961100000906,
+      0.19868279100001018,
+      0.19892982400000392
+     ],
+     "events": 993269,
+     "ns_per_event": 200.27789450793682,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.3845990560000132,
+     "runs": [
+      0.4154225660000179,
+      0.37216445999999337,
+      0.3845990560000132
+     ],
+     "events": 993363,
+     "ns_per_event": 387.16869462624766,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.09388073200000235,
+     "runs": [
+      0.09272142300000041,
+      0.09437760699998421,
+      0.09388073200000235
+     ],
+     "events": 993693,
+     "ns_per_event": 94.47659589028237,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "michaelis",
+   "channels": 512,
+   "end": 2148.4375,
+   "selectors": {
+    "linear": {
+     "seconds": 0.7067580469999939,
+     "runs": [
+      0.6996832229999939,
+      0.8367410609999979,
+      0.7067580469999939
+     ],
+     "events": 994674,
+     "ns_per_event": 710.5423958000249,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.22676472200001285,
+     "runs": [
+      0.2314127720000272,
+      0.22676472200001285,
+      0.21828015099998765
+     ],
+     "events": 995163,
+     "ns_per_event": 227.86691426430932,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.5391983769999911,
+     "runs": [
+      0.5492715720000092,
+      0.5391983769999911,
+      0.5256774339999879
+     ],
+     "events": 994361,
+     "ns_per_event": 542.2561594833174,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.1015250880000167,
+     "runs": [
+      0.1015250880000167,
+      0.11502830599999925,
+      0.10027119800002993
+     ],
+     "events": 993206,
+     "ns_per_event": 102.21956774326443,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "michaelis",
+   "channels": 1024,
+   "end": 1074.21875,
+   "selectors": {
+    "linear": {
+     "seconds": 1.3100321290000352,
+     "runs": [
+      1.3100321290000352,
+      1.292805751000003,
+      1.3319009749999964
+     ],
+     "events": 995568,
+     "ns_per_event": 1315.8640384183052,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.2574854060000007,
+     "runs": [
+      0.3217197170000077,
+      0.2574854060000007,
+      0.24457036399996923
+     ],
+     "events": 995364,
+     "ns_per_event": 258.68466812141156,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.9507148510000434,
+     "runs": [
+      0.8972272629999907,
+      0.9528505060000043,
+      0.9507148510000434
+     ],
+     "events": 995760,
+     "ns_per_event": 954.7630463164251,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.15862249599996403,
+     "runs": [
+      0.1701853339999957,
+      0.15862249599996403,
+      0.12968336599999475
+     ],
+     "events": 994346,
+     "ns_per_event": 159.52444722457176,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "michaelis",
+   "channels": 2048,
+   "end": 537.109375,
+   "selectors": {
+    "linear": {
+     "seconds": 2.5399902419999876,
+     "runs": [
+      2.6333505900000205,
+      2.5399902419999876,
+      2.506828768000048
+     ],
+     "events": 997109,
+     "ns_per_event": 2547.3546442765914,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.3302450119999776,
+     "runs": [
+      0.3302450119999776,
+      0.31995521800001825,
+      0.3333492009999759
+     ],
+     "events": 994957,
+     "ns_per_event": 331.9188789063021,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 1.6782046239999886,
+     "runs": [
+      1.801154241000006,
+      1.6555917420000128,
+      1.6782046239999886
+     ],
+     "events": 997238,
+     "ns_per_event": 1682.8526630553474,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.15924872800002277,
+     "runs": [
+      0.15924872800002277,
+      0.17278803900001094,
+      0.1535359490000019
+     ],
+     "events": 997383,
+     "ns_per_event": 159.66657542791762,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "michaelis",
+   "channels": 4096,
+   "end": 268.5546875,
+   "selectors": {
+    "linear": {
+     "seconds": 5.11804319099997,
+     "runs": [
+      5.199747390000027,
+      5.03734028599996,
+      5.11804319099997
+     ],
+     "events": 998362,
+     "ns_per_event": 5126.440300211716,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.4699318859999835,
+     "runs": [
+      0.481530609999993,
+      0.4699318859999835,
+      0.4585051930000077
+     ],
+     "events": 996188,
+     "ns_per_event": 471.73012122208206,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 3.158036717000016,
+     "runs": [
+      3.141793912999958,
+      3.27712341299997,
+      3.158036717000016
+     ],
+     "events": 998308,
+     "ns_per_event": 3163.3891714781566,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.2387104399999771,
+     "runs": [
+      0.24500473499995223,
+      0.2387104399999771,
+      0.22954512100000102
+     ],
+     "events": 997881,
+     "ns_per_event": 239.2173415467146,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "two_reads",
+   "channels": 8,
+   "end": 1262.5,
+   "selectors": {
+    "linear": {
+     "seconds": 0.18192511899997044,
+     "runs": [
+      0.18192511899997044,
+      0.18449033100000634,
+      0.17241037100001222
+     ],
+     "events": 999968,
+     "ns_per_event": 181.9309407900757,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.21204140099996494,
+     "runs": [
+      0.22060774400000582,
+      0.21204140099996494,
+      0.20680740199998127
+     ],
+     "events": 999942,
+     "ns_per_event": 212.05370011457157,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.20702111400004242,
+     "runs": [
+      0.2042010770000502,
+      0.20702111400004242,
+      0.21038481399995135
+     ],
+     "events": 999970,
+     "ns_per_event": 207.027324819787,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.39907599299999674,
+     "runs": [
+      0.36982387199998357,
+      0.40628911499999276,
+      0.39907599299999674
+     ],
+     "events": 1001389,
+     "ns_per_event": 398.52244532344247,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "two_reads",
+   "channels": 16,
+   "end": 631.25,
+   "selectors": {
+    "linear": {
+     "seconds": 0.23155707099999745,
+     "runs": [
+      0.28505275000003394,
+      0.23155707099999745,
+      0.19351574199998822
+     ],
+     "events": 999968,
+     "ns_per_event": 231.56448106339147,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.22801769800003058,
+     "runs": [
+      0.22801769800003058,
+      0.22011568800002124,
+      0.2317226220000066
+     ],
+     "events": 1000611,
+     "ns_per_event": 227.87846425836872,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.2205537170000298,
+     "runs": [
+      0.2205537170000298,
+      0.2637086430000295,
+      0.20727579800001195
+     ],
+     "events": 999971,
+     "ns_per_event": 220.56011324331385,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.35990880800000014,
+     "runs": [
+      0.3700217539999926,
+      0.35535177600002044,
+      0.35990880800000014
+     ],
+     "events": 1000442,
+     "ns_per_event": 359.7497985890238,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "two_reads",
+   "channels": 32,
+   "end": 315.625,
+   "selectors": {
+    "linear": {
+     "seconds": 0.19693150400001969,
+     "runs": [
+      0.18890572399999428,
+      0.19693150400001969,
+      0.20162926300002937
+     ],
+     "events": 999971,
+     "ns_per_event": 196.9372151792599,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.2503982970000038,
+     "runs": [
+      0.2503982970000038,
+      0.24480837000004385,
+      0.3780829659999654
+     ],
+     "events": 999372,
+     "ns_per_event": 250.5556459456577,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.2497250000000122,
+     "runs": [
+      0.2497250000000122,
+      0.2674088840000195,
+      0.24153892399999677
+     ],
+     "events": 999971,
+     "ns_per_event": 249.732242235037,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.3511225209999793,
+     "runs": [
+      0.3511225209999793,
+      0.3525915750000195,
+      0.34828310199998214
+     ],
+     "events": 998362,
+     "ns_per_event": 351.6986033122047,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "two_reads",
+   "channels": 64,
+   "end": 157.8125,
+   "selectors": {
+    "linear": {
+     "seconds": 0.23895174000000452,
+     "runs": [
+      0.2340720110000234,
+      0.241219540999964,
+      0.23895174000000452
+     ],
+     "events": 999971,
+     "ns_per_event": 238.95866980142878,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.24137648499998932,
+     "runs": [
+      0.24184571500001084,
+      0.23894443500000762,
+      0.24137648499998932
+     ],
+     "events": 1001205,
+     "ns_per_event": 241.08597639842918,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.25648605899999666,
+     "runs": [
+      0.25648605899999666,
+      0.2548027389999561,
+      0.25863453400000935
+     ],
+     "events": 999970,
+     "ns_per_event": 256.49375381261103,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.37883994500003837,
+     "runs": [
+      0.40224163999999973,
+      0.37883994500003837,
+      0.3645913029999974
+     ],
+     "events": 1000640,
+     "ns_per_event": 378.59764250883273,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "two_reads",
+   "channels": 128,
+   "end": 78.90625,
+   "selectors": {
+    "linear": {
+     "seconds": 0.31639175599997316,
+     "runs": [
+      0.3097276170000214,
+      0.31639175599997316,
+      0.3553415330000007
+     ],
+     "events": 999974,
+     "ns_per_event": 316.3999823995156,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.256839919000015,
+     "runs": [
+      0.2932500819999859,
+      0.256839919000015,
+      0.24763936399995146
+     ],
+     "events": 999453,
+     "ns_per_event": 256.98048732658265,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.31998672999998234,
+     "runs": [
+      0.32295409199997493,
+      0.31884311899995055,
+      0.31998672999998234
+     ],
+     "events": 999971,
+     "ns_per_event": 319.99600988426903,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.4351231050000024,
+     "runs": [
+      0.44061753299996553,
+      0.4351231050000024,
+      0.3840297509999573
+     ],
+     "events": 1000139,
+     "ns_per_event": 435.06263129425247,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "two_reads",
+   "channels": 256,
+   "end": 39.453125,
+   "selectors": {
+    "linear": {
+     "seconds": 0.4562990419999551,
+     "runs": [
+      0.4687760059999846,
+      0.4562990419999551,
+      0.4494668830000137
+     ],
+     "events": 999971,
+     "ns_per_event": 456.3122750559317,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.2769615590000285,
+     "runs": [
+      0.2769615590000285,
+      0.28125912900003414,
+      0.27155526799998597
+     ],
+     "events": 999647,
+     "ns_per_event": 277.0593609544454,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.41634010399997123,
+     "runs": [
+      0.45754574500000444,
+      0.41634010399997123,
+      0.41066102000002047
+     ],
+     "events": 999971,
+     "ns_per_event": 416.3521782131394,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.39242127900001833,
+     "runs": [
+      0.535693158000015,
+      0.38697694800004,
+      0.39242127900001833
+     ],
+     "events": 999565,
+     "ns_per_event": 392.5920565446153,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "two_reads",
+   "channels": 512,
+   "end": 19.7265625,
+   "selectors": {
+    "linear": {
+     "seconds": 0.8046742939999945,
+     "runs": [
+      0.8250028119999797,
+      0.7693415439999853,
+      0.8046742939999945
+     ],
+     "events": 999974,
+     "ns_per_event": 804.6952160756125,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.27983561100001,
+     "runs": [
+      0.27983561100001,
+      0.28390606699997534,
+      0.27767667400001983
+     ],
+     "events": 999249,
+     "ns_per_event": 280.045925490053,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.6412083829999915,
+     "runs": [
+      0.6648729699999762,
+      0.6412083829999915,
+      0.6173836959999903
+     ],
+     "events": 999974,
+     "ns_per_event": 641.2250548514177,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.4269371009999645,
+     "runs": [
+      0.4900490409999634,
+      0.4269371009999645,
+      0.4189846799999941
+     ],
+     "events": 1000298,
+     "ns_per_event": 426.8099116462939,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "two_reads",
+   "channels": 1024,
+   "end": 9.86328125,
+   "selectors": {
+    "linear": {
+     "seconds": 1.447588441999983,
+     "runs": [
+      1.4251185960000043,
+      1.447588441999983,
+      1.5816984570000159
+     ],
+     "events": 999971,
+     "ns_per_event": 1447.630423282258,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.32021332499999744,
+     "runs": [
+      0.32021332499999744,
+      0.3144368650000047,
+      0.3585796250000044
+     ],
+     "events": 1000308,
+     "ns_per_event": 320.11472966326113,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 0.9374096159999681,
+     "runs": [
+      0.964007874999993,
+      0.9089882619999798,
+      0.9374096159999681
+     ],
+     "events": 999973,
+     "ns_per_event": 937.4349267429901,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.4497715709999852,
+     "runs": [
+      0.4490855770000053,
+      0.4497715709999852,
+      0.5112637450000079
+     ],
+     "events": 1001662,
+     "ns_per_event": 449.02529096639904,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "two_reads",
+   "channels": 2048,
+   "end": 4.931640625,
+   "selectors": {
+    "linear": {
+     "seconds": 2.732489567000016,
+     "runs": [
+      2.780633496000007,
+      2.732489567000016,
+      2.73183243699998
+     ],
+     "events": 999977,
+     "ns_per_event": 2732.5524157055775,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.42200889399998687,
+     "runs": [
+      0.38457437400001027,
+      0.42200889399998687,
+      0.4350903119999998
+     ],
+     "events": 999794,
+     "ns_per_event": 422.0958457442102,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 1.7364070319999882,
+     "runs": [
+      1.6945029400000067,
+      1.7364070319999882,
+      1.7908874340000125
+     ],
+     "events": 999978,
+     "ns_per_event": 1736.4452337951318,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.5484477510000261,
+     "runs": [
+      0.5484477510000261,
+      0.5445540050000091,
+      0.5798519479999982
+     ],
+     "events": 1000448,
+     "ns_per_event": 548.2021564339437,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  },
+  {
+   "family": "two_reads",
+   "channels": 4096,
+   "end": 2.4658203125,
+   "selectors": {
+    "linear": {
+     "seconds": 5.075339776000021,
+     "runs": [
+      5.075339776000021,
+      4.925075434999997,
+      5.133244208999997
+     ],
+     "events": 999983,
+     "ns_per_event": 5075.4260582430115,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1"
+    },
+    "composition_rejection": {
+     "seconds": 0.6233597460000055,
+     "runs": [
+      0.6214184500000215,
+      0.6283113160000084,
+      0.6233597460000055
+     ],
+     "events": 1000687,
+     "ns_per_event": 622.9317918589985,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1"
+    },
+    "sorting": {
+     "seconds": 3.214006399000027,
+     "runs": [
+      3.586700162999989,
+      3.214006399000027,
+      3.150970302000019
+     ],
+     "events": 999981,
+     "ns_per_event": 3214.0674662818865,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1"
+    },
+    "rssa_cr": {
+     "seconds": 0.8312052709999875,
+     "runs": [
+      0.9017311900000209,
+      0.7659705210000425,
+      0.8312052709999875
+     ],
+     "events": 999695,
+     "ns_per_event": 831.4588659541034,
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1"
+    }
+   }
+  }
+ ],
+ "rule": {
+  "N_cr": 512,
+  "N_rssa": null,
+  "auto": "rssa_cr if every rule reads at most one species and channels >= N_rssa; else composition_rejection if channels >= N_cr; else linear (null: no grid count qualifies, the branch never applies)"
+ }
+}

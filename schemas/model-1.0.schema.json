@@ -1,0 +1,448 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "AtpSpec": {
+      "additionalProperties": false,
+      "description": "The ATP block of a rules-model/0.2 model.\n\nEvery coefficient must be finite and nonnegative, with a positive `scale`; the observable and rule names must exist and `ATP` must not be an observable name. Violations are `CRN-R015` at `/atp`.",
+      "properties": {
+        "decay": {
+          "description": "First-order ATP consumption, v1.",
+          "format": "double",
+          "type": "number"
+        },
+        "initial": {
+          "description": "ATP at time 0.",
+          "format": "double",
+          "type": "number"
+        },
+        "maintenance": {
+          "description": "Maintenance per mtDNA molecule, v2.",
+          "format": "double",
+          "type": "number"
+        },
+        "production": {
+          "description": "Production per wild type, f.",
+          "format": "double",
+          "type": "number"
+        },
+        "replication_rules": {
+          "description": "Names of the rules whose rate is multiplied by c / (c + ATP), each at most once.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "scale": {
+          "description": "Replication multiplier is c / (c + ATP).",
+          "format": "double",
+          "type": "number"
+        },
+        "total": {
+          "description": "Name of the observable counting all molecules, N.",
+          "type": "string"
+        },
+        "wild_type": {
+          "description": "Name of the observable counting wild-type molecules, wt.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "decay",
+        "initial",
+        "maintenance",
+        "production",
+        "replication_rules",
+        "scale",
+        "total",
+        "wild_type"
+      ],
+      "type": "object"
+    },
+    "ContinuousSpec": {
+      "additionalProperties": false,
+      "description": "A continuous variable of a rules-model/0.3 or 0.4 model.\n\nIts name shares one namespace with parameters and observables (`CRN-R010`). Rule rates and propensities may read it, and so may the derivatives of all variables; the model's `stop`, observables, patterns and products may not (`CRN-R012`), and neither may run-request trackers.",
+      "properties": {
+        "derivative": {
+          "description": "dx/dt between events: an expression over parameters, observables and continuous variables. A non-finite value fails the replicate (`CRN-R030`).",
+          "type": "string"
+        },
+        "independent": {
+          "description": "rules-model/0.4 (`CRN-R015` before): `true` declares an independent ODE, whose `derivative` reads only parameters and other independent variables (`CRN-R012` otherwise). `hybrid` integrates the independent variables once per prepared run and shares the solution by every replicate. Default `false`; `null` is rejected.",
+          "type": "boolean"
+        },
+        "initial": {
+          "$ref": "#/definitions/Value"
+        },
+        "lower_bound": {
+          "$ref": "#/definitions/Value"
+        },
+        "name": {
+          "description": "The variable's name and result column.",
+          "type": "string"
+        },
+        "on_bound": {
+          "$ref": "#/definitions/OnBound"
+        }
+      },
+      "required": [
+        "derivative",
+        "initial",
+        "name"
+      ],
+      "type": "object"
+    },
+    "Initial": {
+      "additionalProperties": false,
+      "description": "One entry of the initial state: a type, every attribute value and a copy number.",
+      "properties": {
+        "attributes": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Value"
+          },
+          "default": {},
+          "description": "Every attribute of the type; parameters only.",
+          "type": "object"
+        },
+        "count": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Value"
+            }
+          ],
+          "description": "Nonnegative integer; parameters only."
+        },
+        "type": {
+          "description": "Name of a declared type.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "count",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ModelVersion": {
+      "description": "The version of a model, its `schema` field.",
+      "enum": [
+        "crn-craft.model/1.0"
+      ],
+      "type": "string"
+    },
+    "Observable": {
+      "additionalProperties": false,
+      "description": "A named reduction over the present instances of one type that satisfy `where`.",
+      "properties": {
+        "label": {
+          "description": "Name for the instance in `where` and `weight`; default `x`.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reduce": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Reduce"
+            }
+          ],
+          "default": "sum",
+          "description": "`sum` (default), `distinct`, `max` or `min`."
+        },
+        "type": {
+          "description": "Name of a declared type.",
+          "type": "string"
+        },
+        "weight": {
+          "description": "Parameters and the instance's attributes; default 1. Weights must be finite and may be negative.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "where": {
+          "description": "Predicate over parameters and the instance's attributes, for example `x.wt == 0`; default true. A NaN value is an error, not true.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "OnBound": {
+      "description": "What happens when a continuous variable reaches its lower bound.",
+      "enum": [
+        "stop",
+        "clamp"
+      ],
+      "type": "string"
+    },
+    "Pattern": {
+      "additionalProperties": false,
+      "description": "A reactant pattern: the instances of one type that may react, and their local factor.",
+      "properties": {
+        "count": {
+          "description": "`crn-craft.model/1.0` only: the number of molecules this pattern takes, 1 to 2147483647 (default 1; `CRN-R013` outside). A pattern with a count above 1, and every pattern of a rule with more than two patterns, is over a type without attributes and has no `where` or `factor` (`CRN-R013`). Patterns over one type add their counts k; a `rate` g gives g × Π C(n, k) over the types, a `propensity` applies while every type has at least k molecules. A rule of at most two molecules is the rule with one count-1 pattern per molecule (`count: 2` is a pair). `null` is rejected.",
+          "format": "uint64",
+          "maximum": 2147483647.0,
+          "minimum": 1.0,
+          "type": "integer"
+        },
+        "factor": {
+          "description": "Local factor h(x) >= 0: parameters and this reactant's attributes. Default 1; an instance that fails `where` has h = 0.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "label": {
+          "description": "Name of the matched instance in this pattern's expressions and in the rule's products, for example `x` in `x.size`. The patterns of a rule need different labels.",
+          "type": "string"
+        },
+        "type": {
+          "description": "Name of a declared type. Two different patterns over the same type are not supported (`CRN-R013`); identical ones form pairs, or with more molecules a higher-order rule.",
+          "type": "string"
+        },
+        "where": {
+          "description": "Parameters and this reactant's attributes.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "label",
+        "type"
+      ],
+      "type": "object"
+    },
+    "Product": {
+      "additionalProperties": false,
+      "description": "A product of a rule: a new instance built from constants, parameters, reactant attributes and random draws.",
+      "properties": {
+        "attributes": {
+          "additionalProperties": {
+            "$ref": "#/definitions/Value"
+          },
+          "default": {},
+          "description": "Overrides (with `copy`) or all attributes (without): parameters, reactant attributes and random draws.",
+          "type": "object"
+        },
+        "copy": {
+          "description": "Label of a reactant of the same type whose attributes are copied.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "type": {
+          "description": "Name of a declared type.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "type": "object"
+    },
+    "Reduce": {
+      "description": "How an observable reduces the matching instances to one number.",
+      "oneOf": [
+        {
+          "description": "Count-weighted sum over matching instances.",
+          "enum": [
+            "sum"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Sum of weights over present matching instances, each counted once whatever its copy number (weight 1 counts distinct instances).",
+          "enum": [
+            "distinct"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Largest weight over present matching instances; 0 when none.",
+          "enum": [
+            "max"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Smallest weight over present matching instances; 0 when none.",
+          "enum": [
+            "min"
+          ],
+          "type": "string"
+        }
+      ]
+    },
+    "Rule": {
+      "additionalProperties": false,
+      "description": "A rule schema: one rule stands for the reactions of every matching instance.",
+      "properties": {
+        "name": {
+          "description": "Rule name, unique in the model; event logs and `rule_events` refer to rules by their index in the model.",
+          "type": "string"
+        },
+        "products": {
+          "description": "Up to 64 products. A product equal to a reactant cancels its consumption.",
+          "items": {
+            "$ref": "#/definitions/Product"
+          },
+          "type": "array"
+        },
+        "propensity": {
+          "description": "rules-model/0.3 and later (`CRN-R015` before): the rule's whole propensity, an expression over parameters and observables, instead of a `rate` per reactant tuple. It applies while every reactant type has enough molecules (one per pattern, two for two patterns over one type) and is 0 otherwise; a firing picks distinct reactant molecules uniformly. The reactant patterns take no `where` or `factor` (`CRN-R013`), and the expression cannot read their labels (`CRN-R012`). A negative or non-finite value fails the replicate (`CRN-R030`). `null` is rejected.",
+          "type": "string"
+        },
+        "rate": {
+          "description": "Global factor: parameters and observables only. It is evaluated only while the reactant weight is positive; a negative or non-finite value fails the replicate (`CRN-R030`). Required in rules-model/0.1 and 0.2 (`CRN-E003` when missing); from 0.3 a rule gives exactly one of `rate` and `propensity` (`CRN-R013`). `null` is rejected.",
+          "type": "string"
+        },
+        "reactants": {
+          "description": "Reactant patterns, any number (see `count`). Reactants are consumed; list a `copy` product to keep one.",
+          "items": {
+            "$ref": "#/definitions/Pattern"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "products",
+        "reactants"
+      ],
+      "type": "object"
+    },
+    "SpeciesType": {
+      "additionalProperties": false,
+      "description": "A species type: a name and its numeric attributes.",
+      "properties": {
+        "attributes": {
+          "default": [],
+          "description": "Numeric attributes; an instance is a type plus one value per attribute. At most 64 unique names; values are finite and `-0` is stored as `0`.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "name": {
+          "description": "Type name, unique in the model.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "Value": {
+      "anyOf": [
+        {
+          "description": "A literal number; must be finite.",
+          "format": "double",
+          "type": "number"
+        },
+        {
+          "description": "An expression, evaluated with the names the field allows.",
+          "type": "string"
+        }
+      ],
+      "description": "A number, or an expression string."
+    }
+  },
+  "description": "A model: `crn-craft.model/1.0`, the unified model contract. A document means what the same document means as `crn-craft.rules-model/0.4`.\n\nUnknown fields and duplicate keys are rejected. Validation also requires at least one type and one rule. It runs only with `crn-craft.run/1.0` requests; `crn-craft convert` writes network models in this contract.",
+  "properties": {
+    "atp": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/AtpSpec"
+        }
+      ],
+      "description": "ATP coupling, rules-model/0.2 only (`CRN-R015` in 0.1); a model with it runs only with the `thinning` method. `null` is rejected."
+    },
+    "continuous": {
+      "description": "Continuous variables, rules-model/0.3 and later (`CRN-R015` before), at most 64: ODEs between events whose values rule rates and propensities may read. A model with them runs only with the `hybrid` method, and it cannot also have `atp` (`CRN-R015`). `null` is rejected. See `crn_craft::rules::continuous`.",
+      "items": {
+        "$ref": "#/definitions/ContinuousSpec"
+      },
+      "type": "array"
+    },
+    "description": {
+      "description": "Free text for readers; not interpreted.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "initial": {
+      "description": "The initial instances, at most 100,000 entries. Entries with equal attribute vectors merge; an empty list starts from no instances.",
+      "items": {
+        "$ref": "#/definitions/Initial"
+      },
+      "type": "array"
+    },
+    "name": {
+      "description": "The model's name, an ASCII identifier of at most 64 bytes.",
+      "type": "string"
+    },
+    "observables": {
+      "additionalProperties": {
+        "$ref": "#/definitions/Observable"
+      },
+      "default": {},
+      "description": "Observables by name, at most 4096. Results list them sorted by name.",
+      "type": "object"
+    },
+    "parameters": {
+      "additionalProperties": {
+        "format": "double",
+        "type": "number"
+      },
+      "default": {},
+      "description": "Finite numbers by name. Names share one namespace with observables.",
+      "type": "object"
+    },
+    "rules": {
+      "description": "Rules, 1 to 65536, with unique names. Results count events per rule in this order.",
+      "items": {
+        "$ref": "#/definitions/Rule"
+      },
+      "type": "array"
+    },
+    "schema": {
+      "$ref": "#/definitions/ModelVersion"
+    },
+    "stop": {
+      "description": "Parameters and observables. Once true, the state is held and the replicate is marked `stopped`. It is checked at time 0 and after each event; a NaN value fails the replicate (`CRN-R030`).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "types": {
+      "description": "Species types, 1 to 4096, with unique names.",
+      "items": {
+        "$ref": "#/definitions/SpeciesType"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "initial",
+    "name",
+    "rules",
+    "schema",
+    "types"
+  ],
+  "title": "Model",
+  "type": "object"
+}

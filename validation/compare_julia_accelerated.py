@@ -20,6 +20,10 @@ from acceleration_workloads import FOLDER, workloads, encode
 from compare_julia import (
     Julia,
     ALGORITHMS,
+    SELECTORS,
+    crn_job,
+    crn_payload,
+    final_counts,
     to_dsl,
     probe_native,
     cdf_error,
@@ -28,50 +32,28 @@ from compare_julia import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-VARIANTS = list(
-    itertools.product(
-        ["direct", "cached_direct", "direct_cr", "sorting_direct", "rssa_cr"],
-        ["inverse", "ziggurat"],
-    )
-)
-RUST = ["legacy_direct", "legacy_cached"] + [f"{a}/{w}" for a, w in VARIANTS]
+VARIANTS = list(itertools.product(SELECTORS, ["inverse", "ziggurat"]))
+# linear/inverse is the reference engine of the two-sample gates (it replaces
+# the retired cached Direct); cached Direct and `fast` no longer exist.
+REFERENCE = "linear/inverse"
+RUST = [f"{a}/{w}" for a, w in VARIANTS]
 ENGINES = RUST + [f"Julia/{a}" for a in ALGORITHMS]
-TESTS, N, ALPHA = 6946, 512, 0.01
+# 6946 before the retired legacy and cached engines were removed; same alpha.
+TESTS, N, ALPHA = 5218, 512, 0.01
 
 
 def rust_job(engine, model, end, paths, seed, keep, boundary):
-    kwargs = dict(
-        end=end,
-        save_times=[0.0, end],
-        replicates=paths,
-        seed=seed,
-        threads=1,
-        keep=paths if keep else 0,
-        max_events=10**9,
-        max_output_bytes=200_000_000,
-    )
-    if engine.startswith("legacy_"):
-        request = crn.run_spec(model, **kwargs)
-        cached = engine == "legacy_cached"
-        if boundary == "prepared":
-            return crn.prepare(model, request, cached=cached).simulate
-        return lambda: crn.simulate(model, request, cached=cached)
-    method, wait = engine.split("/")
-    request = crn.ssa_spec(
-        model, aggregator=method, waiting_time=wait, fast=False, **kwargs
-    )
+    selector, wait = engine.split("/")
+    job = crn_job(model, end, paths, seed, keep, selector, wait)
     if boundary == "prepared":
-        return crn.prepare_ssa(model, request).simulate
-    return lambda: crn.simulate_ssa(model, request)
+        return job.simulate
+    return lambda: crn_job(model, end, paths, seed, keep, selector, wait).simulate()
 
 
 def payload(engine, result):
     if engine.startswith("Julia/"):
         return {k: v for k, v in result.items() if k != "seconds"}
-    return {
-        k: result[k]
-        for k in ["events", "statistics", "trajectories", "replicates", "termination"]
-    }
+    return crn_payload(result)
 
 
 def main():
@@ -112,7 +94,7 @@ def main():
             and m == (FOLDER / entry["path"]).read_bytes(),
             "frozen model changed",
         )
-        models[name] = m
+        models[name] = model
     report = dict(
         schema="crn-craft.julia-comparison/0.2",
         protocol="docs/decisions/ssa-acceleration-2026-11-02.md",
@@ -245,13 +227,10 @@ def main():
                             engine, models[name], end, N, seed, True, "prepared"
                         )()
                         require(
-                            result["termination"] == "completed",
+                            result.metadata["termination"] == "completed",
                             f"{name}/{engine} incomplete",
                         )
-                        final = np.array(
-                            [v["counts"][-1] for v in result["trajectories"]],
-                            dtype=np.int64,
-                        )
+                        final = final_counts(result, models[name])
                     require(
                         final.shape == (N, ns) and np.all(final >= 0),
                         "invalid sample shape/counts",
@@ -276,9 +255,9 @@ def main():
                     samples[engine] = final
                     print(name, engine, "validated samples", flush=True)
                 rows = []
-                reference = samples["legacy_cached"]
+                reference = samples[REFERENCE]
                 for engine, values in samples.items():
-                    if name not in ["W1", "W2"] and engine == "legacy_cached":
+                    if name not in ["W1", "W2"] and engine == REFERENCE:
                         continue
                     for j in range(ns):
                         if name in ["W1", "W2"]:
@@ -347,7 +326,10 @@ def main():
                         time.perf_counter() - start
                     )
                     result = jobs[key]()
-                    require(result["termination"] == "completed", key + " incomplete")
+                    require(
+                        result.metadata["termination"] == "completed",
+                        key + " incomplete",
+                    )
                     replays[key] = digest(payload(engine, result))
                     if boundary == "prepared":
                         require(
@@ -356,8 +338,7 @@ def main():
                         )
                     report["timings"][name][key] = dict(
                         seconds=[],
-                        events=result["events"],
-                        work=result.get("work"),
+                        events=int(result.metadata["events"]),
                         numerical_sha256=replays[key],
                     )
             for algorithm in ALGORITHMS:
@@ -400,7 +381,8 @@ def main():
                         result = jobs[key]()
                         elapsed = time.perf_counter() - start
                         require(
-                            result["termination"] == "completed", key + " incomplete"
+                            result.metadata["termination"] == "completed",
+                            key + " incomplete",
                         )
                     require(
                         digest(payload(engine, result)) == replays[key],

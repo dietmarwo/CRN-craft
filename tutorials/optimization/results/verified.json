@@ -6,10 +6,10 @@
       "C1": {
         "passed": true,
         "checks": [
-          "immigration-fast-7001-fresh-bound-replay-and-moments",
-          "immigration-checked-7001-fresh-bound-replay-and-moments",
-          "binding-fast-7001-fresh-bound-replay-and-moments",
-          "binding-checked-7001-fresh-bound-replay-and-moments"
+          "immigration-direct-7001-fresh-bound-replay-and-moments",
+          "immigration-next_reaction-7001-fresh-bound-replay-and-moments",
+          "binding-direct-7001-fresh-bound-replay-and-moments",
+          "binding-next_reaction-7001-fresh-bound-replay-and-moments"
         ],
         "budgets": {
           "requested_calls": 32,
@@ -27,8 +27,8 @@
             2.5
           ],
           "policies": [
-            "fast",
-            "checked"
+            "direct",
+            "next_reaction"
           ],
           "event_cap_per_path": 100000,
           "threads": 2
@@ -37,187 +37,187 @@
           "arms": [
             {
               "model": "immigration",
-              "policy": "fast",
-              "sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "direct",
+              "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "fresh",
               "seed": 7001,
               "rates": [
-                4.500078311861938,
-                0.1495121425549359
+                2.8857187856509228,
+                0.18151971919701831
               ],
               "truth": [
                 4.0,
                 0.2
               ],
-              "training_loss": 0.030461037216707808,
-              "truth_training_loss": 0.13223539183298733,
+              "training_loss": 0.02905445370898329,
+              "truth_training_loss": 0.20597395869158486,
               "best_is_start": false,
-              "holdout_loss": 0.07492333725587241,
-              "truth_holdout_loss": 0.0019047350850187313,
-              "parameter_relative_error": 0.12549834370748342,
-              "independent_moment_max_standard_errors": 1.9980081635367994
+              "holdout_loss": 0.08264527479591256,
+              "truth_holdout_loss": 0.0019243815157401502,
+              "parameter_relative_error": 0.2782610035992343,
+              "independent_moment_max_standard_errors": 0.8118621373833239
             },
             {
               "model": "immigration",
-              "policy": "fast",
-              "sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "direct",
+              "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "reusable",
               "seed": 7001,
               "rates": [
-                4.500078311861938,
-                0.1495121425549359
+                2.8857187856509228,
+                0.18151971919701831
               ],
               "truth": [
                 4.0,
                 0.2
               ],
-              "training_loss": 0.030461037216707808,
-              "truth_training_loss": 0.13223539183298733,
+              "training_loss": 0.02905445370898329,
+              "truth_training_loss": 0.20597395869158486,
               "best_is_start": false,
-              "holdout_loss": 0.07492333725587241,
-              "truth_holdout_loss": 0.0019047350850187313,
-              "parameter_relative_error": 0.12549834370748342,
-              "independent_moment_max_standard_errors": 1.9980081635367994
+              "holdout_loss": 0.08264527479591256,
+              "truth_holdout_loss": 0.0019243815157401502,
+              "parameter_relative_error": 0.2782610035992343,
+              "independent_moment_max_standard_errors": 0.8118621373833239
             },
             {
               "model": "immigration",
-              "policy": "checked",
-              "sampler": "chacha8-u53/cached_direct/inverse/1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "next_reaction",
+              "sampler": "chacha8-u53/rules-next-reaction/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "fresh",
               "seed": 7001,
               "rates": [
-                4.500078311861938,
-                0.1495121425549359
+                4.5171027939850665,
+                0.4078402160048945
               ],
               "truth": [
                 4.0,
                 0.2
               ],
-              "training_loss": 0.03927237690544102,
-              "truth_training_loss": 0.036015171839742725,
+              "training_loss": 0.04886649609584333,
+              "truth_training_loss": 0.016709115397299135,
               "best_is_start": false,
-              "holdout_loss": 0.05895611842531279,
-              "truth_holdout_loss": 0.0014855993412433725,
-              "parameter_relative_error": 0.12549834370748342,
-              "independent_moment_max_standard_errors": 0.4836978461969879
+              "holdout_loss": 0.05307597944670456,
+              "truth_holdout_loss": 0.0018939397677507457,
+              "parameter_relative_error": 0.13915331229511196,
+              "independent_moment_max_standard_errors": 2.319846339932239
             },
             {
               "model": "immigration",
-              "policy": "checked",
-              "sampler": "chacha8-u53/cached_direct/inverse/1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "next_reaction",
+              "sampler": "chacha8-u53/rules-next-reaction/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "reusable",
               "seed": 7001,
               "rates": [
-                4.500078311861938,
-                0.1495121425549359
+                4.5171027939850665,
+                0.4078402160048945
               ],
               "truth": [
                 4.0,
                 0.2
               ],
-              "training_loss": 0.03927237690544102,
-              "truth_training_loss": 0.036015171839742725,
+              "training_loss": 0.04886649609584333,
+              "truth_training_loss": 0.016709115397299135,
               "best_is_start": false,
-              "holdout_loss": 0.05895611842531279,
-              "truth_holdout_loss": 0.0014855993412433725,
-              "parameter_relative_error": 0.12549834370748342,
-              "independent_moment_max_standard_errors": 0.4836978461969879
+              "holdout_loss": 0.05307597944670456,
+              "truth_holdout_loss": 0.0018939397677507457,
+              "parameter_relative_error": 0.13915331229511196,
+              "independent_moment_max_standard_errors": 2.319846339932239
             },
             {
               "model": "binding",
-              "policy": "fast",
-              "sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "direct",
+              "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "fresh",
               "seed": 7001,
               "rates": [
-                0.49999999999999994,
-                0.25
+                0.3752245023163718,
+                0.18732362711417969
               ],
               "truth": [
                 0.4,
                 0.2
               ],
-              "training_loss": 0.042200523456995105,
-              "truth_training_loss": 0.04720922895015805,
-              "best_is_start": true,
-              "holdout_loss": 0.007157495648093467,
-              "truth_holdout_loss": 0.001685818471869354,
-              "parameter_relative_error": 0.2499999999999998,
-              "independent_moment_max_standard_errors": 1.6073356323615382
+              "training_loss": 0.02219395194298815,
+              "truth_training_loss": 0.03553104152929978,
+              "best_is_start": false,
+              "holdout_loss": 0.0013630750204762351,
+              "truth_holdout_loss": 0.0003493324749817019,
+              "parameter_relative_error": 0.06223004559743746,
+              "independent_moment_max_standard_errors": 0.5369137133972209
             },
             {
               "model": "binding",
-              "policy": "fast",
-              "sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "direct",
+              "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "reusable",
               "seed": 7001,
               "rates": [
-                0.49999999999999994,
-                0.25
+                0.3752245023163718,
+                0.18732362711417969
               ],
               "truth": [
                 0.4,
                 0.2
               ],
-              "training_loss": 0.042200523456995105,
-              "truth_training_loss": 0.04720922895015805,
-              "best_is_start": true,
-              "holdout_loss": 0.007157495648093467,
-              "truth_holdout_loss": 0.001685818471869354,
-              "parameter_relative_error": 0.2499999999999998,
-              "independent_moment_max_standard_errors": 1.6073356323615382
+              "training_loss": 0.02219395194298815,
+              "truth_training_loss": 0.03553104152929978,
+              "best_is_start": false,
+              "holdout_loss": 0.0013630750204762351,
+              "truth_holdout_loss": 0.0003493324749817019,
+              "parameter_relative_error": 0.06223004559743746,
+              "independent_moment_max_standard_errors": 0.5369137133972209
             },
             {
               "model": "binding",
-              "policy": "checked",
-              "sampler": "chacha8-u53/cached_direct/inverse/1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "next_reaction",
+              "sampler": "chacha8-u53/rules-next-reaction/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "fresh",
               "seed": 7001,
               "rates": [
-                0.27481331746904053,
-                0.07319166309820486
+                0.4690218202030301,
+                0.2242303290379902
               ],
               "truth": [
                 0.4,
                 0.2
               ],
-              "training_loss": 0.06185180618776204,
-              "truth_training_loss": 0.4254122459286299,
+              "training_loss": 0.03299256942648251,
+              "truth_training_loss": 0.06200310784870245,
               "best_is_start": false,
-              "holdout_loss": 0.011169096954777507,
-              "truth_holdout_loss": 0.000546215603756844,
-              "parameter_relative_error": 0.39844736033073685,
-              "independent_moment_max_standard_errors": 1.320739399905113
+              "holdout_loss": 0.0076945572196300185,
+              "truth_holdout_loss": 0.0018187445424239928,
+              "parameter_relative_error": 0.16357139892763473,
+              "independent_moment_max_standard_errors": 1.6733420993405725
             },
             {
               "model": "binding",
-              "policy": "checked",
-              "sampler": "chacha8-u53/cached_direct/inverse/1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "next_reaction",
+              "sampler": "chacha8-u53/rules-next-reaction/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "reusable",
               "seed": 7001,
               "rates": [
-                0.27481331746904053,
-                0.07319166309820486
+                0.4690218202030301,
+                0.2242303290379902
               ],
               "truth": [
                 0.4,
                 0.2
               ],
-              "training_loss": 0.06185180618776204,
-              "truth_training_loss": 0.4254122459286299,
+              "training_loss": 0.03299256942648251,
+              "truth_training_loss": 0.06200310784870245,
               "best_is_start": false,
-              "holdout_loss": 0.011169096954777507,
-              "truth_holdout_loss": 0.000546215603756844,
-              "parameter_relative_error": 0.39844736033073685,
-              "independent_moment_max_standard_errors": 1.320739399905113
+              "holdout_loss": 0.0076945572196300185,
+              "truth_holdout_loss": 0.0018187445424239928,
+              "parameter_relative_error": 0.16357139892763473,
+              "independent_moment_max_standard_errors": 1.6733420993405725
             }
           ]
         }
@@ -269,9 +269,9 @@
               "parameter_relative_error": 0.12024776674746976,
               "native_solves": 48,
               "native_failures": 0,
-              "stochastic_vs_ode_normalized_rmse": 0.0074398101488381925,
-              "validation_sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "validation_request_schema": "crn-craft.ssa-run/0.3"
+              "stochastic_vs_ode_normalized_rmse": 0.009115621152433563,
+              "validation_sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "validation_request_schema": "crn-craft.run/1.0"
             },
             {
               "strategy": "multistart",
@@ -284,9 +284,9 @@
               "parameter_relative_error": 2.452205334480052e-07,
               "native_solves": 33,
               "native_failures": 0,
-              "stochastic_vs_ode_normalized_rmse": 0.004802876779119549,
-              "validation_sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "validation_request_schema": "crn-craft.ssa-run/0.3"
+              "stochastic_vs_ode_normalized_rmse": 0.009240897186371706,
+              "validation_sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "validation_request_schema": "crn-craft.run/1.0"
             },
             {
               "strategy": "global-local",
@@ -299,9 +299,9 @@
               "parameter_relative_error": 1.251243116781976e-07,
               "native_solves": 29,
               "native_failures": 0,
-              "stochastic_vs_ode_normalized_rmse": 0.004802865904013398,
-              "validation_sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "validation_request_schema": "crn-craft.ssa-run/0.3"
+              "stochastic_vs_ode_normalized_rmse": 0.009240909268011936,
+              "validation_sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "validation_request_schema": "crn-craft.run/1.0"
             }
           ]
         }
@@ -331,27 +331,40 @@
           "burn_fraction": 0.2,
           "resolvable_periods": "retained window / k for k = 1, 2, ...; oscillatory needs k >= 3",
           "threads": 2,
-          "request_schema": "crn-craft.ssa-run/0.3",
-          "fast": true
+          "request_schema": "crn-craft.run/1.0",
+          "method": "static_direct"
         },
         "results": {
-          "pareto_points": 11,
-          "occupied_niches": 3,
+          "pareto_points": 18,
+          "occupied_niches": 2,
           "failed_evaluations": 0,
           "clipped_descriptors": 0,
           "generator_max_error": 1.7763568394002505e-15,
           "validation": [
             {
               "origin": "pareto",
+              "training_niche": 5,
+              "heldout_niche": 5,
+              "niche_changed": false,
+              "descriptor_distance": 0.5108686249714808,
+              "training_oscillatory_fraction": 0.75,
+              "heldout_oscillatory_fraction": 0.625,
+              "training_descriptors": [
+                21.3828125,
+                26.5
+              ]
+            },
+            {
+              "origin": "pareto",
               "training_niche": 0,
               "heldout_niche": 0,
               "niche_changed": false,
-              "descriptor_distance": 2.6700011704117284,
-              "training_oscillatory_fraction": 0.75,
-              "heldout_oscillatory_fraction": 0.3125,
+              "descriptor_distance": 5.011333971126452,
+              "training_oscillatory_fraction": 0.25,
+              "heldout_oscillatory_fraction": 0.0625,
               "training_descriptors": [
-                19.286458333333332,
-                18.75
+                11.59982638888889,
+                8.0
               ]
             },
             {
@@ -359,76 +372,50 @@
               "training_niche": 1,
               "heldout_niche": 1,
               "niche_changed": false,
-              "descriptor_distance": 0.7864190569705831,
-              "training_oscillatory_fraction": 0.0,
+              "descriptor_distance": 2.0245692795807866,
+              "training_oscillatory_fraction": 1.0,
+              "heldout_oscillatory_fraction": 0.5625,
+              "training_descriptors": [
+                23.8984375,
+                17.75
+              ]
+            },
+            {
+              "origin": "archive",
+              "training_niche": 0,
+              "heldout_niche": 0,
+              "niche_changed": false,
+              "descriptor_distance": 3.4745205067370235,
+              "training_oscillatory_fraction": 0.25,
               "heldout_oscillatory_fraction": 0.0,
               "training_descriptors": [
-                28.749999999999996,
+                13.4765625,
                 5.75
               ]
             },
             {
-              "origin": "pareto",
-              "training_niche": 0,
-              "heldout_niche": 0,
-              "niche_changed": false,
-              "descriptor_distance": 2.6700011704117284,
-              "training_oscillatory_fraction": 0.75,
-              "heldout_oscillatory_fraction": 0.3125,
-              "training_descriptors": [
-                19.286458333333332,
-                18.75
-              ]
-            },
-            {
-              "origin": "archive",
-              "training_niche": 0,
-              "heldout_niche": 0,
-              "niche_changed": false,
-              "descriptor_distance": 5.242054358770133,
-              "training_oscillatory_fraction": 0.0,
-              "heldout_oscillatory_fraction": 0.0,
-              "training_descriptors": [
-                13.416666666666664,
-                5.25
-              ]
-            },
-            {
               "origin": "archive",
               "training_niche": 1,
-              "heldout_niche": 1,
-              "niche_changed": false,
-              "descriptor_distance": 3.967945444889743,
-              "training_oscillatory_fraction": 0.0,
-              "heldout_oscillatory_fraction": 0.0,
-              "training_descriptors": [
-                20.125,
-                6.0
-              ]
-            },
-            {
-              "origin": "archive",
-              "training_niche": 2,
-              "heldout_niche": 1,
+              "heldout_niche": 0,
               "niche_changed": true,
-              "descriptor_distance": 24.55777486018723,
-              "training_oscillatory_fraction": 0.0,
+              "descriptor_distance": 4.052951388888893,
+              "training_oscillatory_fraction": 0.25,
               "heldout_oscillatory_fraction": 0.0,
               "training_descriptors": [
-                46.95833333333333,
-                6.25
+                21.31293402777778,
+                6.0
               ]
             }
           ],
           "backend_control": [
             {
-              "max_standard_errors": 1.398119860392311,
-              "crn_sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
+              "max_standard_errors": 0.4709986130543981,
+              "crn_sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
               "reference_backend": "local-rebop-compatibility-0.9.7"
             },
             {
-              "max_standard_errors": 0.567719472809579,
-              "crn_sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
+              "max_standard_errors": 1.0810092210441848,
+              "crn_sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
               "reference_backend": "local-rebop-compatibility-0.9.7"
             }
           ]
@@ -459,24 +446,24 @@
               "kernel": "constant",
               "fitted_rate": 0.8659268410108679,
               "true_rate": 1.2,
-              "training_loss": 0.0033146662812823997,
+              "training_loss": 0.003314666281282325,
               "best_is_start": false,
               "exact_law_optimal_rate": 1.2000000000821134,
-              "exact_law_optimal_loss": 3.2649487243226607e-22,
-              "exact_heldout_prediction_mse": 0.00817967999975865,
-              "heldout_law_max_cdf_distance": 0.02981260166405586,
+              "exact_law_optimal_loss": 3.26494060205561e-22,
+              "exact_heldout_prediction_mse": 0.00817967999975863,
+              "heldout_law_max_cdf_distance": 0.029812601664056193,
               "dkw_bound": 0.06624409179382607
             },
             {
               "kernel": "multiplicative",
               "fitted_rate": 0.5999999999999999,
               "true_rate": 1.2,
-              "training_loss": 0.006784995439925264,
+              "training_loss": 0.006784995439925439,
               "best_is_start": true,
-              "exact_law_optimal_rate": 0.6678868104223689,
-              "exact_law_optimal_loss": 0.007119625373672893,
-              "exact_heldout_prediction_mse": 0.011455246950975679,
-              "heldout_law_max_cdf_distance": 0.020498381224170026,
+              "exact_law_optimal_rate": 0.6678868144329564,
+              "exact_law_optimal_loss": 0.007119625373673069,
+              "exact_heldout_prediction_mse": 0.011455246950975826,
+              "heldout_law_max_cdf_distance": 0.02049838122417036,
               "dkw_bound": 0.06624409179382607
             }
           ]
@@ -487,18 +474,18 @@
       "C1": {
         "passed": true,
         "checks": [
-          "immigration-fast-7001-fresh-bound-replay-and-moments",
-          "immigration-fast-7002-fresh-bound-replay-and-moments",
-          "immigration-fast-7003-fresh-bound-replay-and-moments",
-          "immigration-checked-7001-fresh-bound-replay-and-moments",
-          "immigration-checked-7002-fresh-bound-replay-and-moments",
-          "immigration-checked-7003-fresh-bound-replay-and-moments",
-          "binding-fast-7001-fresh-bound-replay-and-moments",
-          "binding-fast-7002-fresh-bound-replay-and-moments",
-          "binding-fast-7003-fresh-bound-replay-and-moments",
-          "binding-checked-7001-fresh-bound-replay-and-moments",
-          "binding-checked-7002-fresh-bound-replay-and-moments",
-          "binding-checked-7003-fresh-bound-replay-and-moments"
+          "immigration-direct-7001-fresh-bound-replay-and-moments",
+          "immigration-direct-7002-fresh-bound-replay-and-moments",
+          "immigration-direct-7003-fresh-bound-replay-and-moments",
+          "immigration-next_reaction-7001-fresh-bound-replay-and-moments",
+          "immigration-next_reaction-7002-fresh-bound-replay-and-moments",
+          "immigration-next_reaction-7003-fresh-bound-replay-and-moments",
+          "binding-direct-7001-fresh-bound-replay-and-moments",
+          "binding-direct-7002-fresh-bound-replay-and-moments",
+          "binding-direct-7003-fresh-bound-replay-and-moments",
+          "binding-next_reaction-7001-fresh-bound-replay-and-moments",
+          "binding-next_reaction-7002-fresh-bound-replay-and-moments",
+          "binding-next_reaction-7003-fresh-bound-replay-and-moments"
         ],
         "budgets": {
           "requested_calls": 128,
@@ -518,8 +505,8 @@
             2.5
           ],
           "policies": [
-            "fast",
-            "checked"
+            "direct",
+            "next_reaction"
           ],
           "event_cap_per_path": 100000,
           "threads": 2
@@ -528,555 +515,555 @@
           "arms": [
             {
               "model": "immigration",
-              "policy": "fast",
-              "sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "direct",
+              "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "fresh",
               "seed": 7001,
               "rates": [
-                4.466587452311976,
-                0.16550245607622208
+                3.927768942905561,
+                0.3004829715101274
               ],
               "truth": [
                 4.0,
                 0.2
               ],
-              "training_loss": 0.022060109204800935,
-              "truth_training_loss": 0.11735241237814792,
+              "training_loss": 0.03100967222460517,
+              "truth_training_loss": 0.08985853807006237,
               "best_is_start": false,
-              "holdout_loss": 0.045809563136342824,
-              "truth_holdout_loss": 0.00039958262181686357,
-              "parameter_relative_error": 0.11681932123988402,
-              "independent_moment_max_standard_errors": 0.8536566113419738
+              "holdout_loss": 0.03988866332082709,
+              "truth_holdout_loss": 0.0007093853338599417,
+              "parameter_relative_error": 0.030898991957995517,
+              "independent_moment_max_standard_errors": 2.3902956174363523
             },
             {
               "model": "immigration",
-              "policy": "fast",
-              "sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "direct",
+              "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "reusable",
               "seed": 7001,
               "rates": [
-                4.466587452311976,
-                0.16550245607622208
+                3.927768942905561,
+                0.3004829715101274
               ],
               "truth": [
                 4.0,
                 0.2
               ],
-              "training_loss": 0.022060109204800935,
-              "truth_training_loss": 0.11735241237814792,
+              "training_loss": 0.03100967222460517,
+              "truth_training_loss": 0.08985853807006237,
               "best_is_start": false,
-              "holdout_loss": 0.045809563136342824,
-              "truth_holdout_loss": 0.00039958262181686357,
-              "parameter_relative_error": 0.11681932123988402,
-              "independent_moment_max_standard_errors": 0.8536566113419738
+              "holdout_loss": 0.03988866332082709,
+              "truth_holdout_loss": 0.0007093853338599417,
+              "parameter_relative_error": 0.030898991957995517,
+              "independent_moment_max_standard_errors": 2.3902956174363523
             },
             {
               "model": "immigration",
-              "policy": "fast",
-              "sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "direct",
+              "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "fresh",
               "seed": 7002,
               "rates": [
-                4.415986280065021,
-                0.16571826748389298
+                3.5642055823720096,
+                0.18537740458486124
               ],
               "truth": [
                 4.0,
                 0.2
               ],
-              "training_loss": 0.01620074034047447,
-              "truth_training_loss": 0.11735241237814792,
+              "training_loss": 0.021807200500867655,
+              "truth_training_loss": 0.08985853807006237,
               "best_is_start": false,
-              "holdout_loss": 0.040308586352363264,
-              "truth_holdout_loss": 0.00039958262181686357,
-              "parameter_relative_error": 0.10421892792013814,
-              "independent_moment_max_standard_errors": 0.9552212785752724
+              "holdout_loss": 0.015091470085945635,
+              "truth_holdout_loss": 0.0007093853338599417,
+              "parameter_relative_error": 0.10887391032703787,
+              "independent_moment_max_standard_errors": 2.523415314469538
             },
             {
               "model": "immigration",
-              "policy": "fast",
-              "sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "direct",
+              "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "reusable",
               "seed": 7002,
               "rates": [
-                4.415986280065021,
-                0.16571826748389298
+                3.5642055823720096,
+                0.18537740458486124
               ],
               "truth": [
                 4.0,
                 0.2
               ],
-              "training_loss": 0.01620074034047447,
-              "truth_training_loss": 0.11735241237814792,
+              "training_loss": 0.021807200500867655,
+              "truth_training_loss": 0.08985853807006237,
               "best_is_start": false,
-              "holdout_loss": 0.040308586352363264,
-              "truth_holdout_loss": 0.00039958262181686357,
-              "parameter_relative_error": 0.10421892792013814,
-              "independent_moment_max_standard_errors": 0.9552212785752724
+              "holdout_loss": 0.015091470085945635,
+              "truth_holdout_loss": 0.0007093853338599417,
+              "parameter_relative_error": 0.10887391032703787,
+              "independent_moment_max_standard_errors": 2.523415314469538
             },
             {
               "model": "immigration",
-              "policy": "fast",
-              "sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "direct",
+              "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "fresh",
               "seed": 7003,
               "rates": [
-                4.407620519281384,
-                0.17110542954754362
+                3.5123036345794736,
+                0.18153475840080052
               ],
               "truth": [
                 4.0,
                 0.2
               ],
-              "training_loss": 0.02222507255239254,
-              "truth_training_loss": 0.11735241237814792,
+              "training_loss": 0.01643447323613099,
+              "truth_training_loss": 0.08985853807006237,
               "best_is_start": false,
-              "holdout_loss": 0.03450489904978116,
-              "truth_holdout_loss": 0.00039958262181686357,
-              "parameter_relative_error": 0.10203337430773327,
-              "independent_moment_max_standard_errors": 0.6562141248051201
+              "holdout_loss": 0.017087403903085448,
+              "truth_holdout_loss": 0.0007093853338599417,
+              "parameter_relative_error": 0.1218592228720679,
+              "independent_moment_max_standard_errors": 2.818140551973242
             },
             {
               "model": "immigration",
-              "policy": "fast",
-              "sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "direct",
+              "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "reusable",
               "seed": 7003,
               "rates": [
-                4.407620519281384,
-                0.17110542954754362
+                3.5123036345794736,
+                0.18153475840080052
               ],
               "truth": [
                 4.0,
                 0.2
               ],
-              "training_loss": 0.02222507255239254,
-              "truth_training_loss": 0.11735241237814792,
+              "training_loss": 0.01643447323613099,
+              "truth_training_loss": 0.08985853807006237,
               "best_is_start": false,
-              "holdout_loss": 0.03450489904978116,
-              "truth_holdout_loss": 0.00039958262181686357,
-              "parameter_relative_error": 0.10203337430773327,
-              "independent_moment_max_standard_errors": 0.6562141248051201
+              "holdout_loss": 0.017087403903085448,
+              "truth_holdout_loss": 0.0007093853338599417,
+              "parameter_relative_error": 0.1218592228720679,
+              "independent_moment_max_standard_errors": 2.818140551973242
             },
             {
               "model": "immigration",
-              "policy": "checked",
-              "sampler": "chacha8-u53/cached_direct/inverse/1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "next_reaction",
+              "sampler": "chacha8-u53/rules-next-reaction/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "fresh",
               "seed": 7001,
               "rates": [
-                3.8056210910312647,
-                0.18479350784066514
+                4.525361661310499,
+                0.2695968369052285
               ],
               "truth": [
                 4.0,
                 0.2
               ],
-              "training_loss": 0.005178780882611248,
-              "truth_training_loss": 0.010384234390208701,
+              "training_loss": 0.013819912038869172,
+              "truth_training_loss": 0.06121968889597479,
               "best_is_start": false,
-              "holdout_loss": 0.0005855403476045049,
-              "truth_holdout_loss": 8.691345036972623e-05,
-              "parameter_relative_error": 0.04868238815206959,
-              "independent_moment_max_standard_errors": 1.5551928998293063
+              "holdout_loss": 0.002536025904679686,
+              "truth_holdout_loss": 0.0002692325163348588,
+              "parameter_relative_error": 0.13232257562518787,
+              "independent_moment_max_standard_errors": 2.0822258395377244
             },
             {
               "model": "immigration",
-              "policy": "checked",
-              "sampler": "chacha8-u53/cached_direct/inverse/1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "next_reaction",
+              "sampler": "chacha8-u53/rules-next-reaction/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "reusable",
               "seed": 7001,
               "rates": [
-                3.8056210910312647,
-                0.18479350784066514
+                4.525361661310499,
+                0.2695968369052285
               ],
               "truth": [
                 4.0,
                 0.2
               ],
-              "training_loss": 0.005178780882611248,
-              "truth_training_loss": 0.010384234390208701,
+              "training_loss": 0.013819912038869172,
+              "truth_training_loss": 0.06121968889597479,
               "best_is_start": false,
-              "holdout_loss": 0.0005855403476045049,
-              "truth_holdout_loss": 8.691345036972623e-05,
-              "parameter_relative_error": 0.04868238815206959,
-              "independent_moment_max_standard_errors": 1.5551928998293063
+              "holdout_loss": 0.002536025904679686,
+              "truth_holdout_loss": 0.0002692325163348588,
+              "parameter_relative_error": 0.13232257562518787,
+              "independent_moment_max_standard_errors": 2.0822258395377244
             },
             {
               "model": "immigration",
-              "policy": "checked",
-              "sampler": "chacha8-u53/cached_direct/inverse/1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "next_reaction",
+              "sampler": "chacha8-u53/rules-next-reaction/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "fresh",
               "seed": 7002,
               "rates": [
-                3.3879555611021828,
-                0.14968707928303482
+                4.603374033437572,
+                0.3365158933887036
               ],
               "truth": [
                 4.0,
                 0.2
               ],
-              "training_loss": 0.005458165774723509,
-              "truth_training_loss": 0.010384234390208701,
+              "training_loss": 0.015421695344792511,
+              "truth_training_loss": 0.06121968889597479,
               "best_is_start": false,
-              "holdout_loss": 0.009502369464093906,
-              "truth_holdout_loss": 8.691345036972623e-05,
-              "parameter_relative_error": 0.15333568401897535,
-              "independent_moment_max_standard_errors": 1.9658901039044108
+              "holdout_loss": 0.012818090387317934,
+              "truth_holdout_loss": 0.0002692325163348588,
+              "parameter_relative_error": 0.154463275819724,
+              "independent_moment_max_standard_errors": 1.6939087639798074
             },
             {
               "model": "immigration",
-              "policy": "checked",
-              "sampler": "chacha8-u53/cached_direct/inverse/1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "next_reaction",
+              "sampler": "chacha8-u53/rules-next-reaction/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "reusable",
               "seed": 7002,
               "rates": [
-                3.3879555611021828,
-                0.14968707928303482
+                4.603374033437572,
+                0.3365158933887036
               ],
               "truth": [
                 4.0,
                 0.2
               ],
-              "training_loss": 0.005458165774723509,
-              "truth_training_loss": 0.010384234390208701,
+              "training_loss": 0.015421695344792511,
+              "truth_training_loss": 0.06121968889597479,
               "best_is_start": false,
-              "holdout_loss": 0.009502369464093906,
-              "truth_holdout_loss": 8.691345036972623e-05,
-              "parameter_relative_error": 0.15333568401897535,
-              "independent_moment_max_standard_errors": 1.9658901039044108
+              "holdout_loss": 0.012818090387317934,
+              "truth_holdout_loss": 0.0002692325163348588,
+              "parameter_relative_error": 0.154463275819724,
+              "independent_moment_max_standard_errors": 1.6939087639798074
             },
             {
               "model": "immigration",
-              "policy": "checked",
-              "sampler": "chacha8-u53/cached_direct/inverse/1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "next_reaction",
+              "sampler": "chacha8-u53/rules-next-reaction/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "fresh",
               "seed": 7003,
               "rates": [
-                3.8423835738519294,
-                0.18246128266982242
+                4.2698954810264445,
+                0.23248995216574378
               ],
               "truth": [
                 4.0,
                 0.2
               ],
-              "training_loss": 0.0031077360555671015,
-              "truth_training_loss": 0.010384234390208701,
+              "training_loss": 0.009227157077161341,
+              "truth_training_loss": 0.06121968889597479,
               "best_is_start": false,
-              "holdout_loss": 0.0002451680833840654,
-              "truth_holdout_loss": 8.691345036972623e-05,
-              "parameter_relative_error": 0.0395978415093472,
-              "independent_moment_max_standard_errors": 1.590573299557757
+              "holdout_loss": 0.0004506030752790099,
+              "truth_holdout_loss": 0.0002692325163348588,
+              "parameter_relative_error": 0.0678762110707129,
+              "independent_moment_max_standard_errors": 2.4763620364717505
             },
             {
               "model": "immigration",
-              "policy": "checked",
-              "sampler": "chacha8-u53/cached_direct/inverse/1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "next_reaction",
+              "sampler": "chacha8-u53/rules-next-reaction/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "reusable",
               "seed": 7003,
               "rates": [
-                3.8423835738519294,
-                0.18246128266982242
+                4.2698954810264445,
+                0.23248995216574378
               ],
               "truth": [
                 4.0,
                 0.2
               ],
-              "training_loss": 0.0031077360555671015,
-              "truth_training_loss": 0.010384234390208701,
+              "training_loss": 0.009227157077161341,
+              "truth_training_loss": 0.06121968889597479,
               "best_is_start": false,
-              "holdout_loss": 0.0002451680833840654,
-              "truth_holdout_loss": 8.691345036972623e-05,
-              "parameter_relative_error": 0.0395978415093472,
-              "independent_moment_max_standard_errors": 1.590573299557757
+              "holdout_loss": 0.0004506030752790099,
+              "truth_holdout_loss": 0.0002692325163348588,
+              "parameter_relative_error": 0.0678762110707129,
+              "independent_moment_max_standard_errors": 2.4763620364717505
             },
             {
               "model": "binding",
-              "policy": "fast",
-              "sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "direct",
+              "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "fresh",
               "seed": 7001,
               "rates": [
-                0.4225856600672139,
-                0.21610319335702557
+                0.37651013769476066,
+                0.18333741937369671
               ],
               "truth": [
                 0.4,
                 0.2
               ],
-              "training_loss": 0.024413040042142797,
-              "truth_training_loss": 0.020738991579634842,
+              "training_loss": 0.02757995504409112,
+              "truth_training_loss": 0.03061634443694543,
               "best_is_start": false,
-              "holdout_loss": 0.0005326212747454982,
-              "truth_holdout_loss": 0.000321976737258375,
-              "parameter_relative_error": 0.06202519153398442,
-              "independent_moment_max_standard_errors": 0.6591056590790669
+              "holdout_loss": 0.0007694509999590952,
+              "truth_holdout_loss": 0.00034134367534677744,
+              "parameter_relative_error": 0.0643977959346111,
+              "independent_moment_max_standard_errors": 1.246377736791612
             },
             {
               "model": "binding",
-              "policy": "fast",
-              "sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "direct",
+              "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "reusable",
               "seed": 7001,
               "rates": [
-                0.4225856600672139,
-                0.21610319335702557
+                0.37651013769476066,
+                0.18333741937369671
               ],
               "truth": [
                 0.4,
                 0.2
               ],
-              "training_loss": 0.024413040042142797,
-              "truth_training_loss": 0.020738991579634842,
+              "training_loss": 0.02757995504409112,
+              "truth_training_loss": 0.03061634443694543,
               "best_is_start": false,
-              "holdout_loss": 0.0005326212747454982,
-              "truth_holdout_loss": 0.000321976737258375,
-              "parameter_relative_error": 0.06202519153398442,
-              "independent_moment_max_standard_errors": 0.6591056590790669
+              "holdout_loss": 0.0007694509999590952,
+              "truth_holdout_loss": 0.00034134367534677744,
+              "parameter_relative_error": 0.0643977959346111,
+              "independent_moment_max_standard_errors": 1.246377736791612
             },
             {
               "model": "binding",
-              "policy": "fast",
-              "sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "direct",
+              "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "fresh",
               "seed": 7002,
               "rates": [
-                0.5981669196502298,
-                0.3559399820232766
+                0.2761883193666595,
+                0.07460236341446726
               ],
               "truth": [
                 0.4,
                 0.2
               ],
-              "training_loss": 0.02042305989678378,
-              "truth_training_loss": 0.020738991579634842,
+              "training_loss": 0.011031035322852344,
+              "truth_training_loss": 0.03061634443694543,
               "best_is_start": false,
-              "holdout_loss": 0.01099007270843596,
-              "truth_holdout_loss": 0.000321976737258375,
-              "parameter_relative_error": 0.5638590517012227,
-              "independent_moment_max_standard_errors": 0.9769659994132638
+              "holdout_loss": 0.013425050441237235,
+              "truth_holdout_loss": 0.00034134367534677744,
+              "parameter_relative_error": 0.39404250736747715,
+              "independent_moment_max_standard_errors": 1.9009549187630637
             },
             {
               "model": "binding",
-              "policy": "fast",
-              "sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "direct",
+              "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "reusable",
               "seed": 7002,
               "rates": [
-                0.5981669196502298,
-                0.3559399820232766
+                0.2761883193666595,
+                0.07460236341446726
               ],
               "truth": [
                 0.4,
                 0.2
               ],
-              "training_loss": 0.02042305989678378,
-              "truth_training_loss": 0.020738991579634842,
+              "training_loss": 0.011031035322852344,
+              "truth_training_loss": 0.03061634443694543,
               "best_is_start": false,
-              "holdout_loss": 0.01099007270843596,
-              "truth_holdout_loss": 0.000321976737258375,
-              "parameter_relative_error": 0.5638590517012227,
-              "independent_moment_max_standard_errors": 0.9769659994132638
+              "holdout_loss": 0.013425050441237235,
+              "truth_holdout_loss": 0.00034134367534677744,
+              "parameter_relative_error": 0.39404250736747715,
+              "independent_moment_max_standard_errors": 1.9009549187630637
             },
             {
               "model": "binding",
-              "policy": "fast",
-              "sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "direct",
+              "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "fresh",
               "seed": 7003,
               "rates": [
-                0.48679584456191943,
-                0.24719715322354463
+                0.2764712178174871,
+                0.07367544881415146
               ],
               "truth": [
                 0.4,
                 0.2
               ],
-              "training_loss": 0.017153198313681083,
-              "truth_training_loss": 0.020738991579634842,
+              "training_loss": 0.011056776572871975,
+              "truth_training_loss": 0.03061634443694543,
               "best_is_start": false,
-              "holdout_loss": 0.004351058882340843,
-              "truth_holdout_loss": 0.000321976737258375,
-              "parameter_relative_error": 0.22091955442675984,
-              "independent_moment_max_standard_errors": 0.7340843188627739
+              "holdout_loss": 0.013351806701997449,
+              "truth_holdout_loss": 0.00034134367534677744,
+              "parameter_relative_error": 0.3950775383377343,
+              "independent_moment_max_standard_errors": 1.972833734312965
             },
             {
               "model": "binding",
-              "policy": "fast",
-              "sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "direct",
+              "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "reusable",
               "seed": 7003,
               "rates": [
-                0.48679584456191943,
-                0.24719715322354463
+                0.2764712178174871,
+                0.07367544881415146
               ],
               "truth": [
                 0.4,
                 0.2
               ],
-              "training_loss": 0.017153198313681083,
-              "truth_training_loss": 0.020738991579634842,
+              "training_loss": 0.011056776572871975,
+              "truth_training_loss": 0.03061634443694543,
               "best_is_start": false,
-              "holdout_loss": 0.004351058882340843,
-              "truth_holdout_loss": 0.000321976737258375,
-              "parameter_relative_error": 0.22091955442675984,
-              "independent_moment_max_standard_errors": 0.7340843188627739
+              "holdout_loss": 0.013351806701997449,
+              "truth_holdout_loss": 0.00034134367534677744,
+              "parameter_relative_error": 0.3950775383377343,
+              "independent_moment_max_standard_errors": 1.972833734312965
             },
             {
               "model": "binding",
-              "policy": "checked",
-              "sampler": "chacha8-u53/cached_direct/inverse/1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "next_reaction",
+              "sampler": "chacha8-u53/rules-next-reaction/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "fresh",
               "seed": 7001,
               "rates": [
-                0.35821029599995996,
-                0.11618471439186231
+                0.49023470277400566,
+                0.282791625022792
               ],
               "truth": [
                 0.4,
                 0.2
               ],
-              "training_loss": 0.012610563844391718,
-              "truth_training_loss": 0.10829360115276938,
+              "training_loss": 0.012671658118481099,
+              "truth_training_loss": 0.025191721585477268,
               "best_is_start": false,
-              "holdout_loss": 0.006565735180924517,
-              "truth_holdout_loss": 0.0003379754281122198,
-              "parameter_relative_error": 0.2094204080550014,
-              "independent_moment_max_standard_errors": 2.041671618554716
+              "holdout_loss": 0.0029080470643613695,
+              "truth_holdout_loss": 0.00020277912055340416,
+              "parameter_relative_error": 0.27383165228501005,
+              "independent_moment_max_standard_errors": 1.1051565780164667
             },
             {
               "model": "binding",
-              "policy": "checked",
-              "sampler": "chacha8-u53/cached_direct/inverse/1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "next_reaction",
+              "sampler": "chacha8-u53/rules-next-reaction/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "reusable",
               "seed": 7001,
               "rates": [
-                0.35821029599995996,
-                0.11618471439186231
+                0.49023470277400566,
+                0.282791625022792
               ],
               "truth": [
                 0.4,
                 0.2
               ],
-              "training_loss": 0.012610563844391718,
-              "truth_training_loss": 0.10829360115276938,
+              "training_loss": 0.012671658118481099,
+              "truth_training_loss": 0.025191721585477268,
               "best_is_start": false,
-              "holdout_loss": 0.006565735180924517,
-              "truth_holdout_loss": 0.0003379754281122198,
-              "parameter_relative_error": 0.2094204080550014,
-              "independent_moment_max_standard_errors": 2.041671618554716
+              "holdout_loss": 0.0029080470643613695,
+              "truth_holdout_loss": 0.00020277912055340416,
+              "parameter_relative_error": 0.27383165228501005,
+              "independent_moment_max_standard_errors": 1.1051565780164667
             },
             {
               "model": "binding",
-              "policy": "checked",
-              "sampler": "chacha8-u53/cached_direct/inverse/1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "next_reaction",
+              "sampler": "chacha8-u53/rules-next-reaction/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "fresh",
               "seed": 7002,
               "rates": [
-                0.3413974523490125,
-                0.11567272027807629
+                0.38590079841805286,
+                0.18275785602295241
               ],
               "truth": [
                 0.4,
                 0.2
               ],
-              "training_loss": 0.013795181319961602,
-              "truth_training_loss": 0.10829360115276938,
+              "training_loss": 0.01099314644904744,
+              "truth_training_loss": 0.025191721585477268,
               "best_is_start": false,
-              "holdout_loss": 0.004302708383074454,
-              "truth_holdout_loss": 0.0003379754281122198,
-              "parameter_relative_error": 0.22962304649670764,
-              "independent_moment_max_standard_errors": 2.1560981017693974
+              "holdout_loss": 0.00044555248566313026,
+              "truth_holdout_loss": 0.00020277912055340416,
+              "parameter_relative_error": 0.049803564840963946,
+              "independent_moment_max_standard_errors": 1.4281520665222978
             },
             {
               "model": "binding",
-              "policy": "checked",
-              "sampler": "chacha8-u53/cached_direct/inverse/1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "next_reaction",
+              "sampler": "chacha8-u53/rules-next-reaction/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "reusable",
               "seed": 7002,
               "rates": [
-                0.3413974523490125,
-                0.11567272027807629
+                0.38590079841805286,
+                0.18275785602295241
               ],
               "truth": [
                 0.4,
                 0.2
               ],
-              "training_loss": 0.013795181319961602,
-              "truth_training_loss": 0.10829360115276938,
+              "training_loss": 0.01099314644904744,
+              "truth_training_loss": 0.025191721585477268,
               "best_is_start": false,
-              "holdout_loss": 0.004302708383074454,
-              "truth_holdout_loss": 0.0003379754281122198,
-              "parameter_relative_error": 0.22962304649670764,
-              "independent_moment_max_standard_errors": 2.1560981017693974
+              "holdout_loss": 0.00044555248566313026,
+              "truth_holdout_loss": 0.00020277912055340416,
+              "parameter_relative_error": 0.049803564840963946,
+              "independent_moment_max_standard_errors": 1.4281520665222978
             },
             {
               "model": "binding",
-              "policy": "checked",
-              "sampler": "chacha8-u53/cached_direct/inverse/1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "next_reaction",
+              "sampler": "chacha8-u53/rules-next-reaction/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "fresh",
               "seed": 7003,
               "rates": [
-                0.3243240054850189,
-                0.0829922411802906
+                0.42363176654593576,
+                0.2076233031006692
               ],
               "truth": [
                 0.4,
                 0.2
               ],
-              "training_loss": 0.012064276523433016,
-              "truth_training_loss": 0.10829360115276938,
+              "training_loss": 0.004977024565901891,
+              "truth_training_loss": 0.025191721585477268,
               "best_is_start": false,
-              "holdout_loss": 0.010315865431908624,
-              "truth_holdout_loss": 0.0003379754281122198,
-              "parameter_relative_error": 0.3115900493424231,
-              "independent_moment_max_standard_errors": 2.0941651086075694
+              "holdout_loss": 0.0006476906683275422,
+              "truth_holdout_loss": 0.00020277912055340416,
+              "parameter_relative_error": 0.055523649927138256,
+              "independent_moment_max_standard_errors": 1.091605836584099
             },
             {
               "model": "binding",
-              "policy": "checked",
-              "sampler": "chacha8-u53/cached_direct/inverse/1",
-              "request_schema": "crn-craft.ssa-run/0.3",
+              "policy": "next_reaction",
+              "sampler": "chacha8-u53/rules-next-reaction/1",
+              "request_schema": "crn-craft.result/1.0",
               "route": "reusable",
               "seed": 7003,
               "rates": [
-                0.3243240054850189,
-                0.0829922411802906
+                0.42363176654593576,
+                0.2076233031006692
               ],
               "truth": [
                 0.4,
                 0.2
               ],
-              "training_loss": 0.012064276523433016,
-              "truth_training_loss": 0.10829360115276938,
+              "training_loss": 0.004977024565901891,
+              "truth_training_loss": 0.025191721585477268,
               "best_is_start": false,
-              "holdout_loss": 0.010315865431908624,
-              "truth_holdout_loss": 0.0003379754281122198,
-              "parameter_relative_error": 0.3115900493424231,
-              "independent_moment_max_standard_errors": 2.0941651086075694
+              "holdout_loss": 0.0006476906683275422,
+              "truth_holdout_loss": 0.00020277912055340416,
+              "parameter_relative_error": 0.055523649927138256,
+              "independent_moment_max_standard_errors": 1.091605836584099
             }
           ]
         }
@@ -1128,9 +1115,9 @@
               "parameter_relative_error": 0.003578357001394227,
               "native_solves": 160,
               "native_failures": 0,
-              "stochastic_vs_ode_normalized_rmse": 0.0018434239721831238,
-              "validation_sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "validation_request_schema": "crn-craft.ssa-run/0.3"
+              "stochastic_vs_ode_normalized_rmse": 0.0022054074595332773,
+              "validation_sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "validation_request_schema": "crn-craft.run/1.0"
             },
             {
               "strategy": "multistart",
@@ -1143,9 +1130,9 @@
               "parameter_relative_error": 2.452205334480052e-07,
               "native_solves": 33,
               "native_failures": 0,
-              "stochastic_vs_ode_normalized_rmse": 0.001757173605335419,
-              "validation_sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "validation_request_schema": "crn-craft.ssa-run/0.3"
+              "stochastic_vs_ode_normalized_rmse": 0.002193709592684787,
+              "validation_sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "validation_request_schema": "crn-craft.run/1.0"
             },
             {
               "strategy": "global-local",
@@ -1158,9 +1145,9 @@
               "parameter_relative_error": 1.5224323634081734e-07,
               "native_solves": 64,
               "native_failures": 0,
-              "stochastic_vs_ode_normalized_rmse": 0.0017572121729928474,
-              "validation_sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
-              "validation_request_schema": "crn-craft.ssa-run/0.3"
+              "stochastic_vs_ode_normalized_rmse": 0.002192683947103362,
+              "validation_sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+              "validation_request_schema": "crn-craft.run/1.0"
             }
           ]
         }
@@ -1190,40 +1177,40 @@
           "burn_fraction": 0.2,
           "resolvable_periods": "retained window / k for k = 1, 2, ...; oscillatory needs k >= 3",
           "threads": 2,
-          "request_schema": "crn-craft.ssa-run/0.3",
-          "fast": true
+          "request_schema": "crn-craft.run/1.0",
+          "method": "static_direct"
         },
         "results": {
-          "pareto_points": 66,
-          "occupied_niches": 3,
+          "pareto_points": 77,
+          "occupied_niches": 2,
           "failed_evaluations": 0,
           "clipped_descriptors": 0,
           "generator_max_error": 1.7763568394002505e-15,
           "validation": [
             {
               "origin": "pareto",
-              "training_niche": 5,
-              "heldout_niche": 5,
+              "training_niche": 4,
+              "heldout_niche": 4,
               "niche_changed": false,
-              "descriptor_distance": 1.151571114638858,
-              "training_oscillatory_fraction": 0.9375,
-              "heldout_oscillatory_fraction": 0.78125,
+              "descriptor_distance": 1.2795538284277144,
+              "training_oscillatory_fraction": 0.8125,
+              "heldout_oscillatory_fraction": 0.6640625,
               "training_descriptors": [
-                21.697265625,
-                27.5
+                18.927083333333332,
+                22.1875
               ]
             },
             {
               "origin": "pareto",
-              "training_niche": 1,
+              "training_niche": 0,
               "heldout_niche": 1,
-              "niche_changed": false,
-              "descriptor_distance": 0.3873007301104668,
-              "training_oscillatory_fraction": 0.1875,
-              "heldout_oscillatory_fraction": 0.109375,
+              "niche_changed": true,
+              "descriptor_distance": 1.6296606371916464,
+              "training_oscillatory_fraction": 0.0,
+              "heldout_oscillatory_fraction": 0.0234375,
               "training_descriptors": [
-                21.307942708333332,
-                7.6875
+                19.41623263888889,
+                6.625
               ]
             },
             {
@@ -1231,25 +1218,25 @@
               "training_niche": 5,
               "heldout_niche": 5,
               "niche_changed": false,
-              "descriptor_distance": 1.151571114638858,
+              "descriptor_distance": 1.7204197104025163,
               "training_oscillatory_fraction": 0.9375,
-              "heldout_oscillatory_fraction": 0.78125,
+              "heldout_oscillatory_fraction": 0.734375,
               "training_descriptors": [
-                21.697265625,
-                27.5
+                27.776692708333332,
+                30.4375
               ]
             },
             {
               "origin": "archive",
               "training_niche": 0,
-              "heldout_niche": 1,
-              "niche_changed": true,
-              "descriptor_distance": 6.772181535556066,
-              "training_oscillatory_fraction": 0.0625,
-              "heldout_oscillatory_fraction": 0.0,
+              "heldout_niche": 0,
+              "niche_changed": false,
+              "descriptor_distance": 3.6349513107400564,
+              "training_oscillatory_fraction": 0.3125,
+              "heldout_oscillatory_fraction": 0.1484375,
               "training_descriptors": [
-                15.737630208333332,
-                6.25
+                15.141167534722221,
+                8.5625
               ]
             },
             {
@@ -1257,37 +1244,24 @@
               "training_niche": 1,
               "heldout_niche": 1,
               "niche_changed": false,
-              "descriptor_distance": 2.638546173584029,
-              "training_oscillatory_fraction": 0.0,
-              "heldout_oscillatory_fraction": 0.0078125,
+              "descriptor_distance": 1.785682935262328,
+              "training_oscillatory_fraction": 0.25,
+              "heldout_oscillatory_fraction": 0.0625,
               "training_descriptors": [
-                21.829762468434343,
-                6.5
-              ]
-            },
-            {
-              "origin": "archive",
-              "training_niche": 2,
-              "heldout_niche": 1,
-              "niche_changed": true,
-              "descriptor_distance": 18.140698972227295,
-              "training_oscillatory_fraction": 0.0,
-              "heldout_oscillatory_fraction": 0.0,
-              "training_descriptors": [
-                44.490352746212125,
-                6.4375
+                23.99077690972222,
+                7.125
               ]
             }
           ],
           "backend_control": [
             {
-              "max_standard_errors": 1.0156095816282484,
-              "crn_sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
+              "max_standard_errors": 0.6269681505217822,
+              "crn_sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
               "reference_backend": "local-rebop-compatibility-0.9.7"
             },
             {
-              "max_standard_errors": 1.722932900940072,
-              "crn_sampler": "xoshiro256pp-u53/cached_direct/inverse/fast-1",
+              "max_standard_errors": 1.7732299139222707,
+              "crn_sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
               "reference_backend": "local-rebop-compatibility-0.9.7"
             }
           ]
@@ -1318,24 +1292,24 @@
               "kernel": "constant",
               "fitted_rate": 1.171099247106155,
               "true_rate": 1.2,
-              "training_loss": 9.815149471060029e-05,
+              "training_loss": 9.815149471058596e-05,
               "best_is_start": false,
               "exact_law_optimal_rate": 1.2000000000821134,
-              "exact_law_optimal_loss": 3.2649487243226607e-22,
-              "exact_heldout_prediction_mse": 4.765067606846486e-05,
-              "heldout_law_max_cdf_distance": 0.004790712117537621,
+              "exact_law_optimal_loss": 3.26494060205561e-22,
+              "exact_heldout_prediction_mse": 4.765067606846461e-05,
+              "heldout_law_max_cdf_distance": 0.00479071211753751,
               "dkw_bound": 0.023420823260479267
             },
             {
               "kernel": "multiplicative",
               "fitted_rate": 0.6425263044575624,
               "true_rate": 1.2,
-              "training_loss": 0.006761290110285982,
+              "training_loss": 0.006761290110286168,
               "best_is_start": false,
-              "exact_law_optimal_rate": 0.6678868104223689,
-              "exact_law_optimal_loss": 0.007119625373672893,
-              "exact_heldout_prediction_mse": 0.013519305052712342,
-              "heldout_law_max_cdf_distance": 0.011378454208687772,
+              "exact_law_optimal_rate": 0.6678868144329564,
+              "exact_law_optimal_loss": 0.007119625373673069,
+              "exact_heldout_prediction_mse": 0.013519305052712467,
+              "heldout_law_max_cdf_distance": 0.011378454208687439,
               "dkw_bound": 0.023420823260479267
             }
           ]
@@ -1344,10 +1318,10 @@
     }
   },
   "versions": {
-    "crn-craft": "0.2.0.dev1",
+    "crn-craft": "0.6.0",
     "fcmaes-rust": "0.2.1",
     "numpy": "2.3.5",
-    "scipy": "1.17.0",
-    "sqp-craft": "0.17.0"
+    "scipy": "1.18.1",
+    "sqp-craft": "0.18.0"
   }
 }

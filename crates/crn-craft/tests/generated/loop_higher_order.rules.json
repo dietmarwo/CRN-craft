@@ -1,0 +1,160 @@
+{
+  "schema": "crn-craft.model/1.0",
+  "name": "loop_higher_order",
+  "description": "Higher-order rules: 3A -> 0, 2A + B -> C with an expression rate, a whole propensity over 3A + B, sources, decay and a stop.",
+  "parameters": {
+    "kin": 30.0,
+    "kb": 4.0,
+    "c3": 0.0005,
+    "c2": 0.001,
+    "w": 2.0,
+    "dc": 0.05
+  },
+  "types": [
+    {
+      "name": "A"
+    },
+    {
+      "name": "B"
+    },
+    {
+      "name": "C"
+    }
+  ],
+  "initial": [
+    {
+      "type": "A",
+      "count": 20
+    },
+    {
+      "type": "B",
+      "count": 5
+    }
+  ],
+  "observables": {
+    "nA": {
+      "type": "A"
+    },
+    "nB": {
+      "type": "B"
+    },
+    "nC": {
+      "type": "C"
+    }
+  },
+  "rules": [
+    {
+      "name": "source_a",
+      "reactants": [],
+      "rate": "kin",
+      "products": [
+        {
+          "type": "A"
+        }
+      ]
+    },
+    {
+      "name": "source_b",
+      "reactants": [],
+      "rate": "kb",
+      "products": [
+        {
+          "type": "B"
+        }
+      ]
+    },
+    {
+      "name": "third_order",
+      "reactants": [
+        {
+          "label": "a",
+          "type": "A",
+          "count": 3
+        }
+      ],
+      "rate": "c3",
+      "products": []
+    },
+    {
+      "name": "bind",
+      "reactants": [
+        {
+          "label": "a",
+          "type": "A",
+          "count": 2
+        },
+        {
+          "label": "b",
+          "type": "B"
+        }
+      ],
+      "rate": "c2 * (1 + nC / 50)",
+      "products": [
+        {
+          "type": "C"
+        }
+      ]
+    },
+    {
+      "name": "whole",
+      "reactants": [
+        {
+          "label": "a",
+          "type": "A",
+          "count": 3
+        },
+        {
+          "label": "b",
+          "type": "B"
+        }
+      ],
+      "propensity": "w * nB / (1 + nB)",
+      "products": [
+        {
+          "type": "A"
+        },
+        {
+          "type": "C"
+        }
+      ]
+    },
+    {
+      "name": "three_patterns",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A"
+        },
+        {
+          "label": "y",
+          "type": "B"
+        },
+        {
+          "label": "z",
+          "type": "C"
+        }
+      ],
+      "rate": "c2",
+      "products": [
+        {
+          "type": "C"
+        },
+        {
+          "type": "C"
+        }
+      ]
+    },
+    {
+      "name": "decay_c",
+      "reactants": [
+        {
+          "label": "c",
+          "type": "C"
+        }
+      ],
+      "rate": "dc",
+      "products": []
+    }
+  ],
+  "stop": "nC >= 60"
+}

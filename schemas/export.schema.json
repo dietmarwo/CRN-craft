@@ -57,18 +57,18 @@
           "additionalProperties": {
             "type": "string"
           },
-          "description": "Model reaction name to target name (`R0`, `R1`, … in declaration order).",
+          "description": "Rule name to target name (`R0`, `R1`, … one per channel of the flat view; for a network model one per reaction). The channels of a rule with several reactant tuples are named `rule[0]`, `rule[1]`, ….",
           "type": "object"
         },
         "source": {
-          "description": "Python module defining `build_model()`, with one frozen rate constant per channel and the target volume fixed at 1.",
+          "description": "Python module defining `build_model()`, with one frozen rate constant per mass-action reaction, a custom propensity string for every other reaction, and the target volume fixed at 1.",
           "type": "string"
         },
         "species_aliases": {
           "additionalProperties": {
             "type": "string"
           },
-          "description": "Model species name to target name (`S0`, `S1`, … in declaration order).",
+          "description": "Species label to target name (`S0`, `S1`, … in the order of the flat view; for a network model its species in declaration order).",
           "type": "object"
         },
         "target": {
@@ -113,7 +113,7 @@
       "description": "The generated source on success, otherwise null; no partial source is emitted."
     },
     "diagnostics": {
-      "description": "Validation findings, plus `CRN-E050` and `CRN-E051` for unsupported features.",
+      "description": "The errors of reading and lowering the model, plus `CRN-E050` and `CRN-E051` for unsupported features.",
       "items": {
         "$ref": "#/definitions/Diagnostic"
       },

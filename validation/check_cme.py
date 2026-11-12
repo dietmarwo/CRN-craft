@@ -4,6 +4,15 @@ The rule is frozen in docs/decisions/iteration-04-review-cme.md. The exact
 laws come from uniformization of the master-equation generator, with
 propensities written here independently of the Rust code. Standard library
 only; the report is fixed-work evidence and identical under ``python -O``.
+
+Since 0.7.0 (M8a) the fixtures are network `crn-craft.model/0.1` documents
+converted with `crn-craft convert` and run on the unified engine as
+`crn-craft.run/1.0` Static Direct requests (`linear` selector, `inverse`
+waits: `chacha8-u53/rules-static-direct/1`) by `crn-craft run MODEL REQUEST
+--archive DIR`. The fixtures, seeds, N = 100,000 replicates, the family
+(12 tests, alpha 0.001) and the DKW bound are those of 0.6.0; only the random
+stream differs (decision D4). The helpers `network_model`, `convert_network`
+and `run_request` are shared by the other validation scripts.
 """
 
 import argparse
@@ -227,37 +236,102 @@ def invoke(binary, *args, expected=0):
     return json.loads(p.stdout)
 
 
-def simulate(binary, name, fixture, folder, command="simulate"):
-    model = {
+def network_model(name, parameters, species, reactions, omega=1.0):
+    """A network `crn-craft.model/0.1` document (the input of `convert`)."""
+    return {
         "schema": "crn-craft.model/0.1",
         "name": name,
         "convention": "stochastic_counts",
-        "omega": 1.0,
-        "parameters": fixture["parameters"],
-        "species": [{"name": s, "initial_count": c} for s, c in fixture["species"]],
-        "reactions": fixture["reactions"],
+        "omega": omega,
+        "parameters": parameters,
+        "species": [{"name": s, "initial_count": c} for s, c in species],
+        "reactions": reactions,
     }
-    model_bytes = (json.dumps(model, indent=2) + "\n").encode()
-    (folder / "model.json").write_bytes(model_bytes)
-    run = {
-        "schema": "crn-craft.run/0.1",
+
+
+def convert_network(binary, network_bytes, folder):
+    """`crn-craft convert` of network model bytes: the `model/1.0` bytes."""
+    source = Path(folder) / "network.json"
+    source.write_bytes(network_bytes)
+    p = subprocess.run(
+        [binary, "convert", str(source)], capture_output=True, timeout=120, check=False
+    )
+    require(
+        p.returncode == 0 and not p.stderr,
+        f"convert exit {p.returncode}: {p.stdout[-2000:]!r} {p.stderr[-1000:]!r}",
+    )
+    return p.stdout
+
+
+def run_request(
+    model_bytes,
+    *,
+    times,
+    replicates,
+    seed,
+    threads=1,
+    keep=0,
+    max_events=1_000_000,
+    max_sampling_steps=100_000_000,
+    max_output_bytes=268_435_456,
+    wall_time_s=None,
+    selector="linear",
+    waiting_time="inverse",
+    statistics=("mean", "variance"),
+):
+    """A `crn-craft.run/1.0` Static Direct request for `model.json`."""
+    budget = {
+        "max_events_per_replicate": max_events,
+        "max_sampling_steps_per_replicate": max_sampling_steps,
+        "max_instances": 16,
+        "threads": threads,
+        "max_output_bytes": max_output_bytes,
+    }
+    if wall_time_s is not None:
+        budget["wall_time_s"] = wall_time_s
+    return {
+        "schema": "crn-craft.run/1.0",
         "model": {
             "path": "model.json",
             "sha256": hashlib.sha256(model_bytes).hexdigest(),
         },
-        "method": {"kind": "ssa", "aggregator": "direct"},
-        "ensemble": {"replicates": N, "root_seed": fixture["seed"]},
-        "time": {"end": TIMES[-1], "save_times": TIMES},
-        "outputs": {"statistics": ["mean"], "keep_trajectories": N},
-        "budget": {
-            "max_events_per_replicate": 1_000_000,
-            "threads": 8,
-            "max_output_bytes": 268_435_456,
+        "method": {
+            "kind": "static_direct",
+            "selector": selector,
+            "waiting_time": waiting_time,
         },
+        "time": {"end": times[-1], "report_times": list(times)},
+        "ensemble": {"replicates": replicates, "root_seed": seed},
+        "outputs": {
+            "statistics": list(statistics),
+            "keep_paths": keep,
+            "keep_instances": 0,
+        },
+        "budget": budget,
     }
+
+
+def simulate(binary, name, fixture, folder):
+    network = network_model(
+        name, fixture["parameters"], fixture["species"], fixture["reactions"]
+    )
+    network_bytes = (json.dumps(network, indent=2) + "\n").encode()
+    model_bytes = convert_network(binary, network_bytes, folder)
+    (folder / "model.json").write_bytes(model_bytes)
+    run = run_request(
+        model_bytes,
+        times=TIMES,
+        replicates=N,
+        seed=fixture["seed"],
+        threads=8,
+        keep=N,
+        statistics=("mean",),
+    )
     (folder / "run.json").write_text(json.dumps(run, indent=2) + "\n")
     out = folder / "archive"
-    report = invoke(binary, command, folder / "model.json", folder / "run.json", out)
+    report = invoke(
+        binary, "run", folder / "model.json", folder / "run.json", "--archive", out
+    )
     require(report["valid"] and report["simulation_complete"], "simulation incomplete")
     require(invoke(binary, "verify", out)["valid"], "archive verification failed")
     result_bytes = (out / "result.json").read_bytes()
@@ -270,9 +344,6 @@ def main():
         "--binary", type=Path, default=ROOT / "target/release/crn-craft"
     )
     parser.add_argument("--output", type=Path)
-    parser.add_argument(
-        "--command", choices=["simulate", "simulate-cached"], default="simulate"
-    )
     args = parser.parse_args()
     binary = str(args.binary.resolve())
     rows, power, fixtures = [], [], []
@@ -281,11 +352,10 @@ def main():
             for name, fixture in FIXTURES.items():
                 folder = Path(tmp) / name
                 folder.mkdir()
-                result, result_hash = simulate(
-                    binary, name, fixture, folder, args.command
-                )
+                result, result_hash = simulate(binary, name, fixture, folder)
                 names = [s for s, _ in fixture["species"]]
                 position = names.index(fixture["marginal"])
+                column = result["observables"].index(fixture["marginal"])
                 states, edges, exits = generator(fixture)
                 laws = uniformize(states, edges, exits)
                 wrong = None
@@ -304,9 +374,11 @@ def main():
                     }
                 )
                 for k, t in enumerate(TIMES):
-                    samples = [
-                        path["counts"][k][position] for path in result["trajectories"]
-                    ]
+                    samples = [path["values"][k][column] for path in result["paths"]]
+                    require(
+                        all(v == int(v) for v in samples), "non-integer count in a path"
+                    )
+                    samples = [int(v) for v in samples]
                     if t == 0.0:
                         initial = fixture["species"][position][1]
                         require(all(s == initial for s in samples), "bad initial state")
@@ -318,7 +390,7 @@ def main():
                             "check": f"{name}_t{t:g}",
                             "max_cdf_error": error,
                             "exact_mean": sum(v * m for v, m in distribution.items()),
-                            "sample_mean": result["statistics"]["mean"][k][position],
+                            "sample_mean": result["statistics"]["mean"][k][column],
                             "exact_mass": sum(laws[k]),
                             "passed": error <= EPSILON,
                         }

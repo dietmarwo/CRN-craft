@@ -1,73 +1,120 @@
 {
-  "schema": "crn-craft.model/0.1",
+  "schema": "crn-craft.model/1.0",
   "name": "enzyme_mechanism",
-  "convention": "stochastic_counts",
-  "omega": 1.0,
+  "description": "Converted from a crn-craft.model/0.1 document.",
   "parameters": {
-    "kon": 0.01,
+    "kcat": 0.5,
     "koff": 0.1,
-    "kcat": 0.5
+    "kon": 0.01
   },
-  "species": [
+  "types": [
     {
       "name": "S",
-      "initial_count": 50
+      "attributes": []
     },
     {
       "name": "E",
-      "initial_count": 10
+      "attributes": []
     },
     {
       "name": "ES",
-      "initial_count": 0
+      "attributes": []
     },
     {
       "name": "P",
-      "initial_count": 0
+      "attributes": []
     }
   ],
-  "reactions": [
+  "initial": [
+    {
+      "type": "S",
+      "attributes": {},
+      "count": 50.0
+    },
+    {
+      "type": "E",
+      "attributes": {},
+      "count": 10.0
+    }
+  ],
+  "observables": {
+    "E": {
+      "type": "E",
+      "reduce": "sum"
+    },
+    "ES": {
+      "type": "ES",
+      "reduce": "sum"
+    },
+    "P": {
+      "type": "P",
+      "reduce": "sum"
+    },
+    "S": {
+      "type": "S",
+      "reduce": "sum"
+    }
+  },
+  "rules": [
     {
       "name": "bind",
-      "reactants": {
-        "S": 1,
-        "E": 1
-      },
-      "products": {
-        "ES": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "kon"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "E"
+        },
+        {
+          "label": "y",
+          "type": "S"
+        }
+      ],
+      "rate": "kon",
+      "products": [
+        {
+          "type": "ES",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "unbind",
-      "reactants": {
-        "ES": 1
-      },
-      "products": {
-        "S": 1,
-        "E": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "koff"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "ES"
+        }
+      ],
+      "rate": "koff",
+      "products": [
+        {
+          "type": "E",
+          "attributes": {}
+        },
+        {
+          "type": "S",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "catalysis",
-      "reactants": {
-        "ES": 1
-      },
-      "products": {
-        "E": 1,
-        "P": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "kcat"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "ES"
+        }
+      ],
+      "rate": "kcat",
+      "products": [
+        {
+          "type": "E",
+          "attributes": {}
+        },
+        {
+          "type": "P",
+          "attributes": {}
+        }
+      ]
     }
   ]
 }

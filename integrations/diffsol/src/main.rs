@@ -1,13 +1,19 @@
 #![forbid(unsafe_code)]
 //! Optional BDF solve of the deterministic count kinetics with forward sensitivities.
 //!
+//! The model is a `crn-craft.model/1.0`, a rules model or a network `crn-craft.model/0.1`; the
+//! kinetics read it through its flat view (`Kinetics::from_bytes`). Population limits exist in
+//! network models only; this program reads them from the JSON itself, not through the
+//! network types of `crn-craft` (those leave the crate in 0.7.0).
+//!
 //! State-domain rule (docs/campaign/M7.md):
 //! - Rates and parameter derivatives are evaluated at `max(y, 0)`, and the state Jacobian is the
-//!   Jacobian of that extension (a negative component has no effect). Every reaction that consumes
-//!   a species has a zero rate when that species is zero (mass action contains it,
-//!   Michaelis-Menten consumes only its substrate, Hill laws are production-only), so the exact
-//!   trajectory from non-negative counts stays non-negative and is unchanged by this extension. It
-//!   only gives BDF predictor/Newton trial states a defined value.
+//!   Jacobian of that extension (a negative component has no effect). Every channel that consumes
+//!   a species has a zero rate when that species is zero (a rate rule's propensity contains
+//!   y^k / k!, and the kinetics accept a whole-rule propensity that takes molecules only when it
+//!   is 0 with each taken species, as Michaelis-Menten is; Hill laws are production-only), so the
+//!   exact trajectory from non-negative counts stays non-negative and is unchanged by this
+//!   extension. It only gives BDF predictor/Newton trial states a defined value.
 //! - The tolerance of species i is one solver error weight at its scale, `atol + rtol * m_i`,
 //!   where `m_i` is the largest value of species i seen so far (accepted states, root-search
 //!   points and reported values). An accepted state or reported value below `-(atol + rtol * m_i)`
@@ -97,38 +103,56 @@ fn main() {
     );
     std::process::exit(1);
 }
-/// Diagnostic for a state that leaves the accepted band.
+/// Diagnostic for a state that leaves the accepted band. `limits` holds (species index, limit)
+/// of the species with a population limit, in species order.
 fn domain_error(
-    model: &crn_craft::contracts::Model,
+    names: &[String],
+    limits: &[(usize, i64)],
     root: usize,
     value: f64,
     bound: f64,
     t: f64,
 ) -> Diagnostic {
-    let n = model.species.len();
+    let n = names.len();
     if root < n {
-        let name = &model.species[root].name;
+        let name = &names[root];
         return failure(format!(
             "species {name} reaches {value:e} below -{bound:e} (atol + rtol * its largest value) at t={t:e}: outside the non-negative domain beyond the solver tolerance"
         ));
     }
-    let (index, species) = model
-        .species
-        .iter()
-        .enumerate()
-        .filter(|(_, s)| s.population_limit.is_some())
-        .nth(root - n)
-        .expect("population-limit root index");
+    let (index, limit) = limits[root - n];
     Diagnostic::error(
         "CRN-E044",
         &format!("/species/{index}/population_limit"),
         format!(
-            "deterministic trajectory of species {} reaches {value:e}, above population_limit {} by more than {bound:e} (atol + rtol * limit), at t={t:e}; ODE output withheld",
-            species.name,
-            species.population_limit.unwrap()
+            "deterministic trajectory of species {} reaches {value:e}, above population_limit {limit} by more than {bound:e} (atol + rtol * limit), at t={t:e}; ODE output withheld",
+            names[index]
         ),
         "Stop or explicitly revise the safety limit; the ODE never clips a state at a limit.",
     )
+}
+
+/// Species names and population limits of a network `crn-craft.model/0.1` document, read from
+/// the JSON itself (population limits live in that contract only and the kinetics never read
+/// them). `None` for any other document, and for a network document too malformed to list its
+/// species: the kinetics then report the model's own diagnostics.
+fn network_species(bytes: &[u8]) -> Option<Vec<(String, Option<i64>)>> {
+    let value: serde_json::Value = serde_json::from_slice(bytes).ok()?;
+    if value.get("schema")?.as_str()? != "crn-craft.model/0.1" {
+        return None;
+    }
+    value
+        .get("species")?
+        .as_array()?
+        .iter()
+        .map(|s| {
+            Some((
+                s.get("name")?.as_str()?.to_string(),
+                s.get("population_limit")
+                    .and_then(serde_json::Value::as_i64),
+            ))
+        })
+        .collect()
 }
 fn run() -> Result<(), Diagnostic> {
     let args: Vec<_> = std::env::args().collect();
@@ -144,7 +168,7 @@ fn run() -> Result<(), Diagnostic> {
     }
     let read = |path: &str| std::fs::read(path).map_err(|e| failure(format!("{path}: {e}")));
     let bytes = read(&args[1])?;
-    let model = crn_craft::parse_model(&bytes).map_err(|e| failure(e.message))?;
+    let network = network_species(&bytes);
     let request: Request =
         crn_craft::strict_json::parse(&read(&args[2])?).map_err(|e| failure(e.message))?;
     let _schema = &request.schema;
@@ -165,24 +189,33 @@ fn run() -> Result<(), Diagnostic> {
         return Err(failure("invalid ODE request"));
     }
     let kinetics = Arc::new(
-        Kinetics::compile(&model).map_err(|e| failure(serde_json::to_string(&e).unwrap()))?,
+        Kinetics::from_bytes(&bytes).map_err(|e| failure(serde_json::to_string(&e).unwrap()))?,
     );
     let parameters = kinetics.parameters.clone();
-    let p: Vec<_> = parameters.iter().map(|s| model.parameters[s]).collect();
+    let p = kinetics.parameter_values().to_vec();
     if p.is_empty() {
         return Err(failure("sensitivity path requires at least one parameter"));
     }
-    let n = model.species.len();
+    let n = kinetics.species().len();
+    // A network model keeps its species order and names in the kinetics (names the rules
+    // language reserves are renamed there); diagnostics use the model's own names.
+    let names: Vec<String> = match &network {
+        Some(species) => species.iter().map(|(name, _)| name.clone()).collect(),
+        None => kinetics.species().to_vec(),
+    };
+    if names.len() != n {
+        return Err(failure("species of the model and of its kinetics differ"));
+    }
+    let named_limits: Vec<(usize, i64)> = network
+        .iter()
+        .flat_map(|species| species.iter().enumerate())
+        .filter_map(|(i, (_, limit))| limit.map(|l| (i, l)))
+        .collect();
     let (atol, rtol) = (request.atol, request.rtol);
     // (species index, limit, accepted excess above the limit)
-    let limits: Vec<(usize, f64, f64)> = model
-        .species
+    let limits: Vec<(usize, f64, f64)> = named_limits
         .iter()
-        .enumerate()
-        .filter_map(|(i, s)| {
-            s.population_limit
-                .map(|l| (i, l as f64, atol + rtol * l as f64))
-        })
+        .map(|&(i, l)| (i, l as f64, atol + rtol * l as f64))
         .collect();
     let roots = n + limits.len();
     let root_limits = limits.clone();
@@ -208,11 +241,7 @@ fn run() -> Result<(), Diagnostic> {
     let rhs = evaluator(&first);
     let jac = evaluator(&first);
     let sens = evaluator(&first);
-    let initial: Vec<_> = model
-        .species
-        .iter()
-        .map(|s| s.initial_count as f64)
-        .collect();
+    let initial: Vec<_> = kinetics.initial().iter().map(|&c| c as f64).collect();
     let problem = OdeBuilder::<diffsol::NalgebraMat<f64>>::new()
         .p(p)
         .rtol(request.rtol)
@@ -292,7 +321,14 @@ fn run() -> Result<(), Diagnostic> {
             } else {
                 (limits[root - n].0, limits[root - n].2)
             };
-            return Err(domain_error(&model, root, state[i], bound, t));
+            return Err(domain_error(
+                &names,
+                &named_limits,
+                root,
+                state[i],
+                bound,
+                t,
+            ));
         }
         OdeSolverStopReason::InternalTimestep => return Err(failure("incomplete ODE solve")),
     }
@@ -306,13 +342,27 @@ fn run() -> Result<(), Diagnostic> {
             let value = values[(i, j)];
             let bound = atol + rtol * scale[i];
             if !value.is_finite() || value < -bound {
-                return Err(domain_error(&model, i, value, bound, request.times[j]));
+                return Err(domain_error(
+                    &names,
+                    &named_limits,
+                    i,
+                    value,
+                    bound,
+                    request.times[j],
+                ));
             }
         }
         for (k, &(i, limit, excess)) in limits.iter().enumerate() {
             if values[(i, j)] > limit + excess {
                 let t = request.times[j];
-                return Err(domain_error(&model, n + k, values[(i, j)], excess, t));
+                return Err(domain_error(
+                    &names,
+                    &named_limits,
+                    n + k,
+                    values[(i, j)],
+                    excess,
+                    t,
+                ));
             }
         }
     }

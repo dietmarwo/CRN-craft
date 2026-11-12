@@ -1,13 +1,12 @@
 """C3: a common CRN objective adapter for native MODE and grid MAP-Elites."""
 
 import copy
-import json
 import time
 import numpy as np
 import crn_craft as crn
 from crn_craft.observables import oscillation
 import fcmaes_rust
-from common import ROOT, arm_manifest, call_json, checked, digest, require, write
+from common import arm_manifest, call_json, checked, digest, require, write
 
 # Seeds: training paths select designs; validation, the cross-backend control
 # and the reference backend each use their own paths.
@@ -18,53 +17,36 @@ HORIZON, SAMPLES, BURN = 125.0, 201, 0.2
 
 
 def network(edges=((2, 0, -1), (0, 1, -1), (1, 2, -1))):
-    """One basal channel plus one Hill channel per edge preserves additive rates."""
-    model = dict(
-        schema="crn-craft.model/0.1",
-        name="three_species_additive_hill",
-        convention="stochastic_counts",
-        omega=1.0,
-        parameters={"basal": 0.2, "vmax": 8.0, "k": 8.0, "n": 3.0, "decay": 0.3},
-        species=[
-            dict(name=f"X{i}", initial_count=6 if i == 0 else 0) for i in range(3)
-        ],
-        reactions=[],
-    )
+    """One basal channel plus one Hill channel per edge preserves additive rates.
+
+    The crn-craft.model/1.0 document of the three-species network; the Hill
+    propensities are written as the converted network model writes them.
+    """
+    model = crn.Model("three_species_additive_hill")
+    model.add_parameter({"basal": 0.2, "vmax": 8.0, "k": 8.0, "n": 3.0, "decay": 0.3})
+    model.add_species({"X0": 6, "X1": 0, "X2": 0})
     for i in range(3):
-        model["reactions"] += [
-            dict(
-                name=f"basal{i}",
-                reactants={},
-                products={f"X{i}": 1},
-                rate=dict(kind="mass_action", coefficient="basal"),
-            ),
-            dict(
-                name=f"decay{i}",
-                reactants={f"X{i}": 1},
-                products={},
-                rate=dict(kind="mass_action", coefficient="decay"),
-            ),
-        ]
+        model.add_reaction("basal", [], [f"X{i}"], name=f"basal{i}")
+        model.add_reaction(f"decay * X{i}", [f"X{i}"], [], name=f"decay{i}")
     for j, (source, target, sign) in enumerate(edges):
         require(
             sign in (-1, 1) and source in range(3) and target in range(3),
             "invalid signed edge",
         )
-        model["reactions"].append(
-            dict(
-                name=f"edge{j}",
-                reactants={},
-                products={f"X{target}": 1},
-                rate=dict(
-                    kind="hill_activation" if sign == 1 else "hill_repression",
-                    regulator=f"X{source}",
-                    vmax="vmax",
-                    basal=0.0,
-                    k="k",
-                    n="n",
-                ),
-            )
+        x = f"X{source}"
+        model.add_reaction(
+            f"vmax / (1 + (k / {x})^n)" if sign == 1 else f"vmax / (1 + ({x} / k)^n)",
+            [],
+            [f"X{target}"],
+            name=f"edge{j}",
         )
+    return model.to_dict()
+
+
+def with_counts(model, counts):
+    """The model document with the given initial counts of X0, X1 and X2."""
+    model = copy.deepcopy(model)
+    model["initial"] = [dict(type=f"X{i}", count=n) for i, n in enumerate(counts) if n]
     return model
 
 
@@ -74,10 +56,8 @@ def generator_check():
     rng = np.random.default_rng(51)
     largest = 0.0
     for counts in [[0, 0, 0], [8, 8, 8], *rng.integers(0, 60, (20, 3)).tolist()]:
-        model = network(edges)
-        for s, n in zip(model["species"], counts, strict=True):
-            s["initial_count"] = n
-        analysis = crn.analyze(model)["analysis"]
+        model = with_counts(network(edges), counts)
+        analysis = crn.Model.from_dict(model).analyze()["analysis"]
         actual_birth = np.zeros(3)
         actual_death = np.zeros(3)
         for reaction, rate in zip(
@@ -182,25 +162,24 @@ def run(args, report):
     model = network()
     write(args.output / "hill.model.json", model)
     times = np.linspace(0, HORIZON, SAMPLES).tolist()
-    request = crn.ssa_spec(
-        model,
-        aggregator="cached_direct",
-        end=HORIZON,
-        save_times=times,
-        replicates=training,
-        keep=training,
-        seed=TRAINING_SEED,
-        threads=args.threads,
-        max_events=200000,
-    )
-    report["budgets"].update(
-        request_schema=request["schema"], fast=request["method"]["fast"]
-    )
-    template = crn.prepare_parameters(model, request)
-    test_request = copy.deepcopy(request)
-    test_request["ensemble"].update(replicates=validation, root_seed=VALIDATION_SEED)
-    test_request["outputs"]["keep_trajectories"] = validation
-    test_template = crn.prepare_parameters(model, test_request)
+    report["budgets"].update(request_schema="crn-craft.run/1.0", method="static_direct")
+
+    def ensemble(replicates, seed):
+        return crn.ensemble(
+            crn.Model.from_dict(model),
+            end=HORIZON,
+            report_times=times,
+            replicates=replicates,
+            keep_paths=replicates,
+            seed=seed,
+            threads=args.threads,
+            max_events=200000,
+            method="static_direct",
+            quantiles=(),
+        )
+
+    template = ensemble(training, TRAINING_SEED)
+    test_template = ensemble(validation, VALIDATION_SEED)
     records = []
 
     def evaluate(x, holdout=False):
@@ -208,14 +187,24 @@ def run(args, report):
         parameters.update(
             dict(zip(["vmax", "k", "decay"], np.exp(x).tolist(), strict=True))
         )
-        result = (test_template if holdout else template).simulate(parameters)
+        result = (
+            (test_template if holdout else template)
+            .bind_parameters(parameters)
+            .simulate()
+        )
+        meta = result.metadata
         valid = (
-            result["termination"] == "completed"
-            and result["completed_replicates"] == result["requested_replicates"]
-            and len(result["trajectories"]) == result["requested_replicates"]
+            meta["termination"] == "completed"
+            and meta["completed_replicates"] == meta["requested_replicates"]
+            and result.paths is not None
+            and result.paths.sizes["replicate"] == meta["requested_replicates"]
         )
         if valid:
-            paths = np.asarray([t["counts"] for t in result["trajectories"]])
+            require(
+                list(result.paths["variable"].values) == ["X0", "X1", "X2"],
+                "observable order changed",
+            )
+            paths = result.paths.to_numpy()
             objectives, descriptors, metrics = score(times, paths)
         else:
             objectives, descriptors, metrics = [1e6, 1e6, 1e6], [0, 0], []
@@ -226,11 +215,11 @@ def run(args, report):
             oscillatory_fraction=oscillatory_fraction(metrics),
             metrics=metrics,
             valid=valid,
-            sampler=result.get("sampler"),
-            termination=result["termination"],
-            events=result["events"],
-            requested_paths=result["requested_replicates"],
-            completed_paths=result["completed_replicates"],
+            sampler=meta.get("sampler"),
+            termination=meta["termination"],
+            events=meta["events"],
+            requested_paths=meta["requested_replicates"],
+            completed_paths=meta["completed_replicates"],
             holdout=holdout,
         )
         records.append(row)
@@ -346,25 +335,27 @@ def run(args, report):
         dict(name="common-scoring-and-independent-backend-law-control", passed=True)
     )
     # The canonical nine-species Vilar model is a separate short reference control.
-    vilar = json.loads((ROOT / "models/examples/vilar-noise.model.json").read_text())
+    vilar = crn.load_example("vilar-noise")
+    document = vilar.to_dict()
     require(
-        len(vilar["species"]) == 9 and len(vilar["reactions"]) == 16,
+        len(document["types"]) == 9 and len(document["rules"]) == 16,
         "Vilar fixture identity changed",
     )
-    vrequest = crn.ssa_spec(
-        vilar,  # fast policy, the default
-        aggregator="cached_direct",
-        end=2,
-        save_times=[0, 1, 2],
-        replicates=2,
-        keep=2,
-        seed=831,
-        max_events=2000000,
+    control = checked(
+        crn.ensemble(
+            vilar,
+            end=2,
+            report_times=[0, 1, 2],
+            replicates=2,
+            keep_paths=2,
+            seed=831,
+            max_events=2000000,
+            method="static_direct",
+            quantiles=(),
+        ).simulate()
     )
-    control = checked(crn.simulate_ssa(vilar, vrequest))
-    names = control["species"]
-    for trajectory in control["trajectories"]:
-        values = np.asarray(trajectory["counts"])
+    names = list(control.paths["variable"].values)
+    for values in control.paths.to_numpy():
         require(
             np.all(values[:, names.index("DA")] + values[:, names.index("DAp")] == 1),
             "Vilar activator promoter conservation",
@@ -373,7 +364,7 @@ def run(args, report):
             np.all(values[:, names.index("DR")] + values[:, names.index("DRp")] == 1),
             "Vilar repressor promoter conservation",
         )
-    write(args.output / "vilar-control.json", control)
+    write(args.output / "vilar-control.json", control.metadata)
     write(args.output / "evaluations.json", records)
     write(args.output / "pareto.json", front)
     write(args.output / "archive.json", qd)
@@ -384,7 +375,7 @@ def run(args, report):
         training_calls=len([r for r in records if not r["holdout"]]),
         validation_calls=len(validation_rows),
         total_events=sum(r["events"] for r in records)
-        + control["events"]
+        + control.metadata["events"]
         + sum(r["crn_events"] for r in report["backend_control"]["rows"]),
         failed_evaluations=sum(not r["valid"] for r in records),
         clipped_descriptors=sum(
@@ -418,7 +409,7 @@ def backend_control(args, times, model, selected):
             times=times,
             paths=count,
             seed=REFERENCE_SEED,
-            initial=[s["initial_count"] for s in model["species"]],
+            initial=[6, 0, 0],
             states=[[0, 0, 0], [8, 8, 8], [1, 40, 3]],
         )
         path = args.output / f"backend-{index}.request.json"
@@ -428,9 +419,7 @@ def backend_control(args, times, model, selected):
         m = copy.deepcopy(model)
         m["parameters"] = parameters
         for state, births in zip(request["states"], reference["births"], strict=True):
-            for sp, n in zip(m["species"], state, strict=True):
-                sp["initial_count"] = n
-            analysis = crn.analyze(m)["analysis"]
+            analysis = crn.Model.from_dict(with_counts(m, state)).analyze()["analysis"]
             actual = np.zeros(3)
             for reaction, propensity in zip(
                 analysis["reactions"], analysis["propensities"], strict=True
@@ -444,19 +433,21 @@ def backend_control(args, times, model, selected):
             )
         m = copy.deepcopy(model)
         m["parameters"] = parameters
-        spec = crn.ssa_spec(
-            m,
-            end=times[-1],
-            save_times=times,
-            replicates=count,
-            keep=count,
-            seed=CONTROL_SEED,
-            threads=args.threads,
-            aggregator="cached_direct",
-            max_events=200000,
+        result = checked(
+            crn.ensemble(
+                crn.Model.from_dict(m),
+                end=times[-1],
+                report_times=times,
+                replicates=count,
+                keep_paths=count,
+                seed=CONTROL_SEED,
+                threads=args.threads,
+                max_events=200000,
+                method="static_direct",
+                quantiles=(),
+            ).simulate()
         )
-        result = checked(crn.simulate_ssa(m, spec))
-        paths = np.asarray([p["counts"] for p in result["trajectories"]])
+        paths = result.paths.to_numpy()
         other = np.asarray(reference["paths"])
         # Path-averaged counts, not correlated samples treated as independent.
         burn = int(len(times) * BURN)
@@ -473,8 +464,8 @@ def backend_control(args, times, model, selected):
                 max_standard_errors=float(max(z)),
                 crn_score=score(times, paths)[:2],
                 reference_score=score(times, other)[:2],
-                crn_events=result["events"],
-                crn_sampler=result["sampler"],
+                crn_events=result.metadata["events"],
+                crn_sampler=result.metadata["sampler"],
                 reference_event_count=None,
                 reference_backend=reference["backend"],
             )
@@ -482,5 +473,5 @@ def backend_control(args, times, model, selected):
     return dict(
         binary_sha256=digest(args.reference_binary),
         rows=rows,
-        scope="Same six-channel generator aggregated from CRN's nine channels; shared scoring. CRN runs its default fast policy (Xoshiro256++ per replicate, seeded from a keyed stream) on its own seed; the reference seeds SplitMix64 per path from another. Neither side reuses training or validation paths; no path equality claim.",
+        scope="Same six-channel generator aggregated from CRN's nine channels; shared scoring. CRN runs Static Direct (one ChaCha8 stream per replicate, keyed by the root seed) on its own seed; the reference seeds SplitMix64 per path from another. Neither side reuses training or validation paths; no path equality claim.",
     )

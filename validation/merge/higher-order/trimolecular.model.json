@@ -1,0 +1,39 @@
+{
+  "schema": "crn-craft.model/0.1",
+  "name": "trimolecular",
+  "convention": "stochastic_counts",
+  "omega": 1.0,
+  "parameters": {
+    "c": 0.002
+  },
+  "species": [
+    {
+      "name": "A",
+      "initial_count": 30
+    },
+    {
+      "name": "B",
+      "initial_count": 20
+    },
+    {
+      "name": "C",
+      "initial_count": 0
+    }
+  ],
+  "reactions": [
+    {
+      "name": "bind",
+      "reactants": {
+        "A": 2,
+        "B": 1
+      },
+      "products": {
+        "C": 1
+      },
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "c"
+      }
+    }
+  ]
+}

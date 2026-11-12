@@ -23,6 +23,7 @@ on:
       - "scripts/package_version.py"
       - "scripts/check_release.py"
       - "validation/check_installed.py"
+      - "validation/fixtures/**"
   workflow_dispatch:
 
 permissions:

@@ -114,9 +114,7 @@ def main():
         times = [0.0, 0.5, 1.0, 2.0, 5.0]
         # The original 16 predeclared comparisons, unchanged.
         for name in ["immigration-death", "enzyme-mechanism", "repressilator"]:
-            model = json.loads(
-                (root / f"models/examples/{name}.model.json").read_text()
-            )
+            model = json.loads((root / f"models/legacy/{name}.model.json").read_text())
             code, result = run(model, times)
             require(code == 0, json.dumps(result))
             y0 = [s["initial_count"] for s in model["species"]]
@@ -360,9 +358,7 @@ def main():
             ("enzyme-mechanism", 1000.0, [["E", "ES"], ["S", "ES", "P"]]),
             ("michaelis-menten", 200.0, [["S", "P"]]),
         ]:
-            model = json.loads(
-                (root / f"models/examples/{name}.model.json").read_text()
-            )
+            model = json.loads((root / f"models/legacy/{name}.model.json").read_text())
             grid = [0.0, horizon / 4, horizon / 2, horizon]
             code, result = run(model, grid)
             error = drift = None
@@ -396,7 +392,7 @@ def main():
 
         # Failure contract: one JSON line on stderr, exit 1, a specific code/message.
         immigration = json.loads(
-            (root / "models/examples/immigration-death.model.json").read_text()
+            (root / "models/legacy/immigration-death.model.json").read_text()
         )
         limited = json.loads(json.dumps(immigration))
         limited["species"][0]["population_limit"] = 5

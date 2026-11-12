@@ -47,14 +47,16 @@ def digest(path):
 
 
 def checked(result):
+    """A complete run: completed, every replicate present, statistics held."""
+    meta = result.metadata
     require(
-        result["termination"] == "completed", f"incomplete SSA: {result['termination']}"
+        meta["termination"] == "completed", f"incomplete SSA: {meta['termination']}"
     )
     require(
-        result["completed_replicates"] == result["requested_replicates"],
+        meta["completed_replicates"] == meta["requested_replicates"],
         "missing paths",
     )
-    require(result["statistics"] is not None, "missing ensemble statistics")
+    require(meta["statistics"] is not None, "missing ensemble statistics")
     return result
 
 

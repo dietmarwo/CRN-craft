@@ -117,23 +117,63 @@ class Julia:
         self.log.close()
 
 
-def run_crn(model, paths, seed, cached, keep=False):
-    m = encode(model)
-    request = crn.run_spec(
-        m,
-        end=100.0,
-        save_times=[0.0, 100.0],
+SELECTORS = ["linear", "composition_rejection", "sorting", "rssa_cr"]
+
+
+def crn_job(model, end, paths, seed, keep, selector=None, waiting_time=None):
+    """A prepared unified-engine ensemble of a network model (model/0.1 dict).
+
+    With no selector this is the engine default (`auto`, ziggurat waits).
+    """
+    method = {"kind": "static_direct"}
+    if waiting_time is not None:
+        method["waiting_time"] = waiting_time
+    return crn.ensemble(
+        crn.convert(encode(model)),
+        end=end,
+        report_times=[0.0, end],
         replicates=paths,
         seed=seed,
         threads=1,
-        keep=paths if keep else 0,
+        keep_paths=paths if keep else 0,
         max_events=10**9,
+        max_sampling_steps=10**10,
         max_output_bytes=200_000_000,
+        method=method,
+        selector=selector,
+        quantiles=(),
+    )
+
+
+def final_counts(result, model):
+    """Final counts of every kept replicate, one column per species."""
+    names = [s["name"] for s in model["species"]]
+    return result.paths.sel(variable=names).isel(time=-1).to_numpy().round().astype(int)
+
+
+def crn_payload(result):
+    """The replayable numbers of a unified-engine result."""
+    meta = result.metadata
+    return {
+        "events": int(meta["events"]),
+        "termination": meta["termination"],
+        "mean": result.statistics["mean"].to_numpy().tolist(),
+        "variance": result.statistics["sample_variance"].to_numpy().tolist(),
+        "paths": result.paths.to_numpy().tolist(),
+    }
+
+
+def run_crn(model, paths, seed, engine, keep=False):
+    """Run `engine` ("CRN-linear": linear scan, inverse waits; "CRN-default")."""
+    job = (
+        crn_job(model, 100.0, paths, seed, keep, "linear", "inverse")
+        if engine == "CRN-linear"
+        else crn_job(model, 100.0, paths, seed, keep)
     )
     start = time.perf_counter()
-    result = crn.simulate(m, request, cached=cached)
+    result = job.simulate()
     seconds = time.perf_counter() - start
-    require(result["termination"] == "completed", "incomplete CRN run")
+    require(result.metadata["termination"] == "completed", "incomplete CRN run")
     return result, seconds
 
 
@@ -294,9 +334,9 @@ def main():
         for name, model in fixtures.items():
             if name == "dimer":
                 continue
-            ours, _ = run_crn(model, check_paths, 777, True, keep=True)
-            a = np.array([t["counts"][-1] for t in ours["trajectories"]])
-            all_samples = {"CRN-cached": a}
+            ours, _ = run_crn(model, check_paths, 777, "CRN-linear", keep=True)
+            a = final_counts(ours, model)
+            all_samples = {"CRN-linear": a}
             report["first_runs"][name] = {}
             for algorithm in ALGORITHMS:
                 first = julia.call(
@@ -352,7 +392,7 @@ def main():
                 for engine, samples in all_samples.items():
                     if name == "W4":
                         require(np.all(samples == samples[:, :1]), "W4 invariant")
-                    if engine == "CRN-cached":
+                    if engine == "CRN-linear":
                         continue
                     for j in range(1 if name == "W4" else a.shape[1]):
                         error = float(stats.ks_2samp(a[:, j], samples[:, j]).statistic)
@@ -379,7 +419,7 @@ def main():
                 report["validation"][name]["passed"], name + " distribution gate failed"
             )
         # All loading, JIT and independent validation precede these serial timings.
-        engines = ["CRN-cached", "CRN-direct", *ALGORITHMS]
+        engines = ["CRN-linear", "CRN-default", *ALGORITHMS]
         for name, model in fixtures.items():
             if name == "dimer":
                 continue
@@ -389,13 +429,11 @@ def main():
                 order = engines[rep % len(engines) :] + engines[: rep % len(engines)]
                 for engine in order:
                     if engine.startswith("CRN-"):
-                        result, elapsed = run_crn(
-                            model, paths, SEED, engine == "CRN-cached"
-                        )
+                        result, elapsed = run_crn(model, paths, SEED, engine)
                         row = {
                             "seconds": elapsed,
-                            "events": result["events"],
-                            "digest": digest(result),
+                            "events": int(result.metadata["events"]),
+                            "digest": digest(crn_payload(result)),
                         }
                     else:
                         result = julia.call(
@@ -416,11 +454,6 @@ def main():
                     len({r["digest"] for r in rows}) == 1,
                     name + " " + engine + " replay differs",
                 )
-            require(
-                report["timings"][name]["CRN-cached"][0]["digest"]
-                == report["timings"][name]["CRN-direct"][0]["digest"],
-                "native identity differs",
-            )
         report["summary"] = {
             name: {
                 engine: {

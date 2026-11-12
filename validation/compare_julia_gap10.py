@@ -12,7 +12,6 @@ import platform
 import random
 import statistics
 import sys
-import subprocess
 import time
 import crn_craft as crn
 import numpy as np
@@ -21,6 +20,10 @@ from acceleration_workloads import FOLDER, workloads, encode
 from compare_julia import (
     Julia,
     ALGORITHMS,
+    SELECTORS,
+    crn_job,
+    crn_payload,
+    final_counts,
     to_dsl,
     probe_native,
     cdf_error,
@@ -29,74 +32,28 @@ from compare_julia import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-VARIANTS = list(
-    itertools.product(
-        ["direct", "cached_direct", "direct_cr", "sorting_direct", "rssa_cr"],
-        ["inverse", "ziggurat"],
-    )
-)
-RUST = ["legacy_direct", "legacy_cached"] + [f"{a}/{w}" for a, w in VARIANTS]
+VARIANTS = list(itertools.product(SELECTORS, ["inverse", "ziggurat"]))
+# linear/inverse is the reference engine of the two-sample gates (it replaces
+# the retired cached Direct); cached Direct and `fast` no longer exist.
+REFERENCE = "linear/inverse"
+RUST = [f"{a}/{w}" for a, w in VARIANTS]
 ENGINES = RUST + [f"Julia/{a}" for a in ALGORITHMS]
-TESTS, N, ALPHA = 6946, 512, 0.01
+# 6946 before the retired legacy and cached engines were removed; same alpha.
+TESTS, N, ALPHA = 5218, 512, 0.01
 
 
 def rust_job(engine, model, end, paths, seed, keep, boundary):
-    kwargs = dict(
-        end=end,
-        save_times=[0.0, end],
-        replicates=paths,
-        seed=seed,
-        threads=1,
-        keep=paths if keep else 0,
-        max_events=10**9,
-        max_output_bytes=200_000_000,
-    )
-    if engine.startswith("legacy_"):
-        request = crn.run_spec(model, **kwargs)
-        cached = engine == "legacy_cached"
-        if boundary == "prepared":
-            return crn.prepare(model, request, cached=cached).simulate
-        return lambda: crn.simulate(model, request, cached=cached)
-    method, wait = engine.split("/")
-    request = crn.ssa_spec(
-        model, aggregator=method, waiting_time=wait, fast=False, **kwargs
-    )
+    selector, wait = engine.split("/")
+    job = crn_job(model, end, paths, seed, keep, selector, wait)
     if boundary == "prepared":
-        return crn.prepare_ssa(model, request).simulate
-    return lambda: crn.simulate_ssa(model, request)
+        return job.simulate
+    return lambda: crn_job(model, end, paths, seed, keep, selector, wait).simulate()
 
 
 def payload(engine, result):
     if engine.startswith("Julia/"):
         return {k: v for k, v in result.items() if k != "seconds"}
-    return {
-        k: result[k]
-        for k in ["events", "statistics", "trajectories", "replicates", "termination"]
-    }
-
-
-class Baseline:
-    def __init__(self, package):
-        env = os.environ.copy()
-        env["PYTHONPATH"] = str(package)
-        self.process = subprocess.Popen(
-            [sys.executable, str(ROOT / "validation/gap10_python_reference.py")],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            text=True,
-            env=env,
-        )
-
-    def call(self, **request):
-        self.process.stdin.write(json.dumps(request) + "\n")
-        self.process.stdin.flush()
-        line = self.process.stdout.readline()
-        require(bool(line), "baseline process stopped")
-        return json.loads(line)
-
-    def close(self):
-        self.process.stdin.close()
-        self.process.wait(timeout=30)
+    return crn_payload(result)
 
 
 def main():
@@ -107,7 +64,6 @@ def main():
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--validation-only", action="store_true")
     p.add_argument("--validated", type=Path)
-    p.add_argument("--baseline-package", type=Path, required=True)
     args = p.parse_args()
     project = ROOT / "validation/ssa-acceleration/julia"
     manifest = json.loads((FOLDER / "manifest.json").read_text())
@@ -138,7 +94,7 @@ def main():
             and m == (FOLDER / entry["path"]).read_bytes(),
             "frozen model changed",
         )
-        models[name] = m
+        models[name] = model
     report = dict(
         schema="crn-craft.julia-gap10-comparison/0.1",
         protocol="docs/decisions/julia-gap10-2026-11-02.md",
@@ -172,7 +128,6 @@ def main():
         ROOT / "validation/acceleration_workloads.py",
         ROOT / "validation/compare_julia.py",
         ROOT / "validation/compare_julia_accelerated.py",
-        ROOT / "validation/gap10_python_reference.py",
         project / "reference_server.jl",
         project / "Project.toml",
         project / "Manifest.toml",
@@ -194,7 +149,6 @@ def main():
     def save():
         args.output.write_text(json.dumps(report, indent=2) + "\n")
 
-    baseline = Baseline(args.baseline_package)
     julia = Julia(
         args.julia.resolve(),
         project,
@@ -276,13 +230,10 @@ def main():
                             engine, models[name], end, N, seed, True, "prepared"
                         )()
                         require(
-                            result["termination"] == "completed",
+                            result.metadata["termination"] == "completed",
                             f"{name}/{engine} incomplete",
                         )
-                        final = np.array(
-                            [v["counts"][-1] for v in result["trajectories"]],
-                            dtype=np.int64,
-                        )
+                        final = final_counts(result, models[name])
                     require(
                         final.shape == (N, ns) and np.all(final >= 0),
                         "invalid sample shape/counts",
@@ -307,9 +258,9 @@ def main():
                     samples[engine] = final
                     print(name, engine, "validated samples", flush=True)
                 rows = []
-                reference = samples["legacy_cached"]
+                reference = samples[REFERENCE]
                 for engine, values in samples.items():
-                    if name not in ["W1", "W2"] and engine == "legacy_cached":
+                    if name not in ["W1", "W2"] and engine == REFERENCE:
                         continue
                     for j in range(ns):
                         if name in ["W1", "W2"]:
@@ -363,12 +314,6 @@ def main():
         if args.validation_only:
             return
         for name, _model, end, paths in data:
-            report.setdefault("baseline_setup", {})[name] = baseline.call(
-                command="prepare",
-                model_path=str(FOLDER / f"{name}.model.json"),
-                end=end,
-                paths=paths,
-            )
             jobs = {}
             replays = {}
             report["timings"][name] = {}
@@ -384,7 +329,10 @@ def main():
                         time.perf_counter() - start
                     )
                     result = jobs[key]()
-                    require(result["termination"] == "completed", key + " incomplete")
+                    require(
+                        result.metadata["termination"] == "completed",
+                        key + " incomplete",
+                    )
                     replays[key] = digest(payload(engine, result))
                     if boundary == "prepared":
                         require(
@@ -393,32 +341,9 @@ def main():
                         )
                     report["timings"][name][key] = dict(
                         seconds=[],
-                        events=result["events"],
-                        work=result.get("work"),
+                        events=int(result.metadata["events"]),
                         numerical_sha256=replays[key],
                     )
-            for engine in RUST:
-                key = "Baseline/" + engine + "/prepared"
-                result = baseline.call(command="run", engine=engine)["value"]
-                require(result["termination"] == "completed", "baseline incomplete")
-                replays[key] = digest(payload(engine, result))
-
-                # Work counters may fall; numerical results and complete records must match.
-                def without_work(value):
-                    value = json.loads(json.dumps(value))
-                    for rec in value.get("replicates", []):
-                        rec.pop("work", None)
-                    return value
-
-                own = jobs[engine + "/prepared"]()
-                require(
-                    without_work(payload(engine, result))
-                    == without_work(payload(engine, own)),
-                    f"{name}/{engine} changed numerical paths",
-                )
-                report["timings"][name][key] = dict(
-                    seconds=[], events=result["events"], numerical_sha256=replays[key]
-                )
             for algorithm in ALGORITHMS:
                 key = "Julia/" + algorithm
                 result = julia.call(
@@ -442,12 +367,7 @@ def main():
                 if round_index % 2:
                     order = list(reversed(order))
                 for key in order:
-                    if key.startswith("Baseline/"):
-                        engine = key[len("Baseline/") :].rsplit("/", 1)[0]
-                        reply = baseline.call(command="run", engine=engine)
-                        result = reply["value"]
-                        elapsed = reply["seconds"]
-                    elif key.startswith("Julia/"):
+                    if key.startswith("Julia/"):
                         result = julia.call(
                             command="run",
                             name=name,
@@ -464,7 +384,8 @@ def main():
                         result = jobs[key]()
                         elapsed = time.perf_counter() - start
                         require(
-                            result["termination"] == "completed", key + " incomplete"
+                            result.metadata["termination"] == "completed",
+                            key + " incomplete",
                         )
                     require(
                         digest(payload(engine, result)) == replays[key],
@@ -489,7 +410,6 @@ def main():
         raise
     finally:
         julia.close()
-        baseline.close()
 
 
 if __name__ == "__main__":

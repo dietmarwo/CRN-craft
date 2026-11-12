@@ -1,0 +1,734 @@
+//! Fixed-channel trajectory loop, with the same result and control accounting.
+use super::*;
+use crate::rules::clocks::Clocks;
+use crate::rules::flat::{Network, check_instances, direct, direct_with, unresolved};
+use crate::rules::rssa::Bounds;
+use crate::rules::select::{Composition, Kind, RateTree, sorting_sample};
+
+impl Path<'_> {
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn simulate_flat<R: RngCore + 'static, O: EventObserver>(
+        &self,
+        net: &Network,
+        counts: &mut [u64],
+        values: &mut [f64],
+        words: &mut Words<'_, R>,
+        out: &mut PathOutput,
+        time: &mut f64,
+        monitor: &mut Option<Monitor<'_>>,
+        observer: &O,
+    ) -> Result<Option<f64>, Halt> {
+        self.poll()?;
+
+        out.peak_instances = counts.iter().filter(|&&n| n > 0).count() as u64;
+        check_instances(out.peak_instances, self.limits)?;
+        net.refresh(counts, values)?;
+        if let Some(atp) = &self.model.atp {
+            values[atp.index] = atp.initial;
+        }
+        for variable in &self.model.continuous {
+            values[variable.index] = variable.initial;
+        }
+        if let Some(m) = monitor {
+            m.start(&self.model.params, values);
+        }
+        if self.stop_values(values)? {
+            return Ok(Some(0.0));
+        }
+        if let crate::rules::Method::Hybrid { rtol, atol } = self.method {
+            return self.simulate_hybrid(
+                rtol, atol, net, counts, values, words, out, time, monitor, observer,
+            );
+        }
+        if matches!(
+            self.method,
+            crate::rules::Method::Tau { .. } | crate::rules::Method::Binomial { .. }
+        ) {
+            return self.simulate_leaps(net, counts, values, words, out, time, monitor, observer);
+        }
+        if let Some(atp) = &self.model.atp {
+            return self.simulate_thinning(
+                atp, net, counts, values, words, out, time, monitor, observer,
+            );
+        }
+        if let Some(kernel) = self.mtdna {
+            let stopped = self.simulate_mtdna(
+                kernel, net, counts, values, words, out, time, monitor, observer,
+            )?;
+            net.refresh(counts, values)?;
+            return Ok(stopped);
+        }
+        if let Some(kernel) = self.generated_loop {
+            return self
+                .simulate_generated_loop(kernel, net, counts, values, words, out, time, monitor);
+        }
+        if self.selector != Kind::Linear {
+            return self
+                .simulate_selected(net, counts, values, words, out, time, monitor, observer);
+        }
+        if self.generated.is_none() {
+            match self.method {
+                crate::rules::Method::StaticDirect {
+                    waiting_time: Some(crate::rules::RulesWaitingTime::Ziggurat),
+                    ..
+                } => {
+                    return self.simulate_linear::<R, O, true>(
+                        net, counts, values, words, out, time, monitor, observer,
+                    );
+                }
+                crate::rules::Method::StaticDirect { .. } => {
+                    return self.simulate_linear::<R, O, false>(
+                        net, counts, values, words, out, time, monitor, observer,
+                    );
+                }
+                _ => {}
+            }
+        }
+        let mut live = out.peak_instances;
+        let mut cache = net.rate_cache();
+        let mut rates = vec![0.0; net.channels.len()];
+        let mut clocks = Clocks::default();
+        let mut previous = None;
+        if matches!(self.method, crate::rules::Method::NextReaction {}) {
+            clocks.reset(rates.len());
+        }
+        let ziggurat = matches!(
+            self.method,
+            crate::rules::Method::StaticDirect {
+                waiting_time: Some(crate::rules::RulesWaitingTime::Ziggurat),
+                ..
+            }
+        );
+        let mut clock = Clock::new(self.lenient_clock);
+        loop {
+            if out.events % POLL_EVENTS == 0 && out.events > 0 {
+                self.poll()?;
+            }
+            let env = Env {
+                params: &self.model.params,
+                observables: values,
+                attributes: [&[], &[]],
+            };
+            cache.reset();
+            let candidate = if matches!(self.method, crate::rules::Method::NextReaction {}) {
+                let mut update = |i, fired| {
+                    let rate = cache.channel(net, i, counts, &env)?;
+                    let fresh = if clocks.needs_draw(i, rate, fired) {
+                        Some(-libm::log(1.0 - words.open()?))
+                    } else {
+                        None
+                    };
+                    if !clocks.update(i, rate, *time, fresh) {
+                        return Err(numerical(
+                            "/time",
+                            "reaction clock failed to advance",
+                            "Rescale rates and time.",
+                        ));
+                    }
+                    Ok(())
+                };
+                if let Some(i) = previous {
+                    update(i, true)?;
+                    for &j in &net.affected[i] {
+                        if i != j {
+                            update(j, false)?;
+                        }
+                    }
+                } else {
+                    for i in 0..rates.len() {
+                        update(i, false)?;
+                    }
+                }
+                clocks.next()
+            } else {
+                if let Some(kernel) = self.generated {
+                    kernel
+                        .rates(previous, counts, values, &mut rates)
+                        .map_err(|i| net.rate_error(i))?;
+                } else if let Some(channel) = previous {
+                    for &i in &net.affected[channel] {
+                        rates[i] = cache.channel(net, i, counts, &env)?;
+                    }
+                } else {
+                    for (i, rate) in rates.iter_mut().enumerate() {
+                        *rate = cache.channel(net, i, counts, &env)?;
+                    }
+                }
+                if ziggurat {
+                    direct_with(&rates, *time, words, &mut clock, |words, total| {
+                        let unit = crate::ssa::exponential_from_words(|retry| {
+                            if retry {
+                                self.poll()?;
+                            }
+                            words.word()
+                        })?;
+                        Ok(unit / total)
+                    })?
+                } else {
+                    direct(&rates, *time, words, &mut clock)?
+                }
+            };
+            let Some((next, channel)) = candidate else {
+                net.refresh_cold(counts, values)?;
+                return Ok(None);
+            };
+            previous = Some(channel);
+            if out.saved_points < self.report_times.len()
+                && self.report_times[out.saved_points] < next
+            {
+                net.refresh_cold(counts, values)?;
+                self.save_before(out, values, next);
+            }
+            if next > self.end {
+                net.refresh_cold(counts, values)?;
+                return Ok(None);
+            }
+            self.apply_flat(net, channel, counts, &mut live, out)?;
+            *time = next;
+            if let Some(kernel) = self.generated {
+                net.refresh_generated(channel, counts, values, O::ENABLED, kernel)?;
+            } else {
+                net.refresh_channel(channel, counts, values, O::ENABLED)?;
+            }
+            if (O::ENABLED || net.observe_affected[channel])
+                && self.observe_flat(net, channel, values, next, monitor, observer)
+            {
+                return Ok(Some(next));
+            }
+            if net.stop_affected[channel] {
+                match self.stop_values(values) {
+                    Ok(false) => {}
+                    Ok(true) => {
+                        net.refresh_cold(counts, values)?;
+                        return Ok(Some(next));
+                    }
+                    Err(_) => {
+                        // The diagnostic includes all projection values.
+                        net.refresh_cold(counts, values)?;
+                        self.stop_values(values)?;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Static Direct with the linear scan, without a generated kernel: the
+    /// arithmetic, checks and random words of [`direct_with`] in the loop of
+    /// [`Self::simulate_flat`], with the running totals kept between events.
+    ///
+    /// The total is the sequential sum of the channel rates from `-0.0`
+    /// (`Iterator::sum`). After an event only the channels in the fired
+    /// channel's `affected` list change; they are sorted, so the running
+    /// sums before the first of them are the ones a full pass would compute,
+    /// and the pass resumes there. The resolution check fails exactly when
+    /// the smallest positive rate is below 2⁻⁵³ of the total; `least` is at
+    /// most that rate (the smallest positive rate since the last exact pass),
+    /// so the check passes when `least` does, and otherwise the exact
+    /// smallest positive rate decides.
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+    fn simulate_linear<R: RngCore + 'static, O: EventObserver, const ZIGGURAT: bool>(
+        &self,
+        net: &Network,
+        counts: &mut [u64],
+        values: &mut [f64],
+        words: &mut Words<'_, R>,
+        out: &mut PathOutput,
+        time: &mut f64,
+        monitor: &mut Option<Monitor<'_>>,
+        observer: &O,
+    ) -> Result<Option<f64>, Halt> {
+        let n = net.channels.len();
+        let params = &self.model.params;
+        let mut live = out.peak_instances;
+        let mut cache = net.rate_cache();
+        let mut rates = vec![0.0; n];
+        // Running total before each channel and after the last: sums[0] is
+        // the empty sum, sums[k + 1] the total through channel k.
+        let mut sums = vec![-0.0; n + 1];
+        let mut least = f64::INFINITY;
+        let mut clock = Clock::new(self.lenient_clock);
+        let mut previous: Option<usize> = None;
+        loop {
+            if out.events % POLL_EVENTS == 0 && out.events > 0 {
+                self.poll()?;
+            }
+            let env = Env {
+                params,
+                observables: values,
+                attributes: [&[], &[]],
+            };
+            cache.reset();
+            let first = if let Some(channel) = previous {
+                let affected = &net.affected[channel];
+                for &i in affected {
+                    let a = cache.channel(net, i, counts, &env)?;
+                    least = least.min(if a > 0.0 { a } else { f64::INFINITY });
+                    rates[i] = a;
+                }
+                affected.first().copied()
+            } else {
+                for (i, rate) in rates.iter_mut().enumerate() {
+                    let a = cache.channel(net, i, counts, &env)?;
+                    least = least.min(if a > 0.0 { a } else { f64::INFINITY });
+                    *rate = a;
+                }
+                Some(0)
+            };
+            if let Some(first) = first {
+                let mut sum = sums[first];
+                for (&a, total) in rates[first..].iter().zip(&mut sums[first + 1..]) {
+                    sum += a;
+                    *total = sum;
+                }
+            }
+            let total = sums[n];
+            if total == 0.0 {
+                net.refresh_cold(counts, values)?;
+                return Ok(None);
+            }
+            let floor = total * crate::rules::engine::RESOLUTION;
+            if least < floor {
+                // The exact smallest positive rate decides.
+                least = rates
+                    .iter()
+                    .filter(|&&a| a > 0.0)
+                    .fold(f64::INFINITY, |m, &a| m.min(a));
+            }
+            if !total.is_finite() || least < floor {
+                return Err(unresolved(total));
+            }
+            let wait = if ZIGGURAT {
+                crate::ssa::exponential_from_words(|retry| {
+                    if retry {
+                        self.poll()?;
+                    }
+                    words.word()
+                })? / total
+            } else {
+                -libm::log(1.0 - words.open()?) / total
+            };
+            let next = clock.advance(*time, wait)?;
+            let channel = scan(&rates, words.uniform()? * total);
+            previous = Some(channel);
+            if out.saved_points < self.report_times.len()
+                && self.report_times[out.saved_points] < next
+            {
+                net.refresh_cold(counts, values)?;
+                self.save_before(out, values, next);
+            }
+            if next > self.end {
+                net.refresh_cold(counts, values)?;
+                return Ok(None);
+            }
+            self.apply_flat(net, channel, counts, &mut live, out)?;
+            *time = next;
+            net.refresh_channel(channel, counts, values, O::ENABLED)?;
+            if (O::ENABLED || net.observe_affected[channel])
+                && self.observe_flat(net, channel, values, next, monitor, observer)
+            {
+                return Ok(Some(next));
+            }
+            if net.stop_affected[channel] {
+                match self.stop_values(values) {
+                    Ok(false) => {}
+                    Ok(true) => {
+                        net.refresh_cold(counts, values)?;
+                        return Ok(Some(next));
+                    }
+                    Err(_) => {
+                        // The diagnostic includes all projection values.
+                        net.refresh_cold(counts, values)?;
+                        self.stop_values(values)?;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Static Direct with composition–rejection, sorting direct or RSSA-CR
+    /// selection (`crn-craft.run/1.0`). Waiting times, saves, the horizon,
+    /// events, observation and stops are those of the linear scan; RSSA-CR
+    /// also advances the clock on rejected candidates.
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+    fn simulate_selected<R: RngCore + 'static, O: EventObserver>(
+        &self,
+        net: &Network,
+        counts: &mut [u64],
+        values: &mut [f64],
+        words: &mut Words<'_, R>,
+        out: &mut PathOutput,
+        time: &mut f64,
+        monitor: &mut Option<Monitor<'_>>,
+        observer: &O,
+    ) -> Result<Option<f64>, Halt> {
+        let kind = self.selector;
+        let n = net.channels.len();
+        let params = &self.model.params;
+        let mut live = out.peak_instances;
+        let mut cache = net.rate_cache();
+        // The selector tables of the previous replicate on this thread, reset
+        // below: only their allocations are reused.
+        let mut lease = Lease::take();
+        let Workspace {
+            tree,
+            composition,
+            rates,
+            order,
+            bounds,
+        } = &mut *lease.0;
+        tree.reset(n);
+        rates.clear();
+        order.clear();
+        match kind {
+            Kind::Sorting => {
+                rates.resize(n, 0.0);
+                order.extend(0..n);
+            }
+            Kind::RssaCr => {
+                composition.reset(n);
+                bounds.reset(net, self.rssa.expect("RSSA-CR plan"), counts);
+            }
+            _ => composition.reset(n),
+        }
+        let ziggurat = matches!(
+            self.method,
+            crate::rules::Method::StaticDirect {
+                waiting_time: Some(crate::rules::RulesWaitingTime::Ziggurat),
+                ..
+            }
+        );
+        let mut clock = Clock::new(self.lenient_clock);
+        // `Some` after an event: the state changed since the last pass.
+        let mut fired: Option<usize> = None;
+        let mut started = false;
+        let mut absorbed = false;
+        let mut iterations: u64 = 0;
+        loop {
+            iterations += 1;
+            if iterations % POLL_EVENTS == 0 {
+                self.poll()?;
+            }
+            if !started || fired.is_some() {
+                cache.reset();
+                if kind == Kind::RssaCr {
+                    let plan = self.rssa.expect("RSSA-CR plan");
+                    bounds.refresh(
+                        net,
+                        plan,
+                        fired,
+                        counts,
+                        values,
+                        params,
+                        &mut cache,
+                        tree,
+                        composition,
+                    )?;
+                    // Every upper bound may be positive while every
+                    // propensity is zero.
+                    absorbed = false;
+                    if bounds.positive_lower == 0 {
+                        let env = Env {
+                            params,
+                            observables: values,
+                            attributes: [&[], &[]],
+                        };
+                        absorbed = true;
+                        for i in 0..n {
+                            if cache.channel(net, i, counts, &env)? > 0.0 {
+                                absorbed = false;
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    let env = Env {
+                        params,
+                        observables: values,
+                        attributes: [&[], &[]],
+                    };
+                    let mut update = |i: usize| -> Result<(), Halt> {
+                        let rate = cache.channel(net, i, counts, &env)?;
+                        tree.set(i, rate, if rate > 0.0 { rate } else { f64::INFINITY });
+                        if kind == Kind::Sorting {
+                            rates[i] = rate;
+                        } else {
+                            composition.update(i, rate)?;
+                        }
+                        Ok(())
+                    };
+                    match fired {
+                        Some(channel) => {
+                            for &i in &net.affected[channel] {
+                                update(i)?;
+                            }
+                        }
+                        None => {
+                            for i in 0..n {
+                                update(i)?;
+                            }
+                        }
+                    }
+                }
+                started = true;
+                fired = None;
+            }
+            let total = if absorbed { 0.0 } else { tree.total()? };
+            if total == 0.0 {
+                net.refresh_cold(counts, values)?;
+                return Ok(None);
+            }
+            let wait = if ziggurat {
+                let unit = crate::ssa::exponential_from_words(|retry| {
+                    if retry {
+                        self.poll()?;
+                    }
+                    words.word()
+                })?;
+                unit / total
+            } else {
+                -libm::log(1.0 - words.open()?) / total
+            };
+            let next = clock.advance(*time, wait)?;
+            // RSSA-CR reuses the composition's accepting threshold, uniform
+            // below the candidate's upper bound, for its own test.
+            let (channel, accepted) = match kind {
+                Kind::Sorting => (sorting_sample(order, rates, total, words)?, 0.0),
+                Kind::RssaCr => composition.sample_with_threshold(tree, words)?,
+                _ => (composition.sample(tree, words)?, 0.0),
+            };
+            if out.saved_points < self.report_times.len()
+                && self.report_times[out.saved_points] < next
+            {
+                net.refresh_cold(counts, values)?;
+                self.save_before(out, values, next);
+            }
+            if next > self.end {
+                net.refresh_cold(counts, values)?;
+                return Ok(None);
+            }
+            if kind == Kind::RssaCr {
+                // Thinning against the candidate's bounds: accept below the
+                // lower bound, otherwise against the exact propensity. The
+                // threshold is the composition's: given the candidate, uniform
+                // below its upper bound.
+                let upper = tree.get(channel);
+                let threshold = accepted;
+                if threshold >= upper {
+                    return Err(numerical(
+                        "/rules",
+                        "RSSA-CR acceptance rounded to its bound",
+                        "Rescale rates or populations.",
+                    ));
+                }
+                let lower = bounds.lower[channel];
+                if threshold >= lower {
+                    let env = Env {
+                        params,
+                        observables: values,
+                        attributes: [&[], &[]],
+                    };
+                    let a = cache.channel(net, channel, counts, &env)?;
+                    if a < lower || a > upper {
+                        return Err(numerical(
+                            "/rules",
+                            "a propensity left its RSSA-CR bounds",
+                            "Select the linear selector and report the model.",
+                        ));
+                    }
+                    if threshold >= a {
+                        *time = next;
+                        continue;
+                    }
+                }
+            }
+            fired = Some(channel);
+            self.apply_flat(net, channel, counts, &mut live, out)?;
+            *time = next;
+            net.refresh_channel(channel, counts, values, O::ENABLED)?;
+            if (O::ENABLED || net.observe_affected[channel])
+                && self.observe_flat(net, channel, values, next, monitor, observer)
+            {
+                return Ok(Some(next));
+            }
+            if net.stop_affected[channel] {
+                match self.stop_values(values) {
+                    Ok(false) => {}
+                    Ok(true) => {
+                        net.refresh_cold(counts, values)?;
+                        return Ok(Some(next));
+                    }
+                    Err(_) => {
+                        net.refresh_cold(counts, values)?;
+                        self.stop_values(values)?;
+                    }
+                }
+            }
+        }
+    }
+
+    pub(super) fn save_before(&self, out: &mut PathOutput, values: &[f64], time: f64) {
+        let n = values.len();
+        while out.saved_points < self.report_times.len()
+            && self.report_times[out.saved_points] < time
+        {
+            let row = out.saved_points * n;
+            out.values[row..row + n].copy_from_slice(values);
+            out.saved_points += 1;
+        }
+    }
+
+    #[inline]
+    pub(crate) fn check_events(&self, out: &PathOutput, events: u64) -> Result<(), Halt> {
+        if events <= self.limits.max_events.saturating_sub(out.events) {
+            return Ok(());
+        }
+        Err(event_limit())
+    }
+
+    #[inline(always)]
+    pub(super) fn apply_flat(
+        &self,
+        net: &Network,
+        channel: usize,
+        counts: &mut [u64],
+        live: &mut u64,
+        out: &mut PathOutput,
+    ) -> Result<(), Halt> {
+        self.check_events(out, 1)?;
+        let c = &net.channels[channel];
+        let created = net.apply(channel, counts, live, self.limits)?;
+        out.events += 1;
+        out.rule_events[c.rule] += 1;
+        out.created_instances += created;
+        out.peak_instances = out.peak_instances.max(*live);
+        Ok(())
+    }
+
+    pub(super) fn observe_flat<O: EventObserver>(
+        &self,
+        net: &Network,
+        channel: usize,
+        values: &[f64],
+        time: f64,
+        monitor: &mut Option<Monitor<'_>>,
+        observer: &O,
+    ) -> bool {
+        if !O::ENABLED && monitor.is_none() {
+            return false;
+        }
+        let c = &net.channels[channel];
+        let participants = |ids: &[usize]| {
+            ids.iter()
+                .map(|&s| {
+                    let species = &net.species[s];
+                    (species.ty, species.attrs.as_slice())
+                })
+                .collect::<Vec<_>>()
+        };
+        let (reactants, products) = if O::ENABLED
+            || monitor
+                .as_ref()
+                .is_some_and(|m| m.keeps_exact_event(c.rule))
+        {
+            (participants(&c.reactants), participants(&c.products))
+        } else {
+            (Vec::new(), Vec::new())
+        };
+        let event = Event {
+            replicate: self.id,
+            time,
+            rule: Some(c.rule),
+            reactants: &reactants,
+            products: &products,
+            observables: values,
+            firings: &[],
+        };
+        if let Some(m) = monitor {
+            m.observe(&event, &self.model.params);
+        }
+        O::ENABLED && observer.on_event(&event) == ObserverAction::Stop
+    }
+}
+
+/// The selector tables of [`Path::simulate_selected`]. Each replicate resets
+/// them; a worker thread keeps one set between replicates so their
+/// allocations (a composition table of 2,098 groups among them) are reused.
+#[derive(Default)]
+struct Workspace {
+    tree: RateTree,
+    composition: Composition,
+    rates: Vec<f64>,
+    order: Vec<usize>,
+    bounds: Bounds,
+}
+
+std::thread_local! {
+    static WORKSPACE: std::cell::Cell<Option<Box<Workspace>>> =
+        const { std::cell::Cell::new(None) };
+}
+
+/// The thread's [`Workspace`], taken for one replicate and returned when
+/// dropped; a nested run on the same thread (from an observer) gets a new
+/// one.
+struct Lease(Box<Workspace>);
+
+impl Lease {
+    fn take() -> Self {
+        Self(WORKSPACE.with(std::cell::Cell::take).unwrap_or_default())
+    }
+}
+
+impl Drop for Lease {
+    fn drop(&mut self) {
+        let workspace = std::mem::take(&mut self.0);
+        WORKSPACE.with(|cell| cell.set(Some(workspace)));
+    }
+}
+
+/// The channel the linear scan of [`direct_with`] selects for `target`:
+/// over the positive rates in order, the first with `target < rate`, the
+/// target reduced by each rate passed; the last positive rate if none.
+///
+/// The target stays nonnegative (it starts at u · total and is reduced only
+/// by a rate it is not below), so a zero rate never selects and leaves it
+/// unchanged. Lists of up to four rates are scanned to the end without a
+/// data-dependent branch; the target after the selected channel is not used.
+#[inline]
+fn scan(rates: &[f64], mut target: f64) -> usize {
+    const NONE: usize = usize::MAX;
+    if rates.len() <= 4 {
+        let (mut chosen, mut last) = (NONE, NONE);
+        for (i, &a) in rates.iter().enumerate() {
+            let hit = (chosen == NONE) & (target < a);
+            chosen = if hit { i } else { chosen };
+            last = if a > 0.0 { i } else { last };
+            target -= a;
+        }
+        return if chosen == NONE { last } else { chosen };
+    }
+    let mut channel = NONE;
+    for (i, &a) in rates.iter().enumerate() {
+        if a > 0.0 {
+            channel = i;
+            if target < a {
+                break;
+            }
+            target -= a;
+        }
+    }
+    channel
+}
+
+#[cold]
+#[inline(never)]
+fn event_limit() -> Halt {
+    Halt::Limit(
+        Termination::EventLimit,
+        Diagnostic::error(
+            "CRN-R040",
+            "/budget/max_events_per_replicate",
+            "event limit reached",
+            "Increase max_events_per_replicate; incomplete ensembles withhold statistics.",
+        ),
+    )
+}

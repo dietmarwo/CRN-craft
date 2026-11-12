@@ -1,95 +1,79 @@
-# Result 0.2 and archive 0.1
+# Archives
 
-The previous result 0.1 was a reserved envelope with no simulator emitter.
-`describe result` now emits the actual result **0.2** schema. The unchanged
-reserved schema remains available as `describe result-v1`. Model, run, check,
-state, analysis 0.2, legacy analysis 0.1 and export 0.1 shapes are unchanged.
-Discovery advanced to **0.4** here and advertises implemented Direct SSA (current: 0.10, or 0.13 from the native CLI).
-Historical preflight/analysis report flags remain unchanged; use `describe`
-for the current executable capability catalog.
+An archive is the sealed record of one run: the exact documents consumed and
+the result, with hashes. `crn-craft run MODEL REQUEST --archive NEW_DIRECTORY`
+and `PreparedEnsemble.archive` (Python) write one. `crn-craft verify DIRECTORY`
+and `crn_craft.verify_archive` check one without simulating. The contracts
+are `crn-craft.archive/1.0` (the manifest) and `crn-craft.archive-check/1.0`
+(the report of writing or verifying). The schemas are `crn-craft describe
+archive-1.0` and `archive-check-1.0`.
+
+Archives of the removed network engine (`archive/0.1`, from `simulate`) are
+not read by this release. Verify them with the release that wrote them.
 
 ## Files and completion
 
-For package builds, `cargo_lock_sha256` hashes the core crate's packaged
-Cargo.lock; for a checkout it hashes the root workspace Cargo.lock. The build
-script selects and fingerprints that file without reaching outside an extracted
-crate. Cargo normalization can change the hash between distribution forms.
-This records the distribution's dependency lock, not a downstream application's
-entire resolved dependency graph. Applications embedding the library should
-retain their own Cargo.lock and build identity alongside the archive.
+| File | Content |
+| --- | --- |
+| `model.json` | the exact model bytes |
+| `request.json` | the exact request bytes, with their original `model.path` |
+| `result.json` | the result as `crn-craft run` prints it: compact JSON with sorted keys and a trailing newline. It is `crn-craft.result/1.0` (or `rules-result`) for a simulation, and `crn-craft.fsp-result/1.0` for an `fsp` request |
+| `manifest.json` | `crn-craft.archive/1.0`: length and SHA-256 of the three payloads |
+| `COMPLETE` | the SHA-256 of the manifest bytes and a line feed, written last |
 
-| File | Meaning |
-|---|---|
-| `model.json` | Exact consumed model bytes |
-| `run.json` | Exact consumed run bytes, including its original relative model path |
-| `result.json` | Result 0.2: numerical payload, accounting, termination and assessment |
-| `provenance.json` | Compiler/package/lockfile/executable identities, OS/architecture, workers, elapsed time and workspace reservation |
-| `manifest.json` | Archive 0.1; four unique fixed payload names, byte lengths and SHA-256 digests |
-| `COMPLETE` | SHA-256 of the exact manifest bytes, followed by LF; written last |
+The output is a new directory, never an overwrite or a merge. Each file is
+created exclusively. The verifier rejects extra or missing files, duplicates,
+unknown fields or versions, mismatched lengths or digests, an invalid
+completion marker and oversized content. Input documents keep the 16 MiB
+limit of every contract.
 
-Output is a new directory, never an overwrite or merge with existing data.
-Each file is created exclusively and synchronized. On Unix, the directory is
-synchronized after the marker. There are no symlinks or nested manifest paths.
-The verifier rejects additional files, missing files, duplicates, unknown
-fields/versions, mismatched lengths/digests, invalid completion markers and
-oversized content. Strict duplicate-key and depth handling is retained;
-input documents keep 16 MiB limits while result bytes have the archive cap.
+The marker certifies that the write finished. A cancelled or budget-limited
+simulation can have a complete archive. If a process is killed before the
+marker, the directory is not an archive. There is no resume. Integrity
+checks are not signatures; they do not prove authenticity or protect
+against a hostile process that replaces files concurrently.
 
-This adapts the durable-write and checksum conventions inspected in
-`optimization-jobs` at `cc6b03d594f73d1f3b38f088e7e3bd8663814d75`,
-`crates/optimization-job-api/src/storage.rs`. No job protocol or worker
-dependency is introduced. M6 can integrate the current shared runner later.
-No third-party implementation code was copied.
+## What verification checks
 
-The archive marker certifies that the **write** finished. A cancelled, failed
-or budget-limited simulation may still have a complete archive. If a process
-is killed before finalization, the directory has no valid completion marker;
-it may contain only input snapshots or partial files. There is no resume or
-per-event recovery journal in M2. Integrity checks do not provide signatures,
-authenticity, biological validity or protection against hostile concurrent
-filesystem replacement.
+`verify` checks that the directory has exactly these regular files, that the
+marker matches the manifest, the lengths and digests, that the model and
+request still prepare, that the result parses strictly and is the engine's
+own serialization, the hashes inside the result, and the relations between
+request and result: identity, replicate accounting, terminations, kept
+paths and statistics. It does not run the simulation again. To check that a
+run reproduces, run the archived request and compare the result bytes.
 
-## Result relationships
+## The report
 
-Result 0.2 records model/run hashes, sampler version, seed, species order,
-save times, requested/completed replicates, aggregate executed events,
-per-replicate records, retained trajectories, optional statistics and
-diagnostics. Every replicate ID from zero to requested-1 occurs once.
-Each record reports whether it started, its stop reason, executed events,
-observation time, available save-point count and optional error diagnostic.
+`archive-check/1.0` has these fields, to be read together.
 
-`completed` requires all paths to reach the horizon. `exact_ensemble` is
-reserved for this completed Direct result; it describes the stochastic method,
-not zero sampling/rounding error. Numerical failures produce `failed_checks`;
-other stops produce `incomplete`. An output-limited result is incomplete even
-when all simulation work finished. It has accounting but no retained numerical
-payload or unconditional statistics. Aggregate stop priority is failure,
-cancellation, wall time, population limit, event limit, completion; output
-removal takes precedence as `output_limit`. Individual reasons remain visible.
+| Field | Meaning |
+| --- | --- |
+| `valid` | the archive was written, or verified, without error |
+| `archive_complete` | every file, the manifest and the marker are present and consistent |
+| `simulation_complete` | the archived result is complete: a simulation that ended `completed`, or a finite state projection |
+| `termination` | the ensemble termination; null for a projection and for an invalid archive |
+| `result` | the result's schema, for example `crn-craft.result/1.0` |
+| `model_sha256`, `run_sha256` | the hashes of the archived bytes |
+| `diagnostics` | why the archive is invalid (`CRN-E065`) |
 
-Statistics are present only for a fully completed ensemble when requested.
-Verification checks dimensional/finite/domain constraints and consistency
-between records, totals, stop reasons, sample counts, assessment and requested
-outputs. When **all** trajectories are retained, it recomputes the same ordered
-mean/variance/SE and rejects inconsistent summaries. When only some paths are
-retained, full numerical recomputation is unavailable; checksums and structural
-consistency are not a substitute for independent statistical validation.
+`crn-craft run --archive` exits 0 only for a completed simulation.
+`verify` exits 0 for any valid archive, including one that records an
+incomplete simulation. Input or preflight failures create no archive. A
+failure while writing returns a coded diagnostic and may leave a directory
+without a marker, which must not be read as a result.
 
-Numerical reproducibility comparisons exclude run hashes when run bytes differ
-only by worker allowance, and exclude `provenance.json`. The consumed run hash
-must still identify those exact bytes. Retained `run.json` is an original
-snapshot, so its original relative path need not equal the archive filename
-`model.json`; replay it through the byte API or reconstruct a new checked run
-reference without mislabelling the changed run as the original.
+## Replaying an archive
 
-## CLI results
+`request.json` keeps its original `model.path`, which need not equal the
+archive file name `model.json`. To replay, copy `model.json` next to a request
+whose `model.path` names it and whose `model.sha256` is unchanged, or build a
+new request and say that it is new. Numerical comparisons use `result.json`;
+nothing in it depends on timing, thread count or the host.
 
-`simulate MODEL RUN NEW_DIRECTORY [--cancel-file PATH]` returns an
-`archive-check/0.1` report and exit 0 only for a completed simulation.
-`verify DIRECTORY` returns the same report and exit 0 for a valid archive,
-including valid incomplete evidence. Read `valid`, `archive_complete`,
-`simulation_complete`, `termination` and `assessment` together.
+## Provenance
 
-Input/preflight failures create no archive. A write or finalization failure
-returns a coded diagnostic and may leave an unmarked directory. The caller
-must not reinterpret that directory as a completed result.
+The archive format adapts the durable-write and checksum conventions of
+`optimization-jobs` at `cc6b03d594f73d1f3b38f088e7e3bd8663814d75`
+(`crates/optimization-job-api/src/storage.rs`). No job protocol or worker
+dependency is involved, and no implementation code was copied.

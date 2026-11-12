@@ -200,8 +200,8 @@ def sessions(terminal, output):
         "04-simulate",
         "An exact ensemble written as a sealed archive",
         [
-            "crn-craft simulate immigration-death.model.json"
-            " immigration-death.run.json runs/first",
+            "crn-craft run immigration-death.model.json"
+            " immigration-death.run.json --archive runs/first",
             "ls runs/first && cat runs/first/COMPLETE",
             ("crn-craft verify runs/first", 12, 0),
         ],
@@ -218,14 +218,14 @@ def sessions(terminal, output):
     )
     t.session(
         output,
-        "06-cached",
-        "simulate-cached gives the same bytes",
+        "06-replay",
+        "The same request gives the same bytes",
         [
-            "crn-craft simulate-cached repressilator.model.json repressilator.run.json"
-            " runs/cached > /dev/null",
-            "crn-craft simulate repressilator.model.json repressilator.run.json"
-            " runs/plain > /dev/null",
-            "sha256sum runs/plain/result.json runs/cached/result.json",
+            "crn-craft run repressilator.model.json repressilator.run.json"
+            " --archive runs/replay-a > /dev/null",
+            "crn-craft run repressilator.model.json repressilator.run.json"
+            " --archive runs/replay-b > /dev/null",
+            "sha256sum runs/replay-a/result.json runs/replay-b/result.json",
         ],
     )
     t.session(
@@ -233,7 +233,7 @@ def sessions(terminal, output):
         "07-fsp",
         "Finite state projection of the immigration-death law",
         [
-            "crn-craft fsp immigration-death.model.json immigration-death.fsp.run.json"
+            "crn-craft run immigration-death.model.json immigration-death.fsp.run.json"
             " > fsp.json",
             "python3 -c \"import json; r = json.load(open('fsp.json'));"
             " s = r['snapshots'][-1]; s.pop('probabilities');"
@@ -246,10 +246,10 @@ def sessions(terminal, output):
         "08-tau",
         "Approximate tau leaping is labelled as such",
         [
-            "crn-craft tau immigration-death.model.json tau.json > tau-result.json",
+            "crn-craft run immigration-death.model.json tau.run.json > tau-result.json",
             "python3 -c \"import json; r = json.load(open('tau-result.json'));"
-            " keys = ['algorithm', 'assessment', 'epsilon', 'termination', 'events',"
-            " 'leaps', 'rejected_leaps'];"
+            " keys = ['method', 'sampler', 'termination', 'completed_replicates',"
+            " 'events'];"
             ' print(json.dumps({k: r.get(k) for k in keys}, indent=2))"',
         ],
     )
@@ -260,8 +260,8 @@ def sessions(terminal, output):
         [
             "touch stop",
             (
-                "crn-craft simulate immigration-death.model.json long.run.json"
-                " runs/stopped --cancel-file stop",
+                "crn-craft run immigration-death.model.json long.run.json"
+                " --archive runs/stopped --cancel-file stop",
                 30,
                 1,
             ),
@@ -276,7 +276,17 @@ def sessions(terminal, output):
             "cat dimer.net",
             "crn-craft-import bng-net dimer.net dimer.import.json --convention binomial",
             "python3 -c \"import json; r = json.load(open('dimer.import.json'));"
-            " print(json.dumps(r['model']['reactions'], indent=2))\"",
+            " print(json.dumps(r['model']['rules'], indent=2))\"",
+        ],
+    )
+    t.session(
+        output,
+        "12-convert",
+        "Converting a network model",
+        [
+            ("crn-craft convert immigration-death.network.json", 24, 0),
+            "crn-craft convert immigration-death.network.json > converted.model.json"
+            " && crn-craft check converted.model.json | grep valid",
         ],
     )
     t.session(
@@ -294,18 +304,39 @@ def sessions(terminal, output):
 # Figures
 
 
+def ensemble(model, end, replicates, report_times=None, **options):
+    """One exact Static Direct ensemble; the statistics have no quantiles."""
+    if report_times is None:
+        report_times = [0.0, end]
+    return crn.ensemble(
+        model,
+        end=end,
+        report_times=report_times,
+        replicates=replicates,
+        method=options.pop("method", "static_direct"),
+        quantiles=(),
+        **options,
+    )
+
+
+def final_counts(result, species):
+    """The last saved count of every kept path."""
+    return result.paths.sel(variable=species).to_numpy()[:, -1]
+
+
 def immigration_death(output):
     model = crn.load_example("immigration-death")
     grid = np.linspace(0, 30, 301).round(10).tolist()
-    run = crn.run_spec(model, end=30.0, save_times=grid, replicates=400, keep=8)
-    result = crn.simulate(model, run)
-    t = np.array(result["save_times"])
-    mean = np.array(result["statistics"]["mean"])[:, 0]
-    variance = np.array(result["statistics"]["sample_variance"])[:, 0]
+    result = ensemble(
+        model, 30.0, 400, grid, keep_paths=8, seed=42, max_events=10_000_000
+    ).simulate()
+    t = np.array(grid)
+    mean = result.statistics["mean"]["A"].to_numpy()
+    variance = result.statistics["sample_variance"]["A"].to_numpy()
     exact = 20 * (1 - np.exp(-0.2 * t))
     fig, (left, right) = plt.subplots(1, 2, figsize=(10, 3.8))
-    for path in result["trajectories"]:
-        left.step(t, np.array(path["counts"])[:, 0], where="post", color=GRID, lw=1)
+    for path in result.paths.sel(variable="A").to_numpy():
+        left.step(t, path, where="post", color=GRID, lw=1)
     left.plot(t, mean, color=BLUE, label="ensemble mean (400 paths)")
     left.plot(
         t, exact, color=ORANGE, ls="--", label=r"exact mean $20\,(1 - e^{-0.2t})$"
@@ -319,34 +350,92 @@ def immigration_death(output):
     fig.tight_layout()
     fig.savefig(output / "immigration-death.png")
     plt.close(fig)
-    return {"events": result["events"], "final_mean": float(mean[-1])}
+    return {"events": result.metadata["events"], "final_mean": float(mean[-1])}
+
+
+def poisson_quantile(mean, p):
+    """The smallest k with P(X <= k) >= p for a Poisson variable."""
+    if mean == 0:
+        return 0
+    term = cdf = math.exp(-mean)
+    k = 0
+    while cdf < p:
+        k += 1
+        term *= mean / k
+        cdf += term
+    return k
+
+
+def quantile_band(output):
+    """The median and the 95% band of the ensemble against the exact law."""
+    model = crn.load_example("immigration-death")
+    grid = np.linspace(0, 30, 31).round(10).tolist()
+    result = crn.ensemble(
+        model,
+        end=30.0,
+        report_times=grid,
+        replicates=400,
+        seed=42,
+        method="static_direct",
+        max_events=10_000_000,
+    ).simulate()
+    t = np.array(grid)
+    mu = 20 * (1 - np.exp(-0.2 * t))
+    quantiles = result.statistics["quantiles"]
+    fig, axis = plt.subplots(figsize=(7, 3.8))
+    axis.fill_between(
+        t,
+        quantiles[0.025]["A"].to_numpy(),
+        quantiles[0.975]["A"].to_numpy(),
+        color=GRID,
+        step="post",
+        label="2.5% to 97.5% (400 paths)",
+    )
+    axis.step(
+        t,
+        result.statistics["median"]["A"].to_numpy(),
+        where="post",
+        color=BLUE,
+        label="median",
+    )
+    for p, style in [(0.025, ":"), (0.5, "--"), (0.975, ":")]:
+        axis.step(
+            t,
+            [poisson_quantile(m, p) for m in mu],
+            where="post",
+            color=ORANGE,
+            ls=style,
+            label="exact Poisson quantiles" if p == 0.5 else None,
+        )
+    axis.set(title="Median and 95% band of A", xlabel="time", ylabel="A")
+    axis.legend(loc="lower right")
+    fig.tight_layout()
+    fig.savefig(output / "quantiles.png")
+    plt.close(fig)
+    last = {p: float(quantiles[p]["A"].iloc[-1]) for p in quantiles}
+    return {"final_quantiles": {str(p): v for p, v in last.items()}}
 
 
 def fsp_vs_ssa(output):
     model = crn.load_example("immigration-death")
     saves = [0.0, 2.0, 5.0, 20.0]
-    run = crn.run_spec(model, end=20.0, save_times=saves)
-    request = {k: v for k, v in run.items() if k != "ensemble"}
-    request["method"] = {
-        "kind": "fsp",
-        "bounds": {"A": 80},
-        "max_states": 81,
-        "tolerance": 1e-10,
-    }
-    request["outputs"] = {"statistics": ["mean"], "keep_trajectories": 0}
-    request["budget"] = {"threads": 1, "max_output_bytes": 10_000_000}
-    projection = crn.fsp(model, request)
-    states = np.array(projection["states"])[:, 0]
-    order = np.argsort(states)
-    ssa = crn.simulate(
-        model,
-        crn.run_spec(model, end=20.0, save_times=saves, replicates=2000, keep=2000),
+    projection = model.fsp(
+        end=20.0,
+        report_times=saves,
+        bounds={"A": 80},
+        max_states=81,
+        tolerance=1e-10,
     )
-    counts = np.array([p["counts"] for p in ssa["trajectories"]])[:, :, 0]
+    states = projection.states["A"].to_numpy()
+    order = np.argsort(states)
+    ssa = ensemble(
+        model, 20.0, 2000, saves, keep_paths=2000, seed=42, max_events=10_000_000
+    ).simulate()
+    counts = ssa.paths.sel(variable="A").to_numpy().astype(int)
     fig, axes = plt.subplots(1, 3, figsize=(11, 3.4), sharey=True)
     for axis, index in zip(axes, [1, 2, 3], strict=True):
         time = saves[index]
-        p = np.array(projection["snapshots"][index]["probabilities"])[order]
+        p = projection.probabilities.isel(time=index).to_numpy()[order]
         mu = 20 * (1 - math.exp(-0.2 * time))
         k = states[order]
         poisson = np.exp(
@@ -362,7 +451,7 @@ def fsp_vs_ssa(output):
     fig.tight_layout()
     fig.savefig(output / "fsp-vs-ssa.png")
     plt.close(fig)
-    last = projection["snapshots"][-1]
+    last = projection.probabilities.isel(time=-1).to_numpy()
     return {
         "max_abs_error_vs_poisson": float(
             max(
@@ -374,28 +463,31 @@ def fsp_vs_ssa(output):
                         - math.lgamma(s + 1)
                     )
                 )
-                for s, pi in zip(states, last["probabilities"], strict=True)
+                for s, pi in zip(states, last, strict=True)
             )
         ),
-        "mass_defect": last["mass_defect"],
+        "mass_defect": float(projection.truncation["mass_defect"].iloc[-1]),
     }
 
 
 def repressilator(output):
     model = crn.load_example("repressilator")
-    names = [s["name"] for s in json.loads(model)["species"]]
     grid = np.linspace(0, 200, 1001).round(10).tolist()
-    result = crn.simulate(
-        model, crn.run_spec(model, end=200.0, save_times=grid, replicates=1, keep=1)
-    )
-    t = np.array(result["save_times"])
-    counts = np.array(result["trajectories"][0]["counts"])
+    result = ensemble(
+        model, 200.0, 1, grid, keep_paths=1, seed=42, max_events=10_000_000
+    ).simulate()
+    t = np.array(grid)
+    path = result.paths.isel(replicate=0)
+
+    def counts(name):
+        return path.sel(variable=name).to_numpy()
+
     fig, (top, bottom) = plt.subplots(
         2, 1, figsize=(10, 5), sharex=True, gridspec_kw={"height_ratios": [3, 1.2]}
     )
     for color, name in zip([BLUE, ORANGE, AQUA], ["p1", "p2", "p3"], strict=True):
-        top.plot(t, counts[:, names.index(name)], color=color, label=name, lw=1.2)
-    verdict = oscillation(t, counts[:, names.index("p1")])
+        top.plot(t, counts(name), color=color, label=name, lw=1.2)
+    verdict = oscillation(t, counts("p1"))
     top.set(
         title=(
             f"Repressilator, one exact path; p1 is {verdict['classification']}"
@@ -405,7 +497,7 @@ def repressilator(output):
     )
     top.legend(loc="upper right", ncol=3)
     for color, name in zip([BLUE, ORANGE, AQUA], ["m1", "m2", "m3"], strict=True):
-        bottom.plot(t, counts[:, names.index(name)], color=color, lw=1)
+        bottom.plot(t, counts(name), color=color, lw=1)
     bottom.set(xlabel="time", ylabel="mRNA")
     fig.tight_layout()
     fig.savefig(output / "repressilator.png")
@@ -415,49 +507,36 @@ def repressilator(output):
 
 def tau_accuracy(output):
     """Tau leaping against exact SSA as epsilon varies (large-mean model)."""
-    model = {
-        "schema": "crn-craft.model/0.1",
-        "name": "large_mean",
-        "convention": "stochastic_counts",
-        "omega": 1.0,
-        "parameters": {},
-        "species": [{"name": "X", "initial_count": 1000}],
-        "reactions": [
-            {
-                "name": "birth",
-                "reactants": {},
-                "products": {"X": 1},
-                "rate": {"kind": "mass_action", "coefficient": 1000.0},
-            },
-            {
-                "name": "death",
-                "reactants": {"X": 1},
-                "products": {},
-                "rate": {"kind": "mass_action", "coefficient": 1.0},
-            },
-        ],
-    }
+    model = crn.Model("large_mean")
+    model.add_species({"X": 1000})
+    model.add_reaction(1000.0, [], ["X"], name="birth")
+    model.add_reaction(1.0, ["X"], [], name="death")
     paths = 1000
-    run = crn.run_spec(model, end=5.0, replicates=paths, keep=paths, seed=7)
-    exact = crn.simulate(model, run)
-    exact_final = np.array([p["counts"][-1][0] for p in exact["trajectories"]])
+
+    def sample(method):
+        return ensemble(
+            model,
+            5.0,
+            paths,
+            keep_paths=paths,
+            seed=7,
+            max_events=10_000_000,
+            method=method,
+        ).simulate()
+
+    exact_final = final_counts(sample("static_direct"), "X")
     rows = []
+    approximate = {}
     for epsilon in [0.003, 0.01, 0.03, 0.1]:
-        request = {
-            "schema": "crn-craft.tau-request/0.1",
-            "epsilon": epsilon,
-            "max_leaps_per_replicate": 1_000_000,
-            "reference_run": run,
-        }
-        approx = crn.tau(model, request)
-        final = np.array([p["counts"][-1][0] for p in approx["trajectories"]])
+        approx = sample({"kind": "tau", "epsilon": epsilon})
+        final = final_counts(approx, "X")
+        approximate[epsilon] = final
         rows.append(
             {
                 "epsilon": epsilon,
                 "variance_ratio": float(final.var(ddof=1) / exact_final.var(ddof=1)),
                 "mean": float(final.mean()),
-                "leaps": approx.get("leaps"),
-                "events": approx["events"],
+                "events": approx.metadata["events"],
             }
         )
     fig, (left, right) = plt.subplots(1, 2, figsize=(10, 3.6))
@@ -481,16 +560,14 @@ def tau_accuracy(output):
     bins = np.linspace(860, 1140, 41)
     right.hist(exact_final, bins=bins, color=GRID, label="exact SSA")
     for color, row, label in [(BLUE, 0, "tau, eps 0.003"), (ORANGE, 3, "tau, eps 0.1")]:
-        request = {
-            "schema": "crn-craft.tau-request/0.1",
-            "epsilon": rows[row]["epsilon"],
-            "max_leaps_per_replicate": 1_000_000,
-            "reference_run": run,
-        }
-        final = np.array(
-            [p["counts"][-1][0] for p in crn.tau(model, request)["trajectories"]]
+        right.hist(
+            approximate[rows[row]["epsilon"]],
+            bins=bins,
+            histtype="step",
+            color=color,
+            lw=1.6,
+            label=label,
         )
-        right.hist(final, bins=bins, histtype="step", color=color, lw=1.6, label=label)
     right.set(title="Final counts, 1000 paths each", xlabel="X(5)", ylabel="paths")
     right.legend(loc="upper right")
     fig.tight_layout()
@@ -502,10 +579,10 @@ def tau_accuracy(output):
 def first_passage(output):
     model = crn.load_example("immigration-death")
     fine = np.linspace(0, 10, 201).round(10).tolist()
-    result = crn.simulate(
-        model, crn.run_spec(model, end=10.0, save_times=fine, replicates=500, keep=500)
-    )
-    paths = [np.array(p["counts"])[:, 0] for p in result["trajectories"]]
+    result = ensemble(
+        model, 10.0, 500, fine, keep_paths=500, seed=42, max_events=10_000_000
+    ).simulate()
+    paths = list(result.paths.sel(variable="A").to_numpy())
     rows = []
     for step in [1, 4, 20]:
         times = fine[::step]
@@ -532,10 +609,11 @@ def threads_identity():
     model = crn.load_example("repressilator")
     digests = {}
     for threads in [1, 2, 8]:
-        run = crn.run_spec(model, end=50.0, replicates=64, threads=threads, keep=4)
-        result = crn.simulate(model, run)
+        result = ensemble(
+            model, 50.0, 64, keep_paths=4, threads=threads, seed=42
+        ).simulate()
         # The run hash covers `threads`; everything numerical must agree.
-        numerical = {k: v for k, v in result.items() if k != "run_sha256"}
+        numerical = {k: v for k, v in result.metadata.items() if k != "run_sha256"}
         digests[threads] = hashlib.sha256(
             json.dumps(numerical, sort_keys=True).encode()
         ).hexdigest()[:16]
@@ -559,6 +637,7 @@ def main():
         sessions(terminal, args.output)
     numbers = {
         "immigration_death": immigration_death(args.output),
+        "quantiles": quantile_band(args.output),
         "fsp": fsp_vs_ssa(args.output),
         "repressilator": repressilator(args.output),
         "tau": tau_accuracy(args.output),

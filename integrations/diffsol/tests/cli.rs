@@ -2,9 +2,9 @@
 use serde_json::{Value, json};
 use std::process::Command;
 
-const ENZYME: &str = include_str!("../../../models/examples/enzyme-mechanism.model.json");
-const MM: &str = include_str!("../../../models/examples/michaelis-menten.model.json");
-const IMMIGRATION: &str = include_str!("../../../models/examples/immigration-death.model.json");
+const ENZYME: &str = include_str!("../../../models/legacy/enzyme-mechanism.model.json");
+const MM: &str = include_str!("../../../models/legacy/michaelis-menten.model.json");
+const IMMIGRATION: &str = include_str!("../../../models/legacy/immigration-death.model.json");
 const DIMER: &str = include_str!("../fixtures/dimerization.model.json");
 const HILL: &str = include_str!("../fixtures/hill-constant.model.json");
 
@@ -242,6 +242,65 @@ fn huge_times_and_evaluation_failures_return_diagnostics() {
     assert_eq!(code, 1);
     assert!(
         d["message"].as_str().unwrap().contains("singular at zero"),
+        "{d}"
+    );
+}
+
+#[test]
+fn rules_models_solve_like_their_network_models() {
+    // The converted model/1.0 has the network's species, parameters and kinetics, so the BDF
+    // solve gives the same values and sensitivities bit for bit.
+    for (key, text) in [("dimer", DIMER), ("hill", HILL), ("enzyme", ENZYME)] {
+        let converted = crn_craft::rules::convert::from_network(text.as_bytes()).unwrap();
+        let converted: Value = serde_json::from_slice(&converted).unwrap();
+        assert_eq!(converted["schema"], "crn-craft.model/1.0");
+        let times = [0., 0.5, 2., 10.];
+        let (code, network) = solve(
+            &format!("{key}-network"),
+            &parse(text),
+            &times,
+            1e-10,
+            1e-12,
+        );
+        assert_eq!(code, 0, "{network}");
+        let (code, rules) = solve(&format!("{key}-rules"), &converted, &times, 1e-10, 1e-12);
+        assert_eq!(code, 0, "{rules}");
+        for field in ["parameters", "values", "sensitivities", "times", "solver"] {
+            assert_eq!(network[field], rules[field], "{key} {field}");
+        }
+        assert_ne!(network["model_sha256"], rules["model_sha256"]);
+    }
+}
+
+#[test]
+fn expression_rates_of_a_model_1_0_match_the_closed_form() {
+    // dA/dt = -k exp(-B / 10) A with B held at 5: A(t) = 10 exp(-k e^-0.5 t), and
+    // dA/dk = -t e^-0.5 A(t).
+    let model = json!({"schema":"crn-craft.model/1.0","name":"damped","parameters":{"k":0.8},
+        "types":[{"name":"A"},{"name":"B"}],
+        "initial":[{"type":"A","count":10},{"type":"B","count":5}],
+        "observables":{"A":{"type":"A"},"B":{"type":"B"}},
+        "rules":[{"name":"decay","reactants":[{"label":"x","type":"A"}],
+                  "rate":"k * exp(-B / 10)","products":[]}]});
+    let times = [0., 0.5, 2., 10.];
+    let (code, result) = solve("damped", &model, &times, 1e-10, 1e-12);
+    assert_eq!(code, 0, "{result}");
+    let rate = 0.8 * (-0.5_f64).exp();
+    for (j, &t) in times.iter().enumerate() {
+        let a = 10. * (-rate * t).exp();
+        assert!((column(&result, 0)[j] - a).abs() <= 1e-8, "t={t}");
+        assert_eq!(column(&result, 1)[j], 5.0);
+        let s = -t * (-0.5_f64).exp() * a;
+        assert!((sensitivity(&result, "k", 0)[j] - s).abs() <= 1e-7, "t={t}");
+    }
+    // A whole-rule propensity that does not vanish with its reactant is refused.
+    let mut gated = model.clone();
+    gated["rules"][0] = json!({"name":"leak","reactants":[{"label":"x","type":"A"}],
+        "propensity":"k + B","products":[]});
+    let (code, d) = solve("gated", &gated, &[0., 1.], 1e-8, 1e-10);
+    assert_eq!((code, d["code"].as_str()), (1, Some("CRN-E080")), "{d}");
+    assert!(
+        d["message"].as_str().unwrap().contains("availability gate"),
         "{d}"
     );
 }

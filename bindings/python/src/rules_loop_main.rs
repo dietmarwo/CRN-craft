@@ -2,7 +2,7 @@
 //!
 //! `crn_craft.rules.compile_loop` writes this file, `rules_payload.rs`, the
 //! generated loop and the exact model bytes into a small Cargo project and
-//! builds it against `crn-craft-rules`. The extension does not load the
+//! builds it against the `crn-craft` crate. The extension does not load the
 //! program; Python runs it as a subprocess.
 //!
 //! Usage: `crn-craft-loop [--cancel-file PATH] < request.json`
@@ -19,7 +19,7 @@
 mod generated_loop;
 mod rules_payload;
 
-use crn_craft_rules::{Control, execute_with_rules_loop, prepare};
+use crn_craft::rules::{Control, execute_with_rules_loop, prepare};
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;

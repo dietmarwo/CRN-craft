@@ -25,13 +25,19 @@ and the model's stop:
 - the three-class model with degradation rates `delta * (1 + mutants / K)`,
   which read observables, and the takeover stop;
 - rates with `max`, `min`, `if` and the other functions over `distinct`,
-  `max` and `min` observables.
+  `max` and `min` observables;
+- higher-order rules of a `crn-craft.model/1.0` model (`3A -> 0`,
+  `2A + B -> C` with an expression rate, a whole propensity over `3A + B`
+  and a rule of three patterns), run with `crn-craft.run/1.0` requests.
 
 It checks the refusals: other methods, models that only another method runs
 (continuous variables, ATP blocks, open models), callbacks, a missing cargo,
 a failed build, a loop for other model bytes or a bound candidate, a
 request the program rejects, and a program whose result differs. A second
-`compile_loop` call must reuse the cached build.
+`compile_loop` call must reuse the cached build. The generated Cargo
+project must depend on the `crn-craft` crate alone, at exactly the
+installed version: from the checkout, and from crates.io when no source is
+given (that manifest is checked as written, not built).
 
 Without cargo the check is skipped with a message, unless `--require-cargo`
 is given. The report holds no timings or paths, so runs under `-O` compare
@@ -49,7 +55,9 @@ import stat
 import sys
 import tempfile
 import time
+import tomllib
 
+import crn_craft
 from crn_craft import CrnError, _rules_loop, rules
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -221,6 +229,81 @@ def functions():
     }
 
 
+def higher_order():
+    """Higher-order rules (crn-craft.model/1.0): pattern counts and three
+    patterns, a rate, an expression rate and a whole propensity."""
+    return {
+        "schema": "crn-craft.model/1.0",
+        "name": "higher_order",
+        "parameters": {
+            "kin": 30.0,
+            "kb": 4.0,
+            "c3": 0.0005,
+            "c2": 0.001,
+            "w": 2.0,
+            "dc": 0.05,
+        },
+        "types": [{"name": "A"}, {"name": "B"}, {"name": "C"}],
+        "initial": [{"type": "A", "count": 20}, {"type": "B", "count": 5}],
+        "observables": {"nA": {"type": "A"}, "nB": {"type": "B"}, "nC": {"type": "C"}},
+        "rules": [
+            {
+                "name": "source_a",
+                "reactants": [],
+                "rate": "kin",
+                "products": [{"type": "A"}],
+            },
+            {
+                "name": "source_b",
+                "reactants": [],
+                "rate": "kb",
+                "products": [{"type": "B"}],
+            },
+            {
+                "name": "third_order",
+                "reactants": [{"label": "a", "type": "A", "count": 3}],
+                "rate": "c3",
+                "products": [],
+            },
+            {
+                "name": "bind",
+                "reactants": [
+                    {"label": "a", "type": "A", "count": 2},
+                    {"label": "b", "type": "B"},
+                ],
+                "rate": "c2 * (1 + nC / 50)",
+                "products": [{"type": "C"}],
+            },
+            {
+                "name": "whole",
+                "reactants": [
+                    {"label": "a", "type": "A", "count": 3},
+                    {"label": "b", "type": "B"},
+                ],
+                "propensity": "w * nB / (1 + nB)",
+                "products": [{"type": "A"}, {"type": "C"}],
+            },
+            {
+                "name": "three_patterns",
+                "reactants": [
+                    {"label": "x", "type": "A"},
+                    {"label": "y", "type": "B"},
+                    {"label": "z", "type": "C"},
+                ],
+                "rate": "c2",
+                "products": [{"type": "C"}, {"type": "C"}],
+            },
+            {
+                "name": "decay_c",
+                "reactants": [{"label": "c", "type": "C"}],
+                "rate": "dc",
+                "products": [],
+            },
+        ],
+        "stop": "nC >= 60",
+    }
+
+
 # label, model, run settings, trackers, event log
 STRING_RATES = (
     (
@@ -257,6 +340,16 @@ STRING_RATES = (
             {"observable": "nB", "first_passage": "nB >= 3"},
         ],
         {"max_entries": 6, "rules": ["create_c3", "pair_aa"]},
+    ),
+    (
+        "higher-order rules",
+        higher_order,
+        {"end": 60.0, "report_times": [0.0, 1.0, 15.0, 30.0, 60.0]},
+        [
+            {"observable": "nA", "keep_episodes": 2},
+            {"observable": "nC", "first_passage": "nC >= 10"},
+        ],
+        {"max_entries": 6, "rules": ["third_order", "bind", "three_patterns"]},
     ),
 )
 
@@ -360,6 +453,34 @@ def main():
     )
     rows = []
 
+    # The loop project depends on the crn-craft crate alone, at exactly the
+    # installed version: from the checkout here, and from crates.io when no
+    # source is given (the manifest of a published install).
+    project = tomllib.loads((loop.directory / "Cargo.toml").read_text("utf-8"))
+    checkout = (source.expanduser().resolve() / "crates" / "crn-craft").as_posix()
+    require(
+        project["dependencies"]
+        == {
+            "crn-craft": {"version": f"={loop.version}", "path": checkout},
+            "serde_json": "1",
+        },
+        f"loop project dependencies: {project['dependencies']}",
+    )
+    rust_version, _ = _rules_loop._native.rules_loop_driver()
+    published = tomllib.loads(
+        _rules_loop._manifest("crn-craft-loop-check", loop.version, rust_version, None)
+    )
+    require(
+        published["dependencies"]
+        == {"crn-craft": {"version": f"={loop.version}"}, "serde_json": "1"},
+        f"crates.io loop project dependencies: {published['dependencies']}",
+    )
+    dependencies = {
+        "case": "loop project dependencies",
+        "checkout": ["crn-craft (path, =installed version)", "serde_json"],
+        "crates.io": ["crn-craft (=installed version)", "serde_json"],
+    }
+
     # Threads, both waiting-time policies and both tracker paths.
     for threads in (1, 2):
         for wait in ("inverse", "ziggurat"):
@@ -387,6 +508,61 @@ def main():
     # rules.ensemble writes for it.
     default = ensemble(model, loop, trackers=TRACKERS, event_log=LOG)
     identical("default static_direct", default, loop, rows)
+
+    # Quantiles need crn-craft.run/1.0 and run the model as
+    # crn-craft.model/1.0: a loop compiled for that document serves them,
+    # byte-identically, also through verify().
+    quantiles = (0.025, 0.5, 0.975)
+    unified = {**model, "schema": rules.MODEL_1_0}
+    unified_loop = rules.compile_loop(unified, progress=False, **build)
+    for threads in (1, 2):
+        quantile_run = ensemble(
+            model,
+            unified_loop,
+            threads=threads,
+            quantiles=quantiles,
+            keep_paths="all",
+            trackers=TRACKERS,
+        )
+        result = identical(
+            f"quantiles, threads {threads}", quantile_run, unified_loop, rows
+        )
+        require(
+            result.metadata["schema"] == "crn-craft.result/1.0"
+            and list(result.statistics["quantiles"]) == list(quantiles)
+            and result.statistics["median"] is result.statistics["quantiles"][0.5],
+            f"quantiles, threads {threads}: quantile statistics",
+        )
+    verified = unified_loop.verify(quantile_run)
+    require(
+        verified.metadata == result.metadata
+        and list(verified.statistics["quantiles"]) == list(quantiles),
+        "verify() of a quantile run",
+    )
+
+    # The top-level API runs crn-craft.model/1.0, so crn_craft.compile_loop
+    # and crn_craft.loop_source build for the document crn_craft.ensemble
+    # runs: the same rules-model dictionary serves both calls unchanged.
+    top_loop = crn_craft.compile_loop(model, progress=False, **build)
+    require(
+        top_loop.fingerprint == unified_loop.fingerprint
+        and _rules_loop.fingerprint_of(crn_craft.loop_source(model))
+        == unified_loop.fingerprint,
+        "crn_craft.compile_loop and loop_source build the model/1.0 document",
+    )
+    top_run = crn_craft.ensemble(
+        model,
+        end=25_920.0,
+        report_times=GRID,
+        replicates=24,
+        seed=11,
+        threads=2,
+        method="static_direct",
+        selector="linear",
+        trackers=TRACKERS,
+        compiled=top_loop,
+    )
+    identical("top-level compile_loop and ensemble", top_run, top_loop, rows)
 
     # String rates and whole-rule propensities.
     for label, build_model, settings, trackers, log in STRING_RATES:
@@ -496,6 +672,12 @@ def main():
             ("CRN-R020", "/model"),
         )
         refused(
+            "quantiles with the rules-model loop",
+            lambda: ensemble(model, loop, quantiles=(0.5,)),
+            rows,
+            ("CRN-R020", "/model"),
+        )
+        refused(
             "bound candidate",
             lambda: run.bind_parameters({"mu": 3e-5}).simulate(compiled=loop),
             rows,
@@ -554,6 +736,7 @@ def main():
                 "mismatch payloads saved",
             )
     require(loop.verify(run).metadata["events"] > 0, "verify")
+    rows.append(dependencies)
     report = {
         "schema": "crn-craft.compiled-loop-check/0.1",
         "model": "mtdna-three-class.rules.json with the takeover stop",

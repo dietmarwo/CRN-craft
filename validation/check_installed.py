@@ -439,7 +439,8 @@ def check_builder_odes():
     require(
         plain.to_json(indent=None) == ODES_040
         and explicit.to_json(indent=None) == ODES_040
-        and c.model_bytes(plain.to_dict()) == c.model_bytes(json.loads(ODES_040))
+        and rules.model_bytes(plain.to_dict())
+        == rules.model_bytes(json.loads(ODES_040))
         and plain.to_json() == json.dumps(json.loads(ODES_040), indent=2) + "\n",
         "add_ode without independent variables writes the bytes of 0.4.0",
     )
@@ -605,13 +606,21 @@ def check_compiled_loop_refusals():
     model = three_class_model()
     source = rules.loop_source(model)
     require(
-        "impl crn_craft_rules::RulesLoop for GeneratedRulesLoop" in source,
+        "impl crn_craft::rules::RulesLoop for GeneratedRulesLoop" in source
+        and "crn_craft_rules" not in source,
         "installed loop_source returns the generated loop",
     )
     rust_version, files = c._native.rules_loop_driver()
     require(
         rust_version and {"src/main.rs", "src/rules_payload.rs"} <= dict(files).keys(),
         "the installed extension carries the compiled-loop driver",
+    )
+    # Since 0.7.0 the driver, like the generated loop, builds against the
+    # crn-craft crate alone.
+    require(
+        "use crn_craft::rules::" in dict(files)["src/main.rs"]
+        and not any("crn_craft_rules" in text for _, text in files),
+        "the compiled-loop driver names the crn-craft crate",
     )
     try:
         rules.compile_loop(model, cargo="crn-craft-no-such-cargo", progress=False)
@@ -645,6 +654,225 @@ def check_compiled_loop_refusals():
             raise RuntimeError("a loop for other model bytes was accepted")
 
 
+# Expected output of Result.save, next to this script (not in the package).
+SIR_REPORT = Path(__file__).resolve().parent / "fixtures" / "sir-report.md"
+
+
+def check_report():
+    """Result.save: the SIR example's markdown report, byte for byte.
+
+    The expected file is validation/fixtures/sir-report.md. Its line
+    `crn-craft = <version>` names the version it was written with; that one
+    line is compared with the installed version instead, so the file stays
+    valid across version bumps. Every other byte must be equal. The run asks
+    for the quantiles 0.025, 0.5 and 0.975, so the documents are
+    crn-craft.run/1.0 and crn-craft.model/1.0.
+    """
+    sir = c.Model("sir")
+    sir.add_species({"S": 999, "I": 1, "R": 0})
+    sir.add_parameter({"beta": 2e-4, "gamma": 0.01})
+    sir.add_reaction("beta * S * I", ["S", "I"], ["I", "I"], name="infection")
+    sir.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
+    sir.set_stop("I == 0")
+    settings = {
+        "end": 250.0,
+        "report_times": [0, 50, 100, 150, 200, 250],
+        "replicates": 10,
+        "seed": 1,
+        "keep_paths": "all",
+        "method": "static_direct",
+    }
+    # The top-level API asks for these quantiles by default; through
+    # crn_craft.rules they are asked for, and the documents are the same
+    # except that crn_craft.rules writes out the linear selector of every
+    # rules-run version, where the top level leaves "auto" to the engine.
+    prepared = c.ensemble(sir, **settings)
+    old = rules.Model("sir")
+    old.add_species({"S": 999, "I": 1, "R": 0})
+    old.add_parameter({"beta": 2e-4, "gamma": 0.01})
+    old.add_reaction("beta * S * I", ["S", "I"], ["I", "I"], name="infection")
+    old.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
+    old.set_stop("I == 0")
+    old_model, old_request = rules.ensemble(
+        old, quantiles=(0.025, 0.5, 0.975), **settings
+    )._documents
+    old_request = json.loads(old_request)
+    require(
+        old_model == prepared._documents[0]
+        and old_request["method"].pop("selector") == "linear"
+        and old_request == json.loads(prepared._documents[1]),
+        "the top-level SIR documents equal rules.ensemble(quantiles=...) "
+        "but for the linear selector",
+    )
+    result = prepared.simulate()
+    require(
+        list(result.statistics["quantiles"]) == [0.025, 0.5, 0.975]
+        and result.statistics["median"] is result.statistics["quantiles"][0.5],
+        "quantile statistics and the median",
+    )
+    expected = SIR_REPORT.read_bytes().split(b"\n")
+    version = [i for i, line in enumerate(expected) if line.startswith(b"crn-craft = ")]
+    require(len(version) == 1, "the SIR fixture has one crn-craft version line")
+    expected[version[0]] = b"crn-craft = " + c.__version__.encode()
+    expected = b"\n".join(expected)
+    with tempfile.TemporaryDirectory() as tmp:
+        first = result.save(Path(tmp) / "sir.md")
+        second = result.save(Path(tmp) / "again.md")
+        written = first.read_bytes()
+        require(
+            isinstance(first, Path)
+            and first == Path(tmp) / "sir.md"
+            and written == second.read_bytes(),
+            "saving a result twice gives identical bytes",
+        )
+        require(
+            written == expected,
+            f"the SIR report differs from {SIR_REPORT}:\n{written.decode()}",
+        )
+        report = c.load_report(result.save(Path(tmp) / "sir.json"))
+        require(
+            report["schema"] == "crn-craft.report/1.0"
+            and report["crn_craft_version"] == c.__version__
+            and report["model"]
+            == sir.to_dict()
+            == {**old.to_dict(), "schema": "crn-craft.model/1.0"}
+            == result.model
+            and report["request"]["schema"] == "crn-craft.run/1.0"
+            and report["request"] == result.request
+            and report["result"]["observables"] == ["I", "R", "S"]
+            and report["result"]["terminations"] == {"completed": 10}
+            and rules.load_report is c.load_report,
+            "the JSON report holds the model and request that ran",
+        )
+
+
+def poisson(n, mean):
+    """The Poisson probability of n, in floating point."""
+    return math.exp(n * math.log(mean) - mean - math.lgamma(n + 1)) if mean else n == 0
+
+
+def check_unified():
+    """The unified API from the installed wheel (M6a): the top-level names,
+    Model.fsp against the Poisson law of immigration-death, Model.analyze of
+    the enzyme model and a third-order reaction (FSP against its exact law,
+    and an ensemble against the FSP mean within 5 standard errors)."""
+    require(
+        set(c.__all__)
+        == {
+            "CompiledLoopError",
+            "CrnError",
+            "Model",
+            "archive",
+            "check",
+            "compile_loop",
+            "convert",
+            "describe",
+            "ensemble",
+            "load",
+            "load_example",
+            "load_report",
+            "loop_source",
+            "prepare",
+            "read_bngl",
+            "read_sbml",
+            "verify_archive",
+        }
+        and not hasattr(c, "run_spec")
+        and not hasattr(c, "simulate_ssa")
+        and c.describe()["schema"] == "crn-craft.describe/1.0",
+        "installed top level",
+    )
+    death = c.load_example("immigration-death")
+    times = [0.0, 2.0, 5.0, 10.0]
+    fsp = death.fsp(end=10.0, report_times=times, bounds={"A": 150})
+    states = fsp.states["A"].to_numpy()
+    for i, t in enumerate(times):
+        # Immigration-death from zero: Poisson with mean 20 (1 - exp(-0.2 t)).
+        mean = 20.0 * (1.0 - math.exp(-0.2 * t))
+        exact = np.array([poisson(int(n), mean) for n in states])
+        probabilities = fsp.probabilities.isel(time=i).to_numpy()
+        require(
+            float(np.max(np.abs(probabilities - exact))) <= 1e-10
+            and abs(fsp.mean["A"].iloc[i] - mean) < 1e-9
+            and fsp.truncation["physical_leakage_estimate"].iloc[i] < 1e-12,
+            f"installed Model.fsp matches the Poisson law at t = {t}",
+        )
+    report = c.load_example("enzyme-mechanism").analyze()
+    conservation = report["analysis"]["conservation"]
+    require(
+        report["schema"] == "crn-craft.analysis/1.0"
+        and report["success"]
+        and report["analysis"]["species"] == ["S", "E", "ES", "P"]
+        and conservation["status"] == "exact"
+        and [b["coefficients"] for b in conservation["basis"]]
+        == [["0", "1", "1", "0"], ["1", "0", "1", "1"]]
+        and [b["initial_total"] for b in conservation["basis"]] == ["10", "50"],
+        "installed Model.analyze: the enzyme and substrate totals are conserved",
+    )
+    # 3A -> 0 at k C(A, 3) from A = 10: a pure-death chain 10 -> 7 -> 4 -> 1
+    # with rates 120 k, 35 k and 4 k; 1 molecule is absorbing.
+    k = 0.01
+    tri = c.Model("third_order").add_species("A", 10)
+    tri.add_reaction(k, ["A", "A", "A"], [], name="triple")
+    require(
+        tri.to_dict()["rules"][0]["reactants"]
+        == [{"label": "x", "type": "A", "count": 3}]
+        and c.check(tri)["valid"],
+        "a third-order reaction is one pattern with count 3",
+    )
+    a, b, d = 120 * k, 35 * k, 4 * k
+    times = [0.0, 1.0, 5.0, 20.0]
+    law = c.Model.fsp(tri, end=20.0, report_times=times, bounds={"A": 10})
+    for i, t in enumerate(times):
+        p10 = math.exp(-a * t)
+        p7 = a / (b - a) * (math.exp(-a * t) - math.exp(-b * t))
+        p4 = (
+            a
+            * b
+            * (
+                math.exp(-a * t) / ((b - a) * (d - a))
+                + math.exp(-b * t) / ((a - b) * (d - b))
+                + math.exp(-d * t) / ((a - d) * (b - d))
+            )
+        )
+        exact = {10: p10, 7: p7, 4: p4, 1: 1.0 - p10 - p7 - p4}
+        got = dict(
+            zip(
+                law.states["A"].tolist(),
+                law.probabilities.isel(time=i).to_numpy().tolist(),
+                strict=True,
+            )
+        )
+        require(
+            set(got) == {10, 7, 4, 1}
+            and max(abs(got[n] - exact[n]) for n in exact) <= 1e-10,
+            f"installed third-order FSP matches the exact law at t = {t}",
+        )
+    ensemble = c.ensemble(
+        tri,
+        end=20.0,
+        report_times=times,
+        replicates=2000,
+        seed=11,
+        threads=2,
+        keep_paths=50,
+        method="static_direct",
+    ).simulate()
+    values = ensemble.paths.sel(variable="A").to_numpy()
+    mean = ensemble.statistics["mean"]["A"].to_numpy()
+    error = ensemble.statistics["mean_standard_error"]["A"].to_numpy()
+    require(
+        set(np.unique(values).tolist()) <= {10.0, 7.0, 4.0, 1.0}
+        and bool(np.all(np.diff(values, axis=1) <= 0))
+        and mean[0] == 10.0
+        and bool(
+            np.all(np.abs(mean[1:] - law.mean["A"].to_numpy()[1:]) <= 5 * error[1:])
+        )
+        and ensemble.statistics["median"]["A"].iloc[0] == 10.0,
+        "installed third-order ensemble matches its exact law",
+    )
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--output", type=Path, required=True)
@@ -660,38 +888,58 @@ def main():
     reported = subprocess.run([cli, "--version"], capture_output=True, check=False)
     require(
         reported.returncode == 0
-        and json.loads(reported.stdout) == {"version": version, "interface": "python"},
+        and json.loads(reported.stdout)
+        == {"version": version, "interface": "python", "milestone": "unified-engine"},
         "installed entry point is the Python CLI",
     )
     checks.append("version_and_entry_points")
     m = c.load_example("immigration-death")
-    r = c.run_spec(m, end=2.0, replicates=32, seed=77, keep=32)
-    a = c.simulate(m, r)
-    b = c.simulate(m, r, cached=True)
-    require(a == b, "installed cached identity")
+    prepared = c.ensemble(
+        m,
+        end=2.0,
+        report_times=[0.0, 1.0, 2.0],
+        replicates=32,
+        seed=77,
+        keep_paths=32,
+        method={"kind": "static_direct", "waiting_time": "inverse"},
+        selector="linear",
+    )
+    a = prepared.simulate()
+    b = prepared.simulate()
+    require(
+        a.metadata == b.metadata and a.paths.equals(b.paths),
+        "installed replay identity",
+    )
     checks.append("native_API_exact_identity")
     require(
-        c.describe()["schema"] == "crn-craft.describe/0.10", "installed capabilities"
+        c.describe()["schema"] == "crn-craft.describe/1.0",
+        "installed capabilities",
     )
     checks.append("discovery")
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
-        (folder / "model.json").write_bytes(m)
-        (folder / "run.json").write_bytes(c.model_bytes(r))
+        model_file = folder / a.request["model"]["path"]
+        model_file.write_bytes(rules.model_bytes(a.model))
+        (folder / "run.json").write_bytes(rules.model_bytes(a.request))
         proc = subprocess.run(
             [
                 cli,
-                "simulate-cached",
-                str(folder / "model.json"),
+                "run",
+                str(model_file),
                 str(folder / "run.json"),
+                "--archive",
                 str(folder / "out"),
             ],
             capture_output=True,
             check=False,
         )
         require(proc.returncode == 0, proc.stdout.decode() + proc.stderr.decode())
+        archived = json.loads((folder / "out/result.json").read_bytes())
         require(
-            json.loads((folder / "out/result.json").read_bytes()) == a,
+            {k: v for k, v in archived.items() if k != "replicates"}
+            == {k: v for k, v in a.metadata.items() if k != "replicates"}
+            and [r["events"] for r in archived["replicates"]]
+            == a.records["events"].tolist(),
             "installed CLI/API identity",
         )
         require(
@@ -704,27 +952,34 @@ def main():
             "installed verify",
         )
         for command in [
-            ["describe", "tau-result"],
-            ["analyze-v1", str(folder / "model.json")],
-            ["export", str(folder / "model.json"), "gillespy2"],
+            ["describe", "run-1.0"],
+            ["check", str(model_file), str(folder / "run.json")],
+            ["analyze", str(model_file)],
+            ["export", str(model_file), "gillespy2"],
         ]:
             extra = subprocess.run([cli, *command], capture_output=True, check=False)
-            require(extra.returncode == 0, "installed discovery/legacy/export parity")
-        tau_request = {
-            "schema": "crn-craft.tau-request/0.1",
-            "epsilon": 0.05,
-            "max_leaps_per_replicate": 100000,
-            "reference_run": r,
-        }
-        (folder / "tau.json").write_bytes(c.model_bytes(tau_request))
+            require(extra.returncode == 0, "installed discovery/check/export parity")
+        tau = c.ensemble(
+            m,
+            end=2.0,
+            report_times=[0.0, 2.0],
+            replicates=32,
+            seed=77,
+            method={"kind": "tau", "epsilon": 0.05},
+        )
+        approx = tau.simulate()
+        (folder / "tau.json").write_bytes(rules.model_bytes(approx.request))
         extra = subprocess.run(
-            [cli, "tau", str(folder / "model.json"), str(folder / "tau.json")],
+            [cli, "run", str(model_file), str(folder / "tau.json")],
             capture_output=True,
             check=False,
         )
         require(
             extra.returncode == 0
-            and json.loads(extra.stdout)["assessment"] == "approximate_ensemble",
+            and json.loads(extra.stdout)["method"]["kind"] == "tau"
+            and json.loads(extra.stdout)["sampler"].startswith(
+                "chacha8-u53/rules-approximate"
+            ),
             "installed tau CLI parity",
         )
         (folder / "decay.xml").write_bytes(SBML)
@@ -742,24 +997,15 @@ def main():
         )
         require(imported.returncode == 0, imported.stdout.decode())
         decay = json.loads((folder / "decay.json").read_bytes())["model"]
+        # The importers return the converted crn-craft.model/1.0 (M5f).
         require(
-            c.check(decay)["valid"]
-            and decay["reactions"][0]["rate"]["coefficient"] == 0.5,
+            c.Model.from_dict(decay).analyze()["success"]
+            and decay["schema"] == "crn-craft.model/1.0"
+            and float(decay["rules"][0]["rate"]) == 0.5,
             "installed SBML import script",
         )
         checks.append("installed_CLI_archive_and_import_scripts")
-    fsp = {k: v for k, v in r.items() if k != "ensemble"}
-    fsp["method"] = {
-        "kind": "fsp",
-        "bounds": {"A": 100},
-        "max_states": 101,
-        "tolerance": 1e-12,
-    }
-    fsp["outputs"] = {"statistics": ["mean"], "keep_trajectories": 0}
-    fsp["budget"] = {
-        k: v for k, v in r["budget"].items() if k != "max_events_per_replicate"
-    }
-    result = c.fsp(m, fsp)
+    result = rules.fsp(m.to_dict(), 2.0, [0.0, 2.0], {"A": 100}, 101, 1e-12)
     require(not result["numerical_error_certified"], "installed FSP semantics")
     # Immigration-death from zero is Poisson with mean 20 (1 - exp(-0.2 t)).
     final = result["snapshots"][-1]
@@ -770,23 +1016,18 @@ def main():
         "installed FSP matches the Poisson moments",
     )
     checks.append("FSP")
-    approx = c.tau(
-        m,
-        {
-            "schema": "crn-craft.tau-request/0.1",
-            "epsilon": 0.05,
-            "max_leaps_per_replicate": 100000,
-            "reference_run": r,
-        },
-    )
     require(
-        approx["assessment"] == "approximate_ensemble",
-        "installed approximate assessment",
+        approx.metadata["termination"] == "completed"
+        and approx.metadata["method"]["kind"] == "tau"
+        and approx.metadata["sampler"] == "chacha8-u53/rules-approximate-cgp-poisson/2",
+        "installed approximate method identity",
     )
     checks.append("tau")
     net = b"begin species\n1 A() 2\nend species\nbegin reactions\n1 1 0 1.0\nend reactions\n"
     require(
-        c.check(import_bng_net(net, rate_convention="binomial")["model"])["valid"],
+        c.Model.from_dict(
+            import_bng_net(net, rate_convention="binomial")["model"]
+        ).analyze()["success"],
         "installed importer",
     )
     from crn_craft.importers import ImportFailure
@@ -811,11 +1052,11 @@ def main():
         "installed oscillation detector",
     )
     try:
-        c.fsp(m, dict(fsp, schema="crn-craft.run/9"))
+        c.prepare(m, dict(a.request, schema="crn-craft.run/9"))
     except c.CrnError as error:
         require(error.diagnostics[0]["code"] == "CRN-E003", "installed CrnError")
     else:
-        raise RuntimeError("installed FSP accepted an invalid run")
+        raise RuntimeError("installed prepare accepted an invalid run")
     checks.append("observables")
     # The rules engine (`crn_craft.rules`) ships in the wheel; the mtDNA manual
     # depends on it. Immigration-death has the Poisson law with mean
@@ -960,6 +1201,10 @@ def main():
     checks.append("rules_hybrid")
     check_compiled_loop_refusals()
     checks.append("rules_compiled_loop_refusals")
+    check_report()
+    checks.append("rules_result_report")
+    check_unified()
+    checks.append("unified_api")
     args.output.write_text(
         json.dumps(
             {

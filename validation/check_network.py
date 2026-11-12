@@ -1,4 +1,15 @@
-"""Independent exact/Decimal oracle for M1a; no numerical Rust code is reused."""
+"""Independent exact/Decimal oracle for M1a; no numerical Rust code is reused.
+
+Since 0.7.0 (M5b) `crn-craft analyze` reads the network models through the
+converter and reports `crn-craft.analysis/1.0`. Three expectations follow
+the rules engine (validation/merge/RESULTS.md, M5b): a network without
+reactions is refused with `CRN-R016`; a propensity that overflows f64 fails
+with `CRN-R030`; a positive propensity that underflows is reported as 0 and
+checked against the exact value with the same tolerance. A Hill law whose
+induced term the overflow-free converted form evaluates to 0 (M2) is
+accepted within the absolute floor vmax * 2^-1020 that M2 declared, and
+listed in the report.
+"""
 
 import argparse
 from decimal import Decimal, localcontext
@@ -17,6 +28,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SEED = 20261101
 RTOL = 2e-12
 ATOL = 8 * math.ulp(0.0)
+# The absolute floor M2 declared for the converted Hill laws.
+HILL_FLOOR = 2.0**-1020
 
 
 def require(condition, message):
@@ -54,6 +67,13 @@ def rref(matrix, width):
                 vector[pivot] = -rows[row][free]
             basis.append(vector)
     return len(pivots), basis
+
+
+def scalar_value(model, value):
+    """A rate argument as a Decimal: a literal or a parameter's value."""
+    if isinstance(value, str):
+        value = model["parameters"][value]
+    return Decimal.from_float(float(value))
 
 
 def exact_rate(model, reaction, counts):
@@ -221,12 +241,15 @@ def main():
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     binary = args.binary.resolve()
-    schema = json.loads(subprocess.check_output([str(binary), "describe", "analysis"]))
+    schema = json.loads(
+        subprocess.check_output([str(binary), "describe", "analysis-1.0"])
+    )
     Draft7Validator.check_schema(schema)
     validator = Draft7Validator(schema)
     checks = []
     maximum_relative_error = 0.0
     evaluated_rates = 0
+    converter_refusals, overflow_failures, underflow_zero, hill_floor = [], [], [], []
     fixture_hash = hashlib.sha256()
     with tempfile.TemporaryDirectory(prefix="crn-network-") as folder:
         path = Path(folder) / "model.json"
@@ -248,11 +271,24 @@ def main():
                 validator.validate(report)
                 counts = {s["name"]: s["initial_count"] for s in model["species"]}
                 references = [exact_rate(model, r, counts) for r in model["reactions"]]
-                unrepresentable = any(
-                    not math.isfinite(float(v)) or (v > 0 and float(v) == 0)
-                    for v in references
-                )
-                if unrepresentable:
+                overflow = any(not math.isfinite(float(v)) for v in references)
+                if not model["reactions"]:
+                    # A rules model needs a rule; the converter refuses.
+                    require(
+                        result.returncode == 1
+                        and not report["success"]
+                        and report["analysis"] is None,
+                        "network without reactions accepted",
+                    )
+                    require(
+                        any(
+                            d["code"] == "CRN-R016" and d["path"] == "/reactions"
+                            for d in report["diagnostics"]
+                        ),
+                        "wrong refusal of a network without reactions",
+                    )
+                    converter_refusals.append(name)
+                elif overflow:
                     require(
                         result.returncode == 1
                         and not report["success"]
@@ -260,9 +296,10 @@ def main():
                         "unrepresentable propensity accepted",
                     )
                     require(
-                        any(d["code"] == "CRN-E042" for d in report["diagnostics"]),
+                        any(d["code"] == "CRN-R030" for d in report["diagnostics"]),
                         "wrong numeric failure code",
                     )
+                    overflow_failures.append(name)
                 else:
                     require(
                         result.returncode == 0 and report["success"],
@@ -279,11 +316,31 @@ def main():
                     data = report["analysis"]
                     if structure:
                         compare_structure(model, data)
-                    for actual, exact in zip(
-                        data["propensities"], references, strict=True
+                    for reaction, actual, exact in zip(
+                        model["reactions"],
+                        data["propensities"],
+                        references,
+                        strict=True,
                     ):
                         expected = float(exact)
                         error = abs(actual - expected)
+                        if exact > 0 and expected == 0:
+                            underflow_zero.append(name)
+                        rate = reaction["rate"]
+                        if (
+                            error > RTOL * abs(expected) + ATOL
+                            and rate["kind"] in ("hill_activation", "hill_repression")
+                            and actual == float(scalar_value(model, rate["basal"]))
+                        ):
+                            # The converted induced term is 0 (M2's floor).
+                            vmax = float(scalar_value(model, rate["vmax"]))
+                            require(
+                                error <= vmax * HILL_FLOOR,
+                                f"propensity {actual!r} below {expected!r} beyond the Hill floor",
+                            )
+                            hill_floor.append(name)
+                            evaluated_rates += 1
+                            continue
                         require(
                             error <= RTOL * abs(expected) + ATOL,
                             f"propensity {actual!r} differs from {expected!r}",
@@ -300,7 +357,7 @@ def main():
         rng = random.Random(SEED)
         for index in range(200):
             case(f"random_{index:03d}", random_model(rng, index))
-        for model_path in sorted((ROOT / "models/examples").glob("*.model.json")):
+        for model_path in sorted((ROOT / "models/legacy").glob("*.model.json")):
             case(model_path.name, json.loads(model_path.read_text()))
         for n, k, coefficient in [
             (50, 2, 0.5),
@@ -399,15 +456,20 @@ def main():
             except RuntimeError:
                 checks.append({"case": name, "passed": True})
     report = {
-        "schema": "crn-craft.network-validation/0.1",
+        "schema": "crn-craft.network-validation/0.2",
         "scope": "network_analysis_and_propensities_no_simulation",
         "seed": SEED,
         "random_networks": 200,
         "fixture_stream_sha256": fixture_hash.hexdigest(),
         "relative_tolerance": RTOL,
         "absolute_tolerance": ATOL,
+        "hill_floor": HILL_FLOOR,
         "evaluated_rates": evaluated_rates,
         "maximum_relative_error": maximum_relative_error,
+        "refused_without_reactions": converter_refusals,
+        "overflow_failures": overflow_failures,
+        "underflow_to_zero": underflow_zero,
+        "hill_floor_cases": hill_floor,
         "passed": sum(row["passed"] for row in checks),
         "failed": sum(not row["passed"] for row in checks),
         "checks": checks,

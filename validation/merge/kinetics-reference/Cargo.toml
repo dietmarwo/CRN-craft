@@ -1,0 +1,14 @@
+[workspace]
+[package]
+name = "crn-merge-kinetics-reference"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+publish = false
+license = "MIT"
+description = "Prints the 0.6.0 kinetics right-hand side and Jacobians as JSON for the 0.7.0 merge references"
+[dependencies]
+crn-craft = { path = "../../../crates/crn-craft" }
+serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
+[lints.rust]
+unsafe_code = "forbid"

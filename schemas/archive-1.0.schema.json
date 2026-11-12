@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "ArchiveFile": {
+      "additionalProperties": false,
+      "description": "Length and digest of one payload file.",
+      "properties": {
+        "bytes": {
+          "description": "Exact file length in bytes.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "path": {
+          "description": "File name inside the archive directory: `model.json`, `request.json` or `result.json`.",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "SHA-256 of the file bytes, lowercase hexadecimal.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "bytes",
+        "path",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "ArchiveVersion": {
+      "description": "Schema tag of an archive manifest, `crn-craft.archive/1.0`.",
+      "enum": [
+        "crn-craft.archive/1.0"
+      ],
+      "type": "string"
+    }
+  },
+  "description": "`manifest.json` of a `crn-craft.archive/1.0` archive: the three payload files, each listed exactly once.",
+  "properties": {
+    "files": {
+      "description": "The three payload files, written in the order model, request, result.",
+      "items": {
+        "$ref": "#/definitions/ArchiveFile"
+      },
+      "type": "array"
+    },
+    "schema": {
+      "$ref": "#/definitions/ArchiveVersion"
+    }
+  },
+  "required": [
+    "files",
+    "schema"
+  ],
+  "title": "Manifest",
+  "type": "object"
+}

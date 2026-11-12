@@ -1,80 +1,97 @@
-# Input and analysis contracts in M1b
+# Contracts
 
-Canonical definitions are `crates/crn-craft/src/contracts.rs`, `analysis.rs` and their referenced types, plus the generated files in `schemas/` (20 at present). `describe` includes all schemas and capability status. Syntax/shape validation precedes semantic checks. Generated schemas express selected local bounds; Rust adds constraints that schemas do not fully express.
+Every document that CRN-craft reads or writes is versioned JSON with a
+`schema` field. The Rust types define the shapes. The files in `schemas/` and
+`crn-craft describe KIND` are generated from them, so they cannot disagree.
+`crn-craft describe` without a kind prints the discovery document
+(`crn-craft.describe/1.0`): commands, contracts, methods, selectors,
+quantiles and limits. The Python call `crn_craft.describe()` returns the same
+document.
 
-## Model
+## Current contracts
 
-`schema` is exactly `crn-craft.model/0.1`; `convention` is `stochastic_counts`. Model/species/parameter/reaction names are 1–64 ASCII identifier characters. Species and parameters share a disjoint namespace; reaction names are unique within reactions. Counts are non-negative i64, including integers larger than 2^53 without round-tripping through f64. Stoichiometry entries are integers from 1 through 2147483647. Omit zeros; empty sides represent sources/sinks. Zero reactions are allowed for an absorbing model.
+| Contract | Role | `describe` kind |
+| --- | --- | --- |
+| `crn-craft.model/1.0` | the model: [model reference](rules-language.md) | `model-1.0` |
+| `crn-craft.run/1.0` | the request: simulation methods, or `fsp` | `run-1.0` |
+| `crn-craft.result/1.0` | the result of a simulation request ([result contract](result-contract.md)) | `result-1.0` |
+| `crn-craft.fsp-result/1.0` | the result of an `fsp` request | `fsp-result-1.0` |
+| `crn-craft.check/1.0` | the report of `check`: whether `run` would accept the documents | `check-1.0` |
+| `crn-craft.analysis/1.0` | structure, conservation laws and bounds of a model | `analysis-1.0` |
+| `crn-craft.archive/1.0`, `crn-craft.archive-check/1.0` | a sealed run and its verification ([archive contract](archive-contract.md)) | `archive-1.0`, `archive-check-1.0` |
+| `crn-craft.import/1.0` | the report of the SBML and BioNetGen importers; its `model` is a `model/1.0` document | none |
+| `crn-craft.export/0.1` | the report of `export MODEL gillespy2` | `export` |
+| `crn-craft.state/0.1` | an optional state for `analyze MODEL STATE`, by species label | `state` |
+| `crn-craft.report/1.0` | the JSON file written by `Result.save`: model, request and result in one document. Written and read by Python only, so it has no schema file | none |
+| `crn-craft.describe/1.0` | the discovery document | none |
 
-Parameters must be finite. Their domain depends on where they are used: coefficients, vmax and basal are non-negative; k, km and n are positive. Ω is finite and positive. The rate-card formulas define meanings. `check` validates arguments; `analyze` also evaluates rates.
+## Contracts that are still read
 
-`population_limit` is optional, non-negative and at least initial_count. It is enforced by state validation and checked reaction updates; it is not a reflecting wall or automatic FSP truncation. A structural growth warning is not a boundedness theorem.
+| Contract | How it is read |
+| --- | --- |
+| `crn-craft.rules-model/0.1` to `0.4` | as before. A `rules-model/0.4` document means what `model/1.0` means, with the older limits. |
+| `crn-craft.rules-run/0.1` to `0.6` | as before; the results are `rules-result/0.1` to `0.3` and replay byte for byte. |
+| `crn-craft.rules-check/0.1` | the report of `check MODEL` for a rules model alone |
+| network `crn-craft.model/0.1` | through the converter: `check`, `analyze`, `convert` and `export` read it, and `convert` writes it as `model/1.0`. `run` refuses it with `CRN-E033`. |
 
-## Run
+A 1.0 model needs a 1.0 request: a `model/1.0` model with a `rules-run`
+request is refused (`CRN-R020` at `/schema`). A `rules-model` model runs
+under either request family. The `rules-*` request versions refuse the
+fields that arrived with 1.0 (`method.selector`, `outputs.quantiles`, the
+`fsp` method), also with `CRN-R020` at `/schema`.
 
-`schema` is exactly `crn-craft.run/0.1`. `model.path` is relative to the run's parent directory and must stay inside it after resolving symlinks. No empty components, absolute paths, `.`, `..`, drive prefixes, backslashes or NUL bytes. The supplied model must resolve to that same path. Input files are read once into bounded byte buffers and hashes refer to these buffers. The directory check is not a defense against a concurrently hostile filesystem that changes paths during checking.
+Documents of the removed network engine are not read any more: network
+`run/0.1`, `ssa-run/0.1` to `0.4`, `tau-request/0.1`, `result/0.1`,
+`ssa-result`, `tau-result`, `fsp-result/0.1`, `analysis/0.1` and `0.2`,
+`archive/0.1` and `archive-check/0.1`. Their schema files are gone. The
+[changelog](../CHANGELOG.md) has the migration tables.
 
-`time.end` is finite and positive; `save_times` contains 2–1000000 finite, strictly increasing values, beginning at 0 and ending exactly at end. Time units are seconds. The future save rule is state after events at or before a save time.
+## Strict input
 
-SSA/direct requires an ensemble with positive replicate count and a positive per-replicate event cap. `root_seed` is u64. At least two replicates are needed if sample variance is requested. FSP requires inclusive truncation `bounds` for every species, containing the initial state, positive `max_states` and a finite tolerance between 0 and 1. FSP does not accept an ensemble, event cap or retained trajectories. Its state cap constrains reachable enumeration; it need not cover the Cartesian product of the box.
+- A file is at most 16 MiB. JSON nesting is at most 48 deep, with the root
+  at depth 0.
+- Duplicate keys are rejected, also when JSON escapes give two spellings of
+  one key. Unknown fields are rejected at every depth. `NaN` and `Infinity`
+  are not JSON, and a literal such as `1e400` fails with a numeric
+  diagnostic.
+- Decimal literals parse to the correctly rounded double, as Rust's
+  `str::parse` and Python's `json` do, so the shortest round-trip text of a
+  double reads back to the same bits.
+- Syntax and shape are checked first. Semantic checks follow and report
+  every error they find, each with a stable code and a JSON path
+  ([diagnostics](diagnostics.md)).
+- Hashes are SHA-256 of the exact bytes consumed, never of re-serialized
+  JSON. Line endings are part of the bytes: `.gitattributes` keeps LF
+  endings in every checkout, and CI runs the contract suite on a checkout
+  made with `core.autocrlf=true`.
+- A request names its model by a path relative to the request's directory
+  and by the model's SHA-256. The path must stay inside that directory after
+  resolving symbolic links: no empty components, absolute paths, `.`, `..`,
+  drive prefixes, backslashes or NUL bytes.
 
-Both methods remain **contract-only** in M1b. FSP acceptance of a bounded truncation does not implement uniformization or establish any error bound.
+## Limits
 
-Output statistics are `mean` and/or `variance`, without duplicates. Kept trajectories cannot exceed SSA replicates. Some output must be requested. Threads range from 1 to 1024; wall-time limits, if present, are finite and positive. The output byte budget is positive and must cover at least `8 * save_times * (1 + species * (statistics + kept_trajectories))`. This is a minimum numeric payload, not a serialized archive-size guarantee; live enforcement belongs to M2. FSP distribution output gets a new contract when implemented.
+`describe()["limits"]` lists the limits of the current contracts. Models of
+`model/1.0` accept 4,096 types, 16,384 parameters, 4,096 observables and
+65,536 rules; the static methods accept 4,096 instance tuples and 65,536
+channels. The `rules-model` versions keep 64, 1,024, 256, 1,024, 256 and
+4,096. See the [model reference](rules-language.md#limits).
 
-## Parsing, limits and API
+## Changing a contract
 
-- Input file size: at most 16 MiB, including whitespace.
-- JSON nesting depth: at most 48, root at depth 0; no reference-based expressions.
-- Species: 1–4096; parameters: at most 16384; reactions: at most 65536.
-- Duplicate keys are rejected even when JSON escaping gives two spellings of the same key.
-- Unknown fields are rejected in nested objects and tagged variants.
-- `NaN`/`Infinity` are invalid JSON; overflowing numeric literals such as `1e400` fail with a numeric diagnostic.
-- Decimal literals parse to the correctly rounded double, as Rust's `str::parse` and Python's `json` do, so the shortest round-trip text of a double reads back to the same bits (serde_json `float_roundtrip`).
+A change to the shape of a delivered contract needs a new version, and the
+old version keeps its meaning. A new field in a new version is refused by
+the versions before it. Schemas are generated, never edited by hand.
 
-`parse_model`/`parse_run` reject syntax and shape errors but are **not** semantic validation. Use `check_bytes` for byte/hash and semantic checks; use `check_files` when filesystem reference identity matters. `CompiledNetwork::compile` always calls `validate_model`, including for directly constructed Rust models and non-finite numbers that cannot appear in JSON. Run validation remains separate. `analyze_bytes`/`analyze_files` compile, evaluate and analyze without requiring a run document.
+## Where the old pages went
 
-Rust float serialization may normalize literals, so hashes are never taken from re-serialized models to claim original-byte identity. Line endings are part of the bytes: the repository's `.gitattributes` keeps LF endings in every checkout, and CI runs the contract suite on a checkout made with `core.autocrlf=true`. BTreeMap ordering and ordered vectors make diagnostics deterministic on repeat checks.
+The earlier pages on the network model, its run request, the reserved result
+envelope and the separate analysis reports described contracts that the
+unified engine replaced. Their successors are:
 
-## New state and analysis contracts
-
-`crn-craft.state/0.1` contains exactly `schema` and `counts`, a map from every declared species name to an i64 count. Missing or extra names, negative counts and exceeded population limits are errors. Duplicate keys and unknown fields use the existing strict parser. No partial state or default count is inferred.
-
-`crn-craft.analysis/0.1` contains `success`, `simulation_available: false`, raw `model_sha256`, optional raw `state_sha256`, `analysis` and diagnostics. Input/numerical failure has `success: false` and `analysis: null`. Successful analysis includes species in declaration order, initial and evaluation counts, reaction structures, dependencies, propensities and conservation. A conservation cap/overflow leaves analysis success true with an explicit unavailable conservation status and warning. No partial basis or floating-point rank guess is emitted. Read [network semantics](network-api.md) for matrix orientation, integer-string coefficients, limits and bound interpretation.
-
-## Migration from iteration 1
-
-> Since release 0.2.0 every generated schema, the legacy snapshots included,
-> carries the Rust API documentation as `description` text. Shapes are
-> unchanged, so the statements below about unchanged snapshots hold for shape;
-> the bytes now differ by those descriptions.
-
-The four model/run/result/check 0.1 schemas are byte-for-byte unchanged. No model or run migration is needed. Discovery advances from `crn-craft.describe/0.1` to `crn-craft.describe/0.2`: clients must accept the new version, `analyze`, `rate_evaluation_available`, analysis limits and the two new schemas. Simulation methods remain unavailable. Programs reading only `check` retain its existing structural/domain semantics and conservative warnings; `analyze` may suppress a growth warning when a conservation law proves an initial-class bound.
-
-## Migration from iteration 2
-
-Current `analyze` emits `crn-craft.analysis/0.2`. It keeps the original fields and adds `nonnegative_conservation`, `linkage` and `initial_class_upper_bounds` inside `analysis`. The last field selects complete cone bounds when the cone is exact, otherwise the previous sound basis-derived bounds. `conservation.initial_class_upper_bounds` retains its basis-only meaning. The new cone has independent status, limits, work count, extreme rays, totals and bounds. Successful structure/rate evaluation can coexist with an explicitly unavailable cone; inspect its status.
-
-`analyze-v1 MODEL [STATE]` and `analysis_v1::analyze_bytes` preserve the original analysis 0.1 shape and warning policy. Its generated schema is `describe analysis-v1` / `schemas/analysis-v1.schema.json`, byte-identical to the old analysis snapshot. Model/run/check/result/state 0.1 snapshots are unchanged. No model, run or state migration is needed.
-
-Discovery advances to `crn-craft.describe/0.3`, adding the legacy-analysis/export commands, exact-cone limits and the pinned export target. `crn-craft.export/0.1` reports raw model SHA-256, success, an optional Python artifact, target identity, aliases, limitations and diagnostics. An export failure has `artifact: null`; unsupported semantics are never silently removed. CLI output remains JSON and exits 0/1. See [reference export](reference-export.md).
-
-## M2 execution and result migration
-
-`simulate MODEL RUN NEW_DIRECTORY [--cancel-file PATH]` executes Direct SSA;
-`verify DIRECTORY` checks its archive. The original model/run shapes remain
-0.1. Result 0.2 replaces the never-emitted reserved result for actual execution;
-`describe result-v1` retains its old schema. Archive and archive-check begin at
-0.1; discovery is 0.10, or 0.13 from the native CLI (`alternative_exact_ssa`
-lists the `ssa-run`/`ssa-result` methods, the four accepted request versions
-and the `fast` default of each: none in 0.1, off in 0.2, on in 0.3 and 0.4,
-where `next_reaction` runs the checked policy only; the top-level
-`aggregators` list still describes legacy Direct only). FSP executes via
-`fsp`. Existing check/analysis/export
-reports remain unchanged; query discovery for current executable methods.
-
-New runtime limits supplement input-domain validation. Invalid/unsupported
-execution creates no archive. Incomplete trajectories cannot acquire an exact
-ensemble assessment or unconditional statistics. See [Direct SSA](direct-ssa.md)
-and the [result/archive contract](archive-contract.md) for numerical mappings,
-state/sample semantics, output accounting, completion markers and limitations.
+| Earlier topic | Now |
+| --- | --- |
+| network `model/0.1`, `run/0.1` | [model reference](rules-language.md); `crn-craft convert` writes an old model as `model/1.0`. `state/0.1` stays current (above) |
+| `analysis/0.1`, `0.2` and `analyze-v1` | `crn-craft.analysis/1.0` ([network analysis](network-api.md)) |
+| `result/0.1` and `0.2`, `archive/0.1` | [result contract](result-contract.md), [archive contract](archive-contract.md) |
+| `ssa-run`, `tau-request` | `crn-craft.run/1.0` methods `static_direct`, `next_reaction` and `tau` ([methods](direct-ssa.md)) |

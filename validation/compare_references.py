@@ -33,7 +33,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--binary", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
-    p.add_argument("--command", default="simulate")
+    p.add_argument("--command", default="run")
     p.add_argument("--rebop-only", action="store_true")
     args = p.parse_args()
     report = {
@@ -98,7 +98,7 @@ def main():
             gmodel.timespan(np.array([0.0, 100.0]))
         for _ in range(5):
             d = run_case(args.binary.resolve(), args.command, model, 1)
-            direct.append(d["median_core_seconds"])
+            direct.append(d["median_process_seconds"])
             t = time.perf_counter()
             run_reb()
             values.append(time.perf_counter() - t)
@@ -111,12 +111,12 @@ def main():
         report["rows"].append(
             {
                 "workload": name,
-                "CRN_core_seconds": direct,
+                "CRN_process_seconds": direct,
                 "rebop_dynamic_python_seconds": values,
                 "rebop_over_CRN": statistics.median(values) / statistics.median(direct),
                 "gillespy2_NumPySSA_seconds": gilles,
                 "work": "64 complete trajectories, [0,100] output, independent reference event counts not instrumented",
-                "comparison_limit": "reference includes Python/xarray overhead; CRN core includes statistics; CRN process costs are in baseline report",
+                "comparison_limit": "reference includes Python/xarray overhead; CRN is the wall time of a crn-craft run process (start, run with statistics, printing)",
             }
         )
         args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")

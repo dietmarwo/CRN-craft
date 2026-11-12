@@ -1,11 +1,21 @@
-//! Versioned, JSON-friendly analysis and named-state input.
+//! Versioned, JSON-friendly network analysis of a closed model.
 //!
-//! [`analyze_bytes`] (and [`crate::analyze_files`]) parse and compile a
-//! model, evaluate every propensity at the initial counts or at a supplied
-//! `crn-craft.state/0.1` document, and report the structure, dependencies,
-//! linear conservation laws, the non-negative conservation cone and the
-//! complex graph as `crn-craft.analysis/0.2`. It runs no simulation. The
-//! legacy 0.1 report is in [`crate::analysis_v1`].
+//! [`analyze_bytes`] (and [`crate::analyze_files`]) reads a model of any
+//! version the engine reads (a network `crn-craft.model/0.1`, converted
+//! first by [`crate::rules::convert::from_network`], a rules model or a
+//! `crn-craft.model/1.0`), lowers it to its flat network
+//! ([`FlatView::with_every_type`]), evaluates every propensity at the
+//! initial counts or at a supplied `crn-craft.state/0.1` document, and
+//! reports the structure, dependencies, linear conservation laws, the
+//! non-negative conservation cone and the complex graph as
+//! `crn-craft.analysis/1.0`. It runs no simulation.
+//!
+//! The species are the view's species labels (for a converted network model
+//! the network's species, in declaration order); the reactions are the
+//! view's channels (for a converted network model, one per reaction, in
+//! declaration order). A model that has no flat view (ATP, continuous
+//! variables, products that create new attribute tuples) is refused with
+//! `CRN-R017`.
 //!
 //! ```
 //! use crn_craft::analyze_bytes;
@@ -33,10 +43,10 @@
 use crate::{
     cone::{ConeReport, ConeStatus, analyze_cone},
     conservation::{ConservationReport, analyze_conservation},
-    diagnostic::Diagnostic,
+    diagnostic::{Diagnostic, pointer},
     linkage::{LinkageReport, analyze_linkage},
-    network::{CompiledNetwork, ReactionStructure},
-    parse_model, sha256, strict_json,
+    rules::{FlatView, model::MAX_COUNT},
+    sha256, strict_json,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -52,41 +62,84 @@ pub enum StateVersion {
     #[serde(rename = "crn-craft.state/0.1")]
     V01,
 }
-/// Schema tag of the current analysis report.
+/// Schema tag of the analysis report.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub enum AnalysisVersion {
-    #[doc = concat!("`crn-craft.analysis/0.2`.")]
-    #[serde(rename = "crn-craft.analysis/0.2")]
-    V02,
+    #[doc = concat!("`crn-craft.analysis/1.0`.")]
+    #[serde(rename = "crn-craft.analysis/1.0")]
+    V10,
 }
 
-/// A complete state given by species name, the optional input of `analyze`.
+/// A complete state given by species label, the optional input of `analyze`.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NamedState {
     #[doc = concat!("Always `crn-craft.state/0.1`.")]
     pub schema: StateVersion,
-    /// Count of every declared species, by name, with no missing or extra names. Counts are
-    /// non-negative and within each population limit (`CRN-E041`).
+    /// Count of every species, by label, with no missing or extra labels. Counts are
+    /// non-negative and at most 2^53 (`CRN-E041`).
     pub counts: BTreeMap<String, i64>,
 }
 
-/// Structure, rates and conservation analysis of a successfully compiled model.
+/// Sparse entry. Indices refer to the report's `species` list.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Term {
+    /// Zero-based species index.
+    pub species: usize,
+    /// Stoichiometric coefficient: positive on reactant and product sides, signed in net changes.
+    pub coefficient: i64,
+}
+
+impl Term {
+    /// Terms of a (species, count) list, in the list's order.
+    pub(crate) fn list<T: Copy + TryInto<i64>>(entries: &[(usize, T)]) -> Vec<Self> {
+        entries
+            .iter()
+            .map(|&(species, count)| Self {
+                species,
+                coefficient: count.try_into().unwrap_or(i64::MAX),
+            })
+            .collect()
+    }
+}
+
+/// Indexed structure of one reaction (a channel of the flat view), with terms sorted by
+/// species index.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReactionStructure {
+    /// The name of the reaction's rule; the channels of a rule with several reactant
+    /// tuples share it.
+    pub name: String,
+    /// Consumed species and coefficients; they also gate the channel.
+    pub reactants: Vec<Term>,
+    /// Produced species and coefficients.
+    pub products: Vec<Term>,
+    /// One stoichiometric matrix column: products minus reactants, zeros omitted.
+    pub net_changes: Vec<Term>,
+    /// Conservative reads, including reactant gates and the species of every observable
+    /// the rate reads.
+    pub reads: Vec<usize>,
+}
+
+/// Structure, rates and conservation analysis of a successfully lowered model.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NetworkAnalysis {
-    /// Species names in declaration order; this order indexes every other per-species list.
+    /// Species labels of the flat view (for a network model its species names in
+    /// declaration order); this order indexes every other per-species list.
     pub species: Vec<String>,
     /// Initial counts from the model.
     pub initial_counts: Vec<i64>,
     /// The state at which propensities were evaluated: the supplied state, or the initial
     /// counts. It need not lie in the initial conservation class.
     pub evaluation_counts: Vec<i64>,
-    /// Indexed reactions in declaration order.
+    /// Indexed reactions (the channels of the flat view) in rule declaration order.
     pub reactions: Vec<ReactionStructure>,
     /// Sorted propensity invalidations for each fired reaction index.
     pub dependencies: Vec<Vec<usize>>,
-    /// Propensity of each reaction at `evaluation_counts`, in events per second.
+    /// Propensity of each reaction at `evaluation_counts`, in events per unit time.
     pub propensities: Vec<f64>,
     #[doc = concat!("Linear conservation basis and its bounds.")]
     pub conservation: ConservationReport,
@@ -103,10 +156,10 @@ pub struct NetworkAnalysis {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AnalysisReport {
-    #[doc = concat!("Always `crn-craft.analysis/0.2`.")]
+    #[doc = concat!("Always `crn-craft.analysis/1.0`.")]
     pub schema: AnalysisVersion,
-    /// True when the model compiled and every propensity evaluated. Conservation or cone
-    /// limits leave it true and show up in their status fields.
+    /// True when the model was lowered and every propensity evaluated. Conservation or
+    /// cone limits leave it true and show up in their status fields.
     pub success: bool,
     /// Always false: analysis runs no simulation.
     pub simulation_available: bool,
@@ -116,8 +169,9 @@ pub struct AnalysisReport {
     pub state_sha256: Option<String>,
     /// The analysis when `success` is true, otherwise null.
     pub analysis: Option<NetworkAnalysis>,
-    /// On success the model warnings (`CRN-W001` dropped for species with a proven bound)
-    /// and the conservation and cone warnings; on failure the diagnostics of the failed step.
+    /// On success the structural warnings (`CRN-W001` dropped for species with a proven
+    /// bound, `CRN-W002`, `CRN-W003`) and the conservation and cone warnings; on failure
+    /// the diagnostics of the failed step.
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -125,7 +179,7 @@ impl AnalysisReport {
     /// A failed report carrying one diagnostic, such as a read error (`CRN-E030`).
     pub fn failure(error: Diagnostic) -> Self {
         Self {
-            schema: AnalysisVersion::V02,
+            schema: AnalysisVersion::V10,
             success: false,
             simulation_available: false,
             model_sha256: None,
@@ -142,7 +196,7 @@ impl AnalysisReport {
 /// with `success: false` and their diagnostics.
 pub fn analyze_bytes(model_bytes: &[u8], state_bytes: Option<&[u8]>) -> AnalysisReport {
     let mut report = AnalysisReport {
-        schema: AnalysisVersion::V02,
+        schema: AnalysisVersion::V10,
         success: false,
         simulation_available: false,
         model_sha256: Some(sha256(model_bytes)),
@@ -150,63 +204,168 @@ pub fn analyze_bytes(model_bytes: &[u8], state_bytes: Option<&[u8]>) -> Analysis
         analysis: None,
         diagnostics: Vec::new(),
     };
-    let result = (|| {
-        let model = parse_model(model_bytes).map_err(|d| vec![d])?;
-        let network = CompiledNetwork::compile(&model)?;
-        let state = if let Some(bytes) = state_bytes {
-            let state: NamedState = strict_json::parse(bytes).map_err(|d| vec![d])?;
-            network.named_state(&state.counts).map_err(|d| vec![d])?
-        } else {
-            network.initial_counts().to_vec()
+    let result = FlatView::of_any_model(model_bytes).and_then(|view| {
+        let state = match state_bytes {
+            Some(bytes) => {
+                let state: NamedState = strict_json::parse(bytes).map_err(|d| vec![d])?;
+                named_state(&view, &state.counts).map_err(|d| vec![d])?
+            }
+            None => view.initial().to_vec(),
         };
-        let propensities = network.propensities(&state).map_err(|d| vec![d])?;
-        let conservation = analyze_conservation(&network);
-        let nonnegative_conservation = analyze_cone(&network);
-        let linkage = analyze_linkage(&network, conservation.rank);
-        let bounds = if nonnegative_conservation.status == ConeStatus::Exact {
-            nonnegative_conservation.initial_class_upper_bounds.clone()
-        } else {
-            conservation.initial_class_upper_bounds.clone()
-        };
-        let bounded_paths: Vec<String> = bounds
-            .iter()
-            .enumerate()
-            .filter(|(_, bound)| bound.is_some())
-            .map(|(i, _)| format!("/species/{i}"))
-            .collect();
-        report.diagnostics = network
-            .warnings()
-            .iter()
-            .filter(|d| d.code != "CRN-W001" || !bounded_paths.contains(&d.path))
-            .cloned()
-            .collect();
-        report
-            .diagnostics
-            .extend(conservation.diagnostics.iter().cloned());
-        report
-            .diagnostics
-            .extend(nonnegative_conservation.diagnostics.iter().cloned());
-        Ok(NetworkAnalysis {
-            species: network.species().to_vec(),
-            initial_counts: network.initial_counts().to_vec(),
-            evaluation_counts: state,
-            reactions: network.reactions().to_vec(),
-            dependencies: network.dependencies().to_vec(),
-            propensities,
-            conservation,
-            nonnegative_conservation,
-            linkage,
-            initial_class_upper_bounds: bounds,
-        })
-    })();
+        let propensities = view.propensities(&state).map_err(|d| vec![d])?;
+        Ok(analyze_view(&view, &state, propensities))
+    });
     match result {
-        Ok(analysis) => {
+        Ok((analysis, diagnostics)) => {
             report.analysis = Some(analysis);
+            report.diagnostics = diagnostics;
             report.success = true;
         }
-        Err(diagnostics) => {
-            report.diagnostics = diagnostics;
-        }
+        Err(diagnostics) => report.diagnostics = diagnostics,
     }
     report
+}
+
+/// The analysis of a view at `state`, with its warnings.
+fn analyze_view(
+    view: &FlatView,
+    state: &[u64],
+    propensities: Vec<f64>,
+) -> (NetworkAnalysis, Vec<Diagnostic>) {
+    let conservation = analyze_conservation(view);
+    let nonnegative_conservation = analyze_cone(view);
+    let linkage = analyze_linkage(view, conservation.rank);
+    let bounds = if nonnegative_conservation.status == ConeStatus::Exact {
+        nonnegative_conservation.initial_class_upper_bounds.clone()
+    } else {
+        conservation.initial_class_upper_bounds.clone()
+    };
+    let bounded_paths: Vec<String> = bounds
+        .iter()
+        .enumerate()
+        .filter(|(_, bound)| bound.is_some())
+        .map(|(i, _)| format!("/species/{i}"))
+        .collect();
+    let mut diagnostics: Vec<Diagnostic> = warnings(view)
+        .into_iter()
+        .filter(|d| d.code != "CRN-W001" || !bounded_paths.contains(&d.path))
+        .collect();
+    diagnostics.extend(conservation.diagnostics.iter().cloned());
+    diagnostics.extend(nonnegative_conservation.diagnostics.iter().cloned());
+    // Counts are at most 2^53.
+    let counts = |list: &[u64]| -> Vec<i64> { list.iter().map(|&n| n as i64).collect() };
+    let reactions = (0..view.channels())
+        .map(|c| ReactionStructure {
+            name: view.rule_name(view.rule(c)).to_string(),
+            reactants: Term::list(view.reactants(c)),
+            products: Term::list(view.products(c)),
+            net_changes: Term::list(view.changes(c)),
+            reads: view.reads(c).to_vec(),
+        })
+        .collect();
+    let analysis = NetworkAnalysis {
+        species: view.species().to_vec(),
+        initial_counts: counts(view.initial()),
+        evaluation_counts: counts(state),
+        reactions,
+        dependencies: (0..view.channels())
+            .map(|c| view.dependencies(c).to_vec())
+            .collect(),
+        propensities,
+        conservation,
+        nonnegative_conservation,
+        linkage,
+        initial_class_upper_bounds: bounds,
+    };
+    (analysis, diagnostics)
+}
+
+/// The structural warnings of the network engine, on the view's lists:
+/// per reaction `CRN-W003` (no net change, at `/reactions/i`) and
+/// `CRN-W002` (a rate that is the constant 0, at `/reactions/i`), then per
+/// species `CRN-W001` (net produced by some reaction and net consumed by
+/// none, at `/species/i`).
+fn warnings(view: &FlatView) -> Vec<Diagnostic> {
+    let n = view.species().len();
+    let (mut produced, mut consumed) = (vec![false; n], vec![false; n]);
+    let mut out = Vec::new();
+    for c in 0..view.channels() {
+        let path = format!("/reactions/{c}");
+        if view.changes(c).is_empty() {
+            out.push(Diagnostic::warning(
+                "CRN-W003",
+                &path,
+                "reaction has no population effect",
+                "Remove it unless event counting has a stated purpose.",
+            ));
+        }
+        if view.rate_constant(view.rule(c)) == Some(0.0) {
+            out.push(Diagnostic::warning(
+                "CRN-W002",
+                &path,
+                "reaction rate is zero",
+                "Confirm that this disabled reaction is intentional.",
+            ));
+        }
+        for &(species, change) in view.changes(c) {
+            if change > 0 {
+                produced[species] = true;
+            } else {
+                consumed[species] = true;
+            }
+        }
+    }
+    for species in 0..n {
+        if produced[species] && !consumed[species] {
+            out.push(Diagnostic::warning(
+                "CRN-W001",
+                &format!("/species/{species}"),
+                "species has a net-producing reaction and no net-consuming reaction",
+                "Review growth and budgets; this structural warning does not prove unboundedness.",
+            ));
+        }
+    }
+    out
+}
+
+/// A state by label in view order; `CRN-E041` for a missing or unknown
+/// label or a count outside 0..=2^53.
+fn named_state(view: &FlatView, counts: &BTreeMap<String, i64>) -> Result<Vec<u64>, Diagnostic> {
+    let invalid = |label: &str, message: &str, hint: &str| {
+        Diagnostic::error("CRN-E041", &pointer("/counts", label), message, hint)
+    };
+    let mut state = Vec::with_capacity(view.species().len());
+    for label in view.species() {
+        let count = counts.get(label).ok_or_else(|| {
+            invalid(
+                label,
+                "missing species count",
+                "Provide every species label exactly once.",
+            )
+        })?;
+        state.push(*count);
+    }
+    if let Some(label) = counts.keys().find(|label| view.index(label).is_none()) {
+        return Err(invalid(
+            label,
+            "unknown species in state",
+            "Use the species labels of the analysis report.",
+        ));
+    }
+    state
+        .iter()
+        .zip(view.species())
+        .map(|(&count, label)| {
+            u64::try_from(count)
+                .ok()
+                .filter(|&n| n <= MAX_COUNT)
+                .ok_or_else(|| {
+                    invalid(
+                        label,
+                        "invalid count",
+                        "Use non-negative counts of at most 2^53.",
+                    )
+                })
+        })
+        .collect()
 }

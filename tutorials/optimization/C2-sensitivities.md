@@ -8,7 +8,9 @@ not a replacement ODE implementation inside the optimizer. See
 
 ## Separate four questions
 
-The model is `S + E ⇌ ES → E + P`, initially 50 S and 10 E molecules. Fit `kon`
+The model is `S + E ⇌ ES → E + P`, initially 50 S and 10 E molecules, the
+packaged `enzyme-mechanism` example (a `crn-craft.model/1.0` document, with its
+species in the order S, E, ES, P). Fit `kon`
 and `kcat`, keeping `koff=4` fixed. Synthetic observations come from an
 independently written DOP853 integration at nine times from 0 to 4. Its tight
 tolerances and explicit reaction equations provide an integration reference;
@@ -72,8 +74,10 @@ Inspect a stopped SQP status before making a stationarity claim. A finite
 incumbent does not imply convergence.
 
 At the selected rates, 256 smoke or 4,096 study SSA paths (seed 9103) run with
-CRN-craft's default `fast` policy; the row records the sampler and request
-schema. No SSA is used in fitting, so these paths are the only stochastic
+the Static Direct method of `crn.ensemble` on the same model with the fitted
+rates bound (`bind_parameters`); the row records the sampler and request
+schema. The result's observables are sorted by name, so the lesson reorders
+them to the ODE's species order before comparing. No SSA is used in fitting, so these paths are the only stochastic
 evidence.
 Substrate and enzyme conservation are checked. The report measures normalized
 SSA-mean versus ODE discrepancy rather than demanding equality: nonlinear

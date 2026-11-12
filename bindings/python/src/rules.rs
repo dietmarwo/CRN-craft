@@ -1,6 +1,6 @@
 use crate::{failure, rules_payload, run_interruptible};
-use crn_craft_rules::observe::{Event, EventObserver, ObserverAction, log_entry};
-use crn_craft_rules::{Control, Prepared};
+use crn_craft::rules::observe::{Event, EventObserver, ObserverAction, log_entry};
+use crn_craft::rules::{Control, Prepared};
 use pyo3::{
     prelude::*,
     types::{PyBytes, PyDict},
@@ -80,13 +80,13 @@ impl PreparedRules {
                     error: Mutex::new(None),
                     control: c,
                 };
-                let result = crn_craft_rules::execute_with_observer(&prepared, c, &observer);
+                let result = crn_craft::rules::execute_with_observer(&prepared, c, &observer);
                 if let Some(error) = observer.error.into_inner().expect("observer lock") {
                     return Err(error);
                 }
                 result.map_err(|d| failure(&d))
             } else {
-                crn_craft_rules::execute(&prepared, c).map_err(|d| failure(&d))
+                crn_craft::rules::execute(&prepared, c).map_err(|d| failure(&d))
             }
         })??;
         let (metadata, columns) = rules_payload::encode(result);
@@ -101,7 +101,7 @@ impl PreparedRules {
     /// generator's `CRN-R020` refusal.
     fn loop_source(&self, py: Python<'_>) -> PyResult<String> {
         let prepared = Arc::clone(&self.0);
-        py.detach(move || crn_craft_rules::generate_rules_loop(&prepared))
+        py.detach(move || crn_craft::rules::generate_rules_loop(&prepared))
             .map_err(|d| failure(&d))
     }
 }
@@ -122,19 +122,71 @@ fn rules_loop_driver() -> (&'static str, Vec<(&'static str, &'static str)>) {
 
 #[pyfunction]
 fn describe_rules_json() -> String {
-    crn_craft_rules::describe().to_string()
+    crn_craft::rules::describe().to_string()
 }
 
 #[pyfunction]
 fn check_rules_json(model: &[u8]) -> String {
-    serde_json::to_string(&crn_craft_rules::check_model(model)).expect("serializable check")
+    serde_json::to_string(&crn_craft::rules::check_model(model)).expect("serializable check")
+}
+
+/// The rules model converted from a network model's bytes; a refusal raises
+/// `NativeError` with the diagnostics.
+#[pyfunction]
+fn convert_network<'py>(py: Python<'py>, model: &[u8]) -> PyResult<Bound<'py, PyBytes>> {
+    crn_craft::rules::convert::from_network(model)
+        .map(|bytes| PyBytes::new(py, &bytes))
+        .map_err(|d| failure(&d))
 }
 
 #[pyfunction]
 fn prepare_rules(py: Python<'_>, model: Vec<u8>, request: Vec<u8>) -> PyResult<PreparedRules> {
-    py.detach(move || crn_craft_rules::prepare(&model, &request))
+    py.detach(move || crn_craft::rules::prepare(&model, &request))
         .map(|p| PreparedRules(Arc::new(p)))
         .map_err(|d| failure(&d))
+}
+
+/// Finite state projection of a `crn-craft.run/1.0` request whose method is
+/// `fsp`: the `crn-craft.fsp-result/1.0` document as JSON. A refusal raises
+/// `NativeError` with the diagnostics; Ctrl-C cancels the solve.
+#[pyfunction]
+#[pyo3(signature = (model, request, cancel_file=None))]
+fn rules_fsp_json(
+    py: Python<'_>,
+    model: Vec<u8>,
+    request: Vec<u8>,
+    cancel_file: Option<String>,
+) -> PyResult<String> {
+    let mut control = Control::default();
+    control.cancel_file = cancel_file.map(PathBuf::from);
+    let result = run_interruptible(py, control, Control::cancel, move |c| {
+        crn_craft::fsp::v1::solve(&model, &request, c)
+    })?
+    .map_err(|d| failure(&d))?;
+    serde_json::to_string(&result)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
+/// Runs a rules request (any rules-run version, or `crn-craft.run/1.0`
+/// with any method) and writes a `crn-craft.archive/1.0` directory at
+/// `output`: the `crn-craft.archive-check/1.0` report as JSON. Failures are
+/// an invalid report, never an exception; Ctrl-C cancels the run.
+#[pyfunction]
+#[pyo3(signature = (model, request, output, cancel_file=None))]
+fn rules_archive_json(
+    py: Python<'_>,
+    model: Vec<u8>,
+    request: Vec<u8>,
+    output: String,
+    cancel_file: Option<String>,
+) -> PyResult<String> {
+    let mut control = Control::default();
+    control.cancel_file = cancel_file.map(PathBuf::from);
+    let report = run_interruptible(py, control, Control::cancel, move |c| {
+        crn_craft::archive::v1::write(&model, &request, std::path::Path::new(&output), c)
+    })?;
+    serde_json::to_string(&report)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -142,6 +194,9 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(describe_rules_json, module)?)?;
     module.add_function(wrap_pyfunction!(check_rules_json, module)?)?;
     module.add_function(wrap_pyfunction!(prepare_rules, module)?)?;
+    module.add_function(wrap_pyfunction!(convert_network, module)?)?;
     module.add_function(wrap_pyfunction!(rules_loop_driver, module)?)?;
+    module.add_function(wrap_pyfunction!(rules_fsp_json, module)?)?;
+    module.add_function(wrap_pyfunction!(rules_archive_json, module)?)?;
     Ok(())
 }

@@ -1,4 +1,10 @@
-"""Importer semantics, combinatorial conversion and explicit rejection probes."""
+"""Importer semantics, combinatorial conversion and explicit rejection probes.
+
+Since 0.7.0 (M5f) the importers return the converted `crn-craft.model/1.0`
+document in a `crn-craft.import/1.0` report; the rate constants are read
+from the converted rules, and a network without reactions, which a rules
+model cannot hold, is rejected.
+"""
 
 import argparse
 import json
@@ -42,8 +48,15 @@ def main():
     ap.add_argument("--output", type=Path, required=True)
     args = ap.parse_args()
     rows = []
-    model = import_sbml(SBML, convention="stochastic_count_propensity")["model"]
-    analysis = crn_craft.analyze(model)
+    report = import_sbml(SBML, convention="stochastic_count_propensity")
+    require(
+        report["schema"] == "crn-craft.import/1.0"
+        and report["source_format"] == "sbml_l3v2_core_subset",
+        "import report contract",
+    )
+    model = report["model"]
+    require(model["schema"] == "crn-craft.model/1.0", "converted model contract")
+    analysis = crn_craft.Model.from_dict(model).analyze()
     require(analysis["success"], "imported model analysis")
 
     # Inspect pure compiled propensity through the public analysis report.
@@ -60,15 +73,17 @@ def main():
     rates = find_rates(analysis)
     if rates is not None:
         require(rates == [4.5], f"expected binomial dimer propensity: {rates}")
+    dimer = model["rules"][0]
     require(
-        model["reactions"][0]["rate"]["coefficient"] == 0.1,
+        float(dimer["rate"]) == 0.1
+        and [p["type"] for p in dimer["reactants"]] == ["A", "A"],
         "SBML falling/binomial divisor",
     )
     rows.append({"check": "SBML_dimer_binomial_semantics", "passed": True})
     for convention, k in [("binomial", 0.1), ("falling_factorial", 0.2)]:
         result = import_bng_net(NET, rate_convention=convention)
         require(
-            result["model"]["reactions"][0]["rate"]["coefficient"] == k,
+            float(result["model"]["rules"][0]["rate"]) == k,
             "explicit BNG conversion",
         )
         require(result["species_patterns"]["S_1"] == "A(a)", "species provenance")
@@ -161,6 +176,14 @@ def main():
                 SBML.replace(b'stoichiometry="2"', b'stoichiometry="1.5"'),
             ),
             ("unknown_encoding", b'<?xml version="1.0" encoding="x-unknown"?>' + SBML),
+            # A rules model needs a rule (CRN-R016 from the converter).
+            (
+                "no_reactions",
+                SBML[: SBML.index(b"<listOfReactions>")]
+                + SBML[
+                    SBML.index(b"</listOfReactions>") + len(b"</listOfReactions>") :
+                ],
+            ),
         ]
     )
     for name, raw in invalid_sbml:
@@ -203,7 +226,8 @@ def main():
     trimer = NET.replace(b"1 1,1 2 k", b"1 1,1,1 2 k")
     converted = import_bng_net(trimer, rate_convention="falling_factorial")
     require(
-        abs(converted["model"]["reactions"][0]["rate"]["coefficient"] - 0.6) < 1e-15,
+        abs(float(converted["model"]["rules"][0]["rate"]) - 0.6) < 1e-15
+        and converted["model"]["rules"][0]["reactants"][0]["count"] == 3,
         "falling factorial order three",
     )
     rows.append({"check": "BNG_falling_factorial_order_three", "passed": True})

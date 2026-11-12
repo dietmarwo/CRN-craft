@@ -5,7 +5,17 @@ import math
 import re
 import statistics
 from parameter_optimization_models import ROOT, FOLDER
-from parameter_optimization import ENGINES
+
+# The routes of the committed 0.6.0 evidence (network engine), which this
+# report renders; parameter_optimization.ENGINES lists the rules routes.
+ENGINES = [
+    "crn_fresh_fast",
+    "crn_reuse_fast",
+    "crn_generated_fast",
+    "rebop_expression",
+    "rebop_rebuild_lma",
+    "rebop_macro",
+]
 
 LABELS = dict(
     crn_fresh_fast="CRN fresh, fast",

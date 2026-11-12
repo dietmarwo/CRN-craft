@@ -23,8 +23,8 @@ jobs:
       - run: cargo +${{ matrix.toolchain }} test --release --workspace --locked
   contracts:
     runs-on: ubuntu-latest
-    # Mutation gate: the reviewed 35, 8 campaign mutants and the lost-increment
-    # check in the prefix-sum and resumed-sum passes added by P11/P12.
+    # Mutation gate: the mutants of validation/mutation_check.py, on the code of
+    # the unified engine.
     timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
@@ -54,10 +54,6 @@ jobs:
       - run: python validation/check_cme.py --output cme.json
       - run: python -O validation/check_cme.py --output cme-optimized.json
       - run: diff cme.json cme-optimized.json
-      - run: python validation/check_ssa.py --command simulate-cached --output cached-ssa.json
-      - run: diff ssa.json cached-ssa.json
-      - run: python validation/check_cme.py --command simulate-cached --output cached-cme.json
-      - run: diff cme.json cached-cme.json
       - run: python validation/mutation_check.py --output mutations.json
   reference-export:
     runs-on: ubuntu-latest
@@ -135,6 +131,17 @@ jobs:
       - run: python validation/check_manual.py --binary target/release/crn-craft --require-cargo --output manual.json
       - run: python -O validation/check_manual.py --binary target/release/crn-craft --require-cargo --output manual-optimized.json
       - run: diff manual.json manual-optimized.json
+      # The frozen manual of release 0.6.0 (never edited): code written for
+      # `crn_craft.rules` in 0.6.0 keeps running with the printed output.
+      - run: python validation/check_manual.py --manual validation/compat/manual-0.6.0.md --binary target/release/crn-craft --require-cargo --output manual-0-6-0.json
+      - run: python -O validation/check_manual.py --manual validation/compat/manual-0.6.0.md --binary target/release/crn-craft --require-cargo --output manual-0-6-0-optimized.json
+      - run: diff manual-0-6-0.json manual-0-6-0-optimized.json
+      # The README of the Python package runs as printed.
+      - run: python validation/check_manual.py --manual python/README.md --require-cargo --output readme.json
+      - run: python -O validation/check_manual.py --manual python/README.md --require-cargo --output readme-optimized.json
+      - run: diff readme.json readme-optimized.json
+      # Every relative link of docs/ and the READMEs resolves.
+      - run: python validation/check_links.py
       # The rules.Model builder against exact means and rebop 0.10.0
       # (validation/builder/RESULTS.md).
       - run: python validation/check_builder.py --output builder.json
@@ -151,9 +158,6 @@ jobs:
       - run: python validation/check_alternative_ssa.py --output alternative-laws.json
       - run: python -O validation/check_alternative_ssa.py --output alternative-laws-optimized.json
       - run: diff alternative-laws.json alternative-laws-optimized.json
-      - run: python validation/check_alternative_ssa.py --fast --output fast-laws.json
-      - run: python -O validation/check_alternative_ssa.py --fast --output fast-laws-optimized.json
-      - run: diff fast-laws.json fast-laws-optimized.json
       - run: python validation/check_importers.py --output importers.json
       - run: python -O validation/check_importers.py --output importers-optimized.json
       - run: diff importers.json importers-optimized.json
@@ -183,4 +187,4 @@ jobs:
             echo "$converted"
             exit 1
           fi
-      - run: cargo test --release --locked -p crn-craft --lib --test contracts --test network --test structure --test ssa --test archives
+      - run: cargo test --release --locked -p crn-craft --lib --test network_models --test convert --test structure --test stored_requests --test archives_v1

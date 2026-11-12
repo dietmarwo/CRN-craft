@@ -1,0 +1,28 @@
+{
+  "schema": "crn-craft.model/0.1",
+  "name": "third_order_decay",
+  "convention": "stochastic_counts",
+  "omega": 1.0,
+  "parameters": {
+    "c": 0.002
+  },
+  "species": [
+    {
+      "name": "A",
+      "initial_count": 40
+    }
+  ],
+  "reactions": [
+    {
+      "name": "decay",
+      "reactants": {
+        "A": 3
+      },
+      "products": {},
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "c"
+      }
+    }
+  ]
+}

@@ -133,11 +133,12 @@ def run(args, report):
             else "aggregation-constant.rules.json"
         )
         model = json.loads((ROOT / "models/rules" / filename).read_text())
+        model["schema"] = "crn-craft.model/1.0"
         model["parameters"].update(k=float(rate), monomers=monomers)
         model_path = folder / "model.json"
         write(model_path, model)
         request = dict(
-            schema="crn-craft.rules-run/0.1",
+            schema="crn-craft.run/1.0",
             model=dict(
                 path="model.json",
                 sha256=hashlib.sha256(model_path.read_bytes()).hexdigest(),
@@ -157,7 +158,7 @@ def run(args, report):
         )
         write(folder / "request.json", request)
         result = call_json(
-            [args.binary.resolve(), "rules", model_path, folder / "request.json"], 20
+            [args.binary.resolve(), "run", model_path, folder / "request.json"], 20
         )
         write(folder / "result.json", result)
         require(result["termination"] == "completed", "rules run incomplete")

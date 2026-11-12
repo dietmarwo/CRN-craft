@@ -1,0 +1,591 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "Budget": {
+      "additionalProperties": false,
+      "description": "Explicit work, memory and output limits of a run request.\n\nA replicate that reaches a per-replicate limit ends with the matching termination and diagnostic; the other replicates continue.",
+      "properties": {
+        "max_events_per_replicate": {
+          "description": "Events one replicate may execute; reaching it ends the replicate with `event_limit` (`CRN-R040`).",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "max_instances": {
+          "description": "Distinct instances alive at once, over all types; positive. Exceeding it ends the replicate with `instance_limit` (`CRN-R042`). On `tree`, so does a count above 2^53; the static methods fail the replicate with `CRN-R030` instead.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "max_output_bytes": {
+          "description": "Size limit of the result as compact JSON plus a trailing newline, capped at 1 GiB. Must hold at least 160 bytes per replicate (`CRN-R020`). A larger result drops statistics, paths, observations and final instances and ends as `output_limit` (`CRN-R045`); if the records alone still do not fit, the run fails with `CRN-R045`.",
+          "format": "uint64",
+          "minimum": 1.0,
+          "type": "integer"
+        },
+        "max_sampling_steps_per_replicate": {
+          "description": "Random 64-bit words one replicate may draw, counting every word, including product draws; exhausting it ends the replicate with `sampling_limit` (`CRN-R041`). The leap methods also count their iterations against it, and `hybrid` its integration steps.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "threads": {
+          "description": "Worker threads, 1 to 64. Completed results do not depend on it.",
+          "format": "uint32",
+          "maximum": 64.0,
+          "minimum": 1.0,
+          "type": "integer"
+        },
+        "wall_time_s": {
+          "description": "Wall-clock limit for the whole run in seconds, positive and finite when present. Reaching it ends running replicates with `wall_time_limit` (`CRN-R043`) and starts no others.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "max_events_per_replicate",
+        "max_instances",
+        "max_output_bytes",
+        "max_sampling_steps_per_replicate",
+        "threads"
+      ],
+      "type": "object"
+    },
+    "Ensemble": {
+      "additionalProperties": false,
+      "description": "Independent replicates of a stochastic run.",
+      "properties": {
+        "replicates": {
+          "description": "Number of independent replicates, ≥ 1, with ids 0 to replicates − 1.",
+          "format": "uint64",
+          "minimum": 1.0,
+          "type": "integer"
+        },
+        "root_seed": {
+          "description": "Root seed. Each replicate draws from its own stream, derived from this seed and the replicate id, so results do not depend on the thread count.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "replicates",
+        "root_seed"
+      ],
+      "type": "object"
+    },
+    "FspBudget": {
+      "additionalProperties": false,
+      "description": "Resource limits of an FSP request.",
+      "properties": {
+        "max_output_bytes": {
+          "description": "Size limit of the result as compact JSON plus a trailing newline, positive; execution never uses more than 1 GiB.",
+          "format": "uint64",
+          "minimum": 1.0,
+          "type": "integer"
+        },
+        "wall_time_s": {
+          "description": "Optional wall-clock limit in seconds, positive and finite. It is polled cooperatively; reaching it fails the solve (`CRN-E070`).",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "max_output_bytes"
+      ],
+      "type": "object"
+    },
+    "FspMethod": {
+      "description": "The method of an FSP request, tagged by `kind`.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Finite state projection on the box of the bounds: the states reachable from the initial counts inside it, with every transition that leaves it moved to an absorbing sink. Result `crn-craft.fsp-result/1.0`.",
+          "properties": {
+            "bounds": {
+              "additionalProperties": {
+                "format": "uint64",
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              "description": "Inclusive upper count bound for every species label of the model's flat view (`A`, or `T{a=1,b=0.5}` for an attributed type), each at least the initial count. Probability that leaves the box moves to an absorbing sink.",
+              "type": "object"
+            },
+            "kind": {
+              "enum": [
+                "fsp"
+              ],
+              "type": "string"
+            },
+            "max_states": {
+              "description": "Most reachable states to enumerate, ≥ 1; execution also caps it at 100000.",
+              "format": "uint64",
+              "minimum": 1.0,
+              "type": "integer"
+            },
+            "tolerance": {
+              "description": "Total Poisson-series truncation budget over the whole run, 0 < tolerance < 1. It does not bound floating-point error.",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "bounds",
+            "kind",
+            "max_states",
+            "tolerance"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "FspRequest": {
+      "additionalProperties": false,
+      "description": "A `crn-craft.run/1.0` request whose method is `fsp`: compute the probability distribution of a closed model's counts at the report times by finite state projection.\n\nUnknown fields and duplicate keys are rejected; a request without `ensemble`, `outputs`, `trackers` and `event_log`.",
+      "properties": {
+        "budget": {
+          "$ref": "#/definitions/FspBudget"
+        },
+        "method": {
+          "$ref": "#/definitions/FspMethod"
+        },
+        "model": {
+          "$ref": "#/definitions/ModelRef"
+        },
+        "schema": {
+          "$ref": "#/definitions/RunVersion"
+        },
+        "time": {
+          "$ref": "#/definitions/Time"
+        }
+      },
+      "required": [
+        "budget",
+        "method",
+        "model",
+        "schema",
+        "time"
+      ],
+      "type": "object"
+    },
+    "LogSpec": {
+      "additionalProperties": false,
+      "description": "The event log in a run request's `event_log` (rules-run/0.2 and later).",
+      "properties": {
+        "max_entries": {
+          "description": "Entries kept per replicate; later matching events are only counted. Replicates times `max_entries` times a per-entry bound from the model's sizes (observables, attributes and the largest reactant plus product count of a rule) must fit `budget.max_output_bytes`; the `CRN-R020` message names the bytes needed.",
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "rules": {
+          "default": [],
+          "description": "An empty list logs all rules. Leaps match any listed firing. Unknown rule names are `CRN-R020` at `/event_log`.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "max_entries"
+      ],
+      "type": "object"
+    },
+    "Method": {
+      "description": "The simulation method of a run request, tagged by `kind`.\n\nAbsent means `tree`. Each method reports its own sampler identity in the result's `sampler`; the same seed gives different trajectories under different samplers. Every method except `tree` needs a model that lowers to fixed instance tuples (`CRN-R020` at `/method` otherwise).",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Exact direct method over dynamic instances: rules are selected by their propensities, then instances from sum trees. Supports random product attributes and `new_id()`. Sampler `chacha8-u53/rules-direct/2`.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "tree"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Exact direct method over the lowered network of fixed instance tuples and channels. Every positive channel must be at least 2^-53 of the total (`CRN-R031`). Sampler `chacha8-u53/rules-static-direct/1`. Ziggurat waits change the prefix to `chacha8-u53-ziggurat`, and effective sparse trackers change the suffix to `rules-static-direct-sparse-trackers/1`. From rules-run/0.6 both are the default: `waiting_time: \"inverse\"` with `sparse_trackers: false` runs the default of rules-run/0.5.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "static_direct"
+              ],
+              "type": "string"
+            },
+            "selector": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/Selector"
+                }
+              ],
+              "description": "`crn-craft.run/1.0` only (`CRN-R020` at `/schema` in a `rules-run` request, which always runs the linear scan). How the next channel is selected: `linear`, `composition_rejection`, `sorting`, `rssa_cr`, or `auto`, the default, which picks RSSA-CR from 8 lowered channels on (from 128 when the species that start with molecules hold fewer than 8 on average) unless a rule's rate reads two or more species, else composition–rejection from 128 channels on, else the linear scan (measured thresholds; `auto` does not pick sorting). The sampler identity names the selector that ran: `rules-static-direct` for `linear`, `rules-static-direct-cr`, `-sorting` or `-rssa-cr` for the others, followed by `-sparse-trackers` where that applies. Generated event loops and rates kernels run `linear` only (`CRN-R020` at `/method/selector`). `null` is rejected."
+            },
+            "sparse_trackers": {
+              "description": "rules-run/0.4 and later. `true` integrates unweighted single-class count trackers without first-passage predicates over their constant spans, which can change the last bits of an integral. Without such a tracker it changes nothing and warns with `CRN-R051`. `false` integrates every tracker at every event. Absent means `false` before rules-run/0.6; from 0.6 it integrates the eligible trackers sparsely and, without one, runs the per-event path without a warning. `null` is rejected.",
+              "type": "boolean"
+            },
+            "waiting_time": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/RulesWaitingTime"
+                }
+              ],
+              "description": "rules-run/0.4 and later. Absent selects inverse waits before rules-run/0.6 and Ziggurat waits from 0.6. `null` is rejected."
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "rules-run/0.3 and later. Exact grouped direct method for the fixed three-class mtDNA vacancy model, sampler `chacha8-u53-ziggurat/rules-mtdna-direct/1`. A model or parameter set it cannot certify runs Static Direct instead, with that sampler identity and a `CRN-R051` warning naming the reason.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "mtdna_direct"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Exact next reaction method with indexed clocks over the lowered channels. Sampler `chacha8-u53/rules-next-reaction/1`.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "next_reaction"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Exact thinning with the analytic ATP flow of a rules-model/0.2 model; required for ATP models and refused for others. Sampler `chacha8-u53/rules-atp-thinning/1`.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "thinning"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Approximate adaptive Poisson leaps with exact fallback steps. Sampler `chacha8-u53/rules-approximate-cgp-poisson/2`.",
+          "properties": {
+            "epsilon": {
+              "description": "Leap tolerance, in (0, 0.1] (`CRN-R020` otherwise): the step selection bounds the mean and spread of each species and rate change in one leap by this fraction of its current value.",
+              "format": "double",
+              "type": "number"
+            },
+            "kind": {
+              "enum": [
+                "tau"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "epsilon",
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Approximate death-then-birth splitting on the fixed lattice `k * step`, for single-parent unit births and deaths only. Sampler `chacha8-u53/rules-approximate-binomial-split/2`.",
+          "properties": {
+            "kind": {
+              "enum": [
+                "binomial"
+              ],
+              "type": "string"
+            },
+            "step": {
+              "description": "Lattice step in simulated time, finite and positive (`CRN-R020` otherwise).",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "kind",
+            "step"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "rules-run/0.5 and later. Piecewise-deterministic simulation of a closed model with continuous variables (rules-model/0.3): between events the variables and the integrated total propensity follow an adaptive Dormand–Prince 5(4) integration, and the next event happens where the integrated propensity reaches a unit exponential threshold, located on the dense output. Approximate at the given tolerances; sampler `chacha8-u53/rules-approximate-hybrid-dopri54/1`. Also runs models without continuous variables. Refuses ATP models (use `thinning`) and models that do not lower to fixed tuples.",
+          "properties": {
+            "atol": {
+              "description": "Absolute tolerance of the error control, in (0, 1e-2] (`CRN-R020` otherwise). It applies to every variable and to the integrated propensity, which runs from 0 to a unit exponential.",
+              "format": "double",
+              "type": "number"
+            },
+            "kind": {
+              "enum": [
+                "hybrid"
+              ],
+              "type": "string"
+            },
+            "rtol": {
+              "description": "Relative tolerance of the error control, in [1e-12, 1e-2] (`CRN-R020` otherwise).",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "atol",
+            "kind",
+            "rtol"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ModelRef": {
+      "additionalProperties": false,
+      "description": "Reference from a request to its model file: a relative path and the SHA-256 of the exact model bytes.",
+      "properties": {
+        "path": {
+          "description": "Portable, relative to the run file's directory; no parent traversal.",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "SHA-256 of the exact model input bytes, lowercase hexadecimal.",
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "Outputs": {
+      "additionalProperties": false,
+      "description": "What a result keeps besides the per-replicate records.",
+      "properties": {
+        "keep_instances": {
+          "description": "Final instances of replicates 0..keep_instances, at most `replicates`.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "keep_paths": {
+          "description": "Observable series of replicates 0..keep_paths, at most `replicates`.",
+          "format": "uint64",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "quantiles": {
+          "description": "`crn-craft.run/1.0` only (earlier versions refuse the field with `CRN-R020` at `/schema`): probabilities of quantile statistics, at most 16, strictly increasing, each in (0, 1); absent or empty means none. The result's `statistics.quantiles` then holds, for every report time and observable, the linear-interpolation quantile of the values of all replicates, NumPy's default (Hyndman and Fan type 7): with the n values sorted ascending, `h = (n - 1) * p`, `j = floor(h)` and `g = h - j`, the quantile is `x[j] + g * (x[j+1] - x[j])`, evaluated as `numpy.quantile(x, p)` evaluates it (`x[j+1] - (1 - g) * (x[j+1] - x[j])` for `g >= 0.5`, `x[n-1]` for `h >= n - 1`, NaN if a value is NaN), so the values equal NumPy's bit for bit. Quantiles are withheld with the other statistics. They keep replicates x report times x observables values in memory during the run, counted against the 2 GiB workspace limit (`CRN-R020` at `/outputs/quantiles` above it).",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
+        "statistics": {
+          "description": "Ensemble statistics per report time and observable, each listed at most once: `mean`, and `variance` for the sample variance and the standard error of the mean. They are withheld unless every replicate completed or stopped.",
+          "items": {
+            "$ref": "#/definitions/Statistic"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "keep_instances",
+        "keep_paths",
+        "statistics"
+      ],
+      "type": "object"
+    },
+    "RulesWaitingTime": {
+      "description": "How Static Direct draws waiting times (rules-run/0.4 and later).",
+      "enum": [
+        "inverse",
+        "ziggurat"
+      ],
+      "type": "string"
+    },
+    "RunRequest": {
+      "additionalProperties": false,
+      "description": "A run request: `crn-craft.run/1.0`, the unified request contract, with the fields and defaults of `crn-craft.rules-run/0.6` plus `outputs.quantiles` and the Static Direct `selector`, whose default `auto` picks a selector from the lowered network (`\"selector\": \"linear\"` runs what rules-run/0.6 runs).\n\nIt binds one model, `crn-craft.model/1.0` or any `crn-craft.rules-model` version, by hash and states the time grid, the ensemble, the outputs and an explicit budget. Unknown fields and duplicate keys are rejected. It returns `crn-craft.result/1.0`.",
+      "properties": {
+        "budget": {
+          "$ref": "#/definitions/Budget"
+        },
+        "ensemble": {
+          "$ref": "#/definitions/Ensemble"
+        },
+        "event_log": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/LogSpec"
+            }
+          ],
+          "description": "Retains selected events of each replicate in the result's `observations`. rules-run/0.2 and later. `null` is rejected."
+        },
+        "method": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Method"
+            }
+          ],
+          "description": "The simulation method. rules-run/0.2 and later; absent selects `tree`. `null` is rejected."
+        },
+        "model": {
+          "$ref": "#/definitions/ModelRef"
+        },
+        "outputs": {
+          "$ref": "#/definitions/Outputs"
+        },
+        "schema": {
+          "$ref": "#/definitions/RunVersion"
+        },
+        "time": {
+          "$ref": "#/definitions/Time"
+        },
+        "trackers": {
+          "description": "Event trackers, at most 256, each summarizing one observable per replicate in the result's `observations`. rules-run/0.2 and later. Not allowed in 0.1, even when empty.",
+          "items": {
+            "$ref": "#/definitions/TrackerSpec"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "budget",
+        "ensemble",
+        "model",
+        "outputs",
+        "schema",
+        "time"
+      ],
+      "type": "object"
+    },
+    "RunVersion": {
+      "description": "The version of a run request, its `schema` field.",
+      "enum": [
+        "crn-craft.run/1.0"
+      ],
+      "type": "string"
+    },
+    "Selector": {
+      "description": "How Static Direct selects the next channel (`crn-craft.run/1.0`).\n\nEvery selector samples the exact law of the lowered network; each uses the random stream in its own way, and the sampler identity names it. Every positive channel must be at least 2^-53 of the total (`CRN-R031`).",
+      "enum": [
+        "linear",
+        "composition_rejection",
+        "sorting",
+        "rssa_cr",
+        "auto"
+      ],
+      "type": "string"
+    },
+    "Statistic": {
+      "description": "Ensemble statistic to report per species and save time.",
+      "enum": [
+        "mean",
+        "variance"
+      ],
+      "type": "string"
+    },
+    "Time": {
+      "additionalProperties": false,
+      "description": "The simulated horizon and the report grid of a run request.",
+      "properties": {
+        "end": {
+          "description": "Simulated time horizon, positive and finite, in the time unit of the model's rates.",
+          "format": "double",
+          "type": "number"
+        },
+        "report_times": {
+          "description": "Strictly increasing times in [0, end] at which observables are reported (right-continuous: events at a report time are included). Between 1 and 100,000 entries.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "end",
+        "report_times"
+      ],
+      "type": "object"
+    },
+    "TrackerSpec": {
+      "additionalProperties": false,
+      "description": "A tracker in a run request's `trackers` (rules-run/0.2 and later).\n\nIt follows one observable over each replicate, from time 0 to the replicate's stop time or horizon, and reports a tracker result per replicate. A positive value is \"present\": crossings of zero are counted, and every present span is an episode.",
+      "properties": {
+        "first_passage": {
+          "description": "Optional predicate over parameters and observables, with the syntax of a model's `stop`. The first event time at which it holds (0 if it holds initially) is reported; a NaN value does not count as a hit.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "keep_episodes": {
+          "default": 0,
+          "description": "Episodes kept in full, in time order; later episodes are only summarized. Default 0.",
+          "format": "uint",
+          "minimum": 0.0,
+          "type": "integer"
+        },
+        "observable": {
+          "description": "Name of a model observable; an unknown name is `CRN-R020` at `/trackers`. Neither the observable nor the predicate may read the continuous `ATP` column of an ATP model.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "observable"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "A run request: `crn-craft.run/1.0`, the unified request contract. A simulation request (`RunRequest`) has the fields and defaults of `crn-craft.rules-run/0.6` plus `outputs.quantiles` and returns `crn-craft.result/1.0`. A request whose method is `fsp` (`FspRequest`) computes the distribution of a closed model's counts by finite state projection and returns `crn-craft.fsp-result/1.0`.\n\nBoth bind one model, `crn-craft.model/1.0` or any `crn-craft.rules-model` version, by hash. Unknown fields and duplicate keys are rejected.",
+  "oneOf": [
+    {
+      "$ref": "#/definitions/RunRequest"
+    },
+    {
+      "$ref": "#/definitions/FspRequest"
+    }
+  ],
+  "title": "Run"
+}

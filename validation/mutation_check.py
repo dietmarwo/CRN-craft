@@ -5,43 +5,47 @@ turns a passing suite into named test failures.
 """
 
 import argparse
+import contextlib
+import fcntl
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 MUTATIONS = [
     (
         "missing_binomial_divisor",
-        "crates/crn-craft/src/rates.rs",
-        "(count - order + i) as f64 / i as f64",
-        "(count - order + i) as f64 / 1.0",
+        "crates/crn-craft/src/rules/combination.rs",
+        "(n - order + i) as f64 / i as f64",
+        "(n - order + i) as f64 / 1.0",
     ),
     (
         "wrong_product_sign",
-        "crates/crn-craft/src/network.rs",
-        "*changes.entry(term.species).or_insert(0) += term.coefficient;",
-        "*changes.entry(term.species).or_insert(0) -= term.coefficient;",
+        "crates/crn-craft/src/rules/flat.rs",
+        ".chain(products.iter().map(|&s| (s, 1)))",
+        ".chain(products.iter().map(|&s| (s, -1)))",
     ),
     (
         "missing_custom_rate_read",
-        "crates/crn-craft/src/network.rs",
-        "reads.insert(species);",
-        "let _ = species;",
+        "crates/crn-craft/src/rules/flat.rs",
+        "rule_reads[c.rule]\n                .iter()\n                .copied()\n                .chain(",
+        "std::iter::empty::<usize>()\n                .chain(",
     ),
     (
         "missing_reactant_gate",
-        "crates/crn-craft/src/rates.rs",
-        "state[term.species] < term.coefficient",
-        "state[term.species] < 0",
+        "crates/crn-craft/src/rules/flat.rs",
+        "if reactants.iter().any(|&(s, k)| counts[s] < k) {\n            return 0.0;\n        }\n        let global = self.global(net, c, env);",
+        "if reactants.iter().any(|&(s, k)| counts[s] < k.min(0)) {\n            return 0.0;\n        }\n        let global = self.global(net, c, env);",
     ),
     (
-        "hill_without_log1p_near_threshold",
-        "crates/crn-craft/src/rates.rs",
-        "relative.abs() <= 0.5",
-        "relative.abs() < 0.0",
+        "hill_denominator_without_one",
+        "crates/crn-craft/src/rules/expr.rs",
+        "self.c + self.v / (self.one + z)",
+        "self.c + self.v / z",
     ),
     (
         "bound_not_divided_by_weight",
@@ -51,9 +55,9 @@ MUTATIONS = [
     ),
     (
         "binomial_without_symmetry",
-        "crates/crn-craft/src/rates.rs",
-        "let order = term.coefficient.min(count - term.coefficient);",
-        "let order = term.coefficient;",
+        "crates/crn-craft/src/rules/combination.rs",
+        "        let order = k.min(n - k);\n        for i in 1..=order {",
+        "        let order = k;\n        for i in 1..=order {",
     ),
     (
         "cone_missing_positive_contribution",
@@ -94,8 +98,8 @@ MUTATIONS = [
     (
         "analysis_drops_fallback_bounds",
         "crates/crn-craft/src/analysis.rs",
-        "\n            conservation.initial_class_upper_bounds.clone()",
-        "\n            vec![None; network.species().len()]",
+        "\n        conservation.initial_class_upper_bounds.clone()",
+        "\n        vec![None; view.species().len()]",
     ),
     (
         "cone_rays_not_primitive",
@@ -117,246 +121,263 @@ MUTATIONS = [
     ),
     (
         "ssa_wait_wrong_scale",
-        "crates/crn-craft/src/sampling.rs",
-        "-libm::log(uniform) / total",
-        "-libm::log(uniform) * total",
+        "crates/crn-craft/src/rules/flat_path.rs",
+        "-libm::log(1.0 - words.open()?) / total\n            };\n            let next = clock.advance(*time, wait)?;\n            let channel = scan(",
+        "-libm::log(1.0 - words.open()?) * total\n            };\n            let next = clock.advance(*time, wait)?;\n            let channel = scan(",
     ),
     (
-        "ssa_selection_wrong_boundary",
-        "crates/crn-craft/src/sampling.rs",
-        "threshold < cumulative && rate > 0.0",
-        "threshold <= cumulative && rate > 0.0",
+        "ssa_scan_does_not_subtract",
+        "crates/crn-craft/src/rules/flat_path.rs",
+        "                break;\n            }\n            target -= a;",
+        "                break;\n            }\n            target -= 0.0;",
     ),
     (
         "ssa_reuses_replicate_stream",
-        "crates/crn-craft/src/sampling.rs",
+        "crates/crn-craft/src/rules/mod.rs",
         "rng.set_stream(replicate);",
         "rng.set_stream(0);",
     ),
     (
-        "ssa_save_before_equal_event",
-        "crates/crn-craft/src/simulation.rs",
-        "run.time.save_times[save] < next",
-        "run.time.save_times[save] <= next",
+        "ssa_save_row_not_written",
+        "crates/crn-craft/src/rules/flat_path.rs",
+        "out.values[row..row + n].copy_from_slice(values);",
+        "let _ = values;",
     ),
     (
         "ssa_event_cap_off_by_one",
-        "crates/crn-craft/src/simulation.rs",
-        "record.events >= run.budget.max_events_per_replicate.unwrap()",
-        "record.events > run.budget.max_events_per_replicate.unwrap()",
+        "crates/crn-craft/src/rules/flat_path.rs",
+        "events <= self.limits.max_events.saturating_sub(out.events)",
+        "events < self.limits.max_events.saturating_sub(out.events)",
     ),
     (
         "ssa_biased_variance",
-        "crates/crn-craft/src/simulation.rs",
-        "(completed - 1).max(1)",
-        "completed.max(1)",
+        "crates/crn-craft/src/rules/mod.rs",
+        "n.saturating_sub(1) as f64",
+        "n as f64",
     ),
     (
         "ssa_conditional_statistics",
-        "crates/crn-craft/src/simulation.rs",
-        "completed == ensemble.replicates && !run.outputs.statistics.is_empty()",
-        "completed > 0 && !run.outputs.statistics.is_empty()",
+        "crates/crn-craft/src/rules/mod.rs",
+        "let complete = replicates.iter().all(|r| r.termination.complete());",
+        "let complete = replicates.iter().any(|r| r.termination.complete());",
     ),
     (
         "archive_ignores_payload_digest",
-        "crates/crn-craft/src/archive.rs",
+        "crates/crn-craft/src/archive/v1.rs",
         "entry.sha256 != sha256(&bytes)",
         "false",
     ),
     (
         "archive_ignores_completion_digest",
-        "crates/crn-craft/src/archive.rs",
+        "crates/crn-craft/src/archive/v1.rs",
         'marker != format!("{}\\n", sha256(&manifest_bytes)).as_bytes()',
         "false",
     ),
     (
-        "ssa_poller_skips_first_check",
-        "crates/crn-craft/src/simulation.rs",
-        "            countdown: 0,\n",
-        "            countdown: CLOCK_POLL_STRIDE,\n",
+        "ssa_generic_poll_removed",
+        "crates/crn-craft/src/rules/engine.rs",
+        "if out.events % POLL_EVENTS == 0 && out.events > 0 {\n                self.poll()?;\n            }\n            let total = state.propensities",
+        "if false {\n                self.poll()?;\n            }\n            let total = state.propensities",
     ),
     (
-        "ssa_cancel_file_interval_inverted",
-        "crates/crn-craft/src/simulation.rs",
-        "now.duration_since(last) >= CANCEL_FILE_INTERVAL",
-        "now.duration_since(last) < CANCEL_FILE_INTERVAL",
+        "ssa_cancel_file_condition_inverted",
+        "crates/crn-craft/src/rules/mod.rs",
+        "self.cancel_file.as_ref().is_some_and(|p| p.exists())",
+        "self.cancel_file.as_ref().is_some_and(|p| !p.exists())",
     ),
     (
         "ssa_extra_retained_trajectory",
-        "crates/crn-craft/src/simulation.rs",
-        "if id < run.outputs.keep_trajectories {",
-        "if id <= run.outputs.keep_trajectories {",
-    ),
-    # The strict sum is checked in three places since P11/P12: the plain
-    # total, the total that records prefix sums, and the resumed total.
-    (
-        "ssa_accepts_lost_positive_increment",
-        "crates/crn-craft/src/sampling.rs",
-        "    for &rate in rates {\n"
-        "        if !rate.is_finite() || rate < 0.0 {\n"
-        '            return Err(numeric("CRN-E061", "invalid propensity in Direct sum"));\n'
-        "        }\n"
-        "        let next = total + rate;\n"
-        "        if !next.is_finite() || (rate > 0.0 && next <= total) {",
-        "    for &rate in rates {\n"
-        "        if !rate.is_finite() || rate < 0.0 {\n"
-        '            return Err(numeric("CRN-E061", "invalid propensity in Direct sum"));\n'
-        "        }\n"
-        "        let next = total + rate;\n"
-        "        if !next.is_finite() || false {",
+        "crates/crn-craft/src/rules/mod.rs",
+        "if id < keep_paths {",
+        "if id <= keep_paths {",
     ),
     (
-        "prefix_sum_accepts_lost_positive_increment",
-        "crates/crn-craft/src/sampling.rs",
-        "    for (slot, &rate) in prefix.iter_mut().zip(rates) {\n"
-        "        if !rate.is_finite() || rate < 0.0 {\n"
-        '            return Err(numeric("CRN-E061", "invalid propensity in Direct sum"));\n'
-        "        }\n"
-        "        let next = total + rate;\n"
-        "        if !next.is_finite() || (rate > 0.0 && next <= total) {",
-        "    for (slot, &rate) in prefix.iter_mut().zip(rates) {\n"
-        "        if !rate.is_finite() || rate < 0.0 {\n"
-        '            return Err(numeric("CRN-E061", "invalid propensity in Direct sum"));\n'
-        "        }\n"
-        "        let next = total + rate;\n"
-        "        if !next.is_finite() || false {",
+        "direct_scan_accepts_unresolved_rate",
+        "crates/crn-craft/src/rules/flat.rs",
+        "rates.iter().any(|&a| a > 0.0 && a < floor)",
+        "rates.iter().any(|&a| a > 0.0 && a < 0.0)",
     ),
     (
-        "resumed_sum_accepts_lost_positive_increment",
-        "crates/crn-craft/src/sampling.rs",
-        "        .zip(&rates[from..])\n"
-        "    {\n"
-        "        if !rate.is_finite() || rate < 0.0 {\n"
-        '            return Err(numeric("CRN-E061", "invalid propensity in Direct sum"));\n'
-        "        }\n"
-        "        let next = total + rate;\n"
-        "        if !next.is_finite() || (rate > 0.0 && next <= total) {",
-        "        .zip(&rates[from..])\n"
-        "    {\n"
-        "        if !rate.is_finite() || rate < 0.0 {\n"
-        '            return Err(numeric("CRN-E061", "invalid propensity in Direct sum"));\n'
-        "        }\n"
-        "        let next = total + rate;\n"
-        "        if !next.is_finite() || false {",
+        "linear_accepts_unresolved_rate",
+        "crates/crn-craft/src/rules/flat_path.rs",
+        "if !total.is_finite() || least < floor {\n                return Err(unresolved(total));",
+        "if !total.is_finite() || least < 0.0 {\n                return Err(unresolved(total));",
+    ),
+    (
+        "tree_accepts_unresolved_rate",
+        "crates/crn-craft/src/rules/select.rs",
+        "root.minimum.is_finite() && root.minimum / root.sum < RESOLUTION",
+        "false",
     ),
     (
         "ssa_accepts_zero_wait",
-        "crates/crn-craft/src/sampling.rs",
-        "if !wait.is_finite() || wait <= 0.0 {",
-        "if !wait.is_finite() {",
+        "crates/crn-craft/src/rules/engine.rs",
+        "if next <= time {",
+        "if next < time {",
     ),
     (
         "archive_ignores_byte_budget",
-        "crates/crn-craft/src/archive.rs",
-        "if total_bytes > run.budget.max_output_bytes\n",
-        "if false\n",
+        "crates/crn-craft/src/archive/v1.rs",
+        "if bytes.len() as u64 > output_limit(max_output_bytes) {",
+        "if false {",
     ),
     (
         "archive_ignores_unstarted_record_rules",
-        "crates/crn-craft/src/archive.rs",
-        "            || (!record.started\n",
-        "            || (false && !record.started\n",
+        "crates/crn-craft/src/archive/v1.rs",
+        "|| (!r.started\n",
+        "|| (false && !r.started\n",
     ),
     (
         "archive_ignores_initial_state",
-        "crates/crn-craft/src/archive.rs",
-        ".is_some_and(|counts| counts != prepared.network.initial_counts())",
-        ".is_some_and(|_| false)",
+        "crates/crn-craft/src/archive/v1.rs",
+        ".any(|row| !same_bits(row, &initial))",
+        ".any(|_| false)",
     ),
     (
         "archive_accepts_state_after_stop_time",
-        "crates/crn-craft/src/archive.rs",
-        "&& run.time.save_times[record.saved_points - 1] > record.stop_time",
-        "&& false",
+        "crates/crn-craft/src/archive/v1.rs",
+        "|| r.stop_time > end",
+        "|| false",
+    ),
+    (
+        "cached_dependency_updates_removed",
+        "crates/crn-craft/src/rules/flat.rs",
+        ".map(|c| union(&readers, c.changes.iter().map(|&(s, _)| s)))",
+        ".map(|_| Vec::new())",
+    ),
+    (
+        "rule_resolution_check_removed",
+        "crates/crn-craft/src/rules/engine.rs",
+        "let unresolved = a[r] < total * RESOLUTION\n",
+        "let unresolved = false\n",
+    ),
+    (
+        "fsp_reflects_sink",
+        "crates/crn-craft/src/fsp.rs",
+        "let target = if escaped {\n                usize::MAX",
+        "let target = if escaped {\n                i",
+    ),
+    (
+        "fsp_wrong_sparse_orientation",
+        "crates/crn-craft/src/fsp.rs",
+        "next[if j == usize::MAX { n } else { j }] += term[i] * rate;",
+        "next[if j == usize::MAX { n } else { j }] += term[n] * rate;",
+    ),
+    (
+        "fsp_tail_bound_zeroed",
+        "crates/crn-craft/src/fsp.rs",
+        "tail_bound += next_weight / (1.0 - ratio);",
+        "tail_bound += 0.0;",
+    ),
+    (
+        "tau_claims_exact",
+        "crates/crn-craft/src/rules/mod.rs",
+        '"chacha8-u53/rules-approximate-cgp-poisson/2"',
+        '"chacha8-u53/rules-exact-cgp-poisson/2"',
+    ),
+    (
+        "tau_proposal_event_cap_removed",
+        "crates/crn-craft/src/rules/leap.rs",
+        "self.check_events(out, events)?;",
+        "let _ = events;",
+    ),
+    (
+        "kinetics_parameter_derivative_zeroed",
+        "crates/crn-craft/src/kinetics.rs",
+        "Input::Parameter(j) => dp[j] += g * scale,",
+        "Input::Parameter(j) => dp[j] += 0.0,",
+    ),
+    (
+        "kinetics_combination_derivative_dropped",
+        "crates/crn-craft/src/kinetics.rs",
+        "dy[s] += e.value * channel.factor * (others * factors[i].1);",
+        "dy[s] += 0.0;",
+    ),
+    (
+        "dual_power_base_factor_dropped",
+        "crates/crn-craft/src/rules/dual.rs",
+        "y * libm::pow(x, y - 1.0)",
+        "libm::pow(x, y - 1.0)",
     ),
 ]
-MUTATIONS.extend(
-    [
-        (
-            "cached_dependency_updates_removed",
-            "crates/crn-craft/src/simulation.rs",
-            "rates[reaction] = network.propensity_in_valid_state(reaction, &state)?;",
-            "let _ = network.propensity_in_valid_state(reaction, &state)?;",
-        ),
-        (
-            "minimum_resolution_check_removed",
-            "crates/crn-craft/src/sampling.rs",
-            "minimum.is_finite() && minimum / total < UNIFORM_STEP",
-            "false",
-        ),
-        (
-            "fsp_reflects_sink",
-            "crates/crn-craft/src/fsp.rs",
-            "let target = if escaped {\n                    usize::MAX",
-            "let target = if escaped {\n                    i",
-        ),
-        (
-            "fsp_wrong_sparse_orientation",
-            "crates/crn-craft/src/fsp.rs",
-            "next[if j == usize::MAX { n } else { j }] += term[i] * rate;",
-            "next[if j == usize::MAX { n } else { j }] += term[n] * rate;",
-        ),
-        (
-            "fsp_tail_bound_zeroed",
-            "crates/crn-craft/src/fsp.rs",
-            "tail_bound += next_weight / (1.0 - ratio);",
-            "tail_bound += 0.0;",
-        ),
-        (
-            "tau_claims_exact",
-            "crates/crn-craft/src/tau.rs",
-            '"approximate_ensemble"',
-            '"exact_ensemble"',
-        ),
-        (
-            "tau_proposal_event_cap_removed",
-            "crates/crn-craft/src/tau.rs",
-            "if events > run.budget.max_events_per_replicate.unwrap() - record.events {",
-            "if false {",
-        ),
-        (
-            "kinetics_parameter_derivative_zeroed",
-            "crates/crn-craft/src/kinetics.rs",
-            "dp[j] += product;",
-            "dp[j] += 0.0;",
-        ),
-    ]
-)
 
-TEST_COMMAND = [
-    "test",
-    "--release",
-    "--locked",
-    "--offline",
-    "-p",
-    "crn-craft",
-    "--lib",
-    "--test",
-    "ssa",
-    "--test",
-    "archives",
-    "--test",
-    "network",
-    "--test",
-    "structure",
-    "--test",
+# Integration tests of the unified engine and of the kept analysis, structure,
+# FSP, tau and kinetics code, plus the library tests. A name is used only if
+# its file exists, so the list survives the removal of the old engine's tests.
+TEST_FILES = [
+    "boundaries_v1",
+    "archives_v1",
+    "clock",
+    "contracts_v1",
+    "convert",
+    "flat_view",
+    "higher_order",
+    "limits_v1",
+    "quantiles",
+    "selectors",
+    "analysis",
+    "export",
     "fsp",
-    "--test",
-    "tau",
-    "--test",
     "kinetics",
+    "kinetics_references",
+    "structure",
 ]
+
+
+def test_command(root):
+    command = ["test", "--release", "--locked", "--offline", "-p", "crn-craft", "--lib"]
+    for name in TEST_FILES:
+        if (root / "crates/crn-craft/tests" / f"{name}.rs").exists():
+            command += ["--test", name]
+    return command
+
+
+@contextlib.contextmanager
+def locked(path):
+    """Holds an exclusive advisory lock on `path` (a no-op without one)."""
+    if path is None:
+        yield
+        return
+    with open(path, "a") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cargo", default="cargo")
     parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="keep the mutants already recorded in --output and run the rest",
+    )
+    parser.add_argument(
+        "--lock", type=Path, help="advisory lock file taken around every cargo run"
+    )
+    parser.add_argument("--mutant-timeout", type=int, default=900)
     args = parser.parse_args()
     rows = []
+    if args.resume and args.output and args.output.exists():
+        rows = json.loads(args.output.read_text())["mutations"]
+    done = {row["mutation"] for row in rows}
     for name, relative, old, _ in MUTATIONS:
         if (ROOT / relative).read_text().count(old) != 1:
             raise RuntimeError(f"{name}: mutation anchor not unique before compilation")
+
+    def report(complete):
+        return {
+            "schema": "crn-craft.mutation-check/0.1",
+            "baseline_passed": True,
+            "complete": complete,
+            "mutations": rows,
+            "caught": sum(row["caught_by_test_failure"] for row in rows),
+            "total": len(MUTATIONS),
+        }
+
     with tempfile.TemporaryDirectory(prefix="crn-mutations-") as folder:
         clone = Path(folder) / "project"
         shutil.copytree(
@@ -372,49 +393,65 @@ def main():
                 "iteration-04",
             ),
         )
-        baseline = subprocess.run(
-            [args.cargo, *TEST_COMMAND],
-            cwd=clone,
-            capture_output=True,
-            text=True,
-            timeout=300,
-            check=False,
-        )
+        command = [args.cargo, *test_command(clone)]
+        # Each mutant changes one file of one crate: incremental compilation
+        # makes the rebuilds a fraction of a clean release build.
+        os.environ.setdefault("CARGO_INCREMENTAL", "1")
+        with locked(args.lock):
+            baseline = subprocess.run(
+                command,
+                cwd=clone,
+                capture_output=True,
+                text=True,
+                timeout=3600,
+                check=False,
+            )
         if baseline.returncode != 0:
             raise RuntimeError(
                 "unmutated tests fail; no mutant can count as caught\n"
                 + baseline.stdout[-2000:]
                 + baseline.stderr[-2000:]
             )
+        print("baseline passed", file=sys.stderr, flush=True)
         for name, relative, old, new in MUTATIONS:
+            if name in done:
+                continue
             path = clone / relative
             original = path.read_text()
             if original.count(old) != 1:
                 raise RuntimeError(f"{name}: mutation anchor not unique")
             path.write_text(original.replace(old, new))
             try:
-                result = subprocess.run(
-                    [args.cargo, *TEST_COMMAND],
-                    cwd=clone,
-                    capture_output=True,
-                    text=True,
-                    timeout=120,
-                    check=False,
-                )
-                combined = result.stdout + result.stderr
+                try:
+                    with locked(args.lock):
+                        result = subprocess.run(
+                            command,
+                            cwd=clone,
+                            capture_output=True,
+                            text=True,
+                            timeout=args.mutant_timeout,
+                            check=False,
+                        )
+                    stdout, stderr, code = (
+                        result.stdout,
+                        result.stderr,
+                        result.returncode,
+                    )
+                except subprocess.TimeoutExpired:
+                    stdout, stderr, code = "", "", None
                 failed_tests = [
                     line
-                    for line in result.stdout.splitlines()
+                    for line in stdout.splitlines()
                     if line.startswith("test ") and line.endswith(" ... FAILED")
                 ]
                 caught = (
-                    result.returncode == 101
+                    code == 101
                     and bool(failed_tests)
-                    and "could not compile" not in combined
+                    and "could not compile" not in stdout + stderr
                 )
                 print(
                     f"{len(rows) + 1}/{len(MUTATIONS)} {name}: {caught}",
-                    file=__import__("sys").stderr,
+                    file=sys.stderr,
                     flush=True,
                 )
                 rows.append(
@@ -422,24 +459,20 @@ def main():
                         "mutation": name,
                         "file": relative,
                         "caught_by_test_failure": caught,
-                        "exit_code": result.returncode,
+                        "exit_code": code,
                         "failed_tests": failed_tests,
                     }
                 )
+                if args.output:
+                    args.output.write_text(json.dumps(report(False), indent=2) + "\n")
             finally:
                 path.write_text(original)
-    report = {
-        "schema": "crn-craft.mutation-check/0.1",
-        "baseline_passed": True,
-        "mutations": rows,
-        "caught": sum(row["caught_by_test_failure"] for row in rows),
-        "total": len(MUTATIONS),
-    }
-    text = json.dumps(report, indent=2) + "\n"
+    final = report(True)
+    text = json.dumps(final, indent=2) + "\n"
     if args.output:
         args.output.write_text(text)
     print(text, end="")
-    if report["caught"] != report["total"]:
+    if final["caught"] != final["total"]:
         raise RuntimeError("a mutation survived or did not produce a test failure")
 
 

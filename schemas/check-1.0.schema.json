@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "CheckVersion": {
+      "description": "The version of a model check report, its `schema` field.",
+      "enum": [
+        "crn-craft.check/1.0"
+      ],
+      "type": "string"
+    },
+    "Diagnostic": {
+      "additionalProperties": false,
+      "description": "One structured finding with a stable code, the JSON Pointer of the input it concerns, a message and a repair hint.",
+      "properties": {
+        "code": {
+          "description": "Stable code such as `CRN-E012` or `CRN-W001`, part of the machine contract.",
+          "type": "string"
+        },
+        "hint": {
+          "description": "Suggested repair for the finding.",
+          "type": "string"
+        },
+        "message": {
+          "description": "Human-readable detail; its wording is not part of the contract.",
+          "type": "string"
+        },
+        "path": {
+          "description": "RFC 6901 JSON Pointer. Empty string denotes the document root.",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/definitions/Severity"
+        }
+      },
+      "required": [
+        "code",
+        "hint",
+        "message",
+        "path",
+        "severity"
+      ],
+      "type": "object"
+    },
+    "Severity": {
+      "description": "Whether a diagnostic blocks use of the input or result: `error` does, `warning` is advisory.",
+      "enum": [
+        "error",
+        "warning"
+      ],
+      "type": "string"
+    }
+  },
+  "description": "The report of `crn-craft check MODEL [REQUEST]`: `crn-craft.check/1.0`, with the fields of `crn-craft.rules-check/0.1` and `run_sha256`. It is reported for a `crn-craft.model/1.0` document, for a network `crn-craft.model/0.1` (checked by converting it) and for any model with a request (whether `crn-craft run` would accept the two documents).\n\nThe check stops at the first stage that fails (parsing, size limits, names and types, then the rest of the model, then the request), so `diagnostics` lists the errors of that stage.",
+  "properties": {
+    "diagnostics": {
+      "description": "Errors with stable codes and JSON Pointer paths: `CRN-E001` to `CRN-E004` from parsing, `CRN-R010` to `CRN-R016` and `CRN-E033` from the model, `CRN-E030` for an unreadable file, and with a request the errors `crn-craft run` would report before running (`CRN-R020`, `CRN-R017`, ...), with paths into the request or the model.",
+      "items": {
+        "$ref": "#/definitions/Diagnostic"
+      },
+      "type": "array"
+    },
+    "model_sha256": {
+      "description": "SHA-256 of the model bytes, when they could be read.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "run_sha256": {
+      "description": "SHA-256 of the request bytes, when a request was checked (`crn-craft.check/1.0` only; absent otherwise).",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema": {
+      "$ref": "#/definitions/CheckVersion"
+    },
+    "valid": {
+      "description": "True when the model parses and compiles without diagnostics.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "diagnostics",
+    "schema",
+    "valid"
+  ],
+  "title": "RulesCheck",
+  "type": "object"
+}

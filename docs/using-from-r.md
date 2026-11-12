@@ -10,6 +10,16 @@ The example [`examples/r/sir.R`](../examples/r/sir.R) was tested with:
 - crn-craft 0.6.0
 - Python 3.13
 
+The example imports `crn_craft.rules`, which release 0.7.0 keeps unchanged:
+it writes the same documents and prints the same numbers as 0.6.0. The
+top-level module `crn_craft` has the same calls under the same names, for
+example `crn <- import("crn_craft")` and `crn$Model("sir")`. It differs in
+what it writes: `crn$ensemble` writes the 1.0 contracts, asks for the
+quantiles 0.025, 0.5 and 0.975 (so `result$statistics` also holds `median` and
+`quantiles`) and leaves the Static Direct selector to `auto`, so its paths
+differ from those of `crn_craft.rules`. The example has not been run again in R
+on 0.7.0.
+
 ## One-time setup
 
 ```r
@@ -134,8 +144,8 @@ one <- result$event_frame(0L)                # one replicate's log as a data.fra
 ## Without Python
 
 The `crn-craft` command-line tool (`cargo install crn-craft-cli`, then
-`crn-craft rules MODEL REQUEST`) reads and writes JSON, which R can handle
+`crn-craft run MODEL REQUEST`) reads and writes JSON, which R can handle
 with jsonlite. You then write the model in the
-[rules language](rules-language.md) and the run request in JSON yourself;
+[model language](rules-language.md) and the run request in JSON yourself;
 the request must name the model file and its SHA-256 hash
 ([user manual, section 15](mtdna-user-manual.md#15-the-command-line-and-json-requests)).

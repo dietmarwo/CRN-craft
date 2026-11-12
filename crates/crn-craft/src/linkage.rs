@@ -1,11 +1,12 @@
 //! Reaction complexes and graph components. No kinetic theorem is inferred.
 //!
-//! [`analyze_linkage`] builds the complex graph of a network (each distinct
-//! reactant or product side is a node, each reaction an edge) and reports its
+//! [`analyze_linkage`] builds the complex graph of a [`FlatView`] (each
+//! distinct reactant or product side is a node, each channel an edge; for a
+//! converted network model, each reaction) and reports its
 //! linkage classes, strong linkage classes, terminal strong linkage classes,
 //! weak reversibility and the deficiency n − l − s. Component lists are
 //! sorted, so the report is deterministic.
-use crate::network::{CompiledNetwork, Term};
+use crate::{analysis::Term, rules::FlatView};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -44,7 +45,7 @@ pub struct LinkageReport {
 /// Computes the [`LinkageReport`]. `exact_rank` is the rank of the
 /// stoichiometric matrix, as [`crate::conservation::ConservationReport::rank`]
 /// reports it; without it the deficiency is absent.
-pub fn analyze_linkage(network: &CompiledNetwork, exact_rank: Option<usize>) -> LinkageReport {
+pub fn analyze_linkage(view: &FlatView, exact_rank: Option<usize>) -> LinkageReport {
     let mut complexes = Vec::new();
     let mut index = BTreeMap::new();
     let mut identify = |side: &[Term]| {
@@ -55,12 +56,10 @@ pub fn analyze_linkage(network: &CompiledNetwork, exact_rank: Option<usize>) -> 
             id
         })
     };
-    let edges: Vec<_> = network
-        .reactions()
-        .iter()
-        .map(|r| ComplexEdge {
-            source: identify(&r.reactants),
-            target: identify(&r.products),
+    let edges: Vec<_> = (0..view.channels())
+        .map(|channel| ComplexEdge {
+            source: identify(&Term::list(view.reactants(channel))),
+            target: identify(&Term::list(view.products(channel))),
         })
         .collect();
     let n = complexes.len();

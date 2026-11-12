@@ -1,4 +1,12 @@
-"""Explicit finite-network import subsets. No silent SBML/rule expansion."""
+"""Explicit finite-network import subsets. No silent SBML/rule expansion.
+
+The importers build a network model (`crn-craft.model/0.1`) exactly as in
+0.6.0, validate it, and return it converted to `crn-craft.model/1.0` by
+:func:`crn_craft.convert`, inside a `crn-craft.import/1.0` report that keeps
+the source's provenance. ``report["model"]`` is the converted model as a
+dictionary, ready for the unified API (a later ``read_sbml``/``read_bngl``
+wraps it in a ``Model``).
+"""
 
 import ast
 from collections import Counter
@@ -62,17 +70,22 @@ def _model(name):
 
 
 def _report(raw, source, model, **extra):
-    # Reuse the native strict domain validator; import is not biological validation.
-    from . import check
+    # The converter applies the native strict domain validation of network
+    # models; import is not biological validation.
+    from ._common import CrnError, convert
 
-    validation = check(model)
-    if not validation["valid"]:
-        fail(json.dumps(validation["diagnostics"]))
+    try:
+        # The converter's canonical bytes, parsed in their key order.
+        converted = json.loads(convert(model))
+    except CrnError as error:
+        # The network model's validation errors, or a model the converter
+        # cannot hold, for example a network without reactions (CRN-R016).
+        fail(json.dumps(error.diagnostics))
     return {
-        "schema": "crn-craft.import/0.1",
+        "schema": "crn-craft.import/1.0",
         "source_format": source,
         "source_sha256": hashlib.sha256(raw).hexdigest(),
-        "model": model,
+        "model": converted,
         **extra,
     }
 

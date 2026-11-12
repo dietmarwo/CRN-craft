@@ -362,34 +362,58 @@ def network_dimerization(binary, workdir, times, replicates):
             },
         ],
     }
-    path = workdir / "dimerization.model.json"
+    path = workdir / "dimerization.network.json"
     path.write_text(json.dumps(model))
+    # Since 0.7.0 (M8a): the network model is converted and run on the unified
+    # engine as Static Direct with inverse waits and the linear selector, which
+    # replaces the network engine's `ssa` command of 0.6.0.
+    converted = subprocess.run(
+        [str(binary), "convert", str(path)],
+        capture_output=True,
+        check=False,
+    )
+    require(converted.returncode == 0, "convert of the network dimerization")
+    path = workdir / "dimerization.model.json"
+    path.write_bytes(converted.stdout)
     request = {
-        "schema": "crn-craft.ssa-run/0.2",
+        "schema": "crn-craft.run/1.0",
         "model": {
             "path": path.name,
             "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         },
-        "method": {"kind": "ssa", "aggregator": "direct", "waiting_time": "inverse"},
-        "time": {"end": times[-1], "save_times": [0.0, *times]},
+        "method": {
+            "kind": "static_direct",
+            "selector": "linear",
+            "waiting_time": "inverse",
+        },
+        "time": {"end": times[-1], "report_times": [0.0, *times]},
         "ensemble": {"replicates": replicates, "root_seed": SEED},
-        "outputs": {"statistics": ["mean"], "keep_trajectories": replicates},
+        "outputs": {
+            "statistics": ["mean"],
+            "keep_paths": replicates,
+            "keep_instances": 0,
+        },
         "budget": {
             "max_events_per_replicate": 10_000_000,
             "max_sampling_steps_per_replicate": 100_000_000,
+            "max_instances": 16,
             "threads": 4,
             "max_output_bytes": 1 << 30,
         },
     }
-    rpath = workdir / "dimerization.ssa.json"
+    rpath = workdir / "dimerization.run.json"
     rpath.write_text(json.dumps(request))
-    code, result = invoke(binary, "ssa", path, rpath)
+    code, result = invoke(binary, "run", path, rpath)
     require(
         code == 0 and result["termination"] == "completed", "network SSA incomplete"
     )
-    counts = np.array([t["counts"] for t in result["trajectories"]], dtype=np.int64)
+    column = result["observables"].index("X")
+    counts = np.array(
+        [[row[column] for row in p["values"]] for p in result["paths"]],
+        dtype=np.int64,
+    )
     # Drop the t = 0 row; one species.
-    return {"X": counts[:, 1:, 0]}
+    return {"X": counts[:, 1:]}
 
 
 def ecdf_distance(samples, cdf):

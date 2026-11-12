@@ -1,5 +1,14 @@
 # M1b: conservation cones and reaction graphs
 
+> **History (note of 12 November 2026).** This page records milestone M1b
+> of 1 November 2026, when `analyze` wrote analysis 0.2 and `analyze-v1`
+> kept analysis 0.1. Release 0.7.0 replaced both with
+> `crn-craft.analysis/1.0`, computed on the flat view of any closed model
+> ([network analysis](network-api.md)); the analysis functions take a
+> `crn_craft::rules::FlatView`. The cone algorithm, its limits and the
+> reaction graph below are unchanged, and the example below gives the same
+> bounds under 0.7.0. `CRN-E042` and the legacy warning policy are gone.
+
 `analyze MODEL [STATE]` now emits analysis 0.2. It adds `nonnegative_conservation`, `linkage` and effective `initial_class_upper_bounds` inside `analysis`. The previous `conservation` block remains the linear-basis result, including its original basis-only bounds. `analyze-v1` preserves the complete 0.1 output and warning policy.
 
 ## Nonnegative conservation
@@ -43,7 +52,7 @@ On `exact`, a null bound means no nonnegative linear conservation law bounds tha
 
 Complexes are the complete reactant/product multisets, with coefficients and catalysts retained. Their indices follow first occurrence while visiting reaction sides in declaration order. The empty complex is included when it appears in a source, sink or empty null reaction. Isolated declared species do not create a complex. Duplicate channels share complex nodes but keep one edge per reaction. Zero-rate and gated channels remain in this structural graph.
 
-The graph reports weak linkage classes, strong linkage classes, terminal strong classes and weak reversibility. Components and member indices are sorted. Iterative traversal avoids recursion depth failures. Deficiency is `number_of_complexes - number_of_linkage_classes - exact_rank(N)` and is null when the exact rank is unavailable. The public `analyze_linkage(network, exact_rank)` API requires a previously established rank, or None; current CLI analysis obtains it from checked linear conservation analysis.
+The graph reports weak linkage classes, strong linkage classes, terminal strong classes and weak reversibility. Components and member indices are sorted. Iterative traversal avoids recursion depth failures. Deficiency is `number_of_complexes - number_of_linkage_classes - exact_rank(N)` and is null when the exact rank is unavailable. The public `analyze_linkage(view, exact_rank)` API requires a previously established rank, or None; current CLI analysis obtains it from checked linear conservation analysis.
 
 These terms follow the [Catalyst network-analysis definitions](https://docs.sciml.ai/Catalyst/stable/api/network_analysis_api/). No deficiency-zero theorem, equilibrium, stability or mass-action assumption is inferred from a structural report. Custom rates are allowed in graph analysis.
 

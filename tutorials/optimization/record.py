@@ -2,7 +2,7 @@
 """Summarize complete smoke and study runs into results/verified.json.
 
 Each directory holds C1/, C2/, C3/ and C4/ with the summary.json that run.py
-writes (C1 with --include-checked). Only complete, passed runs are recorded;
+writes (C1 with --include-next-reaction). Only complete, passed runs are recorded;
 the record keeps the numbers that VALIDATION.md cites, not host paths or
 timings.
 """
@@ -24,8 +24,8 @@ def pick(row, keys):
 
 def c1(s):
     policies = sorted({a["policy"] for a in s["arms"]})
-    if policies != ["checked", "fast"]:
-        fail("C1.policies", "record C1 with --include-checked")
+    if policies != ["direct", "next_reaction"]:
+        fail("C1.policies", "record C1 with --include-next-reaction")
     return dict(
         arms=[
             pick(

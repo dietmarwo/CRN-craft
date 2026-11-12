@@ -1,477 +1,514 @@
 # CRN-craft technical report
 
-**Version:** `0.2.0-dev.1`, source of 1 November 2026 (campaign M3–M10,
-performance iterations P01–P20 and the review of this date).
+**Version:** 0.7.0 (unreleased), source of 12 November 2026: the branch
+that merged the network engine and the rules engine into one engine.
 **Scope:** design, numerical methods, validation evidence and measured
-performance of the exact and approximate solvers. Companion documents: the
-[architecture overview](architecture.md), the [tutorial](tutorial.md) and the
-performance declarations [P01–P10](campaign/performance.md) and
-[P11–P20](campaign/performance-p11-p20.md).
-**Later additions** are documented separately: the `ssa` command with six
-exact aggregators and the `fast` policy ([alternative SSA](alternative-ssa.md)),
-discovery 0.10 (native CLI: 0.11 in 0.2.0, 0.12 in 0.3.0 and 0.13 in
-0.4.0 with rules-run/0.6), and the experimental rules engine
-([rules language](rules-language.md), [mtDNA ensembles](mtdna-rules.md)).
-All of them first shipped in release 0.2.0 (4 November 2026). The comparisons cited in
-section 7 were measured on development builds before that release.
+performance of the one engine. Companion documents: the
+[architecture overview](architecture.md), the [contracts](contracts.md), the
+[exact methods](direct-ssa.md), the [model reference](rules-language.md) and
+the [merge implementation log](campaign/merge-0.7/README.md).
+**Evidence:** every gate below was declared in
+[`validation/merge/RESULTS.md`](../validation/merge/RESULTS.md) before it
+ran, and its report is committed under `validation/merge/`. Failed rows are
+kept there.
+**History:** the report of release 0.6.0 described the network engine of
+releases 0.2.0 to 0.6.0. Its numbers are summarized, and marked, in
+section 9.
 
 ## 1. Summary
 
-CRN-craft is a Rust library and command-line tool, with an optional Python
-package, for stochastic simulation and analysis of well-mixed chemical
-reaction networks. It provides two exact implementations of Gillespie's Direct
-method, a finite state projection solver for the chemical master equation,
-experimental tau leaping, exact conservation and graph analysis, strict
-importers and exporters, and integrations with the fcmaes optimization worker
-and the diffsol ODE solver.
+CRN-craft is a Rust library and command-line tool, with a Python package,
+for stochastic simulation and analysis of well-mixed chemical reaction
+networks, including networks whose species carry attributes and appear
+during a run. One engine provides exact simulation (Direct with four event
+selectors, next reaction, a dynamic tree method, thinning and a certified
+specialization), approximate tau leaping, binomial and hybrid methods, a
+finite state projection solver for the chemical master equation, exact
+conservation and graph analysis, ODE right-hand sides with Jacobians, and
+strict importers and exporters.
 
-Main properties and results:
-
-- **Reproducible to the bit.** Results depend only on the exact input bytes:
-  replicate *i* draws from its own keyed ChaCha8 stream, sums are formed in a
-  fixed order with explicit resolution checks, and ensembles are reduced in
-  replicate order. One, two and eight threads give identical results; the
-  plain and dependency-cached implementations give byte-identical results; and
-  the final source reproduces the numerical digests of the original M2
-  baseline (5a07334) on every benchmark workload.
+- **Reproducible to the bit.** A result depends only on the exact input
+  bytes, the sampler identity and the seed. Replicate *i* draws from its own
+  keyed ChaCha8 stream, sums are formed in a fixed order with explicit
+  resolution checks, and ensembles reduce in replicate order, so one, two or
+  eight threads give identical results. Every stored request of the former
+  rules engine (`rules-run` 0.1 to 0.6) replays byte for byte, checked on
+  every build.
 - **Honest outputs.** Incomplete ensembles withhold statistics; FSP reports
   leakage, series truncation and roundoff separately and never renormalizes;
-  approximate methods use their own schema and assessment.
-- **Validated.** 166 Rust tests in the core and CLI and 9 in the
-  integrations; a 45-mutant source mutation gate; analytic
-  SSA campaigns of 300,000 paths and exact master-equation checks of
-  4 × 100,000 paths with second-order, Hill and Michaelis–Menten channels;
-  FSP checks including the DSMTS suite; tau envelopes over 30,000 paths;
-  Python, importer, installed-package and tutorial checkers, each run normally
-  and under `python -O` with identical reports.
-- **Fast where it matters.** One core of a shared 2-vCPU host runs the exact
-  SSA at 48 ns per event on a two-channel network and 151 ns per event on
-  12- and sparse 66-reaction networks with `simulate-cached`. Against the
-  original baseline, `simulate` is 1.4–2.0 times faster on the frozen
-  workloads, and `simulate-cached` is a further 2.1–3.3 times faster on the
-  12- and sparse 66-reaction networks. FSP is 1.4–2.3 times faster than at P10,
-  and tau leaping with large leap means about 300 times faster.
+  approximate methods carry their own sampler identities.
+- **One engine, the same laws.** Results of the former network engine do not
+  replay: its loops and its xoshiro256++ stream are gone. Its models convert,
+  and the unified engine samples the same laws: the law gate of 4,814
+  comparisons over twelve models passed with 0 failures for every selector
+  and for the default (section 6.2). The features the network engine had
+  alone (FSP, analysis, kinetics, export) were ported to a view of the
+  lowered model and checked against references recorded from release 0.6.0
+  (section 6.3).
+- **Speed.** The declared speed gate allowed the best unified method 1.25
+  times the time of the best of 21 methods of release 0.6.0 on each of
+  twelve models. Its rerun passed, with ratios from 0.66 to 1.20; the
+  margins of five models lie within this host's run-to-run noise
+  (section 7.1). On the mtDNA workload, 0.7.0 takes 0.72 to 1.00 times the
+  time of 0.6.0, with identical results (section 7.2).
 
 ## 2. Design goals
 
-1. **Exactness is a contract.** A method called exact reproduces the
-   stochastic process up to floating-point arithmetic whose order is fixed and
-   whose failure modes (lost increments, unresolvable rates, stalled clocks)
-   are detected, not hidden. Two implementations of the same method must agree
-   bit for bit.
-2. **Traceability.** Every result names the SHA-256 of the exact model and run
-   bytes; archives seal results with a manifest and a completion marker; the
-   provenance records toolchain, lockfile and executable hashes.
+1. **Exactness is a contract.** A method called exact samples the stochastic
+   process up to floating-point arithmetic whose order is fixed and whose
+   failure modes (lost increments, unresolvable rates, stalled clocks) are
+   detected, not hidden. Two implementations that claim one sampler
+   identity must agree bit for bit.
+2. **Traceability.** Every result names the SHA-256 of the exact model and
+   request bytes and its sampler identity; archives seal a run with a
+   manifest and a completion marker.
 3. **Explicit limits.** Every algorithm has published size, work, memory and
    output limits. A run is admitted only if its memory reservation fits.
-   Exceeding a limit produces a diagnostic, never a truncated result presented
-   as complete.
+   Exceeding a limit produces a diagnostic, never a truncated result
+   presented as complete.
 4. **Small trusted core.** The engine has no Python, job or ODE dependency,
    forbids unsafe code, pins every dependency, and uses no GPL code.
    Optional integrations live in separate workspaces.
 
 ## 3. Architecture
 
-The [architecture overview](architecture.md) describes the layers in detail.
-In brief: versioned JSON documents (generated JSON Schemas) are parsed
-strictly, validated into diagnostics with stable codes, compiled into an
-immutable indexed network with sparse stoichiometry and a reaction-dependency
-graph, and executed by one of four engines (Direct, cached Direct, FSP, tau).
-SSA results can be sealed into verifiable archives. The command-line tool and
-the PyO3 binding are thin layers over the same core.
-
-| Component | Lines (Rust/Python) | Role |
-|---|---|---|
-| `simulation.rs` | 900 | Direct and cached Direct, ensembles, budgets, polling |
-| `tau.rs` | 640 | tau leaping, CGP step size, PTRS sampling |
-| `fsp.rs` | 480 | reachable-state projection, uniformization |
-| `archive.rs` | 560 | sealed result directories and the verifier |
-| `validate.rs` | 490 | structural and domain validation |
-| `sampling.rs` | 380 | random streams, strict sums, selection |
-| `network.rs` | 360 | compiled network, checked updates |
-| `cone.rs`, `conservation.rs`, `linkage.rs` | 760 | exact analysis |
-| `python/crn_craft` | 1,010 | dictionaries API, observables, importers, CLI |
+The [architecture overview](architecture.md) describes the layers. In brief:
+versioned JSON documents are parsed strictly into Rust types that also
+generate the JSON Schemas; the model is compiled (patterns into classes,
+predicates into bytecode); a request is validated and admitted against its
+memory reservation; a closed model is lowered to a flat network of species
+and channels whose rates are compiled into programs with folded parameters;
+and one of the methods runs the ensemble. The flat view of the lowered model serves
+FSP, analysis, kinetics and export. The command-line tool and the PyO3
+binding are thin layers over the same crate, `crn-craft`. After the merge,
+`crates/*/src` holds 29,372 lines of Rust: 28,492 in `crn-craft` (48
+files), 788 in the command-line crate and 92 in the facade, whose crate
+documentation the final review shortened. Before the network engine was
+deleted it held 37,157 (M8b log of the
+[implementation log](campaign/merge-0.7/README.md)).
 
 ## 4. Numerical methods
 
-### 4.1 Direct SSA
+### 4.1 Models, lowering and propensities
 
-For state *x* with propensities *a_j(x)*, the Direct method (Gillespie 1977)
-draws the waiting time *τ = −ln(u₁)/a₀* with *a₀ = Σ a_j* and the channel *j*
-with *Σ_{k<j} a_k ≤ u₂ a₀ < Σ_{k≤j} a_k*.
+A model declares types with numeric attributes, rules whose reactant
+patterns match instances, observables (weighted sums, counts of distinct
+instances, maxima and minima) and an optional stop expression. A rule's
+`rate` is per combination of reactant molecules: a rule with patterns of
+counts *k₁, …, k_m* over species with counts *n₁, …, n_m* has propensity
+*rate · factor · ∏ C(nᵢ, kᵢ)*, the combinatorial mass action of the
+stochastic convention (`A + A` gives *c·n(n − 1)/2*). A whole-rule
+`propensity` is used as written while every pattern can take its molecules.
+Higher-order products (a pattern `count` above one, or more than two
+patterns) are evaluated as a scaled mantissa–exponent product that does not
+overflow before the result does (`crn_craft::rules::combination_rate`).
 
-Implementation details that make this exact and reproducible:
+A closed model is lowered once, at preparation: species (attribute
+vectors), channels (one per choice of matching instances), the count
+changes of each channel, the species each rate reads, and for each channel
+the sorted list of channels whose rates its firing can change. Lowering is
+index-based and accepts 4,096 instance tuples and 65,536 channels in
+`model/1.0`. Rates are compiled into flat programs; the converted Hill and
+Michaelis–Menten forms have dedicated programs. A randomized test compares
+9,000 compiled programs, and the two law shapes at 2,000 points each, with
+the expression tree evaluator: the values are equal.
 
-- **Random words.** Replicate *i* uses ChaCha8 (`rand_chacha` 0.3.1) with a
-  256-bit key equal to SHA-256 of `"crn-craft.chacha8/0.1\0"` and the root
-  seed, and stream number *i*. Uniforms are mapped from 53-bit words by a
-  pinned mapping to (0, 1) or [0, 1). The sampler identity
-  (`crn-craft.chacha8-direct/0.1`) is recorded in every result.
-- **Strict ordered sums.** *a₀* is accumulated in declaration order. A
-  positive rate whose addition does not change the sum (lost increment), a
-  non-finite sum, or a positive minimum rate below 2^-53 of the total (a
-  channel that `u₂ a₀` could never select) is a resolution failure
-  (`CRN-E061`). The prefix sums of this pass are kept, and the channel is
-  found by binary search over them (`partition_point(|s| s <= u₂ a₀)`), which
-  returns exactly the channel of a linear scan, including at dyadic ties (P11).
-- **Propensities.** Mass action uses falling factorials
-  (*c ∏ x(x−1)…/order!*), with exact fast paths for orders 0–2 and a scaled
-  fallback for extreme values (P01, P02). Hill and Michaelis–Menten laws are
-  complete propensities with reactant gates.
-- **Updates.** Firing is transactional with checked i64 arithmetic; a
-  negative count (a scheduler defect) is `CRN-E043`, a species population
-  limit stops the replicate (`CRN-E044`, `population_limit`).
-- **Time.** Save points are filled before an event that would pass them; the
-  clock must advance (`CRN-E062` otherwise); the final save is at the end time.
+### 4.2 Static Direct
 
-### 4.2 Dependency-cached Direct
+For state *x* with channel propensities *a_j(x)* and total *a₀*, the Direct
+method (Gillespie 1977) draws a waiting time and a channel with probability
+*a_j/a₀*.
 
-`simulate-cached` keeps the propensities and, after firing reaction *r*,
-recomputes only the dependents of *r* (reactions whose propensity reads a
-species that *r* changes, including regulators of custom laws and reactant
-gates). Because dependents are sorted, all prefix sums below the lowest
-dependent are unchanged; the strict pass resumes from there, reusing the
-recorded running minimum (P12). Every quantity that influences a decision is
-computed with the same operations in the same order as in `simulate`, so the
-two implementations draw the same words and choose the same channels. CI
-runs the full SSA and CME validation campaigns with both and requires
-identical reports; new tests compare them on every termination path
-(failure, population limit, overflow, event limit) and with partial
-resumption and resolution failures.
+- **Random words.** Replicate *i* uses ChaCha8 (`rand_chacha`) keyed by
+  SHA-256 of the domain `crn-craft.rules/0.1` and the root seed as eight
+  little-endian bytes, with stream number *i*. A uniform is the high 53 bits
+  of a 64-bit word times 2⁻⁵³.
+- **Waiting time.** The inverse transform *τ = −ln(1 − u)/a₀*, with *u*
+  redrawn when it is 0, or the Ziggurat exponential (tables adapted from the
+  Julia ecosystem, see [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)).
+  Ziggurat waits are the default from `rules-run/0.6` and in `run/1.0`.
+- **Selection with the linear scan.** The total is the sequential sum of the
+  rates in channel order. After an event only the affected channels change,
+  so the sum resumes at the first of them with the same additions. The
+  channel is found by subtracting rates from *u·a₀* in channel order.
+- **Resolution and failures.** A positive rate below 2⁻⁵³ of the total
+  cannot be selected by a 53-bit uniform and fails the replicate
+  (`CRN-R031`); a lower bound on the smallest positive rate avoids the exact
+  check on most events. A negative or non-finite rate fails it
+  (`CRN-R030`). A zero total is absorbing: the state is held to the horizon.
+- **Time.** Reports are filled before an event that would pass them, with
+  the pre-event state; an event exactly at a report time is included. Under
+  `run/1.0` a positive wait too small to move the clock is accepted, and
+  1,000,000 consecutive such steps fail with `CRN-R030`; a step then leaves
+  the clock unchanged with probability about *1 − exp(−a₀·ulp(t)/2)*, so the
+  limit is reached only when about 22 or more events are expected per
+  representable step of the clock. Every `rules-run` version fails at the
+  first stalled step.
+- **Updates.** Count updates are checked and applied in one pass that undoes
+  itself on a range or instance error. Observables are refreshed along
+  dependencies; report-only observables that cannot overflow are computed
+  at report times.
 
-### 4.3 Ensembles and concurrency
+### 4.3 Selectors
 
-Replicates are assigned round-robin to up to 64 workers. Each worker reuses
-its state, rate, prefix and minimum buffers across replicates (P16) and sends
-paths through a bounded channel (capacity 4 when the larger reservation fits,
-else 1); the caller consumes replicates strictly in order and updates Welford
-mean and variance sums. With one worker no thread is spawned (P06). Saved
-states use one flat buffer per path (P15), which makes the memory reservation
-formula an actual upper bound: before P15 a run with many save points
-allocated about 375 MiB against a 241 MiB reservation.
+Under `run/1.0` Static Direct takes a `selector`. Every selector samples the
+same law; each consumes the random stream differently and has its own
+sampler identity ([exact methods](direct-ssa.md)).
 
-Stopping is cooperative. A per-worker poller reads the shared cancellation
-flag at every poll and the wall clock, cancel file and an optional external
-callback every 64th poll, the file at most once per millisecond. The Direct
-loop polls once per event and every 64 channels inside large recomputations
-(P14).
+- **Composition–rejection** (Slepoy, Thompson and Plimpton 2008): channels
+  grouped by the binary exponent of their rate, a group drawn by its mass
+  from pairwise sums with the strictness of the linear scan, a member by
+  rejection with Lemire's joint member-and-acceptance draw.
+- **Sorting** (McCollum et al. 2006): the linear scan in an order that
+  moves each fired channel one place forward; a threshold at or above the
+  sequential sum is redrawn.
+- **RSSA-CR** (Thanh, Priami and Zunino 2014): each species has an interval
+  around its count; each channel has lower and upper bounds of its rate over
+  the box. A rule whose rate reads one species is evaluated at every count of
+  that species' interval with the engine's arithmetic, so its range is exact
+  for any expression; a rule that reads two or more species pins them, and
+  its bounds are its exact value. A candidate drawn by composition–rejection
+  from the upper bounds is accepted below its lower bound, otherwise against
+  its exact rate, reusing the composition's accepting threshold. So RSSA-CR
+  runs every model that Static Direct runs.
+- **`auto`**, the default of `run/1.0`: RSSA-CR from 8 channels when no rate
+  reads two or more species (from 128 channels when the species that start
+  with molecules average fewer than 8), composition–rejection from 128
+  channels, otherwise the linear scan. The rule was fitted by declared
+  criteria to a benchmark of eight synthetic families and the twelve gate
+  models; every pick on the gate models is the fastest selector except
+  michaelis-menten (linear, 1.08 times sorting).
 
-### 4.4 Finite state projection
+### 4.4 Other exact methods
 
-Following Munsky and Khammash (2006), `fsp` builds the reachable states within
-per-species bounds by breadth-first search (up to `max_states`), with every
-transition leaving the box sent to an absorbing sink. The probability vector
-*p(t)* is propagated by uniformization: with *Λ ≥* the largest exit rate and
-*P = I + Q/Λ*, *p(t+Δ) = Σ_k e^{−ΛΔ}(ΛΔ)^k/k! · p P^k*. Each save interval is
-split so that *ΛΔ ≤ 16*; each series is truncated when the geometric tail
-majorant falls below the per-step share of the requested tolerance. Reported
-separately per snapshot: probability in the sink (physical leakage), the sum
-of the series tail bounds, the omitted series weight (summed explicitly from
-the first omitted term, not as one minus the kept weight), the total mass
-defect and the roundoff residual. Probabilities are never renormalized.
+- **Next reaction** (Gibson and Bruck 2000) keeps one clock per channel in an
+  indexed heap and rescales the clocks of the affected channels.
+- **Tree** recomputes rule propensities over sum trees of instances. It runs
+  models whose instances change identity or draw random product attributes,
+  and refuses higher-order rules.
+- **`mtdna_direct`** is a grouped Direct method for the fixed three-class
+  mtDNA structure. Preparation certifies the model and each parameter set:
+  in every reachable state each positive hazard is at least 16 × 2⁻⁵³ of the
+  total. Otherwise Static Direct runs with a `CRN-R051` warning.
+- **Thinning** integrates the analytic ATP flow of models with the ATP block
+  between events and thins against a checked intensity envelope.
 
-Since P18 the generator is stored by column (CSC with the diagonal at its own
-position and the sink last), and each series term is one pass that gathers
-*(pP)_j = Σ_i p_i P_ij* in ascending *i* and adds it to the running series sum.
-This is the same summation order as the earlier row-oriented scatter, so the
-results are bitwise unchanged.
+### 4.5 Approximate methods
 
-### 4.5 Tau leaping
+- **Tau leaping** follows the step selection of Cao, Gillespie and Petzold
+  (2006): the species bound uses *g = 2* for expression rates, and a
+  propensity condition bounds the mean and spread of every rate change by
+  *ε·a_j* through first differences, so rates that read global observables
+  are controlled directly. Channels that ten firings could switch off are
+  critical and fire at most once per leap; unacceptable proposals halve the
+  step before an exact fallback. Poisson variates with mean at most 16 use
+  the multiplication method, larger means Hörmann's PTRS (1993). The leap
+  condition costs *O(channels²)* per attempted leap (section 6.6).
+- **Binomial splitting** resolves fixed steps by competing-risk
+  probabilities *(a/Λ)(1 − e^(−Λ·dt/n))* per parent for single-parent unit
+  births and deaths.
+- **Hybrid** integrates continuous variables with Dormand–Prince 5(4) at the
+  request's tolerances between stochastic events.
 
-`tau` implements explicit Poisson leaping. The leap *τ* is the largest step
-for which the expected change and the standard deviation of every reactant
-species stay below *max(ε x_i / g_i, 1)* (Cao, Gillespie and Petzold 2006,
-with their factors *g_i* (eq. 27) for orders up to three), capped so that no
-leap mean exceeds 10^7. Proposals that would make a count negative are
-rejected and the leap halved; after 20 rejections, or when channels are
-close to exhausting a reactant, the step falls back to exact Direct events.
-Tau uses its own stream domain (`crn-craft.chacha8-tau/0.1`). Poisson variates
-with mean at most 16 use the multiplication method; larger means use
-Hörmann's PTRS (1993), an exact transformed-rejection sampler with about
-1.1 pairs of uniforms per variate (P19). Results carry the algorithm
-identifier `adaptive_explicit_poisson_cgp_reject_halve_direct_fallback/0.3`
-and `assessment: approximate_ensemble`.
+Their results are approximate at their declared parameters, and their
+sampler identities say so.
 
-Accuracy note (measured, see §7.3): when ε exceeds the relative fluctuation
-size of a species (about 1/√x near equilibrium), the leaps move the state by more
-than its own fluctuations and the stationary variance is inflated: by 18% at
-ε = 0.03 and 68% at ε = 0.1 for a mean of 1,000, and by a factor of about
-1.7 at ε = 0.05 for a mean of 10,000. Means remain accurate.
+### 4.6 Ensembles, statistics and quantiles
 
-### 4.6 Analysis
+Workers claim replicate ids from a shared counter; a window of four
+replicates per worker bounds how far they run ahead, and results reduce in
+ascending id order, so statistics do not depend on the thread count.
+Quantiles keep one value per replicate, report time and observable, and
+use NumPy's default definition (Hyndman and Fan type 7) evaluated as NumPy
+evaluates it, so the values equal `numpy.quantile` bit for bit. Admission
+counts that buffer against the 2 GiB workspace limit. Statistics,
+quantiles included, are withheld unless every replicate completed or
+stopped.
 
-`conservation` computes an exact rational basis of the left nullspace of the
-stoichiometric matrix with checked i128 arithmetic; `cone` enumerates the
-extreme rays of the nonnegative conservation cone by a bounded double
-description method (after Burton, arXiv:0808.4050) and derives upper bounds for
-every species in the initial conservation class; `linkage` computes complexes,
-linkage and strong linkage classes, terminal classes, deficiency and weak
-reversibility. Every algorithm stops at explicit limits with an `unavailable`
-status.
+### 4.7 Finite state projection
+
+Following Munsky and Khammash (2006), an `fsp` request enumerates the
+reachable states of the flat view within per-species bounds by breadth-first
+search (up to `max_states`), with every transition leaving the box sent to
+an absorbing sink. A state where the model's stop holds is absorbing as
+well. The probability vector is propagated by uniformization, each interval
+split so that *ΛΔ ≤ 16*, and each series truncated when its geometric tail
+majorant falls below the step's share of the tolerance. Leakage, the series
+tail bounds, the omitted series weight, the total mass defect and the
+roundoff residual are reported separately per snapshot, and probabilities
+are never renormalized. The generator is stored by column and each series
+term gathers in ascending state order.
+
+### 4.8 Analysis, kinetics and export
+
+- **Conservation** computes an exact rational basis of the left nullspace of
+  the stoichiometric matrix with checked i128 arithmetic; the **cone**
+  enumerates the extreme rays of the nonnegative conservation cone by a
+  bounded double description method (after Burton) and bounds every species
+  of the initial class; **linkage** computes complexes, linkage classes,
+  deficiency and weak reversibility. Each stops at explicit limits.
+- **Kinetics** gives the right-hand side *rate · factor · ∏ yᵢ^kᵢ/kᵢ!* (or a
+  whole-rule propensity without its availability gate, accepted only where
+  the expression vanishes structurally when a taken species is zero) and its
+  state and parameter Jacobians, from dual-number evaluation of the rule
+  expressions. At most 64 species, 32 parameters and 256 channels.
+- **Export** writes GillesPy2 source: mass action for constant rates of at
+  most two molecules, custom propensity strings otherwise, and refusals
+  (`CRN-E050`) for what GillesPy2 cannot evaluate in both of its solvers.
+
+### 4.9 Conversion of network models
+
+The converter writes each species as an attribute-free type, mass action
+as a `rate`, Hill laws as `basal + vmax / (1 + (k / R)^n)` and
+`basal + vmax / (1 + (R / k)^n)`, and Michaelis–Menten laws as
+`vmax * (S / (km + S))`. Against the network engine's own evaluation
+(`crates/crn-craft/src/rules/convert.rs` tests): mass action of order 0
+and 1 and Michaelis–Menten are bit-identical, pairs within 4 ε, Hill laws
+within 1e-14 · max(1, n) relative, and 116 of 5,880 Hill cases where the
+induced term is below *vmax · 2⁻¹⁰²⁰* give the basal rate.
 
 ## 5. Interfaces and contracts
 
-The command-line tool exposes `describe`, `check`, `analyze` (and
-`analyze-v1`), `export`, `simulate`, `simulate-cached`, `verify`, `fsp` and
-`tau`; all output is JSON, and exit codes are documented. Contract types
-derive JSON Schemas (`crn-craft describe KIND`), and any shape change gets a
-new schema version (result 0.2, analysis 0.2, discovery 0.5, FSP and tau 0.1).
+The command line is `crn-craft describe`, `check`, `run` (with `--archive`
+and `--cancel-file`), `verify`, `analyze`, `convert` and `export`; all
+output is JSON with documented exit codes. The contracts are
+`crn-craft.model/1.0`, `run/1.0`, `result/1.0`, `fsp-result/1.0`,
+`check/1.0`, `analysis/1.0` and `archive/1.0`, with the `rules-*` versions
+still read ([contracts](contracts.md)). Contract types generate JSON
+Schemas (`crn-craft describe KIND`), and any shape change gets a new
+version.
 
-The Python package (`crn-craft` 0.2.0.dev1, ABI3 wheel for Python ≥ 3.10)
-mirrors the commands and adds observables, importers and a Python CLI. Since
-this review, native calls run on a helper thread so that Ctrl-C cancels them
-within about 50 ms, `simulate`, `fsp` and `tau` accept a `cancel_file`,
-rejected requests raise `CrnError(ValueError)` with parsed diagnostics, and
-`__version__` reports the installed version.
+The Python package (ABI3 wheel for Python 3.10 and later) exposes the
+builder, prepared ensembles, pandas and xarray results, `Result.save`, FSP
+and analysis on models, importers and compiled event loops. Native calls run
+off the GIL, so Ctrl-C cancels them within about 50 ms; rejected inputs raise
+`CrnError` with parsed diagnostics. `crn_craft.rules` keeps the 0.6.0 API
+with its defaults.
 
 ## 6. Validation
 
-### 6.1 Test suites and gates
+### 6.1 Test suites and invariants
 
 | Gate | Content |
 |---|---|
-| Rust tests | 166 tests in the core and CLI (plus 9 in the integrations) for contracts, validation, network, sampling, SSA, archives, FSP, tau, analysis, export and the CLI |
-| Mutation gate | 45 source mutants, each required to turn a passing suite into named failures (35 reviewed, 8 campaign, 2 added here for the prefix-sum and resumed-sum checks) |
-| `check_contracts.py`, `check_network.py`, `check_structure.py` | schemas, CLI behavior, exact/Decimal oracle on 200 seeded networks, 300-network cone/graph oracle |
-| `check_ssa.py` | three predeclared 100,000-path analytic campaigns, an independent scalar RNG, thread identity, cancellation latency |
-| `check_cme.py` | four 100,000-path exact master-equation checks (second-order, Hill, Michaelis–Menten), 12 DKW tests at family α = 0.001 |
-| `check_fsp.py` | 16 checks including the pinned DSMTS stochastic test suite |
-| `check_tau.py` | 30,000 analytic control paths at ε = 0.1, 0.05, 0.025 within predeclared envelopes |
-| `check_python.py`, `check_importers.py`, `check_installed.py`, `check_tutorial.py` | binding/CLI identity, observables with synthetic controls and their gates, structured errors, cancel files and Ctrl-C, 48 importer checks, installed scripts, the tutorial's 17 runnable blocks |
+| Rust tests | `cargo test --release --workspace --locked`: 397 tests (29 of them doctests) on the merged tree (final review, 12 November 2026; 538 before M8b removed the network engine's tests); contracts, conversion, limits, higher-order rules, selectors, quantiles, the clock rule, FSP, analysis, kinetics, export, archives, generated code and the CLI |
+| I1: stored requests | `crates/crn-craft/tests/stored_requests.rs` and `static_direct_defaults.rs`: every stored `rules-run` request replays byte for byte; the same requests as `run/1.0` give the `rules-run/0.6` result apart from schema and hashes |
+| I2, I2b: manuals | `check_manual.py` runs every block of the user manual (26) and of the frozen 0.6.0 manual (22), normally and under `python -O`, with identical reports |
+| I3: generated code | 20 checked-in generated sources (19 event loops, 1 rates kernel) equal the generators' output and replay the interpreter byte for byte |
+| Mutation gate | `mutation_check.py`: 47 source mutants, each turning a passing suite into named failures; 47 of 47 caught on the unified code (M8a and M8b logs, and again in the final review) |
+| Exact laws | `check_ssa.py` (analytic campaigns, an independent Python oracle that reproduces the engine's paths, thread identity, cancellation latency), `check_cme.py` (exact master-equation checks), `check_alternative_ssa.py` (168 DKW tests: 4 selectors × 2 waiting times, N = 100,000, family α = 0.001) |
+| Features | `check_fsp.py` (including the DSMTS suite), `check_tau.py`, `check_network.py`, `check_structure.py`, `check_export.py`, `check_importers.py`, `check_contracts.py` |
+| Python and documents | `check_python.py`, `check_rules_python.py`, `check_builder.py`, `check_hybrid.py`, `check_installed.py`, `check_tutorial.py`, `check_compiled_loop.py`, `check_links.py` |
 | Dependency gate | the default build's dependency set and licenses |
 
 Every Python checker runs normally and under `python -O`, and CI diffs the
-reports. `simulate` and `simulate-cached` must give byte-identical SSA and CME
-campaign reports.
+reports.
 
-### 6.2 Review of 1 November 2026
+### 6.2 The law gate (N = 4,814)
 
-The supplied campaign patch was reviewed by independent reviewers for the
-core, FSP/tau, the Python layer and the integrations. Fixed in this round:
+Declared before the first run ("Law gate" in `RESULTS.md`): twelve models
+(the five examples and the workloads W1 to W7, up to 256 species, 992
+reactions and order 8), each simulated with 200,000 replicates in chunks
+with declared seeds, and compared per species and report time with
+references recorded from release 0.6.0 (200,000 replicates of its cached
+Direct method) and, for five models, with FSP laws. A comparison fails when
+a mean or a variance differs by more than five standard errors of the
+difference. Of the 4,814 comparisons, 940 are at time 0 and must be equal;
+about 0.002 failures are expected per run of a correct engine, so 0 are
+expected.
 
-- **Core:** a negative count was reported as a population-limit stop (now
-  `CRN-E043`); the memory reservation was exceeded for many save points
-  (fixed by P15, now tested); the resolution check used the first rather than
-  the smallest positive rate in one path (tested); new tests cover every
-  termination path of the cached implementation.
-- **FSP:** the output budget was estimated, not enforced (the serialized
-  size is now checked exactly, `CRN-E070`); the omitted series weight was
-  computed as one minus the kept weight and lost to cancellation (now summed
-  explicitly; tests check it stays below the tail bound).
-- **Tau:** large populations exceeded the sampler's range (leap means are
-  capped at 10^7); tau shared the Direct streams (now its own domain); the
-  *g_i* factors are tested against the published cases; `--cancel-file` and
-  help texts were added.
-- **Python:** first-passage "lower bounds" were invalid when a path crosses
-  between saved times (removed; only grid-supported bounds remain); the
-  oscillation detector failed on constant series and accepted too few
-  samples; importers accepted fixed species, missing stoichiometry, implicit
-  units, `fast` reactions, colliding identifiers and pathological literals,
-  and could hang or crash on adversarial input (all rejected with
-  `CRN-E090` within one second); Ctrl-C was ignored; errors were unstructured;
-  the installed-package check could test a different `crn-craft` on PATH.
-- **ODE (`crn-diffsol`):** BDF trial states that overshoot slightly below
-  zero aborted plain decays for horizons of 40 or more; rates are now
-  evaluated at max(y, 0), and accepted or reported values must stay within
-  one solver error weight of zero. Population limits are enforced
-  (`CRN-E044`), kinetics diagnostics are no longer lost, and times near the
-  largest double give a diagnostic instead of a panic. New dimerization, Hill
-  and decay fixtures and Jacobian checks at distinct states fail under seven
-  mutants that the old checks missed; `check_ode.py` grows from 16 to 50 rows.
-- **Fitting and screening examples:** the fit is gated on its derivative
-  report, its parameter order and a gradient check; the topology screen's
-  gate, formerly constant, now has five declared criteria and is shown to
-  fail on perturbed results. Its horizon was raised from 200 to 400 after
-  observing an ambiguous classification at 200 (documented as post hoc).
-- **Job worker:** the circuit-score penalty is a mean over paths (it grew
-  with the replicate count), the amplitude species is named, save times up to
-  a burn-in are excluded, and `seed_set` is required (problem version 2).
-  `check_jobs.py` now checks every objective value against an independent
-  recomputation and fails under five worker mutants.
+| Engine configuration | Report | Comparisons | Failures | Largest \|z\| |
+|---|---|---:|---:|---:|
+| `linear` | `laws/m4c-linear.json` | 4,814 | 0 | 3.88 |
+| `composition_rejection` | `laws/m4c-composition_rejection.json` | 4,814 | 0 | 3.83 |
+| `sorting` | `laws/m4c-sorting.json` | 4,814 | 0 | 3.51 |
+| `rssa_cr`, first run | `laws/m4c-rssa_cr.json`, `laws/m4c-rssa_cr-vilar-noise-failure.json` | 4,724 (11 models) | **vilar-noise failed** | 3.94 |
+| `rssa_cr`, after the clock rule | `laws/m4f-rssa_cr.json` | 4,814 | 0 | 3.88 |
+| `auto`, the `run/1.0` default | `laws/m4d-auto.json` | 4,814 | 0 | 3.88 |
 
-### 6.3 Limitations
+Report paths are under `validation/merge/`. The first RSSA-CR run failed on
+vilar-noise: a replicate stopped at t = 7.16 because a trial's wait was
+below half an ulp of t (`CRN-R030`, clock failed to advance), as the 0.6.0
+engine also did. The clock rule of section 4.2 accepts such steps under
+`run/1.0`; the rerun with the declared seeds passed. The `auto` gate gave
+event counts and power sums equal to the gates of the selectors it picked.
+Earlier runs on subsets passed as well (`laws/static_direct.json`: 1,102
+comparisons before the higher limits; `laws/m4-static_direct.json`: all
+twelve models after the higher limits and higher-order rules, 4,814, 0
+failures).
 
-- Validation uses analytic and master-equation references for small networks
-  and synthetic circuits; it does not establish biological validity of any
-  model.
-- Tau leaping is approximate (§4.5), and its envelopes cover three
-  immigration-death controls only.
-- The oscillation detector is calibrated on synthetic controls; its error
-  rates on real data are unknown.
-- Timings come from one shared 2-vCPU cloud host; absolute numbers vary by
-  machine. The comparisons are paired and alternate binaries to control
-  drift, but are not a cross-machine ranking.
-- macOS and Windows wheels are built by a manual workflow and are not locally
-  executed.
+### 6.3 References of the ported features
+
+| Feature | Report (`validation/merge/`) | Result |
+|---|---|---|
+| FSP against the 0.6.0 solver | `fsp/references.json` | 11,278 checks, 0 failures; largest probability difference 1.4e-17, six of seven models bit-identical |
+| Analysis of the twelve models against 0.6.0 | `analysis/references.json` | 194,388 leaves, 0 failures |
+| Kinetics against 0.6.0 | `kinetics/references.json` | 6,252 values and 12 acceptance checks, 0 failures; 6,192 bit-identical, largest relative difference 2.6e-16 |
+| GillesPy2 export against 0.6.0 | `export/references.json` | 9 artifacts byte-identical, 160 custom-propensity evaluations equal, 0 failures |
+| Higher-order rules against FSP laws | `laws/higher-order.json` | 272 comparisons, 0 failures |
+| Tau envelopes | `tau/check_tau_rules.json` | 3 rows (ε = 0.1, 0.05, 0.025; 10,000 paths each), 0 failures |
+| Quantiles against the Poisson law | `laws/quantiles-immigration-death.json` | 9 comparisons, 0 failures |
+| Selector laws | `laws/selectors-exact-m4f.json` | 168 of 168 DKW tests, 16 of 16 power checks |
+
+### 6.4 Limitations
+
+- Validation uses analytic and master-equation references for small
+  networks and synthetic circuits; it does not establish biological
+  validity of any model.
+- The law gate compares marginal means and variances, not covariances or
+  whole distributions; FSP references exist for five of the twelve models.
+- Tau leaping is approximate, its envelopes cover immigration–death
+  controls only, and on the gate model most of its steps are exact
+  fallbacks.
+- Timings come from one shared two-CPU host; absolute numbers vary by
+  machine.
 - The optional integrations (`crn-diffsol`, the job worker) are built and
-  checked locally, not in CI: they need newer Rust toolchains, pinned git
-  dependencies and the optimization-jobs runner. The ODE integration has no
-  step or wall-time budget.
+  checked locally, not in CI. `check_ode.py` is not a CI step.
+- macOS and Windows wheels are built by a manual workflow and are not
+  executed here.
 
 ## 7. Performance
 
-### 7.1 Method
+### 7.1 Speed gate
 
-Performance claims follow a predeclared protocol. Before any code or
-measurement, a declaration fixes workloads, candidate hypotheses and the
-acceptance rule. Each candidate is implemented with a test, built in release
-mode, and timed in seven alternating before/after pairs (21 for W7, five for
-W8b and W9) against the previous accepted binary, one worker, serial runs.
-Exact candidates must reproduce every numerical digest. A candidate is
-accepted if the median paired speedup on a target workload is at least 1.03
-with the lower end of its 95% bootstrap interval (20,000 resamples, seed
-20261101) above 1.0, and no frozen workload W1–W4 has an interval entirely
-below 0.97. Rejected candidates are reverted, and their diffs and timings are
-kept. Core time is the engine's own timer (simulation and output-budget
-check); process time includes startup and archive writing.
+Declared before any measurement ("Speed gate (M4d)" in `RESULTS.md`):
+twelve models (W1 to W7 at the workload sizes, the five examples), the wall
+time of one CLI process, median of three after a warm-up, one thread. The
+0.6.0 best is the smallest median over 21 methods of release 0.6.0 (five
+aggregators with the `fast` policy on and off and both waiting times, and
+next reaction), rerun in the same session with the kept 0.6.0 build. The
+unified best is the smallest median over `linear`, `composition_rejection`,
+`sorting`, `rssa_cr`, `auto` and `next_reaction`. Gate: unified best at most
+1.25 times the 0.6.0 best on each model.
 
-| ID | Workload | Events or work |
-|---|---|---|
-| W1 | two channels (immigration–death), 64 paths, horizon 100 | 1,268,165 events |
-| W2 | sparse network, 66 reactions | 1,234,576 events |
-| W3 | three-gene circuit, 12 reactions | 3,663,350 events |
-| W4 | dense network, 66 reactions | 1,225,923 events |
-| W5, W6 | W3 with 2,001 save points; W6 keeps all 64 paths | 3,663,350 events |
-| W7 | two channels, horizon 0.1 (latency) | 675 events |
-| W8a | FSP birth–death, 401 states, horizon 40 | 87.1 M work units |
-| W8b | FSP two species, 10,000 states, horizon 5 | 120.6 M work units |
-| W9 | tau, immigration–death with mean 10^4, ε = 0.05, 256 paths | 25.6 M firings |
+The first run failed on W5 (1.28; `validation/merge/speed-m4d-run1.json`).
+After the one allowed fix round, the rerun passed
+(`validation/merge/speed-m4d.json`):
 
-### 7.2 Iterations
+| Model | 0.6.0 best | s | Unified best | s | Ratio |
+|---|---|---:|---|---:|---:|
+| W1 | `direct/ziggurat/fast` | 0.0482 | `auto` (linear) | 0.0511 | 1.06 |
+| W2 | `direct_cr/ziggurat/fast` | 0.0906 | `rssa_cr` | 0.1031 | 1.14 |
+| W3 | `cached_direct/ziggurat/fast` | 0.2248 | `auto` (linear) | 0.2707 | 1.20 |
+| W4 | `rssa_cr/ziggurat/fast` | 0.1119 | `auto` (rssa_cr) | 0.1084 | 0.97 |
+| W5 | `direct_cr/ziggurat/fast` | 0.0614 | `auto` (rssa_cr) | 0.0685 | 1.12 |
+| W6 | `rssa_cr/inverse/fast` | 0.0639 | `auto` (rssa_cr) | 0.0599 | 0.94 |
+| W7 | `cached_direct/ziggurat/fast` | 0.0185 | `rssa_cr` | 0.0216 | 1.17 |
+| enzyme-mechanism | `cached_direct/ziggurat/fast` | 0.0731 | `sorting` | 0.0622 | 0.85 |
+| immigration-death | `cached_direct/ziggurat/fast` | 0.0687 | `auto` (linear) | 0.0474 | 0.69 |
+| michaelis-menten | `direct/ziggurat/fast` | 0.0561 | `auto` (linear) | 0.0368 | 0.66 |
+| repressilator | `cached_direct/ziggurat/fast` | 0.2809 | `linear` | 0.3178 | 1.13 |
+| vilar-noise | `cached_direct/ziggurat/fast` | 1.0514 | `auto` (linear) | 0.9451 | 0.90 |
 
-P01–P10 (campaign, against the M2 baseline on W1–W4 and FSP):
+**Noise.** `auto` runs the same computation as the selector it picks, so
+each model has two timings of one computation; in the rerun they differ by
+up to 1.55 times (W6: 0.0599 against 0.0930 s). With the slower of the two,
+the ratios of W1 to W7 would be 1.21 to 1.46. Pooled over both runs (each
+side's smaller median), the ratios are W1 1.05, W2 1.15, W3 1.18, W4 1.04,
+W5 1.14, W6 0.94, W7 1.05, repressilator 1.18 and 0.66 to 0.90 for the other
+examples. The 0.6.0 side, a minimum over 21 close variants, profits from the
+same effect. So the gate passes by its declared rule, but for W2, W3, W5, W7
+and the repressilator (1.12 to 1.20) the margin lies within this host's
+run-to-run noise, and W5's move from 1.28 to 1.12 is mostly noise.
 
-| Iteration | Change | Result |
-|---|---|---|
-| P01 | fast paths for order 0–1 mass action | accepted, 1.01–1.15 |
-| P02 | fast paths for dimer factors | accepted, 1.18 on a dimer control |
-| P03 | skip a redundant state scan on trusted firings | accepted, 1.01–1.05 |
-| P04 | one checked update for the selected channel | accepted |
-| P05 | preallocate saved-path vectors | rejected (0.98–1.02) |
-| P06 | no thread for one worker | accepted, 11.3 on short paths |
-| P07 | bounded queues of four paths | accepted, 1.17 on eight-worker short paths |
-| P08 | one pass for sum and minimum, one resolution check | accepted, 1.04–1.31 |
-| P09 | cached Hill logarithms | rejected (layout regressions) |
-| P10 | FSP rows normalized once, buffers reused | accepted, 1.19 |
+Where the time goes (callgrind of the rerun's CLI, M4d log): on W1 the two
+ChaCha8 words per event (about 3.7 ns per word against 1.5 ns for 0.6.0's
+xoshiro256++) and the Ziggurat wait; on W3 and the repressilator one
+mispredicted scan exit per event and the Hill programs; on the RSSA-CR
+models the trials per event and the exact evaluation of candidates. The
+unified engine runs fewer instructions than 0.6.0's best on every profiled
+model (0.63 to 0.99 times, M4f log), but not always less wall time.
 
-P11–P20 (this review, against the previous accepted binary):
+Compiled event loops, timed at the Python boundary (informative, same
+section of `RESULTS.md`), took 0.61 to 0.90 times the interpreted linear
+scan on eight models and 1.15 times on W7; W4 to W6 exceed the 1 MiB
+source limit.
 
-| Iteration | Change | Target result [95% interval] | Decision |
-|---|---|---|---|
-| P11 | binary search over recorded prefix sums | W2 cached 1.073 [1.070, 1.107] | accepted |
-| P12 | resume strict sums at the lowest changed channel | W2 cached 1.589 [1.584, 1.678] | accepted |
-| P13 | skip bitwise-unchanged rates | W1 0.927 [0.916, 0.945] | rejected |
-| P14 | one scheduler poll per event | W1 1.095 [1.082, 1.132] | accepted |
-| P15 | flat save buffer per path | W5 1.005, W6 1.003 | no speedup; kept as memory fix |
-| P16 | reuse worker buffers across replicates | W7 1.041 [1.003, 1.075] | accepted |
-| P17 | FSP: skip exact-zero rows | W8a 1.245, W8b 1.140 | accepted |
-| P18 | FSP: column gather with fused accumulation | W8a 1.218, W8b 1.723 | accepted |
-| P19 | tau: PTRS for leap means above 16 | W9 312 [296, 330] | accepted |
-| P20 | archive: serialize once | W6 process 0.989 [0.987, 1.001] | rejected |
+### 7.2 mtDNA workload
 
-The full table, including the guard workloads, is in
-[performance-p11-p20.md](campaign/performance-p11-p20.md).
+Measured on 12 November 2026 with **no declared target**
+(`validation/merge/mtdna-workload/`, results section in `RESULTS.md`): the
+three-class model `models/rules/mtdna-three-class-cme.rules.json`, a
+37-point grid from 0 to 25,920 h, seed 1, wall time of
+`crn_craft.rules.ensemble(...).simulate()`, medians of five runs alternating
+0.6.0 and 0.7.0 under a CPU lock. Statistics and records hash identically
+between the versions.
 
-### 7.3 Final numbers
+| Method | Cells | Threads | 0.6.0 s | 0.7.0 s | Ratio |
+|---|---:|---:|---:|---:|---:|
+| `mtdna_direct` | 1000 | 1 | 10.67 | 10.27 | 0.96 |
+| `mtdna_direct` | 1000 | 2 | 5.42 | 5.26 | 0.97 |
+| `static_direct` | 400 | 1 | 13.20 | 9.49 | 0.72 |
+| `static_direct` | 400 | 2 | 6.70 | 5.63 | 0.84 |
+| `tree` | 100 | 1 | 10.04 | 9.94 | 0.99 |
+| `tree` | 100 | 2 | 5.46 | 5.45 | 1.00 |
 
-Cost per event, median core time over the event count, one worker:
+Static Direct's linear scan runs a tuned loop in 0.7.0 (compiled rate
+programs, running totals, precomputed count factors) with byte-identical
+results. The [performance analysis](mtdna-performance-analysis.md) sizes
+mtDNA studies.
 
-| Workload | 5a07334 `simulate` | final `simulate` | final `simulate-cached` |
-|---|---|---|---|
-| W1 two channels | 80.6 ns | 49.1 ns | 48.3 ns |
-| W2 sparse 66 | 991.6 ns | 502.3 ns | 151.7 ns |
-| W3 circuit 12 | 458.2 ns | 323.2 ns | 151.3 ns |
-| W4 dense 66 | 902.7 ns | 659.5 ns | 553.3 ns |
+### 7.3 Other measurements
 
-Paired speedups of the final source:
-
-| Workload | vs 5a07334 (`simulate`) | vs P10 (`simulate`) | vs P10 (`simulate-cached`) | cached vs plain (final) |
-|---|---|---|---|---|
-| W1 | 1.647 [1.429, 1.663] | 1.146 [0.952, 1.387] | 1.123 [1.085, 1.154] | 1.014 [0.999, 1.029] |
-| W2 | 1.974 [1.956, 1.989] | 1.058 [1.054, 1.078] | 1.714 [1.679, 1.735] | 3.256 [3.241, 3.264] |
-| W3 | 1.418 [1.404, 1.426] | 1.023 [0.994, 1.033] | 1.043 [1.043, 1.050] | 2.141 [2.047, 2.197] |
-| W4 | 1.369 [1.320, 1.392] | 1.063 [1.054, 1.136] | 1.037 [1.027, 1.057] | 1.176 [1.164, 1.275] |
-| W5 | 1.424 [1.400, 1.438] | 1.030 [1.018, 1.063] | 1.052 [1.046, 1.053] | 2.136 [2.121, 2.206] |
-| W6 | 1.401 [1.396, 1.414] | 1.025 [1.013, 1.047] | 1.059 [1.051, 1.061] | 2.127 [2.115, 2.223] |
-| W7 | 19.86 [18.57, 20.82] | 1.038 [0.998, 1.083] | 0.988 [0.955, 1.024] | 0.974 [0.949, 1.022] |
-
-Combining the paired comparisons, the final `simulate-cached` runs the sparse
-66-reaction network about 6.5 times and the circuit about 3.0 times faster
-than the original `simulate` (ratios of median ns per event above).
-
-FSP and tau against P10: W8a 1.424 [1.413, 1.444], W8b 2.340 [2.220, 2.396]
-(probabilities identical; the review's FSP fixes changed only the `work`
-count and the omitted-weight and roundoff fields), W9 335 [314, 343].
-
-Where the time goes: for W1 (two channels) the cost is dominated by the two
-random words, the logarithm of the waiting time and the bookkeeping per event;
-caching cannot help. For W2 and W3 a reaction changes few propensities, so
-`simulate-cached` saves most rate evaluations and, since P12, most of the
-strict summation. W4 is dense: most reactions change most propensities, so
-caching saves little. FSP is memory-bound in its sparse product; the column
-form reads the generator sequentially once per series term. Tau's cost before
-P19 was proportional to the leap means; after, it is proportional to the
-number of leaps.
-
-External reference (final source, M4a harness `compare_references.py`, same
-host, five repeats, 64 paths to t = 100): rebop 0.10.0 through its Python API
-took 39 ms on the two-channel workload against 62 ms of CRN-craft core time
-(`simulate`) and 68 ms (`simulate-cached`), so rebop is about 1.6 times
-faster there; on the sparse 66-reaction workload it took 2.21 s against
-0.61 s (`simulate`, 3.6 times slower) and 0.19 s (`simulate-cached`, 11.8
-times slower). The rebop times include its Python and result-array overhead,
-CRN-craft core times include the ordered statistics, and the two use
-independent random streams, so this is a cost comparison, not a path
-comparison. Reports: `validation/campaign/p11-p20/cumulative/rebop-*.json`.
-
-GillesPy2 1.8.3 on the same four workloads (details in the
-[comparison](comparison-gillespy2.md)): its compiled C++ solver takes 87, 513,
-170 and 617 ns per event on W1–W4, against 48, 154, 151 and 568 ns for
-`simulate-cached`, so it is 1.1 to 3.3 times slower. It also needs 1.5–2.1 s
-to compile each model. GillesPy2's NumPy solver is 43 to 126 times slower than
-`simulate-cached`.
-
-Catalyst 17 / JumpProcesses 10.0.1 on seven workloads (details in the
-[comparison](comparison-catalyst-jumpprocesses.md)): after the alternative
-exact methods were added, Julia's fastest aggregator was 1.54–2.39 times
-faster than the fastest CRN-craft option (geometric mean 2.02). The follow-up
-[Julia-gap campaign](campaign/julia-gap-implementation-log-2026-11-02.md)
-sped DirectCR, SortingDirect and RSSACR up 1.07–2.4 times with unchanged
-numbers or statistically gated paths; projected from those paired speedups, the remaining gap is
-1.11–1.83 times (geometric mean 1.46). That projection is not a Julia
-measurement. A later direct same-host measurement with the `fast` switch
-([fast mode versus Julia](comparison-julia-8-threads.md)) gives a
-geometric mean of best fast over best Julia of 1.15 at one worker and 0.69 at
-eight workers on the original batches (1.12 and 1.04 on 256-path batches).
-`fast` was opt-in then; it is the default of `ssa` requests since
-`crn-craft.ssa-run/0.3`.
-
-### 7.4 Memory
-
-Each SSA run reserves, before executing, *(8 c + 24 t)(b w + k) + 24 c +
-1024 r + w(2 MiB + 8 R) + 32 MiB* bytes for *c* = species × save times, *t*
-save times, *b* buffers per worker (3, or 6 with four-path queues), *w*
-workers, *k* kept paths, *r* replicates and *R* reactions, and rejects runs
-above 256 MiB. P15 made this an upper bound for the path buffers, and a test
-checks the formula for one and eight workers and the fallback to three
-buffers. FSP reserves per state, edge and save time, and checks the exact
-serialized size of its result against `max_output_bytes`.
+- **Parameter workers.** Binding parameters on a prepared run, against the
+  0.6.0 templates in one session (`validation/merge/parameter-workers-m4d.json`,
+  declared target 1.25): five of six ratios between 1.04 and 1.15;
+  `binding12` with reuse **failed** at 1.55, because `bind_parameters`
+  prepares the whole model again on each call (about 0.1 ms on that
+  12-species model).
+- **Tau leaping on large networks** (`validation/merge/tau/leap-condition-cost.json`):
+  on W5 and W6 (510 and 992 channels) `tau` took 14.1 and 12.9 times as long
+  as Static Direct; neither model leaps at the declared ε, so this is the
+  cost of its exact fallback. Each attempted leap evaluates every channel
+  after one firing of each enabled channel. Use Static Direct there.
+- **GillesPy2 1.8.3** ([comparison](comparison-gillespy2.md),
+  `validation/merge/gillespy2-comparison-0.7.json`, protocol declared in
+  `RESULTS.md`): on the four frozen workloads (64 paths, one thread) its
+  compiled C++ solver took 2.9, 10.6, 3.6 and 9.3 times as long as
+  CRN-craft's default request (`auto`, Ziggurat waits), and 2.8, 5.6, 3.7
+  and 1.3 times as long as the linear scan with inverse waits; it needs 2.1
+  to 2.9 s to compile each model. Its NumPy solver took 134 to 358 times as
+  long as the default. All 28 agreement tests passed the declared rule.
+- **Julia (Catalyst and JumpProcesses).** Not repeated for 0.7.0: Julia is
+  not available on this host. The [comparisons](comparison-catalyst-jumpprocesses.md)
+  measured the 0.6.0 network engine and carry a note saying so.
 
 ## 8. Reproducing
 
 ```sh
 cargo build --release --workspace --locked
 cargo test --release --workspace --locked
-python validation/benchmark_iterations.py --iteration NAME \
-    --before OLD_BINARY --after NEW_BINARY --command simulate-cached \
-    --workloads W1 W2 W3 W4 --targets W2 --output report.json
-python validation/compare_tau_samplers.py --before OLD --after NEW --output tau.json
-python examples/tutorial/make_assets.py --binary target/release/crn-craft \
-    --output docs/images/tutorial
+python validation/merge/check_laws.py --help          # the law gate
+python validation/merge/compare_speed.py --help       # the speed gate
+python validation/compare_gillespy2.py --binary target/release/crn-craft \
+    --output gillespy2.json --figure gillespy2.png
+python validation/merge/mtdna-workload/bench.py \
+    models/rules/mtdna-three-class-cme.rules.json static_direct 1 400 timings.jsonl
 ```
 
-Raw timing reports, digests and logs: `validation/campaign/` (P01–P10) and
-`validation/campaign/p11-p20/` (P11–P20 and the cumulative comparison).
+The speed gate needs the kept 0.6.0 build; `validation/merge/RESULTS.md`
+names the commands, sizes and seeds of every gate.
+
+## 9. History: the network engine of releases 0.2.0 to 0.6.0
+
+The report of release 0.6.0 (`git show v0.6.0:docs/technical-report.md`)
+describes the network engine and its performance campaign; the numbers below
+come from it and from the campaign files it cites, and none of them was
+measured on 0.7.0.
+
+- The network engine had two Direct implementations, `simulate` and the
+  dependency-cached `simulate-cached`, with byte-identical results, a
+  separate stream domain (`crn-craft.chacha8/0.1`), FSP, tau leaping with
+  its own request and result contracts, and sealed archives with
+  provenance. The `ssa` command added DirectCR, SortingDirect, RSSA-CR and
+  next reaction, and the `fast` policy with xoshiro256++.
+- Its performance campaign P01–P20 ([P01–P10](campaign/performance.md),
+  [P11–P20](campaign/performance-p11-p20.md)) brought `simulate-cached` to
+  48, 152, 151 and 553 ns per event on the four frozen workloads (two
+  channels, sparse 66 reactions, a 12-reaction circuit, dense 66 reactions),
+  on the same kind of shared two-CPU host.
+- Against GillesPy2 1.8.3 on those workloads, its compiled C++ solver took
+  1.1 to 3.3 times as long as `simulate-cached`.
 
 ## References
 
@@ -479,7 +516,17 @@ Raw timing reports, digests and logs: `validation/campaign/` (P01–P10) and
   reactions. *J. Phys. Chem.* 81, 2340–2361.
 - M. A. Gibson and J. Bruck (2000). Efficient exact stochastic simulation of
   chemical systems with many species and many channels. *J. Phys. Chem. A*
-  104, 1876–1889 (dependency graphs).
+  104, 1876–1889.
+- A. Slepoy, A. P. Thompson and S. J. Plimpton (2008). A constant-time
+  kinetic Monte Carlo algorithm for simulation of large biochemical reaction
+  networks. *J. Chem. Phys.* 128, 205101.
+- J. M. McCollum, G. D. Peterson, C. D. Cox, M. L. Simpson and
+  N. F. Samatova (2006). The sorting direct method for stochastic simulation
+  of biochemical systems with varying reaction execution behavior.
+  *Comput. Biol. Chem.* 30, 39–49.
+- V. H. Thanh, C. Priami and R. Zunino (2014). Efficient rejection-based
+  simulation of biochemical reactions with stochastic noise and delays.
+  *J. Chem. Phys.* 141, 134116.
 - B. Munsky and M. Khammash (2006). The finite state projection algorithm for
   the solution of the chemical master equation. *J. Chem. Phys.* 124, 044104.
 - Y. Cao, D. T. Gillespie and L. R. Petzold (2006). Efficient step size
@@ -487,11 +534,11 @@ Raw timing reports, digests and logs: `validation/campaign/` (P01–P10) and
   044109.
 - W. Hörmann (1993). The transformed rejection method for generating Poisson
   random variables. *Insurance: Mathematics and Economics* 12, 39–45.
+- R. J. Hyndman and Y. Fan (1996). Sample quantiles in statistical packages.
+  *The American Statistician* 50, 361–365.
 - B. A. Burton (2010). Optimizing the double description method for normal
   surface enumeration. *Mathematics of Computation* 79, 453–484;
-  arXiv:0808.4050 (double description details used for the cone
-  enumeration).
-- D. J. Bernstein (2008). ChaCha, a variant of Salsa20 (the stream cipher
-  behind the random streams).
+  arXiv:0808.4050.
+- D. J. Bernstein (2008). ChaCha, a variant of Salsa20.
 - A. Dvoretzky, J. Kiefer and J. Wolfowitz (1956), with Massart's constant
   (1990): the DKW band used by the statistical checks.

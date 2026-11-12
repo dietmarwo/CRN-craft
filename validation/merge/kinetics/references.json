@@ -1,0 +1,316 @@
+{
+  "acceptance_checks": 12,
+  "declared_in": "validation/merge/RESULTS.md (M5e)",
+  "failures": 0,
+  "models": [
+    {
+      "accepted": true,
+      "name": "W1",
+      "problems": [],
+      "reference_accepted": true,
+      "refusal_codes": [],
+      "runs": [
+        {
+          "bit_identical": 4,
+          "failures": [],
+          "largest_relative_difference": 0.0,
+          "run": "network",
+          "values": 4,
+          "zero_references": 0,
+          "zero_references_exact": 0,
+          "zero_references_not_exact": []
+        },
+        {
+          "bit_identical": 4,
+          "failures": [],
+          "largest_relative_difference": 0.0,
+          "run": "converted",
+          "values": 4,
+          "zero_references": 0,
+          "zero_references_exact": 0,
+          "zero_references_not_exact": []
+        }
+      ]
+    },
+    {
+      "accepted": true,
+      "name": "W2",
+      "problems": [],
+      "reference_accepted": true,
+      "refusal_codes": [],
+      "runs": [
+        {
+          "bit_identical": 2244,
+          "failures": [],
+          "largest_relative_difference": 0.0,
+          "run": "network",
+          "values": 2244,
+          "zero_references": 2113,
+          "zero_references_exact": 2113,
+          "zero_references_not_exact": []
+        },
+        {
+          "bit_identical": 2244,
+          "failures": [],
+          "largest_relative_difference": 0.0,
+          "run": "converted",
+          "values": 2244,
+          "zero_references": 2113,
+          "zero_references_exact": 2113,
+          "zero_references_not_exact": []
+        }
+      ]
+    },
+    {
+      "accepted": true,
+      "name": "W3",
+      "problems": [],
+      "reference_accepted": true,
+      "refusal_codes": [],
+      "runs": [
+        {
+          "bit_identical": 155,
+          "failures": [],
+          "largest_relative_difference": 2.621616915324356e-16,
+          "run": "network",
+          "values": 168,
+          "zero_references": 106,
+          "zero_references_exact": 106,
+          "zero_references_not_exact": []
+        },
+        {
+          "bit_identical": 155,
+          "failures": [],
+          "largest_relative_difference": 2.621616915324356e-16,
+          "run": "converted",
+          "values": 168,
+          "zero_references": 106,
+          "zero_references_exact": 106,
+          "zero_references_not_exact": []
+        }
+      ]
+    },
+    {
+      "accepted": false,
+      "name": "W4",
+      "problems": [],
+      "reference_accepted": false,
+      "refusal_codes": [
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080",
+        "CRN-E080"
+      ],
+      "runs": []
+    },
+    {
+      "accepted": false,
+      "name": "W5",
+      "problems": [],
+      "reference_accepted": false,
+      "refusal_codes": [
+        "CRN-E080"
+      ],
+      "runs": []
+    },
+    {
+      "accepted": false,
+      "name": "W6",
+      "problems": [],
+      "reference_accepted": false,
+      "refusal_codes": [
+        "CRN-E080"
+      ],
+      "runs": []
+    },
+    {
+      "accepted": false,
+      "name": "W7",
+      "problems": [],
+      "reference_accepted": false,
+      "refusal_codes": [
+        "CRN-E080"
+      ],
+      "runs": []
+    },
+    {
+      "accepted": true,
+      "name": "enzyme-mechanism",
+      "problems": [],
+      "reference_accepted": true,
+      "refusal_codes": [],
+      "runs": [
+        {
+          "bit_identical": 64,
+          "failures": [],
+          "largest_relative_difference": 0.0,
+          "run": "network",
+          "values": 64,
+          "zero_references": 25,
+          "zero_references_exact": 25,
+          "zero_references_not_exact": []
+        },
+        {
+          "bit_identical": 64,
+          "failures": [],
+          "largest_relative_difference": 0.0,
+          "run": "converted",
+          "values": 64,
+          "zero_references": 25,
+          "zero_references_exact": 25,
+          "zero_references_not_exact": []
+        }
+      ]
+    },
+    {
+      "accepted": true,
+      "name": "immigration-death",
+      "problems": [],
+      "reference_accepted": true,
+      "refusal_codes": [],
+      "runs": [
+        {
+          "bit_identical": 8,
+          "failures": [],
+          "largest_relative_difference": 0.0,
+          "run": "network",
+          "values": 8,
+          "zero_references": 1,
+          "zero_references_exact": 1,
+          "zero_references_not_exact": []
+        },
+        {
+          "bit_identical": 8,
+          "failures": [],
+          "largest_relative_difference": 0.0,
+          "run": "converted",
+          "values": 8,
+          "zero_references": 1,
+          "zero_references_exact": 1,
+          "zero_references_not_exact": []
+        }
+      ]
+    },
+    {
+      "accepted": true,
+      "name": "michaelis-menten",
+      "problems": [],
+      "reference_accepted": true,
+      "refusal_codes": [],
+      "runs": [
+        {
+          "bit_identical": 16,
+          "failures": [],
+          "largest_relative_difference": 1.7489482084798168e-16,
+          "run": "network",
+          "values": 20,
+          "zero_references": 4,
+          "zero_references_exact": 4,
+          "zero_references_not_exact": []
+        },
+        {
+          "bit_identical": 16,
+          "failures": [],
+          "largest_relative_difference": 1.7489482084798168e-16,
+          "run": "converted",
+          "values": 20,
+          "zero_references": 4,
+          "zero_references_exact": 4,
+          "zero_references_not_exact": []
+        }
+      ]
+    },
+    {
+      "accepted": true,
+      "name": "repressilator",
+      "problems": [],
+      "reference_accepted": true,
+      "refusal_codes": [],
+      "runs": [
+        {
+          "bit_identical": 155,
+          "failures": [],
+          "largest_relative_difference": 2.621616915324356e-16,
+          "run": "network",
+          "values": 168,
+          "zero_references": 106,
+          "zero_references_exact": 106,
+          "zero_references_not_exact": []
+        },
+        {
+          "bit_identical": 155,
+          "failures": [],
+          "largest_relative_difference": 2.621616915324356e-16,
+          "run": "converted",
+          "values": 168,
+          "zero_references": 106,
+          "zero_references_exact": 106,
+          "zero_references_not_exact": []
+        }
+      ]
+    },
+    {
+      "accepted": true,
+      "name": "vilar-noise",
+      "problems": [],
+      "reference_accepted": true,
+      "refusal_codes": [],
+      "runs": [
+        {
+          "bit_identical": 450,
+          "failures": [],
+          "largest_relative_difference": 0.0,
+          "run": "network",
+          "values": 450,
+          "zero_references": 356,
+          "zero_references_exact": 356,
+          "zero_references_not_exact": []
+        },
+        {
+          "bit_identical": 450,
+          "failures": [],
+          "largest_relative_difference": 0.0,
+          "run": "converted",
+          "values": 450,
+          "zero_references": 356,
+          "zero_references_exact": 356,
+          "zero_references_not_exact": []
+        }
+      ]
+    }
+  ],
+  "passed": true,
+  "relative_tolerance": 1e-12,
+  "schema": "crn-craft.merge-kinetics-check/0.1",
+  "values": 6252,
+  "zero_reference_rule": "|x| <= 1e-12 * largest |reference| of the same array at the same point"
+}

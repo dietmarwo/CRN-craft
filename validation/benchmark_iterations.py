@@ -5,6 +5,14 @@ Before/after binaries alternate on frozen workloads. For exact iterations every
 numerical digest must match before a timing ratio counts. The decision follows
 the declaration: median paired speedup >= 1.03 on a target workload with a
 bootstrap 95% interval above 1.0, and no W1–W4 interval entirely below 0.97.
+
+Since 0.7.0 (M8a) every workload runs through `crn-craft run MODEL REQUEST` on
+the converted model: the SSA workloads as Static Direct requests (default
+selector and Ziggurat waits), W8a/W8b as `fsp` requests and W9 as a `tau`
+request (`crn-craft.run/1.0`). Archives of the 1.0 contract have no
+provenance file with the engine's own timer, so `core_seconds` is the wall
+time of the process for every workload (as it already was for FSP and tau);
+the two paired metrics therefore agree. Both binaries must be 0.7.0 or later.
 """
 
 import argparse
@@ -17,7 +25,7 @@ import subprocess
 import tempfile
 import time
 
-from benchmark_campaign import models
+from benchmark_campaign import convert, models
 
 SEED = 4242
 REPLICATES = 64
@@ -161,95 +169,75 @@ WORKLOADS = {
 }
 
 
-def prepare(folder, workload):
-    """Write the model and run/request; return the command arguments after the binary."""
-    m = encode(workload["model"])
+def prepare(folder, workload, binary):
+    """Write the converted model and the request; return the arguments of `run`."""
+    m = convert(binary, workload["model"], folder)
     (folder / "model.json").write_bytes(m)
     reference = {"path": "model.json", "sha256": hashlib.sha256(m).hexdigest()}
+    horizon = workload["horizon"]
     if workload["kind"] == "fsp":
         run = {
-            "schema": "crn-craft.run/0.1",
+            "schema": "crn-craft.run/1.0",
             "model": reference,
             "method": workload["method"],
-            "time": {
-                "end": workload["horizon"],
-                "save_times": [0.0, workload["horizon"]],
-            },
-            "outputs": {"statistics": ["mean"], "keep_trajectories": 0},
-            "budget": {"threads": 1, "max_output_bytes": 100000000},
+            "time": {"end": horizon, "report_times": [0.0, horizon]},
+            "budget": {"max_output_bytes": 100000000},
         }
-        (folder / "run.json").write_text(json.dumps(run))
-        return ["fsp", str(folder / "model.json"), str(folder / "run.json")]
-    if workload["kind"] == "tau":
+    elif workload["kind"] == "tau":
         run = {
-            "schema": "crn-craft.run/0.1",
+            "schema": "crn-craft.run/1.0",
             "model": reference,
-            "method": {"kind": "ssa", "aggregator": "direct"},
+            "method": {"kind": "tau", "epsilon": workload["epsilon"]},
             "ensemble": {"replicates": 256, "root_seed": SEED},
-            "time": {
-                "end": workload["horizon"],
-                "save_times": [0.0, workload["horizon"]],
+            "time": {"end": horizon, "report_times": [0.0, horizon]},
+            "outputs": {
+                "statistics": ["mean", "variance"],
+                "keep_paths": 256,
+                "keep_instances": 0,
             },
-            "outputs": {"statistics": ["mean", "variance"], "keep_trajectories": 256},
             "budget": {
                 "threads": 1,
                 "max_events_per_replicate": 100000000,
+                "max_sampling_steps_per_replicate": 1000000000,
+                "max_instances": 100000,
                 "max_output_bytes": 100000000,
             },
         }
-        request = {
-            "schema": "crn-craft.tau-request/0.1",
-            "epsilon": workload["epsilon"],
-            "max_leaps_per_replicate": 1000000,
-            "reference_run": run,
+    else:
+        run = {
+            "schema": "crn-craft.run/1.0",
+            "model": reference,
+            "method": {"kind": "static_direct"},
+            "ensemble": {"replicates": REPLICATES, "root_seed": SEED},
+            "time": {"end": horizon, "report_times": workload["saves"]},
+            "outputs": {
+                "statistics": ["mean", "variance"],
+                "keep_paths": workload["keep"],
+                "keep_instances": 0,
+            },
+            "budget": {
+                "threads": 1,
+                "max_events_per_replicate": 10000000,
+                "max_sampling_steps_per_replicate": 1000000000,
+                "max_instances": 100000,
+                "max_output_bytes": 200000000,
+            },
         }
-        (folder / "tau.json").write_text(json.dumps(request))
-        return ["tau", str(folder / "model.json"), str(folder / "tau.json")]
-    run = {
-        "schema": "crn-craft.run/0.1",
-        "model": reference,
-        "method": {"kind": "ssa", "aggregator": "direct"},
-        "ensemble": {"replicates": REPLICATES, "root_seed": SEED},
-        "time": {"end": workload["horizon"], "save_times": workload["saves"]},
-        "outputs": {
-            "statistics": ["mean", "variance"],
-            "keep_trajectories": workload["keep"],
-        },
-        "budget": {
-            "threads": 1,
-            "max_events_per_replicate": 10000000,
-            "max_output_bytes": 200000000,
-        },
-    }
     (folder / "run.json").write_text(json.dumps(run))
     return [str(folder / "model.json"), str(folder / "run.json")]
 
 
 def run_once(binary, command, workload, folder, label):
-    arguments = prepare(folder, workload)
-    if workload["kind"] == "ssa":
-        output = folder / label
-        arguments = [command, *arguments, str(output)]
+    arguments = [command, *prepare(folder, workload, binary)]
     start = time.perf_counter()
     proc = subprocess.run(
         [str(binary), *arguments], capture_output=True, check=False, timeout=900
     )
     elapsed = time.perf_counter() - start
-    if workload["kind"] == "ssa":
-        if proc.returncode:
-            raise RuntimeError(proc.stdout.decode() + proc.stderr.decode())
-        result = (output / "result.json").read_bytes()
-        provenance = json.loads((output / "provenance.json").read_text())
-        return {
-            "process_seconds": elapsed,
-            "core_seconds": provenance["elapsed_seconds"],
-            "events": json.loads(result)["events"],
-            "numerical_sha256": hashlib.sha256(result).hexdigest(),
-        }
     if proc.returncode:
         raise RuntimeError(proc.stdout.decode() + proc.stderr.decode())
     payload = json.loads(proc.stdout)
-    # Tau results carry no timer; FSP has none either. Digest the full payload.
+    # The digest covers the full payload, including work and error fields.
     return {
         "process_seconds": elapsed,
         "core_seconds": elapsed,
@@ -342,7 +330,7 @@ def main():
     ap.add_argument("--iteration", required=True)
     ap.add_argument("--before", type=Path, required=True)
     ap.add_argument("--after", type=Path, required=True)
-    ap.add_argument("--command", default="simulate-cached")
+    ap.add_argument("--command", default="run")
     ap.add_argument("--workloads", nargs="+", required=True, choices=list(WORKLOADS))
     ap.add_argument("--targets", nargs="+", required=True, choices=list(WORKLOADS))
     ap.add_argument("--pairs", type=int)
@@ -356,7 +344,7 @@ def main():
     ap.add_argument("--output", type=Path, required=True)
     args = ap.parse_args()
     report = {
-        "schema": "crn-craft.performance-iteration/0.1",
+        "schema": "crn-craft.performance-iteration/0.2",
         "iteration": args.iteration,
         "declaration": "docs/campaign/performance-p11-p20.md",
         "command": args.command,

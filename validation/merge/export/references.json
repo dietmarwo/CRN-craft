@@ -1,0 +1,99 @@
+{
+  "schema": "crn-craft.merge-export-references/0.1",
+  "declared_in": "validation/merge/RESULTS.md (M5f declaration)",
+  "binary": {
+    "sha256": "8a483503e734601069ef8410d8b29df68d15b4e5197775b10bf8cfdfc05cd06a",
+    "version": {
+      "milestone": "SSA-acceleration",
+      "version": "0.6.0"
+    }
+  },
+  "reference_binary": {
+    "sha256": "40b10dac2bf715df401543b5f19cfd2f59a6b711277ba866afad09a1052acf3e",
+    "version": {
+      "milestone": "SSA-acceleration",
+      "version": "0.6.0"
+    }
+  },
+  "relative_tolerance": 2e-12,
+  "absolute_tolerance": 4e-323,
+  "identical_artifacts_compared": 9,
+  "custom_propensities_compared": 160,
+  "failures": 0,
+  "passed": true,
+  "models": [
+    {
+      "model": "W1",
+      "failures": [],
+      "outcome_0_6_0": "exported"
+    },
+    {
+      "model": "W2",
+      "failures": [],
+      "outcome_0_6_0": "exported"
+    },
+    {
+      "model": "W3",
+      "failures": [],
+      "outcome_0_6_0": "CRN-E050",
+      "custom_propensities": 3,
+      "largest_relative_difference": 0.0
+    },
+    {
+      "model": "W4",
+      "failures": [],
+      "outcome_0_6_0": "CRN-E050",
+      "custom_propensities": 33,
+      "largest_relative_difference": 0.0
+    },
+    {
+      "model": "W5",
+      "failures": [],
+      "outcome_0_6_0": "exported"
+    },
+    {
+      "model": "W6",
+      "failures": [],
+      "outcome_0_6_0": "exported"
+    },
+    {
+      "model": "W7",
+      "failures": [],
+      "outcome_0_6_0": "exported"
+    },
+    {
+      "model": "enzyme-mechanism",
+      "failures": [],
+      "outcome_0_6_0": "exported"
+    },
+    {
+      "model": "immigration-death",
+      "failures": [],
+      "outcome_0_6_0": "exported"
+    },
+    {
+      "model": "michaelis-menten",
+      "failures": [],
+      "outcome_0_6_0": "CRN-E050",
+      "custom_propensities": 1,
+      "largest_relative_difference": 0.0
+    },
+    {
+      "model": "repressilator",
+      "failures": [],
+      "outcome_0_6_0": "CRN-E050",
+      "custom_propensities": 3,
+      "largest_relative_difference": 0.0
+    },
+    {
+      "model": "vilar-noise",
+      "failures": [],
+      "outcome_0_6_0": "exported"
+    },
+    {
+      "model": "check_export_fixture",
+      "failures": [],
+      "outcome_0_6_0": "exported"
+    }
+  ]
+}

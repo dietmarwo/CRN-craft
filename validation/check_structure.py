@@ -1,4 +1,10 @@
-"""Independent support-enumeration cone oracle and reachability graph checker."""
+"""Independent support-enumeration cone oracle and reachability graph checker.
+
+Since 0.7.0 (M5b) `crn-craft analyze` reads the network models through the
+converter and reports `crn-craft.analysis/1.0`; a network without reactions
+is refused with `CRN-R016` (a rules model needs a rule), which this checker
+expects and lists (validation/merge/RESULTS.md, M5b).
+"""
 
 import argparse
 import hashlib
@@ -157,7 +163,7 @@ def special_models():
         [("A", 3), ("B", 2)], [reaction("r", {"A": 2}, {"B": 1}, mass_action(1))]
     )
     enzyme = json.loads(
-        (ROOT / "models/examples/enzyme-mechanism.model.json").read_text()
+        (ROOT / "models/legacy/enzyme-mechanism.model.json").read_text()
     )
     # Its last constraint combines rays into 2 * (9, 23, 9, 6): the reported
     # law must be primitive. X3 is also a catalyst of r2.
@@ -186,9 +192,10 @@ def main():
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     binary = str(args.binary.resolve())
-    schema = json.loads(subprocess.check_output([binary, "describe", "analysis"]))
+    schema = json.loads(subprocess.check_output([binary, "describe", "analysis-1.0"]))
     validator = Draft7Validator(schema)
     checks, old_bounds, new_bounds, total_rays = [], 0, 0, 0
+    converter_refusals = []
     fixtures_hash = hashlib.sha256()
     rng = random.Random(SEED)
     fixtures = [
@@ -208,11 +215,29 @@ def main():
                     timeout=15,
                     check=False,
                 )
+                if not model["reactions"]:
+                    report = json.loads(result.stdout)
+                    validator.validate(report)
+                    require(
+                        result.returncode == 1
+                        and not result.stderr
+                        and report["analysis"] is None
+                        and any(
+                            d["code"] == "CRN-R016" and d["path"] == "/reactions"
+                            for d in report["diagnostics"]
+                        ),
+                        "network without reactions not refused with CRN-R016",
+                    )
+                    converter_refusals.append(label)
+                    checks.append(
+                        {"case": label, "passed": True, "refused": "CRN-R016"}
+                    )
+                    continue
                 require(result.returncode == 0 and not result.stderr, "analyze failed")
                 report = json.loads(result.stdout)
                 validator.validate(report)
                 require(
-                    report["schema"] == "crn-craft.analysis/0.2" and report["success"],
+                    report["schema"] == "crn-craft.analysis/1.0" and report["success"],
                     "wrong analysis contract",
                 )
                 before, after, rays = verify(model, report["analysis"])
@@ -267,9 +292,10 @@ def main():
             except RuntimeError:
                 checks.append({"case": label, "passed": True})
     report = {
-        "schema": "crn-craft.structure-validation/0.1",
+        "schema": "crn-craft.structure-validation/0.2",
         "seed": SEED,
         "random_networks": 300,
+        "refused_without_reactions": converter_refusals,
         "fixture_stream_sha256": fixtures_hash.hexdigest(),
         "basis_bounded_species": old_bounds,
         "cone_bounded_species": new_bounds,

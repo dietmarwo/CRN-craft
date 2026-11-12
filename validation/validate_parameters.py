@@ -1,4 +1,14 @@
-"""Execute the final parameter-interface numerical/contract gates, retaining logs."""
+"""Execute the final parameter-interface numerical/contract gates, retaining logs.
+
+Since M5g the benchmark worker runs the rules engine: its checks are
+check_parameter_binding.py, which needs the worker built here. (M8a deleted
+check_parameter_interface.py, which tested the removed network ParameterTemplate,
+and with it the `parameter-validation` gate.) `--evidence` selects where logs and reports go
+(default: the committed evidence directory); `--resume` skips the checks that
+already passed in that directory's summary; `--skip NAME` leaves a check out
+(for example `msrv-tests` on a host without the 1.85.0 toolchain), which the
+summary records, and then it is not `complete`.
+"""
 
 import argparse
 import json
@@ -12,17 +22,33 @@ from parameter_optimization_models import ROOT, FOLDER
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=Path, required=True)
+    parser.add_argument("--evidence", type=Path, default=FOLDER / "evidence")
+    parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--skip", action="append", default=[])
     args = parser.parse_args()
     target = args.target.resolve()
-    out = FOLDER / "evidence/final"
-    out.mkdir(exist_ok=True)
+    evidence = args.evidence.resolve()
+    out = evidence / "final"
+    out.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     env["CARGO_TARGET_DIR"] = str(target)
     env["CARGO_BUILD_JOBS"] = "4"
     binary = str(target / "release/crn-craft")
     rows = []
+    passed = set()
+    if args.resume and (out / "summary.json").exists():
+        previous = json.loads((out / "summary.json").read_text())["checks"]
+        rows = [r for r in previous if r["passed"] and not r.get("skipped")]
+        passed = {r["check"] for r in rows}
 
     def run(name, command, *, cwd=ROOT, environment=env):
+        if name in passed:
+            print(name, "passed before", flush=True)
+            return
+        if name in args.skip:
+            rows.append(dict(check=name, passed=True, skipped=True))
+            print(name, "skipped", flush=True)
+            return
         with (out / f"{name}.log").open("w") as log:
             result = subprocess.run(
                 command, cwd=cwd, env=environment, stdout=log, stderr=subprocess.STDOUT
@@ -73,6 +99,7 @@ def main():
             "check",
             "validation",
             "python/crn_craft/__init__.py",
+            "python/crn_craft/rules.py",
         ],
     )
     run(
@@ -85,12 +112,25 @@ def main():
             "--check",
             "validation",
             "python/crn_craft/__init__.py",
+            "python/crn_craft/rules.py",
         ],
     )
     run(
         "build",
         ["cargo", "build", "--release", "--workspace", "--examples", "--locked"],
     )
+    run(
+        "worker-build",
+        [
+            "cargo",
+            "build",
+            "--release",
+            "--locked",
+            "--manifest-path",
+            "validation/parameter-optimization/worker/Cargo.toml",
+        ],
+    )
+    worker = str(target / "release/crn-parameter-bench-worker")
     run(
         "clippy",
         [
@@ -188,37 +228,16 @@ def main():
                 ],
             )
         same(out / f"{script}.json", out / f"{script}-optimized.json")
-    for fast in [False, True]:
-        for optimized in [False, True]:
-            name = ("fast-laws" if fast else "default-laws") + (
-                "-optimized" if optimized else ""
-            )
-            run(
-                name,
-                [sys.executable]
-                + (["-O"] if optimized else [])
-                + ["validation/check_alternative_ssa.py"]
-                + (["--fast"] if fast else [])
-                + ["--output", str(out / f"{name}.json")],
-            )
-        name = "fast-laws" if fast else "default-laws"
-        same(out / f"{name}.json", out / f"{name}-optimized.json")
-    for script in ["check_ssa", "check_cme"]:
-        name = script + "-cached"
+    for optimized in [False, True]:
+        name = "default-laws" + ("-optimized" if optimized else "")
         run(
             name,
-            [
-                sys.executable,
-                f"validation/{script}.py",
-                "--binary",
-                binary,
-                "--command",
-                "simulate-cached",
-                "--output",
-                str(out / f"{name}.json"),
-            ],
+            [sys.executable]
+            + (["-O"] if optimized else [])
+            + ["validation/check_alternative_ssa.py"]
+            + ["--output", str(out / f"{name}.json")],
         )
-        same(out / f"{script}.json", out / f"{name}.json")
+    same(out / "default-laws.json", out / "default-laws-optimized.json")
     for optimized in [False, True]:
         name = "dependencies" + ("-optimized" if optimized else "")
         run(
@@ -243,24 +262,30 @@ def main():
         )
     same(out / "installed.json", out / "installed-optimized.json")
     for optimized in [False, True]:
-        name = "parameter-validation" + ("-optimized" if optimized else "")
+        name = "parameter-binding" + ("-optimized" if optimized else "")
         run(
             name,
             [sys.executable]
             + (["-O"] if optimized else [])
             + [
-                "validation/check_parameter_interface.py",
+                "validation/check_parameter_binding.py",
+                "--worker",
+                worker,
                 "--output",
-                str(FOLDER / f"evidence/{name}.json"),
+                str(evidence / f"{name}.json"),
             ],
         )
     same(
-        FOLDER / "evidence/parameter-validation.json",
-        FOLDER / "evidence/parameter-validation-optimized.json",
+        evidence / "parameter-binding.json",
+        evidence / "parameter-binding-optimized.json",
     )
     (out / "summary.json").write_text(
         json.dumps(
-            dict(complete=True, passed=all(r["passed"] for r in rows), checks=rows),
+            dict(
+                complete=not any(r.get("skipped") for r in rows),
+                passed=all(r["passed"] for r in rows),
+                checks=rows,
+            ),
             indent=2,
         )
         + "\n"

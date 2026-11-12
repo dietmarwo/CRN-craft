@@ -1,0 +1,188 @@
+{
+  "schema": "crn-craft.manual-ratios/0.1",
+  "workload": "docs/mtdna-user-manual.md section 3: three-class model, takeover stop, 25,920 h, reports every 90 days, 200 cells, seed 1, two threads",
+  "labels": {
+    "A": "mtdna_direct",
+    "B": "static_direct (defaults)",
+    "C": "static_direct, compiled loop",
+    "D": "static_direct, inverse waits and per-event trackers"
+  },
+  "python": "3.12.3",
+  "crn_craft": "0.6.0",
+  "loop_build_seconds": 0.05638092000026518,
+  "warmup": [
+    {
+      "arm": "A",
+      "seconds": 0.3703235630000563,
+      "events": 28536814,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "termination": "completed",
+      "mean_sha256": "53e7f362a014d48c534b32df01b245e545f56ca43a14301df2d73d611706e236"
+    },
+    {
+      "arm": "B",
+      "seconds": 1.0264128819999314,
+      "events": 28847586,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "96d90628805ef8c29a9b8be0641a5b9a37f13a45650caeadf4ab778dc601448f"
+    },
+    {
+      "arm": "C",
+      "seconds": 0.5109684859999106,
+      "events": 28847586,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "96d90628805ef8c29a9b8be0641a5b9a37f13a45650caeadf4ab778dc601448f"
+    },
+    {
+      "arm": "D",
+      "seconds": 1.1631010609999066,
+      "events": 28666750,
+      "sampler": "chacha8-u53/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "2cc7a7dde6ad627547edd4cbe56af606d7bdc04a24f36cf5e15d0500a2eef140"
+    }
+  ],
+  "rows": [
+    {
+      "arm": "A",
+      "seconds": 0.3905550930003301,
+      "events": 28536814,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "termination": "completed",
+      "mean_sha256": "53e7f362a014d48c534b32df01b245e545f56ca43a14301df2d73d611706e236",
+      "round": 1
+    },
+    {
+      "arm": "B",
+      "seconds": 1.0694915499998388,
+      "events": 28847586,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "96d90628805ef8c29a9b8be0641a5b9a37f13a45650caeadf4ab778dc601448f",
+      "round": 1
+    },
+    {
+      "arm": "C",
+      "seconds": 0.4994246709993604,
+      "events": 28847586,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "96d90628805ef8c29a9b8be0641a5b9a37f13a45650caeadf4ab778dc601448f",
+      "round": 1
+    },
+    {
+      "arm": "D",
+      "seconds": 1.1782059020006272,
+      "events": 28666750,
+      "sampler": "chacha8-u53/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "2cc7a7dde6ad627547edd4cbe56af606d7bdc04a24f36cf5e15d0500a2eef140",
+      "round": 1
+    },
+    {
+      "arm": "D",
+      "seconds": 1.3706180150002183,
+      "events": 28666750,
+      "sampler": "chacha8-u53/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "2cc7a7dde6ad627547edd4cbe56af606d7bdc04a24f36cf5e15d0500a2eef140",
+      "round": 2
+    },
+    {
+      "arm": "C",
+      "seconds": 0.4976442909992329,
+      "events": 28847586,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "96d90628805ef8c29a9b8be0641a5b9a37f13a45650caeadf4ab778dc601448f",
+      "round": 2
+    },
+    {
+      "arm": "B",
+      "seconds": 1.0558826400001635,
+      "events": 28847586,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "96d90628805ef8c29a9b8be0641a5b9a37f13a45650caeadf4ab778dc601448f",
+      "round": 2
+    },
+    {
+      "arm": "A",
+      "seconds": 0.36457786799928726,
+      "events": 28536814,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "termination": "completed",
+      "mean_sha256": "53e7f362a014d48c534b32df01b245e545f56ca43a14301df2d73d611706e236",
+      "round": 2
+    },
+    {
+      "arm": "A",
+      "seconds": 0.37646353900072427,
+      "events": 28536814,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "termination": "completed",
+      "mean_sha256": "53e7f362a014d48c534b32df01b245e545f56ca43a14301df2d73d611706e236",
+      "round": 3
+    },
+    {
+      "arm": "B",
+      "seconds": 1.141892542000278,
+      "events": 28847586,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "96d90628805ef8c29a9b8be0641a5b9a37f13a45650caeadf4ab778dc601448f",
+      "round": 3
+    },
+    {
+      "arm": "C",
+      "seconds": 0.5355664159997104,
+      "events": 28847586,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "96d90628805ef8c29a9b8be0641a5b9a37f13a45650caeadf4ab778dc601448f",
+      "round": 3
+    },
+    {
+      "arm": "D",
+      "seconds": 1.1800325300000623,
+      "events": 28666750,
+      "sampler": "chacha8-u53/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "2cc7a7dde6ad627547edd4cbe56af606d7bdc04a24f36cf5e15d0500a2eef140",
+      "round": 3
+    }
+  ],
+  "median_seconds": {
+    "A": 0.37646353900072427,
+    "B": 1.0694915499998388,
+    "C": 0.4994246709993604,
+    "D": 1.1800325300000623
+  },
+  "events": {
+    "A": 28536814,
+    "B": 28847586,
+    "C": 28847586,
+    "D": 28666750
+  },
+  "median_seconds_per_event": {
+    "A": 1.3192206354946431e-08,
+    "B": 3.707386642334089e-08,
+    "C": 1.7312529062201613e-08,
+    "D": 4.116380580289228e-08
+  },
+  "ratios": {
+    "B/A wall": 2.8408901240175113,
+    "B/A per event": 2.810285514480298,
+    "D/A wall": 3.1345201002262053,
+    "D/A per event": 3.120312455350417,
+    "B/C wall": 2.1414471733239795
+  },
+  "checks": {
+    "a_sampler_is_mtdna_direct": true,
+    "b_and_c_equal_events_and_means": true,
+    "loop_verify_passed": true,
+    "every_run_completed": true
+  }
+}

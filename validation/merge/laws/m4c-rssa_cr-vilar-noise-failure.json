@@ -1,0 +1,83 @@
+{
+ "schema": "crn-craft.merge-law-gate-failure/0.1",
+ "declared_in": "validation/merge/RESULTS.md",
+ "label": "m4c-rssa_cr",
+ "model": "vilar-noise",
+ "method": {
+  "kind": "static_direct",
+  "selector": "rssa_cr"
+ },
+ "chunks_completed": [
+  {
+   "root_seed": 2000000,
+   "events": 552251120
+  }
+ ],
+ "failed_chunk": {
+  "root_seed": 2000001,
+  "replicates": 10000,
+  "termination": "failed",
+  "completed_replicates": 9999,
+  "events": 552731994,
+  "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1",
+  "failed_replicates": [
+   {
+    "created_instances": 5521,
+    "diagnostic": {
+     "code": "CRN-R030",
+     "hint": "Rescale rates and time.",
+     "message": "clock failed to advance",
+     "path": "/time",
+     "severity": "error"
+    },
+    "events": 50464,
+    "id": 6298,
+    "peak_instances": 7,
+    "rng_words": 1259950,
+    "rule_events": [
+     41,
+     3164,
+     0,
+     289,
+     16696,
+     2166,
+     342,
+     635,
+     8086,
+     8610,
+     6053,
+     3191,
+     212,
+     2,
+     342,
+     635
+    ],
+    "saved_points": 4,
+    "started": true,
+    "stop_time": 7.162417311677013,
+    "termination": "failed"
+   }
+  ]
+ },
+ "investigation": {
+  "rerun": "the same chunk request through the CLI (replicate 6298 fails identically); a temporary diagnostic print, not committed, read the state at the failure",
+  "time": 7.162417311677013,
+  "rssa_upper_total": 9729.05,
+  "exact_total": 3353.0600000000004,
+  "wait_after_rounding": 0.0,
+  "counts": {
+   "DA": 1,
+   "DR": 1,
+   "MA": 14,
+   "DAp": 0,
+   "MR": 77,
+   "DRp": 0,
+   "A": 0,
+   "R": 131,
+   "C": 2033
+  },
+  "cause": "the Ziggurat wait unit / total was below half an ulp of t (4.44e-16 at t = 7.16), so t + wait == t and the strict check 'clock failed to advance' (CRN-R030, also in the linear scan and in 0.6.0) failed the replicate",
+  "counts_note": "in the lowered species order DA, DR, MA, DAp, MR, DRp, A, R, C; the exact total is 50 DA + 0.01 DR + 50 MA + 5 MR + C + 10 MA + 0.5 MR + 0.05 R = 3353.06"
+ },
+ "decision": "0.6.0 semantics kept: in the network engine's RSSA-CR trial loop (ssa.rs, run_path, MODE 4) every trial computes next = sampling::event_time(time, wait)? before the composition draw and the acceptance test, and event_time fails the replicate (CRN-E062, 'event time cannot advance in finite f64 arithmetic') when next <= time, also for a trial that would be rejected. The rules engine's selectors make the same check at the same place (CRN-R030 at /time, the code of the linear scan for this condition). The engine is unchanged; the failure is kept as the gate's row for vilar-noise; the remaining 18 chunks were not run."
+}

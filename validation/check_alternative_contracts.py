@@ -1,19 +1,38 @@
-"""Native/Python alternative SSA contracts, controls and prepared reuse."""
+"""Native/Python contracts, controls and prepared reuse of every exact selector.
+
+The 0.6.0 checks of the `ssa-run` contracts on the unified engine: for every
+Static Direct selector and waiting time (and for `next_reaction`) a
+`crn-craft.run/1.0` request built by `crn_craft.ensemble` validates against
+the `run-1.0` schema, its result against `result-1.0`, the Python result
+equals the result `crn-craft run` and `python -m crn_craft run` print, a
+prepared run replays identically from three threads, every budget ends a run
+with its termination and no statistics, a cancel file set before the start
+ends it with no random words, and unknown fields, `null` options and duplicate
+keys are refused with diagnostics.
+
+Not carried over from 0.6.0 (docs/campaign/merge-0.7/M8a-log.md): the `fast`
+policy and the `ssa-run` request versions 0.1 to 0.4 (xoshiro256++ and the
+request versions are removed), and the cached-direct variant. Replay of the
+rules request versions is checked by check_rules_python.py and the stored
+requests of the Rust tests.
+"""
 
 import argparse
 import concurrent.futures
 import hashlib
-import itertools
 import json
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import crn_craft as crn
+from crn_craft.rules import model_bytes
 from jsonschema import Draft7Validator
 from check_alternative_ssa import VARIANTS
 
 ROOT = Path(__file__).resolve().parents[1]
+# Every variant of the law gate, plus the exact next-reaction method.
+CASES = [*VARIANTS, ("next_reaction", None)]
 
 
 def require(value, message):
@@ -21,15 +40,10 @@ def require(value, message):
         raise RuntimeError(message)
 
 
-def equal_numbers(a, b):
-    """Results equal apart from the request identity and the echoed `fast`."""
-
-    def strip(r):
-        out = {k: v for k, v in r.items() if k not in ("schema", "run_sha256")}
-        out["method"] = {k: v for k, v in r["method"].items() if k != "fast"}
-        return out
-
-    return strip(a) == strip(b)
+def method_for(algorithm, wait):
+    if algorithm == "next_reaction":
+        return "next_reaction", None
+    return {"kind": "static_direct", "waiting_time": wait}, algorithm
 
 
 def main():
@@ -37,140 +51,121 @@ def main():
     p.add_argument("--binary", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
     args = p.parse_args()
+    binary = str(args.binary.resolve())
     rows = []
     validators = {
-        k: Draft7Validator(json.loads((ROOT / f"schemas/{k}.schema.json").read_text()))
-        for k in ["ssa-run", "ssa-result"]
+        k: Draft7Validator(crn.describe(k)) for k in ["run-1.0", "result-1.0"]
     }
-    model = (
+    network = (
         ROOT / "validation/ssa-fixtures/immigration-nonzero.model.json"
     ).read_bytes()
+    model = crn.convert(network)
     with tempfile.TemporaryDirectory() as temp:
         folder = Path(temp)
-        mp = folder / "model.json"
+        mp = folder / "model.rules.json"
         rp = folder / "request.json"
         mp.write_bytes(model)
-        default = crn.ssa_spec(model, end=1.0, save_times=[1.0])
-        require(
-            default["schema"] == "crn-craft.ssa-run/0.3"
-            and default["method"]["fast"] is True,
-            "ssa_spec defaults to fast",
-        )
-        for invalid in [None, 1, "true"]:
+
+        def options(**more):
+            base = {
+                "end": 2.0,
+                "report_times": [0.0, 0.25, 1.0, 2.0],
+                "replicates": 16,
+                "keep_paths": 16,
+                "threads": 2,
+                "seed": 800,
+                "max_events": 10000,
+                "max_sampling_steps": 100000,
+                "max_output_bytes": 1000000,
+                "quantiles": (),
+            }
+            base.update(more)
+            return base
+
+        # A bad selector or wait is refused before anything runs.
+        for bad in ["fast", "", "RSSA_CR", 7]:
             try:
-                crn.ssa_spec(model, end=1.0, save_times=[1.0], fast=invalid)
-            except TypeError:
+                crn.ensemble(model, **options(selector=bad, method="static_direct"))
+            except ValueError:
                 pass
             else:
-                raise RuntimeError(f"ssa_spec accepted fast={invalid!r}")
-        # Next reaction is checked only, so its default must be runnable.
-        nr = crn.ssa_spec(
-            model, aggregator="next_reaction", end=1.0, save_times=[0.0, 1.0]
-        )
-        require(
-            nr["schema"] == "crn-craft.ssa-run/0.4" and nr["method"]["fast"] is False,
-            "ssa_spec next_reaction defaults to the checked policy",
-        )
-        require(
-            crn.simulate_ssa(model, nr)["termination"] == "completed",
-            "default next_reaction request runs",
-        )
-        for (algorithm, wait), fast in itertools.product(VARIANTS, (False, True)):
-            request = crn.ssa_spec(
+                raise RuntimeError(f"ensemble accepted selector={bad!r}")
+        try:
+            crn.ensemble(
                 model,
-                fast=fast,
-                aggregator=algorithm,
-                waiting_time=wait,
-                end=2.0,
-                save_times=[0.0, 0.25, 1.0, 2.0],
-                replicates=16,
-                keep=16,
-                threads=2,
-                seed=800,
-                max_events=10000,
-                max_sampling_steps=100000,
-                max_output_bytes=1000000,
+                **options(
+                    method={"kind": "static_direct", "waiting_time": "fast"},
+                    selector="linear",
+                ),
             )
-            validators["ssa-run"].validate(request)
-            expected = crn.simulate_ssa(model, request)
-            validators["ssa-result"].validate(expected)
+        except crn.CrnError:
+            pass
+        else:
+            raise RuntimeError("ensemble accepted waiting_time='fast'")
+        # Absent options mean the defaults of run/1.0: auto and Ziggurat waits,
+        # which for two channels is the linear scan.
+        default = crn.ensemble(model, **options(method="static_direct")).simulate()
+        explicit = crn.ensemble(
+            model,
+            **options(
+                method={"kind": "static_direct", "waiting_time": "ziggurat"},
+                selector="linear",
+            ),
+        ).simulate()
+        require(
+            default.metadata["sampler"] == "chacha8-u53-ziggurat/rules-static-direct/1"
+            and default.paths.equals(explicit.paths),
+            "run/1.0 default is the linear scan with Ziggurat waits",
+        )
+        for algorithm, wait in CASES:
+            method, selector = method_for(algorithm, wait)
+            prepared = crn.ensemble(model, **options(method=method, selector=selector))
+            expected = prepared.simulate()
+            request = json.loads(json.dumps(expected.request))
+            request["model"]["path"] = mp.name
+            validators["run-1.0"].validate(request)
+            validators["result-1.0"].validate(_full_result(binary, mp, request, folder))
             require(
-                request["schema"] == "crn-craft.ssa-run/0.3"
-                and request["method"]["fast"] is fast
-                and expected["schema"] == "crn-craft.ssa-result/0.3"
-                and expected["sampler"].startswith(
-                    "xoshiro256pp" if fast else "chacha8"
-                )
-                and expected["method"]["fast"] is fast,
-                "fast identity",
+                request["schema"] == "crn-craft.run/1.0"
+                and expected.metadata["schema"] == "crn-craft.result/1.0"
+                and expected.metadata["sampler"].startswith("chacha8-u53")
+                and expected.metadata["termination"] == "completed",
+                "contract identity",
             )
-
-            # Without `fast`, ssa-run/0.3 is fast. The same policy under 0.2
-            # (fast) or 0.1 (checked) gives the same numbers.
-            implicit = json.loads(json.dumps(request))
-            del implicit["method"]["fast"]
-            implicit_result = crn.simulate_ssa(model, implicit)
-            require(
-                implicit_result["method"]["fast"] is True
-                and equal_numbers(implicit_result, expected) == fast,
-                "ssa-run/0.3 default is fast",
-            )
-            earlier = json.loads(json.dumps(request))
-            if fast:
-                earlier["schema"] = "crn-craft.ssa-run/0.2"
-            else:
-                earlier["schema"] = "crn-craft.ssa-run/0.1"
-                del earlier["method"]["fast"]
-            earlier_result = crn.simulate_ssa(model, earlier)
-            validators["ssa-result"].validate(earlier_result)
-            require(
-                equal_numbers(earlier_result, expected)
-                and earlier_result["schema"]
-                == ("crn-craft.ssa-result/0.2" if fast else "crn-craft.ssa-result/0.1")
-                and earlier_result["method"].get("fast", False) is fast,
-                "earlier request versions",
-            )
-            for invalid in [None, 1, "true"]:
-                changed = json.loads(json.dumps(request))
-                changed["method"]["fast"] = invalid
-                try:
-                    crn.simulate_ssa(model, changed)
-                except crn.CrnError:
-                    pass
-                else:
-                    raise RuntimeError(f"fast={invalid!r} accepted")
-            if fast:
-                old = dict(request, schema="crn-craft.ssa-run/0.1")
-                try:
-                    crn.simulate_ssa(model, old)
-                except crn.CrnError:
-                    pass
-                else:
-                    raise RuntimeError("fast accepted under ssa-run/0.1")
-            prepared = crn.prepare_ssa(model, request)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+            if algorithm != "next_reaction":
                 require(
-                    all(
-                        v == expected
-                        for v in pool.map(
-                            lambda _, prepared=prepared: prepared.simulate(), range(3)
-                        )
-                    ),
-                    "concurrent replay",
+                    expected.metadata["method"]["selector"] == algorithm
+                    and expected.metadata["method"]["waiting_time"] == wait,
+                    "method identity",
                 )
-            rp.write_bytes(crn.model_bytes(request))
-            for command in [
-                [str(args.binary.resolve())],
-                [sys.executable, "-m", "crn_craft"],
-            ]:
+            rp.write_bytes(model_bytes(request))
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
+                concurrent_results = list(
+                    pool.map(lambda _, run=prepared: run.simulate(), range(3))
+                )
+            require(
+                all(
+                    v.metadata == expected.metadata and v.paths.equals(expected.paths)
+                    for v in concurrent_results
+                ),
+                "concurrent replay",
+            )
+            for command in [[binary], [sys.executable, "-m", "crn_craft"]]:
                 result = subprocess.run(
-                    [*command, "ssa", str(mp), str(rp)],
+                    [*command, "run", str(mp), str(rp)],
                     capture_output=True,
                     check=False,
                     timeout=30,
                 )
                 require(result.returncode == 0 and not result.stderr, "CLI failure")
-                require(json.loads(result.stdout) == expected, "CLI identity")
+                native = json.loads(result.stdout)
+                require(
+                    {k: v for k, v in native.items() if k != "replicates"}
+                    == {k: v for k, v in expected.metadata.items() if k != "replicates"}
+                    and [r["events"] for r in native["replicates"]]
+                    == expected.records["events"].tolist(),
+                    "CLI identity",
+                )
                 # Incomplete runs and rejected requests exit 1 with JSON on stdout.
                 limited = json.loads(json.dumps(request))
                 limited["budget"]["max_events_per_replicate"] = 1
@@ -187,9 +182,9 @@ def main():
                     ),
                 ]:
                     bad = folder / "changed.json"
-                    bad.write_bytes(crn.model_bytes(changed))
+                    bad.write_bytes(model_bytes(changed))
                     result = subprocess.run(
-                        [*command, "ssa", str(mp), str(bad)],
+                        [*command, "run", str(mp), str(bad)],
                         capture_output=True,
                         check=False,
                         timeout=30,
@@ -199,17 +194,16 @@ def main():
                         f"CLI exit status: {command[-1]}",
                     )
             for field, value, stop in [
-                ("max_sampling_steps_per_replicate", 0, "sampling_limit"),
+                ("max_sampling_steps_per_replicate", 1, "sampling_limit"),
                 ("max_events_per_replicate", 1, "event_limit"),
                 ("wall_time_s", 1e-12, "wall_time_limit"),
             ]:
                 changed = json.loads(json.dumps(request))
                 changed["budget"][field] = value
-                incomplete = crn.simulate_ssa(model, changed)
-                validators["ssa-result"].validate(incomplete)
+                incomplete = crn.prepare(model, changed, quantiles=()).simulate()
                 require(
-                    incomplete["termination"] == stop
-                    and incomplete["statistics"] is None,
+                    incomplete.metadata["termination"] == stop
+                    and incomplete.statistics is None,
                     stop,
                 )
             cancel = folder / "CANCEL"
@@ -217,25 +211,28 @@ def main():
             incomplete = prepared.simulate(cancel_file=cancel)
             cancel.unlink()
             require(
-                incomplete["termination"] == "cancelled"
-                and incomplete["work"]["rng_words"] == 0,
+                incomplete.metadata["termination"] == "cancelled"
+                and int(incomplete.records["rng_words"].sum()) == 0,
                 "pre-cancel",
             )
-            for changed in [
-                dict(request, unknown=True),
-                dict(request, method=dict(request["method"], unknown=True)),
-            ]:
+            changes = [dict(request, unknown=True)]
+            if algorithm != "next_reaction":
+                changes += [
+                    dict(request, method=dict(request["method"], unknown=True)),
+                    dict(request, method=dict(request["method"], selector=None)),
+                ]
+            for changed in changes:
                 try:
-                    crn.simulate_ssa(model, changed)
+                    crn.prepare(model, changed, quantiles=())
                 except crn.CrnError:
                     pass
                 else:
-                    raise RuntimeError("unknown field accepted")
-            duplicate = crn.model_bytes(request).replace(
-                b"{", b'{"schema":"crn-craft.ssa-run/0.1",', 1
+                    raise RuntimeError("unknown field or null option accepted")
+            duplicate = model_bytes(request).replace(
+                b"{", b'{"schema":"crn-craft.run/1.0",', 1
             )
             try:
-                crn.simulate_ssa(model, duplicate)
+                crn.prepare(model, duplicate, quantiles=())
             except crn.CrnError:
                 pass
             else:
@@ -244,16 +241,29 @@ def main():
                 dict(
                     algorithm=algorithm,
                     waiting_time=wait,
-                    fast=fast,
                     passed=True,
                     result_sha256=hashlib.sha256(
-                        json.dumps(expected, sort_keys=True).encode()
+                        json.dumps(expected.metadata, sort_keys=True).encode()
                     ).hexdigest(),
                 )
             )
     report = dict(passed=True, checks=rows)
     args.output.write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))
+
+
+def _full_result(binary, model_path, request, folder):
+    """The CLI's result document of `request` (for the schema check)."""
+    path = folder / "schema-request.json"
+    path.write_bytes(model_bytes(request))
+    done = subprocess.run(
+        [binary, "run", str(model_path), str(path)],
+        capture_output=True,
+        check=False,
+        timeout=30,
+    )
+    require(done.returncode == 0 and not done.stderr, "CLI failure")
+    return json.loads(done.stdout)
 
 
 if __name__ == "__main__":

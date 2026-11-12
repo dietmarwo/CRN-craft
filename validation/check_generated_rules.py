@@ -13,7 +13,7 @@ from benchmark_mtdna import GRID
 from check_mtdna import ROOT, require, rules_files
 
 RUNNER = """
-use crn_craft_rules::{Control, Termination, execute_with_rules_kernel, prepare};
+use crn_craft::rules::{Control, Termination, execute_with_rules_kernel, prepare};
 include!("kernel.rs");
 fn main() -> Result<(), String> {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
@@ -52,11 +52,11 @@ def main():
         require(generated.returncode == 0, generated.stderr)
         (source / "kernel.rs").write_bytes(generated.stdout)
         (source / "main.rs").write_text(RUNNER)
-        crate = ROOT / "crates/crn-craft-rules"
+        crate = ROOT / "crates/crn-craft"
         manifest = folder / "Cargo.toml"
         manifest.write_text(
             '[package]\nname = "rules-kernel-probe"\nversion = "0.1.0"\nedition = "2024"\n'
-            f'[dependencies]\ncrn-craft-rules = {{path = "{crate}"}}\nserde_json = "1"\n'
+            f'[dependencies]\ncrn-craft = {{path = "{crate}"}}\nserde_json = "1"\n'
         )
         target = Path(os.environ.get("CARGO_TARGET_DIR", folder / "target")).resolve()
         build, compiled = run(

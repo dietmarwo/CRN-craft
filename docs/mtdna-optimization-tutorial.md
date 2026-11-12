@@ -35,8 +35,9 @@ K = 1000 has about 150,000 events. An objective evaluation with 800 cells
 takes about 2.2 s on two cores with `mtdna_direct`, the opt-in fast path
 for this model's three-class structure, and a reused prepared template.
 Two hundred evaluations are therefore minutes, not hours. Static Direct,
-which runs any closed model, takes about 3.3× longer with its default
-Ziggurat waits and sparse trackers: about 25 minutes for the same fit.
+which runs any closed model, takes about 2.8× longer with its default
+Ziggurat waits and sparse trackers (user manual, section 8, measured on
+12 November 2026): about 20 minutes for the same fit.
 
 To be able to check the answer, the tutorial makes its own data from known
 parameters (`mu = 3·10⁻⁵`, `sm = 1.5`), with a seed that the fit never sees.
@@ -459,7 +460,8 @@ Practical sizes for this model:
 - **Opt in to `mtdna_direct`** where the model has the three-class
   structure ([user manual, section 8](mtdna-user-manual.md#the-opt-in-fast-path-mtdna_direct)).
   Check `metadata["sampler"]`: a stop other than `N > 0 && mutants >= f * N`
-  makes it fall back to Static Direct, which is about 3.9× slower. Record
+  makes it fall back to Static Direct with inverse waits, which is about
+  3.1× slower (user manual, section 8). Record
   other thresholds with first-passage trackers, or compute them from kept
   paths as here. Other models run on the generic methods, Static Direct
   first.
@@ -486,7 +488,7 @@ Practical sizes for this model:
   (`method="thinning"`) and for the clone model (tree method), at the costs
   given in the [performance analysis](mtdna-performance-analysis.md).
 - **Rust.** For very large studies, an optimizer in Rust can call
-  `crn_craft_rules::execute` directly, or a generated event loop
+  `crn_craft::rules::execute` directly, or a generated event loop
   ([user manual, section 16](mtdna-user-manual.md#16-rust)).
 
 ## 9. Checklist

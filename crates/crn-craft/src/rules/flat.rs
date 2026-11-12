@@ -65,14 +65,30 @@ enum Factor {
     General(Option<usize>),
 }
 
-/// The arity of a higher-order channel's rate plan: its reactants are in
-/// `Channel::multi`.
-const HIGHER_ORDER: usize = usize::MAX;
+/// The reactant count factor of a channel: the number of reactant tuples
+/// (for a whole-rule propensity 1 while every reactant is present), decided
+/// once per channel.
+#[derive(Clone, Copy)]
+enum Count {
+    /// No reactants: 1.
+    Source,
+    /// One molecule of a species: its count.
+    Single(usize),
+    /// Two molecules of one species: n (n - 1) / 2.
+    Pair(usize),
+    /// One molecule of each of two species: the product of the counts.
+    Cross(usize, usize),
+    /// Whole-rule propensities: 1 while the molecules are present.
+    WholeSingle(usize),
+    WholePair(usize),
+    WholeCross(usize, usize),
+    /// A higher-order channel: its reactants are in `Channel::multi`.
+    HigherOrder,
+}
 
 struct ChannelRate {
     factor: Factor,
-    reactants: [usize; 2],
-    arity: usize,
+    count: Count,
     weight: f64,
     rule: usize,
     whole: bool,
@@ -85,17 +101,21 @@ impl ChannelRate {
     #[allow(clippy::cast_precision_loss)]
     #[inline]
     fn count_weight(&self, counts: &[u64]) -> f64 {
-        let [s, t] = self.reactants;
-        match (self.arity, self.whole) {
-            (0, _) => 1.0,
-            (1, false) => counts[s] as f64,
-            (_, false) if s == t => counts[s] as f64 * counts[s].saturating_sub(1) as f64 * 0.5,
-            (_, false) => counts[s] as f64 * counts[t] as f64,
+        match self.count {
+            Count::Source => 1.0,
+            Count::Single(s) => counts[s] as f64,
+            Count::Pair(s) => counts[s] as f64 * counts[s].saturating_sub(1) as f64 * 0.5,
+            Count::Cross(s, t) => counts[s] as f64 * counts[t] as f64,
             // A whole-rule propensity needs one molecule per pattern.
-            (1, true) => f64::from(u8::from(counts[s] > 0)),
-            (_, true) if s == t => f64::from(u8::from(counts[s] > 1)),
-            (_, true) => f64::from(u8::from(counts[s] > 0 && counts[t] > 0)),
+            Count::WholeSingle(s) => f64::from(u8::from(counts[s] > 0)),
+            Count::WholePair(s) => f64::from(u8::from(counts[s] > 1)),
+            Count::WholeCross(s, t) => f64::from(u8::from(counts[s] > 0 && counts[t] > 0)),
+            Count::HigherOrder => unreachable!("higher-order channels use their own path"),
         }
+    }
+
+    fn higher_order(&self) -> bool {
+        matches!(self.count, Count::HigherOrder)
     }
 }
 
@@ -580,17 +600,20 @@ impl Network {
                     },
                     _ => Factor::General(rate_slots[c.rule]),
                 };
-                let mut reactants = [0; 2];
-                let arity = if c.multi.is_some() {
-                    HIGHER_ORDER
-                } else {
-                    reactants[..c.reactants.len()].copy_from_slice(&c.reactants);
-                    c.reactants.len()
+                let count = match (c.multi.is_some(), c.reactants.as_slice(), c.whole) {
+                    (true, _, _) => Count::HigherOrder,
+                    (false, [], _) => Count::Source,
+                    (false, [s], false) => Count::Single(*s),
+                    (false, [s], true) => Count::WholeSingle(*s),
+                    (false, [s, t], false) if s == t => Count::Pair(*s),
+                    (false, [s, t], true) if s == t => Count::WholePair(*s),
+                    (false, [s, t], false) => Count::Cross(*s, *t),
+                    (false, [s, t], true) => Count::WholeCross(*s, *t),
+                    (false, _, _) => unreachable!("at most two reactant molecules"),
                 };
                 ChannelRate {
                     factor,
-                    reactants,
-                    arity,
+                    count,
                     weight: c.factor,
                     rule: c.rule,
                     whole: c.whole,
@@ -686,6 +709,7 @@ impl Network {
         }
     }
 
+    #[inline]
     pub fn refresh_channel(
         &self,
         channel: usize,
@@ -698,7 +722,11 @@ impl Network {
         } else {
             &self.hot_changed
         };
-        self.refresh_indices(changed[channel].iter().copied(), counts, values)
+        let indices = &changed[channel];
+        if indices.is_empty() {
+            return Ok(());
+        }
+        self.refresh_indices(indices.iter().copied(), counts, values)
     }
 
     pub fn refresh_generated(
@@ -728,6 +756,8 @@ impl Network {
         Ok(())
     }
 
+    #[cold]
+    #[inline(never)]
     pub fn rate_error(&self, channel: usize) -> Halt {
         let c = &self.channels[channel];
         numerical(
@@ -835,7 +865,7 @@ impl Network {
     /// most three correctly rounded operations.
     pub(crate) fn scaled_combination(&self, i: usize) -> bool {
         let c = &self.plans[i];
-        c.arity == HIGHER_ORDER && !c.whole
+        c.higher_order() && !c.whole
     }
 
     /// The global factor of channel `i` at `env`, computed without the
@@ -883,7 +913,7 @@ impl Network {
     /// The value is not checked.
     pub(crate) fn value_with(&self, i: usize, global: f64, counts: &[u64]) -> f64 {
         let c = &self.plans[i];
-        if c.arity == HIGHER_ORDER {
+        if c.higher_order() {
             let reactants = self.channels[i]
                 .multi
                 .as_deref()
@@ -916,6 +946,7 @@ impl Network {
         self.rate_cache().channel(self, i, counts, env)
     }
 
+    #[inline]
     pub fn apply(
         &self,
         i: usize,
@@ -927,22 +958,18 @@ impl Network {
         let mut next_live = *live;
         let mut created = 0;
         for &(s, d) in changes {
-            let next = counts[s]
-                .checked_add_signed(d)
-                .filter(|&n| n <= MAX_COUNT)
-                .ok_or_else(|| {
-                    numerical(
-                        "/rules",
-                        "fixed count outside 0..2^53",
-                        "Reduce population.",
-                    )
-                })?;
+            let Some(next) = counts[s].checked_add_signed(d).filter(|&n| n <= MAX_COUNT) else {
+                return Err(count_range());
+            };
             next_live = next_live + u64::from(next > 0) - u64::from(counts[s] > 0);
             created += u64::from(next > 0 && counts[s] == 0);
         }
-        check_instances(next_live, limits)?;
+        if next_live > limits.max_instances {
+            return Err(instance_limit());
+        }
         for &(s, d) in changes {
-            counts[s] = counts[s].checked_add_signed(d).expect("validated update");
+            // Validated above.
+            counts[s] = counts[s].wrapping_add_signed(d);
         }
         *live = next_live;
         Ok(created)
@@ -1007,7 +1034,9 @@ impl RateCache {
         value
     }
 
-    #[allow(clippy::cast_precision_loss)]
+    /// Channel `i`'s propensity at `counts` and `env`, or the rate error of
+    /// its rule if the value is not finite and nonnegative.
+    #[inline]
     pub fn channel(
         &mut self,
         net: &Network,
@@ -1015,25 +1044,33 @@ impl RateCache {
         counts: &[u64],
         env: &Env<'_>,
     ) -> Result<f64, Halt> {
+        match self.value(net, i, counts, env) {
+            Some(value) => Ok(value),
+            None => Err(net.rate_error(i)),
+        }
+    }
+
+    /// [`Self::channel`]'s value, `None` for an invalid one.
+    #[inline]
+    fn value(&mut self, net: &Network, i: usize, counts: &[u64], env: &Env<'_>) -> Option<f64> {
         let c = &net.plans[i];
-        if c.arity == HIGHER_ORDER {
+        if c.higher_order() {
             return self.higher_order(net, i, counts, env);
         }
         let weight = c.count_weight(counts);
         if weight == 0.0 {
-            return Ok(0.0);
+            return Some(0.0);
         }
-        let global = self.global(net, c, env);
+        let global = match c.factor {
+            Factor::Constant(k) => k,
+            _ => self.global(net, c, env),
+        };
         let value = global * (weight * c.weight);
-        if value.is_finite() && value >= 0.0 {
-            Ok(value)
-        } else {
-            Err(net.rate_error(i))
-        }
+        (value.is_finite() && value >= 0.0).then_some(value)
     }
 
     /// The global factor of a channel whose reactants are available.
-    #[inline]
+    #[inline(never)]
     fn global(&mut self, net: &Network, c: &ChannelRate, env: &Env<'_>) -> f64 {
         match c.factor {
             Factor::Constant(k) => k,
@@ -1060,20 +1097,21 @@ impl RateCache {
     /// A higher-order channel: 0 unless every reactant type has its count;
     /// then the whole propensity, or rate × factor × Π C(n, k) as the
     /// overflow-safe scaled product of [`crate::rules::combination_rate`].
+    #[inline(never)]
     fn higher_order(
         &mut self,
         net: &Network,
         i: usize,
         counts: &[u64],
         env: &Env<'_>,
-    ) -> Result<f64, Halt> {
+    ) -> Option<f64> {
         let c = &net.plans[i];
         let reactants = net.channels[i]
             .multi
             .as_deref()
             .expect("higher-order channel");
         if reactants.iter().any(|&(s, k)| counts[s] < k) {
-            return Ok(0.0);
+            return Some(0.0);
         }
         let global = self.global(net, c, env);
         let value = if c.whole {
@@ -1081,11 +1119,7 @@ impl RateCache {
         } else {
             crate::rules::combination_rate(global, c.weight, counts, reactants)
         };
-        if value.is_finite() && value >= 0.0 {
-            Ok(value)
-        } else {
-            Err(net.rate_error(i))
-        }
+        (value.is_finite() && value >= 0.0).then_some(value)
     }
 }
 
@@ -1093,7 +1127,13 @@ pub(crate) fn check_instances(live: u64, limits: &Limits) -> Result<(), Halt> {
     if live <= limits.max_instances {
         return Ok(());
     }
-    Err(Halt::Limit(
+    Err(instance_limit())
+}
+
+#[cold]
+#[inline(never)]
+fn instance_limit() -> Halt {
+    Halt::Limit(
         crate::rules::Termination::InstanceLimit,
         crate::diagnostic::Diagnostic::error(
             "CRN-R042",
@@ -1101,7 +1141,17 @@ pub(crate) fn check_instances(live: u64, limits: &Limits) -> Result<(), Halt> {
             "instance limit reached",
             "Increase max_instances.",
         ),
-    ))
+    )
+}
+
+#[cold]
+#[inline(never)]
+fn count_range() -> Halt {
+    numerical(
+        "/rules",
+        "fixed count outside 0..2^53",
+        "Reduce population.",
+    )
 }
 
 fn normalize(x: f64) -> f64 {

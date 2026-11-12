@@ -572,21 +572,15 @@ impl Path<'_> {
         }
     }
 
+    #[inline]
     pub(crate) fn check_events(&self, out: &PathOutput, events: u64) -> Result<(), Halt> {
         if events <= self.limits.max_events.saturating_sub(out.events) {
             return Ok(());
         }
-        Err(Halt::Limit(
-            Termination::EventLimit,
-            Diagnostic::error(
-                "CRN-R040",
-                "/budget/max_events_per_replicate",
-                "event limit reached",
-                "Increase max_events_per_replicate; incomplete ensembles withhold statistics.",
-            ),
-        ))
+        Err(event_limit())
     }
 
+    #[inline]
     pub(super) fn apply_flat(
         &self,
         net: &Network,
@@ -649,4 +643,18 @@ impl Path<'_> {
         }
         O::ENABLED && observer.on_event(&event) == ObserverAction::Stop
     }
+}
+
+#[cold]
+#[inline(never)]
+fn event_limit() -> Halt {
+    Halt::Limit(
+        Termination::EventLimit,
+        Diagnostic::error(
+            "CRN-R040",
+            "/budget/max_events_per_replicate",
+            "event limit reached",
+            "Increase max_events_per_replicate; incomplete ensembles withhold statistics.",
+        ),
+    )
 }

@@ -613,6 +613,7 @@ impl<'r, R: RngCore> Words<'r, R> {
 }
 
 impl<R: RngCore> Words<'_, R> {
+    #[inline]
     pub(crate) fn open(&mut self) -> Result<f64, Halt> {
         loop {
             let u = self.uniform()?;
@@ -622,25 +623,33 @@ impl<R: RngCore> Words<'_, R> {
         }
     }
 
+    #[inline]
     pub(crate) fn uniform(&mut self) -> Result<f64, Halt> {
         Ok(uniform_closed_open(self.word()?))
     }
 
+    #[inline]
     pub(crate) fn word(&mut self) -> Result<u64, Halt> {
         if self.used >= self.max {
-            return Err(Halt::Limit(
-                Termination::SamplingLimit,
-                Diagnostic::error(
-                    "CRN-R041",
-                    "/budget/max_sampling_steps_per_replicate",
-                    "sampling work limit reached",
-                    "Increase the sampling-step budget; incomplete ensembles withhold statistics.",
-                ),
-            ));
+            return Err(sampling_limit());
         }
         self.used += 1;
         Ok(self.rng.next_u64())
     }
+}
+
+#[cold]
+#[inline(never)]
+fn sampling_limit() -> Halt {
+    Halt::Limit(
+        Termination::SamplingLimit,
+        Diagnostic::error(
+            "CRN-R041",
+            "/budget/max_sampling_steps_per_replicate",
+            "sampling work limit reached",
+            "Increase the sampling-step budget; incomplete ensembles withhold statistics.",
+        ),
+    )
 }
 
 pub(crate) struct Path<'a> {

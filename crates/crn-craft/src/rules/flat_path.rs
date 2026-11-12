@@ -482,10 +482,12 @@ impl Path<'_> {
                 -libm::log(1.0 - words.open()?) / total
             };
             let next = clock.advance(*time, wait)?;
-            let channel = if kind == Kind::Sorting {
-                sorting_sample(&mut order, &rates, total, words)?
-            } else {
-                composition.sample(&tree, words)?
+            // RSSA-CR reuses the composition's accepting threshold, uniform
+            // below the candidate's upper bound, for its own test.
+            let (channel, accepted) = match kind {
+                Kind::Sorting => (sorting_sample(&mut order, &rates, total, words)?, 0.0),
+                Kind::RssaCr => composition.sample_with_threshold(&tree, words)?,
+                _ => (composition.sample(&tree, words)?, 0.0),
             };
             if out.saved_points < self.report_times.len()
                 && self.report_times[out.saved_points] < next
@@ -499,9 +501,11 @@ impl Path<'_> {
             }
             if kind == Kind::RssaCr {
                 // Thinning against the candidate's bounds: accept below the
-                // lower bound, otherwise against the exact propensity.
+                // lower bound, otherwise against the exact propensity. The
+                // threshold is the composition's: given the candidate, uniform
+                // below its upper bound.
                 let upper = tree.get(channel);
-                let threshold = words.uniform()? * upper;
+                let threshold = accepted;
                 if threshold >= upper {
                     return Err(numerical(
                         "/rules",

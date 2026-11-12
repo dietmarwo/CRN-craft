@@ -458,11 +458,26 @@ impl Composition {
     }
 
     /// A channel with probability `tree.get(i)` / total over the members.
+    #[inline]
     pub(crate) fn sample<R: RngCore>(
         &mut self,
         tree: &RateTree,
         words: &mut Words<'_, R>,
     ) -> Result<usize, Halt> {
+        Ok(self.sample_with_threshold(tree, words)?.0)
+    }
+
+    /// [`Self::sample`] and the threshold that accepted the channel: below
+    /// `tree.get(channel)` and, given the channel, uniform on that interval
+    /// up to the lattice of the acceptance draw (spacing at most
+    /// 2⁻⁵³ of the group ceiling, which is less than twice the value).
+    /// RSSA-CR tests it against the channel's lower bound and propensity
+    /// instead of drawing another uniform.
+    pub(crate) fn sample_with_threshold<R: RngCore>(
+        &mut self,
+        tree: &RateTree,
+        words: &mut Words<'_, R>,
+    ) -> Result<(usize, f64), Halt> {
         if self.stale {
             self.rebuild()?;
         }
@@ -495,7 +510,7 @@ impl Composition {
                 ));
             }
             if threshold < tree.get(channel) {
-                return Ok(channel);
+                return Ok((channel, threshold));
             }
         }
     }
@@ -549,6 +564,42 @@ mod tests {
     use super::*;
     use crate::rules::engine::Words;
     use rand_core::RngCore;
+
+    /// RSSA-CR's reused threshold (M4f) lies below the candidate's value,
+    /// and divided by that value it is uniform: a Kolmogorov–Smirnov
+    /// distance below 0.01 over 200,000 draws from groups of mixed values.
+    #[test]
+    fn the_accepting_threshold_is_uniform_below_the_value() {
+        let rates = [0.3, 0.7, 1.0, 1.5, 3.0, 3.9, 64.0, 1e-3];
+        let mut tree = RateTree::default();
+        tree.reset(rates.len());
+        let mut composition = Composition::default();
+        composition.reset(rates.len());
+        for (i, &r) in rates.iter().enumerate() {
+            tree.set(i, r, r);
+            assert!(composition.update(i, r).is_ok());
+        }
+        assert!(tree.total().is_ok());
+        let mut rng = crate::sampling::stream(7, 3);
+        let mut words = Words::for_test(&mut rng, u64::MAX);
+        let mut scaled = Vec::new();
+        for _ in 0..200_000 {
+            let Ok((channel, threshold)) = composition.sample_with_threshold(&tree, &mut words)
+            else {
+                panic!("composition failed");
+            };
+            assert!(threshold >= 0.0 && threshold < rates[channel]);
+            scaled.push(threshold / rates[channel]);
+        }
+        scaled.sort_by(f64::total_cmp);
+        let n = scaled.len() as f64;
+        let distance = scaled
+            .iter()
+            .enumerate()
+            .map(|(k, &x)| (x - k as f64 / n).abs().max((x - (k + 1) as f64 / n).abs()))
+            .fold(0.0, f64::max);
+        assert!(distance < 0.01, "{distance}");
+    }
 
     /// The deferred threshold accepts exactly the products the eager one
     /// did (M4f), at the edges and at random.

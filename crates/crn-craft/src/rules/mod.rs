@@ -213,6 +213,7 @@ mod combination;
 pub use combination::combination_rate;
 pub mod continuous;
 pub mod convert;
+pub(crate) mod dual;
 mod engine;
 mod expr;
 mod flat;

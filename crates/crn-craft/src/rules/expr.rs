@@ -11,7 +11,7 @@ use rand_core::RngCore;
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum Op {
+pub(super) enum Op {
     Add,
     Sub,
     Mul,
@@ -28,7 +28,7 @@ enum Op {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum Func {
+pub(super) enum Func {
     Min,
     Max,
     Exp,
@@ -96,7 +96,7 @@ pub(crate) enum Slot {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum Node {
+pub(super) enum Node {
     Num(f64),
     Var(Slot),
     Neg(Box<Node>),
@@ -116,7 +116,7 @@ pub(crate) struct Scope<'a> {
 
 #[derive(Debug, Clone)]
 pub(crate) struct Expr {
-    root: Node,
+    pub(super) root: Node,
 }
 
 /// Values an expression is evaluated against.
@@ -311,11 +311,11 @@ impl RngCore for NoRng {
     }
 }
 
-fn truth(x: f64) -> bool {
+pub(super) fn truth(x: f64) -> bool {
     x != 0.0
 }
 
-fn flag(x: bool) -> f64 {
+pub(super) fn flag(x: bool) -> f64 {
     f64::from(u8::from(x))
 }
 
@@ -403,7 +403,7 @@ fn eval_node<R: RngCore>(node: &Node, env: &Env, draw: &mut Option<Draw<R>>) -> 
     }
 }
 
-fn eval_binary(op: Op, x: f64, y: f64) -> f64 {
+pub(super) fn eval_binary(op: Op, x: f64, y: f64) -> f64 {
     match op {
         Op::Add => x + y,
         Op::Sub => x - y,
@@ -420,7 +420,7 @@ fn eval_binary(op: Op, x: f64, y: f64) -> f64 {
         Op::And | Op::Or => flag(truth(y)),
     }
 }
-fn deterministic_call(f: Func, x: f64, y: f64) -> f64 {
+pub(super) fn deterministic_call(f: Func, x: f64, y: f64) -> f64 {
     match f {
         Func::Min | Func::Max if x.is_nan() || y.is_nan() => f64::NAN,
         Func::Min => x.min(y),

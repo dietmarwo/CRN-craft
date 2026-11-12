@@ -489,10 +489,9 @@ impl FlatView {
 
     /// The compiled rate or propensity expression of a rule. Its parameter
     /// slots follow [`Self::parameter_names`] and its observable slots
-    /// [`Self::observable_names`]. For dual-number evaluation (ODE
-    /// Jacobians), which is not written yet.
+    /// [`Self::observable_names`]. The kinetics evaluate it with dual
+    /// numbers for their Jacobians.
     #[must_use]
-    #[allow(dead_code)]
     pub(crate) fn rate_expression(&self, rule: usize) -> &Expr {
         &self.compiled.rules[rule].rate
     }

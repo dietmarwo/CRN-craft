@@ -474,13 +474,11 @@ def main():
         == {"crn-craft": {"version": f"={loop.version}"}, "serde_json": "1"},
         f"crates.io loop project dependencies: {published['dependencies']}",
     )
-    rows.append(
-        {
-            "case": "loop project dependencies",
-            "checkout": ["crn-craft (path, =installed version)", "serde_json"],
-            "crates.io": ["crn-craft (=installed version)", "serde_json"],
-        }
-    )
+    dependencies = {
+        "case": "loop project dependencies",
+        "checkout": ["crn-craft (path, =installed version)", "serde_json"],
+        "crates.io": ["crn-craft (=installed version)", "serde_json"],
+    }
 
     # Threads, both waiting-time policies and both tracker paths.
     for threads in (1, 2):
@@ -713,6 +711,7 @@ def main():
                 "mismatch payloads saved",
             )
     require(loop.verify(run).metadata["events"] > 0, "verify")
+    rows.append(dependencies)
     report = {
         "schema": "crn-craft.compiled-loop-check/0.1",
         "model": "mtdna-three-class.rules.json with the takeover stop",

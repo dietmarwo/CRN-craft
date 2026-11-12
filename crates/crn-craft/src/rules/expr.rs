@@ -1114,7 +1114,9 @@ impl RateKernel {
 const STACK: usize = 32;
 
 /// One step of a flat [`Program`]. `acc` holds the value of the last
-/// subexpression; `Push` saves it for a later operation's left operand.
+/// subexpression; `Push` saves it for a later operation's left operand. The
+/// four arithmetic operations and `^` have their own steps; other binary
+/// operations go through [`apply`].
 #[derive(Debug, Clone, Copy)]
 enum Step {
     Const(f64),
@@ -1128,12 +1130,52 @@ enum Step {
     BinConst(Op, f64),
     /// `acc = c op acc`.
     ConstBin(Op, f64),
+    AddConst(f64),
+    SubConst(f64),
+    MulConst(f64),
+    DivConst(f64),
+    PowConst(f64),
+    /// `acc ^ 2`: `libm::pow` returns `acc * acc` for the exponent 2 (a NaN
+    /// operand gives a NaN either way).
+    Square,
+    ConstAdd(f64),
+    ConstSub(f64),
+    ConstMul(f64),
+    ConstDiv(f64),
+    ConstPow(f64),
     /// `acc = f(acc)`.
     Call1(Func),
     /// `acc = f(pop, acc)`.
     Call2(Func),
     /// `if(c, a, acc)` with `c` and `a` popped.
     Select,
+}
+
+impl Step {
+    /// `acc op c`, with a dedicated step for arithmetic.
+    fn with_right(op: Op, c: f64) -> Self {
+        match op {
+            Op::Add => Self::AddConst(c),
+            Op::Sub => Self::SubConst(c),
+            Op::Mul => Self::MulConst(c),
+            Op::Div => Self::DivConst(c),
+            Op::Pow if c.to_bits() == 2f64.to_bits() => Self::Square,
+            Op::Pow => Self::PowConst(c),
+            _ => Self::BinConst(op, c),
+        }
+    }
+
+    /// `c op acc`, with a dedicated step for arithmetic.
+    fn with_left(op: Op, c: f64) -> Self {
+        match op {
+            Op::Add => Self::ConstAdd(c),
+            Op::Sub => Self::ConstSub(c),
+            Op::Mul => Self::ConstMul(c),
+            Op::Div => Self::ConstDiv(c),
+            Op::Pow => Self::ConstPow(c),
+            _ => Self::ConstBin(op, c),
+        }
+    }
 }
 
 /// A deterministic expression over parameters and observables, compiled for
@@ -1145,13 +1187,16 @@ enum Step {
 /// operation on the same operands in the same order, so the program's value
 /// has the bits of [`Expr::eval`] with the same parameters (a NaN may carry
 /// another payload, which Rust does not specify; a NaN rate is an error
-/// whatever its payload). `&&`, `||` and
-/// `if` evaluate both operands and then select, which gives the tree's value
-/// because deterministic evaluation has no side effects. Expressions that
-/// read attributes, draw, or need more than 32 stack slots keep the tree.
+/// whatever its payload). `&&`, `||` and `if` evaluate both operands and
+/// then select, which gives the tree's value because deterministic
+/// evaluation has no side effects. Expressions that read attributes, draw,
+/// or need more than 32 stack slots keep the tree.
 #[derive(Debug, Clone)]
 pub(crate) enum Program {
+    /// No operand is saved: one accumulator.
     Flat(Code),
+    /// Operands are saved on a stack of the given depth.
+    Stacked(Code, usize),
     Tree(Expr),
 }
 
@@ -1210,10 +1255,10 @@ impl Program {
                 Node::Bin(op, a, b) => {
                     if let Some(c) = constant(b, params) {
                         emit(a, params, code, depth, deepest)?;
-                        code.push(Step::BinConst(*op, c));
+                        code.push(Step::with_right(*op, c));
                     } else if let Some(c) = constant(a, params) {
                         emit(b, params, code, depth, deepest)?;
-                        code.push(Step::ConstBin(*op, c));
+                        code.push(Step::with_left(*op, c));
                     } else {
                         emit(a, params, code, depth, deepest)?;
                         code.push(Step::Push);
@@ -1249,7 +1294,8 @@ impl Program {
         let mut code = Vec::new();
         let mut deepest = 0;
         match emit(&expr.root, params, &mut code, 0, &mut deepest) {
-            Some(()) if deepest + 2 <= STACK => Self::Flat(Code(code)),
+            Some(()) if deepest == 0 => Self::Flat(Code(code)),
+            Some(()) if deepest + 2 <= STACK => Self::Stacked(Code(code), deepest),
             _ => Self::Tree(expr.clone()),
         }
     }
@@ -1257,23 +1303,40 @@ impl Program {
     #[inline]
     pub(crate) fn eval(&self, env: &Env<'_>) -> f64 {
         match self {
-            Self::Flat(Code(code)) => run(code, env.observables),
+            Self::Flat(Code(code)) => run(code, env.observables, &mut []),
+            Self::Stacked(Code(code), depth) if *depth < 8 => {
+                run(code, env.observables, &mut [0.0; 8])
+            }
+            Self::Stacked(Code(code), _) => run(code, env.observables, &mut [0.0; STACK]),
             Self::Tree(expr) => expr.eval(env),
         }
     }
 }
 
-fn run(code: &[Step], observables: &[f64]) -> f64 {
-    const MASK: usize = STACK - 1;
-    let mut stack = [0.0f64; STACK];
+/// Runs `code` with `stack` (at least as deep as the program needs).
+// `c + acc` keeps the tree's operand order (`acc += c` has the same value).
+#[allow(clippy::assign_op_pattern)]
+#[inline]
+fn run(code: &[Step], observables: &[f64], stack: &mut [f64]) -> f64 {
     let mut top = 0usize;
     let mut acc = 0.0;
     for step in code {
         match *step {
             Step::Const(c) => acc = c,
             Step::Load(i) => acc = observables[i],
+            Step::AddConst(c) => acc += c,
+            Step::SubConst(c) => acc -= c,
+            Step::MulConst(c) => acc *= c,
+            Step::DivConst(c) => acc /= c,
+            Step::PowConst(c) => acc = libm::pow(acc, c),
+            Step::Square => acc *= acc,
+            Step::ConstAdd(c) => acc = c + acc,
+            Step::ConstSub(c) => acc = c - acc,
+            Step::ConstMul(c) => acc = c * acc,
+            Step::ConstDiv(c) => acc = c / acc,
+            Step::ConstPow(c) => acc = libm::pow(c, acc),
             Step::Push => {
-                stack[top & MASK] = acc;
+                stack[top] = acc;
                 top += 1;
             }
             Step::Neg => acc = -acc,
@@ -1284,22 +1347,22 @@ fn run(code: &[Step], observables: &[f64]) -> f64 {
             }
             Step::Bin(op) => {
                 top -= 1;
-                acc = apply(op, stack[top & MASK], acc);
+                acc = apply(op, stack[top], acc);
             }
             Step::BinConst(op, c) => acc = apply(op, acc, c),
             Step::ConstBin(op, c) => acc = apply(op, c, acc),
             Step::Call1(f) => acc = deterministic_call(f, acc, 0.0),
             Step::Call2(f) => {
                 top -= 1;
-                acc = deterministic_call(f, stack[top & MASK], acc);
+                acc = deterministic_call(f, stack[top], acc);
             }
             Step::Select => {
                 top -= 2;
-                let condition = stack[top & MASK];
+                let condition = stack[top];
                 if condition.is_nan() {
                     acc = condition;
                 } else if truth(condition) {
-                    acc = stack[(top + 1) & MASK];
+                    acc = stack[top + 1];
                 }
             }
         }
@@ -1378,8 +1441,9 @@ mod tests {
         fn expression(rng: &mut impl RngCore, depth: u8) -> String {
             let draw = rng.next_u32();
             if depth == 0 {
-                return ["x", "y", "z", "k", "m", "0", "-0", "0/0", "1/0", "2", "0.1"]
-                    [(draw % 11) as usize]
+                return [
+                    "x", "y", "z", "k", "m", "0", "-0", "0/0", "1/0", "2", "0.1", "x^2", "(-y)^2",
+                ][(draw % 13) as usize]
                     .into();
             }
             let a = expression(rng, depth - 1);
@@ -1419,13 +1483,15 @@ mod tests {
             let expr = Expr::parse(&source, &scope).unwrap();
             for p in &parameter_values {
                 let program = Program::compile(&expr, p);
-                flat += usize::from(matches!(program, Program::Flat(_)));
+                flat += usize::from(!matches!(program, Program::Tree(_)));
                 for values in [
                     [0.0, -0.0, 1.0],
                     [-2.0, 2.0, 0.5],
                     [f64::INFINITY, f64::NAN, -f64::INFINITY],
                     [1.0, 0.4, 7.0],
                     [1e308, -1e-310, 3.0],
+                    [-1.0, 1.0000000000000002, 1e-160],
+                    [0.1, -3.7, 1.5e154],
                 ] {
                     let env = Env {
                         params: p,

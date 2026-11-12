@@ -63,6 +63,9 @@ enum Factor {
         denominator: usize,
     },
     General(Option<usize>),
+    /// A general expression rate of a rule with one channel: evaluated for
+    /// each state, as `General(None)` without a vacancy slot is.
+    Expression,
 }
 
 /// The reactant count factor of a channel: the number of reactant tuples
@@ -99,7 +102,7 @@ impl ChannelRate {
     /// the number of reactant tuples, or for a whole-rule propensity 1 while
     /// every reactant is present.
     #[allow(clippy::cast_precision_loss)]
-    #[inline]
+    #[inline(always)]
     fn count_weight(&self, counts: &[u64]) -> f64 {
         match self.count {
             Count::Source => 1.0,
@@ -598,7 +601,10 @@ impl Network {
                         },
                         _ => Factor::General(rate_slots[c.rule]),
                     },
-                    _ => Factor::General(rate_slots[c.rule]),
+                    RateKernel::Expression { .. } if rate_slots[c.rule].is_none() => {
+                        Factor::Expression
+                    }
+                    RateKernel::Expression { .. } => Factor::General(rate_slots[c.rule]),
                 };
                 let count = match (c.multi.is_some(), c.reactants.as_slice(), c.whole) {
                     (true, _, _) => Count::HigherOrder,
@@ -886,6 +892,7 @@ impl Network {
                 };
                 factors.iter().fold(base, |x, f| x * f)
             }
+            Factor::Expression => self.rates[c.rule].eval(env),
             Factor::General(_) => {
                 let kernel = &self.rates[c.rule];
                 if self.vacancy_slots[c.rule].is_some() {
@@ -946,7 +953,7 @@ impl Network {
         self.rate_cache().channel(self, i, counts, env)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn apply(
         &self,
         i: usize,
@@ -1044,29 +1051,32 @@ impl RateCache {
         counts: &[u64],
         env: &Env<'_>,
     ) -> Result<f64, Halt> {
-        match self.value(net, i, counts, env) {
-            Some(value) => Ok(value),
-            None => Err(net.rate_error(i)),
+        let value = self.value(net, i, counts, env);
+        if value.is_finite() && value >= 0.0 {
+            Ok(value)
+        } else {
+            Err(net.rate_error(i))
         }
     }
 
-    /// [`Self::channel`]'s value, `None` for an invalid one.
-    #[inline]
-    fn value(&mut self, net: &Network, i: usize, counts: &[u64], env: &Env<'_>) -> Option<f64> {
+    /// [`Self::channel`]'s value before its check: valid when finite and
+    /// nonnegative.
+    #[inline(always)]
+    fn value(&mut self, net: &Network, i: usize, counts: &[u64], env: &Env<'_>) -> f64 {
         let c = &net.plans[i];
         if c.higher_order() {
             return self.higher_order(net, i, counts, env);
         }
         let weight = c.count_weight(counts);
         if weight == 0.0 {
-            return Some(0.0);
+            return 0.0;
         }
         let global = match c.factor {
             Factor::Constant(k) => k,
+            Factor::Expression => net.rates[c.rule].eval(env),
             _ => self.global(net, c, env),
         };
-        let value = global * (weight * c.weight);
-        (value.is_finite() && value >= 0.0).then_some(value)
+        global * (weight * c.weight)
     }
 
     /// The global factor of a channel whose reactants are available.
@@ -1091,6 +1101,7 @@ impl RateCache {
                 factors.iter().fold(*base, |x, f| x * f)
             }
             Factor::General(slot) => self.rule(net, c.rule, slot, env),
+            Factor::Expression => net.rates[c.rule].eval(env),
         }
     }
 
@@ -1098,28 +1109,21 @@ impl RateCache {
     /// then the whole propensity, or rate × factor × Π C(n, k) as the
     /// overflow-safe scaled product of [`crate::rules::combination_rate`].
     #[inline(never)]
-    fn higher_order(
-        &mut self,
-        net: &Network,
-        i: usize,
-        counts: &[u64],
-        env: &Env<'_>,
-    ) -> Option<f64> {
+    fn higher_order(&mut self, net: &Network, i: usize, counts: &[u64], env: &Env<'_>) -> f64 {
         let c = &net.plans[i];
         let reactants = net.channels[i]
             .multi
             .as_deref()
             .expect("higher-order channel");
         if reactants.iter().any(|&(s, k)| counts[s] < k) {
-            return Some(0.0);
+            return 0.0;
         }
         let global = self.global(net, c, env);
-        let value = if c.whole {
+        if c.whole {
             global * (1.0 * c.weight)
         } else {
             crate::rules::combination_rate(global, c.weight, counts, reactants)
-        };
-        (value.is_finite() && value >= 0.0).then_some(value)
+        }
     }
 }
 

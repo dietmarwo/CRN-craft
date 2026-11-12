@@ -220,8 +220,11 @@ impl Path<'_> {
     /// (`Iterator::sum`). After an event only the channels in the fired
     /// channel's `affected` list change; they are sorted, so the running
     /// sums before the first of them are the ones a full pass would compute,
-    /// and the pass resumes there. The smallest positive rate decides the
-    /// resolution check exactly as testing every rate does.
+    /// and the pass resumes there. The resolution check fails exactly when
+    /// the smallest positive rate is below 2⁻⁵³ of the total; `least` is at
+    /// most that rate (the smallest positive rate since the last exact pass),
+    /// so the check passes when `least` does, and otherwise the exact
+    /// smallest positive rate decides.
     #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
     fn simulate_linear<R: RngCore + 'static, O: EventObserver, const ZIGGURAT: bool>(
         &self,
@@ -239,9 +242,9 @@ impl Path<'_> {
         let mut live = out.peak_instances;
         let mut cache = net.rate_cache();
         let mut rates = vec![0.0; n];
-        // Running total and smallest positive rate through each channel.
+        // Running total through each channel.
         let mut sums = vec![-0.0; n];
-        let mut minima = vec![f64::INFINITY; n];
+        let mut least = f64::INFINITY;
         let mut clock = Clock::new(self.lenient_clock);
         let mut previous: Option<usize> = None;
         loop {
@@ -257,40 +260,44 @@ impl Path<'_> {
             let first = if let Some(channel) = previous {
                 let affected = &net.affected[channel];
                 for &i in affected {
-                    rates[i] = cache.channel(net, i, counts, &env)?;
+                    let a = cache.channel(net, i, counts, &env)?;
+                    if a > 0.0 && a < least {
+                        least = a;
+                    }
+                    rates[i] = a;
                 }
                 affected.first().copied()
             } else {
                 for (i, rate) in rates.iter_mut().enumerate() {
-                    *rate = cache.channel(net, i, counts, &env)?;
+                    let a = cache.channel(net, i, counts, &env)?;
+                    if a > 0.0 && a < least {
+                        least = a;
+                    }
+                    *rate = a;
                 }
                 Some(0)
             };
             if let Some(first) = first {
-                let (mut sum, mut smallest) = if first == 0 {
-                    (-0.0, f64::INFINITY)
-                } else {
-                    (sums[first - 1], minima[first - 1])
-                };
-                for i in first..n {
-                    let a = rates[i];
+                let mut sum = if first == 0 { -0.0 } else { sums[first - 1] };
+                for (&a, total) in rates[first..].iter().zip(&mut sums[first..]) {
                     sum += a;
-                    if a > 0.0 && a < smallest {
-                        smallest = a;
-                    }
-                    sums[i] = sum;
-                    minima[i] = smallest;
+                    *total = sum;
                 }
             }
-            let (total, smallest) = match n {
-                0 => (-0.0, f64::INFINITY),
-                _ => (sums[n - 1], minima[n - 1]),
-            };
+            let total = sums.last().copied().unwrap_or(-0.0);
             if total == 0.0 {
                 net.refresh_cold(counts, values)?;
                 return Ok(None);
             }
-            if !total.is_finite() || smallest < total * crate::rules::engine::RESOLUTION {
+            let floor = total * crate::rules::engine::RESOLUTION;
+            if least < floor {
+                // The exact smallest positive rate decides.
+                least = rates
+                    .iter()
+                    .filter(|&&a| a > 0.0)
+                    .fold(f64::INFINITY, |m, &a| m.min(a));
+            }
+            if !total.is_finite() || least < floor {
                 return Err(unresolved(total));
             }
             let wait = if ZIGGURAT {
@@ -580,7 +587,7 @@ impl Path<'_> {
         Err(event_limit())
     }
 
-    #[inline]
+    #[inline(always)]
     pub(super) fn apply_flat(
         &self,
         net: &Network,

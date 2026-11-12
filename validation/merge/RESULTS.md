@@ -1206,3 +1206,241 @@ passes only if all six do). New `reuse` / old `generated` is recorded for
 information. The M5g row on `merge/M5cdg` stays as the earlier row. A miss
 is recorded with its numbers and hot spots, not optimized further (owner
 decision for M4d).
+
+### M4f (per-event cost, RSSA-CR clock and threshold, `auto`): results
+
+**1. RSSA-CR law gate rerun** (2026-11-12, wheel `_native` SHA-256 `877542df…` of the M4f sources from `dccc6da` on (as recorded in the report), Python backend, 2 threads, gate seeds, under the CPU lock, seven pieces of under ten minutes with `--state`, 05:39–06:44; report `validation/merge/laws/m4f-rssa_cr.json`): **0 failures among N = 4,814 comparisons** (940 at t = 0), largest |z| 3.88. Failures (comparisons) and the largest |z| per model:
+
+| Model | `rssa_cr`, M4f | `rssa_cr`, M4c (earlier row) |
+| --- | --- | --- |
+| W1 | 0 (24), 1.86 | 0 (24), 1.80 |
+| W2 | 0 (396), 3.08 | 0 (396), 2.98 |
+| W3 | 0 (72), 2.18 | 0 (72), 1.78 |
+| W4 | 0 (192), 1.77 | 0 (192), 2.10 |
+| W5 | 0 (2560), 3.88 | 0 (2560), 3.94 |
+| W6 | 0 (320), 2.87 | 0 (320), 2.71 |
+| W7 | 0 (960), 3.22 | 0 (960), 3.26 |
+| enzyme-mechanism | 0 (80), 2.42 | 0 (80), 2.99 |
+| immigration-death | 0 (20), 1.57 | 0 (20), 2.39 |
+| michaelis-menten | 0 (40), 2.03 | 0 (40), 1.59 |
+| repressilator | 0 (60), 2.18 | 0 (60), 1.78 |
+| vilar-noise | 0 (90), 2.36 | failed in chunk 1 (`CRN-R030`) |
+| **Total** | **0** (4814), 3.88 | **0** (4724), vilar-noise not compared |
+
+vilar-noise completes every chunk, including chunk 1 (root seed 2,000,001), where M4c stopped. The M4c rows stay as recorded above.
+
+**2. The other selectors are unchanged** (2026-11-12, same wheel, `check_laws.py --state` into new state directories, chunks 0 and 1 of every model; W5's chunks hold 5,000 replicates, so `--replicates 20000` ran its chunks 0–3): **78 of 78 chunks identical** to the M4c chunks (root seed, sampler, event count and power sums S1–S4), 26 per selector for `linear`, `composition_rejection` and `sorting` (`/home/claude/m07/m4f/unchanged/compare-<selector>.json`). Declared were 72 chunks (two per model); the four W5 chunks cover the same 20,000 replicates as two chunks of the other models.
+
+**3. Exact-law check per selector** (2026-11-12, `target/release/crn-craft` of the M4f sources before the `auto` change, 2 threads, under the CPU lock; report `validation/merge/laws/selectors-exact-m4f.json`, byte-identical under `python -O`): **168 of 168 CDF tests pass**, ε = 0.00798; every reported mean and variance equals the paths' moments; all 16 power checks reject the falling-factorial law (smallest largest distance 0.370).
+
+| Selector | Waits | Tests | Failures | Largest CDF distance (M4f) | (M4c) |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `linear` | inverse | 21 | 0 | 0.00298 | 0.00298 |
+| `linear` | ziggurat | 21 | 0 | 0.00366 | 0.00366 |
+| `composition_rejection` | inverse | 21 | 0 | 0.00374 | 0.00374 |
+| `composition_rejection` | ziggurat | 21 | 0 | 0.00283 | 0.00283 |
+| `sorting` | inverse | 21 | 0 | 0.00358 | 0.00358 |
+| `sorting` | ziggurat | 21 | 0 | 0.00408 | 0.00408 |
+| `rssa_cr` | inverse | 21 | 0 | 0.00464 | 0.00499 |
+| `rssa_cr` | ziggurat | 21 | 0 | 0.00407 | 0.00403 |
+
+The three unchanged selectors give the M4c distances (same fixtures, seeds and words); `rssa_cr` changed with the threshold reuse.
+
+**4. `auto` benchmark** (2026-11-12, CLI built at `bbbef17`, under the CPU lock; report `validation/merge/selector-rule.json`). Nanoseconds per event (median of three processes after a warm-up, process start and lowering included), the fastest of the three measured selectors, and the pick of the fitted rule with its ratio to the fastest:
+
+| Family | Channels | linear | composition_rejection | rssa_cr | Fastest | `auto` (ratio) |
+| --- | ---: | ---: | ---: | ---: | --- | --- |
+| `ring4` | 8 | 59 | 152 | 169 | `linear` | `linear` (1.00) |
+| `ring4` | 16 | 77 | 141 | 170 | `linear` | `linear` (1.00) |
+| `ring4` | 32 | 114 | 195 | 181 | `linear` | `linear` (1.00) |
+| `ring4` | 64 | 154 | 150 | 164 | `composition_rejection` | `linear` (1.03) |
+| `ring4` | 128 | 260 | 171 | 188 | `composition_rejection` | `rssa_cr` (1.10) |
+| `ring4` | 256 | 481 | 176 | 198 | `composition_rejection` | `rssa_cr` (1.13) |
+| `ring4` | 512 | 872 | 187 | 198 | `composition_rejection` | `rssa_cr` (1.06) |
+| `ring4` | 1,024 | 1,706 | 199 | 204 | `composition_rejection` | `rssa_cr` (1.03) |
+| `ring4` | 2,048 | 3,394 | 243 | 247 | `composition_rejection` | `rssa_cr` (1.01) |
+| `ring4` | 4,096 | 6,985 | 335 | 342 | `composition_rejection` | `rssa_cr` (1.02) |
+| `ring32` | 8 | 60 | 130 | 96 | `linear` | `rssa_cr` (1.58) |
+| `ring32` | 16 | 96 | 126 | 95 | `rssa_cr` | `rssa_cr` (1.00) |
+| `ring32` | 32 | 108 | 142 | 95 | `rssa_cr` | `rssa_cr` (1.00) |
+| `ring32` | 64 | 159 | 138 | 91 | `rssa_cr` | `rssa_cr` (1.00) |
+| `ring32` | 128 | 268 | 144 | 95 | `rssa_cr` | `rssa_cr` (1.00) |
+| `ring32` | 256 | 477 | 157 | 100 | `rssa_cr` | `rssa_cr` (1.00) |
+| `ring32` | 512 | 961 | 178 | 112 | `rssa_cr` | `rssa_cr` (1.00) |
+| `ring32` | 1,024 | 1,794 | 195 | 126 | `rssa_cr` | `rssa_cr` (1.00) |
+| `ring32` | 2,048 | 3,501 | 253 | 186 | `rssa_cr` | `rssa_cr` (1.00) |
+| `ring32` | 4,096 | 7,023 | 316 | 285 | `rssa_cr` | `rssa_cr` (1.00) |
+| `ring256` | 8 | 73 | 126 | 82 | `linear` | `rssa_cr` (1.12) |
+| `ring256` | 16 | 78 | 155 | 98 | `linear` | `rssa_cr` (1.26) |
+| `ring256` | 32 | 144 | 179 | 106 | `rssa_cr` | `rssa_cr` (1.00) |
+| `ring256` | 64 | 163 | 126 | 87 | `rssa_cr` | `rssa_cr` (1.00) |
+| `ring256` | 128 | 267 | 218 | 141 | `rssa_cr` | `rssa_cr` (1.00) |
+| `ring256` | 256 | 505 | 153 | 111 | `rssa_cr` | `rssa_cr` (1.00) |
+| `ring256` | 512 | 943 | 162 | 106 | `rssa_cr` | `rssa_cr` (1.00) |
+| `ring256` | 1,024 | 1,718 | 173 | 113 | `rssa_cr` | `rssa_cr` (1.00) |
+| `ring256` | 2,048 | 3,617 | 280 | 193 | `rssa_cr` | `rssa_cr` (1.00) |
+| `ring256` | 4,096 | 6,975 | 309 | 234 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense4` | 6 | 71 | 165 | 177 | `linear` | `linear` (1.00) |
+| `dense4` | 12 | 85 | 257 | 193 | `linear` | `linear` (1.00) |
+| `dense4` | 30 | 180 | 382 | 191 | `linear` | `linear` (1.00) |
+| `dense4` | 56 | 213 | 456 | 179 | `rssa_cr` | `linear` (1.19) |
+| `dense4` | 132 | 382 | 663 | 193 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense4` | 240 | 589 | 804 | 204 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense4` | 506 | 1,138 | 1,149 | 224 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense4` | 992 | 2,255 | 1,748 | 235 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense4` | 2,070 | 4,275 | 1,989 | 310 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense4` | 4,032 | 8,099 | 2,708 | 334 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense32` | 6 | 66 | 149 | 93 | `linear` | `linear` (1.00) |
+| `dense32` | 12 | 93 | 214 | 145 | `linear` | `rssa_cr` (1.56) |
+| `dense32` | 30 | 190 | 283 | 138 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense32` | 56 | 197 | 422 | 145 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense32` | 132 | 400 | 609 | 128 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense32` | 240 | 650 | 724 | 224 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense32` | 506 | 1,200 | 954 | 187 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense32` | 992 | 2,148 | 1,412 | 259 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense32` | 2,070 | 4,226 | 1,857 | 373 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense32` | 4,032 | 8,229 | 2,547 | 435 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense256` | 6 | 61 | 139 | 89 | `linear` | `linear` (1.00) |
+| `dense256` | 12 | 92 | 195 | 87 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense256` | 30 | 131 | 264 | 94 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense256` | 56 | 197 | 365 | 89 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense256` | 132 | 435 | 607 | 89 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense256` | 240 | 627 | 787 | 98 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense256` | 506 | 1,313 | 1,089 | 125 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense256` | 992 | 2,247 | 1,576 | 127 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense256` | 2,070 | 4,376 | 1,927 | 143 | `rssa_cr` | `rssa_cr` (1.00) |
+| `dense256` | 4,032 | 8,315 | 2,663 | 192 | `rssa_cr` | `rssa_cr` (1.00) |
+| `michaelis` | 8 | 126 | 143 | 72 | `rssa_cr` | `rssa_cr` (1.00) |
+| `michaelis` | 16 | 128 | 132 | 69 | `rssa_cr` | `rssa_cr` (1.00) |
+| `michaelis` | 32 | 149 | 131 | 73 | `rssa_cr` | `rssa_cr` (1.00) |
+| `michaelis` | 64 | 259 | 161 | 99 | `rssa_cr` | `rssa_cr` (1.00) |
+| `michaelis` | 128 | 304 | 167 | 80 | `rssa_cr` | `rssa_cr` (1.00) |
+| `michaelis` | 256 | 543 | 180 | 99 | `rssa_cr` | `rssa_cr` (1.00) |
+| `michaelis` | 512 | 959 | 184 | 101 | `rssa_cr` | `rssa_cr` (1.00) |
+| `michaelis` | 1,024 | 1,884 | 209 | 109 | `rssa_cr` | `rssa_cr` (1.00) |
+| `michaelis` | 2,048 | 3,679 | 265 | 183 | `rssa_cr` | `rssa_cr` (1.00) |
+| `michaelis` | 4,096 | 7,326 | 441 | 228 | `rssa_cr` | `rssa_cr` (1.00) |
+| `two_reads` | 8 | 138 | 198 | 312 | `linear` | `linear` (1.00) |
+| `two_reads` | 16 | 163 | 236 | 310 | `linear` | `linear` (1.00) |
+| `two_reads` | 32 | 190 | 256 | 303 | `linear` | `linear` (1.00) |
+| `two_reads` | 64 | 250 | 223 | 314 | `composition_rejection` | `linear` (1.12) |
+| `two_reads` | 128 | 354 | 221 | 362 | `composition_rejection` | `composition_rejection` (1.00) |
+| `two_reads` | 256 | 593 | 246 | 417 | `composition_rejection` | `composition_rejection` (1.00) |
+| `two_reads` | 512 | 1,013 | 274 | 375 | `composition_rejection` | `composition_rejection` (1.00) |
+| `two_reads` | 1,024 | 1,968 | 343 | 546 | `composition_rejection` | `composition_rejection` (1.00) |
+| `two_reads` | 2,048 | 3,990 | 372 | 590 | `composition_rejection` | `composition_rejection` (1.00) |
+| `two_reads` | 4,096 | 7,576 | 603 | 852 | `composition_rejection` | `composition_rejection` (1.00) |
+
+Target models (`compare_speed.py --selectors linear,composition_rejection,sorting,rssa_cr`, same CLI, speed-gate sizes, seconds, median of three; report `validation/merge/speed-m4f-selectors.json`):
+
+| Model | Channels | P̄ | pinned | `linear` | `composition_rejection` | `sorting` | `rssa_cr` | Fastest | `auto` picks (ratio) |
+| --- | ---: | ---: | --- | ---: | ---: | ---: | ---: | --- | --- |
+| W1 | 2 | ∞ | no | 0.0515 | 0.0875 | 0.0683 | 0.0734 | `linear` | `linear` (1.00) |
+| W2 | 66 | ∞ | no | 0.1997 | 0.1339 | 0.1501 | 0.1115 | `rssa_cr` | `rssa_cr` (1.00) |
+| W3 | 12 | 5.0 | no | 0.2798 | 0.5510 | 0.3729 | 0.4124 | `linear` | `linear` (1.00) |
+| W4 | 66 | 20.0 | no | 1.1032 | 1.3205 | 1.1238 | 0.1130 | `rssa_cr` | `rssa_cr` (1.00) |
+| W5 | 510 | 4.0 | no | 0.3178 | 0.0832 | 0.1794 | 0.0747 | `rssa_cr` | `rssa_cr` (1.00) |
+| W6 | 992 | 32.0 | no | 0.5061 | 0.3239 | 0.4059 | 0.0708 | `rssa_cr` | `rssa_cr` (1.00) |
+| W7 | 126 | 13.3 | no | 0.0351 | 0.0301 | 0.0318 | 0.0224 | `rssa_cr` | `rssa_cr` (1.00) |
+| enzyme-mechanism | 3 | 30.0 | no | 0.0478 | 0.1039 | 0.0699 | 0.1249 | `linear` | `linear` (1.00) |
+| immigration-death | 2 | ∞ | no | 0.0559 | 0.0883 | 0.0569 | 0.0858 | `linear` | `linear` (1.00) |
+| michaelis-menten | 1 | 50.0 | no | 0.0435 | 0.0559 | 0.0404 | 0.0595 | `sorting` | `linear` (1.08) |
+| repressilator | 12 | 5.0 | no | 0.3417 | 0.6841 | 0.4683 | 0.4954 | `linear` | `linear` (1.00) |
+| vilar-noise | 16 | 1.0 | no | 1.0273 | 2.5791 | 1.8835 | 6.3203 | `linear` | `linear` (1.00) |
+
+Rule, chosen by the declared criteria: **N_small = 128, N_large = 8, N_cr = 128, P_cut = 8**. (a) no target model is more than 1.10 × slower than its fastest selector; (b) the largest target ratio is 1.08 (michaelis-menten, one channel, `linear` against `sorting`); (c) the largest grid ratio is 1.58 (`ring32` at 8 channels, where the linear scan is fastest; N_large = 16 would give `michaelis` at 8 channels to the linear scan, 1.75 × slower than RSSA-CR). So `auto` = `rssa_cr` when no rule's rate reads two or more species and n ≥ 8 (n ≥ 128 when P̄ < 8); else `composition_rejection` from 128 channels; else `linear`: `AUTO_RSSA_CR_SMALL = Some(128)`, `AUTO_RSSA_CR_LARGE = Some(8)`, `AUTO_COMPOSITION_REJECTION = Some(128)`, `AUTO_POPULATION_CUT = 8.0` in `crates/crn-craft/src/rules/select.rs` (commit `9c4b5f9`). The M4c rule (composition–rejection from 512 channels, else linear) stays as the earlier row.
+
+### M4d (speed gate): results
+
+Declared in M0c ("Speed gate (M4d)" above). Both runs: `baseline.py` with the kept 0.6.0 CLI (`/home/claude/m07/bin060/crn-craft`) and venv in four parts of three models (each under ten minutes), each part checked with `--check-against baseline-0.6.0.json`: **63 of 63 rows per part with equal non-timing fields, no difference**, in both runs; then `compare_speed.py --old <0.6.0 CLI> --new target/release/crn-craft --baseline <the four parts>` (the unified engine's four selectors, `auto` and `next_reaction`; gated CLI boundary, median of three after a warm-up), all under the CPU lock, one session per run. Seconds; ratio = unified best / 0.6.0 best of the same session.
+
+**Run 1** (2026-11-12, 07:31–07:57, CLI of `9c4b5f9`; reports `validation/merge/baseline-0.6.0-m4d-run1.json`, `validation/merge/speed-m4d-run1.json`): **gate failed on W5 (1.28)**; the other eleven models were within 1.25.
+
+| Model | 0.6.0 best (same session) | s | `linear` | `composition_rejection` | `sorting` | `rssa_cr` | `auto` (picks) | `next_reaction` | Unified best | s | Ratio |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | --- | ---: | ---: |
+| W1 | `direct/ziggurat/fast` | 0.0654 | 0.0504 | 0.1231 | 0.0648 | 0.0970 | 0.0557 (`linear`) | 0.1150 | `linear` | 0.0504 | 0.77 |
+| W2 | `direct_cr/ziggurat/fast` | 0.0894 | 0.1927 | 0.1250 | 0.1474 | 0.1378 | 0.1032 (`rssa_cr`) | 0.1391 | `auto` | 0.1032 | 1.15 |
+| W3 | `cached_direct/ziggurat/fast` | 0.2254 | 0.2651 | 0.7067 | 0.4446 | 0.4378 | 0.2799 (`linear`) | 0.4490 | `linear` | 0.2651 | 1.18 |
+| W4 | `rssa_cr/ziggurat/fast` | 0.1046 | 0.8528 | 1.2250 | 1.2388 | 0.1124 | 0.1306 (`rssa_cr`) | 1.2278 | `rssa_cr` | 0.1124 | 1.08 |
+| W5 | `direct_cr/ziggurat/fast` | 0.0602 | 0.2992 | 0.1138 | 0.1807 | 0.0771 | 0.0770 (`rssa_cr`) | 0.0832 | `auto` | 0.0770 | **1.28, failed** |
+| W6 | `rssa_cr/inverse/fast` | 0.0641 | 0.4997 | 0.3064 | 0.3824 | 0.0653 | 0.0610 (`rssa_cr`) | 0.3144 | `auto` | 0.0610 | 0.95 |
+| W7 | `direct_cr/ziggurat/fast` | 0.0202 | 0.0368 | 0.0294 | 0.0286 | 0.0195 | 0.0196 (`rssa_cr`) | 0.0224 | `rssa_cr` | 0.0195 | 0.97 |
+| enzyme-mechanism | `direct/ziggurat/fast` | 0.0761 | 0.0551 | 0.1170 | 0.0680 | 0.1080 | 0.0505 (`linear`) | 0.0714 | `auto` | 0.0505 | 0.66 |
+| immigration-death | `cached_direct/ziggurat/fast` | 0.0695 | 0.0488 | 0.0906 | 0.0573 | 0.0857 | 0.0511 (`linear`) | 0.0679 | `linear` | 0.0488 | 0.70 |
+| michaelis-menten | `cached_direct/ziggurat/fast` | 0.0575 | 0.0381 | 0.0634 | 0.0596 | 0.0640 | 0.0481 (`linear`) | 0.0416 | `linear` | 0.0381 | 0.66 |
+| repressilator | `cached_direct/ziggurat/fast` | 0.2676 | 0.3152 | 0.5714 | 0.5168 | 0.4846 | 0.3302 (`linear`) | 0.4796 | `linear` | 0.3152 | 1.18 |
+| vilar-noise | `cached_direct/ziggurat/fast` | 1.0723 | 0.9841 | 2.5166 | 1.8086 | 6.3688 | 1.0370 (`linear`) | 1.9928 | `linear` | 0.9841 | 0.92 |
+
+**Fix round** (one, as the plan allows): W5 under callgrind (RSSA-CR, 510 channels, 4 molecules per species): 2.1 trials per event, half of the composition draws rejected because the group upper bounds (8) are exact powers of two, each candidate evaluated exactly, about 10 random words (ChaCha8) per event. Changes that keep the arithmetic and the words were limited to the composition sampler: the ceilings of the active groups are now computed when the cumulative masses are rebuilt, not per draw (`57cd574`, byte-identical on the 156 harness requests and in the I1 and generated-loop replays; about 1 % fewer instructions on W5). Fewer words or trials per event would change RSSA-CR's results or the random-number consumption and were not attempted.
+
+**Run 2, the rerun** (2026-11-12, 08:11–08:33, CLI of `57cd574`; reports `validation/merge/baseline-0.6.0-m4d.json`, `validation/merge/speed-m4d.json`): **gate passed**, every model within 1.25.
+
+| Model | 0.6.0 best (same session) | s | `linear` | `composition_rejection` | `sorting` | `rssa_cr` | `auto` (picks) | `next_reaction` | Unified best | s | Ratio |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | --- | ---: | ---: |
+| W1 | `direct/ziggurat/fast` | 0.0482 | 0.0635 | 0.0873 | 0.0649 | 0.1048 | 0.0511 (`linear`) | 0.1188 | `auto` | 0.0511 | 1.06 |
+| W2 | `direct_cr/ziggurat/fast` | 0.0906 | 0.2091 | 0.1281 | 0.1382 | 0.1031 | 0.1144 (`rssa_cr`) | 0.1571 | `rssa_cr` | 0.1031 | 1.14 |
+| W3 | `cached_direct/ziggurat/fast` | 0.2248 | 0.2713 | 0.6758 | 0.4233 | 0.3962 | 0.2707 (`linear`) | 0.4548 | `auto` | 0.2707 | 1.20 |
+| W4 | `rssa_cr/ziggurat/fast` | 0.1119 | 0.7341 | 1.2303 | 1.3746 | 0.1620 | 0.1084 (`rssa_cr`) | 1.2262 | `auto` | 0.1084 | 0.97 |
+| W5 | `direct_cr/ziggurat/fast` | 0.0614 | 0.3211 | 0.0945 | 0.1736 | 0.0770 | 0.0685 (`rssa_cr`) | 0.0776 | `auto` | 0.0685 | 1.12 |
+| W6 | `rssa_cr/inverse/fast` | 0.0639 | 0.5309 | 0.3188 | 0.3820 | 0.0930 | 0.0599 (`rssa_cr`) | 0.3106 | `auto` | 0.0599 | 0.94 |
+| W7 | `cached_direct/ziggurat/fast` | 0.0185 | 0.0397 | 0.0456 | 0.0315 | 0.0216 | 0.0231 (`rssa_cr`) | 0.0274 | `rssa_cr` | 0.0216 | 1.17 |
+| enzyme-mechanism | `cached_direct/ziggurat/fast` | 0.0731 | 0.0683 | 0.1034 | 0.0622 | 0.1220 | 0.0670 (`linear`) | 0.0788 | `sorting` | 0.0622 | 0.85 |
+| immigration-death | `cached_direct/ziggurat/fast` | 0.0687 | 0.0555 | 0.0881 | 0.0744 | 0.0917 | 0.0474 (`linear`) | 0.0762 | `auto` | 0.0474 | 0.69 |
+| michaelis-menten | `direct/ziggurat/fast` | 0.0561 | 0.0397 | 0.0579 | 0.0392 | 0.0672 | 0.0368 (`linear`) | 0.0426 | `auto` | 0.0368 | 0.66 |
+| repressilator | `cached_direct/ziggurat/fast` | 0.2809 | 0.3178 | 0.6362 | 0.4214 | 0.4785 | 0.3281 (`linear`) | 0.4793 | `linear` | 0.3178 | 1.13 |
+| vilar-noise | `cached_direct/ziggurat/fast` | 1.0514 | 1.0986 | 2.8116 | 1.6707 | 6.1344 | 0.9451 (`linear`) | 2.0337 | `auto` | 0.9451 | 0.90 |
+
+**Timing noise.** The gate takes the smallest median among the unified methods, and `auto` runs the same computation as the selector it picks (outputs equal apart from the method name), so each model has two timings of one computation. In run 2 they differ by up to 1.55 × (W6 0.0599 against 0.0930 s, W4 0.1084 against 0.1620 s), and the 0.6.0 best of W1 moved from 0.0654 s (run 1) to 0.0482 s (run 2). With the slower of the two timings, run 2's ratios would be W1 1.32, W2 1.26, W3 1.21, W4 1.45, W5 1.26, W6 1.46, W7 1.24, immigration-death 0.81, michaelis-menten 0.70, repressilator 1.17, vilar-noise 1.04 (enzyme-mechanism 0.85, best `sorting`). Pooled over both runs (each side's smaller median over the two runs; run 1 used the CLI before the 1 % fix): W1 1.05, W2 1.15, W3 1.18, W4 1.04, W5 1.14, W6 0.94, W7 1.05, enzyme-mechanism 0.69, immigration-death 0.69, michaelis-menten 0.66, repressilator 1.18, vilar-noise 0.90. The 0.6.0 side is a minimum over 21 methods with close variants, so it profits from the same effect. The gate passes by its declared rule; for W2, W3, W5, W7 and the repressilator (1.12–1.20) the margin is within this host's run-to-run noise. W5's change from 1.28 to 1.12 is mostly such noise (the fix saves about 1 % of its instructions).
+
+**Compiled event loops** (informative, 2026-11-12 08:45, wheel of `57cd574`, `/home/claude/m07/m4d/compiled.py` under the CPU lock with `CRN_CRAFT_SOURCE` at the checkout; output `/home/claude/m07/m4d/compiled.json`). Python boundary: `rules.ensemble(...)` at the speed-gate sizes with `selector: linear` (the scan the generated loops run), `compile_loop`, `loop.verify(run)`, then the median of three `run.simulate()` calls after a warm-up, interpreted and compiled; 0.6.0 best = the smallest Python-boundary median of the same-session baseline rerun. Seconds:
+
+| Model | Interpreted (`linear`) | Compiled loop | Compiled / interpreted | 0.6.0 best (Python) | s | Compiled / 0.6.0 best |
+| --- | ---: | ---: | ---: | --- | ---: | ---: |
+| W1 | 0.0477 | 0.0353 | 0.74 | `cached_direct/ziggurat/fast` | 0.0440 | 0.80 |
+| W2 | 0.1915 | 0.1727 | 0.90 | `direct_cr/ziggurat/fast` | 0.0882 | 1.96 |
+| W3 | 0.2627 | 0.1808 | 0.69 | `sorting_direct/ziggurat/fast` | 0.2502 | 0.72 |
+| W4 | 0.7850 | refused: source over 1 MiB (`CRN-R020`) | | `rssa_cr/ziggurat/fast` | 0.1014 | |
+| W5 | 0.2916 | refused: source over 1 MiB (`CRN-R020`) | | `direct_cr/inverse/fast` | 0.0527 | |
+| W6 | 0.5022 | refused: source over 1 MiB (`CRN-R020`) | | `rssa_cr/ziggurat/fast` | 0.0468 | |
+| W7 | 0.0306 | 0.0350 | 1.15 | `cached_direct/ziggurat/fast` | 0.0154 | 2.27 |
+| enzyme-mechanism | 0.0454 | 0.0370 | 0.81 | `cached_direct/ziggurat/fast` | 0.0411 | 0.90 |
+| immigration-death | 0.0453 | 0.0410 | 0.90 | `sorting_direct/ziggurat/fast` | 0.0403 | 1.02 |
+| michaelis-menten | 0.0389 | 0.0309 | 0.79 | `sorting_direct/ziggurat/fast` | 0.0266 | 1.16 |
+| repressilator | 0.3319 | 0.2080 | 0.63 | `cached_direct/ziggurat/fast` | 0.2604 | 0.80 |
+| vilar-noise | 1.0012 | 0.6126 | 0.61 | `sorting_direct/ziggurat/fast` | 1.3030 | 0.47 |
+
+The compiled loops run the linear scan, so on W2 and W7, where RSSA-CR is the best interpreted method, they are slower than the 0.6.0 best; W4–W6 exceed the generated-source limit. Build seconds (cache hits after the first): W1 49.3 (first build), the others 0.1–6.4.
+
+**Remaining hot spots** (callgrind, CLI of `57cd574`; for a follow-up release):
+
+- W1 (2 channels, `linear`, 1.06): the two ChaCha8 words per event (wait and selection; about 3.7 ns per word against 1.5 ns for 0.6.0's xoshiro256++) and the Ziggurat wait.
+- W3 and the repressilator (12 channels, Hill rates, `linear`, 1.20 and 1.13): one mispredicted scan exit per event (scans of more than four rates keep the early exit), the running-sum resume after each event, the Hill programs of the affected channels, two ChaCha8 words per event.
+- W2, W5 and W7 (`rssa_cr`, 1.14, 1.12, 1.17): trials per event (W5 2.1), composition rejection (W5: about half of the draws, because the group upper bounds are exact powers of two), exact evaluation of every candidate, about 10 words per event on W5.
+- W4 (`rssa_cr`, 0.97): eight-species count updates and interval tests per event; range refreshes on 7 % of the events.
+- Levers that change results or the build, left to a follow-up: RSSA-CR interval widths or group ceilings that are not exact powers of two, prefix-sum selection as a new selector, a cheaper generator under a new sampler identity (D4 fixes ChaCha8), and LTO or one codegen unit (which also changes the 0.6.0 comparison build).
+
+### M4d (law gate of the run/1.0 default, worker speed rerun): results
+
+**1. Law gate of the run/1.0 default** (declared above; Python backend,
+wheel of `57cd574`'s engine sources, `--state` pieces under the CPU lock;
+report `validation/merge/laws/m4d-auto.json`): **passed**: 4,814 comparisons, 0 failures, largest |z| 3.88 (W5). `auto` picked `rssa_cr` for W2 and W4–W7 and `linear` for the other seven models, as declared. Sampler, chunk layout, event counts and power sums S1–S4 equal those of `laws/m4f-rssa_cr.json` (the `rssa_cr` picks) and `laws/m4c-linear.json` (the `linear` picks) for all twelve models. The `linear` selector keeps the sampler identity `chacha8-u53-ziggurat/rules-static-direct/1` of rules-run Static Direct.
+
+**2. Worker speed rerun** (declared above; run 2026-11-12 09:26–09:28 under
+the CPU lock; report `validation/merge/parameter-workers-m4d.json`). Wall
+time of the 129 calls, median of 3 repetitions, seconds:
+
+| Case | old fresh | old reuse | old generated | new fresh | new reuse | new fresh / old fresh | new reuse / old reuse | new reuse / old generated (information) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| birth_death | 0.1687 | 0.1684 | 0.1494 | 0.1944 | 0.1848 | 1.15 | 1.10 | 1.24 |
+| sparse33 | 2.9089 | 2.8939 | 2.9794 | 3.1464 | 3.0428 | 1.08 | 1.05 | 1.02 |
+| binding12 | 0.0520 | 0.0343 | 0.0334 | 0.0538 | 0.0531 | 1.04 | **1.55, failed** | 1.59 |
+
+**Target failed** on one of the six gated ratios: `binding12` new `reuse`
+/ old `reuse` = 1.55 (the other five: 1.04–1.15). Of the 0.019 s gap,
+binding is about 0.011 s (new 0.0137 s, about 106 µs per call, against
+0.0024 s: `Prepared::bind_parameters` re-serializes and prepares the whole
+model per call) and simulation about 0.008 s (32 short paths per call, where
+per-call run preparation and per-path setup outweigh the events). Within
+each engine the routes returned identical moments at every point. Recorded,
+not optimized (owner decision for M4d); follow-up: a bind path that patches
+the parameter values of an already prepared run.

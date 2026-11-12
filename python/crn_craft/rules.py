@@ -95,11 +95,11 @@ _NETWORK_MODEL = "crn-craft.model/0.1"
 DEFAULT_QUANTILES = (0.025, 0.5, 0.975)
 # Static Direct selectors of crn-craft.run/1.0 (method.selector).
 SELECTORS = ("linear", "composition_rejection", "sorting", "rssa_cr", "auto")
-# Request versions whose Static Direct defaults differ from run/1.0's: inverse
-# waits and per-event trackers unless the method says otherwise.
 # `quantiles=` of the top-level prepare: the default quantiles unless the
 # request states its own.
 _DEFAULT = object()
+# Request versions whose Static Direct defaults differ from run/1.0's: inverse
+# waits and per-event trackers unless the method says otherwise.
 _BEFORE_ZIGGURAT_DEFAULTS = (
     "crn-craft.rules-run/0.2",
     "crn-craft.rules-run/0.3",

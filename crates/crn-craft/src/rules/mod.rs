@@ -2776,7 +2776,7 @@ pub fn describe() -> Value {
             "model": "crn-craft.model/1.0", "request": "crn-craft.run/1.0",
             "result": "crn-craft.result/1.0", "check": "crn-craft.check/1.0",
             "fsp": {"method": "fsp", "result": "crn-craft.fsp-result/1.0", "schema": "fsp-result-1.0", "python": "crn_craft.rules.fsp"},
-            "analysis": {"command": "analyze", "result": "crn-craft.analysis/1.0", "schema": "analysis-1.0", "python": "crn_craft.analyze"},
+            "analysis": {"command": "analyze", "result": "crn-craft.analysis/1.0", "schema": "analysis-1.0", "python": "crn_craft.Model.analyze"},
             "archive": {"command": "rules MODEL REQUEST --archive NEW_DIRECTORY", "verify": "verify DIRECTORY", "manifest": "crn-craft.archive/1.0", "report": "crn-craft.archive-check/1.0", "schemas": ["archive-1.0", "archive-check-1.0"], "python": ["crn_craft.rules.archive", "crn_craft.rules.verify_archive"]},
             "means": {
                 "model": "crn-craft.rules-model/0.4", "request": "crn-craft.rules-run/0.6",

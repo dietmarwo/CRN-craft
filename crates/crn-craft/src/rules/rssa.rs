@@ -130,6 +130,15 @@ struct Range {
 /// Lower, upper and smallest positive value of a channel over the box.
 type Bound = (f64, f64, f64);
 
+/// A corner of a channel's reactant box: every count at its interval's high
+/// end, at its low end, or at the low end but at least the channel's need.
+#[derive(Clone, Copy)]
+enum Corner {
+    High,
+    Low,
+    Positive,
+}
+
 const UNIT_ROUNDOFF: f64 = 1.0 / 9_007_199_254_740_992.0;
 
 /// The next float above a nonnegative `x` (infinity and NaN unchanged).
@@ -305,23 +314,24 @@ impl Bounds {
         saved.clear();
         saved.extend(needs.iter().map(|&(s, _)| counts[s]));
         let (low, high) = (&self.low, &self.high);
-        let at = |global: f64, corner: &dyn Fn(usize, u64) -> u64, counts: &mut [u64]| {
+        // The channel's value with every reactant count at a corner.
+        let mut at = |global: f64, corner: Corner| {
             for &(s, k) in needs {
-                counts[s] = corner(s, k);
+                counts[s] = match corner {
+                    Corner::High => high[s],
+                    Corner::Positive => low[s].max(k),
+                    Corner::Low => low[s],
+                };
             }
             net.value_with(i, global, counts)
         };
-        let upper = at(g_high, &|s, _| high[s], counts);
+        let upper = at(g_high, Corner::High);
         let positive = if g_positive.is_finite() {
-            at(g_positive, &|s, k| low[s].max(k), counts)
+            at(g_positive, Corner::Positive)
         } else {
             f64::INFINITY
         };
-        let lower = if gated {
-            0.0
-        } else {
-            at(g_low, &|s, _| low[s], counts)
-        };
+        let lower = if gated { 0.0 } else { at(g_low, Corner::Low) };
         let ratios: u64 = needs
             .iter()
             .map(|&(s, k)| k.min(high[s].saturating_sub(k)))
@@ -393,7 +403,49 @@ impl Bounds {
     /// new bounds for their readers, in channel order, staged in `tree` and
     /// `composition`. `cache` must be reset for the current state.
     #[allow(clippy::too_many_arguments)]
+    #[inline]
     pub(crate) fn refresh(
+        &mut self,
+        net: &Network,
+        plan: &Plan,
+        fired: Option<usize>,
+        counts: &mut [u64],
+        values: &mut [f64],
+        params: &[f64],
+        cache: &mut RateCache,
+        tree: &mut RateTree,
+        composition: &mut Composition,
+    ) -> Result<(), Halt> {
+        if let Some(fired) = fired {
+            // Usually every changed species stays in its interval and no
+            // bound changes; test that without branching per species.
+            let (low, high) = (&self.low, &self.high);
+            let mut inside = true;
+            for &(s, _) in &net.channels[fired].changes {
+                let count = counts[s];
+                inside &= (count >= low[s]) & (count <= high[s]);
+            }
+            if inside {
+                return Ok(());
+            }
+        }
+        self.refresh_bounds(
+            net,
+            plan,
+            fired,
+            counts,
+            values,
+            params,
+            cache,
+            tree,
+            composition,
+        )
+    }
+
+    /// [`Self::refresh`] when a species may have left its interval.
+    #[allow(clippy::too_many_arguments)]
+    #[inline(never)]
+    fn refresh_bounds(
         &mut self,
         net: &Network,
         plan: &Plan,

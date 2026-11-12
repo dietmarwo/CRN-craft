@@ -961,22 +961,32 @@ impl Network {
         live: &mut u64,
         limits: &Limits,
     ) -> Result<u64, Halt> {
+        // One pass that applies the changes and undoes them on an error, so
+        // `counts` is unchanged then, as with a check before any change.
+        // Counts start at most 2^53 (validated initial counts) and stay so,
+        // and each species changes once per channel, so a wrapped sum outside
+        // 0..=2^53 is exactly a failed checked sum.
         let changes = &self.channels[i].changes;
         let mut next_live = *live;
         let mut created = 0;
+        let mut valid = true;
         for &(s, d) in changes {
-            let Some(next) = counts[s].checked_add_signed(d).filter(|&n| n <= MAX_COUNT) else {
-                return Err(count_range());
-            };
-            next_live = next_live + u64::from(next > 0) - u64::from(counts[s] > 0);
-            created += u64::from(next > 0 && counts[s] == 0);
+            let count = counts[s];
+            let next = count.wrapping_add_signed(d);
+            valid &= next <= MAX_COUNT;
+            next_live = next_live + u64::from(next > 0) - u64::from(count > 0);
+            created += u64::from((next > 0) & (count == 0));
+            counts[s] = next;
         }
-        if next_live > limits.max_instances {
-            return Err(instance_limit());
-        }
-        for &(s, d) in changes {
-            // Validated above.
-            counts[s] = counts[s].wrapping_add_signed(d);
+        if !valid || next_live > limits.max_instances {
+            for &(s, d) in changes {
+                counts[s] = counts[s].wrapping_add_signed(d.wrapping_neg());
+            }
+            return Err(if valid {
+                instance_limit()
+            } else {
+                count_range()
+            });
         }
         *live = next_live;
         Ok(created)
@@ -1421,6 +1431,55 @@ mod tests {
         }
         out.sort();
         out
+    }
+
+    /// `apply` changes every species of a channel or none (M4f: one pass
+    /// with an undo): a count leaving 0..=2^53 or too many live species
+    /// leave the counts and the live count as they were.
+    #[test]
+    fn a_refused_update_leaves_the_counts_unchanged() {
+        let source: model::Model = serde_json::from_value(serde_json::json!({
+            "schema": "crn-craft.model/1.0",
+            "name": "apply",
+            "types": [{"name": "A"}, {"name": "B"}, {"name": "C"}],
+            "initial": [{"type": "A", "count": 3}, {"type": "B", "count": 1}],
+            "observables": {"A": {"type": "A"}},
+            "rules": [
+                {"name": "make", "reactants": [{"label": "a", "type": "A"}, {"label": "b", "type": "B"}],
+                 "rate": "1", "products": [{"type": "C"}, {"type": "C"}, {"type": "A"}]},
+                {"name": "grow", "reactants": [{"label": "a", "type": "A"}],
+                 "rate": "1", "products": [{"type": "A"}, {"type": "A"}, {"type": "C"}]}
+            ]
+        }))
+        .unwrap();
+        let compiled = model::compile(&source).unwrap();
+        let net = Network::compile(&compiled).unwrap();
+        let limits = |max_instances| Limits {
+            max_events: 10,
+            max_words: 10,
+            max_instances,
+            deadline: None,
+        };
+        // `make` empties B and creates C: two live species before and after.
+        let mut counts = net.initial();
+        let mut live = 2;
+        let before = counts.clone();
+        assert!(net.apply(0, &mut counts, &mut live, &limits(1)).is_err());
+        assert_eq!((counts.clone(), live), (before.clone(), 2));
+        assert_eq!(
+            net.apply(0, &mut counts, &mut live, &limits(2)).ok(),
+            Some(1)
+        );
+        assert_eq!(live, 2);
+        // `grow` at the count limit: A would leave 0..=2^53, C would not.
+        let a = net.species.iter().position(|s| s.ty == 0).unwrap();
+        counts[a] = MAX_COUNT;
+        let before = counts.clone();
+        let Err(Halt::Numerical(d)) = net.apply(1, &mut counts, &mut live, &limits(3)) else {
+            panic!("count outside 0..=2^53 accepted");
+        };
+        assert_eq!(d.message, "fixed count outside 0..2^53");
+        assert_eq!((counts, live), (before, 2));
     }
 
     #[test]

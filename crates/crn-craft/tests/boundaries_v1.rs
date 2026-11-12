@@ -219,3 +219,185 @@ fn a_cancel_during_a_long_run_stops_it_within_the_poll_interval() {
         );
     }
 }
+
+/// M8b: the engine's stream against the independent scalar ChaCha8 of
+/// `validation/reference_rng.py` (nine streams, 40 words each, across
+/// blocks and stream ids). The network engine's `tests/ssa.rs` pinned its
+/// own stream this way; that stream left with the network engine.
+#[test]
+fn the_replicate_stream_matches_independent_known_answers() {
+    use rand_core::RngCore;
+    let fixture: Value =
+        serde_json::from_str(include_str!("../../../validation/rng-vectors-rules.json")).unwrap();
+    let streams = fixture["streams"].as_array().unwrap();
+    assert_eq!(streams.len(), 9);
+    for row in streams {
+        let mut rng = crn_craft::rules::stream(
+            row["root"].as_u64().unwrap(),
+            row["replicate"].as_u64().unwrap(),
+        );
+        for word in row["words"].as_array().unwrap() {
+            assert_eq!(rng.next_u64(), word.as_u64().unwrap());
+        }
+    }
+}
+
+/// Immigration-death (`0 -> X` at 4, `X -> 0` at 0.2 per molecule) and a
+/// Static Direct request with `replicates`, `report_times` and `keep_paths`.
+fn immigration(
+    replicates: u64,
+    report_times: &[f64],
+    keep: u64,
+    max_events: u64,
+) -> (Vec<u8>, Vec<u8>) {
+    let model = serde_json::to_vec(&json!({
+        "schema": "crn-craft.model/1.0", "name": "immigration_death",
+        "parameters": {"birth": 4.0, "death": 0.2},
+        "types": [{"name": "X"}], "initial": [],
+        "observables": {"X": {"type": "X"}},
+        "rules": [
+            {"name": "birth", "reactants": [], "rate": "birth", "products": [{"type": "X"}]},
+            {"name": "death", "reactants": [{"label": "x", "type": "X"}], "rate": "death", "products": []}
+        ]
+    }))
+    .unwrap();
+    let end = *report_times.last().unwrap();
+    let request = serde_json::to_vec(&json!({
+        "schema": "crn-craft.run/1.0",
+        "model": {"path": "m.json", "sha256": crn_craft::sha256(&model)},
+        "method": {"kind": "static_direct"},
+        "ensemble": {"replicates": replicates, "root_seed": 77},
+        "time": {"end": end, "report_times": report_times},
+        "outputs": {"statistics": ["mean", "variance"], "keep_paths": keep, "keep_instances": 0},
+        "budget": {"max_events_per_replicate": max_events,
+                   "max_sampling_steps_per_replicate": 100_000_000,
+                   "max_instances": 1000, "threads": 2, "max_output_bytes": 1u64 << 24}
+    }))
+    .unwrap();
+    (model, request)
+}
+
+/// M8b, from the network engine's `tests/ssa.rs`: report times draw no
+/// random words, so a denser grid leaves every event and every state at the
+/// common times unchanged.
+#[test]
+fn a_denser_report_grid_changes_no_event_or_common_state() {
+    let sparse_times = [0.0, 0.5, 1.0, 2.0];
+    let dense_times = [0.0, 0.125, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0];
+    let (model, sparse) = immigration(32, &sparse_times, 32, 100_000);
+    let (_, dense) = immigration(32, &dense_times, 32, 100_000);
+    let sparse = run(&model, &sparse, &Control::default());
+    let dense = run(&model, &dense, &Control::default());
+    let events = |r: &RulesResult| r.replicates.iter().map(|x| x.events).collect::<Vec<_>>();
+    assert_eq!(events(&sparse), events(&dense));
+    for (a, b) in sparse.paths.iter().zip(&dense.paths) {
+        assert_eq!(a.id, b.id);
+        for (i, j) in [0, 3, 5, 7].into_iter().enumerate() {
+            assert_eq!(a.values[i], b.values[j], "replicate {}", a.id);
+        }
+    }
+}
+
+/// M8b, from `tests/ssa.rs`: a rule without reactants or products changes
+/// no count, yet every firing is an event and counts against the cap.
+#[test]
+fn a_rule_without_reactants_or_products_counts_events_and_meets_the_cap() {
+    let model = serde_json::to_vec(&json!({
+        "schema": "crn-craft.model/1.0", "name": "null",
+        "parameters": {"k": 1e6}, "types": [{"name": "A"}],
+        "initial": [{"type": "A", "count": 3}], "observables": {"A": {"type": "A"}},
+        "rules": [{"name": "null", "reactants": [], "rate": "k", "products": []}]
+    }))
+    .unwrap();
+    let request = request(&model, json!({"kind": "static_direct"}), 1.0, 2);
+    let result = run(&model, &request, &Control::default());
+    assert_eq!(result.termination, Termination::EventLimit);
+    assert!(result.replicates.iter().all(|r| r.events == 2));
+    assert!(result.statistics.is_none());
+}
+
+/// M8b, from `tests/ssa.rs`: the kept paths are the first replicates, and
+/// the statistics are the plain moments of the completed replicates (here
+/// all kept); one replicate has no variance and no standard error.
+#[test]
+fn kept_paths_are_the_first_replicates_and_carry_the_statistics() {
+    let times = [0.0, 1.0, 5.0];
+    let (model, first) = immigration(32, &times, 2, 100_000);
+    let result = run(&model, &first, &Control::default());
+    assert_eq!(result.replicates.len(), 32);
+    assert_eq!(
+        result.paths.iter().map(|p| p.id).collect::<Vec<_>>(),
+        [0, 1]
+    );
+    let (_, all) = immigration(32, &times, 32, 100_000);
+    let result = run(&model, &all, &Control::default());
+    let statistics = result.statistics.as_ref().unwrap();
+    let (mean, variance, error) = (
+        statistics.mean.as_ref().unwrap(),
+        statistics.sample_variance.as_ref().unwrap(),
+        statistics.mean_standard_error.as_ref().unwrap(),
+    );
+    for t in 0..times.len() {
+        let x: Vec<f64> = result.paths.iter().map(|p| p.values[t][0]).collect();
+        let m = x.iter().sum::<f64>() / 32.0;
+        let v = x.iter().map(|y| (y - m) * (y - m)).sum::<f64>() / 31.0;
+        assert!((mean[t][0] - m).abs() <= 1e-12 * m.max(1.0));
+        assert!((variance[t][0] - v).abs() <= 1e-12 * v.max(1.0));
+        assert!((error[t][0] - (v / 32.0).sqrt()).abs() <= 1e-12);
+    }
+    let (_, single) = immigration(1, &times, 1, 100_000);
+    let result = run(&model, &single, &Control::default());
+    let statistics = result.statistics.unwrap();
+    assert!(statistics.mean.is_some());
+    assert!(statistics.sample_variance.is_none() && statistics.mean_standard_error.is_none());
+}
+
+/// M8b, from `tests/ssa.rs`: when some replicates complete and others stop
+/// at the event cap, no conditional statistics of the completed ones are
+/// reported.
+#[test]
+fn a_partly_completed_ensemble_reports_no_statistics() {
+    let (model, request) = immigration(64, &[0.0, 0.3], 0, 1);
+    let result = run(&model, &request, &Control::default());
+    assert!(
+        result.completed_replicates > 0 && result.completed_replicates < 64,
+        "{}",
+        result.completed_replicates
+    );
+    assert_eq!(result.termination, Termination::EventLimit);
+    assert!(result.statistics.is_none());
+}
+
+/// M8b, from `tests/ssa.rs`: a run cancelled before it starts, or past its
+/// wall-time limit, accounts for every replicate, and none of them fires an
+/// event or draws a word. Unlike the network engine, which started none, the
+/// unified engine marks the first replicate of each worker as started (it
+/// stops at its first poll), so at most `threads` replicates are started.
+#[test]
+fn unstarted_replicates_are_accounted_for() {
+    let (model, request) = immigration(32, &[0.0, 1.0], 0, 100_000);
+    let idle = |result: &RulesResult| {
+        result.replicates.len() == 32
+            && result
+                .replicates
+                .iter()
+                .all(|r| r.events == 0 && r.rng_words == 0 && r.termination == result.termination)
+            && result.replicates.iter().filter(|r| r.started).count() <= 2
+            && result.completed_replicates == 0
+            && result.statistics.is_none()
+    };
+    let control = Control::default();
+    control.cancel();
+    let cancelled = run(&model, &request, &control);
+    assert_eq!(cancelled.termination, Termination::Cancelled);
+    assert!(idle(&cancelled), "{:?}", cancelled.replicates);
+    let mut expired: Value = serde_json::from_slice(&request).unwrap();
+    expired["budget"]["wall_time_s"] = json!(1e-300);
+    let expired = run(
+        &model,
+        &serde_json::to_vec(&expired).unwrap(),
+        &Control::default(),
+    );
+    assert_eq!(expired.termination, Termination::WallTimeLimit);
+    assert!(idle(&expired), "{:?}", expired.replicates);
+}

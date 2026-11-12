@@ -1433,7 +1433,7 @@ mod tests {
                 }
             }
         }
-        let networks = ["models/examples", "validation/ssa-acceleration/models"];
+        let networks = ["models/legacy", "validation/ssa-acceleration/models"];
         for folder in networks {
             for entry in std::fs::read_dir(root.join(folder)).unwrap() {
                 let path = entry.unwrap().path();

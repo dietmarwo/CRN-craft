@@ -4,9 +4,9 @@
 //! at rate × factor × Π C(nᵢ, kᵢ). The binomials can overflow `f64` even
 //! when the product is representable (a tiny rate times a huge count), so
 //! the product is accumulated as a mantissa and a binary exponent and
-//! rounded once at the end. This is the scaled product of the network
-//! engine's mass-action law (`crate::rates`, "binomial(n,k) may overflow"),
-//! with the channel factor folded in.
+//! rounded once at the end. This is the scaled product of the 0.6.0 network
+//! engine's mass-action law ("binomial(n,k) may overflow"), with the channel
+//! factor folded in.
 
 /// rate × factor × Π C(nᵢ, kᵢ) over `reactants`, `(species, k)` pairs with
 /// `counts[species] >= k` (checked by the caller).
@@ -176,13 +176,9 @@ mod tests {
                     "reactions": [{"name": "r", "reactants": terms, "products": {},
                                    "rate": {"kind": "mass_action", "coefficient": c}}]
                 });
-                let network = crate::CompiledNetwork::compile(
-                    &crate::parse_model(&serde_json::to_vec(&model).unwrap()).unwrap(),
-                )
-                .unwrap();
                 let mut state = vec![0_i64; 3];
                 state[..counts.len()].copy_from_slice(&counts);
-                let old = network.propensity(0, &state);
+                let old = crate::rules::law_oracle::propensity(&model, &state);
                 let list: Vec<(usize, u64)> = reactants
                     .iter()
                     .enumerate()
@@ -195,8 +191,8 @@ mod tests {
                     Ok(old) => assert_eq!(old.to_bits(), new.to_bits(), "{reactants:?} c {c}"),
                     // The network engine refuses an overflow; here it is
                     // infinite, which the channel refuses (`CRN-R030`).
-                    Err(d) => {
-                        assert_eq!(d.message, "mass-action propensity overflows f64");
+                    Err(message) => {
+                        assert_eq!(message, "mass-action propensity overflows f64");
                         assert_eq!(new, f64::INFINITY, "{reactants:?} c {c}");
                     }
                 }

@@ -1470,12 +1470,12 @@ def verify_archive(directory):
     """Check an archive directory without running anything.
 
     Reads ``crn-craft.archive/1.0`` directories (written by :func:`archive`
-    and ``crn-craft rules ... --archive``) and the network engine's
-    ``crn-craft.archive/0.1`` directories, and returns the report of
+    and ``crn-craft run ... --archive``) and returns the report of
     ``crn-craft verify DIRECTORY`` as a dictionary
-    (``crn-craft.archive-check/1.0`` or ``0.1``): ``valid`` is true for an
-    intact, consistent archive, also of an incomplete run
-    (``simulation_complete`` false); ``diagnostics`` names the first
-    inconsistency otherwise.
+    (``crn-craft.archive-check/1.0``): ``valid`` is true for an intact,
+    consistent archive, also of an incomplete run (``simulation_complete``
+    false); ``diagnostics`` names the first inconsistency otherwise. The
+    network engine's ``crn-craft.archive/0.1`` directories are no longer
+    read (release 0.7.0).
     """
     return json.loads(_native.verify_json(str(directory)))

@@ -1,10 +1,13 @@
 //! The flat view of a closed rules model (M5a): structure and propensities
-//! of converted network models against the network engine, labels of
-//! attributed models, and the refusal of models without a flat view.
+//! of converted network models against the network engine of release 0.6.0
+//! (`law_oracle`), labels of attributed models, and the refusal of models
+//! without a flat view.
 use crn_craft::rules::{FlatView, convert};
-use crn_craft::{CompiledNetwork, parse_model};
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
+
+#[path = "../src/rules/law_oracle.rs"]
+mod law_oracle;
 
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -15,7 +18,7 @@ fn root() -> PathBuf {
 fn network_models() -> Vec<PathBuf> {
     let mut out = Vec::new();
     for folder in [
-        "models/examples",
+        "models/legacy",
         "validation/ssa-acceleration/models",
         "validation/merge/higher-order",
     ] {
@@ -78,46 +81,33 @@ fn converted_models_have_the_network_structure_and_propensities() {
     let mut identical = 0;
     for path in network_models() {
         let bytes = std::fs::read(&path).unwrap();
-        let network = CompiledNetwork::compile(&parse_model(&bytes).unwrap()).unwrap();
         let source: Value = serde_json::from_slice(&bytes).unwrap();
+        let network = law_oracle::Network::new(&source);
         let view = FlatView::from_bytes(&convert::from_network(&bytes).unwrap())
             .unwrap_or_else(|d| panic!("{}: {d:?}", name(&path)));
         let label = name(&path);
         // One species per network species in the same order, one channel per
         // reaction.
-        assert_eq!(view.species(), network.species(), "{label}");
-        let initial: Vec<u64> = network.initial_counts().iter().map(|&n| n as u64).collect();
+        assert_eq!(view.species(), network.species, "{label}");
+        let initial: Vec<u64> = network.initial.iter().map(|&n| n as u64).collect();
         assert_eq!(view.initial(), initial, "{label}");
-        assert_eq!(view.channels(), network.reactions().len(), "{label}");
-        assert_eq!(view.rules(), network.reactions().len(), "{label}");
-        for (c, reaction) in network.reactions().iter().enumerate() {
+        assert_eq!(view.channels(), network.reactions.len(), "{label}");
+        assert_eq!(view.rules(), network.reactions.len(), "{label}");
+        for (c, reaction) in network.reactions.iter().enumerate() {
             assert_eq!(view.rule(c), c, "{label}");
             assert_eq!(view.rule_name(c), reaction.name, "{label}");
-            let terms = |terms: &[crn_craft::network::Term]| -> Vec<(usize, i64)> {
-                terms.iter().map(|t| (t.species, t.coefficient)).collect()
-            };
             let counted = |list: &[(usize, u64)]| -> Vec<(usize, i64)> {
                 list.iter().map(|&(s, k)| (s, k as i64)).collect()
             };
-            assert_eq!(view.changes(c), terms(&reaction.net_changes), "{label} {c}");
+            assert_eq!(view.changes(c), reaction.net_changes, "{label} {c}");
             assert_eq!(
                 counted(view.reactants(c)),
-                terms(&reaction.reactants),
+                reaction.reactants,
                 "{label} {c}"
             );
-            assert_eq!(
-                counted(view.products(c)),
-                terms(&reaction.products),
-                "{label} {c}"
-            );
-            let mut reads = reaction.reads.clone();
-            reads.sort_unstable();
-            assert_eq!(view.reads(c), reads, "{label} {c}");
-            assert_eq!(
-                view.dependencies(c),
-                network.dependencies()[c],
-                "{label} {c}"
-            );
+            assert_eq!(counted(view.products(c)), reaction.products, "{label} {c}");
+            assert_eq!(view.reads(c), reaction.reads, "{label} {c}");
+            assert_eq!(view.dependencies(c), network.dependencies[c], "{label} {c}");
             assert_eq!(view.factor(c), 1.0, "{label} {c}");
             let whole = source["reactions"][c]["rate"]["kind"] != "mass_action";
             assert_eq!(view.whole(c), whole, "{label} {c}");
@@ -144,7 +134,7 @@ fn converted_models_have_the_network_structure_and_propensities() {
             let all = view.propensities(counts).unwrap();
             for (c, reaction) in source["reactions"].as_array().unwrap().iter().enumerate() {
                 let Ok(old) = network.propensity(c, &old_counts) else {
-                    continue; // the network engine refuses an underflow
+                    continue; // the network engine refused an underflow
                 };
                 let new = view.propensity(c, counts).unwrap();
                 assert_eq!(new.to_bits(), all[c].to_bits(), "{label} {c}");

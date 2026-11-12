@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 
 from . import _native
-from ._common import CrnError, __version__, _call
+from ._common import CrnError, __version__
 
 MILESTONE = "unified-engine"
 COMMANDS = ("describe", "check", "run", "verify", "analyze", "convert", "export")
@@ -47,14 +47,11 @@ USAGE_HINT = (
 
 
 def _usage_error():
-    """The native CLI's usage report (CRN-E031)."""
+    """The native CLI's usage report (CRN-E031, crn-craft.check/1.0)."""
     return {
-        "schema": "crn-craft.check/0.1",
+        "schema": "crn-craft.check/1.0",
         "valid": False,
-        "scope": "structural_and_domain_validation",
-        "execution_available": False,
         "model_sha256": None,
-        "run_sha256": None,
         "diagnostics": [
             {
                 "code": "CRN-E031",
@@ -140,50 +137,6 @@ def _command(args):
     return None
 
 
-# The network engine's commands of release 0.6.0. They are hidden (absent
-# from --help, the usage message and describe) and keep working until task
-# M8b deletes them with the old engine. LEGACY: delete in M8b.
-LEGACY = ("simulate", "simulate-cached", "ssa", "tau", "fsp")
-
-
-def _legacy(args):
-    """Runs one hidden network command: (report, success, compact) or None."""
-    from . import _legacy as legacy
-
-    name, rest = args[0], args[1:]
-    cancel_file = None
-    if name in ("simulate", "simulate-cached"):
-        if len(rest) == 5 and rest[3] == "--cancel-file":
-            cancel_file = rest[4]
-        elif len(rest) != 3:
-            return None
-        report = json.loads(
-            _native.archive_json(
-                rest[0], rest[1], rest[2], name == "simulate-cached", cancel_file
-            )
-        )
-        return report, report["valid"] and report["simulation_complete"], False
-    if len(rest) == 4 and rest[2] == "--cancel-file":
-        cancel_file = rest[3]
-    elif len(rest) != 2:
-        return None
-    model, request = rest[0], rest[1]
-    if name == "ssa":
-        report = _call(_native.ssa_files_json, model, request, cancel_file)
-        return report, report.get("termination") == "completed", True
-    if name == "tau":
-        report = json.loads(_native.tau_files_json(model, request, cancel_file))
-        success = report.get("termination") == "completed"
-        return report, success, success
-    check = json.loads(_native.check_files_json(model, request))
-    if not check["valid"]:
-        return check, False, False
-    report = legacy.fsp(
-        Path(model).read_bytes(), Path(request).read_bytes(), cancel_file=cancel_file
-    )
-    return report, True, True
-
-
 def main():
     args = sys.argv[1:]
     if args in (["--help"], ["-h"]):
@@ -192,8 +145,6 @@ def main():
     if args == ["--version"]:
         _print({"version": __version__, "interface": "python", "milestone": MILESTONE})
         return
-    # The hidden ssa command printed every report compactly, refusals too.
-    compact = bool(args) and args[0] == "ssa"
     try:
         if len(args) == 2 and args[0] == "convert":
             success = _convert(args[1])
@@ -209,14 +160,7 @@ def main():
             if not _run(args):
                 raise SystemExit(1)
             return
-        outcome = None
-        if args and args[0] in LEGACY:
-            legacy = _legacy(args)
-            if legacy is not None:
-                report, success, compact = legacy
-                outcome = report, success
-        elif args:
-            outcome = _command(args)
+        outcome = _command(args) if args else None
         report, success = _usage_error() if outcome is None else outcome
     except CrnError as error:
         report, success = {"success": False, "diagnostics": error.diagnostics}, False
@@ -225,14 +169,7 @@ def main():
     except KeyboardInterrupt:
         print(json.dumps({"success": False, "message": "interrupted"}))
         raise SystemExit(130) from None
-    if compact:
-        # Checked against max_output_bytes in compact form, like the native CLI.
-        sys.stdout.write(
-            json.dumps(report, allow_nan=False, separators=(",", ":"), sort_keys=True)
-        )
-        sys.stdout.write("\n")
-    else:
-        _print(report)
+    _print(report)
     if not success:
         raise SystemExit(1)
 

@@ -64,7 +64,6 @@
 //! assert_eq!(d.state_jacobian[0][0], -4.0); // -2 k A
 //! ```
 use crate::{
-    contracts::Model,
     diagnostic::Diagnostic,
     rules::{
         FlatView,
@@ -240,42 +239,30 @@ impl Kinetics {
     }
 
     /// Reads any model the engine reads and prepares its kinetics: a
-    /// network `crn-craft.model/0.1` as [`Self::compile`] does, otherwise
-    /// the view of [`FlatView::of_any_model`] (every species of a type
-    /// without attributes, also one that stays at 0).
+    /// network `crn-craft.model/0.1` is converted to `crn-craft.model/1.0`
+    /// first, so its species and parameters keep their order and its
+    /// reactions become one channel each; then the view of
+    /// [`FlatView::of_any_model`] (every species of a type without
+    /// attributes, also one that stays at 0). Population limits of a network
+    /// model are safety stops of a simulation; the kinetics never read them,
+    /// so they are left out of the conversion (which refuses them).
     ///
     /// # Errors
     ///
-    /// The errors of [`Self::compile`] for a network model, the errors of
-    /// [`FlatView::of_any_model`] (parse and validation errors, `CRN-R017`
-    /// for a model without a flat view), and those of [`Self::new`].
+    /// For a network model the diagnostics of
+    /// [`crate::rules::convert::from_network`] (the model's validation
+    /// errors, `CRN-R016` for a model without reactions or with an initial
+    /// count above 2^53); the errors of [`FlatView::of_any_model`] (parse and
+    /// validation errors, `CRN-R017` for a model without a flat view); and
+    /// those of [`Self::new`].
     pub fn from_bytes(model_bytes: &[u8]) -> Result<Self, Vec<Diagnostic>> {
-        if crate::schema_field(model_bytes).as_deref() == Some("crn-craft.model/0.1") {
-            return Self::compile(&crate::parse_model(model_bytes).map_err(|d| vec![d])?);
+        if crate::schema_field(model_bytes).as_deref()
+            == Some(crate::rules::convert::NETWORK_SCHEMA)
+        {
+            let converted = crate::rules::convert::from_network_without_limits(model_bytes)?;
+            return Self::new(&FlatView::of_any_model(&converted)?);
         }
         Self::new(&FlatView::of_any_model(model_bytes)?)
-    }
-
-    /// Prepares the kinetics of a parsed network model (the 0.6.0 entry
-    /// point): the model is converted to `crn-craft.model/1.0` and read
-    /// through its flat view, so its species and parameters keep their
-    /// order and its reactions become one channel each. Population limits
-    /// are safety stops of a simulation; the kinetics never read them, so
-    /// they are left out of the conversion (which refuses them).
-    ///
-    /// # Errors
-    ///
-    /// The diagnostics of [`crate::rules::convert::from_network`] (the
-    /// model's validation errors, `CRN-R016` for a model without reactions
-    /// or with an initial count above 2^53) and those of [`Self::new`].
-    pub fn compile(model: &Model) -> Result<Self, Vec<Diagnostic>> {
-        let mut model = model.clone();
-        for species in &mut model.species {
-            species.population_limit = None;
-        }
-        let bytes = serde_json::to_vec(&model).expect("a parsed model serializes");
-        let converted = crate::rules::convert::from_network(&bytes)?;
-        Self::new(&FlatView::of_any_model(&converted)?)
     }
 
     /// Species labels in state order (the view's species; for a network

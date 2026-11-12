@@ -1,11 +1,15 @@
 //! Network analysis on the flat view (M5b): `crn-craft.analysis/1.0` of
 //! network models (through the converter), rules models and
-//! `crn-craft.model/1.0`, checked against the network engine's structure,
-//! with labels of attributed models, warnings, states and refusals.
+//! `crn-craft.model/1.0`, checked against the network engine's structure
+//! of release 0.6.0 (`law_oracle`), with labels of attributed models,
+//! warnings, states and refusals.
 use crn_craft::rules::{FlatView, convert};
-use crn_craft::{CompiledNetwork, analyze_bytes, analyze_files, parse_model, schema, sha256};
+use crn_craft::{analyze_bytes, analyze_files, schema, sha256};
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
+
+#[path = "../src/rules/law_oracle.rs"]
+mod law_oracle;
 
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -15,7 +19,7 @@ fn root() -> PathBuf {
 fn network_models() -> Vec<PathBuf> {
     let mut out = Vec::new();
     for folder in [
-        "models/examples",
+        "models/legacy",
         "validation/ssa-acceleration/models",
         "validation/merge/higher-order",
     ] {
@@ -99,19 +103,36 @@ fn network_models_keep_the_network_structure_through_the_converter() {
         other["model_sha256"] = value["model_sha256"].clone();
         assert_eq!(other, value, "{label}");
         // Species, reactions, reads and dependencies of the network engine.
-        let network = CompiledNetwork::compile(&parse_model(&network_bytes).unwrap()).unwrap();
+        let source: Value = serde_json::from_slice(&network_bytes).unwrap();
+        let network = law_oracle::Network::new(&source);
         let analysis = report.analysis.unwrap();
-        assert_eq!(analysis.species, network.species(), "{label}");
-        assert_eq!(analysis.initial_counts, network.initial_counts(), "{label}");
-        assert_eq!(analysis.evaluation_counts, network.initial_counts());
+        assert_eq!(analysis.species, network.species, "{label}");
+        assert_eq!(analysis.initial_counts, network.initial, "{label}");
+        assert_eq!(analysis.evaluation_counts, network.initial);
+        let terms = |terms: &[(usize, i64)]| -> Value {
+            terms
+                .iter()
+                .map(|&(species, coefficient)| json!({"species": species, "coefficient": coefficient}))
+                .collect()
+        };
+        let reactions: Vec<Value> = network
+            .reactions
+            .iter()
+            .map(|r| {
+                json!({"name": r.name, "reactants": terms(&r.reactants),
+                       "products": terms(&r.products), "net_changes": terms(&r.net_changes),
+                       "reads": r.reads})
+            })
+            .collect();
         assert_eq!(
             serde_json::to_value(&analysis.reactions).unwrap(),
-            serde_json::to_value(network.reactions()).unwrap(),
+            Value::Array(reactions),
             "{label}"
         );
-        assert_eq!(analysis.dependencies, network.dependencies(), "{label}");
-        let source: Value = serde_json::from_slice(&network_bytes).unwrap();
-        let old = network.propensities(network.initial_counts()).unwrap();
+        assert_eq!(analysis.dependencies, network.dependencies, "{label}");
+        let old: Vec<f64> = (0..network.reactions.len())
+            .map(|r| network.propensity(r, &network.initial).unwrap())
+            .collect();
         for (r, (new, old)) in analysis.propensities.iter().zip(&old).enumerate() {
             let bound = allowed(&source["reactions"][r], &source["parameters"], *old);
             assert!(
@@ -449,9 +470,19 @@ fn files_and_the_generated_schema() {
         json!(["crn-craft.analysis/1.0"])
     );
     assert!(schema("analysis").is_none() && schema("analysis-v1").is_none());
-    let description = crn_craft::describe_network();
-    assert_eq!(description["schema"], "crn-craft.describe/0.11");
-    assert_eq!(description["schemas"]["analysis-1.0"], generated);
+    let description = crn_craft::describe();
+    assert_eq!(description["schema"], "crn-craft.describe/1.0");
+    assert_eq!(
+        description["contracts"]["analysis"],
+        "crn-craft.analysis/1.0"
+    );
+    assert!(
+        description["schemas"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|kind| kind == "analysis-1.0")
+    );
     assert!(
         !description["commands"]
             .as_array()

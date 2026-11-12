@@ -1,8 +1,7 @@
 {
-  "schema": "crn-craft.model/0.1",
+  "schema": "crn-craft.model/1.0",
   "name": "Vilar_noise_control",
-  "convention": "stochastic_counts",
-  "omega": 1.0,
+  "description": "Converted from a crn-craft.model/0.1 document.",
   "parameters": {
     "alphaA": 50.0,
     "alphaAp": 500.0,
@@ -10,265 +9,384 @@
     "alphaRp": 50.0,
     "betaA": 50.0,
     "betaR": 5.0,
+    "deltaA": 1.0,
     "deltaMA": 10.0,
     "deltaMR": 0.5,
-    "deltaA": 1.0,
     "deltaR": 0.05,
     "gammaA": 1.0,
-    "gammaR": 1.0,
     "gammaC": 2.0,
+    "gammaR": 1.0,
     "thetaA": 50.0,
     "thetaR": 100.0
   },
-  "species": [
+  "types": [
     {
       "name": "A",
-      "initial_count": 0
+      "attributes": []
     },
     {
       "name": "C",
-      "initial_count": 0
+      "attributes": []
     },
     {
       "name": "DA",
-      "initial_count": 1
+      "attributes": []
     },
     {
       "name": "DAp",
-      "initial_count": 0
+      "attributes": []
     },
     {
       "name": "DR",
-      "initial_count": 1
+      "attributes": []
     },
     {
       "name": "DRp",
-      "initial_count": 0
+      "attributes": []
     },
     {
       "name": "MA",
-      "initial_count": 0
+      "attributes": []
     },
     {
       "name": "MR",
-      "initial_count": 0
+      "attributes": []
     },
     {
       "name": "R",
-      "initial_count": 0
+      "attributes": []
     }
   ],
-  "reactions": [
+  "initial": [
+    {
+      "type": "DA",
+      "attributes": {},
+      "count": 1.0
+    },
+    {
+      "type": "DR",
+      "attributes": {},
+      "count": 1.0
+    }
+  ],
+  "observables": {
+    "A": {
+      "type": "A",
+      "reduce": "sum"
+    },
+    "C": {
+      "type": "C",
+      "reduce": "sum"
+    },
+    "DA": {
+      "type": "DA",
+      "reduce": "sum"
+    },
+    "DAp": {
+      "type": "DAp",
+      "reduce": "sum"
+    },
+    "DR": {
+      "type": "DR",
+      "reduce": "sum"
+    },
+    "DRp": {
+      "type": "DRp",
+      "reduce": "sum"
+    },
+    "MA": {
+      "type": "MA",
+      "reduce": "sum"
+    },
+    "MR": {
+      "type": "MR",
+      "reduce": "sum"
+    },
+    "R": {
+      "type": "R",
+      "reduce": "sum"
+    }
+  },
+  "rules": [
     {
       "name": "txA",
-      "reactants": {
-        "DA": 1
-      },
-      "products": {
-        "DA": 1,
-        "MA": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "alphaA"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "DA"
+        }
+      ],
+      "rate": "alphaA",
+      "products": [
+        {
+          "type": "DA",
+          "attributes": {}
+        },
+        {
+          "type": "MA",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "txAp",
-      "reactants": {
-        "DAp": 1
-      },
-      "products": {
-        "DAp": 1,
-        "MA": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "alphaAp"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "DAp"
+        }
+      ],
+      "rate": "alphaAp",
+      "products": [
+        {
+          "type": "DAp",
+          "attributes": {}
+        },
+        {
+          "type": "MA",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "txR",
-      "reactants": {
-        "DR": 1
-      },
-      "products": {
-        "DR": 1,
-        "MR": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "alphaR"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "DR"
+        }
+      ],
+      "rate": "alphaR",
+      "products": [
+        {
+          "type": "DR",
+          "attributes": {}
+        },
+        {
+          "type": "MR",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "txRp",
-      "reactants": {
-        "DRp": 1
-      },
-      "products": {
-        "DRp": 1,
-        "MR": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "alphaRp"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "DRp"
+        }
+      ],
+      "rate": "alphaRp",
+      "products": [
+        {
+          "type": "DRp",
+          "attributes": {}
+        },
+        {
+          "type": "MR",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "tlA",
-      "reactants": {
-        "MA": 1
-      },
-      "products": {
-        "MA": 1,
-        "A": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "betaA"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "MA"
+        }
+      ],
+      "rate": "betaA",
+      "products": [
+        {
+          "type": "A",
+          "attributes": {}
+        },
+        {
+          "type": "MA",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "tlR",
-      "reactants": {
-        "MR": 1
-      },
-      "products": {
-        "MR": 1,
-        "R": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "betaR"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "MR"
+        }
+      ],
+      "rate": "betaR",
+      "products": [
+        {
+          "type": "MR",
+          "attributes": {}
+        },
+        {
+          "type": "R",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "bindA",
-      "reactants": {
-        "A": 1,
-        "DA": 1
-      },
-      "products": {
-        "DAp": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "gammaA"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A"
+        },
+        {
+          "label": "y",
+          "type": "DA"
+        }
+      ],
+      "rate": "gammaA",
+      "products": [
+        {
+          "type": "DAp",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "bindR",
-      "reactants": {
-        "A": 1,
-        "DR": 1
-      },
-      "products": {
-        "DRp": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "gammaR"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A"
+        },
+        {
+          "label": "y",
+          "type": "DR"
+        }
+      ],
+      "rate": "gammaR",
+      "products": [
+        {
+          "type": "DRp",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "complex",
-      "reactants": {
-        "A": 1,
-        "R": 1
-      },
-      "products": {
-        "C": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "gammaC"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A"
+        },
+        {
+          "label": "y",
+          "type": "R"
+        }
+      ],
+      "rate": "gammaC",
+      "products": [
+        {
+          "type": "C",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "deathA",
-      "reactants": {
-        "A": 1
-      },
-      "products": {},
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "deltaA"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A"
+        }
+      ],
+      "rate": "deltaA",
+      "products": []
     },
     {
       "name": "deathC",
-      "reactants": {
-        "C": 1
-      },
-      "products": {
-        "R": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "deltaA"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "C"
+        }
+      ],
+      "rate": "deltaA",
+      "products": [
+        {
+          "type": "R",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "deathMA",
-      "reactants": {
-        "MA": 1
-      },
-      "products": {},
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "deltaMA"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "MA"
+        }
+      ],
+      "rate": "deltaMA",
+      "products": []
     },
     {
       "name": "deathMR",
-      "reactants": {
-        "MR": 1
-      },
-      "products": {},
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "deltaMR"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "MR"
+        }
+      ],
+      "rate": "deltaMR",
+      "products": []
     },
     {
       "name": "deathR",
-      "reactants": {
-        "R": 1
-      },
-      "products": {},
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "deltaR"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "R"
+        }
+      ],
+      "rate": "deltaR",
+      "products": []
     },
     {
       "name": "unbindA",
-      "reactants": {
-        "DAp": 1
-      },
-      "products": {
-        "A": 1,
-        "DA": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "thetaA"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "DAp"
+        }
+      ],
+      "rate": "thetaA",
+      "products": [
+        {
+          "type": "A",
+          "attributes": {}
+        },
+        {
+          "type": "DA",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "unbindR",
-      "reactants": {
-        "DRp": 1
-      },
-      "products": {
-        "A": 1,
-        "DR": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "thetaR"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "DRp"
+        }
+      ],
+      "rate": "thetaR",
+      "products": [
+        {
+          "type": "A",
+          "attributes": {}
+        },
+        {
+          "type": "DR",
+          "attributes": {}
+        }
+      ]
     }
   ]
 }

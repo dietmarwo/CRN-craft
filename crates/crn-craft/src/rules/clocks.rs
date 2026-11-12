@@ -1,8 +1,7 @@
-//! Indexed clock heap for the Gibson–Bruck next reaction method.
-//! Gibson & Bruck (2000), DOI 10.1021/jp993732q.
-#[doc(hidden)]
+//! Indexed clock heap for the Gibson–Bruck next reaction method of the
+//! flat path. Gibson & Bruck (2000), DOI 10.1021/jp993732q.
 #[derive(Default)]
-pub struct Clocks {
+pub(crate) struct Clocks {
     heap: Vec<usize>,
     positions: Vec<usize>,
     times: Vec<f64>,

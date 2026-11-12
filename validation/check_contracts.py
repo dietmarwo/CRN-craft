@@ -2,8 +2,11 @@
 line (describe, check, run, verify, analyze, convert, export; rules and
 rules-check are aliases). Safe under python -O.
 
-Rows marked LEGACY test the network engine's contracts and hidden commands,
-which stay until task M8b; task M8a removes or migrates them.
+The network engine's commands and contracts were removed in task M8b; rows
+named `removed_*` check that they are gone. Network models
+(`crn-craft.model/0.1`, the originals in models/legacy) are still read through
+the converter; models/examples holds their converted `crn-craft.model/1.0`
+files.
 """
 
 import argparse
@@ -17,7 +20,8 @@ from jsonschema import Draft7Validator
 
 ROOT = Path(__file__).resolve().parents[1]
 COMMANDS = ["describe", "check", "run", "verify", "analyze", "convert", "export"]
-HIDDEN = ["simulate", "simulate-cached", "ssa", "tau", "fsp"]
+# The network engine's commands, removed in M8b.
+REMOVED = ["simulate", "simulate-cached", "ssa", "tau", "fsp"]
 # The 1.0 contracts and current reports, then the older contracts still read.
 SCHEMAS = [
     "model-1.0",
@@ -37,12 +41,10 @@ STILL_READ = [
     "rules-result",
     "rules-check",
     "model",
-    "archive",
-    "archive-check",
 ]
-# LEGACY (M8b deletes them): schemas of the hidden network commands, still
-# served by `describe KIND` but listed nowhere.
-HIDDEN_SCHEMAS = [
+# The schemas of the network engine's contracts, removed in M8b: no
+# `describe KIND` kind and no file under schemas/.
+REMOVED_SCHEMAS = [
     "run",
     "result",
     "result-v1",
@@ -52,6 +54,10 @@ HIDDEN_SCHEMAS = [
     "tau-result",
     "ssa-run",
     "ssa-result",
+    "archive",
+    "archive-check",
+    "analysis",
+    "analysis-v1",
 ]
 
 
@@ -95,12 +101,20 @@ def main():
         )
 
     validators = {}
-    for kind in SCHEMAS + STILL_READ + HIDDEN_SCHEMAS:
+    for kind in SCHEMAS + STILL_READ:
         code, schema = invoke("describe", kind)
         Draft7Validator.check_schema(schema)
         validators[kind] = Draft7Validator(schema)
         snapshot = json.loads((ROOT / f"schemas/{kind}.schema.json").read_text())
         record(f"schema_snapshot_{kind}", code == 0 and snapshot == schema)
+    for kind in REMOVED_SCHEMAS:
+        code, report = invoke("describe", kind)
+        record(
+            f"removed_schema_{kind}",
+            code == 1
+            and coded(report, "CRN-E031")
+            and not (ROOT / f"schemas/{kind}.schema.json").exists(),
+        )
 
     # Discovery, help and version list the unified command set only.
     code, capabilities = invoke("describe")
@@ -121,10 +135,12 @@ def main():
         and capabilities["legacy"]["rules"]["crate"] == "crn-craft",
     )
     record(
-        "describe_hides_the_network_commands",
-        not set(HIDDEN) & set(capabilities["commands"])
-        and not set(HIDDEN_SCHEMAS)
-        & set(capabilities["schemas"] + capabilities["legacy"]["schemas"]),
+        "describe_lists_no_removed_command_or_contract",
+        not set(REMOVED) & set(capabilities["commands"])
+        and not set(REMOVED_SCHEMAS)
+        & set(capabilities["schemas"] + capabilities["legacy"]["schemas"])
+        and "archives" not in capabilities["legacy"]
+        and "crn-craft.archive/0.1" not in json.dumps(capabilities),
     )
     code, help_text = call("--help")
     listed = [
@@ -136,7 +152,8 @@ def main():
         "help_lists_the_unified_commands",
         code == 0
         and listed == COMMANDS + ["--version"]
-        and not any(f"crn-craft {name} " in help_text.decode() for name in HIDDEN),
+        and not any(f"crn-craft {name} " in help_text.decode() for name in REMOVED)
+        and b"archive/1.0 and 0.1" not in help_text,
     )
     code, version = invoke("--version")
     record(
@@ -145,7 +162,8 @@ def main():
     )
 
     # Network examples: check (of the conversion), convert, analyze, export.
-    examples = ROOT / "models/examples"
+    examples = ROOT / "models/legacy"
+    converted_examples = ROOT / "models/examples"
     for path in sorted(examples.glob("*.model.json")):
         validators["model"].validate(json.loads(path.read_text()))
         code, report = invoke("check", path)
@@ -172,6 +190,11 @@ def main():
             and (check_code, alias_code) == (0, 0)
             and checked == alias
             and checked["schema"] == "crn-craft.check/1.0",
+        )
+        # models/examples holds exactly the converted bytes.
+        record(
+            f"converted_example_{path.name}",
+            (converted_examples / path.name).read_bytes() == converted,
         )
         code, analysis = invoke("analyze", path)
         validators["analysis-1.0"].validate(analysis)
@@ -202,23 +225,40 @@ def main():
             and exported["artifact"] is not None
             and ("propensity_function=" in exported["artifact"]["source"]) == custom,
         )
-    # LEGACY (M8a): a network model with a network run/0.1 request gets the
-    # network engine's check/0.1, which the hidden commands use.
+    record(
+        "examples_are_the_converted_legacy_models",
+        sorted(p.name for p in converted_examples.glob("*.model.json"))
+        == sorted(p.name for p in examples.glob("*.model.json")),
+    )
+    # The network run/0.1 requests of the examples are no request any more:
+    # `check` refuses a request for a network model (CRN-E033), and the
+    # removed commands are usage errors.
     for path in sorted(examples.glob("*.run.json")):
         run = json.loads(path.read_text())
-        validators["run"].validate(run)
         model = path.parent / run["model"]["path"]
-        expected = hashlib.sha256(model.read_bytes()).hexdigest()
         code, report = invoke("check", model, path)
-        validators["check"].validate(report)
+        validators["check-1.0"].validate(report)
         record(
-            f"legacy_run_{path.name}",
-            code == 0
-            and report["valid"]
-            and report["schema"] == "crn-craft.check/0.1"
-            and not report["execution_available"]
-            and run["model"]["sha256"] == expected == report["model_sha256"]
-            and report["run_sha256"] == hashlib.sha256(path.read_bytes()).hexdigest(),
+            f"removed_network_run_{path.name}",
+            code == 1
+            and not report["valid"]
+            and coded(report, "CRN-E033", "/schema")
+            and run["model"]["sha256"] == hashlib.sha256(model.read_bytes()).hexdigest(),
+        )
+        with tempfile.TemporaryDirectory() as folder:
+            outcomes = [
+                invoke(command, model, path, Path(folder) / "out")
+                if command.startswith("simulate")
+                else invoke(command, model, path)
+                for command in REMOVED
+            ]
+            created = (Path(folder) / "out").exists()
+        record(
+            f"removed_commands_{path.name}",
+            not created
+            and all(
+                code == 1 and coded(report, "CRN-E031") for code, report in outcomes
+            ),
         )
 
     for path in sorted((ROOT / "models/rules").glob("*.rules.json")):
@@ -496,10 +536,6 @@ def main():
 
     invalid = ROOT / "models/invalid"
     for row in json.loads((invalid / "expected.json").read_text()):
-        if row["run"] is not None:
-            # The network run/0.1 requests of these rows are no contract any
-            # more; the unified counterparts follow below.
-            continue
         # A network model alone is checked by converting it (check/1.0).
         code, report = invoke("check", invalid / row["model"])
         validators["check-1.0"].validate(report)
@@ -510,9 +546,10 @@ def main():
             and coded(report, row["code"], row["path"]),
         )
 
-    # The four invalid requests of the table, written as crn-craft.run/1.0
-    # requests for the converted model: refused by `check` and `run` with the
-    # unified code, at the same place.
+    # The four invalid network run/0.1 requests of 0.6.0's table (removed with
+    # that contract in M8b), written as crn-craft.run/1.0 requests for the
+    # converted model: refused by `check` and `run` with the unified code, at
+    # the same place.
     with tempfile.TemporaryDirectory(prefix="crn-invalid-run-") as folder:
         temp = Path(folder)
         code, converted = call("convert", invalid / "model.json")

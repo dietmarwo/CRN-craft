@@ -2,9 +2,9 @@
 use serde_json::{Value, json};
 use std::process::Command;
 
-const ENZYME: &str = include_str!("../../../models/examples/enzyme-mechanism.model.json");
-const MM: &str = include_str!("../../../models/examples/michaelis-menten.model.json");
-const IMMIGRATION: &str = include_str!("../../../models/examples/immigration-death.model.json");
+const ENZYME: &str = include_str!("../../../models/legacy/enzyme-mechanism.model.json");
+const MM: &str = include_str!("../../../models/legacy/michaelis-menten.model.json");
+const IMMIGRATION: &str = include_str!("../../../models/legacy/immigration-death.model.json");
 const DIMER: &str = include_str!("../fixtures/dimerization.model.json");
 const HILL: &str = include_str!("../fixtures/hill-constant.model.json");
 

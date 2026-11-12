@@ -176,4 +176,4 @@ jobs:
             echo "$converted"
             exit 1
           fi
-      - run: cargo test --release --locked -p crn-craft --lib --test contracts --test network --test structure --test ssa --test archives
+      - run: cargo test --release --locked -p crn-craft --lib --test network_models --test convert --test structure --test stored_requests --test archives_v1

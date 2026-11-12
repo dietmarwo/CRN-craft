@@ -250,7 +250,7 @@ fn linear_under_run_1_0_equals_rules_run_0_6() {
     for path in [
         "validation/ssa-acceleration/models/W2.model.json",
         "validation/ssa-acceleration/models/W3.model.json",
-        "models/examples/enzyme-mechanism.model.json",
+        "models/legacy/enzyme-mechanism.model.json",
     ] {
         let model = with_schema(&converted(path), "crn-craft.rules-model/0.4");
         let request = request(
@@ -349,7 +349,7 @@ fn selectors_do_not_depend_on_the_thread_count() {
     for (path, end) in [
         ("validation/ssa-acceleration/models/W5.model.json", 0.5),
         ("validation/ssa-acceleration/models/W4.model.json", 2.0),
-        ("models/examples/repressilator.model.json", 5.0),
+        ("models/legacy/repressilator.model.json", 5.0),
     ] {
         let model = converted(path);
         for selector in SELECTORS {
@@ -785,7 +785,7 @@ fn auto_follows_the_declared_threshold() {
         ("repressilator", linear),
         ("vilar-noise", linear),
     ] {
-        let model = converted(&format!("models/examples/{name}.model.json"));
+        let model = converted(&format!("models/legacy/{name}.model.json"));
         assert_eq!(
             sampler(&model, json!({"kind": "static_direct"})),
             expected,

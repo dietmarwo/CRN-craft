@@ -7,8 +7,7 @@
 
 use crate::diagnostic::Diagnostic;
 use crate::rules::{self, CheckVersion, RulesCheck};
-use crate::{CheckReport, sha256};
-use serde::Serialize;
+use crate::sha256;
 use serde_json::{Value, json};
 use std::path::Path;
 
@@ -35,14 +34,12 @@ pub const SCHEMAS: [&str; 10] = [
 ];
 
 /// The `describe KIND` kinds of older contracts that are still read.
-pub const LEGACY_SCHEMAS: [&str; 7] = [
+pub const LEGACY_SCHEMAS: [&str; 5] = [
     "rules-model",
     "rules-run",
     "rules-result",
     "rules-check",
     "model",
-    "archive",
-    "archive-check",
 ];
 
 /// The discovery document `crn-craft.describe/1.0`: what `crn-craft
@@ -52,9 +49,8 @@ pub const LEGACY_SCHEMAS: [&str; 7] = [
 /// kinds of `describe KIND` first: methods, Static Direct selectors,
 /// quantiles, finite state projection, exporters and limits. The older
 /// contracts that are still read (rules models and requests, the network
-/// `crn-craft.model/0.1` through the converter, `crn-craft.archive/0.1`
-/// archives) are under `legacy`, with the rules engine's 0.6.0 discovery
-/// entry as `legacy.rules`.
+/// `crn-craft.model/0.1` through the converter) are under `legacy`, with the
+/// rules engine's 0.6.0 discovery entry as `legacy.rules`.
 ///
 /// ```
 /// let description = crn_craft::describe();
@@ -150,39 +146,11 @@ pub fn describe() -> Value {
             "requests": entry["accepted_requests"],
             "results": ["crn-craft.rules-result/0.1", "crn-craft.rules-result/0.2", "crn-craft.rules-result/0.3"],
             "checks": ["crn-craft.rules-check/0.1"],
-            "archives": ["crn-craft.archive/0.1"],
             "schemas": LEGACY_SCHEMAS,
             "rules": entry
         }
     })
 }
-
-/// The report of [`check_any`]: `crn-craft.check/1.0` or
-/// `crn-craft.rules-check/0.1` ([`RulesCheck`]), or, for a network model
-/// with a network `crn-craft.run/0.1` request, the network engine's
-/// `crn-craft.check/0.1` ([`CheckReport`]; deleted with the network
-/// requests in M8b).
-#[derive(Debug, Serialize)]
-#[serde(untagged)]
-pub enum AnyCheck {
-    /// A rules-engine report: `crn-craft.check/1.0` or `rules-check/0.1`.
-    Rules(RulesCheck),
-    /// The network engine's `crn-craft.check/0.1` (legacy).
-    Network(CheckReport),
-}
-
-impl AnyCheck {
-    /// Whether the checked documents are valid.
-    #[must_use]
-    pub fn valid(&self) -> bool {
-        match self {
-            Self::Rules(report) => report.valid,
-            Self::Network(report) => report.valid,
-        }
-    }
-}
-
-const NETWORK_RUN: &str = "crn-craft.run/0.1";
 
 fn report(model: &[u8], request: Option<&[u8]>, diagnostics: Vec<Diagnostic>) -> RulesCheck {
     RulesCheck {
@@ -205,10 +173,8 @@ fn report(model: &[u8], request: Option<&[u8]>, diagnostics: Vec<Diagnostic>) ->
 /// - Any model with a request: `check/1.0` with `run_sha256`, the model's
 ///   check and then the errors `crn-craft run` reports before running
 ///   ([`rules::prepare`], or [`crate::fsp::v1::check`] for an `fsp`
-///   request). A network model with a request other than `crn-craft.run/0.1`
-///   gets `CRN-E033` (convert it first).
-/// - A network model with a `crn-craft.run/0.1` request: the network
-///   engine's [`crate::check_bytes`] (`check/0.1`, legacy).
+///   request). A network model with a request gets `CRN-E033` (convert it
+///   first): requests never name a network model.
 ///
 /// ```
 /// let model = br#"{"schema": "crn-craft.rules-model/0.1", "name": "decay",
@@ -221,7 +187,7 @@ fn report(model: &[u8], request: Option<&[u8]>, diagnostics: Vec<Diagnostic>) ->
 /// assert_eq!(report["valid"], true);
 /// ```
 #[must_use]
-pub fn check_any(model: &[u8], request: Option<&[u8]>) -> AnyCheck {
+pub fn check_any(model: &[u8], request: Option<&[u8]>) -> RulesCheck {
     let network = crate::schema_field(model).as_deref() == Some(rules::convert::NETWORK_SCHEMA);
     match request {
         None if network => {
@@ -229,12 +195,9 @@ pub fn check_any(model: &[u8], request: Option<&[u8]>) -> AnyCheck {
                 Ok(converted) => rules::check_model(&converted).diagnostics,
                 Err(diagnostics) => diagnostics,
             };
-            AnyCheck::Rules(report(model, None, diagnostics))
+            report(model, None, diagnostics)
         }
-        None => AnyCheck::Rules(rules::check_model(model)),
-        Some(run) if network && crate::schema_field(run).as_deref() == Some(NETWORK_RUN) => {
-            AnyCheck::Network(crate::check_bytes(model, Some(run)))
-        }
+        None => rules::check_model(model),
         Some(run) => {
             let checked = rules::check_model(model);
             let diagnostics = if !checked.valid {
@@ -244,7 +207,7 @@ pub fn check_any(model: &[u8], request: Option<&[u8]>) -> AnyCheck {
             } else {
                 rules::prepare(model, run).err().unwrap_or_default()
             };
-            AnyCheck::Rules(report(model, Some(run), diagnostics))
+            report(model, Some(run), diagnostics)
         }
     }
 }
@@ -254,18 +217,15 @@ pub fn check_any(model: &[u8], request: Option<&[u8]>) -> AnyCheck {
 /// Each file must be a regular file of at most 16 MiB (`CRN-E030` or
 /// `CRN-E004` otherwise, in a `check/1.0` report). With a request, its
 /// `model.path` must name `model_path` below the request's directory, as
-/// `crn-craft run` requires (`CRN-R020` at `/model/path`); a network pair
-/// gets the network engine's [`crate::check_files`] (`check/0.1`, legacy).
+/// `crn-craft run` requires (`CRN-R020` at `/model/path`).
 #[must_use]
-pub fn check_any_files(model_path: &Path, request_path: Option<&Path>) -> AnyCheck {
-    let failure = |model: Option<&[u8]>, error| {
-        AnyCheck::Rules(RulesCheck {
-            schema: CheckVersion::V10,
-            valid: false,
-            model_sha256: model.map(sha256),
-            run_sha256: None,
-            diagnostics: vec![error],
-        })
+pub fn check_any_files(model_path: &Path, request_path: Option<&Path>) -> RulesCheck {
+    let failure = |model: Option<&[u8]>, error| RulesCheck {
+        schema: CheckVersion::V10,
+        valid: false,
+        model_sha256: model.map(sha256),
+        run_sha256: None,
+        diagnostics: vec![error],
     };
     let model = match rules::read(model_path) {
         Ok(bytes) => bytes,
@@ -278,30 +238,24 @@ pub fn check_any_files(model_path: &Path, request_path: Option<&Path>) -> AnyChe
         Ok(bytes) => bytes,
         Err(error) => return failure(Some(&model), error),
     };
-    match check_any(&model, Some(&request)) {
-        AnyCheck::Network(_) => {
-            AnyCheck::Network(crate::check_files(model_path, Some(request_path)))
-        }
-        AnyCheck::Rules(mut report) => {
-            let reference = serde_json::from_slice::<Value>(&request)
-                .ok()
-                .and_then(|v| {
-                    v.pointer("/model/path")
-                        .and_then(Value::as_str)
-                        .map(String::from)
-                });
-            if let Some(relative) = reference {
-                if !rules::references_model(model_path, request_path, &relative) {
-                    report.diagnostics.push(Diagnostic::error(
-                        "CRN-R020",
-                        "/model/path",
-                        "request does not identify the supplied model below its directory",
-                        "Use the referenced model within the request directory.",
-                    ));
-                    report.valid = false;
-                }
-            }
-            AnyCheck::Rules(report)
+    let mut report = check_any(&model, Some(&request));
+    let reference = serde_json::from_slice::<Value>(&request)
+        .ok()
+        .and_then(|v| {
+            v.pointer("/model/path")
+                .and_then(Value::as_str)
+                .map(String::from)
+        });
+    if let Some(relative) = reference {
+        if !rules::references_model(model_path, request_path, &relative) {
+            report.diagnostics.push(Diagnostic::error(
+                "CRN-R020",
+                "/model/path",
+                "request does not identify the supplied model below its directory",
+                "Use the referenced model within the request directory.",
+            ));
+            report.valid = false;
         }
     }
+    report
 }

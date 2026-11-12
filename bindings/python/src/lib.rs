@@ -2,7 +2,6 @@
 mod rules;
 mod rules_payload;
 
-use crn_craft::simulation::Control;
 use pyo3::{
     create_exception,
     exceptions::{PyRuntimeError, PyValueError},
@@ -33,19 +32,10 @@ const SIGNAL_INTERVAL: Duration = Duration::from_millis(50);
 /// Runs `work` on a helper thread. The calling thread waits without the GIL
 /// and checks for Python signals every 50 ms; a signal handler that raises
 /// (Ctrl-C raises KeyboardInterrupt) cancels the run through the shared
-/// control, and its exception is raised once the helper has stopped. Signals
-/// are only delivered to the main thread, so calls from other Python threads
-/// are not interruptible, as before. A cancel file is polled as in the CLI.
-fn interruptible<T: Send + 'static>(
-    py: Python<'_>,
-    cancel_file: Option<String>,
-    work: impl FnOnce(&Control) -> T + Send + 'static,
-) -> PyResult<T> {
-    let mut control = Control::default();
-    control.cancel_file = cancel_file.map(PathBuf::from);
-    run_interruptible(py, control, Control::cancel, work)
-}
-
+/// control (`cancel`), and its exception is raised once the helper has
+/// stopped. Signals are only delivered to the main thread, so calls from
+/// other Python threads are not interruptible. A cancel file is polled as in
+/// the CLI.
 fn run_interruptible<C: Send + Sync + 'static, T: Send + 'static>(
     py: Python<'_>,
     control: C,
@@ -95,12 +85,6 @@ fn run_interruptible<C: Send + Sync + 'static, T: Send + 'static>(
 #[pyfunction]
 fn describe_json() -> String {
     crn_craft::describe().to_string()
-}
-/// The network engine's discovery document, `crn-craft.describe/0.11`
-/// (`crn_craft._legacy.describe`; deleted in M8b).
-#[pyfunction]
-fn legacy_describe_json() -> String {
-    crn_craft::describe_network().to_string()
 }
 /// The report of `crn-craft check` on bytes (`crn_craft.check`).
 #[pyfunction]
@@ -183,331 +167,37 @@ fn analyze_json(model: &[u8]) -> PyResult<String> {
     serde_json::to_string(&crn_craft::analyze_bytes(model, None))
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
-#[pyfunction]
-fn check_json(model: &[u8], run: Option<&[u8]>) -> String {
-    serde_json::to_string(&crn_craft::check_bytes(model, run)).unwrap()
-}
-#[pyfunction]
-#[pyo3(signature = (model, run, cancel_file=None))]
-fn simulate_json(
-    py: Python<'_>,
-    model: Vec<u8>,
-    run: Vec<u8>,
-    cancel_file: Option<String>,
-) -> PyResult<String> {
-    simulation_json(py, model, run, cancel_file, false)
-}
-fn simulation_json(
-    py: Python<'_>,
-    model: Vec<u8>,
-    run: Vec<u8>,
-    cancel_file: Option<String>,
-    cached: bool,
-) -> PyResult<String> {
-    let prepared = py
-        .detach(move || crn_craft::simulation::prepare(&model, &run))
-        .map_err(|e| failure(&e))?;
-    let result = interruptible(py, cancel_file, move |control| {
-        if cached {
-            crn_craft::simulation::execute_cached(&prepared, control)
-        } else {
-            crn_craft::simulation::execute(&prepared, control)
-        }
-    })?
-    .map_err(|e| failure(&e))?;
-    serde_json::to_string(&result.result).map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-/// Immutable prepared inputs. Every execution owns its RNG and worker buffers.
-#[pyclass(frozen)]
-struct PreparedRun {
-    prepared: Arc<crn_craft::simulation::Prepared>,
-    cached: bool,
-}
-
-#[pyclass(frozen)]
-struct PreparedSsaRun {
-    prepared: Arc<crn_craft::ssa::Prepared>,
-}
-#[pymethods]
-impl PreparedSsaRun {
-    #[pyo3(signature = (cancel_file=None))]
-    fn simulate_json(&self, py: Python<'_>, cancel_file: Option<String>) -> PyResult<String> {
-        let prepared = Arc::clone(&self.prepared);
-        let result = interruptible(py, cancel_file, move |control| {
-            crn_craft::ssa::execute(&prepared, control)
-        })?
-        .map_err(|e| failure(&e))?;
-        serde_json::to_string(&result).map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-}
-#[pyfunction]
-fn prepare_ssa_json(py: Python<'_>, model: Vec<u8>, request: Vec<u8>) -> PyResult<PreparedSsaRun> {
-    let prepared = py
-        .detach(move || crn_craft::ssa::prepare(&model, &request))
-        .map_err(|e| failure(&e))?;
-    Ok(PreparedSsaRun {
-        prepared: Arc::new(prepared),
-    })
-}
-#[pyclass(frozen)]
-struct ParameterTemplateRun {
-    template: Arc<crn_craft::parameters::ParameterTemplate>,
-}
-#[pyclass(frozen)]
-struct BoundParameterRun {
-    bound: Arc<crn_craft::parameters::BoundParameters>,
-}
-#[pymethods]
-impl ParameterTemplateRun {
-    fn parameter_names(&self) -> Vec<String> {
-        self.template.parameter_names().to_vec()
-    }
-    fn default_values(&self) -> Vec<f64> {
-        self.template.default_values()
-    }
-    fn topology_sha256(&self) -> String {
-        self.template.topology_sha256().to_owned()
-    }
-    #[pyo3(signature = (values, seed=None))]
-    fn bind(
-        &self,
-        py: Python<'_>,
-        values: Vec<f64>,
-        seed: Option<u64>,
-    ) -> PyResult<BoundParameterRun> {
-        let template = Arc::clone(&self.template);
-        let bound = py
-            .detach(move || template.bind(&values, seed))
-            .map_err(|e| failure(&e))?;
-        Ok(BoundParameterRun {
-            bound: Arc::new(bound),
-        })
-    }
-}
-#[pymethods]
-impl BoundParameterRun {
-    fn model_bytes<'py>(&self, py: Python<'py>) -> Bound<'py, pyo3::types::PyBytes> {
-        pyo3::types::PyBytes::new(py, &self.bound.model_bytes)
-    }
-    fn request_bytes<'py>(&self, py: Python<'py>) -> Bound<'py, pyo3::types::PyBytes> {
-        pyo3::types::PyBytes::new(py, &self.bound.request_bytes)
-    }
-    #[pyo3(signature = (cancel_file=None))]
-    fn simulate_json(&self, py: Python<'_>, cancel_file: Option<String>) -> PyResult<String> {
-        let bound = Arc::clone(&self.bound);
-        let result = interruptible(py, cancel_file, move |control| {
-            crn_craft::ssa::execute(&bound.prepared, control)
-        })?
-        .map_err(|e| failure(&e))?;
-        serde_json::to_string(&result).map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-}
-#[pyfunction]
-fn prepare_parameters_json(
-    py: Python<'_>,
-    model: Vec<u8>,
-    request: Vec<u8>,
-) -> PyResult<ParameterTemplateRun> {
-    let template = py
-        .detach(move || crn_craft::parameters::ParameterTemplate::prepare(&model, &request))
-        .map_err(|e| failure(&e))?;
-    Ok(ParameterTemplateRun {
-        template: Arc::new(template),
-    })
-}
-#[pyfunction]
-fn mass_action_kernel_source(py: Python<'_>, model: Vec<u8>) -> PyResult<String> {
-    py.detach(move || crn_craft::codegen::mass_action_source(&model))
-        .map_err(|e| failure(&e))
-}
-
-#[pyfunction]
-#[pyo3(signature = (model, request, cancel_file=None))]
-fn ssa_json(
-    py: Python<'_>,
-    model: Vec<u8>,
-    request: Vec<u8>,
-    cancel_file: Option<String>,
-) -> PyResult<String> {
-    prepare_ssa_json(py, model, request)?.simulate_json(py, cancel_file)
-}
-#[pyfunction]
-#[pyo3(signature = (model, request, cancel_file=None))]
-fn ssa_files_json(
-    py: Python<'_>,
-    model: String,
-    request: String,
-    cancel_file: Option<String>,
-) -> PyResult<String> {
-    let result = interruptible(py, cancel_file, move |control| {
-        crn_craft::ssa::solve_files(
-            std::path::Path::new(&model),
-            std::path::Path::new(&request),
-            control,
-        )
-    })?
-    .map_err(|e| failure(&e))?;
-    serde_json::to_string(&result).map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
-#[pymethods]
-impl PreparedRun {
-    #[pyo3(signature = (cancel_file=None))]
-    fn simulate_json(&self, py: Python<'_>, cancel_file: Option<String>) -> PyResult<String> {
-        let prepared = Arc::clone(&self.prepared);
-        let cached = self.cached;
-        let result = interruptible(py, cancel_file, move |control| {
-            if cached {
-                crn_craft::simulation::execute_cached(&prepared, control)
-            } else {
-                crn_craft::simulation::execute(&prepared, control)
-            }
-        })?
-        .map_err(|e| failure(&e))?;
-        serde_json::to_string(&result.result).map_err(|e| PyValueError::new_err(e.to_string()))
-    }
-}
-
-#[pyfunction]
-#[pyo3(signature = (model, run, cached=false))]
-fn prepare_json(
-    py: Python<'_>,
-    model: Vec<u8>,
-    run: Vec<u8>,
-    cached: bool,
-) -> PyResult<PreparedRun> {
-    let prepared = py
-        .detach(move || crn_craft::simulation::prepare(&model, &run))
-        .map_err(|e| failure(&e))?;
-    Ok(PreparedRun {
-        prepared: Arc::new(prepared),
-        cached,
-    })
-}
-#[pyfunction]
-#[pyo3(signature = (model, run, cancel_file=None))]
-fn fsp_json(
-    py: Python<'_>,
-    model: Vec<u8>,
-    run: Vec<u8>,
-    cancel_file: Option<String>,
-) -> PyResult<String> {
-    let result = interruptible(py, cancel_file, move |control| {
-        crn_craft::fsp::solve(&model, &run, control)
-    })?
-    .map_err(|e| failure(&e))?;
-    serde_json::to_string(&result).map_err(|e| PyValueError::new_err(e.to_string()))
-}
 #[pymodule]
 fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_class::<ParameterTemplateRun>()?;
     rules::register(module)?;
-    module.add_class::<BoundParameterRun>()?;
-    module.add_function(wrap_pyfunction!(prepare_parameters_json, module)?)?;
-    module.add_function(wrap_pyfunction!(mass_action_kernel_source, module)?)?;
-    module.add_class::<PreparedSsaRun>()?;
-    module.add_function(wrap_pyfunction!(prepare_ssa_json, module)?)?;
-    module.add_function(wrap_pyfunction!(ssa_json, module)?)?;
-    module.add_function(wrap_pyfunction!(ssa_files_json, module)?)?;
-    module.add_class::<PreparedRun>()?;
-    module.add_function(wrap_pyfunction!(prepare_json, module)?)?;
     module.add_function(wrap_pyfunction!(describe_json, module)?)?;
-    module.add_function(wrap_pyfunction!(legacy_describe_json, module)?)?;
     module.add_function(wrap_pyfunction!(check_any_json, module)?)?;
     module.add_function(wrap_pyfunction!(check_any_files_json, module)?)?;
     module.add_function(wrap_pyfunction!(run_files_json, module)?)?;
     module.add_function(wrap_pyfunction!(analyze_json, module)?)?;
-    module.add_function(wrap_pyfunction!(check_json, module)?)?;
-    module.add_function(wrap_pyfunction!(simulate_json, module)?)?;
-    module.add_function(wrap_pyfunction!(fsp_json, module)?)?;
-    module.add_function(wrap_pyfunction!(simulate_cached_json, module)?)?;
-    module.add_function(wrap_pyfunction!(tau_json, module)?)?;
-    module.add_function(wrap_pyfunction!(archive_json, module)?)?;
     module.add_function(wrap_pyfunction!(verify_json, module)?)?;
-    module.add_function(wrap_pyfunction!(check_files_json, module)?)?;
     module.add_function(wrap_pyfunction!(schema_json, module)?)?;
     module.add_function(wrap_pyfunction!(export_json, module)?)?;
     module.add_function(wrap_pyfunction!(analyze_state_json, module)?)?;
-    module.add_function(wrap_pyfunction!(tau_files_json, module)?)?;
     module.add("NativeError", module.py().get_type::<NativeError>())?;
     module.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }
 
-#[pyfunction]
-#[pyo3(signature = (model, run, cancel_file=None))]
-fn simulate_cached_json(
-    py: Python<'_>,
-    model: Vec<u8>,
-    run: Vec<u8>,
-    cancel_file: Option<String>,
-) -> PyResult<String> {
-    simulation_json(py, model, run, cancel_file, true)
-}
-#[pyfunction]
-#[pyo3(signature = (model, request, cancel_file=None))]
-fn tau_json(
-    py: Python<'_>,
-    model: Vec<u8>,
-    request: Vec<u8>,
-    cancel_file: Option<String>,
-) -> PyResult<String> {
-    let result = interruptible(py, cancel_file, move |control| {
-        crn_craft::tau::solve(&model, &request, control)
-    })?
-    .map_err(|e| failure(&e))?;
-    serde_json::to_string(&result).map_err(|e| PyValueError::new_err(e.to_string()))
-}
-#[pyfunction]
-#[pyo3(signature = (model, run, output, cached, cancel_file=None))]
-fn archive_json(
-    py: Python<'_>,
-    model: String,
-    run: String,
-    output: String,
-    cached: bool,
-    cancel_file: Option<String>,
-) -> PyResult<String> {
-    interruptible(py, cancel_file, move |control| {
-        let f = if cached {
-            crn_craft::archive::simulate_cached_files
-        } else {
-            crn_craft::archive::simulate_files
-        };
-        serde_json::to_string(&f(
-            std::path::Path::new(&model),
-            std::path::Path::new(&run),
-            std::path::Path::new(&output),
-            control,
-        ))
-        .unwrap()
-    })
-}
-/// The report of `crn-craft verify DIRECTORY`: `archive-check/1.0` for an
-/// archive of a rules run, `archive-check/0.1` for a network-engine archive.
+/// The report of `crn-craft verify DIRECTORY`: `crn-craft.archive-check/1.0`.
 #[pyfunction]
 fn verify_json(py: Python<'_>, directory: String) -> String {
     py.detach(move || {
-        serde_json::to_string(&crn_craft::archive::verify_any(std::path::Path::new(
+        serde_json::to_string(&crn_craft::archive::v1::verify(std::path::Path::new(
             &directory,
         )))
         .unwrap()
     })
 }
 #[pyfunction]
-fn check_files_json(model: String, run: Option<String>) -> String {
-    serde_json::to_string(&crn_craft::check_files(
-        std::path::Path::new(&model),
-        run.as_deref().map(std::path::Path::new),
-    ))
-    .unwrap()
-}
-
-#[pyfunction]
 fn schema_json(kind: String) -> PyResult<String> {
     crn_craft::schema(&kind)
-        .or_else(|| crn_craft_rules::schema(&kind))
+        .or_else(|| crn_craft::rules::schema(&kind))
         .map(|v| v.to_string())
         .ok_or_else(|| PyValueError::new_err("unknown schema"))
 }
@@ -519,25 +209,4 @@ fn export_json(model: Vec<u8>) -> String {
 #[pyo3(signature = (model, state=None))]
 fn analyze_state_json(model: Vec<u8>, state: Option<Vec<u8>>) -> String {
     serde_json::to_string(&crn_craft::analyze_bytes(&model, state.as_deref())).unwrap()
-}
-#[pyfunction]
-#[pyo3(signature = (model, request, cancel_file=None))]
-fn tau_files_json(
-    py: Python<'_>,
-    model: String,
-    request: String,
-    cancel_file: Option<String>,
-) -> PyResult<String> {
-    interruptible(
-        py,
-        cancel_file,
-        move |control| match crn_craft::tau::solve_files(
-            std::path::Path::new(&model),
-            std::path::Path::new(&request),
-            control,
-        ) {
-            Ok(result) => serde_json::to_string(&result).unwrap(),
-            Err(errors) => serde_json::json!({"success":false,"diagnostics":errors}).to_string(),
-        },
-    )
 }

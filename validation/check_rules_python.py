@@ -995,24 +995,27 @@ def check_archives():
             and rules.verify_archive(folder / "cancelled")["valid"],
             "cancelled archive",
         )
-        # The network engine's archive/0.1 keeps its verifier.
-        network = ROOT / "models/examples/immigration-death.model.json"
-        for name in ("immigration-death.model.json", "immigration-death.run.json"):
-            (folder / name).write_bytes((network.parent / name).read_bytes())
-        old = json.loads(
-            crn_craft._native.archive_json(
-                str(folder / "immigration-death.model.json"),
-                str(folder / "immigration-death.run.json"),
-                str(folder / "old"),
-                False,
+        # The network engine's archive/0.1 is no longer read (M8b): its file
+        # set, with a manifest and marker that match, is refused.
+        old = folder / "old"
+        old.mkdir()
+        files = []
+        for name in ("model.json", "run.json", "result.json", "provenance.json"):
+            (old / name).write_bytes(b"{}\n")
+            files.append(
+                {"path": name, "bytes": 3, "sha256": hashlib.sha256(b"{}\n").hexdigest()}
             )
-        )
-        checked = rules.verify_archive(folder / "old")
+        manifest = json.dumps(
+            {"schema": "crn-craft.archive/0.1", "files": files}
+        ).encode()
+        (old / "manifest.json").write_bytes(manifest)
+        (old / "COMPLETE").write_text(hashlib.sha256(manifest).hexdigest() + "\n")
+        checked = rules.verify_archive(old)
         require(
-            old["valid"]
-            and checked["valid"]
-            and checked["schema"] == "crn-craft.archive-check/0.1",
-            "network archive verification",
+            not checked["valid"]
+            and checked["schema"] == "crn-craft.archive-check/1.0"
+            and checked["diagnostics"][0]["code"] == "CRN-E065",
+            "a network archive/0.1 is refused",
         )
     try:
         run.bind_parameters({"beta": 3e-4}).archive("unused")

@@ -21,8 +21,8 @@
 //! relations between the request and the result (identity, replicate
 //! accounting, terminations, kept paths, statistics). Both return a
 //! `crn-craft.archive-check/1.0` [`ArchiveReport`]; archive failures are
-//! `CRN-E065`. The 0.1 archives of the network engine stay readable through
-//! [`super::verify_any`], which `crn-craft verify DIRECTORY` calls.
+//! `CRN-E065`. `crn-craft verify DIRECTORY` calls [`verify`]; the 0.1
+//! archives of the network engine are no longer read (release 0.7.0).
 //!
 //! An archive is the sealed, verifiable record of one run for replay. A
 //! complete archive can hold an incomplete simulation: read `archive_complete`
@@ -63,10 +63,9 @@
 //! ```
 use super::{encoded, error, io_error, read_regular, write_new};
 use crate::{
-    contracts::Statistic,
     diagnostic::Diagnostic,
     fsp::v1 as fsp,
-    rules::{self, Control, FlatView, RulesResult, RunRequest, Termination},
+    rules::{self, Control, FlatView, RulesResult, RunRequest, Statistic, Termination},
     sha256, strict_json,
 };
 use schemars::JsonSchema;

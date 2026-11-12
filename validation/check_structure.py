@@ -163,7 +163,7 @@ def special_models():
         [("A", 3), ("B", 2)], [reaction("r", {"A": 2}, {"B": 1}, mass_action(1))]
     )
     enzyme = json.loads(
-        (ROOT / "models/examples/enzyme-mechanism.model.json").read_text()
+        (ROOT / "models/legacy/enzyme-mechanism.model.json").read_text()
     )
     # Its last constraint combines rays into 2 * (9, 23, 9, 6): the reported
     # law must be primitive. X3 is also a catalyst of r2.

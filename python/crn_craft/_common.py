@@ -1,8 +1,8 @@
 """Helpers shared by the public modules: the error type, exact model bytes,
 native calls and the converter.
 
-``crn_craft``, ``crn_craft.rules`` and the private ``crn_craft._legacy``
-all use these objects, so ``crn_craft.CrnError is crn_craft.rules.CrnError``.
+``crn_craft`` and ``crn_craft.rules`` both use these objects, so
+``crn_craft.CrnError is crn_craft.rules.CrnError``.
 """
 
 import importlib.metadata
@@ -42,13 +42,6 @@ def _crn_error(error):
     except ValueError:
         value = [{"code": "CRN-E000", "path": "", "message": text}]
     return CrnError(value if isinstance(value, list) else [value])
-
-
-def _call(method, *args, **kwargs):
-    try:
-        return json.loads(method(*args, **kwargs))
-    except _native.NativeError as error:
-        raise _crn_error(error) from None
 
 
 def model_bytes(model):

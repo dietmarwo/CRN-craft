@@ -357,7 +357,7 @@ def main():
         rng = random.Random(SEED)
         for index in range(200):
             case(f"random_{index:03d}", random_model(rng, index))
-        for model_path in sorted((ROOT / "models/examples").glob("*.model.json")):
+        for model_path in sorted((ROOT / "models/legacy").glob("*.model.json")):
             case(model_path.name, json.loads(model_path.read_text()))
         for n, k, coefficient in [
             (50, 2, 0.5),

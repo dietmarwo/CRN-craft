@@ -67,11 +67,11 @@ fn decay(name: &str, species: &str) -> Value {
 
 #[test]
 fn every_example_and_m2_workload_converts_to_a_valid_rules_model() {
-    let mut paths: Vec<String> = std::fs::read_dir(root().join("models/examples"))
+    let mut paths: Vec<String> = std::fs::read_dir(root().join("models/legacy"))
         .unwrap()
         .map(|e| e.unwrap().file_name().into_string().unwrap())
         .filter(|name| name.ends_with(".model.json"))
-        .map(|name| format!("models/examples/{name}"))
+        .map(|name| format!("models/legacy/{name}"))
         .collect();
     paths.sort();
     assert_eq!(paths.len(), 5, "{paths:?}");
@@ -352,7 +352,7 @@ fn invalid_network_models_keep_their_network_diagnostics() {
     // A rules-engine model is not a network model.
     let diagnostics = from_network(&read("models/rules/immigration-death.rules.json")).unwrap_err();
     assert!(has(&diagnostics, "CRN-E032", "/schema"), "{diagnostics:?}");
-    let converted = from_network(&read("models/examples/repressilator.model.json")).unwrap();
+    let converted = from_network(&read("models/legacy/repressilator.model.json")).unwrap();
     assert!(has(
         &from_network(&converted).unwrap_err(),
         "CRN-E032",
@@ -366,7 +366,7 @@ fn invalid_network_models_keep_their_network_diagnostics() {
 
 #[test]
 fn a_converted_model_runs_with_static_direct() {
-    let converted = from_network(&read("models/examples/immigration-death.model.json")).unwrap();
+    let converted = from_network(&read("models/legacy/immigration-death.model.json")).unwrap();
     let request = serde_json::to_vec(&json!({
         "schema": "crn-craft.run/1.0",
         "model": {"path": "m.json", "sha256": crn_craft::sha256(&converted)},

@@ -3,10 +3,10 @@
 use crn_craft::kinetics::Kinetics;
 
 const MODELS: [&str; 7] = [
-    include_str!("../../../models/examples/repressilator.model.json"),
-    include_str!("../../../models/examples/enzyme-mechanism.model.json"),
-    include_str!("../../../models/examples/michaelis-menten.model.json"),
-    include_str!("../../../models/examples/vilar-noise.model.json"),
+    include_str!("../../../models/legacy/repressilator.model.json"),
+    include_str!("../../../models/legacy/enzyme-mechanism.model.json"),
+    include_str!("../../../models/legacy/michaelis-menten.model.json"),
+    include_str!("../../../models/legacy/vilar-noise.model.json"),
     include_str!("../fixtures/dimerization.model.json"),
     include_str!("../fixtures/hill-constant.model.json"),
     include_str!("../fixtures/hill-dynamic.model.json"),

@@ -11,51 +11,18 @@
 //! always false. Capacity, work, output and interruption failures are
 //! `CRN-E070` and return no partial result.
 //!
-//! Two entry points share that core:
-//!
-//! - [`v1::solve`] reads a `crn-craft.run/1.0` request whose method is
-//!   `fsp` ([`v1::FspRequest`]) for any closed rules model
-//!   (`crn-craft.model/1.0` or a `crn-craft.rules-model`), through its
-//!   [`FlatView`](crate::rules::FlatView), and returns
-//!   `crn-craft.fsp-result/1.0` ([`v1::FspResult`]) with the flat species
-//!   labels. A state where the model's `stop` condition holds is absorbing,
-//!   as a stopped replicate holds its state. This is what `crn-craft rules
-//!   MODEL REQUEST` runs for such a request.
-//! - [`solve`] reads a network `run/0.1` request with `method.kind = "fsp"`
-//!   for a `crn-craft.model/0.1` network model and returns
-//!   `crn-craft.fsp-result/0.1` ([`FspResult`]); this is the `crn-craft fsp`
-//!   command, kept until the network engine is removed.
-//!
-//! ```
-//! use crn_craft::{fsp, sha256, simulation::Control};
-//!
-//! let model = br#"{"schema": "crn-craft.model/0.1", "name": "decay",
-//!   "convention": "stochastic_counts", "omega": 1.0, "parameters": {},
-//!   "species": [{"name": "A", "initial_count": 2}],
-//!   "reactions": [{"name": "death", "reactants": {"A": 1}, "products": {},
-//!                  "rate": {"kind": "mass_action", "coefficient": 1.0}}]}"#;
-//! let run = format!(r#"{{"schema": "crn-craft.run/0.1",
-//!   "model": {{"path": "model.json", "sha256": "{}"}},
-//!   "method": {{"kind": "fsp", "bounds": {{"A": 2}}, "max_states": 10, "tolerance": 1e-12}},
-//!   "time": {{"end": 1.0, "save_times": [0.0, 1.0]}},
-//!   "outputs": {{"statistics": ["mean"], "keep_trajectories": 0}},
-//!   "budget": {{"threads": 1, "max_output_bytes": 100000}}}}"#, sha256(model));
-//! let result = fsp::solve(model, run.as_bytes(), &Control::default()).unwrap();
-//! assert_eq!(result.states, vec![vec![2], vec![1], vec![0]]);
-//! let p_two = result.snapshots[1].probabilities[0];
-//! assert!((p_two - (-2.0f64).exp()).abs() < 1e-12); // both molecules survive: e^{-2}
-//! assert_eq!(result.snapshots[1].physical_leakage_estimate, 0.0);
-//! ```
-use crate::{
-    CompiledNetwork, check_bytes,
-    contracts::Method,
-    diagnostic::Diagnostic,
-    parse_model, parse_run, sha256,
-    simulation::{Control, Poller},
-};
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, time::Instant};
+//! [`v1::solve`] reads a `crn-craft.run/1.0` request whose method is `fsp`
+//! ([`v1::FspRequest`]) for any closed rules model (`crn-craft.model/1.0` or
+//! a `crn-craft.rules-model`), through its
+//! [`FlatView`](crate::rules::FlatView), and returns
+//! `crn-craft.fsp-result/1.0` ([`v1::FspResult`]) with the flat species
+//! labels. A state where the model's `stop` condition holds is absorbing, as
+//! a stopped replicate holds its state. This is what `crn-craft run MODEL
+//! REQUEST` runs for such a request. The network engine's `crn-craft fsp`
+//! command and its `crn-craft.fsp-result/0.1` were removed in 0.7.0.
+use crate::diagnostic::Diagnostic;
+use serde::Serialize;
+use std::collections::BTreeMap;
 
 /// Most projected states, whatever `max_states` says (`CRN-E070` beyond).
 pub const MAX_STATES: usize = 100_000;
@@ -65,64 +32,19 @@ pub const MAX_EDGES: usize = 2_000_000;
 pub const MAX_WORK: u64 = 200_000_000;
 const MAX_BYTES: u128 = 256 * 1024 * 1024;
 
-// Docs written as `#[doc = concat!(..)]` reach rustdoc but not the generated
-// JSON Schema; see the note at the top of lib.rs.
-
-/// Schema tag of an FSP result.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub enum FspVersion {
-    #[doc = concat!("`crn-craft.fsp-result/0.1`.")]
-    #[serde(rename = "crn-craft.fsp-result/0.1")]
-    V01,
-}
-/// The projected distribution at one save time and its separately reported error terms.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct FspSnapshot {
-    /// Save time in seconds.
-    pub time: f64,
-    /// Index order matches states, excludes the absorbing escaping-mass sink.
-    pub probabilities: Vec<f64>,
-    /// Probability in the sink: mass that left the bounds box by this time.
-    pub physical_leakage_estimate: f64,
-    /// Unnormalized moments of the retained law, never of the full unbounded process.
-    pub projected_first_moment: Vec<f64>,
-    /// Σ p(x)·x² per species over the retained states, unnormalized like the first moment.
-    pub projected_second_raw_moment: Vec<f64>,
-    /// Cumulative discarded positive Poisson weight, excluding roundoff.
-    pub series_tail_upper_bound: f64,
-    /// Probability mass dropped by truncating the uniformization series so far.
-    pub discarded_weight_estimate: f64,
-    /// 1 − (retained probability + sink probability): the mass missing from the vector.
-    pub mass_defect: f64,
-    /// Mass-balance residual only; not a rigorous floating-point error bound.
-    /// It is |mass_defect − discarded_weight_estimate|.
-    pub roundoff_mass_residual: f64,
-}
-/// Finite state projection result: the enumerated states and one snapshot per save time.
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct FspResult {
-    #[doc = concat!("Always `crn-craft.fsp-result/0.1`.")]
-    pub schema: FspVersion,
-    /// SHA-256 of the exact model bytes.
-    pub model_sha256: String,
-    /// SHA-256 of the exact run bytes.
-    pub run_sha256: String,
-    /// Species names in the order of each state's counts.
-    pub species: Vec<String>,
-    /// Projected states in discovery order; state 0 is the initial state.
-    pub states: Vec<Vec<i64>>,
-    /// One snapshot per save time, in order, starting at time 0.
-    pub snapshots: Vec<FspSnapshot>,
-    /// Uniformization rate λ: the largest total exit rate of any projected state, per second.
-    pub uniformization_rate: f64,
-    /// Nonzero off-diagonal generator entries, transitions to the sink included.
-    pub sparse_edges: usize,
-    /// Deterministic work units spent, at most 200000000.
-    pub work: u64,
-    /// Always false: the reported error terms are estimates, not a certified bound.
-    pub numerical_error_certified: bool,
+/// The projected distribution at one report time and its separately
+/// reported error terms, as the core computes them ([`v1::FspSnapshot`]
+/// is its serialized form).
+struct Snapshot {
+    time: f64,
+    probabilities: Vec<f64>,
+    physical_leakage_estimate: f64,
+    projected_first_moment: Vec<f64>,
+    projected_second_raw_moment: Vec<f64>,
+    series_tail_upper_bound: f64,
+    discarded_weight_estimate: f64,
+    mass_defect: f64,
+    roundoff_mass_residual: f64,
 }
 fn error(message: impl Into<String>) -> Diagnostic {
     Diagnostic::error(
@@ -284,7 +206,7 @@ struct Settings<'a> {
 /// What the core computes: states, snapshots and generator facts.
 struct Projection {
     states: Vec<Vec<i64>>,
-    snapshots: Vec<FspSnapshot>,
+    snapshots: Vec<Snapshot>,
     uniformization_rate: f64,
     sparse_edges: usize,
 }
@@ -458,7 +380,7 @@ fn project<G: Generator>(
         if p.iter().any(|x| !x.is_finite() || *x < 0.0) {
             return Err(error("invalid probability after uniformization"));
         }
-        snapshots.push(FspSnapshot {
+        snapshots.push(Snapshot {
             time,
             probabilities: p[..n].to_vec(),
             physical_leakage_estimate: p[n],
@@ -487,104 +409,6 @@ fn project<G: Generator>(
         uniformization_rate: lambda,
         sparse_edges: edge_count,
     })
-}
-
-/// A compiled network model as the core's generator.
-struct Network<'a>(&'a CompiledNetwork);
-
-impl Generator for Network<'_> {
-    fn initial(&self) -> Vec<i64> {
-        self.0.initial_counts().to_vec()
-    }
-    fn changes(&self) -> Vec<Vec<(usize, i64)>> {
-        self.0
-            .reactions()
-            .iter()
-            .map(|r| {
-                r.net_changes
-                    .iter()
-                    .map(|t| (t.species, t.coefficient))
-                    .collect()
-            })
-            .collect()
-    }
-    fn rates(&mut self, state: &[i64], rates: &mut Vec<f64>) -> Result<bool, Diagnostic> {
-        *rates = self.0.propensities(state)?;
-        Ok(false)
-    }
-    fn admit(&self, state: &[i64]) -> Result<(), Diagnostic> {
-        self.0.validate_state(state)
-    }
-}
-
-/// Solves an FSP run against the exact model bytes; see the [module docs](self).
-///
-/// `model.path` is only syntax-checked. The run's wall-time limit and the
-/// [`Control`] are polled during the computation; a stop fails the solve.
-///
-/// # Errors
-///
-/// The [`crate::check_bytes`] errors of model and run (including
-/// `CRN-E023` for invalid bounds, capacity or tolerance), and `CRN-E070` for
-/// an SSA run, exceeded state, edge, work, memory or output limits, a
-/// tolerance below 10⁻¹⁸ per step, a transition that underflows, invalid
-/// probabilities or an interruption. A reachable state above a population
-/// limit (`CRN-E041`) or a rate that cannot be evaluated (`CRN-E042`) also
-/// fails the solve.
-pub fn solve(
-    model_bytes: &[u8],
-    run_bytes: &[u8],
-    control: &Control,
-) -> Result<FspResult, Vec<Diagnostic>> {
-    let checked = check_bytes(model_bytes, Some(run_bytes));
-    if !checked.valid {
-        return Err(checked.diagnostics);
-    }
-    let model = parse_model(model_bytes).map_err(|e| vec![e])?;
-    let run = parse_run(run_bytes).map_err(|e| vec![e])?;
-    let Method::Fsp {
-        bounds,
-        max_states,
-        tolerance,
-    } = &run.method
-    else {
-        return Err(vec![error("FSP requires an FSP run")]);
-    };
-    let network = CompiledNetwork::compile(&model)?;
-    let mut poller = Poller::new(control, Instant::now(), run.budget.wall_time_s);
-    let mut poll = || poller.poll().map(|stop| format!("{stop:?}"));
-    let mut work = Work {
-        poll: &mut poll,
-        used: 0,
-    };
-    let action = (|| -> Result<FspResult, Diagnostic> {
-        let bounds: Vec<_> = network.species().iter().map(|s| bounds[s]).collect();
-        let settings = Settings {
-            bounds: &bounds,
-            capacity: (*max_states).min(MAX_STATES as u64) as usize,
-            times: &run.time.save_times,
-            tolerance: *tolerance,
-            max_output_bytes: run.budget.max_output_bytes,
-        };
-        let projection = project(&mut Network(&network), &settings, &mut work)?;
-        let result = FspResult {
-            schema: FspVersion::V01,
-            model_sha256: sha256(model_bytes),
-            run_sha256: sha256(run_bytes),
-            species: network.species().to_vec(),
-            states: projection.states,
-            snapshots: projection.snapshots,
-            uniformization_rate: projection.uniformization_rate,
-            sparse_edges: projection.sparse_edges,
-            work: work.used,
-            numerical_error_certified: false,
-        };
-        if serialized_len(&result) > run.budget.max_output_bytes {
-            return Err(error("FSP result exceeds max_output_bytes"));
-        }
-        Ok(result)
-    })();
-    action.map_err(|e| vec![e])
 }
 
 pub mod v1 {
@@ -632,10 +456,11 @@ pub mod v1 {
     //! assert!((result.snapshots[0].projected_first_moment[0] - mean).abs() < 1e-9);
     //! ```
     use super::{Generator, Settings, Work, error, project, serialized_len};
-    use crate::contracts::ModelRef;
     use crate::diagnostic::{Diagnostic, pointer};
     use crate::rules::flat_view::Evaluator;
-    use crate::rules::{Control, FlatView, MAX_REPORT_TIMES, MAX_RESULT_BYTES, RunVersion, Time};
+    use crate::rules::{
+        Control, FlatView, MAX_REPORT_TIMES, MAX_RESULT_BYTES, ModelRef, RunVersion, Time,
+    };
     use crate::sha256;
     use schemars::{JsonSchema, schema_for};
     use serde::{Deserialize, Serialize};
@@ -745,8 +570,8 @@ pub mod v1 {
         pub roundoff_mass_residual: f64,
     }
 
-    impl From<super::FspSnapshot> for FspSnapshot {
-        fn from(s: super::FspSnapshot) -> Self {
+    impl FspSnapshot {
+        fn new(s: super::Snapshot) -> Self {
             Self {
                 time: s.time,
                 probabilities: s.probabilities,
@@ -834,7 +659,7 @@ pub mod v1 {
                 "Select the crn-craft.run/1.0 request contract.",
             ));
         }
-        if !crate::validate::valid_relative_path(&request.model.path) {
+        if !crate::rules::valid_relative_path(&request.model.path) {
             out.push(request_error("/model/path", "non-portable or non-relative model path", "Use a slash-separated path below the request directory without '.', '..', empty components, drive prefixes or backslashes."));
         }
         if request.model.sha256 != model_sha256 {
@@ -1108,7 +933,11 @@ pub mod v1 {
                 .into_iter()
                 .map(|s| s.into_iter().map(|n| n as u64).collect())
                 .collect(),
-            snapshots: projection.snapshots.into_iter().map(Into::into).collect(),
+            snapshots: projection
+                .snapshots
+                .into_iter()
+                .map(FspSnapshot::new)
+                .collect(),
             uniformization_rate: projection.uniformization_rate,
             sparse_edges: projection.sparse_edges,
             work: work.used,

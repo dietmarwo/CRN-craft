@@ -1,8 +1,9 @@
-//! `crn-craft.archive/1.0`: the archive tests of `tests/archives.rs`, ported
-//! to rules runs, plus the result bytes, finite state projections and the
-//! dispatch of `verify_any`.
+//! `crn-craft.archive/1.0`: the archive tests of the network engine's
+//! `tests/archives.rs` (removed with `crn-craft.archive/0.1` in 0.7.0),
+//! ported to rules runs, plus the result bytes, finite state projections and
+//! the refusal of 0.1 archives.
 use crn_craft::{
-    archive::{self, AnyReport, v1},
+    archive::v1,
     rules::{Control, Termination},
     sha256,
 };
@@ -756,15 +757,14 @@ fn finite_state_projections_archive_and_verify() {
 }
 
 #[test]
-fn verify_any_dispatches_on_the_archive_version() {
+fn verify_reads_1_0_archives_and_refuses_0_1_archives() {
     let tmp = Temp::new();
     inputs(&tmp.0, |_| {});
     assert!(create(&tmp.0, &Control::default()).valid);
     let out = tmp.0.join("out");
     assert!(v1::is_archive(&out));
-    let report = archive::verify_any(&out);
-    assert!(report.valid());
-    assert!(matches!(report, AnyReport::V10(_)));
+    let report = v1::verify(&out);
+    assert!(report.valid);
     assert_eq!(
         serde_json::to_value(&report).unwrap()["schema"],
         "crn-craft.archive-check/1.0"
@@ -772,41 +772,32 @@ fn verify_any_dispatches_on_the_archive_version() {
     // Without a readable manifest, the 1.0 file names still select 1.0.
     fs::remove_file(out.join("manifest.json")).unwrap();
     assert!(v1::is_archive(&out));
-    assert!(matches!(archive::verify_any(&out), AnyReport::V10(r) if !r.valid));
+    assert!(!v1::verify(&out).valid);
 
-    // A 0.1 archive of the network engine keeps its verifier and report.
-    let network = br#"{"schema": "crn-craft.model/0.1", "name": "decay",
-      "convention": "stochastic_counts", "omega": 1.0, "parameters": {},
-      "species": [{"name": "A", "initial_count": 5}],
-      "reactions": [{"name": "death", "reactants": {"A": 1}, "products": {},
-                     "rate": {"kind": "mass_action", "coefficient": 1.0}}]}"#;
-    let run = json!({"schema": "crn-craft.run/0.1",
-      "model": {"path": "network.json", "sha256": sha256(network)},
-      "method": {"kind": "ssa", "aggregator": "direct"},
-      "time": {"end": 1.0, "save_times": [0.0, 1.0]},
-      "ensemble": {"replicates": 4, "root_seed": 3},
-      "outputs": {"statistics": ["mean"], "keep_trajectories": 0},
-      "budget": {"max_events_per_replicate": 100, "threads": 1, "max_output_bytes": 100000}});
-    fs::write(tmp.0.join("network.json"), network).unwrap();
-    fs::write(tmp.0.join("run.json"), serde_json::to_vec(&run).unwrap()).unwrap();
+    // The file set of a 0.1 archive of the network engine, with a matching
+    // manifest and marker: no 1.0 archive, refused with CRN-E065.
     let old = tmp.0.join("old");
-    let written = archive::simulate_files(
-        &tmp.0.join("network.json"),
-        &tmp.0.join("run.json"),
-        &old,
-        &crn_craft::simulation::Control::default(),
-    );
-    assert!(written.valid);
+    fs::create_dir(&old).unwrap();
+    let mut files = Vec::new();
+    for name in ["model.json", "run.json", "result.json", "provenance.json"] {
+        let bytes = b"{}\n";
+        fs::write(old.join(name), bytes).unwrap();
+        files.push(json!({"path": name, "bytes": bytes.len(), "sha256": sha256(bytes)}));
+    }
+    let manifest =
+        serde_json::to_vec(&json!({"schema": "crn-craft.archive/0.1", "files": files})).unwrap();
+    fs::write(old.join("manifest.json"), &manifest).unwrap();
+    fs::write(old.join("COMPLETE"), format!("{}\n", sha256(&manifest))).unwrap();
     assert!(!v1::is_archive(&old));
-    let report = archive::verify_any(&old);
-    assert!(report.valid());
-    assert!(matches!(report, AnyReport::V01(_)));
+    let report = v1::verify(&old);
+    assert!(!report.valid);
+    assert_eq!(report.diagnostics[0].code, "CRN-E065");
     assert_eq!(
         serde_json::to_value(&report).unwrap()["schema"],
-        "crn-craft.archive-check/0.1"
+        "crn-craft.archive-check/1.0"
     );
-    // Neither version: the 0.1 verifier reports it.
-    assert!(!archive::verify_any(&tmp.0.join("absent")).valid());
+    // No archive at all.
+    assert!(!v1::verify(&tmp.0.join("absent")).valid);
 }
 
 #[test]

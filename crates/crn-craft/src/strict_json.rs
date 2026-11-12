@@ -15,7 +15,7 @@
 //! | `CRN-E004` | Document larger than 16 MiB or nested deeper than 48 levels |
 //! | `CRN-E015` | Numeric literal out of range, such as `1e400` |
 //!
-//! Parsing is not semantic validation; see [`crate::check_bytes`].
+//! Parsing is not semantic validation; see [`crate::check_any`].
 //!
 //! ```
 //! use crn_craft::strict_json::parse;

@@ -3,7 +3,6 @@
 //! expression rates, higher-order (`count`) channels, whole-rule
 //! propensities, the engine's own propensities and the refusals.
 use crn_craft::kinetics::{Derivatives, Kinetics};
-use crn_craft::parse_model;
 use crn_craft::rules::{FlatView, convert};
 use serde_json::{Value, json};
 
@@ -12,11 +11,11 @@ fn bytes(model: &Value) -> Vec<u8> {
 }
 
 const EXAMPLES: [&[u8]; 5] = [
-    include_bytes!("../../../models/examples/repressilator.model.json"),
-    include_bytes!("../../../models/examples/enzyme-mechanism.model.json"),
-    include_bytes!("../../../models/examples/michaelis-menten.model.json"),
-    include_bytes!("../../../models/examples/immigration-death.model.json"),
-    include_bytes!("../../../models/examples/vilar-noise.model.json"),
+    include_bytes!("../../../models/legacy/repressilator.model.json"),
+    include_bytes!("../../../models/legacy/enzyme-mechanism.model.json"),
+    include_bytes!("../../../models/legacy/michaelis-menten.model.json"),
+    include_bytes!("../../../models/legacy/immigration-death.model.json"),
+    include_bytes!("../../../models/legacy/vilar-noise.model.json"),
 ];
 
 /// Central differences of the right-hand side in every state and parameter
@@ -73,21 +72,23 @@ fn same(a: &Derivatives, b: &Derivatives) -> bool {
         && a.parameter_jacobian == b.parameter_jacobian
 }
 
-/// The 0.6.0 test, unchanged apart from comments: `Kinetics::compile` of a
-/// parsed network model, central differences at two distinct states.
+/// The 0.6.0 test, unchanged apart from comments and the entry point (the
+/// kinetics of the network model's bytes; 0.6.0 compiled a parsed network
+/// model, a type removed in 0.7.0): central differences at two distinct
+/// states.
 #[test]
 fn analytic_state_and_parameter_derivatives_match_independent_central_differences() {
     for bytes in &EXAMPLES[..3] {
-        let model = parse_model(bytes).unwrap();
-        let k = Kinetics::compile(&model).unwrap();
+        let model: Value = serde_json::from_slice(bytes).unwrap();
+        let k = Kinetics::from_bytes(bytes).unwrap();
         let p: Vec<_> = k
             .parameters
             .iter()
-            .map(|name| model.parameters[name])
+            .map(|name| model["parameters"][name].as_f64().unwrap())
             .collect();
         // Distinct components: a derivative taken with respect to the wrong species must not
         // coincide with the right one.
-        let n = model.species.len();
+        let n = model["species"].as_array().unwrap().len();
         let distinct = [
             (0..n).map(|i| 3.7 + 2.9 * i as f64).collect::<Vec<_>>(),
             (0..n).map(|i| 41.3 - 3.1 * i as f64).collect(),
@@ -127,31 +128,39 @@ fn analytic_state_and_parameter_derivatives_match_independent_central_difference
                 }
             }
         }
-        assert!(k.evaluate(&vec![-1.; model.species.len()], &p).is_err());
+        assert!(k.evaluate(&vec![-1.; n], &p).is_err());
     }
 }
 
-/// A network model, its parsed form and its converted `model/1.0` give the
-/// same kinetics bit for bit, with the network's species and parameters.
+/// A network model and its converted `model/1.0` give the same kinetics
+/// bit for bit, with the network's species and parameters.
 #[test]
 fn network_and_converted_models_give_the_same_kinetics() {
     for bytes in EXAMPLES {
-        let network = parse_model(bytes).unwrap();
+        let network: Value = serde_json::from_slice(bytes).unwrap();
         let converted = convert::from_network(bytes).unwrap();
         let kinetics = [
-            Kinetics::compile(&network).unwrap(),
             Kinetics::from_bytes(bytes).unwrap(),
             Kinetics::from_bytes(&converted).unwrap(),
             Kinetics::new(&FlatView::of_any_model(&converted).unwrap()).unwrap(),
         ];
-        let names: Vec<&str> = network.species.iter().map(|s| s.name.as_str()).collect();
-        let initial: Vec<u64> = network
-            .species
+        let species = network["species"].as_array().unwrap();
+        let names: Vec<&str> = species
             .iter()
-            .map(|s| s.initial_count as u64)
+            .map(|s| s["name"].as_str().unwrap())
             .collect();
-        let parameters: Vec<&String> = network.parameters.keys().collect();
-        let values: Vec<f64> = network.parameters.values().copied().collect();
+        let initial: Vec<u64> = species
+            .iter()
+            .map(|s| s["initial_count"].as_u64().unwrap())
+            .collect();
+        let parameters: Vec<&String> = network["parameters"].as_object().unwrap().keys().collect();
+        let values: Vec<f64> = network["parameters"]
+            .as_object()
+            .unwrap()
+            .values()
+            .map(|v| v.as_f64().unwrap())
+            .collect();
+        let name = network["name"].as_str().unwrap();
         for k in &kinetics {
             assert_eq!(k.species(), names);
             assert_eq!(k.initial(), initial);
@@ -161,13 +170,9 @@ fn network_and_converted_models_give_the_same_kinetics() {
         for y in states(names.len()) {
             let first = kinetics[0].evaluate(&y, &values).unwrap();
             for k in &kinetics[1..] {
-                assert!(
-                    same(&first, &k.evaluate(&y, &values).unwrap()),
-                    "{}",
-                    network.name
-                );
+                assert!(same(&first, &k.evaluate(&y, &values).unwrap()), "{name}");
             }
-            check_jacobians(&kinetics[0], &y, &values, &network.name);
+            check_jacobians(&kinetics[0], &y, &values, name);
         }
     }
 }

@@ -67,7 +67,7 @@ def main():
     models = [("grid_all_elementary", fixture)] + [
         (
             name,
-            json.loads((ROOT / "models/examples" / (name + ".model.json")).read_text()),
+            json.loads((ROOT / "models/legacy" / (name + ".model.json")).read_text()),
         )
         for name in (
             "immigration-death",

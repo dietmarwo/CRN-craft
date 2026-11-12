@@ -8,7 +8,10 @@ tested the removed network functions of 0.6.0 (`run_spec`, `simulate`,
 `prepare_parameters` and the rest of the old API): this script covers the
 same behavior on the unified API (binding and CLI equivalence for 1, 2 and 8
 threads, reusable parameters and generated code, strict inputs, the
-held-out observable checks, cancel files and keyboard interrupt).
+held-out observable checks, cancel files and keyboard interrupt). Since task
+M8b it also checks that the old API is gone: the private module
+`crn_craft._legacy`, the native functions behind it and the network
+commands of the Python command line.
 """
 
 import argparse
@@ -63,6 +66,30 @@ REMOVED = {
     "analyze",
     "model_bytes",
 }
+# The native functions and classes only the network API used, removed in M8b.
+NATIVE_REMOVED = {
+    "BoundParameterRun",
+    "ParameterTemplateRun",
+    "PreparedRun",
+    "PreparedSsaRun",
+    "archive_json",
+    "check_files_json",
+    "check_json",
+    "fsp_json",
+    "legacy_describe_json",
+    "mass_action_kernel_source",
+    "prepare_json",
+    "prepare_parameters_json",
+    "prepare_ssa_json",
+    "simulate_cached_json",
+    "simulate_json",
+    "ssa_files_json",
+    "ssa_json",
+    "tau_files_json",
+    "tau_json",
+}
+# The network engine's commands, removed from both command lines in M8b.
+REMOVED_COMMANDS = ("simulate", "simulate-cached", "ssa", "tau", "fsp")
 # Every public name python/crn_craft/rules.py defined or imported in 0.6.0.
 RULES_0_6_0 = {
     "CompiledLoop",
@@ -153,6 +180,17 @@ def check_names(rows):
     require(set(crn.__all__) == TOP_LEVEL, f"__all__: {sorted(crn.__all__)}")
     require(public - modules == TOP_LEVEL, f"top level: {sorted(public - modules)}")
     require(not REMOVED & public, f"removed names exported: {REMOVED & public}")
+    native = set(dir(crn._native))
+    require(
+        not NATIVE_REMOVED & native,
+        f"removed native names present: {sorted(NATIVE_REMOVED & native)}",
+    )
+    try:
+        import crn_craft._legacy  # noqa: F401
+    except ImportError:
+        pass
+    else:
+        raise RuntimeError("crn_craft._legacy is still importable")
     missing = RULES_0_6_0 - set(dir(rules))
     require(not missing, f"crn_craft.rules lost 0.6.0 names: {sorted(missing)}")
     require(
@@ -289,7 +327,7 @@ def check_documents(rows):
         "rules.prepare(selector=) writes run/1.0",
     )
     # A network model through the top level is converted.
-    network = (ROOT / "models/examples/immigration-death.model.json").read_bytes()
+    network = (ROOT / "models/legacy/immigration-death.model.json").read_bytes()
     converted = crn.ensemble(network, end=1.0, report_times=[0.0, 1.0])
     require(
         converted._documents[0] == crn.convert(network),
@@ -333,7 +371,7 @@ def check_models(rows):
     # from_dict keeps a document exactly; a converted model is editable.
     death = crn.load_example("immigration-death")
     packaged = crn.convert(
-        (ROOT / "models/examples/immigration-death.model.json").read_bytes()
+        (ROOT / "models/legacy/immigration-death.model.json").read_bytes()
     )
     require(
         rules.model_bytes(death.to_dict()) == rules.model_bytes(json.loads(packaged))
@@ -349,7 +387,7 @@ def check_models(rows):
         "vilar-noise",
     ):
         model = crn.load_example(name)
-        path = ROOT / f"models/examples/{name}.model.json"
+        path = ROOT / f"models/legacy/{name}.model.json"
         require(
             model.to_dict() == json.loads(crn.convert(path.read_bytes())),
             f"load_example({name!r})",
@@ -377,7 +415,7 @@ def check_models(rows):
     require(error.diagnostics, "from_dict checks the document")
     require(
         crn.Model.from_dict(
-            (ROOT / "models/examples/repressilator.model.json").read_bytes()
+            (ROOT / "models/legacy/repressilator.model.json").read_bytes()
         ).to_dict()
         == crn.load_example("repressilator").to_dict(),
         "from_dict converts a network model",
@@ -507,23 +545,30 @@ def check_cli(rows, binary):
                     f"{alias} reports agree",
                 )
         code, converted = run(
-            python, "convert", ROOT / "models/examples/vilar-noise.model.json"
+            python, "convert", ROOT / "models/legacy/vilar-noise.model.json"
         )
         require(
             code == 0
             and converted
-            == run(native, "convert", ROOT / "models/examples/vilar-noise.model.json")[
+            == run(native, "convert", ROOT / "models/legacy/vilar-noise.model.json")[
                 1
             ],
             "convert prints the native bytes",
         )
-        code, usage = run(python, "simulate")
-        require(
-            code == 1
-            and json.loads(usage)["diagnostics"][0]["code"] == "CRN-E031"
-            and b"simulate" not in usage,
-            "a wrong command is a usage error without the hidden commands",
-        )
+        network = ROOT / "models/legacy/immigration-death.model.json"
+        legacy_run = ROOT / "models/legacy/immigration-death.run.json"
+        for command in REMOVED_COMMANDS:
+            for args in ((), (network, legacy_run), (model, request, folder / "out")):
+                code, usage = run(python, command, *args)
+                require(
+                    code == 1
+                    and json.loads(usage)["schema"] == "crn-craft.check/1.0"
+                    and json.loads(usage)["diagnostics"][0]["code"] == "CRN-E031"
+                    and b"simulate" not in usage
+                    and json.loads(usage) == json.loads(run(native, command, *args)[1]),
+                    f"the removed command {command} is a usage error",
+                )
+        require(not (folder / "out").exists(), "no archive from a removed command")
     version = json.loads(run(python, "--version")[1])
     require(
         version
@@ -796,7 +841,7 @@ def main():
     circuit = crn.load_example("repressilator")
     # The first species of the network model, as the 0.6.0 study used.
     species = json.loads(
-        (ROOT / "models/examples/repressilator.model.json").read_text()
+        (ROOT / "models/legacy/repressilator.model.json").read_text()
     )["species"][0]["name"]
     study = []
     for split, seeds in [("development", [3101, 3102]), ("held_out", [3201, 3202])]:

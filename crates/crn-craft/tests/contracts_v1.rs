@@ -205,7 +205,7 @@ fn checks_of_model_1_0_report_check_1_0() {
 #[test]
 fn the_converter_writes_model_1_0() {
     let converted =
-        crn_craft::rules::convert::from_network(&read("models/examples/repressilator.model.json"))
+        crn_craft::rules::convert::from_network(&read("models/legacy/repressilator.model.json"))
             .unwrap();
     let document: Value = serde_json::from_slice(&converted).unwrap();
     assert_eq!(document["schema"], "crn-craft.model/1.0");
@@ -223,55 +223,45 @@ fn has_e032(diagnostics: &[Diagnostic]) -> bool {
         .any(|d| d.code == "CRN-E032" && d.path == "/schema")
 }
 
+/// The network engine's entry points are gone (0.7.0); the converter is the
+/// one reader of network models left, and it refuses the newer documents.
 #[test]
-fn network_entry_points_refuse_1_0_and_rules_documents() {
-    let network = read("models/examples/immigration-death.model.json");
-    let run = read("models/examples/immigration-death.run.json");
+fn the_converter_refuses_1_0_and_rules_documents() {
+    let network = read("models/legacy/immigration-death.model.json");
     let rules = read("models/rules/immigration-death.rules.json");
     let converted = crn_craft::rules::convert::from_network(&network).unwrap();
     for model in [converted.clone(), rules.clone()] {
-        let report = crn_craft::check_bytes(&model, None);
-        assert!(!report.valid);
-        assert!(has_e032(&report.diagnostics), "{:?}", report.diagnostics);
-        assert!(has_e032(&[crn_craft::parse_model(&model).unwrap_err()]));
+        let errors = crn_craft::rules::convert::from_network(&model).unwrap_err();
+        assert!(has_e032(&errors), "{errors:?}");
         // Analysis reads every model version since M5b.
         let analysis = crn_craft::analyze_bytes(&model, None);
         assert!(analysis.success, "{:?}", analysis.diagnostics);
         // So does the GillesPy2 export since M5f.
         let export = crn_craft::export::export_gillespy2(&model);
         assert!(export.success, "{:?}", export.diagnostics);
-        // A request bound to the 1.0 model still fails on the model.
-        let mut request: Value = serde_json::from_slice(&run).unwrap();
-        rehash(&mut request, &model);
-        let request = serde_json::to_vec(&request).unwrap();
-        let control = crn_craft::simulation::Control::default();
-        let errors = crn_craft::simulation::simulate_bytes(&model, &request, &control)
-            .err()
-            .unwrap();
-        assert!(has_e032(&errors), "{errors:?}");
     }
-    // Requests of the rules family are refused as requests.
-    let request = immigration_request(&network, "crn-craft.run/1.0");
-    let request = serde_json::to_vec(&request).unwrap();
-    let report = crn_craft::check_bytes(&network, Some(&request));
-    assert!(has_e032(&report.diagnostics), "{:?}", report.diagnostics);
-    assert!(has_e032(&[crn_craft::parse_run(&request).unwrap_err()]));
-    let errors = crn_craft::ssa::prepare(&network, &request).err().unwrap();
-    assert!(has_e032(&errors), "{errors:?}");
-    let control = crn_craft::simulation::Control::default();
-    let errors = crn_craft::tau::solve(&network, &request, &control)
-        .err()
-        .unwrap();
-    assert!(has_e032(&errors), "{errors:?}");
-    let errors = crn_craft::fsp::solve(&network, &request, &control)
-        .err()
-        .unwrap();
-    assert!(has_e032(&errors), "{errors:?}");
+    // A request never names a network model: `check MODEL REQUEST` and `run`
+    // refuse it with CRN-E033, also with the removed network run/0.1.
+    let e033 = |diagnostics: &[Diagnostic]| {
+        diagnostics
+            .iter()
+            .any(|d| d.code == "CRN-E033" && d.path == "/schema")
+    };
+    let request = serde_json::to_vec(&immigration_request(&network, "crn-craft.run/1.0")).unwrap();
+    let legacy_run = read("models/legacy/immigration-death.run.json");
+    for request in [request, legacy_run] {
+        let report = crn_craft::check_any(&network, Some(&request));
+        assert!(!report.valid && e033(&report.diagnostics), "{report:?}");
+        let errors = prepare(&network, &request).err().unwrap();
+        assert!(e033(&errors), "{errors:?}");
+    }
     // Other shape errors keep their codes.
-    let report = crn_craft::check_bytes(br#"{"schema": "crn-craft.model/0.2"}"#, None);
-    assert_eq!(report.diagnostics[0].code, "CRN-E003");
-    let report = crn_craft::check_bytes(br#"{"schema": "crn-craft.model/1.0""#, None);
-    assert_eq!(report.diagnostics[0].code, "CRN-E001");
+    let errors = crn_craft::rules::convert::from_network(br#"{"schema": "crn-craft.model/0.2"}"#)
+        .unwrap_err();
+    assert_eq!(errors[0].code, "CRN-E003");
+    let errors = crn_craft::rules::convert::from_network(br#"{"schema": "crn-craft.model/1.0""#)
+        .unwrap_err();
+    assert_eq!(errors[0].code, "CRN-E001");
 }
 
 #[test]

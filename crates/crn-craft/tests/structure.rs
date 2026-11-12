@@ -567,7 +567,7 @@ fn linkage_classes_join_converging_reactions() {
 #[test]
 fn known_enzyme_laws_and_bounds_are_found() {
     let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../models/examples/enzyme-mechanism.model.json");
+        .join("../../models/legacy/enzyme-mechanism.model.json");
     let bytes = std::fs::read(path).unwrap();
     let c = analyze_conservation(&FlatView::of_any_model(&bytes).unwrap());
     assert_eq!(c.status, ConservationStatus::Exact);

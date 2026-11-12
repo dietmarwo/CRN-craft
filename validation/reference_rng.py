@@ -10,10 +10,10 @@ Since 0.7.0 one engine draws every replicate from the stream of
 little-endian bytes, with the replicate index as the 64-bit stream id, read
 as little-endian 64-bit words from word position zero. `words(root,
 replicate)` is that stream and `rng-vectors-rules.json` holds its known
-answers (nine streams, 40 words each). The network engine's stream
-(`crn-craft.chacha8/0.1` and one NUL byte, `rng-vectors.json`) is the
-`NETWORK_DOMAIN` argument; only the old Rust test `tests/ssa.rs` still reads
-that file, until task M8b deletes it with the old engine.
+answers (nine streams, 40 words each); the Rust test
+`crates/crn-craft/tests/boundaries_v1.rs` checks the engine's stream against
+the same file. The network engine's stream (`crn-craft.chacha8/0.1`) and its
+`rng-vectors.json` were removed with that engine in task M8b.
 """
 
 import hashlib
@@ -54,7 +54,6 @@ def block(key, counter, stream):
 
 
 DOMAIN = b"crn-craft.rules/0.1"
-NETWORK_DOMAIN = b"crn-craft.chacha8/0.1\0"
 
 
 def words(root, replicate, domain=DOMAIN):
@@ -85,10 +84,6 @@ if __name__ == "__main__":
     expected = json.loads((here / "rng-vectors-rules.json").read_text())
     if expected != vectors():
         raise RuntimeError("independent ChaCha8 known-answer fixture differs")
-    # The old network stream stays checked while its Rust test exists (M8b).
-    old = here / "rng-vectors.json"
-    if old.exists() and json.loads(old.read_text()) != vectors(NETWORK_DOMAIN):
-        raise RuntimeError("independent ChaCha8 network known-answer fixture differs")
     print(
         json.dumps(
             {

@@ -58,7 +58,7 @@ def models():
     root = Path(__file__).resolve().parents[1]
     yield (
         "circuit_12",
-        json.loads((root / "models/examples/repressilator.model.json").read_text()),
+        json.loads((root / "models/legacy/repressilator.model.json").read_text()),
     )
     species = [(f"X{i}", 20) for i in range(8)]
     both = {s: 1 for s, _ in species}

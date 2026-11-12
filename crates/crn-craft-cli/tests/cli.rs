@@ -42,17 +42,30 @@ fn cli_description_and_example_check() {
     let requests = value["legacy"]["requests"].as_array().unwrap();
     assert_eq!(requests.first().unwrap(), "crn-craft.rules-run/0.1");
     assert_eq!(requests.last().unwrap(), "crn-craft.rules-run/0.6");
-    // A network model with a network run/0.1 request: the network engine's
-    // check/0.1, kept for the hidden commands until M8b.
+    // A network model with a network run/0.1 request: no request names a
+    // network model since the network engine's check/0.1 was removed (M8b).
     let (code, value) = invoke(&[
         "check",
-        "models/examples/immigration-death.model.json",
-        "models/examples/immigration-death.run.json",
+        "models/legacy/immigration-death.model.json",
+        "models/legacy/immigration-death.run.json",
     ]);
-    assert_eq!(code, 0);
-    assert_eq!(value["schema"], "crn-craft.check/0.1");
+    assert_eq!(code, 1);
+    assert_eq!(value["schema"], "crn-craft.check/1.0");
+    assert_eq!(value["valid"], false);
+    assert_eq!(value["diagnostics"][0]["code"], "CRN-E033");
+    // The converted example with a run/1.0 request.
+    let temp = staged();
+    let (code, value) = invoke(&[
+        "check",
+        temp.0
+            .join("immigration-death.model.json")
+            .to_str()
+            .unwrap(),
+        temp.0.join("immigration-death.run.json").to_str().unwrap(),
+    ]);
+    assert_eq!(code, 0, "{value}");
+    assert_eq!(value["schema"], "crn-craft.check/1.0");
     assert_eq!(value["valid"], true);
-    assert_eq!(value["execution_available"], false);
 }
 
 #[test]
@@ -175,11 +188,27 @@ impl Drop for Temp {
     }
 }
 
+/// The converted immigration-death example and a `crn-craft.run/1.0`
+/// Static Direct request for it, side by side in a new directory.
 fn staged() -> Temp {
     let temp = Temp::new();
-    for name in ["immigration-death.model.json", "immigration-death.run.json"] {
-        std::fs::copy(root().join("models/examples").join(name), temp.0.join(name)).unwrap();
-    }
+    let model = std::fs::read(root().join("models/examples/immigration-death.model.json")).unwrap();
+    std::fs::write(temp.0.join("immigration-death.model.json"), &model).unwrap();
+    let request = serde_json::json!({
+        "schema": "crn-craft.run/1.0",
+        "model": {"path": "immigration-death.model.json", "sha256": crn_craft::sha256(&model)},
+        "method": {"kind": "static_direct"},
+        "time": {"end": 10.0, "report_times": [0.0, 1.0, 2.0, 5.0, 10.0]},
+        "ensemble": {"replicates": 64, "root_seed": 42},
+        "outputs": {"statistics": ["mean", "variance"], "keep_paths": 2, "keep_instances": 0},
+        "budget": {"max_events_per_replicate": 1000000, "max_sampling_steps_per_replicate": 8000000,
+                   "max_instances": 100000, "threads": 1, "max_output_bytes": 1048576}
+    });
+    std::fs::write(
+        temp.0.join("immigration-death.run.json"),
+        serde_json::to_vec_pretty(&request).unwrap(),
+    )
+    .unwrap();
     temp
 }
 
@@ -213,7 +242,7 @@ fn different_file_with_identical_bytes_is_not_the_referenced_path() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|d| d["code"] == "CRN-E022")
+            .any(|d| d["code"] == "CRN-R020" && d["path"] == "/model/path")
     );
 }
 
@@ -242,14 +271,14 @@ fn symlink_outside_run_directory_rejected_even_when_hash_matches() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|d| d["code"] == "CRN-E022")
+            .any(|d| d["code"] == "CRN-R020" && d["path"] == "/model/path")
     );
 }
 
 #[test]
 fn analyze_reads_network_rules_and_1_0_models_and_analyze_v1_is_gone() {
     let temp = Temp::new();
-    let network = "models/examples/enzyme-mechanism.model.json";
+    let network = "models/legacy/enzyme-mechanism.model.json";
     let (code, report) = invoke(&["analyze", network]);
     assert_eq!(code, 0, "{report}");
     assert_eq!(report["schema"], "crn-craft.analysis/1.0");
@@ -300,7 +329,7 @@ fn analyze_reads_network_rules_and_1_0_models_and_analyze_v1_is_gone() {
 fn export_cli_is_json_and_rejects_unsupported_or_missing_inputs() {
     let (code, report) = invoke(&[
         "export",
-        "models/examples/immigration-death.model.json",
+        "models/legacy/immigration-death.model.json",
         "gillespy2",
     ]);
     assert_eq!(code, 0);
@@ -316,7 +345,7 @@ fn export_cli_is_json_and_rejects_unsupported_or_missing_inputs() {
     // (M5f); a model with ATP has no flat view.
     let (code, report) = invoke(&[
         "export",
-        "models/examples/michaelis-menten.model.json",
+        "models/legacy/michaelis-menten.model.json",
         "gillespy2",
     ]);
     assert_eq!(code, 0, "{report}");
@@ -344,7 +373,7 @@ fn export_cli_is_json_and_rejects_unsupported_or_missing_inputs() {
         (
             vec![
                 "export",
-                "models/examples/immigration-death.model.json",
+                "models/legacy/immigration-death.model.json",
                 "unknown",
             ],
             "CRN-E031",
@@ -363,79 +392,38 @@ fn export_cli_is_json_and_rejects_unsupported_or_missing_inputs() {
 }
 
 #[test]
-fn simulate_exits_zero_only_for_a_complete_ensemble_and_verify_for_valid_archives() {
-    let temp = staged();
-    let model = temp.0.join("immigration-death.model.json");
-    let run = temp.0.join("immigration-death.run.json");
-    let out = temp.0.join("complete");
-    let paths = |p: &PathBuf| p.to_str().unwrap().to_owned();
-    let (code, report) = invoke(&["simulate", &paths(&model), &paths(&run), &paths(&out)]);
-    assert_eq!(code, 0, "{report}");
-    assert_eq!(report["simulation_complete"], true);
-    assert_eq!(invoke(&["verify", &paths(&out)]).0, 0);
-    // Existing output directories are never reused.
-    let (code, report) = invoke(&["simulate", &paths(&model), &paths(&run), &paths(&out)]);
-    assert_eq!((code, &report["valid"]), (1, &Value::Bool(false)));
-
-    let mut limited: Value = serde_json::from_slice(&std::fs::read(&run).unwrap()).unwrap();
-    limited["budget"]["max_events_per_replicate"] = 1.into();
-    let limited_run = temp.0.join("limited.run.json");
-    std::fs::write(&limited_run, serde_json::to_vec_pretty(&limited).unwrap()).unwrap();
-    let partial = temp.0.join("partial");
-    let (code, report) = invoke(&[
-        "simulate",
-        &paths(&model),
-        &paths(&limited_run),
-        &paths(&partial),
-    ]);
-    assert_eq!(code, 1, "{report}");
-    assert_eq!(report["valid"], true);
-    assert_eq!(report["simulation_complete"], false);
-    assert_eq!(report["termination"], "event_limit");
-    let (code, report) = invoke(&["verify", &paths(&partial)]);
-    assert_eq!(
-        (code, &report["simulation_complete"]),
-        (0, &Value::Bool(false))
-    );
-    std::fs::remove_file(partial.join("COMPLETE")).unwrap();
-    assert_eq!(invoke(&["verify", &paths(&partial)]).0, 1);
-}
-
-#[test]
 fn tau_accepts_a_cancel_file_and_stops_before_any_replicate() {
-    let dir = std::env::temp_dir().join(format!("crn-cli-tau-cancel-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir(&dir).unwrap();
-    let model = br#"{"schema":"crn-craft.model/0.1","name":"T","convention":"stochastic_counts","omega":1.0,"parameters":{},"species":[{"name":"X","initial_count":30}],"reactions":[{"name":"birth","reactants":{},"products":{"X":1},"rate":{"kind":"mass_action","coefficient":20.0}}]}"#;
-    std::fs::write(dir.join("model.json"), model).unwrap();
-    let run = serde_json::json!({"schema":"crn-craft.run/0.1","model":{"path":"model.json","sha256":crn_craft::sha256(model)},"method":{"kind":"ssa","aggregator":"direct"},"ensemble":{"replicates":4,"root_seed":1},"time":{"end":1.0,"save_times":[0.0,1.0]},"outputs":{"statistics":["mean"],"keep_trajectories":0},"budget":{"threads":1,"max_events_per_replicate":100000,"max_output_bytes":100000}});
-    let request = serde_json::json!({"schema":"crn-craft.tau-request/0.1","epsilon":0.05,"max_leaps_per_replicate":1000,"reference_run":run});
-    std::fs::write(dir.join("tau.json"), serde_json::to_vec(&request).unwrap()).unwrap();
-    std::fs::write(dir.join("cancel"), b"").unwrap();
+    let temp = Temp::new();
+    let model = br#"{"schema":"crn-craft.model/1.0","name":"T","parameters":{"k":20.0},"types":[{"name":"X"}],"initial":[{"type":"X","count":30}],"observables":{"X":{"type":"X"}},"rules":[{"name":"birth","reactants":[],"rate":"k","products":[{"type":"X"}]}]}"#;
+    std::fs::write(temp.0.join("model.json"), model).unwrap();
+    let request = serde_json::json!({"schema":"crn-craft.run/1.0","model":{"path":"model.json","sha256":crn_craft::sha256(model)},
+        "method":{"kind":"tau","epsilon":0.05},"ensemble":{"replicates":4,"root_seed":1},
+        "time":{"end":1.0,"report_times":[0.0,1.0]},"outputs":{"statistics":["mean"],"keep_paths":0,"keep_instances":0},
+        "budget":{"max_events_per_replicate":100000,"max_sampling_steps_per_replicate":1000000,"max_instances":1000,"threads":1,"max_output_bytes":100000}});
+    std::fs::write(
+        temp.0.join("tau.json"),
+        serde_json::to_vec(&request).unwrap(),
+    )
+    .unwrap();
+    std::fs::write(temp.0.join("cancel"), b"").unwrap();
     let out = std::process::Command::new(env!("CARGO_BIN_EXE_crn-craft"))
-        .arg("tau")
-        .arg(dir.join("model.json"))
-        .arg(dir.join("tau.json"))
+        .arg("run")
+        .arg(temp.0.join("model.json"))
+        .arg(temp.0.join("tau.json"))
         .arg("--cancel-file")
-        .arg(dir.join("cancel"))
+        .arg(temp.0.join("cancel"))
         .output()
         .unwrap();
     assert!(!out.status.success());
     let value: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(value["termination"], "cancelled");
-    assert!(
-        value["replicates"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .all(|r| r["started"] == false)
-    );
-    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(value["completed_replicates"], 0);
+    assert!(value["statistics"].is_null());
 }
 
 #[test]
 fn convert_prints_the_converted_model_bytes_or_coded_refusals() {
-    let path = "models/examples/repressilator.model.json";
+    let path = "models/legacy/repressilator.model.json";
     let output = Command::new(env!("CARGO_BIN_EXE_crn-craft"))
         .current_dir(root())
         .args(["convert", path])
@@ -472,15 +460,14 @@ fn convert_prints_the_converted_model_bytes_or_coded_refusals() {
 }
 
 #[test]
-fn network_commands_refuse_1_0_documents_and_rules_commands_run_them() {
+fn removed_network_commands_are_usage_errors_and_rules_commands_run_1_0_documents() {
     let temp = Temp::new();
     let path = |name: &str| temp.0.join(name).to_str().unwrap().to_string();
-    let network =
-        std::fs::read(root().join("models/examples/immigration-death.model.json")).unwrap();
+    let network = std::fs::read(root().join("models/legacy/immigration-death.model.json")).unwrap();
     let converted = crn_craft::rules::convert::from_network(&network).unwrap();
     std::fs::write(temp.0.join("model.json"), &converted).unwrap();
     let mut run: Value = serde_json::from_slice(
-        &std::fs::read(root().join("models/examples/immigration-death.run.json")).unwrap(),
+        &std::fs::read(root().join("models/legacy/immigration-death.run.json")).unwrap(),
     )
     .unwrap();
     run["model"] =
@@ -508,21 +495,18 @@ fn network_commands_refuse_1_0_documents_and_rules_commands_run_them() {
         path("out"),
     ];
     let [model, run, request, out] = names.each_ref().map(String::as_str);
+    // The network engine's commands were removed with it (M8b).
     for args in [
         vec!["simulate", model, run, out],
+        vec!["simulate-cached", model, run, out],
         vec!["fsp", model, run],
         vec!["ssa", model, request],
         vec!["tau", model, request],
     ] {
         let (code, report) = invoke(&args);
         assert_eq!(code, 1, "{args:?}");
-        let diagnostics = report["diagnostics"].as_array().unwrap();
-        assert!(
-            diagnostics
-                .iter()
-                .any(|d| d["code"] == "CRN-E032" && d["path"] == "/schema"),
-            "{args:?}: {report}"
-        );
+        assert_eq!(report["diagnostics"][0]["code"], "CRN-E031", "{args:?}");
+        assert_eq!(report["schema"], "crn-craft.check/1.0", "{args:?}");
     }
     assert!(!temp.0.join("out").exists());
     // `check` reads every model version (M7): model/1.0 alone is valid; a
@@ -561,8 +545,7 @@ fn network_commands_refuse_1_0_documents_and_rules_commands_run_them() {
 fn rules_solves_fsp_requests_and_describes_their_contracts() {
     let temp = Temp::new();
     let path = |name: &str| temp.0.join(name).to_str().unwrap().to_string();
-    let network =
-        std::fs::read(root().join("models/examples/immigration-death.model.json")).unwrap();
+    let network = std::fs::read(root().join("models/legacy/immigration-death.model.json")).unwrap();
     let converted = crn_craft::rules::convert::from_network(&network).unwrap();
     std::fs::write(temp.0.join("model.json"), &converted).unwrap();
     let mut request = serde_json::json!({
@@ -628,11 +611,10 @@ fn rules_solves_fsp_requests_and_describes_their_contracts() {
 }
 
 #[test]
-fn rules_archives_runs_and_verify_reads_both_archive_versions() {
+fn rules_archives_runs_and_verify_reads_1_0_archives() {
     let temp = Temp::new();
     let path = |name: &str| temp.0.join(name).to_str().unwrap().to_string();
-    let network =
-        std::fs::read(root().join("models/examples/immigration-death.model.json")).unwrap();
+    let network = std::fs::read(root().join("models/legacy/immigration-death.model.json")).unwrap();
     let converted = crn_craft::rules::convert::from_network(&network).unwrap();
     std::fs::write(temp.0.join("model.json"), &converted).unwrap();
     let mut request = serde_json::json!({
@@ -723,20 +705,24 @@ fn rules_archives_runs_and_verify_reads_both_archive_versions() {
         assert_eq!(code, 1);
         assert_eq!(report["diagnostics"][0]["code"], "CRN-E031", "{args:?}");
     }
-    // A network-engine archive keeps its 0.1 report.
-    let staged = staged();
-    let old = staged.0.join("old");
-    let paths = |p: &PathBuf| p.to_str().unwrap().to_owned();
-    let (code, _) = invoke(&[
-        "simulate",
-        &paths(&staged.0.join("immigration-death.model.json")),
-        &paths(&staged.0.join("immigration-death.run.json")),
-        &paths(&old),
-    ]);
-    assert_eq!(code, 0);
-    let (code, report) = invoke(&["verify", &paths(&old)]);
-    assert_eq!(code, 0);
-    assert_eq!(report["schema"], "crn-craft.archive-check/0.1");
+    // The file set of a network-engine archive (crn-craft.archive/0.1),
+    // which verify no longer reads (M8b).
+    let old = temp.0.join("old");
+    std::fs::create_dir(&old).unwrap();
+    for name in [
+        "model.json",
+        "run.json",
+        "result.json",
+        "provenance.json",
+        "manifest.json",
+        "COMPLETE",
+    ] {
+        std::fs::write(old.join(name), b"{}\n").unwrap();
+    }
+    let (code, report) = invoke(&["verify", old.to_str().unwrap()]);
+    assert_eq!(code, 1);
+    assert_eq!(report["schema"], "crn-craft.archive-check/1.0");
+    assert_eq!(report["diagnostics"][0]["code"], "CRN-E065");
     for kind in ["archive-1.0", "archive-check-1.0"] {
         let (code, schema) = invoke(&["describe", kind]);
         assert_eq!(code, 0);
@@ -752,8 +738,24 @@ fn rules_archives_runs_and_verify_reads_both_archive_versions() {
 const COMMANDS: [&str; 7] = [
     "describe", "check", "run", "verify", "analyze", "convert", "export",
 ];
-/// The network engine's commands, hidden until M8b deletes them.
-const HIDDEN: [&str; 5] = ["simulate", "simulate-cached", "ssa", "tau", "fsp"];
+/// The network engine's commands, removed with it in M8b.
+const REMOVED: [&str; 5] = ["simulate", "simulate-cached", "ssa", "tau", "fsp"];
+/// The `describe` kinds of the network engine's contracts, removed with it.
+const REMOVED_SCHEMAS: [&str; 13] = [
+    "run",
+    "result",
+    "result-v1",
+    "check",
+    "fsp-result",
+    "tau-request",
+    "tau-result",
+    "ssa-run",
+    "ssa-result",
+    "archive",
+    "archive-check",
+    "analysis",
+    "analysis-v1",
+];
 
 fn text(args: &[&str]) -> (i32, String) {
     let output = Command::new(env!("CARGO_BIN_EXE_crn-craft"))
@@ -779,10 +781,10 @@ fn help_usage_and_describe_list_the_unified_commands_only() {
         .collect();
     assert_eq!(listed, [&COMMANDS[..], &["--version"]].concat());
     assert!(help.contains("Aliases: rules = run, rules-check = check."));
-    for hidden in HIDDEN {
+    for removed in REMOVED {
         assert!(
-            !help.contains(&format!("crn-craft {hidden} ")),
-            "{hidden} in --help"
+            !help.contains(&format!("crn-craft {removed} ")),
+            "{removed} in --help"
         );
     }
     let (code, version) = invoke(&["--version"]);
@@ -797,8 +799,8 @@ fn help_usage_and_describe_list_the_unified_commands_only() {
     for command in COMMANDS {
         assert!(hint.contains(command), "{command} missing from {hint}");
     }
-    for hidden in ["simulate", "ssa", "tau"] {
-        assert!(!hint.contains(hidden), "{hidden} in the usage hint");
+    for removed in ["simulate", "ssa", "tau"] {
+        assert!(!hint.contains(removed), "{removed} in the usage hint");
     }
     let (code, description) = invoke(&["describe"]);
     assert_eq!(code, 0);
@@ -833,23 +835,23 @@ fn help_usage_and_describe_list_the_unified_commands_only() {
         assert_eq!(schema, snapshot, "{kind}");
     }
     let text = description.to_string();
-    for hidden in HIDDEN {
+    for removed in REMOVED {
         assert!(
             !description["commands"]
                 .as_array()
                 .unwrap()
-                .contains(&hidden.into()),
-            "{hidden}"
+                .contains(&removed.into()),
+            "{removed}"
         );
-        assert!(!text.contains(&format!("\"{hidden}\"")) || hidden == "fsp" || hidden == "tau");
+        assert!(!text.contains(&format!("\"{removed}\"")) || removed == "fsp" || removed == "tau");
     }
+    assert!(!text.contains("crn-craft.archive/0.1"));
 }
 
 /// A converted immigration-death model with a run/1.0 Static Direct
 /// request and an FSP request, written next to each other.
 fn unified_inputs(temp: &Temp) -> (Vec<u8>, Value, Value) {
-    let network =
-        std::fs::read(root().join("models/examples/immigration-death.model.json")).unwrap();
+    let network = std::fs::read(root().join("models/legacy/immigration-death.model.json")).unwrap();
     let converted = crn_craft::rules::convert::from_network(&network).unwrap();
     std::fs::write(temp.0.join("model.json"), &converted).unwrap();
     let request = serde_json::json!({
@@ -977,7 +979,7 @@ fn check_reads_every_model_version() {
     assert_eq!(report["schema"], "crn-craft.rules-check/0.1");
     assert!(report.get("run_sha256").is_none());
     // A network model alone: check/1.0 of its conversion.
-    let network = "models/examples/repressilator.model.json";
+    let network = "models/legacy/repressilator.model.json";
     let bytes = std::fs::read(root().join(network)).unwrap();
     let (code, report) = invoke(&["check", network]);
     assert_eq!(code, 0, "{report}");
@@ -1017,45 +1019,35 @@ fn check_reads_every_model_version() {
 }
 
 #[test]
-fn hidden_network_commands_keep_working_until_m8b() {
+fn removed_network_commands_and_schemas_are_gone() {
     let temp = staged();
     let path = |name: &str| temp.0.join(name).to_str().unwrap().to_string();
     let (model, run) = (
         path("immigration-death.model.json"),
         path("immigration-death.run.json"),
     );
-    for (command, out) in [("simulate", "plain"), ("simulate-cached", "cached")] {
-        let (code, report) = invoke(&[command, &model, &run, &path(out)]);
-        assert_eq!(code, 0, "{command}: {report}");
-        assert_eq!(report["schema"], "crn-craft.archive-check/0.1");
+    let network = "models/legacy/immigration-death.model.json";
+    let legacy_run = "models/legacy/immigration-death.run.json";
+    for command in REMOVED {
+        for args in [
+            vec![command, network, legacy_run],
+            vec![command, network, legacy_run, &path("out")],
+            vec![command, &model, &run],
+            vec![command, &model, &run, "--cancel-file", &path("stop")],
+        ] {
+            let (code, report) = invoke(&args);
+            assert_eq!(code, 1, "{args:?}");
+            assert_eq!(report["diagnostics"][0]["code"], "CRN-E031", "{args:?}");
+        }
     }
-    let run_bytes = std::fs::read(&run).unwrap();
-    let mut fsp: Value = serde_json::from_slice(&run_bytes).unwrap();
-    fsp.as_object_mut().unwrap().remove("ensemble");
-    fsp["method"] = serde_json::json!({"kind": "fsp", "bounds": {"A": 100}, "max_states": 101, "tolerance": 1e-12});
-    fsp["outputs"] = serde_json::json!({"statistics": ["mean"], "keep_trajectories": 0});
-    fsp["budget"]
-        .as_object_mut()
-        .unwrap()
-        .remove("max_events_per_replicate");
-    std::fs::write(temp.0.join("fsp.json"), fsp.to_string()).unwrap();
-    let (code, result) = invoke(&["fsp", &model, &path("fsp.json")]);
-    assert_eq!(code, 0, "{result}");
-    assert_eq!(result["schema"], "crn-craft.fsp-result/0.1");
-    let tau = serde_json::json!({
-        "schema": "crn-craft.tau-request/0.1", "epsilon": 0.05,
-        "max_leaps_per_replicate": 100000,
-        "reference_run": serde_json::from_slice::<Value>(&run_bytes).unwrap()
-    });
-    std::fs::write(temp.0.join("tau.json"), tau.to_string()).unwrap();
-    let (code, result) = invoke(&["tau", &model, &path("tau.json")]);
-    assert_eq!(code, 0, "{result}");
-    let mut ssa: Value = serde_json::from_slice(&run_bytes).unwrap();
-    ssa["schema"] = "crn-craft.ssa-run/0.3".into();
-    ssa["method"] = serde_json::json!({"kind": "ssa", "aggregator": "direct_cr", "waiting_time": "inverse", "fast": true});
-    ssa["budget"]["max_sampling_steps_per_replicate"] = 1_000_000_000u64.into();
-    std::fs::write(temp.0.join("ssa.json"), ssa.to_string()).unwrap();
-    let (code, result) = invoke(&["ssa", &model, &path("ssa.json")]);
-    assert_eq!(code, 0, "{result}");
-    assert_eq!(result["schema"], "crn-craft.ssa-result/0.3");
+    assert!(!temp.0.join("out").exists());
+    for kind in REMOVED_SCHEMAS {
+        let (code, report) = invoke(&["describe", kind]);
+        assert_eq!(code, 1, "{kind}");
+        assert_eq!(report["diagnostics"][0]["code"], "CRN-E031", "{kind}");
+        assert!(
+            !root().join(format!("schemas/{kind}.schema.json")).exists(),
+            "{kind}"
+        );
+    }
 }

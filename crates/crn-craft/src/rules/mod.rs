@@ -20,8 +20,9 @@
 //! rule's propensity is a global rate over parameters and observables times
 //! local factors over each matched instance's attributes. Observables reduce
 //! the instances of one type to a number; an optional stop predicate over
-//! them ends a replicate early. Models whose species are fixed can use the
-//! network engine in [`crn_craft`](crate) instead.
+//! them ends a replicate early. Models whose species are fixed are the
+//! attribute-free case; a network model (`crn-craft.model/0.1`) converts to
+//! one with [`convert::from_network`].
 //!
 //! # Quickstart
 //!
@@ -182,8 +183,9 @@
 //!
 //! # Related crates and documentation
 //!
-//! - [`crn-craft`](https://docs.rs/crn-craft): the fixed-network engine and
-//!   the shared diagnostics, strict JSON parsing and contract types.
+//! - [`crn_craft`](crate), the crate root: discovery, checks of every model
+//!   version, analysis, finite state projection, archives and export, and
+//!   the shared diagnostics and strict JSON parsing.
 //! - [`crn-craft-cli`](https://crates.io/crates/crn-craft-cli): the native
 //!   CLI, with `crn-craft rules-check`, `crn-craft rules` and
 //!   `crn-craft describe rules-run`.
@@ -209,6 +211,7 @@
 // `concat!` form; rustdoc and `missing_docs` treat it as a doc comment.
 
 pub mod atp;
+mod clocks;
 mod combination;
 pub use combination::combination_rate;
 pub mod continuous;
@@ -237,7 +240,6 @@ mod select;
 mod tree;
 use observe::{EventObserver, LogSpec, NoObserver, Observation, TrackerSpec};
 
-use crate::contracts::{Ensemble, ModelRef, Statistic};
 use crate::diagnostic::Diagnostic;
 use rand_chacha::ChaCha8Rng;
 use rand_core::SeedableRng;
@@ -252,6 +254,46 @@ use std::sync::{Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 pub use model::Model;
+
+// The request parts below were the network contracts' `ModelRef`,
+// `Ensemble` and `Statistic` until 0.7.0; their schema definitions are
+// unchanged.
+
+/// Reference from a request to its model file: a relative path and the SHA-256 of the exact
+/// model bytes.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ModelRef {
+    /// Portable, relative to the run file's directory; no parent traversal.
+    pub path: String,
+    /// SHA-256 of the exact model input bytes, lowercase hexadecimal.
+    #[schemars(regex(pattern = "^[0-9a-f]{64}$"))]
+    pub sha256: String,
+}
+
+/// Independent replicates of a stochastic run.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Ensemble {
+    /// Number of independent replicates, ≥ 1, with ids 0 to replicates − 1.
+    #[schemars(range(min = 1))]
+    pub replicates: u64,
+    /// Root seed. Each replicate draws from its own stream, derived from this seed and the
+    /// replicate id, so results do not depend on the thread count.
+    pub root_seed: u64,
+}
+
+/// Ensemble statistic to report per species and save time.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Statistic {
+    #[doc = concat!("`mean`: the sample mean, with its standard error when there are two or more")]
+    #[doc = concat!("replicates.")]
+    Mean,
+    #[doc = concat!("`variance`: the unbiased sample variance (denominator n − 1); needs at least")]
+    #[doc = concat!("two replicates.")]
+    Variance,
+}
 
 /// Sampler identity of the `tree` method, reported in
 /// [`RulesResult::sampler`] for every rules-run/0.1 request and for
@@ -1251,7 +1293,7 @@ fn request_error(path: &str, message: impl Into<String>, hint: &str) -> Diagnost
 
 fn validate_request(request: &RunRequest, model_sha256: &str) -> Vec<Diagnostic> {
     let mut out = Vec::new();
-    if !crate::validate::valid_relative_path(&request.model.path) {
+    if !valid_relative_path(&request.model.path) {
         out.push(request_error("/model/path", "non-portable or non-relative model path", "Use a slash-separated path below the request directory without '.', '..', empty components, drive prefixes or backslashes."));
     }
     if request.model.sha256 != model_sha256 {
@@ -2685,6 +2727,17 @@ pub fn solve_files(
     solve(&model, &bytes, control)
 }
 
+/// Whether `path` is a portable relative reference: non-empty, `/`-separated,
+/// with no empty, `.` or `..` component and no backslash, colon or NUL. This
+/// rejects absolute paths and drive prefixes. It does not touch the filesystem.
+pub(crate) fn valid_relative_path(path: &str) -> bool {
+    !path.is_empty()
+        && !path.contains(['\\', ':', '\0'])
+        && path
+            .split('/')
+            .all(|part| !part.is_empty() && part != "." && part != "..")
+}
+
 /// Whether a request file's `model.path` names `model_path`, inside the
 /// request file's directory.
 pub(crate) fn references_model(model_path: &Path, request_path: &Path, relative: &str) -> bool {
@@ -2697,7 +2750,7 @@ pub(crate) fn references_model(model_path: &Path, request_path: &Path, relative:
         parent.join(relative).canonicalize(),
         model_path.canonicalize(),
     );
-    crate::validate::valid_relative_path(relative)
+    valid_relative_path(relative)
         && matches!(resolved, (Ok(ref base), Ok(ref reference), Ok(ref supplied)) if reference.starts_with(base) && reference == supplied)
 }
 
@@ -3014,6 +3067,8 @@ const RESULT_1_0: Descriptions = (
     "The version of a result, its `schema` field.",
 );
 
+#[cfg(test)]
+mod law_oracle;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

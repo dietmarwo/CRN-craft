@@ -1,6 +1,6 @@
 //! Fixed-channel trajectory loop, with the same result and control accounting.
 use super::*;
-use crate::next_reaction::Clocks;
+use crate::rules::clocks::Clocks;
 use crate::rules::flat::{Network, check_instances, direct, direct_with, unresolved};
 use crate::rules::rssa::Bounds;
 use crate::rules::select::{Composition, Kind, RateTree, sorting_sample};

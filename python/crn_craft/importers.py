@@ -70,18 +70,16 @@ def _model(name):
 
 
 def _report(raw, source, model, **extra):
-    # Reuse the native strict domain validator; import is not biological validation.
+    # The converter applies the native strict domain validation of network
+    # models; import is not biological validation.
     from ._common import CrnError, convert
-    from ._legacy import check
 
-    validation = check(model)
-    if not validation["valid"]:
-        fail(json.dumps(validation["diagnostics"]))
     try:
         # The converter's canonical bytes, parsed in their key order.
         converted = json.loads(convert(model))
     except CrnError as error:
-        # For example a network without reactions (CRN-R016).
+        # The network model's validation errors, or a model the converter
+        # cannot hold, for example a network without reactions (CRN-R016).
         fail(json.dumps(error.diagnostics))
     return {
         "schema": "crn-craft.import/1.0",

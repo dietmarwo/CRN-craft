@@ -61,33 +61,5 @@
     "run": null,
     "code": "CRN-E003",
     "path": "/reactions/0/rate/kind"
-  },
-  {
-    "name": "hash-mismatch",
-    "model": "model.json",
-    "run": "hash-mismatch.run.json",
-    "code": "CRN-E021",
-    "path": "/model/sha256"
-  },
-  {
-    "name": "missing-fsp-bound",
-    "model": "model.json",
-    "run": "missing-fsp-bound.run.json",
-    "code": "CRN-E023",
-    "path": "/method/bounds/A"
-  },
-  {
-    "name": "duplicate-save-time",
-    "model": "model.json",
-    "run": "duplicate-save-time.run.json",
-    "code": "CRN-E020",
-    "path": "/time/save_times/2"
-  },
-  {
-    "name": "parent-path",
-    "model": "model.json",
-    "run": "parent-path.run.json",
-    "code": "CRN-E022",
-    "path": "/model/path"
   }
 ]

@@ -52,13 +52,15 @@
 //! assert_eq!(model["rules"][0]["rate"], "k");
 //! assert_eq!(model["observables"]["A"]["type"], "A");
 //! ```
-use crate::contracts::{self, Rate, Scalar};
-use crate::diagnostic::{Diagnostic, Severity, pointer};
+use crate::diagnostic::{Diagnostic, pointer};
 use crate::rules::model::{
     FUNCTIONS, Initial, MAX_COUNT, MAX_PARAMETERS_1_0, MAX_PRODUCTS, MAX_RULES_1_0, MAX_TYPES_1_0,
     Model, ModelVersion, Observable, Pattern, Product, Reduce, Rule, SpeciesType, Value,
 };
+use network::{Rate, Scalar};
 use std::collections::{BTreeMap, BTreeSet};
+
+mod network;
 
 /// The contract version of a converted model.
 pub const CONVERTED_VERSION: ModelVersion = ModelVersion::V10;
@@ -87,19 +89,37 @@ fn refusal(path: &str, message: impl Into<String>, hint: &str) -> Diagnostic {
 /// `CRN-E016`; warnings do not block conversion), or `CRN-R016` at the
 /// network document's path for each feature the rules language cannot hold.
 pub fn from_network(model_bytes: &[u8]) -> Result<Vec<u8>, Vec<Diagnostic>> {
-    let network = crate::parse_model(model_bytes).map_err(|d| vec![d])?;
-    let errors: Vec<_> = crate::validate::validate_model(&network)
-        .into_iter()
-        .filter(|d| d.severity == Severity::Error)
-        .collect();
+    let network = network::parse(model_bytes).map_err(|d| vec![d])?;
+    convert_checked(&network)
+}
+
+/// [`from_network`] with the species' population limits left out: the
+/// conversion the ODE kinetics read ([`crate::kinetics::Kinetics::from_bytes`]),
+/// which never use the limits, safety stops of a simulation. The limits are
+/// dropped before validation, as release 0.6.0's `Kinetics::compile` did.
+pub(crate) fn from_network_without_limits(model_bytes: &[u8]) -> Result<Vec<u8>, Vec<Diagnostic>> {
+    let mut network = network::parse(model_bytes).map_err(|d| vec![d])?;
+    for species in &mut network.species {
+        species.population_limit = None;
+    }
+    convert_checked(&network)
+}
+
+/// The JSON Schema of the network model contract, `crn-craft describe model`.
+pub(crate) fn network_schema() -> serde_json::Value {
+    network::schema()
+}
+
+fn convert_checked(network: &network::Model) -> Result<Vec<u8>, Vec<Diagnostic>> {
+    let errors = network::validate(network);
     if !errors.is_empty() {
         return Err(errors);
     }
-    let refusals = limits(&network);
+    let refusals = limits(network);
     if !refusals.is_empty() {
         return Err(refusals);
     }
-    let model = convert(&network);
+    let model = convert(network);
     // The mapping is total on the checked domain; this guards it.
     crate::rules::model::compile(&model)?;
     let mut bytes = serde_json::to_vec_pretty(&model).expect("finite rules model");
@@ -119,7 +139,7 @@ pub fn from_network_file(path: &std::path::Path) -> Result<Vec<u8>, Vec<Diagnost
     from_network(&crate::rules::read(path).map_err(|d| vec![d])?)
 }
 
-fn limits(network: &contracts::Model) -> Vec<Diagnostic> {
+fn limits(network: &network::Model) -> Vec<Diagnostic> {
     let mut out = Vec::new();
     // The model/1.0 limits equal the network contract's own (4,096 species,
     // 16,384 parameters, 65,536 reactions), so a valid network model passes
@@ -204,7 +224,7 @@ struct Names {
 }
 
 impl Names {
-    fn new(network: &contracts::Model) -> Self {
+    fn new(network: &network::Model) -> Self {
         // Species and parameters share the rules namespace of observables
         // and parameters; reactions and the model name have their own.
         let mut shared: BTreeSet<String> = network
@@ -274,7 +294,7 @@ fn number(x: f64) -> String {
     }
 }
 
-fn description(network: &contracts::Model, names: &Names) -> String {
+fn description(network: &network::Model, names: &Names) -> String {
     let mut text = String::from("Converted from a crn-craft.model/0.1 document.");
     if network.omega.to_bits() != 1.0f64.to_bits() {
         text.push_str(&format!(
@@ -296,7 +316,7 @@ fn description(network: &contracts::Model, names: &Names) -> String {
     text
 }
 
-fn convert(network: &contracts::Model) -> Model {
+fn convert(network: &network::Model) -> Model {
     let names = Names::new(network);
     let species = |name: &String| names.species[name].clone();
     let types = network
@@ -466,7 +486,8 @@ fn convert(network: &contracts::Model) -> Model {
 
 #[cfg(test)]
 mod tests {
-    //! The converted propensities against the network engine's rate laws.
+    //! The converted propensities against the network engine's rate laws
+    //! of release 0.6.0 ([`crate::rules::law_oracle`]).
     use super::from_network;
     use crate::rules::expr::Env;
     use crate::rules::{flat, model};
@@ -492,14 +513,11 @@ mod tests {
         })
     }
 
-    /// The network engine's propensity of reaction 0 and the converted
-    /// rules model's channel 0 at the same counts.
+    /// The 0.6.0 network propensity of reaction 0 and the converted rules
+    /// model's channel 0 at the same counts.
     fn both(model: &Value, counts: &[i64]) -> (Result<f64, String>, f64) {
         let bytes = serde_json::to_vec(model).unwrap();
-        let old = crate::CompiledNetwork::compile(&crate::parse_model(&bytes).unwrap())
-            .unwrap()
-            .propensity(0, counts)
-            .map_err(|d| d.message);
+        let old = crate::rules::law_oracle::propensity(model, counts);
         let converted = from_network(&bytes).unwrap();
         let rules: model::Model = serde_json::from_slice(&converted).unwrap();
         let compiled = model::compile(&rules).unwrap();

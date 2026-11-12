@@ -173,7 +173,14 @@ fn kinetics_agree_with_the_m0c_references() {
         let reference = &stored["model"];
         let bytes = std::fs::read(root.join(path)).unwrap();
         let mut problems = Vec::new();
-        if reference["model"] != path || reference["model_sha256"] != sha256(&bytes) {
+        // M8b moved the original network examples from models/examples to
+        // models/legacy; the stored references keep the old path.
+        let stored_path = reference["model"].as_str().unwrap_or_default().replacen(
+            "models/examples/",
+            "models/legacy/",
+            1,
+        );
+        if stored_path != path || reference["model_sha256"] != sha256(&bytes) {
             problems.push(json!({"reference": "model path or SHA-256 differs"}));
         }
         let expected = reference["accepted"].as_bool().unwrap();

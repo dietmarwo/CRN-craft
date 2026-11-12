@@ -461,9 +461,9 @@ def main():
             work = folder / "enzyme"
             work.mkdir()
             enzyme_network = (
-                ROOT / "models/examples/enzyme-mechanism.model.json"
+                ROOT / "models/legacy/enzyme-mechanism.model.json"
             ).read_bytes()
-            enzyme_frozen = load(ROOT / "models/examples/enzyme-mechanism.run.json")
+            enzyme_frozen = load(ROOT / "models/legacy/enzyme-mechanism.run.json")
             enzyme_bytes = convert_network(binary, enzyme_network, work)
             enzyme_model = work / "model.json"
             enzyme_model.write_bytes(enzyme_bytes)

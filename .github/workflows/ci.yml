@@ -79,6 +79,9 @@ jobs:
       - run: python validation/check_fsp.py --binary target/release/crn-craft --dsmts "$RUNNER_TEMP/dsmts" --output fsp.json
       - run: python -O validation/check_fsp.py --binary target/release/crn-craft --dsmts "$RUNNER_TEMP/dsmts" --output fsp-optimized.json
       - run: diff fsp.json fsp-optimized.json
+      - run: python validation/check_fsp_rules.py --binary target/release/crn-craft --dsmts "$RUNNER_TEMP/dsmts" --output fsp-rules.json
+      - run: python -O validation/check_fsp_rules.py --binary target/release/crn-craft --dsmts "$RUNNER_TEMP/dsmts" --output fsp-rules-optimized.json
+      - run: diff fsp-rules.json fsp-rules-optimized.json
       - run: python validation/check_tau.py --binary target/release/crn-craft --output tau.json
       - run: python -O validation/check_tau.py --binary target/release/crn-craft --output tau-optimized.json
       - run: diff tau.json tau-optimized.json

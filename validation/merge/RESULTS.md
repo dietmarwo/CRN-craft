@@ -626,3 +626,39 @@ analytic mean error < 1e-9 and variance error < 1e-7, and the upstream
 rounded DSMTS means < 5.1e-6 from the analytic law. `check_fsp.py` stays
 on the network `crn-craft fsp` command until the network engine is
 removed (M8). The report must be identical normally and under `python -O`.
+
+### M5a (finite state projection on the flat view): results
+
+Engine of the M5a commit, release build, this host, under the CPU lock.
+
+**Reference gate** (`validation/merge/check_fsp_references.py`, report
+`validation/merge/fsp/references.json`, identical under `python -O`):
+**0 failures** in 11,278 checks. The declaration counted 38 sink
+comparisons and N = 11,277; the seven references have 6 + 6 + 5 + 5 + 5 +
+6 + 6 = 39 report times, so the run made 39 sink comparisons and N =
+11,278. The checks themselves are as declared.
+
+| Model | States × report times | State set | Largest probability difference | Largest sink difference | λ, edges (new = reference) |
+| --- | --- | --- | ---: | ---: | --- |
+| W1 | 251 × 6 | equal | 0 | 0 | 350, 501 |
+| W4 | 1,001 × 6 | equal | 0 | 0 | 196.0588…, 2,001 |
+| enzyme-mechanism | 506 × 5 | equal | 1.4e-17 | 0 | 6, 1,365 |
+| immigration-death | 151 × 5 | equal | 0 | 0 | 34, 301 |
+| michaelis-menten | 51 × 5 | equal | 0 | 0 | 3.5714…, 50 |
+| third-order-decay | 14 × 6 | equal | 0 | 0 | 19.76, 13 |
+| trimolecular | 16 × 6 | equal | 0 | 0 | 17.4, 15 |
+
+Six of seven models reproduce the 0.6.0 probabilities bit for bit; in
+enzyme-mechanism the mass action over pairs (E + S) differs in the last
+bits (the M2 tolerance of 4 ε relative), largest raw-moment difference
+2.3e-13.
+
+**Migrated `check_fsp.py`** (`validation/check_fsp_rules.py` with the
+pinned DSMTS checkout `e79fd58`): 16 of 16 checks pass, normally and under
+`python -O` with identical reports. Largest distribution error against the
+independent matrix exponential 4.49e-14 (F4), the same as `check_fsp.py`
+on the network command; every row equals the old script's row except F3
+(Hill and Michaelis–Menten), 5.83e-16 against 6.11e-16. `check_fsp.py` on
+the network `crn-craft fsp` command of this build gives a report
+byte-identical to the 0.6.0 binary's (it includes the SHA-256 of every
+result), so the old command's output is unchanged.

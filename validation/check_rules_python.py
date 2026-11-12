@@ -831,6 +831,57 @@ def refused_with(action, expected, label):
     raise RuntimeError(f"{label}: accepted")
 
 
+def check_fsp():
+    """rules.fsp: the Poisson law of immigration-death and the refusals."""
+    m = rules.Model("immigration_death")
+    m.add_species({"X": 0})
+    m.add_reaction(10.0, [], ["X"])
+    m.add_reaction(1.0, ["X"], [])
+    result = rules.fsp(m, 2.0, [0.0, 2.0], {"X": 80})
+    require(
+        result["schema"] == "crn-craft.fsp-result/1.0" and result["species"] == ["X"],
+        "fsp result contract",
+    )
+    require(result["snapshots"][0]["probabilities"][0] == 1.0, "fsp initial state")
+    mean = 10.0 * -math.expm1(-2.0)
+    worst = max(
+        abs(p - math.exp(-mean) * mean ** s[0] / math.factorial(s[0]))
+        for s, p in zip(
+            result["states"], result["snapshots"][1]["probabilities"], strict=True
+        )
+    )
+    require(worst < 1e-12, f"fsp Poisson law, largest error {worst}")
+    first = result["snapshots"][1]["projected_first_moment"][0]
+    require(abs(first - mean) < 1e-9, "fsp mean")
+    refused_with(
+        lambda: rules.fsp(m, 2.0, [2.0], {"X": 80}, max_states=10),
+        ("CRN-E070", "/fsp"),
+        "fsp state cap",
+    )
+    refused_with(
+        lambda: rules.fsp(m, 2.0, [2.0], {}),
+        ("CRN-R020", "/method/bounds/X"),
+        "fsp missing bound",
+    )
+    refused_with(
+        lambda: rules.fsp(m, 2.0, [2.0], {"X": 80}, tolerance=1.0),
+        ("CRN-R020", "/method/tolerance"),
+        "fsp tolerance",
+    )
+    refused_with(
+        lambda: rules.ensemble(m, end=2.0, report_times=[2.0], method="fsp"),
+        ("CRN-R020", "/method"),
+        "ensemble with the fsp method",
+    )
+    for bounds in ([80], {"X": 1.5}):
+        try:
+            rules.fsp(m, 2.0, [2.0], bounds)
+        except TypeError:
+            pass
+        else:
+            raise RuntimeError(f"fsp bounds {bounds!r} accepted")
+
+
 def check_quantiles(model):
     """quantiles= on ensemble and prepare: engine quantiles equal
     numpy.quantile of the kept paths; the documents are the 1.0 contracts,
@@ -1829,6 +1880,7 @@ def main():
         else:
             raise RuntimeError(f"keep_paths {bad!r} accepted")
     check_result_documents(model)
+    check_fsp()
     check_quantiles(model)
     check_reports(model)
     args.output.write_text(
@@ -1859,6 +1911,7 @@ def main():
                     "tracker index bounds",
                     "trackers without a method",
                     "result model and request of every path",
+                    "rules.fsp law and refusals",
                     "quantiles equal numpy.quantile of the paths",
                     "markdown and JSON reports",
                 ],

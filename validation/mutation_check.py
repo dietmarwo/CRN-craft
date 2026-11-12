@@ -287,8 +287,8 @@ MUTATIONS.extend(
         (
             "fsp_reflects_sink",
             "crates/crn-craft/src/fsp.rs",
-            "let target = if escaped {\n                    usize::MAX",
-            "let target = if escaped {\n                    i",
+            "let target = if escaped {\n                usize::MAX",
+            "let target = if escaped {\n                i",
         ),
         (
             "fsp_wrong_sparse_orientation",

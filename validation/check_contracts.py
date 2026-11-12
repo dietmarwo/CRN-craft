@@ -67,6 +67,7 @@ def main():
         "check-1.0",
         "run-1.0",
         "result-1.0",
+        "fsp-result-1.0",
     ):
         code, schema = invoke("describe", kind)
         Draft7Validator.check_schema(schema)
@@ -307,6 +308,45 @@ def main():
                 )
                 and shape,
             )
+
+        # crn-craft.run/1.0 with method fsp: crn-craft.fsp-result/1.0 from
+        # `rules`, and a missing bound refused at its label.
+        fsp = {
+            "schema": "crn-craft.run/1.0",
+            "model": {
+                "path": propensity.name,
+                "sha256": hashlib.sha256(propensity.read_bytes()).hexdigest(),
+            },
+            "time": {"end": 5.0, "report_times": [0.0, 5.0]},
+            "method": {
+                "kind": "fsp",
+                "bounds": {"A": 40},
+                "max_states": 100,
+                "tolerance": 1e-12,
+            },
+            "budget": {"max_output_bytes": 1048576},
+        }
+        validators["run-1.0"].validate(fsp)
+        path = temp / "fsp.run.json"
+        path.write_text(json.dumps(fsp))
+        code, report = invoke("rules", propensity, path)
+        validators["fsp-result-1.0"].validate(report)
+        record(
+            "run_1_0_fsp",
+            code == 0
+            and report["schema"] == "crn-craft.fsp-result/1.0"
+            and report["species"] == ["A"]
+            and len(report["snapshots"]) == 2,
+        )
+        fsp["method"]["bounds"] = {}
+        path.write_text(json.dumps(fsp))
+        code, report = invoke("rules", propensity, path)
+        record(
+            "run_1_0_fsp_missing_bound",
+            code == 1
+            and report["diagnostics"][0]["code"] == "CRN-R020"
+            and report["diagnostics"][0]["path"] == "/method/bounds/A",
+        )
 
     invalid = ROOT / "models/invalid"
     for row in json.loads((invalid / "expected.json").read_text()):

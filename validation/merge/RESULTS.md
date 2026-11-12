@@ -756,3 +756,52 @@ falling-factorial law (smallest largest distance 0.369).
 | `sorting` | ziggurat | 21 | 0 | 0.00408 |
 | `rssa_cr` | inverse | 21 | 0 | 0.00499 |
 | `rssa_cr` | ziggurat | 21 | 0 | 0.00403 |
+
+**3. Law gate per selector** (2026-11-11/12, wheel `_native` SHA-256
+`1cad0420…` built at `f1b7dac`, Python backend, 2 threads, gate seeds,
+under the CPU lock; reports `validation/merge/laws/m4c-<selector>.json`).
+The runs were split into pieces of under ten minutes with `check_laws.py
+--state` (stored chunks), because of server restarts; a report is written
+when every chunk of every model is stored, so per-model wall times are not
+recorded. Failures (comparisons) and the largest |z| per model:
+
+| Model | `linear` | `composition_rejection` | `sorting` | `rssa_cr` |
+| --- | --- | --- | --- | --- |
+| W1 | 0 (24), 2.45 | 0 (24), 1.86 | 0 (24), 1.21 | 0 (24), 1.80 |
+| W2 | 0 (396), 3.39 | 0 (396), 3.21 | 0 (396), 3.30 | 0 (396), 2.98 |
+| W3 | 0 (72), 1.88 | 0 (72), 1.90 | 0 (72), 2.90 | 0 (72), 1.78 |
+| W4 | 0 (192), 1.94 | 0 (192), 1.48 | 0 (192), 1.15 | 0 (192), 2.10 |
+| W5 | 0 (2560), 3.88 | 0 (2560), 3.83 | 0 (2560), 3.51 | 0 (2560), 3.94 |
+| W6 | 0 (320), 3.33 | 0 (320), 2.89 | 0 (320), 3.35 | 0 (320), 2.71 |
+| W7 | 0 (960), 2.91 | 0 (960), 3.49 | 0 (960), 2.78 | 0 (960), 3.26 |
+| enzyme-mechanism | 0 (80), 2.16 | 0 (80), 2.39 | 0 (80), 2.25 | 0 (80), 2.99 |
+| immigration-death | 0 (20), 1.81 | 0 (20), 2.61 | 0 (20), 1.30 | 0 (20), 2.39 |
+| michaelis-menten | 0 (40), 2.20 | 0 (40), 1.99 | 0 (40), 2.20 | 0 (40), 1.59 |
+| repressilator | 0 (60), 1.88 | 0 (60), 1.90 | 0 (60), 2.90 | 0 (60), 1.78 |
+| vilar-noise | 0 (90), 2.94 | 0 (90), 2.26 | 0 (90), 1.98 | failed in chunk 1, see below |
+| **Total** | **0** (4814), 3.88 | **0** (4814), 3.83 | **0** (4814), 3.51 | **0** (4724), 3.94 |
+
+- `linear`, `composition_rejection`, `sorting`: **gate passed**, 0 failures
+  among N = 4,814 comparisons each (940 at t = 0).
+- `linear`: the power sums, chunk event counts and samplers of all twelve
+  models equal those of `laws/m4-static_direct.json` (the M4b regression
+  run), as declared.
+- `rssa_cr`: **gate failed for vilar-noise**; the other eleven models pass
+  (0 failures among 4,724 comparisons). Chunk 1 (root seed 2,000,001) of
+  vilar-noise did not complete: replicate 6298 stopped at t = 7.1624 with
+  `CRN-R030` "clock failed to advance" (`/time`), so `check_laws.py`
+  stopped (statistics withheld). Investigated once
+  (`laws/m4c-rssa_cr-vilar-noise-failure.json`): the RSSA-CR upper total
+  was 9,729.05 (exact total 3,353.06), and the Ziggurat wait unit / 9,729
+  was below half an ulp of t (4.4e-16), so t + wait rounded to t. The
+  linear scan has the same strict check, but RSSA-CR draws a wait for
+  every trial, accepted or rejected, against a larger total, so a
+  sub-ulp wait is more frequent (vilar-noise is the example where 0.6.0's
+  RSSA-CR needed about 5.7 trials per event). The 0.6.0 network engine
+  behaves the same way: its RSSA-CR trial loop calls
+  `sampling::event_time(time, wait)?` before the composition draw and the
+  acceptance test, and fails the replicate (`CRN-E062`) when the clock does
+  not advance, also for a trial that would be rejected. Decision: keep the
+  0.6.0 semantics (no engine change); the failed row is kept; the
+  remaining 18 chunks were not run, and the factor and seeds are
+  unchanged.

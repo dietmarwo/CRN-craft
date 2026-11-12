@@ -166,8 +166,9 @@ threads and returns pandas DataFrames.
 
 Most examples pass `method="mtdna_direct"`, an opt-in fast path for the
 three-class structure of this model (section 8). `method="static_direct"`
-runs the same model, and any other closed model, about 3.3× slower; the
-numbers then differ cell by cell but not in distribution.
+runs the same model, and any other closed model, about 2.8× slower on this
+example (measured on 12 November 2026); the numbers then differ cell by
+cell but not in distribution.
 
 ```python
 """Three-class model: 200 cells for three years with the takeover stop."""
@@ -797,7 +798,7 @@ Two methods serve one model structure each:
 
 | `method` | Kind | Use it for |
 | --- | --- | --- |
-| `"mtdna_direct"` | exact | an opt-in fast path for the three-class fixed-population structure, about 3.3× faster than Static Direct; other models fall back to Static Direct with inverse waits (below) |
+| `"mtdna_direct"` | exact | an opt-in fast path for the three-class fixed-population structure, about 2.8× faster than Static Direct; other models fall back to Static Direct with inverse waits (below) |
 | `"thinning"` | exact | stored models with the legacy ATP block (section 10), and only those |
 
 The same 64 cells under each method that runs the three-class model:
@@ -1032,11 +1033,13 @@ event logs and callbacks work as under Static Direct, and count trackers
 integrate sparsely (section 6).
 
 What it gains: it computes the eight hazards from three counts with one
-division and reads its stop from the counts. On the three-class model
-that is about 3.3× less time per event than Static Direct with its
-default Ziggurat waits and sparse trackers, and 3.9× less than Static
-Direct with inverse waits
-([performance analysis](mtdna-performance-analysis.md#2-methods)).
+division and reads its stop from the counts. On the example of section 3
+that is about 2.8× less time per event than Static Direct with its
+default Ziggurat waits and sparse trackers, and 3.1× less than Static
+Direct with inverse waits and per-event trackers (medians of three runs on
+the two-CPU host, 12 November 2026, `validation/merge/manual-ratios/`; the
+[performance analysis](mtdna-performance-analysis.md#2-methods) has older
+measurements).
 
 The structure need not be called mtDNA. Below, three strains share `room`
 places, and the resident strain gives rise to two variants. Every name
@@ -2319,8 +2322,9 @@ println!("{} cells stopped", result.stopped_replicates);
   Parameters are compiled in, so another parameter set needs another loop.
   Compile it into your program and run it with `execute_with_rules_loop`,
   which runs only a loop generated for the same model bytes. Results are
-  byte-identical to `execute`, and on the three-class model it is about
-  2.4× faster than interpreted Static Direct. On networks with many
+  byte-identical to `execute`, and on the example of section 3 it is about
+  2.1× faster than interpreted Static Direct (timed from Python with
+  `compile_loop`, 12 November 2026). On networks with many
   constant-rate channels it can be slower, so measure first
   ([details](specialized-kernels.md#generated-rules-event-loops)). From
   Python, `crn.compile_loop` builds such a loop into a separate program

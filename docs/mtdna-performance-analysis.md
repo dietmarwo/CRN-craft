@@ -88,7 +88,12 @@ precomputed count factors, with byte-identical results. `mtdna_direct` and
 `tree` are essentially unchanged. Per cell, one thread, Static Direct took
 23.7 ms and `mtdna_direct` 10.3 ms on 0.7.0 (9.49 s for 400 cells against
 10.27 s for 1000), about 2.3 times as long; the 0.2.0 measurements below,
-on another workload, give 3.3. For the three-class model `crn.ensemble`'s default
+on another workload, give 3.3. On the user manual's section 3 example (200
+cells, two threads), Static Direct took 2.8 times as long as `mtdna_direct`
+(3.1 with inverse waits and per-event trackers), and the compiled loop 0.47
+times as long as interpreted Static Direct (`validation/merge/manual-ratios/`,
+12 November 2026). Where the sections below multiply by 3.3 or 3.9 for
+Static Direct, 0.7.0 needs about 2.8 or 3.1. For the three-class model `crn.ensemble`'s default
 selector `auto` picks the linear scan, because its replication rates read
 several species; the other selectors are for large networks
 ([exact methods](direct-ssa.md#selectors)).

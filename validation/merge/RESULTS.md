@@ -1820,3 +1820,32 @@ Static Direct's linear scan faster (M4f). This measurement replaces them.
 - **Target:** none; the ratios are descriptive. The manual's prose takes
   the measured ratios, rounded to one decimal place, with the date of the
   measurement, whatever they are.
+
+### Review (speed ratios quoted in the mtDNA user manual): results
+
+2026-11-12, this host, after the declaration above (`a203b68`), with the
+wheel and release CLI built from `1d86b12` (the engine sources of the
+declaration commit), `CRN_CRAFT_SOURCE` at the checkout, the whole run under
+the CPU lock (`validation/merge/manual-ratios/timings.json`). The loop came
+from the cache (0.06 s; the manual checks had built it).
+
+**Checks: all passed.** Every run of A reported
+`chacha8-u53-ziggurat/rules-mtdna-direct/1`; B and C had 28,847,586 events
+and equal means in every run, and `loop.verify` passed; every run completed.
+A had 28,536,814 events, as the manual's section 3 prints.
+
+| Arm | Runs (s, rounds 1–3) | Median s | Events | Wall ns per event |
+|---|---|---:|---:|---:|
+| A `mtdna_direct` | 0.391, 0.365, 0.376 | 0.376 | 28,536,814 | 13.2 |
+| B `static_direct`, defaults | 1.069, 1.056, 1.142 | 1.069 | 28,847,586 | 37.1 |
+| C B with the compiled loop | 0.499, 0.498, 0.536 | 0.499 | 28,847,586 | 17.3 |
+| D `static_direct`, inverse waits, per-event trackers | 1.178, 1.371, 1.180 | 1.180 | 28,666,750 | 41.2 |
+
+| Ratio | Wall time | Per event | Manual before |
+|---|---:|---:|---:|
+| B / A | 2.84 | 2.81 | 3.3 |
+| D / A | 3.13 | 3.12 | 3.9 |
+| B / C | 2.14 | | 2.4 |
+
+The manual's sections 3, 8 and 16 now give 2.8, 3.1 and 2.1 with this
+date; the optimization tutorial and the performance analysis cite them.

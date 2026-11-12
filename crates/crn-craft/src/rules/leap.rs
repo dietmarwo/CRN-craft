@@ -259,8 +259,9 @@ impl LeapWorkspace {
             self.begin(counts);
             for i in 0..self.rates.len() {
                 if self.critical[i] == 0.0 {
-                    let k =
-                        crate::tau::poisson_with(self.rates[i] * (end - time), || words.open())?;
+                    let k = crate::sampling::poisson_with(self.rates[i] * (end - time), || {
+                        words.open()
+                    })?;
                     self.fire(net, i, k);
                 }
             }

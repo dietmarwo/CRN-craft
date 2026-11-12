@@ -57,7 +57,9 @@ pub const NO_FLAT_VIEW: &str = "CRN-R017";
 /// order, and within a type in the order the lowering finds the tuples (the
 /// initial entries first, then the tuples products create, by rule). Only
 /// tuples that can hold molecules are species: a type that has no initial
-/// instance and that no rule produces has none. Channels keep the order of
+/// instance and that no rule produces has none, except in a view built with
+/// [`FlatView::with_every_type`], where every type without attributes has
+/// its species. Channels keep the order of
 /// the lowering: by rule, then by choice of reactant tuples. All species
 /// indices this view takes or returns are view indices; all channel indices
 /// are channel numbers of the lowered network.
@@ -161,7 +163,43 @@ impl FlatView {
     /// propensity over a type with several tuples, the static tuple and
     /// channel limits).
     pub fn new(model: &Model) -> Result<Self, Vec<Diagnostic>> {
-        let compiled = model::compile(model)?;
+        Self::lower(model, false)
+    }
+
+    /// Like [`Self::new`], but every type without attributes is a species,
+    /// also one that never holds molecules (its count stays 0), and each
+    /// rule over such types has its channels. A converted network model
+    /// keeps every species and reaction of the network this way: network
+    /// analysis and the GillesPy2 export use this view, finite state
+    /// projection uses [`Self::new`].
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::new`].
+    pub fn with_every_type(model: &Model) -> Result<Self, Vec<Diagnostic>> {
+        Self::lower(model, true)
+    }
+
+    /// Builds the view of [`Self::with_every_type`] from the bytes of any
+    /// model the engine reads: a network `crn-craft.model/0.1` (converted
+    /// first with [`super::convert::from_network`]), a rules model or a
+    /// `crn-craft.model/1.0`.
+    ///
+    /// # Errors
+    ///
+    /// The converter's diagnostics for a network model (its validation
+    /// errors, or `CRN-R016`), `CRN-E001` to `CRN-E004` for a document that
+    /// does not parse, and the errors of [`Self::new`].
+    pub fn of_any_model(model_bytes: &[u8]) -> Result<Self, Vec<Diagnostic>> {
+        if crate::schema_field(model_bytes).as_deref() == Some("crn-craft.model/0.1") {
+            let converted = super::convert::from_network(model_bytes)?;
+            return Self::with_every_type(&parse(&converted).map_err(|d| vec![d])?);
+        }
+        Self::with_every_type(&parse(model_bytes).map_err(|d| vec![d])?)
+    }
+
+    fn lower(model: &Model, every_type: bool) -> Result<Self, Vec<Diagnostic>> {
+        let mut compiled = model::compile(model)?;
         let hint = "FSP, analysis, ODE and export need a closed model of counts; simulate this model with its own method instead.";
         if compiled.atp.is_some() {
             return Err(vec![refusal(
@@ -176,6 +214,15 @@ impl FlatView {
                 "a model with continuous variables has no flat view",
                 hint,
             )]);
+        }
+        if every_type {
+            // A zero-count initial entry makes the lowering list the type's
+            // one tuple even when no rule produces it.
+            for (ty, info) in compiled.types.iter().enumerate() {
+                if info.attributes.is_empty() && !compiled.initial.iter().any(|e| e.0 == ty) {
+                    compiled.initial.push((ty, Vec::new(), 0));
+                }
+            }
         }
         let net = Network::compile(&compiled).map_err(|e| {
             vec![refusal(

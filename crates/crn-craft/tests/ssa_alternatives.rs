@@ -417,7 +417,7 @@ fn next_reaction_replays_across_threads() {
 #[test]
 fn discovery_lists_the_0_4_default() {
     let d = crn_craft::describe();
-    assert_eq!(d["schema"], "crn-craft.describe/0.10");
+    assert_eq!(d["schema"], "crn-craft.describe/0.11");
     assert_eq!(
         d["alternative_exact_ssa"]["fast"]["default_by_request"]["crn-craft.ssa-run/0.4"],
         json!(true)

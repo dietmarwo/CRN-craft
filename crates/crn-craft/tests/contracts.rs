@@ -620,7 +620,6 @@ fn description_distinguishes_exact_implemented_and_experimental_methods() {
             "describe",
             "check",
             "analyze",
-            "analyze-v1",
             "export",
             "simulate",
             "verify",

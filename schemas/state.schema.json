@@ -10,14 +10,14 @@
       "type": "string"
     }
   },
-  "description": "A complete state given by species name, the optional input of `analyze`.",
+  "description": "A complete state given by species label, the optional input of `analyze`.",
   "properties": {
     "counts": {
       "additionalProperties": {
         "format": "int64",
         "type": "integer"
       },
-      "description": "Count of every declared species, by name, with no missing or extra names. Counts are non-negative and within each population limit (`CRN-E041`).",
+      "description": "Count of every species, by label, with no missing or extra labels. Counts are non-negative and at most 2^53 (`CRN-E041`).",
       "type": "object"
     },
     "schema": {

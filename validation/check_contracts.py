@@ -51,8 +51,7 @@ def main():
         "archive-check",
         "check",
         "state",
-        "analysis",
-        "analysis-v1",
+        "analysis-1.0",
         "export",
         "fsp-result",
         "tau-request",
@@ -86,7 +85,6 @@ def main():
             "describe",
             "check",
             "analyze",
-            "analyze-v1",
             "export",
             "simulate",
             "verify",
@@ -99,7 +97,7 @@ def main():
             "convert",
         ]
         and capabilities["dynamic_species"]["model"] == "crn-craft.rules-model/0.1"
-        and capabilities["schema"] == "crn-craft.describe/0.14"
+        and capabilities["schema"] == "crn-craft.describe/0.15"
         and capabilities["dynamic_species"]["accepted_requests"][-1]
         == "crn-craft.rules-run/0.6",
     )
@@ -111,18 +109,18 @@ def main():
         validators["check"].validate(report)
         record(f"model_{path.name}", code == 0 and report["valid"])
         code, analysis = invoke("analyze", path)
-        validators["analysis"].validate(analysis)
+        validators["analysis-1.0"].validate(analysis)
         record(
             f"analysis_{path.name}",
             code == 0 and analysis["success"] and not analysis["simulation_available"],
         )
+        # analysis/1.0 replaces analysis/0.2 and the legacy analysis/0.1 (M5b).
         code, legacy = invoke("analyze-v1", path)
-        validators["analysis-v1"].validate(legacy)
         record(
-            f"legacy_analysis_{path.name}",
-            code == 0
-            and legacy["success"]
-            and legacy["schema"] == "crn-craft.analysis/0.1",
+            f"legacy_analysis_removed_{path.name}",
+            code == 1
+            and legacy["diagnostics"][0]["code"] == "CRN-E031"
+            and analysis["schema"] == "crn-craft.analysis/1.0",
         )
         code, exported = invoke("export", path, "gillespy2")
         validators["export"].validate(exported)
@@ -167,6 +165,27 @@ def main():
             code == 0
             and report["valid"]
             and report["model_sha256"] == hashlib.sha256(path.read_bytes()).hexdigest(),
+        )
+        # Analysis reads rules models. Models with ATP, continuous variables,
+        # random product attributes or products that create attribute tuples
+        # during a run have no flat view (CRN-R017).
+        code, analysis = invoke("analyze", path)
+        validators["analysis-1.0"].validate(analysis)
+        closed = path.name in (
+            "immigration-death.rules.json",
+            "immigration-dimerization.rules.json",
+            "mtdna-three-class-cme.rules.json",
+            "mtdna-three-class.rules.json",
+        )
+        record(
+            f"rules_analysis_{path.name}",
+            (code == 0 and analysis["success"])
+            if closed
+            else (
+                code == 1
+                and analysis["analysis"] is None
+                and analysis["diagnostics"][0]["code"] == "CRN-R017"
+            ),
         )
 
     # rules-model/0.3 through the CLI: a hybrid run of the continuous ATP

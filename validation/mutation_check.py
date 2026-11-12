@@ -94,8 +94,8 @@ MUTATIONS = [
     (
         "analysis_drops_fallback_bounds",
         "crates/crn-craft/src/analysis.rs",
-        "\n            conservation.initial_class_upper_bounds.clone()",
-        "\n            vec![None; network.species().len()]",
+        "\n        conservation.initial_class_upper_bounds.clone()",
+        "\n        vec![None; view.species().len()]",
     ),
     (
         "cone_rays_not_primitive",

@@ -30,8 +30,9 @@ fn cli_description_and_example_check() {
     // so the native discovery moved from 0.11 to 0.12; it gained
     // `static_direct_defaults_request` and `accepted_requests` with
     // rules-run/0.6, so it moved to 0.13. The `convert` command and the
-    // rules entry's `convert` key moved it to 0.14.
-    assert_eq!(value["schema"], "crn-craft.describe/0.14");
+    // rules entry's `convert` key moved it to 0.14; the analysis/1.0 report
+    // and the removal of `analyze-v1` (M5b) moved it to 0.15.
+    assert_eq!(value["schema"], "crn-craft.describe/0.15");
     assert_eq!(
         value["commands"].as_array().unwrap().last().unwrap(),
         "convert"
@@ -124,7 +125,7 @@ fn analyze_supports_named_state_and_reports_real_capabilities() {
     let model = temp.0.join("immigration-death.model.json");
     let (code, report) = invoke(&["analyze", model.to_str().unwrap(), state.to_str().unwrap()]);
     assert_eq!(code, 0);
-    assert_eq!(report["schema"], "crn-craft.analysis/0.2");
+    assert_eq!(report["schema"], "crn-craft.analysis/1.0");
     assert_eq!(report["success"], true);
     assert_eq!(report["simulation_available"], false);
     assert_eq!(
@@ -259,24 +260,53 @@ fn symlink_outside_run_directory_rejected_even_when_hash_matches() {
 }
 
 #[test]
-fn legacy_analysis_retains_version_and_common_payload() {
-    let path = "models/examples/enzyme-mechanism.model.json";
-    let (code, mut current) = invoke(&["analyze", path]);
+fn analyze_reads_network_rules_and_1_0_models_and_analyze_v1_is_gone() {
+    let temp = Temp::new();
+    let network = "models/examples/enzyme-mechanism.model.json";
+    let (code, report) = invoke(&["analyze", network]);
+    assert_eq!(code, 0, "{report}");
+    assert_eq!(report["schema"], "crn-craft.analysis/1.0");
+    let expected = crn_craft::analyze_bytes(&std::fs::read(root().join(network)).unwrap(), None);
+    assert_eq!(report, serde_json::to_value(expected).unwrap());
+    // The converted model gives the same analysis.
+    let converted =
+        crn_craft::rules::convert::from_network(&std::fs::read(root().join(network)).unwrap())
+            .unwrap();
+    std::fs::write(temp.0.join("model.json"), &converted).unwrap();
+    let path = temp.0.join("model.json");
+    let (code, other) = invoke(&["analyze", path.to_str().unwrap()]);
+    assert_eq!(code, 0, "{other}");
+    assert_eq!(other["analysis"], report["analysis"]);
+    assert_eq!(other["model_sha256"], crn_craft::sha256(&converted));
+    // A rules model of an older version.
+    let (code, rules) = invoke(&["analyze", "models/rules/immigration-death.rules.json"]);
+    assert_eq!(code, 0, "{rules}");
+    assert_eq!(rules["schema"], "crn-craft.analysis/1.0");
+    // The legacy command is gone; its schema is no longer described.
+    let (code, report) = invoke(&["analyze-v1", network]);
+    assert_eq!(code, 1);
+    assert_eq!(report["diagnostics"][0]["code"], "CRN-E031");
+    let (code, _) = invoke(&["describe", "analysis-v1"]);
+    assert_eq!(code, 1);
+    let (code, schema) = invoke(&["describe", "analysis-1.0"]);
     assert_eq!(code, 0);
-    let (code, legacy) = invoke(&["analyze-v1", path]);
-    assert_eq!(code, 0);
-    assert_eq!(current["schema"], "crn-craft.analysis/0.2");
-    assert_eq!(legacy["schema"], "crn-craft.analysis/0.1");
-    let data = current["analysis"].as_object_mut().unwrap();
-    for key in [
-        "nonnegative_conservation",
-        "linkage",
-        "initial_class_upper_bounds",
-    ] {
-        assert!(data.remove(key).is_some());
-    }
-    assert_eq!(current["analysis"], legacy["analysis"]);
-    assert_eq!(current["model_sha256"], legacy["model_sha256"]);
+    let snapshot: Value = serde_json::from_slice(
+        &std::fs::read(root().join("schemas/analysis-1.0.schema.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(schema, snapshot);
+    let (_, description) = invoke(&["describe"]);
+    assert!(
+        !description["commands"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c == "analyze-v1")
+    );
+    assert_eq!(
+        description["dynamic_species"]["contracts_1_0"]["analysis"]["result"],
+        "crn-craft.analysis/1.0"
+    );
 }
 
 #[test]
@@ -480,7 +510,6 @@ fn network_commands_refuse_1_0_documents_and_rules_commands_run_them() {
     for args in [
         vec!["check", model],
         vec!["check", model, run],
-        vec!["analyze", model],
         vec!["export", model, "gillespy2"],
         vec!["simulate", model, run, out],
         vec!["fsp", model, run],

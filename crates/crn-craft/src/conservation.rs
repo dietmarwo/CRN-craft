@@ -1,14 +1,16 @@
 //! Small-network exact left-nullspace analysis. No floating-point rank decisions.
 //!
 //! [`analyze_conservation`] computes a basis of the linear conservation laws
-//! lᵀN = 0 of the species-by-reaction stoichiometric matrix N with checked
+//! lᵀN = 0 of the species-by-channel stoichiometric matrix N of a
+//! [`FlatView`] (for a converted network model, its species-by-reaction
+//! matrix) with checked
 //! `i128` integer elimination, and the per-species upper bounds that its
 //! non-negative rows imply for the initial conservation class. The basis is
 //! not the non-negative cone; see [`crate::cone`] for that. Networks above
 //! [`MAX_CONSERVATION_SPECIES`] or [`MAX_CONSERVATION_REACTIONS`] and
 //! overflowing arithmetic give an explicit status and a warning, never a
 //! partial basis.
-use crate::{diagnostic::Diagnostic, network::CompiledNetwork};
+use crate::{diagnostic::Diagnostic, rules::FlatView};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -248,23 +250,24 @@ fn expose_nonnegative_laws(basis: &mut [Vec<i128>]) -> Result<(), ()> {
     Ok(())
 }
 
-/// Computes the [`ConservationReport`] of a compiled network. Never fails:
-/// limits and overflow are reported in the status and diagnostics.
-pub fn analyze_conservation(network: &CompiledNetwork) -> ConservationReport {
-    if network.species().len() > MAX_CONSERVATION_SPECIES
-        || network.reactions().len() > MAX_CONSERVATION_REACTIONS
+/// Computes the [`ConservationReport`] of a flat view; its channels are the
+/// reactions. Never fails: limits and overflow are reported in the status
+/// and diagnostics.
+pub fn analyze_conservation(view: &FlatView) -> ConservationReport {
+    if view.species().len() > MAX_CONSERVATION_SPECIES
+        || view.channels() > MAX_CONSERVATION_REACTIONS
     {
         return unavailable(
-            network,
+            view,
             ConservationStatus::SizeLimit,
             "CRN-W010",
             "exact conservation analysis exceeds its 64-species/256-reaction cap",
         );
     }
-    match exact_report(network) {
+    match exact_report(view) {
         Ok(report) => report,
         Err(()) => unavailable(
-            network,
+            view,
             ConservationStatus::ArithmeticOverflow,
             "CRN-W011",
             "checked i128 conservation arithmetic overflowed; no partial basis is reported",
@@ -273,7 +276,7 @@ pub fn analyze_conservation(network: &CompiledNetwork) -> ConservationReport {
 }
 
 fn unavailable(
-    network: &CompiledNetwork,
+    view: &FlatView,
     status: ConservationStatus,
     code: &str,
     message: &str,
@@ -282,7 +285,7 @@ fn unavailable(
         status,
         rank: None,
         basis: Vec::new(),
-        initial_class_upper_bounds: vec![None; network.species().len()],
+        initial_class_upper_bounds: vec![None; view.species().len()],
         diagnostics: vec![Diagnostic::warning(
             code,
             "/conservation",
@@ -292,16 +295,14 @@ fn unavailable(
     }
 }
 
-fn exact_report(network: &CompiledNetwork) -> Result<ConservationReport, ()> {
-    let n = network.species().len();
+fn exact_report(view: &FlatView) -> Result<ConservationReport, ()> {
+    let n = view.species().len();
     // Rows of N^T, so its nullspace is the species conservation space.
-    let rows: Vec<Vec<i128>> = network
-        .reactions()
-        .iter()
-        .map(|reaction| {
+    let rows: Vec<Vec<i128>> = (0..view.channels())
+        .map(|channel| {
             let mut row = vec![0; n];
-            for term in &reaction.net_changes {
-                row[term.species] = i128::from(term.coefficient);
+            for &(species, change) in view.changes(channel) {
+                row[species] = i128::from(change);
             }
             row
         })
@@ -311,15 +312,11 @@ fn exact_report(network: &CompiledNetwork) -> Result<ConservationReport, ()> {
     let mut bounds = vec![None::<i128>; n];
     for vector in basis {
         // Verify every returned law against the original sparse columns.
-        for reaction in network.reactions() {
+        for channel in 0..view.channels() {
             let mut residual = 0_i128;
-            for term in &reaction.net_changes {
+            for &(species, change) in view.changes(channel) {
                 residual = residual
-                    .checked_add(
-                        vector[term.species]
-                            .checked_mul(i128::from(term.coefficient))
-                            .ok_or(())?,
-                    )
+                    .checked_add(vector[species].checked_mul(i128::from(change)).ok_or(())?)
                     .ok_or(())?;
             }
             if residual != 0 {
@@ -327,7 +324,7 @@ fn exact_report(network: &CompiledNetwork) -> Result<ConservationReport, ()> {
             }
         }
         let mut total = 0_i128;
-        for (&weight, &count) in vector.iter().zip(network.initial_counts()) {
+        for (&weight, &count) in vector.iter().zip(view.initial()) {
             total = total
                 .checked_add(weight.checked_mul(i128::from(count)).ok_or(())?)
                 .ok_or(())?;

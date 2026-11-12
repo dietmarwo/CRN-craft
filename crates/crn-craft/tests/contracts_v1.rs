@@ -224,12 +224,9 @@ fn network_entry_points_refuse_1_0_and_rules_documents() {
         assert!(!report.valid);
         assert!(has_e032(&report.diagnostics), "{:?}", report.diagnostics);
         assert!(has_e032(&[crn_craft::parse_model(&model).unwrap_err()]));
+        // Analysis reads every model version since M5b.
         let analysis = crn_craft::analyze_bytes(&model, None);
-        assert!(
-            has_e032(&analysis.diagnostics),
-            "{:?}",
-            analysis.diagnostics
-        );
+        assert!(analysis.success, "{:?}", analysis.diagnostics);
         let export = crn_craft::export::export_gillespy2(&model);
         assert!(has_e032(&export.diagnostics), "{:?}", export.diagnostics);
         // A request bound to the 1.0 model still fails on the model.

@@ -2565,7 +2565,7 @@ pub fn check_model_file(model_path: &Path) -> RulesCheck {
     }
 }
 
-/// Discovery entry for the native CLI's `describe` (`describe/0.14`).
+/// Discovery entry for the native CLI's `describe` (`describe/0.15`).
 ///
 /// The native CLI embeds it as `dynamic_species`; Python's
 /// `crn_craft.rules.describe()` returns it. It names the status, the
@@ -2615,6 +2615,7 @@ pub fn describe() -> Value {
             "model": "crn-craft.model/1.0", "request": "crn-craft.run/1.0",
             "result": "crn-craft.result/1.0", "check": "crn-craft.check/1.0",
             "fsp": {"method": "fsp", "result": "crn-craft.fsp-result/1.0", "schema": "fsp-result-1.0", "python": "crn_craft.rules.fsp"},
+            "analysis": {"command": "analyze", "result": "crn-craft.analysis/1.0", "schema": "analysis-1.0", "python": "crn_craft.analyze"},
             "means": {
                 "model": "crn-craft.rules-model/0.4", "request": "crn-craft.rules-run/0.6",
                 "result": "crn-craft.rules-result/0.3", "check": "crn-craft.rules-check/0.1"

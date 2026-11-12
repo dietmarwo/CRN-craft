@@ -28,8 +28,8 @@
 //!   before adopting them.
 //! - [`kinetics`] serves the optional deterministic (ODE) integration, whose
 //!   solutions are not exact means of nonlinear stochastic models.
-//! - [`analysis_v1`] and the reserved [`contracts::RunResult`] envelope are
-//!   legacy contracts kept unchanged for existing consumers.
+//! - The reserved [`contracts::RunResult`] envelope is a legacy contract
+//!   kept unchanged for existing consumers.
 //!
 //! A successful numerical run is not biological validation. Dynamic,
 //! attributed species are the separate, experimental
@@ -80,7 +80,7 @@
 //! | Task | API | Contracts (`crn-craft.` prefix omitted) |
 //! |---|---|---|
 //! | Read and validate inputs | [`parse_model`], [`parse_run`], [`check_bytes`], [`check_files`] | `model/0.1`, `run/0.1` → `check/0.1` |
-//! | Analyze structure and conservation | [`analyze_bytes`], [`analyze_files`], [`CompiledNetwork`] | `state/0.1` → `analysis/0.2` |
+//! | Analyze structure and conservation | [`analyze_bytes`], [`analyze_files`], [`rules::FlatView`] | `model/0.1`, rules models, `model/1.0`, `state/0.1` → `analysis/1.0` |
 //! | Direct SSA with sealed archives | [`archive::simulate_files`], [`archive::verify_archive`], [`simulation::simulate_bytes`] | `run/0.1` → `result/0.2`, `archive/0.1`, `archive-check/0.1` |
 //! | Alternative exact SSA | [`ssa::prepare`], [`ssa::execute`], [`ssa::solve`], [`ssa::solve_files`] | `ssa-run/0.1`–`0.4` → `ssa-result/0.1`–`0.4` |
 //! | Finite state projection | [`fsp::solve`] | `run/0.1` with `fsp` → `fsp-result/0.1` |
@@ -89,7 +89,7 @@
 //! | Parameter sweeps and optimization | [`parameters::ParameterTemplate`], [`codegen::mass_action_source`], [`ssa::execute_with_kernel`] | `ssa-run` |
 //! | Reference export | [`export::export_gillespy2`], [`export_gillespy2_file`] | `export/0.1` |
 //! | Deterministic kinetics and Jacobians | [`kinetics::Kinetics`] | — |
-//! | Discovery | [`describe`], [`schema`] | `describe/0.10` |
+//! | Discovery | [`describe`], [`schema`] | `describe/0.11` |
 //!
 //! Lower-level building blocks are [`strict_json`], [`validate`],
 //! [`diagnostic`], [`sampling`], [`conservation`], [`cone`] and [`linkage`].
@@ -139,7 +139,6 @@
 // snapshots with `crn-craft describe KIND > schemas/KIND.schema.json` and
 // check that only descriptions changed.
 pub mod analysis;
-pub mod analysis_v1;
 pub mod archive;
 pub mod codegen;
 pub mod cone;
@@ -303,9 +302,10 @@ pub(crate) fn parse_network<T: serde::de::DeserializeOwned>(
     })
 }
 
-/// Reads a model file and an optional `crn-craft.state/0.1` file, then runs
-/// [`analyze_bytes`]. Each must be a regular file of at most 16 MiB; read
-/// failures give a failed report with `CRN-E030` or `CRN-E004`.
+/// Reads a model file (a network `crn-craft.model/0.1`, a rules model or a
+/// `crn-craft.model/1.0`) and an optional `crn-craft.state/0.1` file, then
+/// runs [`analyze_bytes`]. Each must be a regular file of at most 16 MiB;
+/// read failures give a failed report with `CRN-E030` or `CRN-E004`.
 pub fn analyze_files(model_path: &Path, state_path: Option<&Path>) -> AnalysisReport {
     let model = match read_document(model_path) {
         Ok(bytes) => bytes,
@@ -316,25 +316,6 @@ pub fn analyze_files(model_path: &Path, state_path: Option<&Path>) -> AnalysisRe
         Err(error) => return AnalysisReport::failure(error),
     };
     analyze_bytes(&model, state.as_deref())
-}
-
-/// Legacy M1a output and warning semantics, retained for existing consumers.
-///
-/// Like [`analyze_files`], but returns the `crn-craft.analysis/0.1` report
-/// of [`analysis_v1::analyze_bytes`].
-pub fn analyze_legacy_files(
-    model_path: &Path,
-    state_path: Option<&Path>,
-) -> analysis_v1::AnalysisReport {
-    let model = match read_document(model_path) {
-        Ok(bytes) => bytes,
-        Err(error) => return analysis_v1::AnalysisReport::failure(error),
-    };
-    let state = match state_path.map(read_document).transpose() {
-        Ok(bytes) => bytes,
-        Err(error) => return analysis_v1::AnalysisReport::failure(error),
-    };
-    analysis_v1::analyze_bytes(&model, state.as_deref())
 }
 
 /// Reads a model file and runs [`export::export_gillespy2`]; read failures
@@ -483,9 +464,8 @@ pub fn check_files(model_path: &Path, run_path: Option<&Path>) -> CheckReport {
 /// prints it, or `None` for an unknown kind.
 ///
 /// Kinds: `model`, `run`, `result`, `result-v1`, `archive`, `archive-check`,
-/// `check`, `state`, `analysis`, `analysis-v1`, `export`, `tau-request`,
-/// `tau-result`, `fsp-result`, `fsp-result-1.0`, `ssa-run` and
-/// `ssa-result`. The `rules-*` kinds and the other 1.0 contracts
+/// `check`, `state`, `analysis-1.0`, `export`, `tau-request`, `tau-result`,
+/// `fsp-result`, `fsp-result-1.0`, `ssa-run` and `ssa-result`. The `rules-*` kinds and the other 1.0 contracts
 /// (`model-1.0`, `run-1.0`, ...) come from [`rules::schema`].
 ///
 /// ```
@@ -504,8 +484,7 @@ pub fn schema(kind: &str) -> Option<Value> {
         "archive-check" => serde_json::to_value(schema_for!(archive::ArchiveReport)).ok(),
         "check" => serde_json::to_value(schema_for!(CheckReport)).ok(),
         "state" => serde_json::to_value(schema_for!(analysis::NamedState)).ok(),
-        "analysis" => serde_json::to_value(schema_for!(AnalysisReport)).ok(),
-        "analysis-v1" => serde_json::to_value(schema_for!(analysis_v1::AnalysisReport)).ok(),
+        "analysis-1.0" => serde_json::to_value(schema_for!(AnalysisReport)).ok(),
         "export" => serde_json::to_value(schema_for!(export::ExportReport)).ok(),
         "tau-request" => serde_json::to_value(schema_for!(tau::Request)).ok(),
         "tau-result" => serde_json::to_value(schema_for!(tau::TauResult)).ok(),
@@ -517,26 +496,26 @@ pub fn schema(kind: &str) -> Option<Value> {
     }
 }
 
-/// The `crn-craft.describe/0.10` discovery document.
+/// The `crn-craft.describe/0.11` discovery document.
 ///
 /// It lists the version, commands, methods with their status, sampler
 /// identities, the accepted `ssa-run` versions and their `fast` defaults,
 /// rate laws, exporters, optional integrations, input and execution limits,
-/// and the schemas of the eleven original contracts; [`schema`] returns the
-/// others. The native CLI reports `crn-craft.describe/0.13`, which adds the
-/// rules engine.
+/// and the schemas of the original contracts and of the analysis report;
+/// [`schema`] returns the others. The native CLI reports
+/// `crn-craft.describe/0.15`, which adds the rules engine.
 ///
 /// ```
 /// let description = crn_craft::describe();
-/// assert_eq!(description["schema"], "crn-craft.describe/0.10");
+/// assert_eq!(description["schema"], "crn-craft.describe/0.11");
 /// assert_eq!(description["version"], env!("CARGO_PKG_VERSION"));
 /// assert!(description["commands"].as_array().unwrap().iter().any(|c| c == "ssa"));
 /// assert_eq!(description["limits"]["species"], 4096);
 /// ```
 pub fn describe() -> Value {
     json!({
-        "schema": "crn-craft.describe/0.10", "version": env!("CARGO_PKG_VERSION"), "milestone": "SSA-acceleration",
-        "commands": ["describe", "check", "analyze", "analyze-v1", "export", "simulate", "verify", "simulate-cached", "fsp", "tau", "ssa"], "simulation_available": true,
+        "schema": "crn-craft.describe/0.11", "version": env!("CARGO_PKG_VERSION"), "milestone": "SSA-acceleration",
+        "commands": ["describe", "check", "analyze", "export", "simulate", "verify", "simulate-cached", "fsp", "tau", "ssa"], "simulation_available": true,
         "aggregators": [{"name": "direct", "status": "implemented", "implementation_milestone": "M2"}],
         "methods": [{"name": "ssa", "status": "implemented"}, {"name": "fsp", "status": "implemented"}, {"name": "tau", "status": "experimental_approximation"}],
         "sampler": sampling::SAMPLER,
@@ -557,6 +536,6 @@ pub fn describe() -> Value {
             "cone_rays": cone::MAX_CONE_RAYS, "cone_work": cone::MAX_CONE_WORK,
             "simulation_replicates": simulation::MAX_REPLICATES, "simulation_workers": simulation::MAX_WORKERS,
             "simulation_workspace_bytes": simulation::MAX_WORKSPACE_BYTES, "archive_bytes": simulation::MAX_RESULT_BYTES},
-        "schemas": {"model": schema("model"), "run": schema("run"), "result": schema("result"), "result-v1":schema("result-v1"), "archive":schema("archive"), "archive-check":schema("archive-check"), "check": schema("check"), "state": schema("state"), "analysis": schema("analysis"), "analysis-v1": schema("analysis-v1"), "export": schema("export")}
+        "schemas": {"model": schema("model"), "run": schema("run"), "result": schema("result"), "result-v1":schema("result-v1"), "archive":schema("archive"), "archive-check":schema("archive-check"), "check": schema("check"), "state": schema("state"), "analysis-1.0": schema("analysis-1.0"), "export": schema("export")}
     })
 }

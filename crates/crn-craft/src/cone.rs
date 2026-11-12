@@ -3,13 +3,14 @@
 //! Independent implementation; no third-party enumeration code is incorporated.
 //!
 //! [`analyze_cone`] enumerates every extreme ray of the cone of non-negative
-//! conservation laws with exact `i128` arithmetic, verifies each ray against
+//! conservation laws of a [`FlatView`] (its channels are the reactions) with
+//! exact `i128` arithmetic, verifies each ray against
 //! the stoichiometry and derives per-species upper bounds for the initial
 //! conservation class. These bounds are complete for the cone, so they can
 //! be tighter than the linear-basis bounds of [`crate::conservation`]. Size,
 //! intermediate-ray and work caps keep the run deterministic; when one is hit
 //! the report carries a status and a warning and no partial rays.
-use crate::{conservation::ConservationLaw, diagnostic::Diagnostic, network::CompiledNetwork};
+use crate::{conservation::ConservationLaw, diagnostic::Diagnostic, rules::FlatView};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, collections::BTreeMap};
@@ -117,11 +118,11 @@ fn insert_ray(next: &mut BTreeMap<Vec<i128>, u64>, ray: Ray, max: usize) -> Resu
 }
 
 /// Enumerates the cone with the default (hard) caps; see [`analyze_cone_with_limits`].
-pub fn analyze_cone(network: &CompiledNetwork) -> ConeReport {
-    analyze_cone_with_limits(network, ConeLimits::default())
+pub fn analyze_cone(view: &FlatView) -> ConeReport {
+    analyze_cone_with_limits(view, ConeLimits::default())
 }
 /// Callers may lower the deterministic caps; values above hard caps are clamped.
-pub fn analyze_cone_with_limits(network: &CompiledNetwork, limits: ConeLimits) -> ConeReport {
+pub fn analyze_cone_with_limits(view: &FlatView, limits: ConeLimits) -> ConeReport {
     let limits = ConeLimits {
         max_rays: limits.max_rays.min(MAX_CONE_RAYS),
         max_work: limits.max_work.min(MAX_CONE_WORK),
@@ -135,12 +136,10 @@ pub fn analyze_cone_with_limits(network: &CompiledNetwork, limits: ConeLimits) -
         limits,
         work_units: 0,
         extreme_rays: Vec::new(),
-        initial_class_upper_bounds: vec![None; network.species().len()],
+        initial_class_upper_bounds: vec![None; view.species().len()],
         diagnostics: Vec::new(),
     };
-    match enumerate(network, limits, &mut budget)
-        .and_then(|rays| summarize(network, rays, &mut budget))
-    {
+    match enumerate(view, limits, &mut budget).and_then(|rays| summarize(view, rays, &mut budget)) {
         Ok((rays, bounds)) => {
             report.extreme_rays = rays;
             report.initial_class_upper_bounds = bounds;
@@ -174,12 +173,12 @@ pub fn analyze_cone_with_limits(network: &CompiledNetwork, limits: ConeLimits) -
 }
 
 fn enumerate(
-    network: &CompiledNetwork,
+    view: &FlatView,
     limits: ConeLimits,
     budget: &mut Budget,
 ) -> Result<Vec<Ray>, ConeStatus> {
-    let n = network.species().len();
-    if n > MAX_CONE_SPECIES || network.reactions().len() > MAX_CONE_REACTIONS {
+    let n = view.species().len();
+    if n > MAX_CONE_SPECIES || view.channels() > MAX_CONE_REACTIONS {
         return Err(ConeStatus::SizeLimit);
     }
     if n > limits.max_rays {
@@ -195,7 +194,7 @@ fn enumerate(
             }
         })
         .collect();
-    for reaction in network.reactions() {
+    for channel in 0..view.channels() {
         let mut dots = Vec::with_capacity(rays.len());
         let mut positive = Vec::new();
         let mut negative = Vec::new();
@@ -203,12 +202,12 @@ fn enumerate(
         for (i, ray) in rays.iter().enumerate() {
             budget.charge()?;
             let mut value = 0_i128;
-            for term in &reaction.net_changes {
+            for &(species, change) in view.changes(channel) {
                 budget.charge()?;
                 value = value
                     .checked_add(
-                        ray.coordinates[term.species]
-                            .checked_mul(i128::from(term.coefficient))
+                        ray.coordinates[species]
+                            .checked_mul(i128::from(change))
                             .ok_or(ConeStatus::ArithmeticOverflow)?,
                     )
                     .ok_or(ConeStatus::ArithmeticOverflow)?;
@@ -285,21 +284,21 @@ fn enumerate(
 
 type LawsAndBounds = (Vec<ConservationLaw>, Vec<Option<String>>);
 fn summarize(
-    network: &CompiledNetwork,
+    view: &FlatView,
     rays: Vec<Ray>,
     budget: &mut Budget,
 ) -> Result<LawsAndBounds, ConeStatus> {
     let mut laws = Vec::new();
-    let mut bounds = vec![None::<i128>; network.species().len()];
+    let mut bounds = vec![None::<i128>; view.species().len()];
     for ray in rays {
-        for reaction in network.reactions() {
+        for channel in 0..view.channels() {
             let mut residual = 0_i128;
-            for term in &reaction.net_changes {
+            for &(species, change) in view.changes(channel) {
                 budget.charge()?;
                 residual = residual
                     .checked_add(
-                        ray.coordinates[term.species]
-                            .checked_mul(i128::from(term.coefficient))
+                        ray.coordinates[species]
+                            .checked_mul(i128::from(change))
                             .ok_or(ConeStatus::ArithmeticOverflow)?,
                     )
                     .ok_or(ConeStatus::ArithmeticOverflow)?;
@@ -309,7 +308,7 @@ fn summarize(
             }
         }
         let mut total = 0_i128;
-        for (&weight, &count) in ray.coordinates.iter().zip(network.initial_counts()) {
+        for (&weight, &count) in ray.coordinates.iter().zip(view.initial()) {
             budget.charge()?;
             total = total
                 .checked_add(

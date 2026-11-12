@@ -427,16 +427,9 @@ fn export_json(model: Vec<u8>) -> String {
     serde_json::to_string(&crn_craft::export::export_gillespy2(&model)).unwrap()
 }
 #[pyfunction]
-fn analyze_state_json(model: Vec<u8>, state: Option<Vec<u8>>, legacy: bool) -> String {
-    if legacy {
-        serde_json::to_string(&crn_craft::analysis_v1::analyze_bytes(
-            &model,
-            state.as_deref(),
-        ))
-        .unwrap()
-    } else {
-        serde_json::to_string(&crn_craft::analyze_bytes(&model, state.as_deref())).unwrap()
-    }
+#[pyo3(signature = (model, state=None))]
+fn analyze_state_json(model: Vec<u8>, state: Option<Vec<u8>>) -> String {
+    serde_json::to_string(&crn_craft::analyze_bytes(&model, state.as_deref())).unwrap()
 }
 #[pyfunction]
 #[pyo3(signature = (model, request, cancel_file=None))]

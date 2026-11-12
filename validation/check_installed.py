@@ -741,7 +741,7 @@ def main():
     require(a == b, "installed cached identity")
     checks.append("native_API_exact_identity")
     require(
-        c.describe()["schema"] == "crn-craft.describe/0.10", "installed capabilities"
+        c.describe()["schema"] == "crn-craft.describe/0.11", "installed capabilities"
     )
     checks.append("discovery")
     with tempfile.TemporaryDirectory() as tmp:
@@ -775,7 +775,7 @@ def main():
         )
         for command in [
             ["describe", "tau-result"],
-            ["analyze-v1", str(folder / "model.json")],
+            ["analyze", str(folder / "model.json")],
             ["export", str(folder / "model.json"), "gillespy2"],
         ]:
             extra = subprocess.run([cli, *command], capture_output=True, check=False)

@@ -24,7 +24,7 @@
 //!   acceptance draw pins the channel's reads for the rest of the path
 //!   (the network engine's point fallback).
 use crate::rules::engine::{Halt, RESOLUTION};
-use crate::rules::expr::Env;
+use crate::rules::expr::{Env, RateKernel};
 use crate::rules::flat::{Network, RateCache};
 use crate::rules::select::{Composition, RateTree};
 
@@ -39,6 +39,12 @@ pub(crate) struct Plan {
     /// For each channel, the species its value reads: reactants and the
     /// rule's reads, sorted.
     reads: Vec<Vec<usize>>,
+    /// The range cache of each rule's global factor. Rules whose rates
+    /// compile to the same program (and so read the same projections and
+    /// compute the same value in every state) share one; every other rule
+    /// has its own.
+    range_slot: Vec<usize>,
+    range_slots: usize,
 }
 
 impl Plan {
@@ -67,6 +73,25 @@ impl Plan {
                 reads
             })
             .collect();
+        let mut shared = std::collections::HashMap::new();
+        let mut range_slots = 0;
+        let range_slot = net
+            .rates
+            .iter()
+            .map(|kernel| {
+                let mut fresh = || {
+                    range_slots += 1;
+                    range_slots - 1
+                };
+                match kernel {
+                    RateKernel::Expression { program, .. } => match program.key() {
+                        Some(key) => *shared.entry(key).or_insert_with(fresh),
+                        None => fresh(),
+                    },
+                    _ => fresh(),
+                }
+            })
+            .collect();
         Self {
             needs,
             single: net
@@ -76,6 +101,8 @@ impl Plan {
                 .collect(),
             pinned,
             reads,
+            range_slot,
+            range_slots,
         }
     }
 }
@@ -160,7 +187,7 @@ impl Bounds {
         self.generation = 0;
         self.dirty.clear();
         self.ranges.clear();
-        self.ranges.resize(net.rule_reads.len(), None);
+        self.ranges.resize(plan.range_slots, None);
     }
 
     /// The range of channel `i`'s global factor over the box, or `None` if
@@ -197,7 +224,8 @@ impl Bounds {
             .map_or(0, |&(_, k)| k);
         let start = self.low[s].max(need);
         let end = self.high[s];
-        if let Some(range) = self.ranges[rule] {
+        let slot = plan.range_slot[rule];
+        if let Some(range) = self.ranges[slot] {
             if range.start == start && range.end == end {
                 return Some((range.minimum, range.maximum, range.positive));
             }
@@ -248,7 +276,7 @@ impl Bounds {
         if !valid {
             return None;
         }
-        self.ranges[rule] = Some(range);
+        self.ranges[slot] = Some(range);
         Some((range.minimum, range.maximum, range.positive))
     }
 
@@ -732,6 +760,49 @@ mod tests {
             .bound(&net, &plan, 0, &mut counts, &mut values, &params)
             .unwrap();
         assert_eq!(first, again);
+    }
+
+    /// Rules whose rates compile to the same program share one range cache
+    /// (M4f), so a model with many copies of one law (W4) enumerates it once
+    /// per interval; the bounds do not change.
+    #[test]
+    fn rules_with_one_rate_program_share_their_ranges() {
+        let value = model(
+            json!([
+                {"name": "a", "reactants": [{"label": "x", "type": "G"}],
+                 "propensity": "4 * X / (2 + X)", "products": []},
+                {"name": "b", "reactants": [{"label": "x", "type": "X"}],
+                 "propensity": "k * X / (2 + X)", "products": []},
+                {"name": "c", "reactants": [{"label": "x", "type": "G"}],
+                 "propensity": "4 * X / (3 + X)", "products": []},
+                {"name": "d", "reactants": [{"label": "x", "type": "G"}],
+                 "rate": "0.5", "products": []},
+                {"name": "e", "reactants": [{"label": "x", "type": "G"}],
+                 "rate": "0.5", "products": []}
+            ]),
+            json!({"k": 4}),
+        );
+        let net = network(&value);
+        let params = params(&value);
+        let plan = Plan::new(&net);
+        // a and b compute 4 X / (2 + X); c another law; constants unshared.
+        assert_eq!(plan.range_slot[0], plan.range_slot[1]);
+        assert_ne!(plan.range_slot[0], plan.range_slot[2]);
+        assert_ne!(plan.range_slot[3], plan.range_slot[4]);
+        assert_eq!(plan.range_slots, 4);
+        let mut counts = vec![30, 50, 2, 1];
+        let mut values = vec![0.0; 4];
+        assert!(net.refresh(&counts, &mut values).is_ok());
+        let mut shared = Bounds::default();
+        shared.reset(&net, &plan, &counts);
+        let mut alone = Bounds::default();
+        for i in 0..net.channels.len() {
+            // A fresh cache for each channel: nothing reused.
+            alone.reset(&net, &plan, &counts);
+            let expected = alone.bound(&net, &plan, i, &mut counts, &mut values, &params);
+            let got = shared.bound(&net, &plan, i, &mut counts, &mut values, &params);
+            assert_eq!(got, expected, "channel {i}");
+        }
     }
 
     #[test]

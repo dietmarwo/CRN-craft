@@ -1300,6 +1300,47 @@ impl Program {
         }
     }
 
+    /// A key that is equal for two programs exactly when their steps are
+    /// equal, constants compared by their bits, so they compute the same
+    /// value in every state. `None` for a tree, which shares nothing.
+    pub(crate) fn key(&self) -> Option<Vec<u64>> {
+        let code = match self {
+            Self::Flat(Code(code)) | Self::Stacked(Code(code), _) => code,
+            Self::Tree(_) => return None,
+        };
+        let mut key = Vec::with_capacity(2 * code.len());
+        for step in code {
+            // The tag, then the operation, function and number bits.
+            let (tag, payload) = match *step {
+                Step::Const(c) => (0, c.to_bits()),
+                Step::Load(i) => (1, i as u64),
+                Step::Push => (2, 0),
+                Step::Neg => (3, 0),
+                Step::Not => (4, 0),
+                Step::Bin(op) => (5, op as u64),
+                Step::BinConst(op, c) => (6 + 256 * op as u64, c.to_bits()),
+                Step::ConstBin(op, c) => (7 + 256 * op as u64, c.to_bits()),
+                Step::AddConst(c) => (8, c.to_bits()),
+                Step::SubConst(c) => (9, c.to_bits()),
+                Step::MulConst(c) => (10, c.to_bits()),
+                Step::DivConst(c) => (11, c.to_bits()),
+                Step::PowConst(c) => (12, c.to_bits()),
+                Step::Square => (13, 0),
+                Step::ConstAdd(c) => (14, c.to_bits()),
+                Step::ConstSub(c) => (15, c.to_bits()),
+                Step::ConstMul(c) => (16, c.to_bits()),
+                Step::ConstDiv(c) => (17, c.to_bits()),
+                Step::ConstPow(c) => (18, c.to_bits()),
+                Step::Call1(f) => (19, f as u64),
+                Step::Call2(f) => (20, f as u64),
+                Step::Select => (21, 0),
+            };
+            key.push(tag);
+            key.push(payload);
+        }
+        Some(key)
+    }
+
     #[inline]
     pub(crate) fn eval(&self, env: &Env<'_>) -> f64 {
         match self {

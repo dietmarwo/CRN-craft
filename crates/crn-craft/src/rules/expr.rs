@@ -874,7 +874,7 @@ impl Expr {
                         Op::Sub => format!("({a} - {b})"),
                         Op::Mul => format!("({a} * {b})"),
                         Op::Div => format!("({a} / {b})"),
-                        Op::Pow => format!("crn_craft_rules::libm::pow({a}, {b})"),
+                        Op::Pow => format!("crn_craft::rules::libm::pow({a}, {b})"),
                         Op::Eq => compare("=="),
                         Op::Ne => compare("!="),
                         Op::Lt => compare("<"),
@@ -908,7 +908,10 @@ impl Expr {
                         Func::Floor => "floor",
                         _ => "ceil",
                     };
-                    format!("crn_craft_rules::libm::{name}({})", emit(&args[0], params)?)
+                    format!(
+                        "crn_craft::rules::libm::{name}({})",
+                        emit(&args[0], params)?
+                    )
                 }
                 Node::Call(_, _) => return None,
             })

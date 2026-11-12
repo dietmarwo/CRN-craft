@@ -606,13 +606,21 @@ def check_compiled_loop_refusals():
     model = three_class_model()
     source = rules.loop_source(model)
     require(
-        "impl crn_craft_rules::RulesLoop for GeneratedRulesLoop" in source,
+        "impl crn_craft::rules::RulesLoop for GeneratedRulesLoop" in source
+        and "crn_craft_rules" not in source,
         "installed loop_source returns the generated loop",
     )
     rust_version, files = c._native.rules_loop_driver()
     require(
         rust_version and {"src/main.rs", "src/rules_payload.rs"} <= dict(files).keys(),
         "the installed extension carries the compiled-loop driver",
+    )
+    # Since 0.7.0 the driver, like the generated loop, builds against the
+    # crn-craft crate alone.
+    require(
+        "use crn_craft::rules::" in dict(files)["src/main.rs"]
+        and not any("crn_craft_rules" in text for _, text in files),
+        "the compiled-loop driver names the crn-craft crate",
     )
     try:
         rules.compile_loop(model, cargo="crn-craft-no-such-cargo", progress=False)

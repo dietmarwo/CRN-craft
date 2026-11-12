@@ -3,7 +3,7 @@
 //! Regenerate it with
 //! `cargo run --release -p crn-craft-rules --example generate_rules_kernel -- MODEL REQUEST`
 //! when the generator changes; the first test reports the difference.
-use crn_craft_rules::{
+use crn_craft::rules::{
     Control, execute, execute_with_rules_kernel, generate_rules_kernel, prepare,
 };
 use serde_json::{Value, json};

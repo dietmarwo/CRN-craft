@@ -73,7 +73,7 @@ fn immigration_request(model: &[u8], schema: &str) -> Value {
 
 #[test]
 fn every_stored_request_as_run_1_0_gives_the_rules_run_0_6_result() {
-    let stored = root().join("crates/crn-craft-rules/tests/stored");
+    let stored = root().join("crates/crn-craft/tests/stored");
     let mut names: Vec<String> = std::fs::read_dir(&stored)
         .unwrap()
         .map(|entry| entry.unwrap().file_name().into_string().unwrap())

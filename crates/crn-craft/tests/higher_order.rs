@@ -332,7 +332,7 @@ fn every_static_method_runs_higher_order_rules_and_tree_and_mtdna_refuse() {
     let d = generate_rules_kernel(&prepared).unwrap_err();
     assert_eq!((d.code.as_str(), d.path.as_str()), ("CRN-R020", "/method"));
     let source = generate_rules_loop(&prepared).unwrap();
-    assert!(source.contains("crn_craft_rules::combination_rate("));
+    assert!(source.contains("crn_craft::rules::combination_rate("));
 }
 
 #[test]

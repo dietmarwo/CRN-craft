@@ -3,7 +3,7 @@
 //! `stored/expected.json`, recorded with the 0.3.0 engine before
 //! rules-run/0.6 changed the Static Direct defaults. The requests name their
 //! models by file name in `models/rules`.
-use crn_craft_rules::{Control, execute, prepare};
+use crn_craft::rules::{Control, execute, prepare};
 use serde_json::Value;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -14,7 +14,7 @@ fn root() -> PathBuf {
 
 #[test]
 fn stored_requests_replay_byte_identically() {
-    let stored = root().join("crates/crn-craft-rules/tests/stored");
+    let stored = root().join("crates/crn-craft/tests/stored");
     let expected: BTreeMap<String, String> =
         serde_json::from_slice(&std::fs::read(stored.join("expected.json")).unwrap()).unwrap();
     let mut names: Vec<String> = std::fs::read_dir(&stored)
@@ -51,7 +51,7 @@ fn stored_requests_replay_byte_identically() {
 /// re-serialized document.
 #[test]
 fn bound_candidates_keep_their_hashes() {
-    let stored = root().join("crates/crn-craft-rules/tests/stored");
+    let stored = root().join("crates/crn-craft/tests/stored");
     let expected: BTreeMap<String, BTreeMap<String, Value>> =
         serde_json::from_slice(&std::fs::read(stored.join("bound.json")).unwrap()).unwrap();
     let mut requests = BTreeMap::new();
@@ -78,7 +78,7 @@ fn bound_candidates_keep_their_hashes() {
     let mut models = BTreeMap::new();
     for entry in std::fs::read_dir(root().join("models/rules")).unwrap() {
         let path = entry.unwrap().path();
-        let model: crn_craft_rules::Model =
+        let model: crn_craft::rules::Model =
             serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
         models.insert(
             path.file_name().unwrap().to_string_lossy().into_owned(),

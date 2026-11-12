@@ -34,7 +34,10 @@ It checks the refusals: other methods, models that only another method runs
 (continuous variables, ATP blocks, open models), callbacks, a missing cargo,
 a failed build, a loop for other model bytes or a bound candidate, a
 request the program rejects, and a program whose result differs. A second
-`compile_loop` call must reuse the cached build.
+`compile_loop` call must reuse the cached build. The generated Cargo
+project must depend on the `crn-craft` crate alone, at exactly the
+installed version: from the checkout, and from crates.io when no source is
+given (that manifest is checked as written, not built).
 
 Without cargo the check is skipped with a message, unless `--require-cargo`
 is given. The report holds no timings or paths, so runs under `-O` compare
@@ -52,6 +55,7 @@ import stat
 import sys
 import tempfile
 import time
+import tomllib
 
 from crn_craft import CrnError, _rules_loop, rules
 
@@ -448,6 +452,34 @@ def main():
     )
     rows = []
 
+    # The loop project depends on the crn-craft crate alone, at exactly the
+    # installed version: from the checkout here, and from crates.io when no
+    # source is given (the manifest of a published install).
+    project = tomllib.loads((loop.directory / "Cargo.toml").read_text("utf-8"))
+    checkout = (source.expanduser().resolve() / "crates" / "crn-craft").as_posix()
+    require(
+        project["dependencies"]
+        == {
+            "crn-craft": {"version": f"={loop.version}", "path": checkout},
+            "serde_json": "1",
+        },
+        f"loop project dependencies: {project['dependencies']}",
+    )
+    rust_version, _ = _rules_loop._native.rules_loop_driver()
+    published = tomllib.loads(
+        _rules_loop._manifest("crn-craft-loop-check", loop.version, rust_version, None)
+    )
+    require(
+        published["dependencies"]
+        == {"crn-craft": {"version": f"={loop.version}"}, "serde_json": "1"},
+        f"crates.io loop project dependencies: {published['dependencies']}",
+    )
+    dependencies = {
+        "case": "loop project dependencies",
+        "checkout": ["crn-craft (path, =installed version)", "serde_json"],
+        "crates.io": ["crn-craft (=installed version)", "serde_json"],
+    }
+
     # Threads, both waiting-time policies and both tracker paths.
     for threads in (1, 2):
         for wait in ("inverse", "ziggurat"):
@@ -679,6 +711,7 @@ def main():
                 "mismatch payloads saved",
             )
     require(loop.verify(run).metadata["events"] > 0, "verify")
+    rows.append(dependencies)
     report = {
         "schema": "crn-craft.compiled-loop-check/0.1",
         "model": "mtdna-three-class.rules.json with the takeover stop",

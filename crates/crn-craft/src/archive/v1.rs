@@ -1,7 +1,7 @@
 //! Sealed archives of rules runs: `crn-craft.archive/1.0`.
 //!
 //! [`run_files`] (the `crn-craft rules MODEL REQUEST --archive NEW_DIRECTORY`
-//! command) and [`write`] (the byte API behind Python's
+//! command) and [`write()`] (the byte API behind Python's
 //! `crn_craft.rules.archive`) run a rules request, a simulation request of
 //! any rules-run version or a `crn-craft.run/1.0` request whose method is
 //! `fsp`, and write a new directory with five files:
@@ -196,7 +196,7 @@ impl ArchiveReport {
 ///
 /// The request's `model.path`, resolved from the request's directory, must
 /// name `model_path` inside that directory, as for `crn-craft rules`
-/// (`CRN-R020` at `/model/path` otherwise). Then as [`write`].
+/// (`CRN-R020` at `/model/path` otherwise). Then as [`write()`].
 ///
 /// Never panics on bad input; failures are an invalid report.
 pub fn run_files(

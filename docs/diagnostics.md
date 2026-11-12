@@ -1,83 +1,89 @@
 # Diagnostics
 
-Every diagnostic contains `severity`, `code`, `path`, `message`, `hint`. Paths use RFC 6901 (`~1` for slash, `~0` for tilde); the empty path denotes the root. Type errors may identify the containing object when the parser cannot name a missing/unknown child. Inside the tagged `rate` and `method` variants, a missing field or an invalid field value (for example `"aggregator": "nrm"`) is reported at the variant object, such as `/method`; an unknown `kind` is reported at `.../kind`. Messages provide detail; code and relevant pointer are the machine contract.
+Every diagnostic contains `severity`, `code`, `path`, `message` and `hint`.
+Paths use RFC 6901 (`~1` for a slash, `~0` for a tilde); the empty path
+denotes the root. A type error may name the containing object when the parser
+cannot name a missing or unknown child. Messages give detail; the code and the
+path are the machine contract. Codes are stable: a number is never reused for
+another meaning.
+
+Codes with the prefix `CRN-E` belong to documents, files, the sampler and the
+tools around the engine. Codes with the prefix `CRN-R` belong to models and
+run requests; they are listed below the first tables. A failed `check`
+reports every error it finds. Parsing stops at the first syntax or type error
+of a document, and semantic validation accumulates.
+
+## Documents, files and tools (`CRN-E…`)
 
 | Code | Meaning | Typical repair |
-|---|---|---|
+| --- | --- | --- |
 | CRN-E001 | Invalid JSON, encoding or trailing content | Supply one UTF-8 JSON document |
-| CRN-E002 | Duplicate JSON key at any depth | Retain one value per decoded key |
-| CRN-E003 | Wrong type, unknown/missing field, schema version or enum variant | Use the generated schema |
-| CRN-E004 | Input depth/size/model collection limit or no species | Reduce size/depth; provide at least one species |
-| CRN-E010 | Invalid identifier | Use the documented ASCII identifier format |
-| CRN-E011 | Duplicate name or species/parameter collision | Rename the conflicting entry |
-| CRN-E012 | Unknown species | Declare or correct it |
-| CRN-E013 | Non-positive or oversized integer stoichiometry | Use 1–2147483647; omit zeros |
-| CRN-E014 | Unknown parameter; for parameter templates, a wrong value count or name set | Declare it or provide a numeric literal; bind exactly the declared names |
-| CRN-E015 | Non-finite or out-of-domain numeric argument | Use the required finite positive/non-negative domain |
-| CRN-E016 | Negative population or insufficient safety limit | Correct counts/limits |
-| CRN-E020 | Invalid time grid, budget, ensemble, output or method combination; at the API path `/kernel`, a generated kernel for another topology or kernel generation for non-mass-action laws | Follow the field hint; regenerate the kernel for this model |
-| CRN-E021 | Malformed or mismatched SHA-256 | Review model bytes and compute their lowercase digest |
-| CRN-E022 | Unsafe/non-relative path, missing target or mismatch with supplied model | Put the model below the run directory and pass that file |
-| CRN-E023 | Missing/invalid FSP bounds, capacity or tolerance | Supply a finite truncation containing the initial state |
-| CRN-E030 | Input/output filesystem or stream failure | Supply a readable regular file or writable output stream |
-| CRN-E031 | Unsupported command or wrong arguments | Use `--help` for the command list |
-| CRN-E032 | A rules-engine document (`crn-craft.model/1.0`, `crn-craft.run/1.0` or a `crn-craft.rules-*` contract) given to a network command or reader, reported at `/schema` | Use `rules-check` and `rules`; `convert` writes a network model as `crn-craft.model/1.0` |
-| CRN-E033 | A network model (`crn-craft.model/0.1`) given where a rules or 1.0 model is read (`run`, `check MODEL REQUEST`, `crn_craft.rules.prepare`, finite state projection), reported at `/schema` | Convert it with `crn-craft convert MODEL` or `crn_craft.convert`; `crn_craft.ensemble`, `crn_craft.prepare` and `crn_craft.Model.from_dict` convert it themselves |
-| CRN-E040 | Dependency graph exceeds 1000000 edges | Reduce network coupling or size; edges are never silently dropped |
-| CRN-E041 | Invalid state length, missing/extra name, count or safety limit | Provide all species with valid non-negative i64 counts |
-| CRN-E042 | Evaluated rate overflows, is non-finite/negative, or a positive rate becomes zero | Revise/rescale the model; do not treat underflow as an absorbing channel |
-| CRN-E043 | Invalid reaction index or disabled reaction update | Select an in-range channel with positive propensity and sufficient reactants |
-| CRN-E044 | Reaction update overflows i64 or exceeds a population limit | Stop or explicitly revise the safety limit; state remains unchanged |
-| CRN-E050 | Export target cannot preserve a requested feature | Use the documented elementary mass-action subset; keep safety semantics in the source |
-| CRN-E051 | Homodimer coefficient cannot be halved exactly in f64 | Rescale the reference fixture; no source is emitted |
-| CRN-W001 | Net-producing reaction without a net-consuming one | Review growth and budgets; no proof of unboundedness is implied |
-| CRN-W002 | Zero mass-action coefficient | Confirm the channel is intentionally disabled |
-| CRN-W003 | Reaction has no net population effect | Remove it unless event counts have a stated purpose |
-| CRN-W010 | Exact conservation analysis exceeds 64 species / 256 reactions | Use a smaller network or independent analyzer; no absence of laws is implied |
-| CRN-W011 | Checked i128 conservation arithmetic exceeds its range | Use arbitrary precision; no partial basis or rank is reported |
-| CRN-W012 | Cone exceeds 64 species / 256 reactions | Use an independent analyzer; no absence of laws is implied |
-| CRN-W013 | Cone exhausts intermediate-ray or deterministic-work cap | Inspect cone status/limits; only sound basis bounds remain |
-| CRN-W014 | Checked i128 cone arithmetic overflows | Use arbitrary precision; no partial rays or cone bounds are emitted |
-| CRN-W015 | Internal exact cone residual verification fails | Report a defect; no cone result is trusted |
+| CRN-E002 | Duplicate JSON key at any depth | Keep one value per decoded key |
+| CRN-E003 | Wrong type, unknown or missing field, schema version or enum variant | Use the generated schema (`crn-craft describe KIND`) |
+| CRN-E004 | Input depth or size limit, or a model collection limit | Reduce size or depth |
+| CRN-E012 | Unknown species, in a document that names species | Declare or correct it |
+| CRN-E015 | Non-finite or out-of-domain number | Use the required finite domain |
+| CRN-E022 | Unsafe or non-relative path, missing target, or a path that does not match the supplied model | Put the model below the request's directory and pass that file |
+| CRN-E030 | Input or output filesystem or stream failure | Supply a readable regular file or a writable stream |
+| CRN-E031 | Unsupported command or wrong arguments | Use `--help` |
+| CRN-E033 | A network model (`crn-craft.model/0.1`) given where a rules or 1.0 model is read (`run`, `check MODEL REQUEST`, `crn_craft.rules.prepare`, finite state projection), reported at `/schema` | Convert it with `crn-craft convert MODEL` or `crn_craft.convert`; `crn_craft.ensemble`, `crn_craft.prepare` and `Model.from_dict` convert it themselves |
+| CRN-E041 | Invalid state for `analyze` or the projection: a missing or extra name, or an invalid count | Name every species with a valid count |
+| CRN-E042 | An evaluated rate overflows, is non-finite or negative, or a positive rate becomes zero | Rescale the model; underflow is not an absorbing channel |
+| CRN-E050 | The export target cannot preserve a requested feature | Keep to the documented subset |
+| CRN-E051 | An exported coefficient cannot be halved exactly in f64, reported at `/rules/i/rate` | Rescale the model; no source is emitted |
+| CRN-E061 | A total or categorical probability is invalid in the sampler | Rescale or revise the dynamic range; no positive channel is dropped silently |
+| CRN-E062 | An exponential wait is invalid, or the clock cannot advance | Rescale rates or time; time is never forced forward |
+| CRN-E064 | The serialized result exceeds `max_output_bytes` | Increase the limit; optional numerical output is removed first |
+| CRN-E065 | Archive I/O, integrity, size or relational failure | Keep the evidence; use a new directory and verify the complete file set |
+| CRN-E070 | Finite state projection: capacity, work, normalization, output or interruption | Lower the bounds or raise `max_states` within the cap |
+| CRN-E080 | ODE right-hand side: domain, unsupported smooth extension or solver failure; a negative propensity | Revise the model; see `crn-diffsol` |
+| CRN-E090 | Importer: syntax, unsupported semantics, missing explicit convention or resource failure | Follow the message; pass `convention=` |
 
-The 13 persisted negative fixtures in `models/invalid/expected.json` pin representative codes and paths. Rust tests cover additional boundary and parser cases. Parsing stops on the first syntax/type error per document; semantic validation accumulates errors after a successful parse. A failed stdout write can only report to stderr and exit 1; it cannot guarantee a JSON response on a broken stream.
+None of these codes denotes biological validation or a certified
+floating-point error bound.
 
-State paths such as `/counts/A` refer to the supplied state, while rate and reaction paths refer to the model. `check` retains structural CRN-W001 warnings. `analyze` suppresses one only when its species has a proven initial-class conservation bound. Conservation warnings appear both in the conservation report and the top-level diagnostic list for direct consumers.
+### Reading a network model
 
-## M2 runtime and archive diagnostics
+`crn-craft check`, `analyze`, `convert` and `export` read a network
+`crn-craft.model/0.1` through the converter. Its checks report these codes:
 
-| Code | Meaning | Response |
-|---|---|---|
-| CRN-E060 | Unsupported execution or resource/accounting reservation exceeded | Use Direct SSA; reduce workers, replicates or retained output; budget room for accounting |
-| CRN-E061 | Invalid/unresolved total or categorical probability | Rescale or revise dynamic range; no positive channel is silently dropped |
-| CRN-E062 | Invalid exponential wait or stagnant/nonfinite event time | Rescale rates/time; do not clip or force time forward |
-| CRN-E064 | Actual serialized output exceeds the cap | Increase max_output_bytes; optional numerical output is removed and accounting retained when it fits |
-| CRN-E065 | Archive I/O, integrity, size or relational failure | Preserve evidence; use a new output directory and verify the complete file set |
-| CRN-E067 | Sampling-word budget exhausted in an alternative SSA method (`ssa`; recorded as `event_limit` for that replicate) | Increase max_sampling_steps_per_replicate; incomplete ensembles withhold statistics |
+| Code | Meaning |
+| --- | --- |
+| CRN-E010 | Invalid identifier |
+| CRN-E011 | Duplicate name, or a species and parameter with one name |
+| CRN-E013 | Stoichiometry outside 1 to 2147483647 |
+| CRN-E016 | Negative population or insufficient population limit |
 
-CRN-E042 remains a numerical failure for positive-to-zero propensity underflow.
-CRN-E044 retains its checked update meaning: population-limit attempts stop
-without applying the event; integer overflow is a failed trajectory. Ordinary
-event, deadline and cancellation stops are typed termination states, not
-fabricated numerical errors. A valid incomplete archive remains incomplete.
-CRN-E043 also reports a reaction that would make a count negative: in the
-Direct loop this is a scheduler defect, never a population-limit stop. The
-optional `crn-diffsol` integration reports a species exceeding its
-`population_limit` between or at requested times with CRN-E044.
+The converter reports a model that the unified model cannot hold with
+`CRN-R016`.
 
-Campaign codes: CRN-E070 covers FSP capacity, work, normalization, output and
-interruption failures, for the network `fsp` command and for `crn-craft.run/1.0`
-requests with method `fsp`; CRN-E080 covers optional deterministic domains/unsupported
-smooth extensions/solver failures; CRN-E085 covers approximate Poisson-leap
-requests, budgets and numerical failures; CRN-E090 covers importer syntax,
-unsupported semantics, explicit-convention and resource failures. None denotes
-biological validation or a certified floating-point error bound.
+### Warnings of analysis
 
-## Rules engine (`CRN-R…`)
+| Code | Meaning |
+| --- | --- |
+| CRN-W010 | Exact conservation analysis exceeds 64 species or 256 reactions: no laws are claimed or excluded |
+| CRN-W011 | Checked i128 conservation arithmetic exceeds its range: no partial basis is reported |
+| CRN-W012 | The nonnegative cone exceeds 64 species or 256 reactions |
+| CRN-W013 | The cone exhausts its intermediate-ray or work cap: only sound basis bounds remain |
+| CRN-W014 | Checked i128 cone arithmetic overflows: no partial rays or bounds are emitted |
+| CRN-W015 | Internal verification of the cone failed: report a defect, no cone result is trusted |
 
-The experimental rules engine for dynamic, attributed species
-([rules language](rules-language.md)) shares `CRN-E001`–`CRN-E004` for JSON
-input and the read error `CRN-E030`, and has its own codes: `CRN-R010` names,
+### Retired codes
+
+The network engine is gone, and so are the codes that only it reported. They
+are not reused: `CRN-E014`, `CRN-E020`, `CRN-E021`, `CRN-E023`, `CRN-E032`,
+`CRN-E040`, `CRN-E043`, `CRN-E044`, `CRN-E060`, `CRN-E067`, `CRN-E085` and the
+structural warnings `CRN-W001` to `CRN-W003`. Their replacements are the
+`CRN-R` codes: a run request, budget or method problem is `CRN-R020`, a
+numerical failure `CRN-R030` and `CRN-R031`, a budget stop `CRN-R040` to
+`CRN-R045`, and a document of the wrong family `CRN-E033` or `CRN-R020` at
+`/schema`.
+
+## Models and run requests (`CRN-R…`)
+
+The engine for dynamic, attributed species ([model reference](rules-language.md))
+shares `CRN-E001`–`CRN-E004` for JSON input and the read error `CRN-E030`, and
+has its own codes: `CRN-R010` names,
 `CRN-R011` unknown types, `CRN-R012` expressions and scopes, `CRN-R013` rule
 shapes and product attributes (in `crn-craft.model/1.0` also a pattern
 `count` outside 1 to 2,147,483,647 and a higher-order pattern over an

@@ -1,138 +1,95 @@
-# Direct SSA in M2
+# Exact methods: Static Direct, selectors and next reaction
 
-`0.1.0-dev.4` implements a time-homogeneous, well-mixed stochastic count
-process. Mass action, Hill and Michaelis–Menten use the existing validated
-propensity evaluator and reactant-availability gates. FSP executes separately
-via `fsp`. This is an exact **method**, with finite-precision arithmetic and
-Monte Carlo uncertainty; it is not a biological validation claim.
+This page describes the exact simulation methods of the one engine, the event
+selectors of Static Direct and the random stream they share. The model
+language is in the [model reference](rules-language.md), the other methods
+(`tree`, `mtdna_direct`, `tau`, `binomial`, `thinning`, `hybrid`) are in
+[mtDNA ensembles](mtdna-rules.md), and the cost of each is in the
+[performance analysis](mtdna-performance-analysis.md). An exact method samples
+the model's process with finite-precision arithmetic and Monte Carlo
+uncertainty. It is not a biological validation claim.
 
-```bash
-cargo build --release --locked
-./target/release/crn-craft simulate \
-  models/examples/immigration-death.model.json \
-  models/examples/immigration-death.run.json /tmp/crn-ssa-example
-./target/release/crn-craft verify /tmp/crn-ssa-example
-```
+## The methods
 
-The output directory must be new and its parent must exist. `simulate` exits
-0 only for a completed ensemble. An event/population/deadline/cancellation/
-output stop produces exit 1 and, when finalization succeeds, an inspectable
-archive. `verify` exits 0 for an internally consistent archive even if its
-simulation is incomplete. Always inspect both `archive_complete` and
-`simulation_complete`.
+| `method` | Exact | Scope | Sampler identity (prefix `chacha8-u53/` or `chacha8-u53-ziggurat/`) |
+| --- | --- | --- | --- |
+| `static_direct` | yes | closed models: a fixed set of attribute vectors, any number of reactant molecules in `model/1.0` | `rules-static-direct`, with a suffix for the selector and the trackers |
+| `next_reaction` | yes | the same models | `rules-next-reaction/1` |
+| `tree` (the default) | yes | every model without an ATP block or continuous variables; instances may change identity | `rules-direct/2` |
 
-## Event and floating-point policy
+Static Direct lowers the model to channels once, at preparation: species,
+channels, the changes each channel makes and the channels whose rates each
+change affects. Each event then recomputes only the affected rates, draws a
+waiting time and selects a channel. A zero total rate is absorbing: the state
+is held to the horizon without consuming random numbers. Report values are
+right-continuous, so an event exactly at a report time is included.
 
-The Direct method recomputes all rates in reaction declaration order. The
-scheduler shares a known-valid count state across channel evaluations, so
-state validation is not repeated for every channel. Checked reaction updates
-remain transactional. Null reactions still consume waits, draws and events.
+Three rules hold for every selector:
 
-Sum the propensities in declaration order, draw an exponential wait and select
-the first positive channel whose cumulative propensity exceeds the selection
-threshold. There is no last-channel fallback. A zero total is absorbing: hold
-the state to the horizon without consuming random numbers.
+- A positive channel must be at least 2⁻⁵³ of the total rate. Below that, a
+  53-bit uniform cannot select it exactly, and the replicate fails with
+  `CRN-R031` rather than dropping the channel.
+- A non-finite or negative rate fails the replicate (`CRN-R030`). There is no
+  fallback to the last channel.
+- Under `run/1.0` a positive wait too small to move the clock is accepted;
+  1,000,000 such steps in a row fail with `CRN-R030`. Every `rules-run`
+  version fails at the first one.
 
-The sampler is `crn-craft.chacha8-direct/0.1`:
+## Selectors
 
-- `rand_chacha = 0.3.1`, `rand_core = 0.6.4`, default features disabled;
-  full transitive pins are in Cargo.lock. No operating-system randomness.
-- Key = SHA-256 of ASCII `crn-craft.chacha8/0.1`, one NUL byte, then the
-  root seed as eight little-endian bytes. Set the ChaCha 64-bit stream ID to
-  the replicate index and start at word position zero.
-- Draw `next_u64`, take its high 53 bits and multiply by 2^-53. Selection uses
-  [0,1); exponential sampling rejects zero, giving (0,1).
-- Wait = `-libm::log(U) / total`, using pinned pure-Rust libm 0.2.15.
-  Selection consumes a separate word only for an event within the horizon.
+Under `crn-craft.run/1.0`, `method.selector` of `static_direct` chooses how
+the next channel is selected. Every selector samples the same law; each uses
+the random stream differently, so the same seed gives different paths, and the
+sampler identity names the selector.
 
-CRN-E042 still rejects a positive propensity that underflows. CRN-E061 rejects
-nonfinite sums, positive additions lost in rounding and positive channel
-probabilities below the 53-bit selection resolution. A threshold rounded to
-the total is also an error. CRN-E062 rejects nonfinite/nonpositive waits or a
-clock that cannot advance. These restrictions deliberately fail closed for
-extreme dynamic ranges rather than claim arbitrary-range exact sampling.
+| `selector` | How it selects | Sampler suffix |
+| --- | --- | --- |
+| `linear` | a scan of the channels in order, as in every `rules-run` version | none |
+| `composition_rejection` | channels grouped by the binary exponent of their rate; a group by its mass, a member by rejection | `-cr` |
+| `sorting` | a scan in an order that moves each fired channel one place forward | `-sorting` |
+| `rssa_cr` | candidates by composition–rejection from upper bounds of the rates over population intervals, accepted against lower bounds or the exact rate | `-rssa-cr` |
+| `auto` (the default in `run/1.0`) | one of the others, chosen at preparation | the chosen one |
 
-Saved states include events at or before their time. One pending event is
-retained while crossing save times; changing output density does not resample
-it. An event exactly at the horizon is included. An event cap is a conservative
-stop immediately after the allowed number of events unless the horizon was
-already reached; the solver does not do additional work to discover later
-absorption. `stop_time` is the latest certified event/sample time, or the
-horizon for a completed path. A safety-limit violation is detected before
-mutating the state or incrementing the event counter.
+`auto` chooses RSSA-CR from 8 channels when no rate reads two or more
+species, and from 128 channels when the species that start with molecules
+average fewer than 8 molecules. Otherwise it chooses composition–rejection
+from 128 channels, and otherwise the linear scan. It never chooses `sorting`.
+It decides from the initial counts: a model whose populations later grow or
+shrink far from them can end up with a slower selector. The thresholds are in
+`describe()["selectors"]["auto"]`.
 
-## Ensembles and statistics
+The `rules-run` versions run the linear scan and refuse the field
+(`CRN-R020` at `/schema`). A request that the Python helpers write as
+`run/1.0` for a `crn_craft.rules` call names `"selector": "linear"`, so
+adding quantiles never changes the paths. The top-level `crn_craft.ensemble`
+leaves the choice to `auto`. Generated event loops and rates kernels run the
+linear scan only, and refuse any other selector, also when `auto` would pick
+one (`CRN-R020` at `/method/selector`).
 
-Workers receive round-robin replicate IDs and return results through one
-bounded channel per worker. The parent consumes IDs in ascending order. At
-most a small fixed number of paths per worker are in flight; there is no
-unbounded out-of-order buffer. Thread count is an allowance: use at most 64
-workers and no more workers than replicates. Changing workers, saved output
-or model metadata does not change the seed/stream mapping.
+Selectors are ports of published algorithms: composition–rejection (Slepoy,
+Thompson and Plimpton, J. Chem. Phys. 128, 205101 (2008)), sorting direct
+(McCollum et al., Comput. Biol. Chem. 30 (2006), 39–49) and RSSA-CR
+(Thanh, Priami and Zunino, J. Chem. Phys. 141, 134116 (2014), with
+composition–rejection for the candidate draw).
 
-All requested replicates have records, including those never started after a
-stop. Incomplete ensembles have **no ensemble statistics**. Reporting the
-mean of only completed paths could introduce state-dependent selection bias.
-The retained paths are the first requested IDs, including their available
-saved-state prefixes; they are not a chosen successful subset.
+## Waiting times
 
-Fully completed ensembles use ordered Welford updates. Requested `variance`
-is the unbiased sample variance (denominator n-1). Requested `mean` includes
-SE sqrt(sample variance/n) for n>1; a single replicate has no estimated SE.
-No variance-SE or confidence-interval estimator is implied. Counts remain
-exact i64; summary arithmetic is f64, including conversion of counts above
-2^53. RNG and libm pins do not themselves establish cross-platform bit identity.
+`waiting_time` is `ziggurat` or `inverse`. Ziggurat draws exponential waits
+from tables adapted from the Julia ecosystem (see
+[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)); the inverse transform is
+`-ln(u) / total`. From `rules-run/0.6` and in `run/1.0`, `static_direct`
+defaults to Ziggurat waits and to sparse integration of eligible count
+trackers. `{"kind": "static_direct", "waiting_time": "inverse",
+"sparse_trackers": false}` reproduces the Static Direct of release 0.3.0.
 
-## Execution limits and cancellation
+## The random stream
 
-The unchanged run 0.1 budget supplies event cap, optional wall time, worker
-allowance and maximum output bytes. The engine additionally caps requested
-replicates at 1,000,000, conservatively reserved workspace at 256 MiB and
-encoded archive contents at 256 MiB. Feasible combinations can be much smaller
-than each individual maximum. Workspace admission accounts for bounded worker
-paths/stacks, retained paths, reduction arrays and per-replicate evidence; it
-is an allocation reservation, not a hard OS RSS limit. Model compilation and
-JSON verification have their own size limits and allocation overhead.
+Every replicate draws from its own ChaCha8 stream. The key is the SHA-256 of
+the domain `crn-craft.rules/0.1` and the root seed; the replicate
+index is the stream id. A 53-bit uniform is the high 53 bits of a 64-bit word
+times 2⁻⁵³. Results therefore depend on the seed and the method, never on the
+thread count, and a replicate's path is the same in a larger ensemble.
 
-The engine reserves room for input bytes and accounting before starting. It
-counts serialized result bytes without allocating the serialization. If
-retained numerical output does not fit, it removes trajectories/statistics,
-records CRN-E064 and `output_limit`, and keeps every replicate's work and
-termination record. Archive writes enforce the total file-content byte cap
-again. Filesystem allocation units are not counted as content bytes.
-
-`simulation::Control::cancel()` supports library callers. The CLI accepts
-`--cancel-file PATH`; creating that file requests cooperative cancellation.
-An already present file cancels before work starts. Polls occur at every
-event, at most every 64 rate evaluations, and for every saved point. Each
-poll reads the cancellation flag. Every 64th poll of a worker, starting with
-its first, also reads the wall clock and, at most once per millisecond, checks
-the cancel file; a found file sets the cancellation flag for all workers.
-A worker keeps a stop once it has seen one, so its remaining replicates stay
-unstarted. Without a file or wall-time limit, polls read only the flag.
-Checking the file at every poll made small models about ten times slower (a
-stat per poll against roughly 100 ns per event), and reading the clock at every
-poll about doubled the cost of a wall-time limit. The wall clock starts before
-worker setup and is polled during trajectory generation. Pending ordered collection, statistic reduction and finalization
-may continue afterward; input parsing and model compilation precede it.
-The process must still be allowed to finalize bounded evidence. This is not
-a hard real-time deadline, signal handler or resumable checkpoint protocol.
-Forced termination leaves an unmarked directory, which verification rejects.
-
-## Rust API
-
-`simulation::prepare(model_bytes, run_bytes)` validates exact input bytes and
-execution admission. `execute(&prepared, &control)` returns numerical results
-and separate provenance. `simulate_bytes` combines those two operations. The
-byte API checks the model hash; only `archive::simulate_files` can validate
-the run's relative filesystem reference. `archive::verify_archive` checks a
-finished archive without running a solver. See [archive contracts](archive-contract.md).
-
-## References and verification
-
-Gillespie, 1977, [Exact stochastic simulation of coupled chemical reactions](https://doi.org/10.1021/j100540a008).
-Bernstein, 2008, [ChaCha, a variant of Salsa20](https://cr.yp.to/chacha/chacha-20080128.pdf).
-The installed rand_chacha 0.3.1 source documents its 64-bit counter/stream
-layout; the independent scalar Python implementation tests 360 words across
-nine pinned streams and multiple blocks. The acceptance plan and statistical
-family are in [iteration-04-validation.md](decisions/iteration-04-validation.md).
+Statistical equivalence of the selectors is checked against exact
+distributions: master-equation solutions and the finite state projection, with
+predeclared tests and a recorded family error rate (`validation/merge/`).

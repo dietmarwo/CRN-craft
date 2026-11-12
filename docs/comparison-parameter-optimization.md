@@ -1,5 +1,22 @@
 # Reusable parameters, generated kernels and rebop: full optimization
 
+> **Measured with the 0.6.0 network engine (note of 12 November 2026).**
+> The CRN-craft routes on this page (`ParameterTemplate`, generated
+> propensity kernels, the `fast` policy) belong to the network engine of
+> releases 0.2.0 to 0.6.0, which release 0.7.0 replaced with one engine. The
+> full optimization run was not repeated, and the tables below are left as
+> measured. In 0.7.0 a parameter search binds values on a prepared run
+> (`bind_parameters`, see [parameter sweeps](reusable-parameters.md)), and
+> the benchmark worker has the routes `fresh` and `reuse`. Their worker
+> calls were timed against the 0.6.0 workers in one session
+> (`validation/merge/parameter-workers-m4d.json`, declared and reported in
+> `validation/merge/RESULTS.md`, "M4d (law gate of the run/1.0 default,
+> worker speed rerun)"), with a declared target of 1.25 times the 0.6.0
+> time. New `reuse` against old `reuse` took 1.10 (birth_death) and 1.05
+> (sparse33) times as long, and **1.55 times on binding12, which failed the
+> target**: there `bind_parameters` prepares the whole model again on each
+> call. Both routes of each engine returned identical moments.
+
 > **Measured before the 0.2.0 release.** These measurements come from the
 > import commit `85a085b` of 2 November 2026 and have not been repeated on
 > release 0.2.0 (4 November 2026). Review fixes since the import

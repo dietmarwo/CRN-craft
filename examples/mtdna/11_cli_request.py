@@ -23,7 +23,7 @@ model["stop"] = "N > 0 && mutants >= 0.9 * N"
 data = (json.dumps(model, indent=2) + "\n").encode()
 (folder / "takeover.rules.json").write_bytes(data)
 request = {
-    "schema": "crn-craft.rules-run/0.3",
+    "schema": "crn-craft.run/1.0",
     # The request binds the model by relative path and exact SHA-256.
     "model": {
         "path": "takeover.rules.json",
@@ -33,6 +33,7 @@ request = {
     "ensemble": {"replicates": 1000, "root_seed": 11},
     "outputs": {
         "statistics": ["mean", "variance"],
+        "quantiles": [0.5],
         "keep_paths": 0,
         "keep_instances": 0,
     },
@@ -50,7 +51,7 @@ request = {
 print("model sha256:", request["model"]["sha256"])
 if len(sys.argv) > 2:
     done = subprocess.run(
-        [sys.argv[2], "rules", "takeover.rules.json", "takeover.run.json"],
+        [sys.argv[2], "run", "takeover.rules.json", "takeover.run.json"],
         cwd=folder,
         capture_output=True,
         check=True,

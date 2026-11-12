@@ -1,11 +1,12 @@
 # Extending the project
 
-1. State the supported mathematical/contract scope and the milestone. Read the revised plan and create a model card before implementing a numerical algorithm.
-2. Add typed input fields/variants with strict unknown-field handling, validation, codes and field paths. Update a delivered schema version when its shape changes. Generate snapshots from `describe`; do not hand-edit JSON Schema.
-3. Add an independently justified acceptance fixture, including failure cases. A parser change must retain duplicate-key, numeric and depth checks. A rate change must include unavailable-reactant behavior and dependency reads.
-4. Keep numeric compilation/algorithms in the library; the CLI handles files and JSON output. Python and job adapters will call the same core.
-5. Run the documented checks and retain evidence with toolchain identity. Never introduce a reference simulator as a core dependency.
+1. State the supported mathematical and contract scope and the milestone. Read the [architecture](architecture.md) and the plan of the task, and write a model card before implementing a numerical algorithm.
+2. Add typed input fields or variants with strict unknown-field handling, validation, codes and field paths. New fields go into `crn-craft.model/1.0` or `crn-craft.run/1.0` (or a later version); the `rules-*` versions refuse them with `CRN-R020` at `/schema`. Update a delivered schema version when its shape changes. Generate snapshots from `crn-craft describe KIND`; do not hand-edit JSON Schema.
+3. Add an independently justified acceptance fixture, including failure cases. A parser change must keep the duplicate-key, numeric and depth checks. A rate change must cover unavailable reactants, dependency reads and the flat view (`FlatView::propensity` returns the engine's value), so that FSP, analysis, kinetics and export see the same rates.
+4. Keep numerical compilation and algorithms in the `crn-craft` crate (`crates/crn-craft/src/rules/` for the engine); the CLI handles files and JSON output, and Python and the job adapters call the same core.
+5. Keep the stored requests replaying: `crates/crn-craft/tests/stored_requests.rs` and `static_direct_defaults.rs` must pass unchanged, and `crates/crn-craft/tests/generated/` changes only with the generators (regenerate with the facade crate's examples `generate_rules_kernel` and `generate_rules_loop`).
+6. Run the documented checks and retain evidence with toolchain identity. Never introduce a reference simulator as a core dependency.
 
-For M1 rate implementations, add exact small-count mass-action checks and finite-domain/overflow tests. For M2 Direct, add sampler vectors, analytic marginal tests, save-time boundaries, absorbing states and budget/cancellation tests. For later aggregators, reuse the full independent correctness suite before interpreting performance.
+For a new rate form, add exact small-count checks against hand-computed propensities and overflow and domain tests (`CRN-R030`). For a new exact method or Static Direct selector, give it a sampler identity, then add stream vectors, analytic marginal tests, report-time boundaries, absorbing states and budget and cancellation tests, and run the law gate (`validation/merge/check_laws.py`) and the exact-law checks (`validation/check_alternative_ssa.py`, `validation/check_cme.py`) before interpreting performance.
 
 The dependency policy is intentionally closed: a new transitive package fails `check_dependencies.py` until reviewed and listed. Check package sources and `links` metadata before updating the allowlist. This gate is a review aid, not a comprehensive supply-chain audit.

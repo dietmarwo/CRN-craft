@@ -10,6 +10,13 @@ asymptotic critical value at alpha 0.001. The exact law of X(5) (binomial
 survivors plus Poisson immigrants) is reported for context: tau leaping is
 approximate, so its distance from the exact law is described, not gated.
 This check was added after the declaration and is not one of P19's gates.
+
+Since 0.7.0 (M8a) the W9 model is converted with `crn-craft convert` and run as
+a `crn-craft.run/1.0` request with method `{"kind": "tau", "epsilon": 0.05}` by
+`crn-craft run`; both binaries must be 0.7.0 or later, and the sampler names
+come from the results' `sampler` field (the Poisson sampler of the unified tau
+method). With one binary given twice the script compares two seeds of the same
+sampler, which is the smoke form.
 """
 
 import argparse
@@ -20,6 +27,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 
+from benchmark_campaign import convert
 from benchmark_iterations import tau_model
 
 PATHS = 4000
@@ -27,32 +35,30 @@ HORIZON = 5.0
 
 
 def run(binary, seed, folder):
-    model = (json.dumps(tau_model()) + "\n").encode()
+    model = convert(binary, tau_model(), folder)
     (folder / "model.json").write_bytes(model)
     request = {
-        "schema": "crn-craft.tau-request/0.1",
-        "epsilon": 0.05,
-        "max_leaps_per_replicate": 1000000,
-        "reference_run": {
-            "schema": "crn-craft.run/0.1",
-            "model": {
-                "path": "model.json",
-                "sha256": hashlib.sha256(model).hexdigest(),
-            },
-            "method": {"kind": "ssa", "aggregator": "direct"},
-            "ensemble": {"replicates": PATHS, "root_seed": seed},
-            "time": {"end": HORIZON, "save_times": [0.0, HORIZON]},
-            "outputs": {"statistics": ["mean", "variance"], "keep_trajectories": PATHS},
-            "budget": {
-                "threads": 1,
-                "max_events_per_replicate": 100000000,
-                "max_output_bytes": 100000000,
-            },
+        "schema": "crn-craft.run/1.0",
+        "model": {"path": "model.json", "sha256": hashlib.sha256(model).hexdigest()},
+        "method": {"kind": "tau", "epsilon": 0.05},
+        "ensemble": {"replicates": PATHS, "root_seed": seed},
+        "time": {"end": HORIZON, "report_times": [0.0, HORIZON]},
+        "outputs": {
+            "statistics": ["mean", "variance"],
+            "keep_paths": PATHS,
+            "keep_instances": 0,
+        },
+        "budget": {
+            "threads": 1,
+            "max_events_per_replicate": 100000000,
+            "max_sampling_steps_per_replicate": 10000000000,
+            "max_instances": 100000,
+            "max_output_bytes": 100000000,
         },
     }
     (folder / "tau.json").write_text(json.dumps(request))
     proc = subprocess.run(
-        [str(binary), "tau", str(folder / "model.json"), str(folder / "tau.json")],
+        [str(binary), "run", str(folder / "model.json"), str(folder / "tau.json")],
         capture_output=True,
         check=False,
         timeout=900,
@@ -60,10 +66,11 @@ def run(binary, seed, folder):
     if proc.returncode:
         raise RuntimeError(proc.stdout.decode() + proc.stderr.decode())
     result = json.loads(proc.stdout)
-    finals = sorted(path["counts"][-1][0] for path in result["trajectories"])
+    column = result["observables"].index("X")
+    finals = sorted(path["values"][-1][column] for path in result["paths"])
     if len(finals) != PATHS:
         raise RuntimeError("missing trajectories")
-    return result["algorithm"], finals, result.get("leaps")
+    return result["sampler"], finals, result["events"]
 
 
 def ks(a, b):
@@ -114,7 +121,7 @@ def main():
             "variance_ratio_vs_exact": variance / exact_variance,
         }
     report = {
-        "schema": "crn-craft.tau-sampler-comparison/0.1",
+        "schema": "crn-craft.tau-sampler-comparison/0.2",
         "paths_per_sampler": PATHS,
         "exact_mean": exact_mean,
         "exact_variance": exact_variance,

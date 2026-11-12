@@ -12,22 +12,23 @@ thread, with independent random streams in the two simulators. The script
    Kolmogorov-Smirnov tests and mean z-scores on final counts, and for W1 and
    W2, whose laws are Poisson at t = 100, a comparison of each simulator
    with the exact law;
-3. times, interleaved: the CRN-craft CLI (`simulate`, `simulate-cached`;
-   process wall and core time), the CRN-craft Python API (`crn.simulate`,
-   plain and cached; and `crn.simulate_ssa` with `fast=True` for the
-   cached Direct, DirectCR, SortingDirect and RSSACR methods with Ziggurat
-   waits; call wall time), GillesPy2's compiled SSACSolver (compiled once,
-   compile time reported separately) and its NumPySSASolver.
+3. times, interleaved: the CRN-craft CLI (`crn-craft run`, process wall
+   time), the CRN-craft Python API (`crn.ensemble(...).simulate()` for the
+   default Static Direct configuration, for the checked configuration
+   (linear selector, inverse waits) and for the `linear`,
+   `composition_rejection`, `sorting` and `rssa_cr` selectors with Ziggurat
+   waits; call wall time including the preparation), GillesPy2's compiled
+   SSACSolver (compiled once, compile time reported separately) and its
+   NumPySSASolver.
 
-`fast=True` is CRN-craft's JumpProcesses-style policy (Xoshiro256++,
-running totals without loss or resolution checks, batched stop polls). Like
-GillesPy2, it does not check every positive channel against the 53-bit
-selection resolution, so it is the like-for-like setting; the checked policy
-(`fast` off) is timed as well. The script passes `fast` explicitly, so its
-requests mean the same before and after `fast` became the default
-(ssa-run/0.3). The fast cached Direct method is the closest
-algorithmic match to GillesPy2's SSACSolver (Direct method); it is also
-validated against GillesPy2 below.
+Since 0.7.0 (M8a) the script runs the unified engine: each network model is
+converted with `crn_craft.convert` and run as a `crn-craft.run/1.0` Static
+Direct request. The 0.6.0 rows `simulate-cached` and the `fast` policy
+(cached Direct, xoshiro256++, no loss or resolution checks) no longer exist,
+and neither does the check of the cached Direct method against GillesPy2; the
+selectors with Ziggurat waits are the like-for-like setting now, and the
+default configuration is validated against GillesPy2 as well. `--crn-only`
+leaves GillesPy2 out (validation and timings), which is the smoke form.
 
 W4: every reaction changes all eight species by the same amount, so they
 stay equal and CRN-craft's reactant gates on the Michaelis-Menten deaths are
@@ -41,7 +42,6 @@ Requires the installed `crn_craft` wheel and validation/reference-requirements.t
 """
 
 import argparse
-import hashlib
 import json
 import math
 from pathlib import Path
@@ -55,12 +55,12 @@ import gillespy2 as gp
 import numpy as np
 from scipy import stats
 
-import crn_craft._legacy as crn
+import crn_craft as crn
 from benchmark_campaign import models
 
 NAMES = {"two_channel": "W1", "sparse_66": "W2", "circuit_12": "W3", "dense_66": "W4"}
 HORIZON, PATHS, SEED, CHECK_PATHS = 100.0, 64, 4242, 512
-FAST = ["cached_direct", "direct_cr", "sorting_direct", "rssa_cr"]
+SELECTORS = ["linear", "composition_rejection", "sorting", "rssa_cr"]
 
 
 def value(model, x):
@@ -127,34 +127,35 @@ def encoded(model):
     return (json.dumps(model) + "\n").encode()
 
 
-def run_spec(model, paths, seed, keep):
-    return crn.run_spec(
-        encoded(model),
+def run_spec(model_bytes, paths, seed, keep, selector=None, waiting_time=None):
+    """A prepared Static Direct run of the converted model (`model_bytes`)."""
+    method = {"kind": "static_direct"}
+    if waiting_time is not None:
+        method["waiting_time"] = waiting_time
+    return crn.ensemble(
+        model_bytes,
         end=HORIZON,
-        save_times=[0.0, HORIZON],
+        report_times=[0.0, HORIZON],
         replicates=paths,
         seed=seed,
-        keep=keep,
-        max_events=10**9,
-        max_output_bytes=200_000_000,
-    )
-
-
-def fast_spec(model, paths, seed, keep, aggregator):
-    return crn.ssa_spec(
-        encoded(model),
-        aggregator=aggregator,
-        waiting_time="ziggurat",
-        fast=True,
-        end=HORIZON,
-        save_times=[0.0, HORIZON],
-        replicates=paths,
-        seed=seed,
-        keep=keep,
+        keep_paths=keep,
         max_events=10**9,
         max_sampling_steps=10**10,
         max_output_bytes=200_000_000,
+        method=method,
+        selector=selector,
+        quantiles=(),
     )
+
+
+def checked(model_bytes, paths, seed, keep):
+    """The checked configuration of 0.6.0: linear scan, inverse waits."""
+    return run_spec(model_bytes, paths, seed, keep, "linear", "inverse")
+
+
+def final_counts(result, names):
+    """Final counts of every replicate, one column per species, in `names` order."""
+    return result.paths.sel(variable=names).isel(time=-1).to_numpy().astype(float)
 
 
 def exact_poisson(name):
@@ -166,18 +167,17 @@ def exact_poisson(name):
     return None
 
 
-def validate(name, model, gmodel, solver, fast=False):
-    if fast:
-        spec = fast_spec(model, CHECK_PATHS, 778, CHECK_PATHS, "cached_direct")
-        ours = crn.simulate_ssa(encoded(model), spec)
-    else:
-        spec = run_spec(model, CHECK_PATHS, 777, CHECK_PATHS)
-        ours = crn.simulate(encoded(model), spec, cached=True)
-    theirs = gmodel.run(
-        solver=solver, number_of_trajectories=CHECK_PATHS, seed=779 if fast else 777
-    )
+def validate(name, model, gmodel, solver, ziggurat=False):
+    mb = crn.convert(encoded(model))
     names = [s["name"] for s in model["species"]]
-    a = np.array([p["counts"][-1] for p in ours["trajectories"]], dtype=float)
+    if ziggurat:
+        ours = run_spec(mb, CHECK_PATHS, 778, CHECK_PATHS).simulate()
+    else:
+        ours = checked(mb, CHECK_PATHS, 777, CHECK_PATHS).simulate()
+    theirs = gmodel.run(
+        solver=solver, number_of_trajectories=CHECK_PATHS, seed=779 if ziggurat else 777
+    )
+    a = final_counts(ours, names)
     b = np.array([[t[n][-1] for n in names] for t in theirs], dtype=float)
     report = {"paths_each": CHECK_PATHS, "two_sample": []}
     for j, species in enumerate(names[:3]):
@@ -216,26 +216,19 @@ def validate(name, model, gmodel, solver, fast=False):
     return report
 
 
-def cli_once(binary, command, model, folder, label):
-    m = encoded(model)
-    (folder / "model.json").write_bytes(m)
-    run = run_spec(model, PATHS, SEED, 0)
-    run["model"] = {"path": "model.json", "sha256": hashlib.sha256(m).hexdigest()}
-    (folder / "run.json").write_text(json.dumps(run))
-    out = folder / label
+def cli_once(binary, model_bytes, folder, request):
+    (folder / "model.json").write_bytes(model_bytes)
+    (folder / "run.json").write_bytes(crn.rules.model_bytes(request))
     start = time.perf_counter()
     proc = subprocess.run(
-        [str(binary), command, str(folder / "model.json"), str(folder / "run.json")]
-        + [str(out)],
+        [str(binary), "run", str(folder / "model.json"), str(folder / "run.json")],
         capture_output=True,
         check=False,
     )
     wall = time.perf_counter() - start
     if proc.returncode:
         raise RuntimeError(proc.stdout.decode())
-    core = json.loads((out / "provenance.json").read_text())["elapsed_seconds"]
-    events = json.loads((out / "result.json").read_text())["events"]
-    return wall, core, events
+    return wall, json.loads(proc.stdout)["events"]
 
 
 def timed(function, *args, **kwargs):
@@ -249,7 +242,7 @@ def summary(values):
 
 
 def plot(report, path):
-    """Time per event of the three compiled solvers, from a report."""
+    """Time per event of the compiled solvers, from a report."""
     import matplotlib
 
     matplotlib.use("Agg")
@@ -262,21 +255,23 @@ def plot(report, path):
         "W4": "W4 dense 66",
     }
     series = [
-        ("python_fast_cached_direct", "CRN-craft fast cached Direct", "#2a78d6"),
-        ("python_cached", "CRN-craft simulate-cached (checked)", "#8fb5e6"),
-        ("python_simulate", "CRN-craft simulate", "#eb6834"),
+        ("python_default", "CRN-craft Static Direct (default)", "#2a78d6"),
+        ("python_checked", "CRN-craft linear, inverse waits", "#8fb5e6"),
+        ("python_composition_rejection", "CRN-craft composition-rejection", "#eb6834"),
         ("gillespy2_ssa_cpp", "GillesPy2 SSACSolver (C++)", "#1baf7a"),
     ]
-    names = list(report["workloads"])
+    names = [
+        n for n in report["workloads"] if "gillespy2_ssa_cpp" in report["workloads"][n]
+    ]
     fig, axis = plt.subplots(figsize=(9, 3.8), facecolor="#fcfcfb")
     axis.set_facecolor("#fcfcfb")
     width = 0.2
 
     def events(n, key):
         entry = report["workloads"][n]
-        if key.startswith("python_fast_"):
-            return entry["fast_events"][key.removeprefix("python_fast_")]
-        return entry["crn_events"]
+        if key == "python_checked" or key == "gillespy2_ssa_cpp":
+            return entry["crn_events"]
+        return entry["event_counts"][key.removeprefix("python_")]
 
     for i, (key, label, color) in enumerate(series):
         values = [
@@ -314,6 +309,14 @@ def main():
         action="store_true",
         help="plot an existing --output report instead of measuring",
     )
+    parser.add_argument(
+        "--crn-only",
+        action="store_true",
+        help="smoke form: time and run only the CRN-craft side, no GillesPy2",
+    )
+    parser.add_argument(
+        "--only", choices=list(NAMES.values()), help="measure one workload only"
+    )
     args = parser.parse_args()
     if args.plot_only:
         plot(json.loads(args.output.read_text()), args.figure)
@@ -323,7 +326,7 @@ def main():
     binary = args.binary.resolve()
     version = subprocess.run([str(binary), "--version"], capture_output=True)
     report = {
-        "schema": "crn-craft.gillespy2-comparison/0.2",
+        "schema": "crn-craft.gillespy2-comparison/0.3",
         "versions": {
             "crn_craft_cli": json.loads(version.stdout)["version"],
             "crn_craft_python": crn.__version__,
@@ -334,106 +337,109 @@ def main():
             ).stdout.splitlines()[0],
         },
         "work": f"{PATHS} paths, t in [0, {HORIZON}], output at 0 and {HORIZON}, one thread",
+        "crn_only": args.crn_only,
         "workloads": {},
     }
     with tempfile.TemporaryDirectory(prefix="crn-gillespy2-") as temp:
         folder = Path(temp)
         for name, model in models():
             label = NAMES[name]
+            if args.only and label != args.only:
+                continue
             redundant_gates = name == "dense_66"
-            gmodel = to_gillespy2(model, gates=not redundant_gates)
-            start = time.perf_counter()
-            csolver = gp.SSACSolver(model=gmodel)
-            compile_seconds = time.perf_counter() - start
-            nsolver = gp.NumPySSASolver(model=gmodel)
-            check = validate(name, model, gmodel, csolver)
-            fast_check = validate(name, model, gmodel, csolver, fast=True)
-            mb, plain = encoded(model), run_spec(model, PATHS, SEED, 0)
-            crn.simulate(mb, plain)  # warm-up
-            fast = {m: fast_spec(model, PATHS, SEED, 0, m) for m in FAST}
-            fast_events = {m: crn.simulate_ssa(mb, fast[m])["events"] for m in FAST}
-            gmodel.run(solver=csolver, number_of_trajectories=PATHS, seed=SEED)
+            mb = crn.convert(encoded(model))
+            variants = {
+                "default": lambda mb=mb: run_spec(mb, PATHS, SEED, 0),
+                "checked": lambda mb=mb: checked(mb, PATHS, SEED, 0),
+                **{
+                    s: lambda mb=mb, s=s: run_spec(mb, PATHS, SEED, 0, s, "ziggurat")
+                    for s in SELECTORS
+                },
+            }
+            warm = variants["default"]().simulate()  # warm-up
+            events = {
+                k: int(make().simulate().metadata["events"])
+                for k, make in variants.items()
+            }
             rows = {
                 k: []
                 for k in [
-                    "cli_simulate_process",
-                    "cli_simulate_core",
-                    "cli_cached_process",
-                    "cli_cached_core",
-                    "python_simulate",
-                    "python_cached",
-                    *[f"python_fast_{m}" for m in FAST],
-                    "gillespy2_ssa_cpp",
+                    "cli_run_process",
+                    *[f"python_{k}" for k in variants],
+                    *([] if args.crn_only else ["gillespy2_ssa_cpp"]),
                 ]
             }
-            events = None
+            request = json.loads(json.dumps(warm.request))
+            request["model"]["path"] = "model.json"
+            if not args.crn_only:
+                gmodel = to_gillespy2(model, gates=not redundant_gates)
+                start = time.perf_counter()
+                csolver = gp.SSACSolver(model=gmodel)
+                compile_seconds = time.perf_counter() - start
+                nsolver = gp.NumPySSASolver(model=gmodel)
+                check = validate(name, model, gmodel, csolver)
+                ziggurat_check = validate(name, model, gmodel, csolver, ziggurat=True)
+                gmodel.run(solver=csolver, number_of_trajectories=PATHS, seed=SEED)
+            cli_events = None
             for repeat in range(args.repeats):
-                for command, key in [
-                    ("simulate", "cli_simulate"),
-                    ("simulate-cached", "cli_cached"),
-                ]:
-                    wall, core, events = cli_once(
-                        binary, command, model, folder, f"{label}-{key}-{repeat}"
+                wall, cli_events = cli_once(binary, mb, folder, request)
+                rows["cli_run_process"].append(wall)
+                for key, make in variants.items():
+                    rows[f"python_{key}"].append(
+                        timed(lambda make=make: make().simulate())
                     )
-                    rows[key + "_process"].append(wall)
-                    rows[key + "_core"].append(core)
-                rows["python_simulate"].append(timed(crn.simulate, mb, plain))
-                rows["python_cached"].append(
-                    timed(crn.simulate, mb, plain, cached=True)
-                )
-                for m in FAST:
-                    rows[f"python_fast_{m}"].append(
-                        timed(crn.simulate_ssa, mb, fast[m])
-                    )
-                rows["gillespy2_ssa_cpp"].append(
-                    timed(
-                        gmodel.run,
-                        solver=csolver,
-                        number_of_trajectories=PATHS,
-                        seed=SEED + repeat,
-                    )
-                )
-            entry = {k: summary(v) for k, v in rows.items()}
-            entry["gillespy2_numpy"] = summary(
-                [
-                    timed(
-                        gmodel.run,
-                        solver=nsolver,
-                        number_of_trajectories=PATHS,
-                        seed=SEED + repeat,
-                    )
-                    for repeat in range(args.numpy_repeats)
-                ]
-            )
-            if redundant_gates:
-                gated = to_gillespy2(model, gates=True)
-                gsolver = gp.SSACSolver(model=gated)
-                entry["gillespy2_ssa_cpp_with_gates"] = summary(
-                    [
+                if not args.crn_only:
+                    rows["gillespy2_ssa_cpp"].append(
                         timed(
-                            gated.run,
-                            solver=gsolver,
+                            gmodel.run,
+                            solver=csolver,
                             number_of_trajectories=PATHS,
                             seed=SEED + repeat,
                         )
-                        for repeat in range(3)
+                    )
+            entry = {k: summary(v) for k, v in rows.items()}
+            if not args.crn_only:
+                entry["gillespy2_numpy"] = summary(
+                    [
+                        timed(
+                            gmodel.run,
+                            solver=nsolver,
+                            number_of_trajectories=PATHS,
+                            seed=SEED + repeat,
+                        )
+                        for repeat in range(args.numpy_repeats)
                     ]
                 )
-            entry["gillespy2_ssa_cpp_compile_seconds"] = compile_seconds
-            entry["gillespy2_gates_omitted_as_redundant"] = redundant_gates
-            entry["crn_events"] = events
-            entry["fast_events"] = fast_events
-            entry["validation"] = check
-            entry["fast_validation"] = fast_check
+                if redundant_gates:
+                    gated = to_gillespy2(model, gates=True)
+                    gsolver = gp.SSACSolver(model=gated)
+                    entry["gillespy2_ssa_cpp_with_gates"] = summary(
+                        [
+                            timed(
+                                gated.run,
+                                solver=gsolver,
+                                number_of_trajectories=PATHS,
+                                seed=SEED + repeat,
+                            )
+                            for repeat in range(3)
+                        ]
+                    )
+                entry["gillespy2_ssa_cpp_compile_seconds"] = compile_seconds
+                entry["gillespy2_gates_omitted_as_redundant"] = redundant_gates
+                entry["validation"] = check
+                entry["ziggurat_validation"] = ziggurat_check
+            entry["crn_events"] = events["checked"]
+            entry["cli_events"] = cli_events
+            entry["event_counts"] = events
             report["workloads"][label] = entry
             medians = {
                 k: round(v["median"], 4)
                 for k, v in entry.items()
                 if isinstance(v, dict) and "median" in v
             }
-            print(label, events, medians, flush=True)
+            print(label, events["checked"], medians, flush=True)
             args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
-    if args.figure:
+    if args.figure and not args.crn_only:
         plot(report, args.figure)
 
 

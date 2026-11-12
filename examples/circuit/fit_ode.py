@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import numpy as np
+import crn_craft as crn
 import fcmaes_rust
 import sqp_craft
 
@@ -44,10 +45,7 @@ def main():
     ap.add_argument("--binary", type=Path, required=True)
     ap.add_argument("--output", type=Path, required=True)
     args = ap.parse_args()
-    root = Path(__file__).resolve().parents[2]
-    model = json.loads(
-        (root / "models/examples/immigration-death.model.json").read_text()
-    )
+    model = crn.load_example("immigration-death").to_dict()
     times = np.linspace(0.0, 4.0, 9)
     target = 3.0 / 0.8 * (-np.expm1(-0.8 * times))
     with tempfile.TemporaryDirectory(prefix="crn-ode-fit-") as tmp:

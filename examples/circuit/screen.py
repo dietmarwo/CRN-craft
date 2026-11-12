@@ -21,7 +21,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import numpy as np
-import crn_craft._legacy as crn
+import crn_craft as crn
 from crn_craft.observables import oscillation
 
 ALLOCATION = 8
@@ -103,15 +103,15 @@ def main():
     # detector needs three cycles.
     ap.add_argument("--horizon", type=float, default=400.0)
     args = ap.parse_args()
-    root = Path(__file__).resolve().parents[2]
     rows = []
     times = np.linspace(0.0, args.horizon, int(round(2 * args.horizon)) + 1).tolist()
     with tempfile.TemporaryDirectory() as folder:
         folder = Path(folder)
         for name, species, role in TOPOLOGIES:
-            model = (root / f"models/examples/{name}.model.json").read_bytes()
-            index = [s["name"] for s in json.loads(model)["species"]].index(species)
-            (folder / "model.json").write_bytes(model)
+            model = crn.load_example(name)
+            # The ODE columns follow the model's species (type) order.
+            index = [t["name"] for t in model.to_dict()["types"]].index(species)
+            (folder / "model.json").write_text(json.dumps(model.to_dict()))
             (folder / "ode.json").write_text(
                 json.dumps(
                     {
@@ -141,25 +141,22 @@ def main():
                 else {"classification": "domain_or_solver_error"}
             )
             # No hard filter: even an apparently stationary ODE gets held-out SSA paths.
-            request = crn.run_spec(
+            result = crn.ensemble(
                 model,
                 end=args.horizon,
-                save_times=times,
+                report_times=times,
                 replicates=ALLOCATION,
                 seed=20261301,
-                keep=ALLOCATION,
+                keep_paths=ALLOCATION,
                 max_events=10000000,
-            )
-            result = crn.simulate(model, request)
+                method="static_direct",
+                quantiles=(),
+            ).simulate()
+            paths = result.paths.sel(variable=species).to_numpy()
             completed = (
-                len(result["trajectories"])
-                if result["termination"] == "completed"
-                else 0
+                len(paths) if result.metadata["termination"] == "completed" else 0
             )
-            score = [
-                oscillation(times, np.asarray(x["counts"])[:, index], burn_fraction=0.5)
-                for x in result["trajectories"]
-            ]
+            score = [oscillation(times, x, burn_fraction=0.5) for x in paths]
             rows.append(
                 {
                     "model": name,
@@ -169,7 +166,7 @@ def main():
                     "stochastic_allocation": ALLOCATION,
                     "completed_paths": completed,
                     "stochastic_diagnostics": score,
-                    "events": result["events"],
+                    "events": result.metadata["events"],
                     "rejected_by_ode": False,
                     "scope": "measured controls, not population-wide detector sensitivity",
                 }

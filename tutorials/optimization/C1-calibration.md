@@ -29,7 +29,7 @@ Follow [setup](README.md), then run from CRN-craft:
 
 ```bash
 python tutorials/optimization/run.py C1 --output /tmp/c1-smoke
-python tutorials/optimization/run.py C1 --include-checked --output /tmp/c1-both
+python tutorials/optimization/run.py C1 --include-next-reaction --output /tmp/c1-both
 python tutorials/optimization/run.py C1 --preset study --threads 8 --output /tmp/c1-study
 ```
 
@@ -37,28 +37,30 @@ The smoke run requests 32 objective calls per route, 16 training paths and 1,024
 held-out paths. The study uses 128 calls, 32 training paths, three optimizer
 seeds and 4,096 held-out paths.
 
-Requests are `crn-craft.ssa-run/0.3`, so the SSA runs CRN-craft's default
-`fast` policy: Xoshiro256++ words and running totals, as in JumpProcesses.jl,
-without the checked policy's lost-increment and 53-bit resolution checks
-(sampler `xoshiro256pp-u53/cached_direct/inverse/fast-1`). These well-scaled
-fixtures sample the same law under both policies, and the held-out moment
-check below validates the fast arm here. `--include-checked` adds a separate
-arm with `fast=False` (ChaCha8, sampler `chacha8-u53/...`) and its own check;
-the two policies draw different paths and are never pooled. Each row records
-its policy, sampler and request schema.
+The models are `crn-craft.model/1.0` documents (the packaged
+immigration–death example and a two-rule binding model written with the
+builder) and the requests are `crn-craft.run/1.0` ensembles of the Static Direct
+method (sampler `chacha8-u53-ziggurat/rules-static-direct/1`), written with
+`crn.ensemble`. `--include-next-reaction` adds a separate arm with the
+`next_reaction` method (sampler `chacha8-u53/rules-next-reaction/1`) and its own
+check; both are exact, but the two methods draw different paths and are never
+pooled. Each row records its policy (`direct` or `next_reaction`), sampler and
+request schema.
 
 For each model, policy and optimizer seed, the fresh arm reconstructs the model
-and request for every callback. The reusable arm prepares once and calls
-`template.simulate(rates)`. Both use the same optimizer initialization, rate
+and request for every callback. The reusable arm prepares once with
+`crn.ensemble(...)` and calls `template.bind_parameters(rates).simulate()`. Both use the same optimizer initialization, rate
 bounds, numerical policy and root training seed. Inspect the `*.trace.json`
 files: candidate coordinates and objective values must agree exactly between
-these two routes. Parameter coordinate order is checked against
-`template.parameter_names`.
+these two routes. The parameter names are sorted, and the objective maps the
+coordinates to them by that order.
 
-At the fitted point, ordinary execution of the binding's serialized model and
-request must equal `bound.simulate()`. This replay statement concerns the two
-CRN routes under their documented policy; it says nothing about another
-simulator's random-number stream.
+At the fitted point, a model prepared afresh from the fitted values must give
+the same result as the binding: the same statistics, events and sampler. Only
+the hashes of the serialized model and request may differ, because a binding
+serializes the bound model itself. This replay statement concerns the two CRN
+routes under their documented method; it says nothing about another simulator's
+random-number stream.
 
 ## Read the evidence
 

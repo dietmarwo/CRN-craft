@@ -1,18 +1,18 @@
 """C2: nonlinear BDF sensitivity fitting, independent ODE checks and SSA transfer."""
 
 import copy
-import json
 import subprocess
 import time
 import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.optimize import brentq
-import crn_craft._legacy as crn
+import crn_craft as crn
 import fcmaes_rust
 import sqp_craft as sqp
-from common import ROOT, arm_manifest, call_json, checked, digest, require, write
+from common import arm_manifest, call_json, checked, digest, require, write
 
 NAMES = ["kon", "kcat"]
+SPECIES = ["S", "E", "ES", "P"]
 TIMES = np.linspace(0, 4, 9)
 SCALE = np.array([50, 10, 10, 50])
 
@@ -151,8 +151,11 @@ class Objective:
 
 def run(args, report):
     """Fit stiff nonlinear enzyme kinetics and separate accuracy, derivatives and identification."""
-    model = json.loads(
-        (ROOT / "models/examples/enzyme-mechanism.model.json").read_text()
+    model = crn.load_example("enzyme-mechanism").to_dict()
+    # SCALE, independent() and the ODE columns follow the model's species order.
+    require(
+        [t["name"] for t in model["types"]] == SPECIES,
+        "enzyme species order changed",
     )
     model["parameters"].update(kon=1.0, koff=4.0, kcat=0.8)
     truth = np.array([1.0, 0.8])
@@ -272,23 +275,25 @@ def run(args, report):
         rates = np.exp(objective.best)
         search_seconds = time.perf_counter() - start
         native_calls = objective.calls
-        request = crn.ssa_spec(
-            model,
-            aggregator="cached_direct",
+        template = crn.ensemble(
+            crn.Model.from_dict(model),
             end=4,
-            save_times=TIMES.tolist(),
+            report_times=TIMES.tolist(),
             replicates=report["budgets"]["validation_paths"],
             seed=9103,
             threads=args.threads,
-            keep=2,
+            keep_paths=2,
             max_events=100000,
+            method="static_direct",
+            quantiles=(),
         )
-        template = crn.prepare_parameters(model, request)
         params = dict(model["parameters"])
         params.update(dict(zip(NAMES, rates.tolist(), strict=True)))
-        stochastic = checked(template.simulate(params))
-        write(args.output / f"{strategy}.ssa.json", stochastic)
-        mean = np.asarray(stochastic["statistics"]["mean"])
+        stochastic = checked(template.bind_parameters(params).simulate())
+        write(args.output / f"{strategy}.ssa.json", stochastic.metadata)
+        # The result's observables are sorted by name; the ODE columns are in
+        # species order.
+        mean = np.asarray(stochastic.statistics["mean"][SPECIES])
         require(
             np.max(np.abs(mean[:, 0] + mean[:, 2] + mean[:, 3] - 50)) < 1e-9,
             "substrate conservation",
@@ -315,10 +320,10 @@ def run(args, report):
             stochastic_vs_ode_normalized_rmse=float(
                 np.sqrt(np.mean(((mean - independent(rates)) / SCALE) ** 2))
             ),
-            validation_paths=stochastic["completed_replicates"],
-            validation_events=stochastic["events"],
-            validation_sampler=stochastic["sampler"],
-            validation_request_schema=request["schema"],
+            validation_paths=stochastic.metadata["completed_replicates"],
+            validation_events=stochastic.metadata["events"],
+            validation_sampler=stochastic.metadata["sampler"],
+            validation_request_schema=stochastic.request["schema"],
         )
         report["arms"].append(row)
         arm_manifest(args.output, strategy, budget, native_calls, search_seconds, 7101)

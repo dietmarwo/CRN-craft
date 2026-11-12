@@ -144,6 +144,22 @@ def worker_model(job):
     chunks = []
     sampler = None
     columns = None
+    # With --state, every finished chunk is stored, and a rerun with the same
+    # engine, model, method and sizes loads it instead of simulating again.
+    state = Path(job["state"]) / job["name"] if job.get("state") else None
+    key = None
+    if state is not None:
+        state.mkdir(parents=True, exist_ok=True)
+        key = {
+            "native_sha256": worker_identity()["native_sha256"],
+            "converted_sha256": hashlib.sha256(converted).hexdigest(),
+            "method": job["method"],
+            "chunk": job["chunk"],
+            "chunks": job["chunks"],
+            "end": job["end"],
+            "report_times": job["report_times"],
+            "species": job["species"],
+        }
     for k in range(job["chunks"]):
         seed = job["gate_seed"] + k
         request = request_for(
@@ -155,10 +171,30 @@ def worker_model(job):
             method=job["method"],
         )
         request["model"]["sha256"] = hashlib.sha256(converted).hexdigest()
+        stored = None if state is None else state / f"chunk-{k}.json"
+        if stored is not None and stored.exists():
+            saved = json.loads(stored.read_text())
+            if saved["key"] == key and saved["root_seed"] == seed:
+                if sampler is not None and saved["sampler"] != sampler:
+                    raise RuntimeError(f"{job['name']}: sampler changed")
+                sampler = saved["sampler"]
+                sums = [np.array(v, dtype=object) for v in saved["sums"]]
+                totals = (
+                    sums
+                    if totals is None
+                    else [a + b for a, b in zip(totals, sums, strict=True)]
+                )
+                chunks.append({"root_seed": seed, "events": saved["events"]})
+                print(
+                    f"  {job['name']} chunk {k} seed {seed} stored",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                continue
         result = rules.prepare(converted, request).simulate().metadata
         values = checked_paths(result, job["chunk"], job["report_times"], job["name"])
-        if k == 0:
-            sampler = result["sampler"]
+        if columns is None:
+            sampler = sampler or result["sampler"]
             observables = result["observables"]
             missing = [s for s in job["species"] if s not in observables]
             if missing:
@@ -190,6 +226,20 @@ def worker_model(job):
             else [a + b for a, b in zip(totals, sums, strict=True)]
         )
         chunks.append({"root_seed": seed, "events": result["events"]})
+        if stored is not None:
+            partial = stored.with_suffix(".partial")
+            partial.write_text(
+                json.dumps(
+                    {
+                        "key": key,
+                        "root_seed": seed,
+                        "sampler": sampler,
+                        "events": result["events"],
+                        "sums": [v.tolist() for v in sums],
+                    }
+                )
+            )
+            partial.replace(stored)
         print(
             f"  {job['name']} chunk {k} seed {seed} events {result['events']}",
             file=sys.stderr,
@@ -408,6 +458,12 @@ def main():
     )
     parser.add_argument("--threads", type=int, default=2)
     parser.add_argument("--replicates", type=int, help="smoke run with N replicates")
+    parser.add_argument(
+        "--state",
+        type=Path,
+        help="directory of finished chunks (Python backend): a rerun after an "
+        "interruption loads them instead of simulating again",
+    )
     parser.add_argument("--output", type=Path)
     parser.add_argument(
         "--manifest", type=Path, default=MANIFEST, help=argparse.SUPPRESS
@@ -463,6 +519,7 @@ def main():
                 "chunks": chunks,
                 "threads": args.threads,
                 "method": method,
+                "state": None if args.state is None else str(args.state.resolve()),
             }
             print(f"{name}: {replicates} replicates", file=sys.stderr, flush=True)
             start = time.monotonic()

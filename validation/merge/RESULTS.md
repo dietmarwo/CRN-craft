@@ -738,3 +738,21 @@ family per command. The first 27 points ran on a CLI built from the M4c
 sources before `cargo fmt` and an MSRV-compatible `next_up` helper, which
 changes only the widening of higher-order channels (none in these models);
 the other 23 on the CLI rebuilt from `eb336a6`.
+
+**2. Exact-law check per selector** (2026-11-11, CLI built at `f1b7dac`, 2
+threads, under the CPU lock, 119 s; report
+`validation/merge/laws/selectors-exact.json`, byte-identical under
+`python -O`): **168 of 168 CDF tests pass**, ε = 0.00798; every reported
+mean and variance equals the paths' moments; all 16 power checks reject the
+falling-factorial law (smallest largest distance 0.369).
+
+| Selector | Waits | Tests | Failures | Largest CDF distance |
+| --- | --- | ---: | ---: | ---: |
+| `linear` | inverse | 21 | 0 | 0.00298 |
+| `linear` | ziggurat | 21 | 0 | 0.00366 |
+| `composition_rejection` | inverse | 21 | 0 | 0.00374 |
+| `composition_rejection` | ziggurat | 21 | 0 | 0.00283 |
+| `sorting` | inverse | 21 | 0 | 0.00358 |
+| `sorting` | ziggurat | 21 | 0 | 0.00408 |
+| `rssa_cr` | inverse | 21 | 0 | 0.00499 |
+| `rssa_cr` | ziggurat | 21 | 0 | 0.00403 |

@@ -745,3 +745,86 @@ and are compared like the others. The importers return the converted
 `crn-craft.model/1.0` document; `check_importers.py` reads its rate
 constants from the converted rules. Both reports must be identical
 normally and under `python -O`.
+
+### M5b (network analysis on the flat view): results
+
+Engine of the M5b commit, release build, this host, under the CPU lock.
+
+**Reference gate** (`validation/merge/check_analysis_references.py`, report
+`validation/merge/analysis/references.json`, identical under `python -O`):
+**0 failures** in 194,388 compared leaves (twelve models, each analyzed
+from the network file and from its converted model). No propensity
+differs: the declared exception for Hill laws and mass action over pairs
+was not needed at the initial states.
+
+| Model | Leaves (network file / converted) | Failures | Listed propensity differences |
+| --- | ---: | ---: | ---: |
+| W1 | 45 / 44 | 0 | 0 |
+| W2 | 1,005 / 1,004 | 0 | 0 |
+| W3 | 239 / 238 | 0 | 0 |
+| W4 | 4,963 / 4,962 | 0 | 0 |
+| W5 | 11,514 / 11,513 | 0 | 0 |
+| W6 | 74,784 / 74,783 | 0 | 0 |
+| W7 | 3,698 / 3,697 | 0 | 0 |
+| enzyme-mechanism | 134 / 133 | 0 | 0 |
+| immigration-death | 45 / 44 | 0 | 0 |
+| michaelis-menten | 53 / 52 | 0 | 0 |
+| repressilator | 239 / 238 | 0 | 0 |
+| vilar-noise | 481 / 480 | 0 | 0 |
+
+(The converted run has one leaf fewer: its `model_sha256` is checked
+separately.)
+
+**Migrated `check_network.py`** (report schema `network-validation/0.2`,
+identical under `python -O`): 219 of 219 checks, the same fixture stream
+(`e6a64d11…`) and the same 219 cases as the 0.6.0 script on the 0.6.0
+binary. 1,030 rates evaluated (0.6.0: 1,028; the two underflow cases are now
+evaluated), largest relative error 4.36e-15 (0.6.0: 2.37e-14). Changed
+expectations, as declared: 21 random networks without reactions refused
+with `CRN-R016`; `mass_2000_1000_1` fails with `CRN-R030`;
+`hill_repression_1_5e-324` and `mm_underflow` report 0.
+
+**Not declared before the run**: one case, `hill_activation_1_1e+300`
+(x = 1, k = vmax = 1e300, n = 2, exact value 1e-300), fails the 0.6.0
+tolerance: the converted law `basal + vmax / (1 + (k / R)^n)` gives 0 where
+`(k / R)^n` overflows. This is the limitation M2 declared and measured for
+the converted Hill laws (absolute floor vmax · 2^-1020 where the induced
+term underflows; there the converted propensity is basal). The migrated
+script accepts a Hill propensity that misses the 0.6.0 tolerance only when
+it equals the basal rate exactly and lies within M2's floor, and lists each
+such case (`hill_floor_cases`: this one case). No other tolerance changed.
+
+**Migrated `check_structure.py`** (report schema
+`structure-validation/0.2`, identical under `python -O`): 309 of 309
+checks, the same fixture stream (`1373b12d…`) and cases as 0.6.0. 37 of the
+300 random networks have no reactions and are refused with `CRN-R016` as
+declared, so fewer rays and bounds are checked than in 0.6.0: 211 extreme
+rays (0.6.0: 373), 349 basis-bounded and 363 cone-bounded species (0.6.0:
+511 and 525); the cone adds 14 bounds over the basis in both.
+
+### M5f (GillesPy2 export on the flat view): results
+
+Engine of the M5f commits, release build, this host, under the CPU lock;
+reference binary: the 0.6.0 build of M0c (`/home/claude/m07/bin060`).
+
+**Export equivalence** (`validation/merge/check_export_references.py`,
+report `validation/merge/export/references.json`, identical under `python
+-O`): **0 failures**. The nine models 0.6.0 exported (W1, W2, W5, W6, W7,
+enzyme-mechanism, immigration-death, vilar-noise and the `check_export.py`
+fixture) export byte-identical artifacts. The four models 0.6.0 refused with
+`CRN-E050` (W3, W4, michaelis-menten, repressilator) now export 40 custom
+propensities; at the four declared states each, 160 evaluations, every one
+equal to the engine's propensity bit for bit (largest relative difference
+0).
+
+**Migrated `check_export.py`** (GillesPy2 1.8.3, report schema
+`reference-export-validation/0.2`, identical under `python -O`): 9 of 9
+checks; 15,756 rate comparisons, largest relative error 1.35e-16, the grid
+fixture exact as in 0.6.0. The Michaelis–Menten and repressilator examples
+now export and pass the rate checks; a GillesPy2 SSA smoke run of the
+Michaelis–Menten custom propensity conserves S + P; the two refusal rows
+use a rate with a function and a stop condition (`CRN-E050`).
+
+**Migrated `check_importers.py`**: 49 of 49 checks (the 48 of 0.6.0 and the
+new rejection of an SBML model without reactions), identical under
+`python -O`.

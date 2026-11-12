@@ -1,7 +1,8 @@
 """Rules parameter binding and the benchmark worker before optimization timing.
 
-The migrated counterpart of check_parameter_interface.py (which keeps testing
-the network engine's ParameterTemplate until M8): the frozen fixtures are
+Since 0.7.0 (M8a) this is the only parameter-binding script: the one that tested
+the network engine's ParameterTemplate (check_parameter_interface.py) was
+deleted with that API. The frozen fixtures are
 converted to crn-craft.model/1.0, every candidate binds its values to a
 prepared Static Direct run (PreparedEnsemble.bind_parameters, the worker's
 `reuse` route) and must equal a fresh preparation of the model with those
@@ -16,7 +17,7 @@ import math
 from pathlib import Path
 import tempfile
 
-import crn_craft._legacy as crn
+import crn_craft
 from crn_craft import rules
 from parameter_optimization import Worker, save
 from parameter_optimization_models import fixtures
@@ -58,7 +59,7 @@ def fresh(converted, values, times, wait, **budget):
     """A fresh preparation of the converted model with `values`."""
     model = json.loads(converted)
     model["parameters"] = {**model["parameters"], **values}
-    data = crn.model_bytes(model)
+    data = rules.model_bytes(model)
     return rules.prepare(data, request(data, times, wait, **budget)).simulate()
 
 
@@ -82,7 +83,7 @@ def untimed(reply):
 def refused(action, code):
     try:
         action()
-    except (crn.CrnError, ValueError, TypeError) as error:
+    except (rules.CrnError, ValueError, TypeError) as error:
         diagnostics = getattr(error, "diagnostics", None)
         return code is None or (diagnostics and diagnostics[0]["code"] == code)
     return False
@@ -120,7 +121,7 @@ def main():
     finally:
         worker.close()
     for fixture in fixtures():
-        converted = crn.convert(fixture["model"])
+        converted = crn_craft.convert(fixture["model"])
         names = sorted(fixture["model"]["parameters"])
         truth = [fixture["model"]["parameters"][name] for name in names]
         times = fixture["times"]
@@ -188,7 +189,7 @@ def main():
             )
         save(args.output, report)
     f = fixtures()[0]
-    converted = crn.convert(f["model"])
+    converted = crn_craft.convert(f["model"])
     times = f["times"]
     template = rules.prepare(converted, request(converted, times, "ziggurat"))
     for overrides in [

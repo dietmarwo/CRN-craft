@@ -496,19 +496,95 @@ def main():
 
     invalid = ROOT / "models/invalid"
     for row in json.loads((invalid / "expected.json").read_text()):
-        command = ["check", invalid / row["model"]]
         if row["run"] is not None:
-            command.append(invalid / row["run"])
-        code, report = invoke(*command)
-        # A network model alone is checked by converting it (check/1.0); with
-        # a network run/0.1 request it gets the network check (LEGACY).
-        validators["check" if row["run"] is not None else "check-1.0"].validate(report)
+            # The network run/0.1 requests of these rows are no contract any
+            # more; the unified counterparts follow below.
+            continue
+        # A network model alone is checked by converting it (check/1.0).
+        code, report = invoke("check", invalid / row["model"])
+        validators["check-1.0"].validate(report)
         record(
             row["name"],
             code == 1
             and not report["valid"]
             and coded(report, row["code"], row["path"]),
         )
+
+    # The four invalid requests of the table, written as crn-craft.run/1.0
+    # requests for the converted model: refused by `check` and `run` with the
+    # unified code, at the same place.
+    with tempfile.TemporaryDirectory(prefix="crn-invalid-run-") as folder:
+        temp = Path(folder)
+        code, converted = call("convert", invalid / "model.json")
+        require(code == 0, "convert of the invalid-table model")
+        (temp / "model.json").write_bytes(converted)
+        digest = hashlib.sha256(converted).hexdigest()
+        base = {
+            "schema": "crn-craft.run/1.0",
+            "model": {"path": "model.json", "sha256": digest},
+            "method": {"kind": "static_direct"},
+            "time": {"end": 10.0, "report_times": [0.0, 1.0, 2.0, 5.0, 10.0]},
+            "ensemble": {"replicates": 64, "root_seed": 42},
+            "outputs": {
+                "statistics": ["mean", "variance"],
+                "keep_paths": 2,
+                "keep_instances": 0,
+            },
+            "budget": {
+                "max_events_per_replicate": 1000000,
+                "max_sampling_steps_per_replicate": 1000000,
+                "max_instances": 100,
+                "wall_time_s": 60.0,
+                "threads": 1,
+                "max_output_bytes": 1048576,
+            },
+        }
+        fsp = {
+            "schema": "crn-craft.run/1.0",
+            "model": {"path": "model.json", "sha256": digest},
+            "time": {"end": 10.0, "report_times": [0.0, 1.0, 2.0, 5.0, 10.0]},
+            "method": {
+                "kind": "fsp",
+                "bounds": {},
+                "max_states": 102,
+                "tolerance": 1e-10,
+            },
+            "budget": {"wall_time_s": 60.0, "max_output_bytes": 1048576},
+        }
+        for name, document, expected_path in [
+            (
+                "hash-mismatch",
+                {**base, "model": {"path": "model.json", "sha256": "0" * 64}},
+                "/model/sha256",
+            ),
+            ("missing-fsp-bound", fsp, "/method/bounds/A"),
+            (
+                "duplicate-report-time",
+                {
+                    **base,
+                    "time": {"end": 10.0, "report_times": [0.0, 1.0, 1.0, 5.0, 10.0]},
+                },
+                "/time/report_times/2",
+            ),
+            (
+                "parent-path",
+                {**base, "model": {"path": "../model.json", "sha256": digest}},
+                "/model/path",
+            ),
+        ]:
+            path = temp / f"{name}.run.json"
+            path.write_text(json.dumps(document))
+            check_code, checked = invoke("check", temp / "model.json", path)
+            run_code, report = invoke("run", temp / "model.json", path)
+            validators["check-1.0"].validate(checked)
+            record(
+                f"run_1_0_{name}",
+                check_code == 1
+                and run_code == 1
+                and not checked["valid"]
+                and coded(checked, "CRN-R020", expected_path)
+                and coded(report, "CRN-R020", expected_path),
+            )
 
     # Schema validation is structural; semantic cross-references are Rust checks.
     original = json.loads((examples / "immigration-death.model.json").read_text())

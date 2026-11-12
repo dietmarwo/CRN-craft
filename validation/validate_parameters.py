@@ -1,9 +1,9 @@
 """Execute the final parameter-interface numerical/contract gates, retaining logs.
 
 Since M5g the benchmark worker runs the rules engine: its checks are
-check_parameter_binding.py, which needs the worker built here, while
-check_parameter_interface.py keeps testing the network engine's
-ParameterTemplate until M8. `--evidence` selects where logs and reports go
+check_parameter_binding.py, which needs the worker built here. (M8a deleted
+check_parameter_interface.py, which tested the removed network ParameterTemplate,
+and with it the `parameter-validation` gate.) `--evidence` selects where logs and reports go
 (default: the committed evidence directory); `--resume` skips the checks that
 already passed in that directory's summary; `--skip NAME` leaves a check out
 (for example `msrv-tests` on a host without the 1.85.0 toolchain), which the
@@ -282,22 +282,6 @@ def main():
             cwd=Path("/tmp"),
         )
     same(out / "installed.json", out / "installed-optimized.json")
-    for optimized in [False, True]:
-        name = "parameter-validation" + ("-optimized" if optimized else "")
-        run(
-            name,
-            [sys.executable]
-            + (["-O"] if optimized else [])
-            + [
-                "validation/check_parameter_interface.py",
-                "--output",
-                str(evidence / f"{name}.json"),
-            ],
-        )
-    same(
-        evidence / "parameter-validation.json",
-        evidence / "parameter-validation-optimized.json",
-    )
     for optimized in [False, True]:
         name = "parameter-binding" + ("-optimized" if optimized else "")
         run(

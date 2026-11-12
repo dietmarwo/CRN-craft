@@ -7,9 +7,9 @@
 > with Ziggurat waits. There is no generated CRN route: generated rules
 > kernels and loops compile the parameter values in and refuse rebound
 > candidates, and the network engine's propensity modules are gone. The
-> worker checks are `validation/check_parameter_binding.py --worker BINARY`;
-> `check_parameter_interface.py` keeps testing the network engine's Python
-> `ParameterTemplate` until it is removed. The evidence in `evidence/` and
+> worker checks are `validation/check_parameter_binding.py --worker BINARY`
+> (the script that tested the network engine's Python `ParameterTemplate`,
+> `check_parameter_interface.py`, was deleted in 0.7.0). The evidence in `evidence/` and
 > the text below describe the 0.6.0 measurement with the network engine's
 > routes (`crn_*_fast`, generated kernels) and have not been repeated.
 

@@ -1,4 +1,15 @@
-"""Independent matrix-exponential, analytic and DSMTS checks for native FSP."""
+"""Independent matrix-exponential, analytic and DSMTS checks for the FSP method.
+
+Each network fixture (the four CME fixtures of `check_cme.py` and the DSMTS
+001-01 and 002-01 models) is converted with `crn-craft convert` and solved as a
+`crn-craft.run/1.0` request with method `fsp` by `crn-craft run MODEL REQUEST`,
+which returns `crn-craft.fsp-result/1.0`. States are matched by species label
+(the network species names).
+
+Since 0.7.0 (M8a) this is the only FSP script: it carries the cases, checks and
+tolerances of the 0.6.0 script that tested the removed network command `crn-craft
+fsp` (migrated in M5a as `check_fsp_rules.py` and renamed here).
+"""
 
 import argparse
 import hashlib
@@ -79,15 +90,24 @@ def main():
                 ],
                 "reactions": fixture["reactions"],
             }
-            m = (json.dumps(model) + "\n").encode()
+            (folder / "network.json").write_text(json.dumps(model) + "\n")
+            converted = subprocess.run(
+                [str(args.binary.resolve()), "convert", str(folder / "network.json")],
+                capture_output=True,
+                check=False,
+                timeout=120,
+            )
+            require(converted.returncode == 0, converted.stdout.decode())
+            m = converted.stdout
             (folder / "model.json").write_bytes(m)
             times = [0.0, 0.5, 2.0, 10.0]
-            run = {
-                "schema": "crn-craft.run/0.1",
+            request = {
+                "schema": "crn-craft.run/1.0",
                 "model": {
                     "path": "model.json",
                     "sha256": hashlib.sha256(m).hexdigest(),
                 },
+                "time": {"end": times[-1], "report_times": times},
                 "method": {
                     "kind": "fsp",
                     "bounds": {
@@ -97,17 +117,15 @@ def main():
                     "max_states": 10000,
                     "tolerance": 1e-14,
                 },
-                "time": {"end": times[-1], "save_times": times},
-                "outputs": {"statistics": ["mean"], "keep_trajectories": 0},
-                "budget": {"threads": 1, "max_output_bytes": 10000000},
+                "budget": {"max_output_bytes": 10000000},
             }
-            (folder / "run.json").write_text(json.dumps(run))
+            (folder / "request.json").write_text(json.dumps(request))
             p = subprocess.run(
                 [
                     str(args.binary.resolve()),
-                    "fsp",
+                    "run",
                     str(folder / "model.json"),
-                    str(folder / "run.json"),
+                    str(folder / "request.json"),
                 ],
                 capture_output=True,
                 check=False,
@@ -115,6 +133,10 @@ def main():
             )
             require(p.returncode == 0, p.stdout.decode() + p.stderr.decode())
             result = json.loads(p.stdout)
+            require(result["schema"] == "crn-craft.fsp-result/1.0", "result contract")
+            names = [s for s, _ in fixture["species"]]
+            require(sorted(result["species"]) == sorted(names), "species labels")
+            order = [result["species"].index(s) for s in names]
             idx = {tuple(x): i for i, x in enumerate(states)}
             errors = []
             for snapshot in result["snapshots"]:
@@ -129,7 +151,7 @@ def main():
                 for x, value in zip(
                     result["states"], snapshot["probabilities"], strict=True
                 ):
-                    actual[idx[tuple(x)]] = value
+                    actual[idx[tuple(x[i] for i in order)]] = value
                 actual[n] = snapshot["physical_leakage_estimate"]
                 errors.append(float(np.max(np.abs(actual - expected))))
                 require(
@@ -153,8 +175,8 @@ def main():
             if name.startswith("DSMTS"):
                 for snapshot in result["snapshots"]:
                     t = snapshot["time"]
-                    mean = snapshot["projected_first_moment"][0]
-                    second = snapshot["projected_second_raw_moment"][0]
+                    mean = snapshot["projected_first_moment"][order[0]]
+                    second = snapshot["projected_second_raw_moment"][order[0]]
                     if name == "DSMTS_001_01":
                         expected_mean = 100 * math.exp(-0.01 * t)
                         expected_var = (
@@ -216,7 +238,7 @@ def main():
                 }
             )
     report = {
-        "schema": "crn-craft.fsp-validation/0.1",
+        "schema": "crn-craft.fsp-validation/0.2",
         "passed": all(r["passed"] for r in rows),
         "rows": rows,
         "dsmts": provenance,

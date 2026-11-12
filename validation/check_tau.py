@@ -1,4 +1,14 @@
-"""Predeclared approximate bias envelopes against an analytic linear law."""
+"""Predeclared approximate bias envelopes against an analytic linear law.
+
+The network model is converted with `crn-craft convert` and run as a
+`crn-craft.run/1.0` request with `{"kind": "tau", "epsilon": ε}` by `crn-craft
+run`, with the declared sizes, seeds and tolerances of the 0.6.0 script
+(validation/merge/RESULTS.md, M5c).
+
+Since 0.7.0 (M8a) this is the only tau-leaping script: it replaces the 0.6.0
+script that tested the removed network command `crn-craft tau` (migrated in M5c
+as `check_tau_rules.py` and renamed here).
+"""
 
 import argparse
 import hashlib
@@ -10,12 +20,15 @@ import tempfile
 import numpy as np
 from scipy.stats import binom, poisson
 
+SAMPLER = "chacha8-u53/rules-approximate-cgp-poisson/2"
+
 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--binary", type=Path, required=True)
     ap.add_argument("--output", type=Path, required=True)
     args = ap.parse_args()
+    binary = str(args.binary.resolve())
     rows = []
     n = 10000
     p = math.exp(-1.0)
@@ -27,9 +40,9 @@ def main():
     mean = 30 * p + immigration
     variance = 30 * p * (1 - p) + immigration
     epsilon_stat = math.sqrt(math.log(6 / 0.001) / (2 * n))
-    with tempfile.TemporaryDirectory(prefix="crn-tau-") as temp:
+    with tempfile.TemporaryDirectory(prefix="crn-tau-rules-") as temp:
         folder = Path(temp)
-        model = {
+        network = {
             "schema": "crn-craft.model/0.1",
             "name": "TauControl",
             "convention": "stochastic_counts",
@@ -51,47 +64,59 @@ def main():
                 },
             ],
         }
-        m = json.dumps(model).encode()
+        (folder / "network.json").write_text(json.dumps(network))
+        converted = subprocess.run(
+            [binary, "convert", str(folder / "network.json")],
+            capture_output=True,
+            check=False,
+            timeout=60,
+        )
+        if converted.returncode:
+            raise RuntimeError(converted.stdout.decode() + converted.stderr.decode())
+        m = converted.stdout
+        if json.loads(m)["schema"] != "crn-craft.model/1.0":
+            raise RuntimeError("the converter did not write crn-craft.model/1.0")
         (folder / "model.json").write_bytes(m)
         for i, epsilon in enumerate([0.1, 0.05, 0.025]):
-            run = {
-                "schema": "crn-craft.run/0.1",
+            method = {"kind": "tau", "epsilon": epsilon}
+            request = {
+                "schema": "crn-craft.run/1.0",
                 "model": {
                     "path": "model.json",
                     "sha256": hashlib.sha256(m).hexdigest(),
                 },
-                "method": {"kind": "ssa", "aggregator": "direct"},
+                "method": method,
                 "ensemble": {"replicates": n, "root_seed": 9101 + i},
-                "time": {"end": 2.0, "save_times": [0.0, 2.0]},
-                "outputs": {"statistics": ["mean", "variance"], "keep_trajectories": n},
+                "time": {"end": 2.0, "report_times": [0.0, 2.0]},
+                "outputs": {
+                    "statistics": ["mean", "variance"],
+                    "keep_paths": n,
+                    "keep_instances": 0,
+                },
                 "budget": {
                     "threads": 1,
                     "max_events_per_replicate": 10000,
+                    "max_sampling_steps_per_replicate": 100000000,
+                    "max_instances": 1000,
                     "max_output_bytes": 100000000,
                 },
             }
-            request = {
-                "schema": "crn-craft.tau-request/0.1",
-                "epsilon": epsilon,
-                "max_leaps_per_replicate": 100000,
-                "reference_run": run,
-            }
             (folder / "tau.json").write_text(json.dumps(request))
             proc = subprocess.run(
-                [
-                    str(args.binary.resolve()),
-                    "tau",
-                    str(folder / "model.json"),
-                    str(folder / "tau.json"),
-                ],
+                [binary, "run", str(folder / "model.json"), str(folder / "tau.json")],
                 capture_output=True,
                 check=False,
-                timeout=120,
+                timeout=300,
             )
             if proc.returncode:
                 raise RuntimeError(proc.stdout.decode() + proc.stderr.decode())
             result = json.loads(proc.stdout)
-            samples = np.array([t["counts"][-1][0] for t in result["trajectories"]])
+            column = result["observables"].index("X")
+            samples = np.array(
+                [int(path["values"][-1][column]) for path in result["paths"]]
+            )
+            if len(samples) != n:
+                raise RuntimeError("missing paths")
             empirical = (
                 np.bincount(samples, minlength=len(cdf))[: len(cdf)].cumsum() / n
             )
@@ -109,17 +134,18 @@ def main():
                     "mean_envelope": mean_envelope,
                     "min_count": int(samples.min()),
                     "events": result["events"],
-                    "leaps": result["leaps"],
-                    "rejected_leaps": result["rejected_leaps"],
+                    "rng_words": sum(r["rng_words"] for r in result["replicates"]),
+                    "sampler": result["sampler"],
                     "passed": error <= envelope
                     and bias <= mean_envelope
-                    and result["assessment"] == "approximate_ensemble"
-                    and result["termination"] == "completed",
+                    and result["termination"] == "completed"
+                    and result["sampler"] == SAMPLER
+                    and result["method"] == method,
                     "result_sha256": hashlib.sha256(proc.stdout).hexdigest(),
                 }
             )
     report = {
-        "schema": "crn-craft.tau-validation/0.1",
+        "schema": "crn-craft.tau-validation/0.2",
         "passed": all(r["passed"] for r in rows),
         "epsilon_stat": epsilon_stat,
         "rows": rows,

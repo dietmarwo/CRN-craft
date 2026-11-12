@@ -12,7 +12,6 @@ from pathlib import Path
 import time
 
 import crn_craft
-import crn_craft._legacy
 
 # Validate new Python source against the installed native core before packaging.
 crn_craft.__path__.insert(
@@ -57,7 +56,7 @@ def main():
     )
     model = report["model"]
     require(model["schema"] == "crn-craft.model/1.0", "converted model contract")
-    analysis = crn_craft._legacy.analyze(model)
+    analysis = crn_craft.Model.from_dict(model).analyze()
     require(analysis["success"], "imported model analysis")
 
     # Inspect pure compiled propensity through the public analysis report.

@@ -14,7 +14,6 @@ from pathlib import Path
 import subprocess
 import tempfile
 
-import crn_craft._legacy as crn
 from crn_craft import rules
 
 
@@ -47,7 +46,7 @@ def recompute(model, data, parameters, x):
         candidate = copy.deepcopy(model)
         for name, log_rate in zip(names, x, strict=True):
             candidate["parameters"][name] = math.exp(log_rate)
-        data_bytes = crn.model_bytes(candidate)
+        data_bytes = rules.model_bytes(candidate)
         run = {
             "schema": "crn-craft.run/1.0",
             "model": {

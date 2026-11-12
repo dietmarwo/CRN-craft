@@ -5,6 +5,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import subprocess
 import tempfile
 
 import numpy as np
@@ -773,37 +774,45 @@ def check_tau_production(binary, folder, rows, summaries):
 
 
 def network_sample(binary, folder, model, times):
+    """The network model, converted and run as `next_reaction` (since 0.7.0 the
+    unified engine; 0.6.0 ran the network engine's `ssa` command)."""
+    source = folder / "network.json"
+    source.write_text(json.dumps(model))
+    converted = subprocess.run(
+        [str(binary), "convert", str(source)], capture_output=True, check=False
+    )
+    require(converted.returncode == 0, "convert of the network model")
     path = folder / "network.model.json"
-    path.write_text(json.dumps(model))
+    path.write_bytes(converted.stdout)
     req = {
-        "schema": "crn-craft.ssa-run/0.4",
+        "schema": "crn-craft.run/1.0",
         "model": {
             "path": path.name,
             "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         },
-        "method": {
-            "kind": "ssa",
-            "aggregator": "next_reaction",
-            "waiting_time": "inverse",
-        },
-        "time": {"end": times[-1], "save_times": [0.0, *times]},
+        "method": {"kind": "next_reaction"},
+        "time": {"end": times[-1], "report_times": [0.0, *times]},
         "ensemble": {"replicates": N, "root_seed": SEED},
-        "outputs": {"statistics": ["mean"], "keep_trajectories": N},
+        "outputs": {"statistics": ["mean"], "keep_paths": N, "keep_instances": 0},
         "budget": {
             "max_events_per_replicate": 1_000_000,
             "max_sampling_steps_per_replicate": 8_000_000,
+            "max_instances": 16,
             "threads": 8,
             "max_output_bytes": 512 << 20,
         },
     }
     request = folder / "network.run.json"
     request.write_text(json.dumps(req))
-    code, result = invoke(binary, "ssa", path, request)
+    code, result = invoke(binary, "run", path, request)
     require(
         code == 0 and result["termination"] == "completed",
         str(result.get("diagnostics")),
     )
-    return np.asarray([p["counts"] for p in result["trajectories"]])[:, 1:, 0]
+    column = result["observables"].index("X")
+    return np.asarray([[row[column] for row in p["values"]] for p in result["paths"]])[
+        :, 1:
+    ]
 
 
 def check_clocks(binary, folder, rows):

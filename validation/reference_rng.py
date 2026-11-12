@@ -3,6 +3,17 @@
 Algorithm: https://cr.yp.to/chacha/chacha-20080128.pdf. No third-party code
 copied. This intentionally uses scalar integer operations, independently of
 rand_chacha/ppv-lite86. Not a production or cryptographic API.
+
+Since 0.7.0 one engine draws every replicate from the stream of
+`crn_craft::rules::stream`: ChaCha8 keyed by SHA-256 of the domain
+`crn-craft.rules/0.1` (no terminating NUL) followed by the root seed as eight
+little-endian bytes, with the replicate index as the 64-bit stream id, read
+as little-endian 64-bit words from word position zero. `words(root,
+replicate)` is that stream and `rng-vectors-rules.json` holds its known
+answers (nine streams, 40 words each). The network engine's stream
+(`crn-craft.chacha8/0.1` and one NUL byte, `rng-vectors.json`) is the
+`NETWORK_DOMAIN` argument; only the old Rust test `tests/ssa.rs` still reads
+that file, until task M8b deletes it with the old engine.
 """
 
 import hashlib
@@ -42,21 +53,23 @@ def block(key, counter, stream):
     return [words[i] | (words[i + 1] << 32) for i in range(0, 16, 2)]
 
 
-def words(root, replicate):
-    key = hashlib.sha256(
-        b"crn-craft.chacha8/0.1\0" + root.to_bytes(8, "little")
-    ).digest()
+DOMAIN = b"crn-craft.rules/0.1"
+NETWORK_DOMAIN = b"crn-craft.chacha8/0.1\0"
+
+
+def words(root, replicate, domain=DOMAIN):
+    key = hashlib.sha256(domain + root.to_bytes(8, "little")).digest()
     counter = 0
     while True:
         yield from block(key, counter, replicate)
         counter += 1
 
 
-def vectors():
+def vectors(domain=DOMAIN):
     rows = []
     for root in [0, 42, 2026110401]:
         for replicate in [0, 1, (1 << 64) - 1]:
-            stream = words(root, replicate)
+            stream = words(root, replicate, domain)
             rows.append(
                 {
                     "root": root,
@@ -68,9 +81,14 @@ def vectors():
 
 
 if __name__ == "__main__":
-    expected = json.loads((Path(__file__).parent / "rng-vectors.json").read_text())
+    here = Path(__file__).parent
+    expected = json.loads((here / "rng-vectors-rules.json").read_text())
     if expected != vectors():
         raise RuntimeError("independent ChaCha8 known-answer fixture differs")
+    # The old network stream stays checked while its Rust test exists (M8b).
+    old = here / "rng-vectors.json"
+    if old.exists() and json.loads(old.read_text()) != vectors(NETWORK_DOMAIN):
+        raise RuntimeError("independent ChaCha8 network known-answer fixture differs")
     print(
         json.dumps(
             {

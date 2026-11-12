@@ -1,7 +1,18 @@
-"""M2 independent analytic campaign, trajectory oracle and archive/CLI checks.
+"""Independent analytic campaign, trajectory oracle and archive/CLI checks.
 
 Targets are frozen in docs/decisions/iteration-04-validation.md. Timings are
 written separately; the normal/-O acceptance report is fixed-work evidence.
+
+Since 0.7.0 (M8a) the campaign runs on the unified engine: every network
+fixture is converted with `crn-craft convert` and run as a `crn-craft.run/1.0`
+request, Static Direct with the `linear` selector and `inverse` waits (the
+checked reference variant, `chacha8-u53/rules-static-direct/1`), by `crn-craft
+run MODEL REQUEST --archive DIR`, and the `crn-craft.archive/1.0` directory is
+verified independently. The ChaCha8 stream is the one of `crn_craft::rules::
+stream` (reference_rng.py). The sample sizes, seeds of the fixtures, the
+family-wise error rate and the DKW bound are those of 0.6.0; the trajectories
+differ from the 0.6.0 ones because the stream's key domain changed (decision
+D4), which the statistical tests do not depend on.
 """
 
 import argparse
@@ -16,6 +27,7 @@ import tempfile
 import time
 
 from jsonschema import Draft7Validator
+from check_cme import convert_network, network_model, run_request
 from reference_rng import vectors, words
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,29 +59,25 @@ def digest(data):
 
 
 def independent_archive(path, model, run):
-    names = {
-        "model.json",
-        "run.json",
-        "result.json",
-        "provenance.json",
-        "manifest.json",
-        "COMPLETE",
-    }
+    """Check a `crn-craft.archive/1.0` directory without the Rust verifier."""
+    names = {"model.json", "request.json", "result.json", "manifest.json", "COMPLETE"}
     require({p.name for p in path.iterdir()} == names, "archive names differ")
     require(
         all(p.is_file() and not p.is_symlink() for p in path.iterdir()),
         "nonregular payload",
     )
     require((path / "model.json").read_bytes() == model, "original model bytes changed")
-    require((path / "run.json").read_bytes() == run, "original run bytes changed")
+    require(
+        (path / "request.json").read_bytes() == run, "original request bytes changed"
+    )
     manifest_bytes = (path / "manifest.json").read_bytes()
     require(
         (path / "COMPLETE").read_text() == digest(manifest_bytes) + "\n",
         "completion hash",
     )
     manifest = load(path / "manifest.json")
-    require(manifest["schema"] == "crn-craft.archive/0.1", "archive version")
-    require(len(manifest["files"]) == 4, "manifest length")
+    require(manifest["schema"] == "crn-craft.archive/1.0", "archive version")
+    require(len(manifest["files"]) == 3, "manifest length")
     require(
         {f["path"] for f in manifest["files"]} == names - {"manifest.json", "COMPLETE"},
         "manifest duplicate/path",
@@ -80,12 +88,15 @@ def independent_archive(path, model, run):
             entry["bytes"] == len(data) and entry["sha256"] == digest(data),
             "payload integrity",
         )
+    # The output cap bounds the printed result (the model and request are the
+    # caller's own bytes).
     require(
-        sum(p.stat().st_size for p in path.iterdir())
+        (path / "result.json").stat().st_size
         <= json.loads(run)["budget"]["max_output_bytes"],
-        "archive exceeds output cap",
+        "result exceeds output cap",
     )
     result = load(path / "result.json")
+    require(result["schema"] == "crn-craft.result/1.0", "result contract")
     require(
         result["model_sha256"] == digest(model) and result["run_sha256"] == digest(run),
         "result identity",
@@ -100,15 +111,12 @@ def independent_archive(path, model, run):
         "event accounting",
     )
     require(
-        sum(r["termination"] == "completed" for r in result["replicates"])
+        sum(r["termination"] in ("completed", "stopped") for r in result["replicates"])
         == result["completed_replicates"],
         "completion accounting",
     )
     if result["termination"] != "completed":
-        require(
-            result["assessment"] != "exact_ensemble" and result["statistics"] is None,
-            "conditional statistics mislabelled",
-        )
+        require(result["statistics"] is None, "conditional statistics mislabelled")
     return result
 
 
@@ -171,7 +179,8 @@ def reference_paths(model, run):
             bits = next(generator) >> 11
             while not bits:
                 bits = next(generator) >> 11
-            clock += -math.log(bits / 2**53) / total
+            # The engine's inverse wait is -log(1 - u) / total, u in (0, 1).
+            clock += -math.log(1.0 - bits / 2**53) / total
             if clock > run["time"]["end"]:
                 break
             threshold = (next(generator) >> 11) / 2**53 * total
@@ -209,9 +218,6 @@ def main():
         "--binary", type=Path, default=ROOT / "target/release/crn-craft"
     )
     parser.add_argument("--output", type=Path)
-    parser.add_argument(
-        "--command", choices=["simulate", "simulate-cached"], default="simulate"
-    )
     parser.add_argument("--latency-output", type=Path)
     args = parser.parse_args()
     binary = str(args.binary.resolve())
@@ -231,7 +237,7 @@ def main():
 
     def execute(model_path, run_path, out, expected=0, extra=()):
         summary = invoke(
-            args.command, model_path, run_path, out, *extra, expected=expected
+            "run", model_path, run_path, "--archive", out, *extra, expected=expected
         )
         require(
             summary["valid"] and summary["archive_complete"],
@@ -241,9 +247,15 @@ def main():
         require(verified["valid"], "Rust archive verification failed")
         return independent_archive(out, model_path.read_bytes(), run_path.read_bytes())
 
+    def write_request(folder, model_bytes, name="run.json", **options):
+        spec = run_request(model_bytes, **options)
+        path = folder / name
+        path.write_text(json.dumps(spec) + "\n")
+        return spec, path
+
     try:
         require(
-            vectors() == load(ROOT / "validation/rng-vectors.json"),
+            vectors() == load(ROOT / "validation/rng-vectors-rules.json"),
             "independent RNG vectors changed",
         )
         rows.append({"check": "independent_rng_360_words", "passed": True})
@@ -255,38 +267,55 @@ def main():
                 ("immigration-nonzero", 12, 3.0, 0.8, 2026110403),
             ]:
                 base = ROOT / "validation/ssa-fixtures"
-                model_path = base / (name + ".model.json")
-                run_path = base / (name + ".run.json")
-                spec = load(run_path)
+                network_path = base / (name + ".model.json")
+                frozen = load(base / (name + ".run.json"))
                 require(
-                    spec["ensemble"] == {"replicates": N, "root_seed": seed},
+                    frozen["ensemble"] == {"replicates": N, "root_seed": seed},
                     "frozen fixture changed",
                 )
-                out = folder / name
+                work = folder / name
+                work.mkdir()
+                model_bytes = convert_network(binary, network_path.read_bytes(), work)
+                model_path = work / "model.json"
+                model_path.write_bytes(model_bytes)
+                _, run_path = write_request(
+                    work,
+                    model_bytes,
+                    times=frozen["time"]["save_times"],
+                    replicates=N,
+                    seed=seed,
+                    threads=8,
+                    keep=N,
+                    max_events=frozen["budget"]["max_events_per_replicate"],
+                    max_output_bytes=frozen["budget"]["max_output_bytes"],
+                )
+                out = work / "archive"
                 result = execute(model_path, run_path, out)
                 require(
                     result["completed_replicates"] == N
-                    and result["assessment"] == "exact_ensemble",
+                    and result["termination"] == "completed",
                     "analytic campaign incomplete",
                 )
                 require(
-                    len(result["trajectories"]) == N,
+                    len(result["paths"]) == N,
                     "all analytic paths must be retained",
                 )
+                column = result["observables"].index("X")
                 require(
                     all(
-                        p["counts"][0] == [initial] and len(p["counts"]) == 4
-                        for p in result["trajectories"]
+                        p["values"][0][column] == initial and len(p["values"]) == 4
+                        for p in result["paths"]
                     ),
                     "initial law/save grid",
                 )
                 stats = result["statistics"]
                 for index, horizon in enumerate([0.25, 1.0, 2.0], start=1):
-                    values = [p["counts"][index][0] for p in result["trajectories"]]
+                    values = [p["values"][index][column] for p in result["paths"]]
                     require(
-                        all(isinstance(x, int) and x >= 0 for x in values),
+                        all(x == int(x) and x >= 0 for x in values),
                         "invalid counts",
                     )
+                    values = [int(x) for x in values]
                     histogram = Counter(values)
                     probabilities = analytic_probabilities(
                         initial, birth, death, horizon
@@ -296,15 +325,15 @@ def main():
                     variance = (sum(x * x for x in values) - sum(values) ** 2 / N) / (
                         N - 1
                     )
-                    numerical = abs(stats["mean"][index][0] - mean) <= 2e-12 * max(
+                    numerical = abs(stats["mean"][index][column] - mean) <= 2e-12 * max(
                         1, mean
                     )
                     numerical &= abs(
-                        stats["sample_variance"][index][0] - variance
+                        stats["sample_variance"][index][column] - variance
                     ) <= 2e-12 * max(1, variance)
                     numerical &= (
                         abs(
-                            stats["mean_standard_error"][index][0]
+                            stats["mean_standard_error"][index][column]
                             - math.sqrt(variance / N)
                         )
                         <= 2e-12
@@ -343,17 +372,11 @@ def main():
                 }
             )
 
-            model = {
-                "schema": "crn-craft.model/0.1",
-                "name": "reference",
-                "convention": "stochastic_counts",
-                "omega": 137.0,
-                "parameters": {},
-                "species": [
-                    {"name": "A", "initial_count": 5},
-                    {"name": "B", "initial_count": 0},
-                ],
-                "reactions": [
+            network = network_model(
+                "reference",
+                {},
+                [("A", 5), ("B", 0)],
+                [
                     {
                         "name": name,
                         "reactants": left,
@@ -367,40 +390,55 @@ def main():
                         ("split", {"B": 1}, {"A": 2}, 1.0),
                     ]
                 ],
+                omega=137.0,
+            )
+            work = folder / "reference"
+            work.mkdir()
+            model_bytes = convert_network(
+                binary, (json.dumps(network) + "\n").encode(), work
+            )
+            model_path = work / "model.json"
+            model_path.write_bytes(model_bytes)
+            names = [s["name"] for s in network["species"]]
+            reference_times = [0.0, 0.25, 1.0, 2.0]
+            options = {
+                "times": reference_times,
+                "replicates": 64,
+                "seed": 123,
+                "keep": 64,
+                "max_events": 10000,
+                "max_output_bytes": 4_000_000,
             }
-            model_path = folder / "model.json"
-            run_path = folder / "run.json"
-            model_path.write_text(json.dumps(model) + "\n")
-            spec = {
-                "schema": "crn-craft.run/0.1",
-                "model": {
-                    "path": "model.json",
-                    "sha256": digest(model_path.read_bytes()),
-                },
-                "method": {"kind": "ssa", "aggregator": "direct"},
-                "time": {"end": 2.0, "save_times": [0.0, 0.25, 1.0, 2.0]},
+            oracle_spec = {
                 "ensemble": {"replicates": 64, "root_seed": 123},
-                "outputs": {
-                    "statistics": ["mean", "variance"],
-                    "keep_trajectories": 64,
-                },
-                "budget": {
-                    "max_events_per_replicate": 10000,
-                    "threads": 1,
-                    "max_output_bytes": 4000000,
-                },
+                "time": {"end": 2.0, "save_times": reference_times},
             }
-            oracle = reference_paths(model, spec)
+            oracle = reference_paths(network, oracle_spec)
             baseline = None
-            validator = Draft7Validator(invoke("describe", "result"))
+            validator = Draft7Validator(invoke("describe", "result-1.0"))
+            order = [None] * len(names)
             for threads in [1, 2, 8]:
-                spec["budget"]["threads"] = threads
-                run_path.write_text(json.dumps(spec) + "\n")
-                result = execute(model_path, run_path, folder / f"threads-{threads}")
+                _, run_path = write_request(
+                    work, model_bytes, threads=threads, **options
+                )
+                result = execute(model_path, run_path, work / f"threads-{threads}")
                 validator.validate(result)
+                order = [result["observables"].index(n) for n in names]
                 require(
-                    result["trajectories"]
-                    == [{"id": p["id"], "counts": p["counts"]} for p in oracle],
+                    [
+                        {
+                            "id": p["id"],
+                            "counts": [[row[i] for i in order] for row in p["values"]],
+                        }
+                        for p in result["paths"]
+                    ]
+                    == [
+                        {
+                            "id": p["id"],
+                            "counts": [[float(c) for c in row] for row in p["counts"]],
+                        }
+                        for p in oracle
+                    ],
                     "independent trajectory oracle disagrees",
                 )
                 require(
@@ -420,21 +458,34 @@ def main():
                     }
                 )
 
-            enzyme_model = folder / "enzyme.model.json"
-            enzyme_run = folder / "enzyme.run.json"
-            enzyme_model.write_bytes(
-                (ROOT / "models/examples/enzyme-mechanism.model.json").read_bytes()
+            work = folder / "enzyme"
+            work.mkdir()
+            enzyme_network = (
+                ROOT / "models/examples/enzyme-mechanism.model.json"
+            ).read_bytes()
+            enzyme_frozen = load(ROOT / "models/examples/enzyme-mechanism.run.json")
+            enzyme_bytes = convert_network(binary, enzyme_network, work)
+            enzyme_model = work / "model.json"
+            enzyme_model.write_bytes(enzyme_bytes)
+            enzyme_names = [s["name"] for s in json.loads(enzyme_network)["species"]]
+            _, enzyme_run = write_request(
+                work,
+                enzyme_bytes,
+                times=enzyme_frozen["time"]["save_times"],
+                replicates=enzyme_frozen["ensemble"]["replicates"],
+                seed=enzyme_frozen["ensemble"]["root_seed"],
+                threads=8,
+                keep=enzyme_frozen["ensemble"]["replicates"],
+                max_events=enzyme_frozen["budget"]["max_events_per_replicate"],
+                max_output_bytes=enzyme_frozen["budget"]["max_output_bytes"],
             )
-            enzyme_spec = load(ROOT / "models/examples/enzyme-mechanism.run.json")
-            enzyme_spec["model"]["path"] = enzyme_model.name
-            enzyme_spec["outputs"]["keep_trajectories"] = enzyme_spec["ensemble"][
-                "replicates"
-            ]
-            enzyme_spec["budget"]["threads"] = 8
-            enzyme_run.write_text(json.dumps(enzyme_spec) + "\n")
-            enzyme = execute(enzyme_model, enzyme_run, folder / "enzyme")
-            for path in enzyme["trajectories"]:
-                for substrate, catalyst, complex_count, product in path["counts"]:
+            enzyme = execute(enzyme_model, enzyme_run, work / "archive")
+            order = [enzyme["observables"].index(n) for n in enzyme_names]
+            for path in enzyme["paths"]:
+                for row in path["values"]:
+                    substrate, catalyst, complex_count, product = (
+                        row[i] for i in order
+                    )
                     require(
                         catalyst + complex_count == 10
                         and substrate + complex_count + product == 50,
@@ -450,7 +501,7 @@ def main():
             )
 
             # Actual process cancellation, while events are being generated.
-            model["reactions"] = [
+            network["reactions"] = [
                 {
                     "name": "fast",
                     "reactants": {},
@@ -458,21 +509,31 @@ def main():
                     "rate": {"kind": "mass_action", "coefficient": 1e9},
                 }
             ]
-            model_path.write_text(json.dumps(model) + "\n")
-            spec["model"]["sha256"] = digest(model_path.read_bytes())
-            spec["time"] = {"end": 1e6, "save_times": [0.0, 1e6]}
-            spec["ensemble"]["replicates"] = 8
-            spec["outputs"]["keep_trajectories"] = 8
-            spec["budget"]["max_events_per_replicate"] = 10000000000
-            run_path.write_text(json.dumps(spec) + "\n")
-            cancel = folder / "cancel"
-            out = folder / "cancelled"
+            work = folder / "cancel"
+            work.mkdir()
+            model_bytes = convert_network(
+                binary, (json.dumps(network) + "\n").encode(), work
+            )
+            model_path = work / "model.json"
+            model_path.write_bytes(model_bytes)
+            options = {
+                "times": [0.0, 1e6],
+                "replicates": 8,
+                "seed": 123,
+                "keep": 8,
+                "max_events": 10_000_000_000,
+                "max_output_bytes": 4_000_000,
+            }
+            _, run_path = write_request(work, model_bytes, threads=8, **options)
+            cancel = work / "cancel"
+            out = work / "cancelled"
             process = subprocess.Popen(
                 [
                     binary,
-                    args.command,
+                    "run",
                     str(model_path),
                     str(run_path),
+                    "--archive",
                     str(out),
                     "--cancel-file",
                     str(cancel),
@@ -517,9 +578,10 @@ def main():
                     "passed": latency < 1.0,
                 }
             )
-            spec["budget"]["wall_time_s"] = 0.02
-            run_path.write_text(json.dumps(spec) + "\n")
-            result = execute(model_path, run_path, folder / "deadline", expected=1)
+            _, run_path = write_request(
+                work, model_bytes, threads=8, wall_time_s=0.02, **options
+            )
+            result = execute(model_path, run_path, work / "deadline", expected=1)
             require(
                 result["termination"] == "wall_time_limit", "deadline was not enforced"
             )
@@ -527,7 +589,7 @@ def main():
     except Exception as error:
         rows.append({"check": "execution_error", "passed": False, "error": str(error)})
     report = {
-        "schema": "crn-craft.ssa-validation/0.1",
+        "schema": "crn-craft.ssa-validation/0.2",
         "replicates_per_analytic_fixture": N,
         "analytic_fixtures": 3,
         "positive_time_cdf_tests": M,

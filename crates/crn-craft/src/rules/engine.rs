@@ -64,6 +64,70 @@ pub(crate) fn numerical(path: &str, message: impl Into<String>, hint: &str) -> H
     Halt::Numerical(Diagnostic::error("CRN-R030", path, message, hint))
 }
 
+/// Consecutive steps whose positive wait leaves the rounded clock unchanged
+/// before Static Direct under `crn-craft.run/1.0` reports a runaway rate.
+pub(crate) const CLOCK_STALL_LIMIT: u64 = 1_000_000;
+
+/// Static Direct's clock: `time + wait`, and what happens when the sum
+/// rounds back to `time`.
+///
+/// Every `rules-run` version fails the replicate there (`CRN-R030`, "clock
+/// failed to advance"), as 0.6.0 did. Under `crn-craft.run/1.0` a positive,
+/// finite wait below half an ulp of the time is accepted: the step (an event,
+/// or an RSSA-CR trial) happens at the same representable time, which errs
+/// by less than half an ulp, as any rounded addition to the clock does. Only
+/// [`CLOCK_STALL_LIMIT`] such steps in a row fail the replicate, so a
+/// runaway rate is still reported. A zero wait always fails.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Clock {
+    lenient: bool,
+    stalls: u64,
+}
+
+impl Clock {
+    /// The clock of a request version: lenient for `crn-craft.run/1.0`.
+    pub(crate) fn new(lenient: bool) -> Self {
+        Self { lenient, stalls: 0 }
+    }
+
+    /// The strict clock of every `rules-run` version.
+    pub(crate) fn strict() -> Self {
+        Self::new(false)
+    }
+
+    /// The next time after a step of `wait` from `time`.
+    #[inline]
+    pub(crate) fn advance(&mut self, time: f64, wait: f64) -> Result<f64, Halt> {
+        let next = time + wait;
+        if next <= time {
+            return self.stalled(time, wait);
+        }
+        self.stalls = 0;
+        Ok(next)
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn stalled(&mut self, time: f64, wait: f64) -> Result<f64, Halt> {
+        if self.lenient && wait > 0.0 && wait.is_finite() {
+            self.stalls += 1;
+            if self.stalls <= CLOCK_STALL_LIMIT {
+                return Ok(time);
+            }
+            return Err(numerical(
+                "/time",
+                format!("clock failed to advance in {CLOCK_STALL_LIMIT} consecutive steps"),
+                "Rescale rates and time.",
+            ));
+        }
+        Err(numerical(
+            "/time",
+            "clock failed to advance",
+            "Rescale rates and time.",
+        ))
+    }
+}
+
 struct TypeState {
     stride: usize,
     attrs: Vec<f64>,
@@ -597,6 +661,9 @@ pub(crate) struct Path<'a> {
     pub selector: crate::rules::select::Kind,
     /// RSSA-CR's tables, when that selector runs.
     pub rssa: Option<&'a crate::rules::rssa::Plan>,
+    /// Static Direct accepts a positive wait that leaves the rounded clock
+    /// unchanged ([`Clock`]): `crn-craft.run/1.0`.
+    pub lenient_clock: bool,
     /// The `hybrid` solution of the independent continuous variables.
     pub independent: Option<&'a Shared>,
 }

@@ -26,6 +26,7 @@ pub struct LoopHost<'h, 'm> {
     monitor: &'h mut Option<Monitor<'m>>,
     live: u64,
     ziggurat: bool,
+    clock: Clock,
 }
 
 impl LoopHost<'_, '_> {
@@ -43,7 +44,7 @@ impl LoopHost<'_, '_> {
     #[inline]
     pub fn next_time(&mut self, total: f64) -> Result<f64, LoopHalt> {
         let time = *self.time;
-        let next = if self.ziggurat {
+        let wait = if self.ziggurat {
             let path = self.path;
             let words = &mut self.words;
             let unit = crate::ssa::exponential_from_words(|retry| {
@@ -53,19 +54,12 @@ impl LoopHost<'_, '_> {
                 words.word()
             })
             .map_err(LoopHalt)?;
-            time + unit / total
+            unit / total
         } else {
             // Open uniform: u = 0 would give a zero wait.
-            time - libm::log(1.0 - self.words.open().map_err(LoopHalt)?) / total
+            -libm::log(1.0 - self.words.open().map_err(LoopHalt)?) / total
         };
-        if next <= time {
-            return Err(LoopHalt(numerical(
-                "/time",
-                "clock failed to advance",
-                "Rescale rates and time.",
-            )));
-        }
-        Ok(next)
+        self.clock.advance(time, wait).map_err(LoopHalt)
     }
 
     /// A uniform in [0, 1) from the replicate's stream, for channel
@@ -256,6 +250,7 @@ impl Path<'_> {
             time,
             monitor,
             live,
+            clock: Clock::new(self.lenient_clock),
             ziggurat: matches!(
                 self.method,
                 crate::rules::Method::StaticDirect {

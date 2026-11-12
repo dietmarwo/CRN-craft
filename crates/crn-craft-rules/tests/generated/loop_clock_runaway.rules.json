@@ -1,0 +1,79 @@
+{
+  "schema": "crn-craft.rules-model/0.4",
+  "name": "clock_runaway",
+  "types": [
+    {
+      "name": "G"
+    },
+    {
+      "name": "A"
+    },
+    {
+      "name": "B"
+    }
+  ],
+  "initial": [
+    {
+      "type": "G",
+      "count": 1
+    }
+  ],
+  "observables": {
+    "G": {
+      "type": "G"
+    },
+    "A": {
+      "type": "A"
+    },
+    "B": {
+      "type": "B"
+    }
+  },
+  "rules": [
+    {
+      "name": "burst",
+      "reactants": [
+        {
+          "label": "g",
+          "type": "G"
+        }
+      ],
+      "rate": "1",
+      "products": [
+        {
+          "type": "A"
+        }
+      ]
+    },
+    {
+      "name": "flip",
+      "reactants": [
+        {
+          "label": "a",
+          "type": "A"
+        }
+      ],
+      "rate": "1e20",
+      "products": [
+        {
+          "type": "B"
+        }
+      ]
+    },
+    {
+      "name": "flop",
+      "reactants": [
+        {
+          "label": "b",
+          "type": "B"
+        }
+      ],
+      "rate": "1e20",
+      "products": [
+        {
+          "type": "A"
+        }
+      ]
+    }
+  ]
+}

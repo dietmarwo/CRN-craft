@@ -1,0 +1,201 @@
+{
+  "schema": "crn-craft.rules-model/0.4",
+  "name": "clock_stall",
+  "types": [
+    {
+      "name": "G"
+    },
+    {
+      "name": "A"
+    }
+  ],
+  "initial": [
+    {
+      "type": "G",
+      "count": 1
+    }
+  ],
+  "observables": {
+    "G": {
+      "type": "G"
+    },
+    "A": {
+      "type": "A"
+    }
+  },
+  "rules": [
+    {
+      "name": "burst",
+      "reactants": [
+        {
+          "label": "g",
+          "type": "G"
+        }
+      ],
+      "rate": "1",
+      "products": [
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        }
+      ]
+    },
+    {
+      "name": "decay",
+      "reactants": [
+        {
+          "label": "a",
+          "type": "A"
+        }
+      ],
+      "rate": "1e20",
+      "products": []
+    }
+  ]
+}

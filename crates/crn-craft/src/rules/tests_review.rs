@@ -311,7 +311,7 @@ fn a_zero_uniform_does_not_fail_the_static_wait() {
     // Word 0 maps to u = 0, which gave -log(1 - u) = 0 and a failed path.
     let mut rng = Scripted(vec![0, 1 << 63, 1 << 62], 0);
     let mut words = engine::Words::for_test(&mut rng, 16);
-    let drawn = flat::direct(&[1.0, 2.0], 0.0, &mut words);
+    let drawn = flat::direct(&[1.0, 2.0], 0.0, &mut words, &mut engine::Clock::strict());
     let Ok(Some((next, _))) = drawn else {
         panic!("zero uniform failed the draw");
     };
@@ -322,7 +322,9 @@ fn a_zero_uniform_does_not_fail_the_static_wait() {
 fn static_resolution_failures_use_the_resolution_code() {
     let mut rng = Scripted(vec![1 << 63], 0);
     let mut words = engine::Words::for_test(&mut rng, 16);
-    let Err(engine::Halt::Numerical(d)) = flat::direct(&[1e9, 1e-9], 0.0, &mut words) else {
+    let Err(engine::Halt::Numerical(d)) =
+        flat::direct(&[1e9, 1e-9], 0.0, &mut words, &mut engine::Clock::strict())
+    else {
         panic!("tiny channel accepted");
     };
     assert_eq!(d.code, "CRN-R031");

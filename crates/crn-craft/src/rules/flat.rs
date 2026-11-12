@@ -1,6 +1,6 @@
 //! Fixed-instance lowering and direct SSA over the resulting channels.
 use crate::rules::InstanceRecord;
-use crate::rules::engine::{Halt, Limits, Words, numerical};
+use crate::rules::engine::{Clock, Halt, Limits, Words, numerical};
 use crate::rules::expr::{Env, RateKernel};
 use crate::rules::model::{Compiled, MAX_COUNT, ModelVersion, Reduce, Shape, Source};
 use rand_core::RngCore;
@@ -1112,10 +1112,12 @@ pub(crate) fn direct<R: RngCore>(
     rates: &[f64],
     time: f64,
     words: &mut Words<'_, R>,
+    clock: &mut Clock,
 ) -> Result<Option<(f64, usize)>, Halt> {
-    direct_with(rates, time, words, |words, total| {
-        // Open uniform: u = 0 would give a zero wait. Other words are unchanged.
-        Ok(time - libm::log(1.0 - words.open()?) / total)
+    direct_with(rates, time, words, clock, |words, total| {
+        // Open uniform: u = 0 would give a zero wait. Other words are
+        // unchanged. time + (-log(1 - u) / total) is time - log(1 - u) / total.
+        Ok(-libm::log(1.0 - words.open()?) / total)
     })
 }
 
@@ -1139,11 +1141,15 @@ fn fused_total(rates: &[f64]) -> (f64, f64) {
     (total, smallest)
 }
 
+/// Linear Static Direct selection. `wait` draws the waiting time for the
+/// total; `clock` decides whether a wait that does not advance the rounded
+/// time is accepted.
 pub(crate) fn direct_with<R: RngCore>(
     rates: &[f64],
     time: f64,
     words: &mut Words<'_, R>,
-    next_time: impl FnOnce(&mut Words<'_, R>, f64) -> Result<f64, Halt>,
+    clock: &mut Clock,
+    wait: impl FnOnce(&mut Words<'_, R>, f64) -> Result<f64, Halt>,
 ) -> Result<Option<(f64, usize)>, Halt> {
     let (total, smallest) = if rates.len() >= FUSED_SELECTION {
         fused_total(rates)
@@ -1176,14 +1182,8 @@ pub(crate) fn direct_with<R: RngCore>(
             "Rescale rates or populations.",
         ));
     }
-    let next = next_time(words, total)?;
-    if next <= time {
-        return Err(numerical(
-            "/time",
-            "clock failed to advance",
-            "Rescale rates and time.",
-        ));
-    }
+    let wait = wait(words, total)?;
+    let next = clock.advance(time, wait)?;
     let mut target = words.uniform()? * total;
     let mut last = None;
     for (i, &a) in rates.iter().enumerate().filter(|&(_, a)| *a > 0.0) {

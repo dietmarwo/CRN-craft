@@ -2363,6 +2363,7 @@ fn execute_inner<O: EventObserver>(
                         method: prepared.method,
                         selector: prepared.selector,
                         rssa: prepared.rssa.as_ref(),
+                        lenient_clock: prepared.request.schema == RunVersion::V10,
                         independent: prepared.independent.as_ref(),
                         id,
                     };

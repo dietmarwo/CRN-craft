@@ -59,6 +59,12 @@ mod expression_invalid {
 mod higher_order {
     include!("generated/loop_higher_order_loop.rs");
 }
+mod clock_stall {
+    include!("generated/loop_clock_stall_loop.rs");
+}
+mod clock_runaway {
+    include!("generated/loop_clock_runaway_loop.rs");
+}
 
 const STOP: &[u8] = include_bytes!("generated/mtdna_three_class_stop.rules.json");
 const PAIRS: &[u8] = include_bytes!("generated/loop_pairs.rules.json");
@@ -78,6 +84,12 @@ const FUNCTIONS: &[u8] = include_bytes!("generated/loop_functions.rules.json");
 const EXPRESSION_INVALID: &[u8] = include_bytes!("generated/loop_expression_invalid.rules.json");
 /// A `crn-craft.model/1.0` model with higher-order rules (M4b).
 const HIGHER_ORDER: &[u8] = include_bytes!("generated/loop_higher_order.rules.json");
+/// A burst of 50 molecules that then decay at 1e20 each: every decay's wait
+/// is below half an ulp of the burst time (M4f).
+const CLOCK_STALL: &[u8] = include_bytes!("generated/loop_clock_stall.rules.json");
+/// One molecule flipping between A and B at 1e20 after a burst: the clock
+/// never advances again (M4f).
+const CLOCK_RUNAWAY: &[u8] = include_bytes!("generated/loop_clock_runaway.rules.json");
 
 const PLAIN: &[u8] = include_bytes!("../../../models/rules/mtdna-three-class.rules.json");
 
@@ -895,4 +907,89 @@ fn higher_order_rules_are_generated_and_replay_the_interpreter() {
         }
     }
     assert!(stopped, "the stop predicate never fired");
+}
+
+/// M4f: a generated loop applies the clock rule of the request version, as
+/// the interpreter does. Under `crn-craft.run/1.0` a positive wait that
+/// leaves the rounded clock unchanged is accepted (at most 1,000,000 times
+/// in a row); every `rules-run` version fails the replicate there.
+#[test]
+fn generated_loops_keep_the_clock_rule_of_the_request_version() {
+    for (model, golden, name) in [
+        (
+            CLOCK_STALL,
+            include_str!("generated/loop_clock_stall_loop.rs"),
+            "loop_clock_stall_loop.rs",
+        ),
+        (
+            CLOCK_RUNAWAY,
+            include_str!("generated/loop_clock_runaway_loop.rs"),
+            "loop_clock_runaway_loop.rs",
+        ),
+    ] {
+        let prepared = prepare(model, &Run::new(10.0, vec![0.0, 10.0]).request(model)).unwrap();
+        assert!(
+            generate_rules_loop(&prepared).unwrap() == golden,
+            "generator output changed; regenerate {name}"
+        );
+    }
+    let records = |result: &str| -> Vec<Value> {
+        serde_json::from_str::<Value>(result).unwrap()["replicates"]
+            .as_array()
+            .unwrap()
+            .clone()
+    };
+    for method in [
+        (
+            "crn-craft.run/1.0",
+            r#"{"kind": "static_direct", "selector": "linear"}"#,
+        ),
+        (
+            "crn-craft.run/1.0",
+            r#"{"kind": "static_direct", "selector": "linear", "waiting_time": "inverse"}"#,
+        ),
+        ("crn-craft.rules-run/0.6", r#"{"kind": "static_direct"}"#),
+        DEFAULT,
+    ] {
+        let run = Run {
+            method,
+            replicates: 4,
+            ..Run::new(1000.0, vec![0.0, 500.0, 1000.0])
+        };
+        let result = replay(CLOCK_STALL, &run, &clock_stall::GeneratedRulesLoop);
+        for record in records(&result) {
+            if method.0 == "crn-craft.run/1.0" {
+                assert_eq!(record["termination"], "completed", "{}", method.1);
+                assert_eq!(record["events"], 51);
+            } else {
+                assert_eq!(record["termination"], "failed", "{}", method.0);
+                assert_eq!(
+                    record["diagnostic"]["message"], "clock failed to advance",
+                    "{}",
+                    method.0
+                );
+                assert_eq!(record["events"], 1);
+            }
+        }
+    }
+    let run = Run {
+        method: (
+            "crn-craft.run/1.0",
+            r#"{"kind": "static_direct", "selector": "linear"}"#,
+        ),
+        replicates: 1,
+        keep_instances: 1,
+        events: 2_000_000,
+        words: 10_000_000,
+        ..Run::new(1000.0, vec![0.0, 1000.0])
+    };
+    let result = replay(CLOCK_RUNAWAY, &run, &clock_runaway::GeneratedRulesLoop);
+    let record = &records(&result)[0];
+    assert_eq!(record["termination"], "failed");
+    assert_eq!(record["diagnostic"]["code"], "CRN-R030");
+    assert_eq!(
+        record["diagnostic"]["message"],
+        "clock failed to advance in 1000000 consecutive steps"
+    );
+    assert_eq!(record["events"], 1_000_001);
 }

@@ -81,6 +81,7 @@ impl Path<'_> {
                 ..
             }
         );
+        let mut clock = Clock::new(self.lenient_clock);
         loop {
             if out.events % POLL_EVENTS == 0 && out.events > 0 {
                 self.poll()?;
@@ -136,17 +137,17 @@ impl Path<'_> {
                     }
                 }
                 if ziggurat {
-                    direct_with(&rates, *time, words, |words, total| {
+                    direct_with(&rates, *time, words, &mut clock, |words, total| {
                         let unit = crate::ssa::exponential_from_words(|retry| {
                             if retry {
                                 self.poll()?;
                             }
                             words.word()
                         })?;
-                        Ok(*time + unit / total)
+                        Ok(unit / total)
                     })?
                 } else {
-                    direct(&rates, *time, words)?
+                    direct(&rates, *time, words, &mut clock)?
                 }
             };
             let Some((next, channel)) = candidate else {
@@ -238,6 +239,7 @@ impl Path<'_> {
                 ..
             }
         );
+        let mut clock = Clock::new(self.lenient_clock);
         // `Some` after an event: the state changed since the last pass.
         let mut fired: Option<usize> = None;
         let mut started = false;
@@ -317,24 +319,18 @@ impl Path<'_> {
                 net.refresh_cold(counts, values)?;
                 return Ok(None);
             }
-            let next = if ziggurat {
+            let wait = if ziggurat {
                 let unit = crate::ssa::exponential_from_words(|retry| {
                     if retry {
                         self.poll()?;
                     }
                     words.word()
                 })?;
-                *time + unit / total
+                unit / total
             } else {
-                *time - libm::log(1.0 - words.open()?) / total
+                -libm::log(1.0 - words.open()?) / total
             };
-            if next <= *time {
-                return Err(numerical(
-                    "/time",
-                    "clock failed to advance",
-                    "Rescale rates and time.",
-                ));
-            }
+            let next = clock.advance(*time, wait)?;
             let channel = if kind == Kind::Sorting {
                 sorting_sample(&mut order, &rates, total, words)?
             } else {

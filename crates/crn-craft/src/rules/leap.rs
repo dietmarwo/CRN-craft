@@ -249,7 +249,7 @@ impl LeapWorkspace {
         if dt < 1.0 / total {
             return self.exact(net, counts, time, target, words);
         }
-        let critical = direct(&self.critical, time, words)?;
+        let critical = direct(&self.critical, time, words, &mut Clock::strict())?;
         for _ in 0..20 {
             let proposed = (time + dt).min(target);
             let end = critical.map_or(proposed, |(at, _)| at.min(proposed));
@@ -286,7 +286,7 @@ impl LeapWorkspace {
         words: &mut Words<'_, R>,
     ) -> Result<f64, Halt> {
         self.begin(counts);
-        if let Some((next, i)) = direct(&self.rates, time, words)? {
+        if let Some((next, i)) = direct(&self.rates, time, words, &mut Clock::strict())? {
             if next <= target {
                 self.fire(net, i, 1);
                 return Ok(next);

@@ -124,21 +124,18 @@ def main():
         )
         code, exported = invoke("export", path, "gillespy2")
         validators["export"].validate(exported)
-        supported = path.name in (
-            "enzyme-mechanism.model.json",
-            "immigration-death.model.json",
-            "vilar-noise.model.json",
+        # Every example exports since M5f: the Hill and Michaelis-Menten laws
+        # of michaelis-menten and repressilator as custom propensities.
+        custom = path.name in (
+            "michaelis-menten.model.json",
+            "repressilator.model.json",
         )
         record(
             f"export_{path.name}",
-            (code == 0 and exported["success"] and exported["artifact"] is not None)
-            if supported
-            else (
-                code == 1
-                and not exported["success"]
-                and exported["artifact"] is None
-                and any(d["code"] == "CRN-E050" for d in exported["diagnostics"])
-            ),
+            code == 0
+            and exported["success"]
+            and exported["artifact"] is not None
+            and ("propensity_function=" in exported["artifact"]["source"]) == custom,
         )
     for path in sorted(examples.glob("*.run.json")):
         run = json.loads(path.read_text())

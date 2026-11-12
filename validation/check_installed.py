@@ -812,9 +812,11 @@ def main():
         )
         require(imported.returncode == 0, imported.stdout.decode())
         decay = json.loads((folder / "decay.json").read_bytes())["model"]
+        # The importers return the converted crn-craft.model/1.0 (M5f).
         require(
-            c.check(decay)["valid"]
-            and decay["reactions"][0]["rate"]["coefficient"] == 0.5,
+            c.analyze(decay)["success"]
+            and decay["schema"] == "crn-craft.model/1.0"
+            and float(decay["rules"][0]["rate"]) == 0.5,
             "installed SBML import script",
         )
         checks.append("installed_CLI_archive_and_import_scripts")
@@ -856,7 +858,7 @@ def main():
     checks.append("tau")
     net = b"begin species\n1 A() 2\nend species\nbegin reactions\n1 1 0 1.0\nend reactions\n"
     require(
-        c.check(import_bng_net(net, rate_convention="binomial")["model"])["valid"],
+        c.analyze(import_bng_net(net, rate_convention="binomial")["model"])["success"],
         "installed importer",
     )
     from crn_craft.importers import ImportFailure

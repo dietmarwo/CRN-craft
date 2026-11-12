@@ -1,5 +1,11 @@
 # Direct SSA
 
+> **History (note of 12 November 2026).** This card describes the network
+> engine's Direct method of releases 0.1.0 to 0.6.0, which release 0.7.0
+> removed with its codes `CRN-E042`, `CRN-E061` and `CRN-E062`. The one
+> engine's Static Direct, its selectors and its numerical failures
+> (`CRN-R030`, `CRN-R031`) are described in [exact methods](../direct-ssa.md).
+
 **Status:** implemented in M2 (`0.1.0-dev.4`).
 
 Gillespie's Direct method for a time-homogeneous, well-mixed count process.

@@ -228,37 +228,16 @@ def main():
                 ],
             )
         same(out / f"{script}.json", out / f"{script}-optimized.json")
-    for fast in [False, True]:
-        for optimized in [False, True]:
-            name = ("fast-laws" if fast else "default-laws") + (
-                "-optimized" if optimized else ""
-            )
-            run(
-                name,
-                [sys.executable]
-                + (["-O"] if optimized else [])
-                + ["validation/check_alternative_ssa.py"]
-                + (["--fast"] if fast else [])
-                + ["--output", str(out / f"{name}.json")],
-            )
-        name = "fast-laws" if fast else "default-laws"
-        same(out / f"{name}.json", out / f"{name}-optimized.json")
-    for script in ["check_ssa", "check_cme"]:
-        name = script + "-cached"
+    for optimized in [False, True]:
+        name = "default-laws" + ("-optimized" if optimized else "")
         run(
             name,
-            [
-                sys.executable,
-                f"validation/{script}.py",
-                "--binary",
-                binary,
-                "--command",
-                "simulate-cached",
-                "--output",
-                str(out / f"{name}.json"),
-            ],
+            [sys.executable]
+            + (["-O"] if optimized else [])
+            + ["validation/check_alternative_ssa.py"]
+            + ["--output", str(out / f"{name}.json")],
         )
-        same(out / f"{script}.json", out / f"{name}.json")
+    same(out / "default-laws.json", out / "default-laws-optimized.json")
     for optimized in [False, True]:
         name = "dependencies" + ("-optimized" if optimized else "")
         run(

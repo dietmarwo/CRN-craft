@@ -136,6 +136,9 @@ pub(crate) struct Bounds {
     dirty: Vec<usize>,
     ranges: Vec<Option<Range>>,
     saved: Vec<f64>,
+    /// The current counts of a channel's reactants while its corners are
+    /// evaluated.
+    corner_saved: Vec<u64>,
 }
 
 impl Bounds {
@@ -270,7 +273,9 @@ impl Bounds {
         if g_high == 0.0 {
             return Some((0.0, 0.0, f64::INFINITY));
         }
-        let saved: Vec<u64> = needs.iter().map(|&(s, _)| counts[s]).collect();
+        let mut saved = std::mem::take(&mut self.corner_saved);
+        saved.clear();
+        saved.extend(needs.iter().map(|&(s, _)| counts[s]));
         let (low, high) = (&self.low, &self.high);
         let at = |global: f64, corner: &dyn Fn(usize, u64) -> u64, counts: &mut [u64]| {
             for &(s, k) in needs {
@@ -296,6 +301,7 @@ impl Bounds {
         for (&(s, _), &count) in needs.iter().zip(&saved) {
             counts[s] = count;
         }
+        self.corner_saved = saved;
         let (lower, upper, positive) = if net.scaled_combination(i) {
             // Within (2m + 1) roundings of the exact, monotone count times
             // the global factor; widen by twice that, rounded outward.

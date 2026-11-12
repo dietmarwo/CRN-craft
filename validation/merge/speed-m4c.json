@@ -1,0 +1,531 @@
+{
+ "schema": "crn-craft.merge-speed-comparison/0.1",
+ "host": {
+  "machine": "x86_64",
+  "python": "3.13.18"
+ },
+ "old": "/home/claude/m07/bin060/crn-craft",
+ "new": "/home/claude/fb2/engine/target/release/crn-craft",
+ "repeats": 3,
+ "boundary": "wall time of one CLI process, median after one warm-up",
+ "models": [
+  {
+   "model": "W1",
+   "old_method": "cached_direct/ziggurat/fast",
+   "old_events": 1272658,
+   "old_baseline_seconds": 0.047845322000284796,
+   "selectors": {
+    "linear": {
+     "seconds": 0.06270300999995015,
+     "runs": [
+      0.06111158399971828,
+      0.06270300999995015,
+      0.0635321230001864
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+     "events": 1273863,
+     "termination": "completed",
+     "ratio": 1.1572924723978109
+    },
+    "composition_rejection": {
+     "seconds": 0.09261108600003354,
+     "runs": [
+      0.09325966699998389,
+      0.08884978200012483,
+      0.09261108600003354
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1",
+     "events": 1274222,
+     "termination": "completed",
+     "ratio": 1.7092977304998644
+    },
+    "sorting": {
+     "seconds": 0.07464699299998756,
+     "runs": [
+      0.0726148280000416,
+      0.07624288300030457,
+      0.07464699299998756
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1",
+     "events": 1273137,
+     "termination": "completed",
+     "ratio": 1.377739331590084
+    },
+    "rssa_cr": {
+     "seconds": 0.07678450699995665,
+     "runs": [
+      0.07678450699995665,
+      0.07826844200008054,
+      0.07623298799990152
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1",
+     "events": 1275044,
+     "termination": "completed",
+     "ratio": 1.4171908485397668
+    },
+    "auto": {
+     "seconds": 0.0631756919997315,
+     "runs": [
+      0.062113022999710665,
+      0.06438519999983328,
+      0.0631756919997315
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+     "events": 1273863,
+     "termination": "completed",
+     "ratio": 1.1660166360413957
+    }
+   },
+   "old_seconds": 0.05418078100001367,
+   "old_runs": [
+    0.04944840699999986,
+    0.05609263499991357,
+    0.05418078100001367
+   ]
+  },
+  {
+   "model": "W2",
+   "old_method": "direct_cr/ziggurat/fast",
+   "old_events": 1235619,
+   "old_baseline_seconds": 0.09424109800011138,
+   "selectors": {
+    "linear": {
+     "seconds": 0.16352600499976688,
+     "runs": [
+      0.16973404800000935,
+      0.16269791700005953,
+      0.16352600499976688
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+     "events": 1235599,
+     "termination": "completed",
+     "ratio": 1.7866923578749538
+    },
+    "composition_rejection": {
+     "seconds": 0.14612850399998933,
+     "runs": [
+      0.13863885000000664,
+      0.14612850399998933,
+      0.1916082309999183
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1",
+     "events": 1233393,
+     "termination": "completed",
+     "ratio": 1.5966064930458783
+    },
+    "sorting": {
+     "seconds": 0.16217057800031398,
+     "runs": [
+      0.21886939200021516,
+      0.16217057800031398,
+      0.16088018699974782
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1",
+     "events": 1236257,
+     "termination": "completed",
+     "ratio": 1.7718829025740472
+    },
+    "rssa_cr": {
+     "seconds": 0.11726001399983943,
+     "runs": [
+      0.11567723100006333,
+      0.11800759600009769,
+      0.11726001399983943
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1",
+     "events": 1233663,
+     "termination": "completed",
+     "ratio": 1.281188095423244
+    },
+    "auto": {
+     "seconds": 0.15909137099970394,
+     "runs": [
+      0.15943318500012538,
+      0.15909137099970394,
+      0.1570642520000547
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+     "events": 1235599,
+     "termination": "completed",
+     "ratio": 1.7382393507957667
+    }
+   },
+   "old_seconds": 0.09152443299990409,
+   "old_runs": [
+    0.08924389599997085,
+    0.09152443299990409,
+    0.0947525639999185
+   ]
+  },
+  {
+   "model": "W3",
+   "old_method": "cached_direct/ziggurat/fast",
+   "old_events": 3656543,
+   "old_baseline_seconds": 0.22243118899996261,
+   "selectors": {
+    "linear": {
+     "seconds": 0.48663078299978224,
+     "runs": [
+      0.471607017000224,
+      0.48663078299978224,
+      0.5809868289998121
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+     "events": 3744226,
+     "termination": "completed",
+     "ratio": 2.0885516536254034
+    },
+    "composition_rejection": {
+     "seconds": 0.7208341030000156,
+     "runs": [
+      0.7147036400001525,
+      0.7208341030000156,
+      0.9775492110002233
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1",
+     "events": 4109242,
+     "termination": "completed",
+     "ratio": 3.0937197366138274
+    },
+    "sorting": {
+     "seconds": 0.5854542709998896,
+     "runs": [
+      0.5854542709998896,
+      0.699376852000114,
+      0.5425212320001265
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1",
+     "events": 3804673,
+     "termination": "completed",
+     "ratio": 2.5126883225129255
+    },
+    "rssa_cr": {
+     "seconds": 0.5865857070002676,
+     "runs": [
+      0.5865857070002676,
+      0.6702402200003235,
+      0.5310560849998183
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1",
+     "events": 3834379,
+     "termination": "completed",
+     "ratio": 2.5175442884980486
+    },
+    "auto": {
+     "seconds": 0.4701497000000927,
+     "runs": [
+      0.4701497000000927,
+      0.6244032290001087,
+      0.44383999399997265
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+     "events": 3744226,
+     "termination": "completed",
+     "ratio": 2.0178171371191707
+    }
+   },
+   "old_seconds": 0.23299916099995244,
+   "old_runs": [
+    0.21999770200000057,
+    0.2889835559999483,
+    0.23299916099995244
+   ]
+  },
+  {
+   "model": "W4",
+   "old_method": "rssa_cr/ziggurat/fast",
+   "old_events": 1227674,
+   "old_baseline_seconds": 0.106216902000142,
+   "selectors": {
+    "linear": {
+     "seconds": 1.7589451469998494,
+     "runs": [
+      1.841395379000005,
+      1.7589451469998494,
+      1.745576094000171
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+     "events": 1229625,
+     "termination": "completed",
+     "ratio": 17.147939526956616
+    },
+    "composition_rejection": {
+     "seconds": 2.3625883889999386,
+     "runs": [
+      2.300018237000131,
+      2.5273492989999795,
+      2.3625883889999386
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1",
+     "events": 1229779,
+     "termination": "completed",
+     "ratio": 23.032851758204526
+    },
+    "sorting": {
+     "seconds": 2.051315552000233,
+     "runs": [
+      2.0130821040002047,
+      2.397190170999693,
+      2.051315552000233
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1",
+     "events": 1228801,
+     "termination": "completed",
+     "ratio": 19.99825582759269
+    },
+    "rssa_cr": {
+     "seconds": 0.24817181399976107,
+     "runs": [
+      0.24817181399976107,
+      0.25370561799991265,
+      0.24702664799997365
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1",
+     "events": 1227105,
+     "termination": "completed",
+     "ratio": 2.4194246568869224
+    },
+    "auto": {
+     "seconds": 1.678746207000131,
+     "runs": [
+      1.7085290119998717,
+      1.6704759480003304,
+      1.678746207000131
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+     "events": 1229625,
+     "termination": "completed",
+     "ratio": 16.366080822842456
+    }
+   },
+   "old_seconds": 0.10257472300008885,
+   "old_runs": [
+    0.10107061300004716,
+    0.10257472300008885,
+    0.10372911900003601
+   ]
+  },
+  {
+   "model": "W5",
+   "old_method": "direct_cr/ziggurat/fast",
+   "old_events": 325267,
+   "old_baseline_seconds": 0.0676757319997705,
+   "selectors": {
+    "linear": {
+     "seconds": 0.232013607999761,
+     "runs": [
+      0.23389645700035544,
+      0.2276886069998909,
+      0.232013607999761
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+     "events": 326724,
+     "termination": "completed",
+     "ratio": 3.7653564260111336
+    },
+    "composition_rejection": {
+     "seconds": 0.10516931799975282,
+     "runs": [
+      0.09485428300013155,
+      0.106307433999973,
+      0.10516931799975282
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1",
+     "events": 325646,
+     "termination": "completed",
+     "ratio": 1.70679629856015
+    },
+    "sorting": {
+     "seconds": 0.19951086500032034,
+     "runs": [
+      0.19951086500032034,
+      0.18460463900009927,
+      0.21424661800028844
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1",
+     "events": 326675,
+     "termination": "completed",
+     "ratio": 3.237868347742645
+    },
+    "rssa_cr": {
+     "seconds": 0.08216957900003763,
+     "runs": [
+      0.07910070400021141,
+      0.08447260799994183,
+      0.08216957900003763
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1",
+     "events": 325692,
+     "termination": "completed",
+     "ratio": 1.3335327827441048
+    },
+    "auto": {
+     "seconds": 0.24888666699962414,
+     "runs": [
+      0.22549397299962948,
+      0.26883042600002227,
+      0.24888666699962414
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+     "events": 326724,
+     "termination": "completed",
+     "ratio": 4.0391898519008125
+    }
+   },
+   "old_seconds": 0.061617966999619966,
+   "old_runs": [
+    0.08320098500007589,
+    0.061617966999619966,
+    0.060565847999896505
+   ]
+  },
+  {
+   "model": "W6",
+   "old_method": "rssa_cr/ziggurat/fast",
+   "old_events": 229211,
+   "old_baseline_seconds": 0.06302008800048498,
+   "selectors": {
+    "linear": {
+     "seconds": 0.3950497649998397,
+     "runs": [
+      0.3950497649998397,
+      0.3794888840002386,
+      0.5010404350000499
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+     "events": 229704,
+     "termination": "completed",
+     "ratio": 4.194799144653159
+    },
+    "composition_rejection": {
+     "seconds": 0.37912381299975095,
+     "runs": [
+      0.37912381299975095,
+      0.3774252279999928,
+      0.4714000630001465
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1",
+     "events": 229555,
+     "termination": "completed",
+     "ratio": 4.02569090628277
+    },
+    "sorting": {
+     "seconds": 0.5674396909998904,
+     "runs": [
+      0.6002654859998984,
+      0.4983712220000598,
+      0.5674396909998904
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1",
+     "events": 229711,
+     "termination": "completed",
+     "ratio": 6.025305521823459
+    },
+    "rssa_cr": {
+     "seconds": 0.07823593000011897,
+     "runs": [
+      0.08062497999981133,
+      0.07823593000011897,
+      0.07627451300004395
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1",
+     "events": 229730,
+     "termination": "completed",
+     "ratio": 0.8307409377797673
+    },
+    "auto": {
+     "seconds": 0.5140235310000207,
+     "runs": [
+      0.4900332840002193,
+      0.5140235310000207,
+      0.5709142260002409
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1",
+     "events": 229555,
+     "termination": "completed",
+     "ratio": 5.458111000702301
+    }
+   },
+   "old_seconds": 0.09417608600006133,
+   "old_runs": [
+    0.09535741199988479,
+    0.09417608600006133,
+    0.0936963580002157
+   ]
+  },
+  {
+   "model": "W7",
+   "old_method": "rssa_cr/ziggurat/fast",
+   "old_events": 108058,
+   "old_baseline_seconds": 0.020894147000035446,
+   "selectors": {
+    "linear": {
+     "seconds": 0.02849017799962894,
+     "runs": [
+      0.029731669999819132,
+      0.02849017799962894,
+      0.028423487000054592
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+     "events": 107980,
+     "termination": "completed",
+     "ratio": 1.3794936762004464
+    },
+    "composition_rejection": {
+     "seconds": 0.030667685000025813,
+     "runs": [
+      0.02988873300000705,
+      0.030667685000025813,
+      0.03071657899999991
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-cr/1",
+     "events": 107786,
+     "termination": "completed",
+     "ratio": 1.4849285084071393
+    },
+    "sorting": {
+     "seconds": 0.034957024000050296,
+     "runs": [
+      0.031129693999901065,
+      0.04167051700005686,
+      0.034957024000050296
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-sorting/1",
+     "events": 107901,
+     "termination": "completed",
+     "ratio": 1.6926181909949696
+    },
+    "rssa_cr": {
+     "seconds": 0.023217515000396816,
+     "runs": [
+      0.022911053999905562,
+      0.025080218999846693,
+      0.023217515000396816
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1",
+     "events": 107801,
+     "termination": "completed",
+     "ratio": 1.1241914711994272
+    },
+    "auto": {
+     "seconds": 0.030157906000113144,
+     "runs": [
+      0.044751716000064334,
+      0.029553171999850747,
+      0.030157906000113144
+     ],
+     "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+     "events": 107980,
+     "termination": "completed",
+     "ratio": 1.460245022517775
+    }
+   },
+   "old_seconds": 0.020652633999816317,
+   "old_runs": [
+    0.020652633999816317,
+    0.023412215999996988,
+    0.020010661000014807
+   ]
+  }
+ ]
+}

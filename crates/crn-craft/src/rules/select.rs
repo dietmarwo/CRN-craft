@@ -221,7 +221,10 @@ impl RateTree {
         }
         let mut level = std::mem::take(&mut self.level);
         level.clear();
-        self.staged.sort_unstable();
+        // Dependency lists are sorted already.
+        if !self.staged.is_sorted() {
+            self.staged.sort_unstable();
+        }
         for &index in &self.staged {
             let node = (self.base + index) / 2;
             if level.last() != Some(&node) {

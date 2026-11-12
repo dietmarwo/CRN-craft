@@ -828,3 +828,58 @@ use a rate with a function and a stop condition (`CRN-E050`).
 **Migrated `check_importers.py`**: 49 of 49 checks (the 48 of 0.6.0 and the
 new rejection of an SBML model without reactions), identical under
 `python -O`.
+
+### M5e (ODE right-hand side and Jacobians on the flat view): declaration
+
+Written and committed before the first run of the checks below. The engine
+under test is `crn_craft::kinetics::Kinetics` of the M5e commits, which
+reads every model through its flat view (`Kinetics::from_bytes`; a network
+`crn-craft.model/0.1` is converted first) and evaluates the rate and
+propensity expressions with dual numbers.
+
+**Reference gate** (`crates/crn-craft/tests/kinetics_references.rs`, run
+with `cargo test --release -p crn-craft --test kinetics_references`; with
+`CRN_KINETICS_REPORT=PATH` it also writes its report, committed as
+`validation/merge/kinetics/references.json`, without timings). For each of
+the twelve models of `models.json` and its M0c reference
+`reference/<name>.kinetics.json`:
+
+1. the model file's SHA-256 equals the reference's `model_sha256`;
+2. acceptance: the engine under test accepts the network model file if and
+   only if 0.6.0 did; a refusal is `CRN-E080`, as the reference's (W4, W5,
+   W6, W7 are expected to be refused and have no values);
+3. for each accepted model, run 1 on the network model file and run 2 on
+   the model converted by the engine under test (`crn-craft.model/1.0`
+   bytes from `convert::from_network`): the species labels, parameter names
+   and parameter values equal the reference's `species`, `parameters` and
+   `parameter_values` exactly, and at each stored point (the initial and
+   the probe state, the reference's `y` and parameter values) every entry
+   of the right-hand side (n), the state Jacobian (n × n) and the parameter
+   Jacobian (n × m) is compared with the reference value r:
+   - r ≠ 0: |x − r| ≤ 1e-12 · |r| (relative);
+   - **r = 0 (either sign): |x| ≤ 1e-12 · M**, where M is the largest
+     absolute value of the same array (the right-hand side, the state
+     Jacobian or the parameter Jacobian) at the same point of the same
+     reference; when M = 0, x must be 0. Zero references are thus compared
+     on the scale of their array, since a zero that comes from cancelling
+     terms (W2's probe: 3 − 0.2 · 15) can be off by rounding. The report
+     counts the zero references reproduced exactly (x = ±0) and lists every
+     zero reference that is not;
+   - an evaluation that fails where the reference has values is a failure.
+
+N = 3,126 values per run (W1 4, W2 2,244, W3 168, enzyme-mechanism 64,
+immigration-death 8, michaelis-menten 20, repressilator 168, vilar-noise
+450), 6,252 in both runs, plus the twelve acceptance checks. **0 failures
+are expected.** The report lists, per model and run, the largest relative
+difference over the nonzero references, the number of values that are bit
+for bit equal, and the zero-reference counts. As information (not gated):
+mass action of order 0 and 1 is expected to be bit for bit equal; pairs,
+Michaelis–Menten (derivatives) and Hill laws (evaluated as the converted
+fraction instead of the 0.6.0 logistic form) may differ in the last bits.
+
+**Downstream.** `integrations/diffsol` (its own workspace and lockfile)
+builds with `--locked` and its tests pass (`cargo test --release --locked`
+in that directory, with a temporary target directory).
+`validation/check_ode.py --binary <crn-diffsol>` passes with its own
+thresholds, unchanged, normally and under `python -O` with identical
+reports.

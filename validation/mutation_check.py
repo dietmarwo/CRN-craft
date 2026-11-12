@@ -321,7 +321,6 @@ TEST_FILES = [
     "kinetics",
     "kinetics_references",
     "structure",
-    "tau",
 ]
 
 

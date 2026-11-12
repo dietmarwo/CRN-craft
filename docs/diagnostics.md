@@ -21,19 +21,14 @@ of a document, and semantic validation accumulates.
 | CRN-E002 | Duplicate JSON key at any depth | Keep one value per decoded key |
 | CRN-E003 | Wrong type, unknown or missing field, schema version or enum variant | Use the generated schema (`crn-craft describe KIND`) |
 | CRN-E004 | Input depth or size limit, or a model collection limit | Reduce size or depth |
-| CRN-E012 | Unknown species, in a document that names species | Declare or correct it |
 | CRN-E015 | Non-finite or out-of-domain number | Use the required finite domain |
-| CRN-E022 | Unsafe or non-relative path, missing target, or a path that does not match the supplied model | Put the model below the request's directory and pass that file |
 | CRN-E030 | Input or output filesystem or stream failure | Supply a readable regular file or a writable stream |
 | CRN-E031 | Unsupported command or wrong arguments | Use `--help` |
 | CRN-E033 | A network model (`crn-craft.model/0.1`) given where a rules or 1.0 model is read (`run`, `check MODEL REQUEST`, `crn_craft.rules.prepare`, finite state projection), reported at `/schema` | Convert it with `crn-craft convert MODEL` or `crn_craft.convert`; `crn_craft.ensemble`, `crn_craft.prepare` and `Model.from_dict` convert it themselves |
 | CRN-E041 | Invalid state for `analyze` or the projection: a missing or extra name, or an invalid count | Name every species with a valid count |
-| CRN-E042 | An evaluated rate overflows, is non-finite or negative, or a positive rate becomes zero | Rescale the model; underflow is not an absorbing channel |
+| CRN-E044 | `crn-diffsol` only: the ODE trajectory of a network model passes a species' `population_limit` | Stop earlier or revise the limit; the ODE never clips a state |
 | CRN-E050 | The export target cannot preserve a requested feature | Keep to the documented subset |
 | CRN-E051 | An exported coefficient cannot be halved exactly in f64, reported at `/rules/i/rate` | Rescale the model; no source is emitted |
-| CRN-E061 | A total or categorical probability is invalid in the sampler | Rescale or revise the dynamic range; no positive channel is dropped silently |
-| CRN-E062 | An exponential wait is invalid, or the clock cannot advance | Rescale rates or time; time is never forced forward |
-| CRN-E064 | The serialized result exceeds `max_output_bytes` | Increase the limit; optional numerical output is removed first |
 | CRN-E065 | Archive I/O, integrity, size or relational failure | Keep the evidence; use a new directory and verify the complete file set |
 | CRN-E070 | Finite state projection: capacity, work, normalization, output or interruption | Lower the bounds or raise `max_states` within the cap |
 | CRN-E080 | ODE right-hand side: domain, unsupported smooth extension or solver failure; a negative propensity | Revise the model; see `crn-diffsol` |
@@ -51,8 +46,11 @@ floating-point error bound.
 | --- | --- |
 | CRN-E010 | Invalid identifier |
 | CRN-E011 | Duplicate name, or a species and parameter with one name |
+| CRN-E012 | Unknown species name |
 | CRN-E013 | Stoichiometry outside 1 to 2147483647 |
+| CRN-E014 | Unknown parameter name |
 | CRN-E016 | Negative population or insufficient population limit |
+| CRN-E032 | The document given to the converter (`crn-craft convert`, `crn_craft.convert`) is a `crn-craft.model/1.0` or `crn-craft.rules-*` document, which needs no conversion; reported at `/schema` |
 
 The converter reports a model that the unified model cannot hold with
 `CRN-R016`.
@@ -61,6 +59,9 @@ The converter reports a model that the unified model cannot hold with
 
 | Code | Meaning |
 | --- | --- |
+| CRN-W001 | A species has a net-producing reaction and no net-consuming one (at `/species/i`); `analyze` drops it for a species with a proven conservation bound. It does not prove unboundedness |
+| CRN-W002 | A reaction's rate is the constant 0 (at `/reactions/i`) |
+| CRN-W003 | A reaction has no net population effect (at `/reactions/i`) |
 | CRN-W010 | Exact conservation analysis exceeds 64 species or 256 reactions: no laws are claimed or excluded |
 | CRN-W011 | Checked i128 conservation arithmetic exceeds its range: no partial basis is reported |
 | CRN-W012 | The nonnegative cone exceeds 64 species or 256 reactions |
@@ -71,10 +72,10 @@ The converter reports a model that the unified model cannot hold with
 ### Retired codes
 
 The network engine is gone, and so are the codes that only it reported. They
-are not reused: `CRN-E014`, `CRN-E020`, `CRN-E021`, `CRN-E023`, `CRN-E032`,
-`CRN-E040`, `CRN-E043`, `CRN-E044`, `CRN-E060`, `CRN-E067`, `CRN-E085` and the
-structural warnings `CRN-W001` to `CRN-W003`. Their replacements are the
-`CRN-R` codes: a run request, budget or method problem is `CRN-R020`, a
+are not reused: `CRN-E020`, `CRN-E021`, `CRN-E022`, `CRN-E023`, `CRN-E040`,
+`CRN-E042`, `CRN-E043`, `CRN-E060`, `CRN-E061`, `CRN-E062`, `CRN-E064`,
+`CRN-E067` and `CRN-E085`. `CRN-E044` is left only in `crn-diffsol`. Their
+replacements are the `CRN-R` codes: a run request, budget or method problem is `CRN-R020`, a
 numerical failure `CRN-R030` and `CRN-R031`, a budget stop `CRN-R040` to
 `CRN-R045`, and a document of the wrong family `CRN-E033` or `CRN-R020` at
 `/schema`.

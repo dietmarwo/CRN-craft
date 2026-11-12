@@ -1,7 +1,7 @@
 //! Fixed-channel trajectory loop, with the same result and control accounting.
 use super::*;
 use crate::next_reaction::Clocks;
-use crate::rules::flat::{Network, check_instances, direct, direct_with};
+use crate::rules::flat::{Network, check_instances, direct, direct_with, unresolved};
 use crate::rules::rssa::Bounds;
 use crate::rules::select::{Composition, Kind, RateTree, sorting_sample};
 
@@ -65,6 +65,24 @@ impl Path<'_> {
         if self.selector != Kind::Linear {
             return self
                 .simulate_selected(net, counts, values, words, out, time, monitor, observer);
+        }
+        if self.generated.is_none() {
+            match self.method {
+                crate::rules::Method::StaticDirect {
+                    waiting_time: Some(crate::rules::RulesWaitingTime::Ziggurat),
+                    ..
+                } => {
+                    return self.simulate_linear::<R, O, true>(
+                        net, counts, values, words, out, time, monitor, observer,
+                    );
+                }
+                crate::rules::Method::StaticDirect { .. } => {
+                    return self.simulate_linear::<R, O, false>(
+                        net, counts, values, words, out, time, monitor, observer,
+                    );
+                }
+                _ => {}
+            }
         }
         let mut live = out.peak_instances;
         let mut cache = net.rate_cache();
@@ -172,6 +190,145 @@ impl Path<'_> {
             } else {
                 net.refresh_channel(channel, counts, values, O::ENABLED)?;
             }
+            if (O::ENABLED || net.observe_affected[channel])
+                && self.observe_flat(net, channel, values, next, monitor, observer)
+            {
+                return Ok(Some(next));
+            }
+            if net.stop_affected[channel] {
+                match self.stop_values(values) {
+                    Ok(false) => {}
+                    Ok(true) => {
+                        net.refresh_cold(counts, values)?;
+                        return Ok(Some(next));
+                    }
+                    Err(_) => {
+                        // The diagnostic includes all projection values.
+                        net.refresh_cold(counts, values)?;
+                        self.stop_values(values)?;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Static Direct with the linear scan, without a generated kernel: the
+    /// arithmetic, checks and random words of [`direct_with`] in the loop of
+    /// [`Self::simulate_flat`], with the running totals kept between events.
+    ///
+    /// The total is the sequential sum of the channel rates from `-0.0`
+    /// (`Iterator::sum`). After an event only the channels in the fired
+    /// channel's `affected` list change; they are sorted, so the running
+    /// sums before the first of them are the ones a full pass would compute,
+    /// and the pass resumes there. The smallest positive rate decides the
+    /// resolution check exactly as testing every rate does.
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+    fn simulate_linear<R: RngCore + 'static, O: EventObserver, const ZIGGURAT: bool>(
+        &self,
+        net: &Network,
+        counts: &mut [u64],
+        values: &mut [f64],
+        words: &mut Words<'_, R>,
+        out: &mut PathOutput,
+        time: &mut f64,
+        monitor: &mut Option<Monitor<'_>>,
+        observer: &O,
+    ) -> Result<Option<f64>, Halt> {
+        let n = net.channels.len();
+        let params = &self.model.params;
+        let mut live = out.peak_instances;
+        let mut cache = net.rate_cache();
+        let mut rates = vec![0.0; n];
+        // Running total and smallest positive rate through each channel.
+        let mut sums = vec![-0.0; n];
+        let mut minima = vec![f64::INFINITY; n];
+        let mut clock = Clock::new(self.lenient_clock);
+        let mut previous: Option<usize> = None;
+        loop {
+            if out.events % POLL_EVENTS == 0 && out.events > 0 {
+                self.poll()?;
+            }
+            let env = Env {
+                params,
+                observables: values,
+                attributes: [&[], &[]],
+            };
+            cache.reset();
+            let first = if let Some(channel) = previous {
+                let affected = &net.affected[channel];
+                for &i in affected {
+                    rates[i] = cache.channel(net, i, counts, &env)?;
+                }
+                affected.first().copied()
+            } else {
+                for (i, rate) in rates.iter_mut().enumerate() {
+                    *rate = cache.channel(net, i, counts, &env)?;
+                }
+                Some(0)
+            };
+            if let Some(first) = first {
+                let (mut sum, mut smallest) = if first == 0 {
+                    (-0.0, f64::INFINITY)
+                } else {
+                    (sums[first - 1], minima[first - 1])
+                };
+                for i in first..n {
+                    let a = rates[i];
+                    sum += a;
+                    if a > 0.0 && a < smallest {
+                        smallest = a;
+                    }
+                    sums[i] = sum;
+                    minima[i] = smallest;
+                }
+            }
+            let (total, smallest) = match n {
+                0 => (-0.0, f64::INFINITY),
+                _ => (sums[n - 1], minima[n - 1]),
+            };
+            if total == 0.0 {
+                net.refresh_cold(counts, values)?;
+                return Ok(None);
+            }
+            if !total.is_finite() || smallest < total * crate::rules::engine::RESOLUTION {
+                return Err(unresolved(total));
+            }
+            let wait = if ZIGGURAT {
+                crate::ssa::exponential_from_words(|retry| {
+                    if retry {
+                        self.poll()?;
+                    }
+                    words.word()
+                })? / total
+            } else {
+                -libm::log(1.0 - words.open()?) / total
+            };
+            let next = clock.advance(*time, wait)?;
+            let mut target = words.uniform()? * total;
+            let mut channel = usize::MAX;
+            for (i, &a) in rates.iter().enumerate() {
+                if a > 0.0 {
+                    channel = i;
+                    if target < a {
+                        break;
+                    }
+                    target -= a;
+                }
+            }
+            previous = Some(channel);
+            if out.saved_points < self.report_times.len()
+                && self.report_times[out.saved_points] < next
+            {
+                net.refresh_cold(counts, values)?;
+                self.save_before(out, values, next);
+            }
+            if next > self.end {
+                net.refresh_cold(counts, values)?;
+                return Ok(None);
+            }
+            self.apply_flat(net, channel, counts, &mut live, out)?;
+            *time = next;
+            net.refresh_channel(channel, counts, values, O::ENABLED)?;
             if (O::ENABLED || net.observe_affected[channel])
                 && self.observe_flat(net, channel, values, next, monitor, observer)
             {

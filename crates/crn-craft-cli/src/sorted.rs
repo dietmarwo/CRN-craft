@@ -10,6 +10,7 @@
 //! serialized into one buffer and copied out in key order, so the cost is
 //! one buffer per object instead of a tree of maps and strings.
 use serde::ser::{self, Serialize};
+use std::borrow::Cow;
 use std::fmt::Display;
 
 /// Serialization failure (unsupported map keys or a value's own error).
@@ -297,17 +298,18 @@ impl ser::SerializeTupleVariant for Seq<'_> {
     }
 }
 
-/// An object whose members are serialized into `buffer` and written to
-/// `out` in key order at the end.
+/// An object whose members are serialized into `buffer` (each as
+/// `"key":value`) and copied to `out` in key order at the end.
 struct Object<'a> {
     out: &'a mut Vec<u8>,
     /// A struct variant: `{variant: {...}}`.
     variant: Option<&'static str>,
     buffer: Vec<u8>,
-    /// Key and value ranges in `buffer`, in insertion order.
-    members: Vec<(std::ops::Range<usize>, std::ops::Range<usize>)>,
-    /// The value range of the current map key's member.
-    pending: Option<std::ops::Range<usize>>,
+    /// Each member's key and its `"key":value` range in `buffer`, in
+    /// insertion order.
+    members: Vec<(Cow<'static, str>, std::ops::Range<usize>)>,
+    /// The key of the map member whose value comes next.
+    pending: Option<Cow<'static, str>>,
 }
 
 impl<'a> Object<'a> {
@@ -315,24 +317,25 @@ impl<'a> Object<'a> {
         Self {
             out,
             variant,
-            buffer: Vec::new(),
-            members: Vec::new(),
+            buffer: Vec::with_capacity(256),
+            members: Vec::with_capacity(16),
             pending: None,
         }
     }
 
-    fn key_text(&mut self, key: &str) -> std::ops::Range<usize> {
+    fn member<T: Serialize + ?Sized>(
+        &mut self,
+        key: Cow<'static, str>,
+        value: &T,
+    ) -> Result<(), Error> {
         let start = self.buffer.len();
-        self.buffer.extend_from_slice(key.as_bytes());
-        start..self.buffer.len()
-    }
-
-    fn value<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<std::ops::Range<usize>, Error> {
-        let start = self.buffer.len();
+        scalar(&mut self.buffer, key.as_ref())?;
+        self.buffer.push(b':');
         value.serialize(Writer {
             out: &mut self.buffer,
         })?;
-        Ok(start..self.buffer.len())
+        self.members.push((key, start..self.buffer.len()));
+        Ok(())
     }
 
     fn close(self) -> Result<(), Error> {
@@ -349,14 +352,14 @@ impl<'a> Object<'a> {
             out.push(b':');
         }
         // Stable: of two members with one key, the later one follows.
-        members.sort_by(|a, b| buffer[a.0.clone()].cmp(&buffer[b.0.clone()]));
+        if !members.is_sorted_by(|a, b| a.0 <= b.0) {
+            members.sort_by(|a, b| a.0.cmp(&b.0));
+        }
+        out.reserve(buffer.len() + members.len() + 2);
         out.push(b'{');
         let mut first = true;
-        for (k, (key, value)) in members.iter().enumerate() {
-            if members
-                .get(k + 1)
-                .is_some_and(|next| buffer[next.0.clone()] == buffer[key.clone()])
-            {
+        for (k, (key, range)) in members.iter().enumerate() {
+            if members.get(k + 1).is_some_and(|next| next.0 == *key) {
                 // A later insert of the same key replaces this one.
                 continue;
             }
@@ -364,10 +367,7 @@ impl<'a> Object<'a> {
                 out.push(b',');
             }
             first = false;
-            let key = std::str::from_utf8(&buffer[key.clone()]).expect("keys are strings");
-            scalar(out, key)?;
-            out.push(b':');
-            out.extend_from_slice(&buffer[value.clone()]);
+            out.extend_from_slice(&buffer[range.clone()]);
         }
         out.push(b'}');
         if variant.is_some() {
@@ -385,10 +385,7 @@ impl ser::SerializeStruct for Object<'_> {
         key: &'static str,
         value: &T,
     ) -> Result<(), Error> {
-        let key = self.key_text(key);
-        let value = self.value(value)?;
-        self.members.push((key, value));
-        Ok(())
+        self.member(Cow::Borrowed(key), value)
     }
     fn end(self) -> Result<(), Error> {
         self.close()
@@ -403,7 +400,7 @@ impl ser::SerializeStructVariant for Object<'_> {
         key: &'static str,
         value: &T,
     ) -> Result<(), Error> {
-        ser::SerializeStruct::serialize_field(self, key, value)
+        self.member(Cow::Borrowed(key), value)
     }
     fn end(self) -> Result<(), Error> {
         self.close()
@@ -422,15 +419,12 @@ impl ser::SerializeMap for Object<'_> {
             serde_json::Value::Bool(b) => b.to_string(),
             _ => return Err(ser::Error::custom("key must be a string")),
         };
-        let key = self.key_text(&text);
-        self.pending = Some(key);
+        self.pending = Some(Cow::Owned(text));
         Ok(())
     }
     fn serialize_value<T: Serialize + ?Sized>(&mut self, value: &T) -> Result<(), Error> {
         let key = self.pending.take().expect("a key before its value");
-        let value = self.value(value)?;
-        self.members.push((key, value));
-        Ok(())
+        self.member(key, value)
     }
     fn end(self) -> Result<(), Error> {
         self.close()

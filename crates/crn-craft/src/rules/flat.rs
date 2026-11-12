@@ -1141,6 +1141,28 @@ fn fused_total(rates: &[f64]) -> (f64, f64) {
     (total, smallest)
 }
 
+/// The error of a linear selection whose total is not finite (`CRN-R030`) or
+/// whose smallest positive rate is below 2⁻⁵³ of the finite total
+/// (`CRN-R031`).
+#[cold]
+pub(crate) fn unresolved(total: f64) -> Halt {
+    // Static channels are selected in one flat level; the tree engine
+    // resolves rules and instances separately and can still run.
+    if total.is_finite() {
+        return Halt::Numerical(crate::diagnostic::Diagnostic::error(
+            "CRN-R031",
+            "/rules",
+            "a positive channel is below 53-bit resolution of the total",
+            "Use the tree method or rescale rates.",
+        ));
+    }
+    numerical(
+        "/rules",
+        "unresolvable total propensity",
+        "Rescale rates or populations.",
+    )
+}
+
 /// Linear Static Direct selection. `wait` draws the waiting time for the
 /// total; `clock` decides whether a wait that does not advance the rounded
 /// time is accepted.
@@ -1160,27 +1182,13 @@ pub(crate) fn direct_with<R: RngCore>(
         return Ok(None);
     }
     let floor = total * crate::rules::engine::RESOLUTION;
-    let unresolved = if smallest.is_nan() {
+    let below = if smallest.is_nan() {
         rates.iter().any(|&a| a > 0.0 && a < floor)
     } else {
         smallest < floor
     };
-    if !total.is_finite() || unresolved {
-        // Static channels are selected in one flat level; the tree engine
-        // resolves rules and instances separately and can still run.
-        if total.is_finite() {
-            return Err(Halt::Numerical(crate::diagnostic::Diagnostic::error(
-                "CRN-R031",
-                "/rules",
-                "a positive channel is below 53-bit resolution of the total",
-                "Use the tree method or rescale rates.",
-            )));
-        }
-        return Err(numerical(
-            "/rules",
-            "unresolvable total propensity",
-            "Rescale rates or populations.",
-        ));
+    if !total.is_finite() || below {
+        return Err(unresolved(total));
     }
     let wait = wait(words, total)?;
     let next = clock.advance(time, wait)?;

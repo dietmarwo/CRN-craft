@@ -104,6 +104,10 @@ Declared in `validation/merge/RESULTS.md` before the runs; rows there.
 | `check_contracts.py` | 101 of 101, every example exports; `-O` identical |
 | `check_installed.py` (`python -I`, outside the tree) | 17 checks pass; `-O` identical |
 
+The common checks of the tree (fmt, clippy, all tests including I1 and
+I3, rustdoc, ruff, I2 and the other Python scripts) are listed in the
+[M5b log](M5b-log.md#checks); all pass.
+
 ## Deviations from the plan
 
 - The importers return the report with the converted model, not a bare

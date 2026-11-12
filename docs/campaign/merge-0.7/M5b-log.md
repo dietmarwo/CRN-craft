@@ -110,6 +110,38 @@ Declared in `validation/merge/RESULTS.md` before the runs; rows there.
 | `check_network.py` | 219 of 219; same fixture stream as 0.6.0; 1,030 rates, largest relative error 4.36e-15; 21 refusals without reactions, 1 overflow (`CRN-R030`), 2 underflows to 0, 1 Hill floor case (see below); `-O` identical |
 | `check_structure.py` | 309 of 309; 37 refusals without reactions; 211 rays, 14 additional cone bounds; `-O` identical |
 | `check_contracts.py` | 101 of 101 (the `analysis-v1` schema row gone, 9 rules-model analysis rows new); `-O` identical |
+| Mutants of `mutation_check.py` in `analysis.rs`, `conservation.rs`, `cone.rs`, `linkage.rs`, `export.rs` (applied one at a time, `cargo test -p crn-craft --test structure --test analysis --test export`) | 11 of 11 caught; `cone_initial_ray_cap_ignored` survived the first run (the ported test gave the empty network a zero column), caught after a test of a view without channels was added |
+
+## Checks
+
+On the M5b and M5f commits together (one tree), release build, under the
+CPU lock; Python: `venv-m5bf` with the wheel built from the root and
+installed. Each Python script ran normally and under `python -O` with
+identical reports.
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --all -- --check` | pass |
+| `cargo clippy --workspace --all-targets --locked -- -D warnings` | pass |
+| `cargo test --release --workspace --locked` | pass: `crn-craft` lib 121, `analysis` 10 (new), `structure` 27, `export` 8, `contracts` 35, `contracts_v1` 7, `network` 25, `flat_view` 6, `fsp` 18, `ssa_alternatives` 15, CLI 15, I1 (`stored_requests` 2, `static_direct_defaults` 9), I3 (`generated_loop` 26, `generated_kernel` 3), all others, doctests 36 + 1 |
+| `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked` | pass (the known output-filename collision warning only) |
+| `cargo build --release --workspace --locked`; wheel from the root | pass |
+| Schemas against `crn-craft describe KIND` | 24 byte-identical (`analysis-1.0` new; `state`, `export` regenerated, descriptions only) |
+| `ruff format --check --exclude '*.md' .`, `ruff check .` | pass |
+| I2 `check_manual.py --binary target/release/crn-craft --require-cargo` | 22 blocks pass |
+| `check_network.py`, `check_structure.py`, `check_contracts.py` | see above |
+| `check_export.py`, `check_importers.py`, `check_installed.py` (`python -I`, outside the tree) | see the M5f log; 9, 49 and 17 checks |
+| `check_python.py` | 12 checks pass |
+| `check_rules_python.py` | 26 checks pass |
+| `check_rules.py` | 47 of 47 |
+| `check_tutorial.py` | 17 blocks pass |
+| `check_dependencies.py` | pass |
+
+Not run: the full `mutation_check.py` (it rebuilds a copy of the tree; the
+11 mutants of the changed files were run as above) and the scripts of paths
+these tasks do not touch (`check_ssa.py`, `check_cme.py`, `check_fsp*.py`,
+`check_tau.py`, `check_mtdna.py`, `check_compiled_loop.py`,
+`check_builder.py`, `check_hybrid.py`, `check_alternative_*.py`).
 
 ## Deviations from the plan
 

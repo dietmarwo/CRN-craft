@@ -676,7 +676,9 @@ def check_report():
         "method": "static_direct",
     }
     # The top-level API asks for these quantiles by default; through
-    # crn_craft.rules they are asked for, and the documents are the same.
+    # crn_craft.rules they are asked for, and the documents are the same
+    # except that crn_craft.rules writes out the linear selector of every
+    # rules-run version, where the top level leaves "auto" to the engine.
     prepared = c.ensemble(sir, **settings)
     old = rules.Model("sir")
     old.add_species({"S": 999, "I": 1, "R": 0})
@@ -684,10 +686,16 @@ def check_report():
     old.add_reaction("beta * S * I", ["S", "I"], ["I", "I"], name="infection")
     old.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
     old.set_stop("I == 0")
+    old_model, old_request = rules.ensemble(
+        old, quantiles=(0.025, 0.5, 0.975), **settings
+    )._documents
+    old_request = json.loads(old_request)
     require(
-        rules.ensemble(old, quantiles=(0.025, 0.5, 0.975), **settings)._documents
-        == prepared._documents,
-        "the top-level SIR documents equal rules.ensemble(quantiles=...)",
+        old_model == prepared._documents[0]
+        and old_request["method"].pop("selector") == "linear"
+        and old_request == json.loads(prepared._documents[1]),
+        "the top-level SIR documents equal rules.ensemble(quantiles=...) "
+        "but for the linear selector",
     )
     result = prepared.simulate()
     require(

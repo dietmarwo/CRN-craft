@@ -1129,14 +1129,15 @@ def ensemble(
     ``selector`` chooses the event selector of ``method="static_direct"``
     (``ValueError`` for another method): ``"linear"``, the scan of every
     rules-run version; ``"composition_rejection"``, ``"sorting"`` and
-    ``"rssa_cr"``, ported from the network engine; or ``"auto"``, linear
-    below 512 lowered channels and composition-rejection from there on
-    (``crn_craft.describe()`` lists the thresholds). The selector exists
-    only in ``crn-craft.run/1.0``, so passing it writes the 1.0 documents,
-    as ``quantiles`` does. A ``crn-craft.run/1.0`` Static Direct request
-    without a selector runs ``"auto"``; on a model of 512 or more lowered
-    channels that is composition-rejection, so a run with quantiles then
-    differs from the same run without them unless ``selector="linear"``.
+    ``"rssa_cr"``, ported from the network engine; or ``"auto"``, which
+    picks one of them from the number of lowered channels and the initial
+    populations (``crn_craft.describe()["selectors"]["auto"]`` lists the
+    thresholds). The selector exists only in ``crn-craft.run/1.0``, so
+    passing it writes the 1.0 documents, as ``quantiles`` does. In this
+    module a Static Direct request written as ``crn-craft.run/1.0`` without
+    a selector gets ``"selector": "linear"`` written out, so adding
+    ``quantiles`` never changes the paths; the top-level
+    :func:`crn_craft.ensemble` leaves the selector out and runs ``"auto"``.
     The selector is part of the sampler identity.
     """
     return _ensemble(
@@ -1271,6 +1272,15 @@ def _ensemble(
         # selectors exist only there. Static Direct is already rules-run/0.6
         # above.
         request["schema"] = RUN_1_0
+    if (
+        not unified
+        and request["schema"] == RUN_1_0
+        and isinstance(request.get("method"), dict)
+        and request["method"].get("kind") == "static_direct"
+    ):
+        # crn_craft.rules keeps the linear scan of every rules-run version;
+        # a run/1.0 request without a selector would run "auto".
+        request["method"].setdefault("selector", "linear")
     if probabilities:
         request["outputs"]["quantiles"] = probabilities
     return _prepared(data, request, compiled, unified_from, unified)

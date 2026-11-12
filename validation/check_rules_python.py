@@ -1055,13 +1055,16 @@ def check_quantiles(model):
     expected_request["schema"] = rules.RUN_1_0
     expected_request["model"]["sha256"] = hashlib.sha256(data).hexdigest()
     expected_request["outputs"]["quantiles"] = list(QUANTILES)
+    # run/1.0 defaults to "auto"; the linear scan of rules-run is written out.
+    expected_request["method"]["selector"] = "linear"
     require(
         data
         == old_model.replace(
             b'"crn-craft.rules-model/0.3"', b'"crn-craft.model/1.0"', 1
         )
         and json.loads(request) == expected_request,
-        "quantiles write run/1.0 and model/1.0, changing only schema strings",
+        "quantiles write run/1.0 and model/1.0, changing only schema strings "
+        "and the selector",
     )
     plain, result = plain_run.simulate(), run.simulate()
     require(
@@ -1131,6 +1134,44 @@ def check_quantiles(model):
             QUANTILES,
             f"method {method}",
         )
+    # crn_craft.rules keeps the linear scan of every rules-run version when
+    # quantiles write run/1.0, so its paths equal those of the call without
+    # quantiles even where "auto" would pick another selector (a ring of
+    # eight first-order conversions with ten molecules each: rssa_cr); the
+    # top-level crn_craft.ensemble leaves the selector to "auto".
+    ring = {
+        "schema": "crn-craft.rules-model/0.1",
+        "name": "ring8",
+        "parameters": {"k": 1.0},
+        "types": [{"name": f"A{i}"} for i in range(8)],
+        "initial": [{"type": f"A{i}", "count": 10} for i in range(8)],
+        "observables": {f"A{i}": {"type": f"A{i}"} for i in range(8)},
+        "rules": [
+            {
+                "name": f"r{i}",
+                "reactants": [{"label": "x", "type": f"A{i}"}],
+                "rate": "k",
+                "products": [{"type": f"A{(i + 1) % 8}"}],
+            }
+            for i in range(8)
+        ],
+    }
+    ring_common = {**common, "end": 5.0, "report_times": [0.0, 2.0, 5.0]}
+    without_q = {k: v for k, v in ring_common.items() if k != "quantiles"}
+    with_quantiles = rules.ensemble(ring, method="static_direct", **ring_common)
+    plain = rules.ensemble(ring, method="static_direct", **without_q).simulate()
+    top_level = crn_craft.ensemble(ring, method="static_direct", **ring_common)
+    auto_pick = rules.ensemble(
+        ring, method="static_direct", selector="auto", **ring_common
+    ).simulate()
+    require(
+        json.loads(with_quantiles._documents[1])["method"].get("selector") == "linear"
+        and with_quantiles.simulate().paths.equals(plain.paths)
+        and "selector" not in json.loads(top_level._documents[1])["method"]
+        and auto_pick.metadata["sampler"] != plain.metadata["sampler"],
+        "rules.ensemble(quantiles=) keeps the linear scan and its paths; "
+        "crn_craft.ensemble runs auto",
+    )
     birth_death = {
         "schema": "crn-craft.rules-model/0.1",
         "name": "birth_death",
@@ -1212,6 +1253,7 @@ def check_quantiles(model):
     base["schema"] = "crn-craft.rules-run/0.4"
     base["model"]["sha256"] = hashlib.sha256(model).hexdigest()
     del base["outputs"]["quantiles"]
+    del base["method"]["selector"]
     reference = rules.prepare(model, base).simulate()
     for given in (base, json.dumps(base), json.dumps(base).encode()):
         prepared = rules.prepare(model, given, quantiles=QUANTILES).simulate()

@@ -12,18 +12,20 @@ single engine in the `crn-craft` crate: every network model converts to a
 rules model, and one event loop, one expression language, one random
 number generator (ChaCha8) and one set of contracts serve both. The new
 contracts are `crn-craft.model/1.0`, `run/1.0`, `result/1.0`, `check/1.0`,
-`fsp-result/1.0`, `analysis/1.0`, `archive/1.0`, `import/1.0` and
-`describe/1.0`. Every rules document of 0.6.0 (`rules-model` 0.1–0.4,
+`fsp-result/1.0`, `analysis/1.0`, `archive/1.0`, `archive-check/1.0`,
+`import/1.0`, `report/1.0` and `describe/1.0`. Every rules document of 0.6.0 (`rules-model` 0.1–0.4,
 `rules-run` 0.1–0.6) replays byte for byte. Results of the 0.6.0 network
 engine do not replay; they are reproduced in law, not in bytes (see
 **Migration**). New features: quantile statistics and the median, saving
 results as markdown or JSON (`Result.save`), the network engine's event
-selectors for Static Direct, higher-order rules, and limits 16× larger.
+selectors for Static Direct, higher-order rules, and limits 16 to 64 times
+larger.
 FSP, network analysis, ODE right-hand sides and GillesPy2 export now work
 on rules models. The CLI gate of the merge timed the best unified method
 against the best 0.6.0 method on twelve models: within 1.25× on each,
-between 0.66× and 1.20×. On the mtDNA manual's workload 0.7.0 takes 0.72×
-to 1.00× the time of 0.6.0, with identical results.
+between 0.66× and 1.20×. On an mtDNA workload (the three-class CME model
+through `crn_craft.rules`) 0.7.0 takes 0.72× to 1.00× the time of 0.6.0, with
+identical results.
 
 ### Added
 
@@ -79,8 +81,9 @@ to 1.00× the time of 0.6.0, with identical results.
 
 ### Changed
 
-- `crn_craft.rules` keeps its names, defaults, documents and results; it is
-  the same module as the top level. A Static Direct request that it writes
+- `crn_craft.rules` keeps its names, defaults, documents and results; the
+  top level has the same names with the 1.0 defaults. A Static Direct
+  request that it writes
   as `run/1.0` (because of `quantiles=` or a `model/1.0` model) names
   `"selector": "linear"`, so adding quantiles never changes the paths. The
   top-level `crn.ensemble` writes `model/1.0` and `run/1.0` and leaves the
@@ -95,9 +98,9 @@ to 1.00× the time of 0.6.0, with identical results.
   "crn-craft"`. The `--version` milestone is `unified-engine`.
 - A network model given to a rules command is refused with `CRN-E033` at
   `/schema` (0.6.0: `CRN-E003`).
-- Under `run/1.0`, a positive wait too small to move the clock is accepted;
-  1,000,000 such steps in a row fail with `CRN-R030`. Every `rules-run`
-  version keeps 0.6.0's strict rule.
+- Static Direct under `run/1.0` accepts a positive wait too small to move
+  the clock; 1,000,000 such steps in a row fail with `CRN-R030`. Every
+  `rules-run` version keeps 0.6.0's strict rule.
 - The importers (`crn_craft.importers.import_sbml`, `import_bng_net`,
   `crn-craft-import`) return `crn-craft.import/1.0` with a `model/1.0`
   model. Rate constants are strings in `report["model"]["rules"][i]["rate"]`.
@@ -167,7 +170,9 @@ same results. For network-engine users:
 **Results.** Network-engine results of 0.6.0 do not replay byte for byte:
 the network loops and xoshiro256++ are gone. The unified engine samples the
 same laws. A law gate checked it over 4,814 comparisons on twelve models,
-including FSP references, with 0 failures, for every selector.
+including FSP references, with 0 failures, for every selector. (The first
+RSSA-CR run failed on one model, where a step's wait could not move the
+clock; with the clock rule above, the rerun with the declared seeds passed.)
 
 **Python** (top level, `import crn_craft as crn`):
 
@@ -198,11 +203,12 @@ including FSP references, with 0 failures, for every selector.
 | `crn-craft rules`, `rules-check` | `crn-craft run`, `check` (aliases kept) |
 
 **Contracts:** `model/0.1` → `model/1.0` (by `crn-craft convert`);
-`run/0.1`, `ssa-run/0.1`, `tau-request/0.1` → `run/1.0`; `result/0.1`,
-`result/1` (the old `result-v1`), `ssa-result/0.1`, `tau-result/0.1` →
-`result/1.0`; `fsp-result/0.1` → `fsp-result/1.0`; `check/0.1` →
-`check/1.0`; `archive/0.1`, `archive-check/0.1` → `archive/1.0`,
-`archive-check/1.0`. The `rules-*` contracts are unchanged; `model/1.0`
+`run/0.1`, `ssa-run/0.1`–`0.4`, `tau-request/0.1` → `run/1.0`;
+`result/0.1` and `0.2` (the schemas `result-v1` and `result`),
+`ssa-result/0.1`–`0.4`, `tau-result/0.1` → `result/1.0`; `fsp-result/0.1`
+→ `fsp-result/1.0`; `check/0.1` → `check/1.0`; `analysis/0.1` and `0.2`
+→ `analysis/1.0`; `archive/0.1`, `archive-check/0.1` → `archive/1.0`,
+`archive-check/1.0`; `describe/0.11` → `describe/1.0`. The `rules-*` contracts are unchanged; `model/1.0`
 means what `rules-model/0.4` means.
 
 **Rust:**

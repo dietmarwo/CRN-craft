@@ -1,0 +1,84 @@
+{
+  "schema": "crn-craft.tau-leap-condition-cost/0.1",
+  "declared_in": "validation/merge/RESULTS.md (M5c declaration)",
+  "replicates": 16,
+  "repetitions": 3,
+  "rows": [
+    {
+      "model": "W5",
+      "channels": 510,
+      "method": "tau",
+      "request": {
+        "kind": "tau",
+        "epsilon": 0.05
+      },
+      "sampler": "chacha8-u53/rules-approximate-cgp-poisson/2",
+      "termination": "completed",
+      "events_per_replicate": 20437.0,
+      "rng_words_per_replicate": 40876.0,
+      "wall_seconds": 3.227953967000076,
+      "wall_samples": [
+        3.227953967000076,
+        3.246825141000045,
+        2.9889882160000525
+      ],
+      "tau_over_static_direct": 14.077908084256856
+    },
+    {
+      "model": "W5",
+      "channels": 510,
+      "method": "static_direct",
+      "request": {
+        "kind": "static_direct"
+      },
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "events_per_replicate": 20420.25,
+      "rng_words_per_replicate": 41535.5,
+      "wall_seconds": 0.22929216100010308,
+      "wall_samples": [
+        0.21912973500002408,
+        0.3046594659999755,
+        0.22929216100010308
+      ]
+    },
+    {
+      "model": "W6",
+      "channels": 992,
+      "method": "tau",
+      "request": {
+        "kind": "tau",
+        "epsilon": 0.05
+      },
+      "sampler": "chacha8-u53/rules-approximate-cgp-poisson/2",
+      "termination": "completed",
+      "events_per_replicate": 14364.625,
+      "rng_words_per_replicate": 28731.25,
+      "wall_seconds": 4.962377711000045,
+      "wall_samples": [
+        5.066019415000028,
+        4.962377711000045,
+        4.766631013999813
+      ],
+      "tau_over_static_direct": 12.856880693193451
+    },
+    {
+      "model": "W6",
+      "channels": 992,
+      "method": "static_direct",
+      "request": {
+        "kind": "static_direct"
+      },
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "events_per_replicate": 14356.5,
+      "rng_words_per_replicate": 29208.4375,
+      "wall_seconds": 0.3859705810000378,
+      "wall_samples": [
+        0.3859705810000378,
+        0.3628851639998629,
+        0.4391929630000959
+      ]
+    }
+  ]
+}

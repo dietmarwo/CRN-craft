@@ -985,3 +985,76 @@ O(channels²) per attempted leap): W5 and W6, converted, end 20, report times
 0 and 20, 16 replicates, root seed 4242, 1 thread; `tau` with ε = 0.05
 against `static_direct` (Ziggurat waits); wall time of `crn-craft rules`
 (process), medians of 3, under the CPU lock; events per replicate recorded.
+
+### M5g (parameter binding and workers): results
+
+Release builds of this branch, this host, under the CPU lock.
+
+**Worker speed comparison** (`validation/merge/parameter-workers.json`):
+wall time of the 129 calls (128 training evaluations and the held-out one),
+median of 3, seconds.
+
+| Case | old fresh | old reuse | old generated | new fresh | new reuse | new fresh / old fresh | new reuse / old reuse | new reuse / old generated |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| birth_death | 0.181 | 0.178 | 0.209 | 0.271 | 0.296 | 1.49 | 1.66 | 1.42 |
+| sparse33 | 3.126 | 3.023 | 3.060 | 5.227 | 5.326 | 1.67 | 1.76 | 1.74 |
+| binding12 | 0.067 | 0.045 | 0.041 | 0.075 | 0.074 | 1.11 | 1.65 | 1.81 |
+
+Bind seconds (sum over the 129 calls): old `reuse` 0.002–0.024, old `fresh`
+0.013–0.154, new `fresh` 0.016–0.138, new `reuse` 0.013–0.129: the rules
+binding re-serializes and prepares the whole model, so it costs about what a
+fresh preparation costs. Simulation dominates (sparse33: 2.9 s old, 5.0–5.1 s
+new): the new routes run Static Direct with the linear selector of this
+branch against 0.6.0's cached Direct with `fast: true`. Within each engine
+the routes returned identical moments at every point, as declared. The old
+generated route was no faster than the old reusable route on these models.
+
+**Checks**: `check_jobs.py` passes 15 of 15 rows (14 objectives equal the
+independent recomputation with relative difference 0.0), normally and under
+`python -O` with identical reports; `check_parameter_binding.py` passes (18
+bindings, 36 worker evaluations, 12 refused inputs, 12 concurrent bindings);
+`check_parameter_interface.py` (network path) passes (180 bindings), both
+with identical reports under `python -O`.
+
+### M5c (tau leaping on converted models): results
+
+Release build of `0007ea9`, this host, under the CPU lock.
+
+**Gate** (`validation/check_tau_rules.py`, report
+`validation/merge/tau/check_tau_rules.json`): **0 failures in 3 rows**;
+identical reports normally and under `python -O`.
+
+| ε | CDF error | CDF envelope | mean error | mean envelope | events | random words | passed |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 0.1 | 0.00426 | 0.07086 | 0.00729 | 3.888 | 736,991 | 1,293,328 | yes |
+| 0.05 | 0.00660 | 0.04586 | 0.06371 | 2.072 | 735,205 | 1,572,298 | yes |
+| 0.025 | 0.00629 | 0.03336 | 0.05809 | 1.164 | 736,709 | 1,493,418 | yes |
+
+For comparison (not a gate), `check_tau.py` on the network engine in the
+same build: CDF errors 0.0227, 0.0148, 0.0081 with 73,776, 278,259 and
+730,139 leaps. The rules `tau` leaps far less on this model (about two
+random words per event): its propensity condition and its species bound
+(g = 2, which refuses a leap when ε · n / 2 < 1) send most steps to the
+exact fallback, so its laws are close to the exact ones.
+
+**Leap-condition cost** (`validation/merge/tau/leap-condition-cost.json`):
+
+| Model | Channels | Method | Wall time (s, median of 3) | Events per replicate | Random words per replicate | tau / static_direct |
+| --- | ---: | --- | ---: | ---: | ---: | ---: |
+| W5 | 510 | tau, ε = 0.05 | 3.228 | 20,437 | 40,876 | 14.1 |
+| W5 | 510 | static_direct | 0.229 | 20,420 | 41,536 | |
+| W6 | 992 | tau, ε = 0.05 | 4.962 | 14,365 | 28,731 | 12.9 |
+| W6 | 992 | static_direct | 0.386 | 14,357 | 29,208 | |
+
+At the declared ε = 0.05 neither model leaps (two words per event, as an
+exact step): W5's counts of 4 make every channel critical, and W6's counts
+of 32 give ε · n / 2 = 0.8 < 1, so the species bound refuses a leap before
+the propensity condition runs. The 13–14× cost is therefore the exact
+fallback inside `tau`, which recomputes every channel's rate and the
+criticality of every channel at each step, not the channels² condition.
+Supplementary row, not declared and run once: W6 with ε = 0.1 (where
+ε · n / 2 = 1.6, so leaps are attempted), 1 replicate: 9.97 s, 14,043
+events, 561,290 random words, against about 0.024 s per replicate for
+Static Direct (about 400×). Each attempted leap evaluates the 992 channels
+at the state after one firing of each enabled channel, twice (criticality
+and change pass): about 2 · 992² ≈ 2.0 million channel rates per attempt.

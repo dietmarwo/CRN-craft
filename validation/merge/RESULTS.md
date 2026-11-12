@@ -453,7 +453,10 @@ declared seeds. Report: `validation/merge/laws/m4b-static_direct.json`.
 | W4 | 48 | 96 | 0 | 1.94 | 96 | 0 | 1.72 | 742,510,499 (0.6.0 reference 742,514,249) | 558.1 s |
 
 **Passed:** N = 192, 32 at t = 0, 0 failures, as declared. The converted
-W4 has 66 rules, 32 of them with eight count-1 patterns (higher order).
+W4 has 66 rules: 33 sources and 33 higher-order rules of eight count-1
+patterns with a whole (Michaelis–Menten) propensity, so this gate exercises
+the whole-propensity path of `Multi`; the combination count is exercised by
+the exact-law check above.
 
 ### M4a and M4b: regression run over all twelve models
 

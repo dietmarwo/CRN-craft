@@ -424,8 +424,16 @@ def _self_check(handle, data):
     def run(**settings):
         return ensemble(data, replicates=8, seed=1, threads=2, **settings)
 
-    # A horizon most replicates reach in about 2000 events.
-    probe = run(end=1e300, report_times=[0.0, 1e300], max_events=2000)
+    # A horizon most replicates reach in about 2000 events. The probe runs on
+    # the default method (tree), except for crn-craft.model/1.0 models,
+    # whose higher-order rules only the static methods sample.
+    unified = json.loads(data).get("schema") == "crn-craft.model/1.0"
+    probe = run(
+        end=1e300,
+        report_times=[0.0, 1e300],
+        max_events=2000,
+        **({"method": "static_direct"} if unified else {}),
+    )
     _, columns = probe._native.simulate(None, None)
     stop = np.frombuffer(columns["stop_time"], dtype="<f8")
     limited = stop[np.frombuffer(columns["termination"], dtype="u1") == 2]

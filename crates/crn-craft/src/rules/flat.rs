@@ -45,6 +45,13 @@ pub(crate) struct Network {
     pub cold: Vec<usize>,
     pub(crate) changed: Vec<Vec<usize>>,
     hot_changed: Vec<Vec<usize>>,
+    /// The channels whose propensity reads each species (its reactants and
+    /// the species its rule's rate reads), in increasing order.
+    pub(crate) readers: Vec<Vec<usize>>,
+    /// The species each rule's rate reads through its observables.
+    pub(crate) rule_reads: Vec<Vec<usize>>,
+    /// The projections (indices into `observables`) each rule's rate reads.
+    pub(crate) rule_projections: Vec<Vec<usize>>,
 }
 
 enum Factor {
@@ -69,6 +76,27 @@ struct ChannelRate {
     weight: f64,
     rule: usize,
     whole: bool,
+}
+
+impl ChannelRate {
+    /// The reactant count factor of a channel of at most two molecules:
+    /// the number of reactant tuples, or for a whole-rule propensity 1 while
+    /// every reactant is present.
+    #[allow(clippy::cast_precision_loss)]
+    #[inline]
+    fn count_weight(&self, counts: &[u64]) -> f64 {
+        let [s, t] = self.reactants;
+        match (self.arity, self.whole) {
+            (0, _) => 1.0,
+            (1, false) => counts[s] as f64,
+            (_, false) if s == t => counts[s] as f64 * counts[s].saturating_sub(1) as f64 * 0.5,
+            (_, false) => counts[s] as f64 * counts[t] as f64,
+            // A whole-rule propensity needs one molecule per pattern.
+            (1, true) => f64::from(u8::from(counts[s] > 0)),
+            (_, true) if s == t => f64::from(u8::from(counts[s] > 1)),
+            (_, true) => f64::from(u8::from(counts[s] > 0 && counts[t] > 0)),
+        }
+    }
 }
 
 /// Static lowering limits: instance tuples and channels of a
@@ -432,17 +460,22 @@ impl Network {
             projection[o] = Some(observables.len());
             observables.push((o, info.reduce, terms));
         }
-        // Species read by each rule's rate through its observables.
-        let rule_reads: Vec<Vec<usize>> = model
+        // Projections read by each rule's rate.
+        let rule_projections: Vec<Vec<usize>> = model
             .rules
             .iter()
             .map(|rule| {
-                let read: Vec<usize> = rule
-                    .rate
+                rule.rate
                     .read_list()
                     .into_iter()
                     .filter_map(|o| projection[o])
-                    .collect();
+                    .collect()
+            })
+            .collect();
+        // Species read by each rule's rate through its observables.
+        let rule_reads: Vec<Vec<usize>> = rule_projections
+            .iter()
+            .map(|read| {
                 let mut out: Vec<usize> = read
                     .iter()
                     .flat_map(|&p| observables[p].2.iter().map(|&(s, _)| s))
@@ -591,6 +624,9 @@ impl Network {
             cold: Vec::new(),
             hot_changed: changed.clone(),
             changed,
+            readers,
+            rule_reads,
+            rule_projections,
         })
     }
 
@@ -727,7 +763,6 @@ impl Network {
         self.refresh_indices(0..self.observables.len(), counts, values)
     }
 
-    #[allow(clippy::cast_precision_loss)]
     fn refresh_indices(
         &self,
         indices: impl IntoIterator<Item = usize>,
@@ -735,27 +770,8 @@ impl Network {
         values: &mut [f64],
     ) -> Result<(), Halt> {
         for index in indices {
-            let (i, reduce, terms) = &self.observables[index];
-            let value = match reduce {
-                Reduce::Sum => terms.iter().map(|&(s, w)| counts[s] as f64 * w).sum(),
-                Reduce::Distinct => terms
-                    .iter()
-                    .filter(|&&(s, _)| counts[s] > 0)
-                    .map(|&(_, w)| w)
-                    .sum(),
-                Reduce::Max => terms
-                    .iter()
-                    .filter(|&&(s, _)| counts[s] > 0)
-                    .map(|&(_, w)| w)
-                    .reduce(f64::max)
-                    .unwrap_or(0.0),
-                Reduce::Min => terms
-                    .iter()
-                    .filter(|&&(s, _)| counts[s] > 0)
-                    .map(|&(_, w)| w)
-                    .reduce(f64::min)
-                    .unwrap_or(0.0),
-            };
+            let i = &self.observables[index].0;
+            let value = self.project(index, counts);
             if !value.is_finite() {
                 return Err(numerical(
                     "/observables",
@@ -766,6 +782,126 @@ impl Network {
             values[*i] = value;
         }
         Ok(())
+    }
+
+    /// The value of projection `index` at `counts`, unchecked.
+    #[allow(clippy::cast_precision_loss)]
+    #[inline]
+    pub(crate) fn project(&self, index: usize, counts: &[u64]) -> f64 {
+        let (_, reduce, terms) = &self.observables[index];
+        match reduce {
+            Reduce::Sum => terms.iter().map(|&(s, w)| counts[s] as f64 * w).sum(),
+            Reduce::Distinct => terms
+                .iter()
+                .filter(|&&(s, _)| counts[s] > 0)
+                .map(|&(_, w)| w)
+                .sum(),
+            Reduce::Max => terms
+                .iter()
+                .filter(|&&(s, _)| counts[s] > 0)
+                .map(|&(_, w)| w)
+                .reduce(f64::max)
+                .unwrap_or(0.0),
+            Reduce::Min => terms
+                .iter()
+                .filter(|&&(s, _)| counts[s] > 0)
+                .map(|&(_, w)| w)
+                .reduce(f64::min)
+                .unwrap_or(0.0),
+        }
+    }
+
+    /// The reactant molecules channel `i` needs: `(species, count)` pairs,
+    /// one per species.
+    pub(crate) fn needs(&self, i: usize) -> Vec<(usize, u64)> {
+        let c = &self.channels[i];
+        match (&c.multi, c.reactants.as_slice()) {
+            (Some(list), _) => list.clone(),
+            (None, [s, t]) if s == t => vec![(*s, 2)],
+            (None, reactants) => reactants.iter().map(|&s| (s, 1)).collect(),
+        }
+    }
+
+    /// The constant global factor of channel `i`, if its rate is one.
+    pub(crate) fn constant_global(&self, i: usize) -> Option<f64> {
+        match self.plans[i].factor {
+            Factor::Constant(k) => Some(k),
+            _ => None,
+        }
+    }
+
+    /// Whether channel `i`'s value is a scaled combination count
+    /// ([`crate::rules::combination_rate`]) rather than a product of at
+    /// most three correctly rounded operations.
+    pub(crate) fn scaled_combination(&self, i: usize) -> bool {
+        let c = &self.plans[i];
+        c.arity == HIGHER_ORDER && !c.whole
+    }
+
+    /// The global factor of channel `i` at `env`, computed without the
+    /// per-state cache: the value [`RateCache::channel`] multiplies by.
+    pub(crate) fn global_fresh(&self, i: usize, env: &Env<'_>) -> f64 {
+        let c = &self.plans[i];
+        match c.factor {
+            Factor::Constant(k) => k,
+            Factor::Vacancy {
+                limit,
+                count,
+                denominator,
+                ..
+            } => {
+                let base = (limit - env.observables[count]).max(0.0) / env.observables[denominator];
+                let RateKernel::Vacancy { factors, .. } = &self.rates[c.rule] else {
+                    unreachable!()
+                };
+                factors.iter().fold(base, |x, f| x * f)
+            }
+            Factor::General(_) => {
+                let kernel = &self.rates[c.rule];
+                if self.vacancy_slots[c.rule].is_some() {
+                    let RateKernel::Vacancy {
+                        limit,
+                        count,
+                        denominator,
+                        factors,
+                    } = kernel
+                    else {
+                        unreachable!()
+                    };
+                    let base =
+                        (limit - env.observables[*count]).max(0.0) / env.observables[*denominator];
+                    factors.iter().fold(base, |x, f| x * f)
+                } else {
+                    kernel.eval(env)
+                }
+            }
+        }
+    }
+
+    /// Channel `i`'s value with global factor `global` at `counts`, with the
+    /// arithmetic of [`RateCache::channel`]: 0 while a reactant is missing.
+    /// The value is not checked.
+    pub(crate) fn value_with(&self, i: usize, global: f64, counts: &[u64]) -> f64 {
+        let c = &self.plans[i];
+        if c.arity == HIGHER_ORDER {
+            let reactants = self.channels[i]
+                .multi
+                .as_deref()
+                .expect("higher-order channel");
+            if reactants.iter().any(|&(s, k)| counts[s] < k) {
+                return 0.0;
+            }
+            return if c.whole {
+                global * (1.0 * c.weight)
+            } else {
+                crate::rules::combination_rate(global, c.weight, counts, reactants)
+            };
+        }
+        let weight = c.count_weight(counts);
+        if weight == 0.0 {
+            return 0.0;
+        }
+        global * (weight * c.weight)
     }
 
     pub fn rate_cache(&self) -> RateCache {
@@ -883,17 +1019,7 @@ impl RateCache {
         if c.arity == HIGHER_ORDER {
             return self.higher_order(net, i, counts, env);
         }
-        let [s, t] = c.reactants;
-        let weight = match (c.arity, c.whole) {
-            (0, _) => 1.0,
-            (1, false) => counts[s] as f64,
-            (_, false) if s == t => counts[s] as f64 * counts[s].saturating_sub(1) as f64 * 0.5,
-            (_, false) => counts[s] as f64 * counts[t] as f64,
-            // A whole-rule propensity needs one molecule per pattern.
-            (1, true) => f64::from(u8::from(counts[s] > 0)),
-            (_, true) if s == t => f64::from(u8::from(counts[s] > 1)),
-            (_, true) => f64::from(u8::from(counts[s] > 0 && counts[t] > 0)),
-        };
+        let weight = c.count_weight(counts);
         if weight == 0.0 {
             return Ok(0.0);
         }

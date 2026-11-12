@@ -84,6 +84,7 @@ pub fn execute_with_rules_loop(
     kernel: &impl RulesLoop,
 ) -> Result<RulesResult, Diagnostic> {
     let net = network(prepared)?;
+    crate::rules::linear_selector(prepared, "generated rules loops")?;
     let expected = fingerprint(prepared, &template(prepared, net)?);
     if expected != kernel.fingerprint() {
         return Err(request_error(

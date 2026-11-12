@@ -120,7 +120,7 @@
 //! | `crn-craft.rules-result/0.2` | [`RulesResult`] | Result of a rules-run/0.2–0.4 request, with `observations` |
 //! | `crn-craft.rules-result/0.3` | [`RulesResult`] | Result of a rules-run/0.5 or 0.6 request: 0.2 plus `method` and `continuous` |
 //! | `crn-craft.model/1.0` | [`Model`] | The unified model contract: means what rules-model/0.4 means; runs only with run/1.0 |
-//! | `crn-craft.run/1.0` | [`RunRequest`] | The unified request contract: the fields and defaults of rules-run/0.6 plus quantile statistics ([`Outputs::quantiles`]); accepts model/1.0 and every rules-model version |
+//! | `crn-craft.run/1.0` | [`RunRequest`] | The unified request contract: the fields and defaults of rules-run/0.6 plus quantile statistics ([`Outputs::quantiles`]) and the Static Direct [`Selector`]; accepts model/1.0 and every rules-model version |
 //! | `crn-craft.result/1.0` | [`RulesResult`] | Result of a run/1.0 request, with the fields of rules-result/0.3 plus [`Statistics::quantiles`] |
 //! | `crn-craft.check/1.0` | [`RulesCheck`] | Check report of a model/1.0 document, with the fields of rules-check/0.1 |
 //!
@@ -145,7 +145,7 @@
 //! | `kind` | Exact | Scope |
 //! | --- | --- | --- |
 //! | `tree` (default) | yes | Every rules model without ATP or continuous variables; dynamic instances over sum trees |
-//! | `static_direct` | yes | Closed models; Ziggurat waits and sparse trackers, opt-in in rules-run/0.4 and 0.5 and the default from 0.6 |
+//! | `static_direct` | yes | Closed models; Ziggurat waits and sparse trackers, opt-in in rules-run/0.4 and 0.5 and the default from 0.6; in run/1.0 a [`Selector`]: the linear scan, composition–rejection, sorting direct or RSSA-CR |
 //! | `mtdna_direct` | yes | The fixed three-class vacancy model; falls back to Static Direct with `CRN-R051` |
 //! | `next_reaction` | yes | Closed models, with indexed clocks ([DOI 10.1021/jp993732q](https://doi.org/10.1021/jp993732q)) |
 //! | `thinning` | yes | Required by, and only for, rules-model/0.2 models with ATP |
@@ -229,6 +229,8 @@ pub mod model;
 mod mtdna;
 pub mod observe;
 mod quantile;
+mod rssa;
+mod select;
 mod tree;
 use observe::{EventObserver, LogSpec, NoObserver, Observation, TrackerSpec};
 
@@ -550,6 +552,44 @@ pub enum RulesWaitingTime {
     Ziggurat,
 }
 
+/// How Static Direct selects the next channel (`crn-craft.run/1.0`).
+///
+/// Every selector samples the exact law of the lowered network; each uses
+/// the random stream in its own way, and the sampler identity names it.
+/// Every positive channel must be at least 2^-53 of the total (`CRN-R031`).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Selector {
+    // Variant docs use `concat!` to keep the schema's string enum.
+    #[doc = concat!(
+        "A scan of the channels in order, as in every rules-run version; ",
+        "sampler `rules-static-direct`."
+    )]
+    Linear,
+    #[doc = concat!(
+        "Composition–rejection: channels grouped by the binary exponent of ",
+        "their propensity, a group drawn by its envelope mass, a member by ",
+        "rejection; sampler `rules-static-direct-cr`."
+    )]
+    CompositionRejection,
+    #[doc = concat!(
+        "Sorting direct: a scan in an order that moves each fired channel one ",
+        "place forward; sampler `rules-static-direct-sorting`."
+    )]
+    Sorting,
+    #[doc = concat!(
+        "RSSA-CR: candidates drawn by composition–rejection from upper bounds ",
+        "of the propensities over population intervals, accepted against lower ",
+        "bounds or the exact propensity; sampler `rules-static-direct-rssa-cr`."
+    )]
+    RssaCr,
+    #[doc = concat!(
+        "One of the others, chosen from the size and structure of the lowered ",
+        "network; the sampler identity names the one that ran."
+    )]
+    Auto,
+}
+
 /// The simulation method of a run request, tagged by `kind`.
 ///
 /// Absent means `tree`. Each method reports its own sampler identity in the
@@ -604,6 +644,24 @@ pub enum Method {
         )]
         #[schemars(with = "bool")]
         sparse_trackers: Option<bool>,
+        /// `crn-craft.run/1.0` only (`CRN-R020` at `/schema` in a `rules-run`
+        /// request, which always runs the linear scan). How the next channel
+        /// is selected: `linear`, `composition_rejection`, `sorting`,
+        /// `rssa_cr`, or `auto`, the default, which picks the linear scan
+        /// below 64 channels and composition–rejection or RSSA-CR from the
+        /// dependency structure above. The sampler identity names the
+        /// selector that ran: `rules-static-direct` for `linear`,
+        /// `rules-static-direct-cr`, `-sorting` or `-rssa-cr` for the others,
+        /// followed by `-sparse-trackers` where that applies. Generated event
+        /// loops and rates kernels run `linear` only (`CRN-R020` at
+        /// `/method/selector`). `null` is rejected.
+        #[serde(
+            default,
+            deserialize_with = "present",
+            skip_serializing_if = "Option::is_none"
+        )]
+        #[schemars(with = "Selector")]
+        selector: Option<Selector>,
     },
     /// rules-run/0.3 and later. Exact grouped direct method for the fixed
     /// three-class mtDNA vacancy model, sampler
@@ -665,7 +723,8 @@ pub enum Method {
     "or [`solve`]; [`RunRequest::trackers`] reads the tracker list.\n\n",
     "The same type reads `crn-craft.run/1.0`, the unified request contract, ",
     "which means what `rules-run/0.6` means, adds quantile statistics ",
-    "([`Outputs::quantiles`]), also accepts ",
+    "([`Outputs::quantiles`]) and the Static Direct [`Selector`] (default ",
+    "`auto`; `linear` is the scan of `rules-run/0.6`), also accepts ",
     "`crn-craft.model/1.0` models and returns `crn-craft.result/1.0`. A ",
     "`rules-run` request refuses a `model/1.0` model (`CRN-R020` at `/schema`)."
 )]
@@ -1081,6 +1140,11 @@ pub struct Prepared {
     sparse_unused: bool,
     /// The request's method with the Static Direct defaults of its version.
     method: Method,
+    /// The Static Direct selector that runs (the linear scan for every
+    /// other method and every `rules-run` version).
+    selector: select::Kind,
+    /// RSSA-CR's tables, when that selector runs.
+    rssa: Option<rssa::Plan>,
     compiled: model::Compiled,
     observations: observe::Spec,
     flat: Option<flat::Network>,
@@ -1230,6 +1294,20 @@ fn validate_request(request: &RunRequest, model_sha256: &str) -> Vec<Diagnostic>
             "/schema",
             "Static Direct options require rules-run/0.4",
             "Select the version 0.4 request contract.",
+        ));
+    }
+    if matches!(
+        request.method,
+        Some(Method::StaticDirect {
+            selector: Some(_),
+            ..
+        })
+    ) && request.schema < RunVersion::V10
+    {
+        out.push(request_error(
+            "/schema",
+            "static_direct.selector requires crn-craft.run/1.0",
+            "Select the crn-craft.run/1.0 request contract or remove method.selector.",
         ));
     }
     if request.trackers().len() > model::MAX_OBSERVABLES {
@@ -1681,11 +1759,23 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
         ),
         _ => None,
     };
+    let selector = match request.method {
+        Some(Method::StaticDirect { selector, .. }) => {
+            select::resolve(request.schema, selector, flat.as_ref())
+        }
+        _ => select::Kind::Linear,
+    };
+    let rssa = match (selector, flat.as_ref()) {
+        (select::Kind::RssaCr, Some(net)) => Some(rssa::Plan::new(net)),
+        _ => None,
+    };
     Ok(Prepared {
         source: model,
         mtdna,
         mtdna_fallback,
         sparse_unused,
+        selector,
+        rssa,
         method: effective_method(&request),
         compiled,
         flat,
@@ -1695,6 +1785,33 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
         model_sha256,
         run_sha256: crate::sha256(request_bytes),
     })
+}
+
+/// `CRN-R020` at `/method/selector` unless the prepared request runs the
+/// linear scan, the only selector generated code implements.
+fn linear_selector(prepared: &Prepared, what: &str) -> Result<(), Diagnostic> {
+    if prepared.selector == select::Kind::Linear {
+        return Ok(());
+    }
+    let requested = match prepared.request.method {
+        Some(Method::StaticDirect {
+            selector: Some(selector),
+            ..
+        }) if selector != Selector::Auto => "the request selects",
+        _ => "auto selects",
+    };
+    Err(request_error(
+        "/method/selector",
+        format!(
+            "{what} run the linear selector; {requested} {}",
+            match prepared.selector {
+                select::Kind::CompositionRejection => "composition_rejection",
+                select::Kind::Sorting => "sorting",
+                _ => "rssa_cr",
+            }
+        ),
+        "Set method.selector to \"linear\" to run this request with generated code, or run it interpreted.",
+    ))
 }
 
 /// Parses a rules model strictly. A pattern `count` before
@@ -1763,9 +1880,11 @@ fn effective_method(request: &RunRequest) -> Method {
         Method::StaticDirect {
             waiting_time: None,
             sparse_trackers,
+            selector,
         } if request.schema >= RunVersion::V06 => Method::StaticDirect {
             waiting_time: Some(RulesWaitingTime::Ziggurat),
             sparse_trackers,
+            selector,
         },
         method => method,
     }
@@ -2232,6 +2351,8 @@ fn execute_inner<O: EventObserver>(
                         generated_loop,
                         mtdna: prepared.mtdna.as_ref(),
                         method: prepared.method,
+                        selector: prepared.selector,
+                        rssa: prepared.rssa.as_ref(),
                         independent: prepared.independent.as_ref(),
                         id,
                     };
@@ -2362,24 +2483,29 @@ fn execute_inner<O: EventObserver>(
         model_sha256: prepared.model_sha256.clone(),
         run_sha256: prepared.run_sha256.clone(),
         sampler: match prepared.method {
-            Method::Tree {} => SAMPLER,
+            Method::Tree {} => SAMPLER.into(),
             Method::MtdnaDirect {} if prepared.mtdna.is_some() => {
-                "chacha8-u53-ziggurat/rules-mtdna-direct/1"
+                "chacha8-u53-ziggurat/rules-mtdna-direct/1".into()
             }
-            Method::StaticDirect { .. } => match (ziggurat, sparse) {
-                (true, true) => "chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1",
-                (true, false) => "chacha8-u53-ziggurat/rules-static-direct/1",
-                (false, true) => "chacha8-u53/rules-static-direct-sparse-trackers/1",
-                (false, false) => "chacha8-u53/rules-static-direct/1",
-            },
-            Method::MtdnaDirect {} => "chacha8-u53/rules-static-direct/1",
-            Method::NextReaction {} => "chacha8-u53/rules-next-reaction/1",
-            Method::Thinning {} => "chacha8-u53/rules-atp-thinning/1",
-            Method::Tau { .. } => "chacha8-u53/rules-approximate-cgp-poisson/2",
-            Method::Binomial { .. } => "chacha8-u53/rules-approximate-binomial-split/2",
-            Method::Hybrid { .. } => "chacha8-u53/rules-approximate-hybrid-dopri54/1",
-        }
-        .into(),
+            // The linear scan keeps the identities of 0.6.0; another
+            // selector adds its name.
+            Method::StaticDirect { .. } => format!(
+                "{}/rules-static-direct{}{}/1",
+                if ziggurat {
+                    "chacha8-u53-ziggurat"
+                } else {
+                    "chacha8-u53"
+                },
+                prepared.selector.sampler_suffix(),
+                if sparse { "-sparse-trackers" } else { "" }
+            ),
+            Method::MtdnaDirect {} => "chacha8-u53/rules-static-direct/1".into(),
+            Method::NextReaction {} => "chacha8-u53/rules-next-reaction/1".into(),
+            Method::Thinning {} => "chacha8-u53/rules-atp-thinning/1".into(),
+            Method::Tau { .. } => "chacha8-u53/rules-approximate-cgp-poisson/2".into(),
+            Method::Binomial { .. } => "chacha8-u53/rules-approximate-binomial-split/2".into(),
+            Method::Hybrid { .. } => "chacha8-u53/rules-approximate-hybrid-dopri54/1".into(),
+        },
         root_seed: request.ensemble.root_seed,
         types: model
             .types
@@ -2617,6 +2743,11 @@ pub fn describe() -> Value {
             "quantiles": {
                 "request": "outputs.quantiles", "result": "statistics.quantiles",
                 "max": MAX_QUANTILES, "definition": "numpy-linear-type-7"
+            },
+            "selectors": {
+                "request": "method.selector", "method": "static_direct",
+                "values": ["linear", "composition_rejection", "sorting", "rssa_cr", "auto"],
+                "default": "auto", "loops": ["linear"]
             }
         },
         "sampler": SAMPLER,
@@ -2670,12 +2801,27 @@ pub fn schema(kind: &str) -> Option<Value> {
     if unified.is_none() {
         // A rules-* document cannot hold the fields of the 1.0 contracts.
         for (name, property) in ONLY_1_0 {
-            if let Some(properties) = definitions
-                .get_mut(*name)
-                .and_then(|d| d.get_mut("properties"))
+            let Some(definition) = definitions.get_mut(*name) else {
+                continue;
+            };
+            if let Some(properties) = definition
+                .get_mut("properties")
                 .and_then(Value::as_object_mut)
             {
                 properties.remove(*property);
+            }
+            // Variants of a tagged enum (`Method`).
+            for variant in definition
+                .get_mut("oneOf")
+                .and_then(Value::as_array_mut)
+                .into_iter()
+                .flatten()
+            {
+                if let Some(properties) =
+                    variant.get_mut("properties").and_then(Value::as_object_mut)
+                {
+                    properties.remove(*property);
+                }
             }
         }
         for name in ONLY_1_0_DEFINITIONS {
@@ -2750,9 +2896,10 @@ const ONLY_1_0: &[(&str, &str)] = &[
     ("Outputs", "quantiles"),
     ("Statistics", "quantiles"),
     ("Pattern", "count"),
+    ("Method", "selector"),
 ];
 /// Definitions that only the 1.0 schemas use.
-const ONLY_1_0_DEFINITIONS: &[&str] = &["Quantile"];
+const ONLY_1_0_DEFINITIONS: &[&str] = &["Quantile", "Selector"];
 
 /// Whether a `schema` string names a 1.0 contract.
 fn is_unified(version: &str) -> bool {
@@ -2771,7 +2918,7 @@ const CHECK_1_0: Descriptions = (
     "The version of a model check report, its `schema` field.",
 );
 const RUN_1_0: Descriptions = (
-    "A run request: `crn-craft.run/1.0`, the unified request contract, with the fields and defaults of `crn-craft.rules-run/0.6` plus `outputs.quantiles`.\n\nIt binds one model, `crn-craft.model/1.0` or any `crn-craft.rules-model` version, by hash and states the time grid, the ensemble, the outputs and an explicit budget. Unknown fields and duplicate keys are rejected. It returns `crn-craft.result/1.0`.",
+    "A run request: `crn-craft.run/1.0`, the unified request contract, with the fields and defaults of `crn-craft.rules-run/0.6` plus `outputs.quantiles` and the Static Direct `selector`, whose default `auto` picks a selector from the lowered network (`\"selector\": \"linear\"` runs what rules-run/0.6 runs).\n\nIt binds one model, `crn-craft.model/1.0` or any `crn-craft.rules-model` version, by hash and states the time grid, the ensemble, the outputs and an explicit budget. Unknown fields and duplicate keys are rejected. It returns `crn-craft.result/1.0`.",
     "The version of a run request, its `schema` field.",
 );
 const RESULT_1_0: Descriptions = (

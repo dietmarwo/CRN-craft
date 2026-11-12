@@ -43,13 +43,17 @@ fn run(model: &[u8], request: &Value) -> RulesResult {
 }
 
 /// The result without the fields that name the documents rather than what
-/// ran: the schema string and the hashes that cover the rewritten bytes.
+/// ran: the schema string, the hashes that cover the rewritten bytes and the
+/// echoed Static Direct `selector` (M4c).
 fn numbers(result: &RulesResult, hashes: &[&str]) -> Vec<u8> {
     let mut value = serde_json::to_value(result).unwrap();
     let object = value.as_object_mut().unwrap();
     object.remove("schema").unwrap();
     for key in hashes {
         object.remove(*key).unwrap();
+    }
+    if let Some(method) = object.get_mut("method").and_then(Value::as_object_mut) {
+        method.remove("selector");
     }
     serde_json::to_vec(&value).unwrap()
 }
@@ -91,6 +95,11 @@ fn every_stored_request_as_run_1_0_gives_the_rules_run_0_6_result() {
         old["schema"] = "crn-craft.rules-run/0.6".into();
         let mut new = request.clone();
         new["schema"] = "crn-craft.run/1.0".into();
+        // run/1.0 means rules-run/0.6 with the linear scan; its default
+        // selector is `auto` (M4c), so Static Direct requests name it.
+        if new["method"]["kind"] == "static_direct" {
+            new["method"]["selector"] = "linear".into();
+        }
         let reference = run(&model, &old);
         let result = run(&model, &new);
         assert_eq!(
@@ -135,7 +144,8 @@ fn run_1_0_accepts_every_rules_model_and_rules_run_refuses_model_1_0() {
             result.method,
             Some(crn_craft::rules::Method::StaticDirect {
                 waiting_time: None,
-                sparse_trackers: None
+                sparse_trackers: None,
+                selector: None
             })
         );
     }

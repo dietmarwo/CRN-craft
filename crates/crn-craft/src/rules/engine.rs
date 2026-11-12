@@ -542,6 +542,10 @@ impl<'r, R: RngCore> Words<'r, R> {
     pub(crate) fn for_test(rng: &'r mut R, max: u64) -> Self {
         Self { rng, used: 0, max }
     }
+
+    pub(crate) fn used(&self) -> u64 {
+        self.used
+    }
 }
 
 impl<R: RngCore> Words<'_, R> {
@@ -589,6 +593,10 @@ pub(crate) struct Path<'a> {
     pub generated_loop: Option<&'a dyn crate::rules::RulesLoop>,
     pub mtdna: Option<&'a crate::rules::mtdna::Kernel>,
     pub method: crate::rules::Method,
+    /// The Static Direct selector (the linear scan for other methods).
+    pub selector: crate::rules::select::Kind,
+    /// RSSA-CR's tables, when that selector runs.
+    pub rssa: Option<&'a crate::rules::rssa::Plan>,
     /// The `hybrid` solution of the independent continuous variables.
     pub independent: Option<&'a Shared>,
 }

@@ -77,6 +77,7 @@ pub fn execute_with_rules_kernel(
     kernel: &impl RulesKernel,
 ) -> Result<RulesResult, Diagnostic> {
     let net = network(prepared)?;
+    crate::rules::linear_selector(prepared, "generated rules kernels")?;
     let expected = template(prepared, net)
         .ok()
         .map(|t| fingerprint(prepared, &t));

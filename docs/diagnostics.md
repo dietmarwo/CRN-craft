@@ -93,11 +93,18 @@ higher-order rule with `tree`, `mtdna_direct`, `binomial` or a generated
 rates kernel, `outputs.quantiles` in a request before `crn-craft.run/1.0`
 (at `/schema`), more than 16 or not strictly increasing quantile
 probabilities in (0, 1), a quantile buffer above the 2 GiB workspace limit
-(at `/outputs/quantiles`), and a generated-kernel fingerprint mismatch),
+(at `/outputs/quantiles`), `method.selector` in a request before
+`crn-craft.run/1.0` (at `/schema`), a generated event loop or rates kernel
+with a Static Direct selector other than `linear`, also when `auto` picks one
+(at `/method/selector`), and a generated-kernel fingerprint mismatch),
 `CRN-R030` numerical
-failures during a replicate, `CRN-R031` weights below 53-bit resolution (in
-the tree a rule or instance weight; in Static Direct and its fallbacks a
-channel below 2⁻⁵³ of the total, so use `tree` or rescale),
+failures during a replicate (with the selectors of `crn-craft.run/1.0` also
+a non-finite total, a composition or acceptance draw rounded to its bound,
+and a propensity outside its RSSA-CR bounds), `CRN-R031` weights below
+53-bit resolution (in the tree a rule or instance weight; in Static Direct
+and its fallbacks, with every selector, a channel below 2⁻⁵³ of the total or
+lost in the total's pairwise sums; with RSSA-CR the smallest positive
+propensity of a channel's population box, so use `tree` or rescale),
 `CRN-R040`–`CRN-R045` event, sampling, instance, wall-time, cancellation and
 output limits, and the warnings `CRN-R050` for an incomplete ensemble and
 `CRN-R051` for a requested specialization that did not apply (an

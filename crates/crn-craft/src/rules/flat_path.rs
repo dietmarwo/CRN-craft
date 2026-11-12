@@ -2,6 +2,8 @@
 use super::*;
 use crate::next_reaction::Clocks;
 use crate::rules::flat::{Network, check_instances, direct, direct_with};
+use crate::rules::rssa::Bounds;
+use crate::rules::select::{Composition, Kind, RateTree, sorting_sample};
 
 impl Path<'_> {
     #[allow(clippy::too_many_arguments)]
@@ -59,6 +61,10 @@ impl Path<'_> {
         if let Some(kernel) = self.generated_loop {
             return self
                 .simulate_generated_loop(kernel, net, counts, values, words, out, time, monitor);
+        }
+        if self.selector != Kind::Linear {
+            return self
+                .simulate_selected(net, counts, values, words, out, time, monitor, observer);
         }
         let mut live = out.peak_instances;
         let mut cache = net.rate_cache();
@@ -179,6 +185,221 @@ impl Path<'_> {
                     }
                     Err(_) => {
                         // The diagnostic includes all projection values.
+                        net.refresh_cold(counts, values)?;
+                        self.stop_values(values)?;
+                    }
+                }
+            }
+        }
+    }
+
+    /// Static Direct with composition–rejection, sorting direct or RSSA-CR
+    /// selection (`crn-craft.run/1.0`). Waiting times, saves, the horizon,
+    /// events, observation and stops are those of the linear scan; RSSA-CR
+    /// also advances the clock on rejected candidates.
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+    fn simulate_selected<R: RngCore + 'static, O: EventObserver>(
+        &self,
+        net: &Network,
+        counts: &mut [u64],
+        values: &mut [f64],
+        words: &mut Words<'_, R>,
+        out: &mut PathOutput,
+        time: &mut f64,
+        monitor: &mut Option<Monitor<'_>>,
+        observer: &O,
+    ) -> Result<Option<f64>, Halt> {
+        let kind = self.selector;
+        let n = net.channels.len();
+        let params = &self.model.params;
+        let mut live = out.peak_instances;
+        let mut cache = net.rate_cache();
+        let mut tree = RateTree::default();
+        tree.reset(n);
+        let mut composition = Composition::default();
+        let mut rates = Vec::new();
+        let mut order = Vec::new();
+        let mut bounds = Bounds::default();
+        match kind {
+            Kind::Sorting => {
+                rates.resize(n, 0.0);
+                order.extend(0..n);
+            }
+            Kind::RssaCr => {
+                composition.reset(n);
+                bounds.reset(net, self.rssa.expect("RSSA-CR plan"), counts);
+            }
+            _ => composition.reset(n),
+        }
+        let ziggurat = matches!(
+            self.method,
+            crate::rules::Method::StaticDirect {
+                waiting_time: Some(crate::rules::RulesWaitingTime::Ziggurat),
+                ..
+            }
+        );
+        // `Some` after an event: the state changed since the last pass.
+        let mut fired: Option<usize> = None;
+        let mut started = false;
+        let mut absorbed = false;
+        let mut iterations: u64 = 0;
+        loop {
+            iterations += 1;
+            if iterations % POLL_EVENTS == 0 {
+                self.poll()?;
+            }
+            if !started || fired.is_some() {
+                cache.reset();
+                if kind == Kind::RssaCr {
+                    let plan = self.rssa.expect("RSSA-CR plan");
+                    bounds.refresh(
+                        net,
+                        plan,
+                        fired,
+                        counts,
+                        values,
+                        params,
+                        &mut cache,
+                        &mut tree,
+                        &mut composition,
+                    )?;
+                    // Every upper bound may be positive while every
+                    // propensity is zero.
+                    absorbed = false;
+                    if bounds.positive_lower == 0 {
+                        let env = Env {
+                            params,
+                            observables: values,
+                            attributes: [&[], &[]],
+                        };
+                        absorbed = true;
+                        for i in 0..n {
+                            if cache.channel(net, i, counts, &env)? > 0.0 {
+                                absorbed = false;
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    let env = Env {
+                        params,
+                        observables: values,
+                        attributes: [&[], &[]],
+                    };
+                    let mut update = |i: usize| -> Result<(), Halt> {
+                        let rate = cache.channel(net, i, counts, &env)?;
+                        tree.set(i, rate, if rate > 0.0 { rate } else { f64::INFINITY });
+                        if kind == Kind::Sorting {
+                            rates[i] = rate;
+                        } else {
+                            composition.update(i, rate)?;
+                        }
+                        Ok(())
+                    };
+                    match fired {
+                        Some(channel) => {
+                            for &i in &net.affected[channel] {
+                                update(i)?;
+                            }
+                        }
+                        None => {
+                            for i in 0..n {
+                                update(i)?;
+                            }
+                        }
+                    }
+                }
+                started = true;
+                fired = None;
+            }
+            let total = if absorbed { 0.0 } else { tree.total()? };
+            if total == 0.0 {
+                net.refresh_cold(counts, values)?;
+                return Ok(None);
+            }
+            let next = if ziggurat {
+                let unit = crate::ssa::exponential_from_words(|retry| {
+                    if retry {
+                        self.poll()?;
+                    }
+                    words.word()
+                })?;
+                *time + unit / total
+            } else {
+                *time - libm::log(1.0 - words.open()?) / total
+            };
+            if next <= *time {
+                return Err(numerical(
+                    "/time",
+                    "clock failed to advance",
+                    "Rescale rates and time.",
+                ));
+            }
+            let channel = if kind == Kind::Sorting {
+                sorting_sample(&mut order, &rates, total, words)?
+            } else {
+                composition.sample(&tree, words)?
+            };
+            if out.saved_points < self.report_times.len()
+                && self.report_times[out.saved_points] < next
+            {
+                net.refresh_cold(counts, values)?;
+                self.save_before(out, values, next);
+            }
+            if next > self.end {
+                net.refresh_cold(counts, values)?;
+                return Ok(None);
+            }
+            if kind == Kind::RssaCr {
+                // Thinning against the candidate's bounds: accept below the
+                // lower bound, otherwise against the exact propensity.
+                let upper = tree.get(channel);
+                let threshold = words.uniform()? * upper;
+                if threshold >= upper {
+                    return Err(numerical(
+                        "/rules",
+                        "RSSA-CR acceptance rounded to its bound",
+                        "Rescale rates or populations.",
+                    ));
+                }
+                let lower = bounds.lower[channel];
+                if threshold >= lower {
+                    let env = Env {
+                        params,
+                        observables: values,
+                        attributes: [&[], &[]],
+                    };
+                    let a = cache.channel(net, channel, counts, &env)?;
+                    if a < lower || a > upper {
+                        return Err(numerical(
+                            "/rules",
+                            "a propensity left its RSSA-CR bounds",
+                            "Select the linear selector and report the model.",
+                        ));
+                    }
+                    if threshold >= a {
+                        *time = next;
+                        continue;
+                    }
+                }
+            }
+            fired = Some(channel);
+            self.apply_flat(net, channel, counts, &mut live, out)?;
+            *time = next;
+            net.refresh_channel(channel, counts, values, O::ENABLED)?;
+            if (O::ENABLED || net.observe_affected[channel])
+                && self.observe_flat(net, channel, values, next, monitor, observer)
+            {
+                return Ok(Some(next));
+            }
+            if net.stop_affected[channel] {
+                match self.stop_values(values) {
+                    Ok(false) => {}
+                    Ok(true) => {
+                        net.refresh_cold(counts, values)?;
+                        return Ok(Some(next));
+                    }
+                    Err(_) => {
                         net.refresh_cold(counts, values)?;
                         self.stop_values(values)?;
                     }

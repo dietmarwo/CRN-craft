@@ -448,11 +448,18 @@ def _self_check(handle, data):
             {"observable": names[0], "keep_episodes": 2},
             {"observable": names[-1], "first_passage": f"{names[-1]} > 0"},
         ]
-    for method in (
-        "static_direct",
+    methods = [
+        {"kind": "static_direct"},
         {"kind": "static_direct", "waiting_time": "inverse", "sparse_trackers": False},
         {"kind": "static_direct", "waiting_time": "ziggurat", "sparse_trackers": True},
-    ):
+    ]
+    if unified:
+        # A crn-craft.run/1.0 request selects the event selector, `auto` by
+        # default; the loop runs the linear scan.
+        methods = [{**method, "selector": "linear"} for method in methods]
+    else:
+        methods[0] = "static_direct"
+    for method in methods:
         check = run(
             end=end,
             report_times=times,

@@ -223,13 +223,17 @@ class Model:
         string of a rules-model.
 
         A document the builder could have written (attribute-free types,
-        one count observable per type named after it, numeric initial
-        counts; rules-model/0.3, 0.4 or model/1.0) stays editable: the
-        ``add_*`` and ``set_*`` methods work, and after the first edit
-        ``to_dict`` writes the builder's document. Any other document
-        (attributes, filtered observables, an ATP block, ...) is kept whole
-        and cannot be edited: those methods raise ``ValueError``; edit the
-        dictionary and call ``from_dict`` again.
+        one count observable per type named after it, one numeric initial
+        count per type; rules-model/0.3, 0.4 or model/1.0), which includes
+        every converted network model and the packaged examples, stays
+        editable: the ``add_*`` and ``set_*`` methods work, and after the
+        first edit ``to_dict`` writes the builder's document (explicit
+        default values such as ``"attributes": []`` and ``"reduce": "sum"``
+        are then left out, which changes the bytes but not the meaning).
+        Any other document (attributes, filtered or weighted observables, an
+        ATP block, ...) is kept whole and cannot be edited: those methods
+        raise ``ValueError``; edit the dictionary and call ``from_dict``
+        again.
         """
         from ._common import _native, convert, model_bytes
 

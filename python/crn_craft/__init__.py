@@ -34,7 +34,8 @@ from . import _native
 from . import rules
 from ._common import CrnError, convert, model_bytes as _model_bytes
 from ._common import __version__ as __version__
-from ._rules_loop import CompiledLoopError, compile_loop, loop_source
+from . import _rules_loop
+from ._rules_loop import CompiledLoopError
 from .builder import Model as _RulesModel
 from .report import load_report
 from .rules import DEFAULT_QUANTILES as _DEFAULT_QUANTILES
@@ -141,6 +142,37 @@ def ensemble(
         quantiles=quantiles,
         selector=rules._selector(selector),
         unified=True,
+    )
+
+
+def loop_source(model):
+    """Return the generated Static Direct event loop of a model as Rust.
+
+    As :func:`crn_craft.rules.loop_source`, for the document that
+    :func:`ensemble` runs: a rules-model gets the schema string
+    ``crn-craft.model/1.0`` and a network ``crn-craft.model/0.1`` is
+    converted, so the loop's fingerprint is that of the model/1.0 bytes.
+    """
+    return _rules_loop.loop_source(rules._as_model_1_0(model, network=True))
+
+
+def compile_loop(model, *, cache_dir=None, cargo="cargo", source=None, progress=True):
+    """Compile the Static Direct event loop of a model; opt-in, needs Rust.
+
+    As :func:`crn_craft.rules.compile_loop`, for the document that
+    :func:`ensemble` runs: a rules-model gets the schema string
+    ``crn-craft.model/1.0`` and a network ``crn-craft.model/0.1`` is
+    converted. So ``ensemble(model, ..., compiled=compile_loop(model))``
+    works for the same ``model`` argument. Generated loops run the linear
+    scan: pass ``selector="linear"`` to :func:`ensemble` unless ``"auto"``
+    picks it for the model.
+    """
+    return _rules_loop.compile_loop(
+        rules._as_model_1_0(model, network=True),
+        cache_dir=cache_dir,
+        cargo=cargo,
+        source=source,
+        progress=progress,
     )
 
 

@@ -1,5 +1,16 @@
 # CRN-craft compared with Catalyst.jl and JumpProcesses.jl
 
+> **Measured with the 0.6.0 network engine (note of 12 November 2026).**
+> The CRN-craft numbers on this page come from the network engine of
+> releases 0.2.0 to 0.6.0 (its `simulate`, `simulate-cached` and `ssa`
+> routes). Release 0.7.0 replaced that engine with one
+> engine, whose selectors are ports of the methods measured here. Julia is
+> not available on the host of the 0.7.0 measurements, so these comparisons
+> were not repeated, and the tables below are left as measured. For the
+> 0.7.0 engine against the 0.6.0 network engine on the same host, see the
+> [speed gate](technical-report.md#71-speed-gate) and
+> `validation/merge/RESULTS.md` ("M4d (speed gate): results").
+
 > **Measured before the 0.2.0 release.** These measurements come from
 > development builds of 2 November 2026 and have not been repeated on
 > release 0.2.0 (4 November 2026). The network SSA engine changed in
@@ -50,7 +61,7 @@ recorded.
 **Update with `fast` (projected, not remeasured).** Comparisons now time
 CRN-craft with the `fast` switch (then opt-in), which emulates JumpProcesses' policy
 (Xoshiro256++, running totals without loss or resolution checks, batched stop
-polls; see the [README](../README.md#exact-ssa-methods-and-the-fast-switch)).
+polls; see the [0.6.0 README](https://github.com/dietmarwo/CRN-craft/blob/v0.6.0/README.md#exact-ssa-methods-and-the-fast-switch)).
 Julia's package hosts were again unreachable, so this table scales the CRN
 prepared medians of Astra's same-host rerun
 ([gap10 comparison](comparison-julia-gap10.md), `validation/julia-gap10/comparison.json`)

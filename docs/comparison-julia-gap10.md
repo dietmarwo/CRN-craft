@@ -1,5 +1,16 @@
 # Ten further CRN-craft / Julia-gap iterations
 
+> **Measured with the 0.6.0 network engine (note of 12 November 2026).**
+> The CRN-craft numbers on this page come from the network engine of
+> releases 0.2.0 to 0.6.0 (its `simulate`, `simulate-cached` and `ssa`
+> routes). Release 0.7.0 replaced that engine with one
+> engine, whose selectors are ports of the methods measured here. Julia is
+> not available on the host of the 0.7.0 measurements, so these comparisons
+> were not repeated, and the tables below are left as measured. For the
+> 0.7.0 engine against the 0.6.0 network engine on the same host, see the
+> [speed gate](technical-report.md#71-speed-gate) and
+> `validation/merge/RESULTS.md` ("M4d (speed gate): results").
+
 > **Measured before the 0.2.0 release.** These measurements come from
 > development builds of 2 November 2026 and have not been repeated on
 > release 0.2.0 (4 November 2026). The network SSA engine changed in
@@ -87,7 +98,8 @@ are possible explanations, not measured causes. Without a profiler, the
 persistent Python-boundary regression remains unattributed. The patch retains
 it explicitly; the original complete CSV includes every slower row.
 
-[Diagnostic code](../validation/diagnose_gap10_regressions.py) and
+Diagnostic code (`validation/diagnose_gap10_regressions.py`, deleted in 0.7.0 with the
+other gap-10 drivers; see release 0.6.0) and
 [all diagnostic observations](../validation/julia-gap10/regression-diagnostics.json)
 are included. They are follow-up evidence, not extra attempts to satisfy the
 fixed candidate acceptance rule.

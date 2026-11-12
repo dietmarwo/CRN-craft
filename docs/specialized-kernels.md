@@ -3,10 +3,21 @@
 Use the generic Static Direct path first. Measure its default, which since
 rules-run/0.6 uses Ziggurat waits and sparse count trackers, and inverse
 waits with per-event trackers where the earlier replay identity is needed.
-Compare the generic engine with the candidate on the same model, output
-contract, workload and hardware. Try the ahead-of-time
-generated event loop when its supported rate and projection families cover
-the model.
+Under `crn-craft.run/1.0` also measure the selectors (`linear`,
+`composition_rejection`, `sorting`, `rssa_cr`) and the `auto` default
+([exact methods](direct-ssa.md#selectors)): on large networks a selector
+often closes the gap that a kernel would. Compare the generic engine with
+the candidate on the same model, output contract, workload and hardware. Try
+the ahead-of-time generated event loop when its supported rate and
+projection families cover the model.
+
+The timings on this page were measured on releases 0.4.0 to 0.6.0, before
+release 0.7.0 tuned the interpreted Static Direct loop (compiled rate
+programs, running totals resumed at the first changed channel). The
+interpreted rows are therefore slower than in 0.7.0; on the three-class
+workload of `validation/merge/mtdna-workload/summary.json`, one thread,
+0.7.0's Static Direct took 0.72 times the time of 0.6.0's. Measure again
+before relying on a ratio below.
 
 Use the following checklist when the remaining measured gap warrants a
 hand-written kernel.
@@ -56,6 +67,10 @@ selection, waits, budgets, reports and observation.
 cargo run --release --locked -p crn-craft-rules --example generate_rules_kernel -- MODEL REQUEST > kernel.rs
 ```
 
+The generator examples (`generate_rules_kernel`, `generate_rules_loop`,
+`benchmark_rules`) live in the deprecated facade crate `crn-craft-rules`;
+the code they emit needs only `crn-craft`.
+
 Compile the resulting module into the Rust application and use
 `execute_with_rules_kernel(&prepared, &control, &GeneratedRulesKernel)`.
 `execute_with_rules_kernel` regenerates the source and refuses a kernel
@@ -65,7 +80,7 @@ the same compiled kernel. Build and benchmark each generated kernel against
 the interpreter under the same sampler. Python use would require a wheel
 built with the generated module and a binding to dispatch it.
 
-`crates/crn-craft-rules/tests/generated_kernel.rs` runs a checked-in kernel
+`crates/crn-craft/tests/generated_kernel.rs` runs a checked-in kernel
 for the three-class fixture under `cargo test`. It checks the generator's
 output against that source, byte-identical replay with both waiting-time
 policies and rejection of a kernel for other model bytes. After a generator
@@ -98,8 +113,13 @@ below implements it.
 
 The loop generator emits the whole Static Direct event for every model
 that Static Direct runs: constant, vacancy and expression rates, whole-rule
-`propensity` expressions (the string rates of `rules.Model`), and `sum`,
-`distinct`, `max` and `min` projections. The emitted
+`propensity` expressions (the string rates of `crn_craft.Model`),
+higher-order rules (through `crn_craft::rules::combination_rate`, the
+interpreter's combination count), and `sum`, `distinct`, `max` and `min`
+projections. The loop runs the linear scan: a request whose `selector`, or
+the selector that `auto` picks, is another one is refused with `CRN-R020`
+at `/method/selector`, so name `"selector": "linear"` in a `run/1.0`
+request for a loop. The emitted
 `GeneratedRulesLoop` holds the rates in a fixed-size array and, after each
 event, updates the channels that the fired channel affects. It sums the
 total in channel order, checks resolution, scans for the next channel,
@@ -154,12 +174,13 @@ interpreter, without an observer, refreshes only the projections that rates,
 the stop predicate or trackers read, and recomputes the rest before each
 report. The extra values depend only on the counts and are recomputed
 before every report, so outputs do not change. Projections that could
-overflow are refreshed by both. A deferred projection cannot overflow,
-because lowering allows at most 256 species and the interpreter defers only
-weights bounded for 1024 terms.
+overflow are refreshed by both. A deferred projection cannot overflow: the
+interpreter defers a projection only when each weight is at most
+f64::MAX / (max(1024, terms) · 2⁵³), with 2⁵³ the largest count, so a sum
+over its terms stays finite.
 
-`crates/crn-craft-rules/tests/generated_loop.rs` runs checked-in loops for
-sixteen fixtures under `cargo test`:
+`crates/crn-craft/tests/generated_loop.rs` runs checked-in loops for
+nineteen fixtures under `cargo test` (`crates/crn-craft/tests/generated/`):
 
 - the three-class model with its takeover stop;
 - identical and distinct pairs with extinction and a general stop
@@ -180,7 +201,10 @@ sixteen fixtures under `cargo test`:
   and an `if` in a replication rate;
 - rates and propensities with every operator and function a rate may use,
   `distinct`, `max` and `min` observables and a whole-rule identical pair;
-- expression rates that become negative or undefined.
+- expression rates that become negative or undefined;
+- higher-order rules of a `crn-craft.model/1.0` model;
+- a wait too small to move the clock, once and a million times in a row,
+  under `run/1.0` and the `rules-run` versions.
 
 The tests replay every Static Direct policy and the event, sampling-step
 and instance limits. They also cover trackers, first-passage trackers,
@@ -218,18 +242,23 @@ event. See the
 [the follow-ups](decisions/generated-loop-stops-and-compact-2026-11-04.md)
 and `validation/mtdna/generated-loop.json`.
 
-### From Python: `rules.compile_loop`
+### From Python: `compile_loop`
 
 Opt-in, off by default, for users with a Rust toolchain at least at the
-MSRV (1.85). `rules.compile_loop(model)` takes the loop source from the
-extension (`rules.loop_source(model)`, which needs no cargo and raises the
-generator's `CRN-R020` for unsupported models) and writes a small Cargo
-project: the generated loop, the exact model bytes, a driver
+MSRV (1.85). `crn_craft.compile_loop(model)` (also
+`crn_craft.rules.compile_loop`) takes the loop source from the extension
+(`loop_source(model)`, which needs no cargo and raises the generator's
+`CRN-R020` for unsupported models) and writes a small Cargo project: the
+generated loop, the exact model bytes, a driver
 (`bindings/python/src/rules_loop_main.rs`) and the result encoder that the
 extension compiles itself (`bindings/python/src/rules_payload.rs`). The
-project depends on `crn-craft-rules` at exactly the installed version, from
-crates.io or from a checkout (`source=` or `CRN_CRAFT_SOURCE`), and builds
-a standalone program. `simulate(compiled=loop)` sends the request to it on
+project depends on `crn-craft` at exactly the installed version, from
+crates.io or from a checkout (`source=` or `CRN_CRAFT_SOURCE`, a tree with
+`crates/crn-craft/Cargo.toml`), and builds a standalone program. Generated
+code names `crn_craft::rules::` paths, so a Rust project that compiles it
+depends on `crn-craft` directly; code generated by 0.6.0 named
+`crn_craft_rules::` and is refused by its fingerprint until it is
+regenerated. `simulate(compiled=loop)` sends the request to it on
 standard input and reads the metadata and record columns in the
 extension's own form. No Rust value crosses a library boundary, so the
 program's toolchain need not match the wheel's.
@@ -237,7 +266,8 @@ program's toolchain need not match the wheel's.
 Builds are cached in the user cache directory, keyed by the loop
 fingerprint, the installed version, `rustc -vV`, the target and Rust
 flags, the driver and, for a checkout, its engine sources; one Cargo target
-directory serves every model. Every `compile_loop` call runs short requests
+directory serves every model. Loops cached by release 0.6.0 are rebuilt
+once, into new cache entries, with the same results. Every `compile_loop` call runs short requests
 through the program and the interpreter and returns the loop only if the
 result bytes are identical; `CompiledLoop.verify(run)` checks a user's
 request the same way. Methods other than `static_direct`, other model

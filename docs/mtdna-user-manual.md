@@ -1,13 +1,19 @@
 # Simulating mtDNA mutant accumulation: user manual
 
 This manual is for researchers who simulate how mitochondrial DNA mutants
-arise and spread in single cells. It shows how to do it with the rules
-engine of CRN-craft, from Python, from the command line and from Rust. Every
-Python block is a complete program: copy it and run it from the repository
-root. Most are also in `examples/mtdna/`. The examples were run as printed.
-Each one's output is shown below it, timings from a two-CPU Linux host.
+arise and spread in single cells. It shows how to do it with CRN-craft, from
+Python, from the command line and from Rust. Every Python block is a complete
+program: copy it and run it from the repository root. Most have a counterpart in
+`examples/mtdna/`, written with `crn_craft.rules`. The examples were run as printed. Each one's output is
+shown below it, timings from a two-CPU Linux host.
 `validation/check_manual.py` runs every block and compares its output with
 the manual.
+
+The blocks use `import crn_craft as crn`. The module `crn_craft.rules` is the
+same module under its name in release 0.6.0: code written for 0.6.0 with
+`from crn_craft import rules` keeps running with the same documents and the
+same results. The differences between the two spellings are listed in
+section 18.
 
 Companion documents:
 
@@ -15,7 +21,7 @@ Companion documents:
   parameters to data with fcmaes.
 - [Performance analysis](mtdna-performance-analysis.md): what each method
   and option costs, and how to size a study.
-- [Rules language](rules-language.md) and [mtDNA ensembles](mtdna-rules.md):
+- [Model reference](rules-language.md) and [mtDNA ensembles](mtdna-rules.md):
   the reference pages behind this manual.
 
 Contents:
@@ -56,17 +62,15 @@ From R, the Python package works through reticulate; see
 [Using CRN-craft from R](using-from-r.md).
 
 The Python package contains the native engine, so the CLI is optional. Every
-feature in this manual is in release 0.6.0; features that exist only in
+feature in this manual is in release 0.7.0; features that exist only in
 Rust are marked where they appear.
 
-Both packages install a command named `crn-craft`. The rules commands
-(`rules-check`, `rules`, `describe rules-run`) exist only in the native CLI
-from `cargo install`; the Python package's `crn-craft` command covers the
-fixed-network tools. If both are installed, the one that comes first on your
-`PATH` wins. `crn-craft --version` tells them apart (the Python command
-prints `"interface": "python"`); call the native binary by its full path,
-by default `~/.cargo/bin/crn-craft`, if needed. Section 15
-shows the rules commands.
+Both packages install a command named `crn-craft`, with the same commands and
+the same reports (`describe`, `check`, `run`, `verify`, `analyze`, `convert`,
+`export`). If both are installed, the one that comes first on your `PATH`
+wins. `crn-craft --version` tells them apart (the Python command prints
+`"interface": "python"`); call the native binary by its full path, by default
+`~/.cargo/bin/crn-craft`, if needed. Section 15 shows the commands.
 
 To use the current source instead of the release, build the wheel from a
 clone of the repository:
@@ -88,8 +92,8 @@ The optimization tutorial also needs `pip install fcmaes scipy`.
 
 ## 2. The models
 
-The engine simulates *rules models*: species types carry numeric
-attributes, and rules act on every instance that matches a pattern. The
+The engine simulates models whose species types carry numeric
+attributes, and whose rules act on every instance that matches a pattern. The
 mtDNA models describe one cell. Its molecules degrade at a constant rate
 and replicate into the free places below a copy-number target `K`.
 Replication can produce a mutant. The repository has five model files:
@@ -98,12 +102,12 @@ Replication can produce a mutant. The repository has five model files:
 | --- | --- | --- |
 | `mtdna-three-class.rules.json` | fixed population target; wild type, neutral mutants and advantaged mutants as three classes | every generic method, and the opt-in fast path `mtdna_direct` |
 | `mtdna-three-class-cme.rules.json` | the same with K = 20 and fast rates, for exact checks against the master equation | as above |
-| `mtdna-three-class-atp-continuous.rules.json` | variable population: replication limited by a cellular ATP balance, written as a continuous variable (rules-model/0.3) | `hybrid` |
+| `mtdna-three-class-atp-continuous.rules.json` | variable population: replication limited by a cellular ATP balance, written as a continuous variable (`rules-model/0.3`) | `hybrid` |
 | `mtdna-three-class-atp.rules.json` | the same model in the stored rules-model/0.2 form, with a fixed `atp` block | `thinning` |
 | `mtdna-fixed.rules.json` | every new mutant is its own clone with an identity | `tree` |
 
 Section 12 shows how to write models like these from Python with
-`rules.Model` instead of JSON.
+`crn.Model` instead of JSON.
 
 ### The three-class model
 
@@ -156,9 +160,9 @@ name, not in the order of the file, and continuous variables follow them
 ## 3. A first ensemble
 
 An *ensemble* is a set of independent replicates of the model. Here each
-replicate is one cell. `rules.ensemble` builds and validates a run request
-and prepares it; `simulate()` runs the cells on native threads and returns
-pandas DataFrames.
+replicate is one cell. `crn.ensemble` builds and validates a run request
+(`crn-craft.run/1.0`) and prepares it; `simulate()` runs the cells on native
+threads and returns pandas DataFrames.
 
 Most examples pass `method="mtdna_direct"`, an opt-in fast path for the
 three-class structure of this model (section 8). `method="static_direct"`
@@ -172,12 +176,12 @@ import json
 import time
 
 import numpy as np
-from crn_craft import rules
+import crn_craft as crn
 
-model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
+model = json.loads(crn.load("models/rules/mtdna-three-class.rules.json"))
 model["stop"] = "N > 0 && mutants >= 0.9 * N"
 days = np.arange(0, 1081, 90)
-run = rules.ensemble(
+run = crn.ensemble(
     model,
     end=25_920.0,
     report_times=24.0 * days,
@@ -240,8 +244,9 @@ What the result holds:
 - `result.rule_events`: events per cell and rule, one column per rule name.
 - `result.statistics`: a dictionary of DataFrames `mean`, `sample_variance`
   and `mean_standard_error`, indexed by report `time` with one column per
-  observable, and `samples`, the number of cells. They are withheld (`None`)
-  if any cell ended early for a budget reason.
+  observable, `median` and `quantiles` (next section), and `samples`, the
+  number of cells. They are withheld (`None`) if any cell ended early for a
+  budget reason.
 - `result.paths`: the kept series of single cells, an xarray DataArray
   (next section).
 - `result.metadata`: the full result document (sampler, termination,
@@ -251,6 +256,134 @@ What the result holds:
 
 Report times are right-continuous: an event exactly at a report time is
 included. A cell that stops holds its state at every later report time.
+
+### Quantiles and the median
+
+Means hide the shape of the distribution: in the three-class model most cells
+stay near zero mutants while a few are taken over, so the mean sits far from
+the typical cell. `crn.ensemble` therefore also computes quantiles of the
+cells' values at every report time, for every observable. By default it asks
+for the probabilities 0.025, 0.5 and 0.975, so `result.statistics["median"]`
+is the median and `result.statistics["quantiles"]` is a dictionary from each
+probability to a DataFrame shaped like `mean`. The values are NumPy's default
+quantiles (linear interpolation, type 7), equal bit for bit to
+`numpy.quantile` over the cells. Pass `quantiles=[0.05, 0.25, 0.5, 0.75,
+0.95]` for others, up to 16 strictly increasing probabilities in (0, 1), or
+`quantiles=()` for none. Quantiles keep one value per cell, report time and
+observable in memory while the run lasts.
+
+```python
+"""Quantiles and the median of the mutant count."""
+
+import numpy as np
+import crn_craft as crn
+
+model = crn.load("models/rules/mtdna-three-class.rules.json")
+days = np.arange(0, 1081, 360)
+result = crn.ensemble(
+    model,
+    end=25_920.0,
+    report_times=24.0 * days,
+    replicates=200,
+    seed=1,
+    threads=2,
+    method="mtdna_direct",
+    quantiles=[0.025, 0.25, 0.5, 0.75, 0.975],
+).simulate()
+statistics = result.statistics
+print("quantile levels:", list(statistics["quantiles"]))
+print("mean mutants:  ", statistics["mean"]["mutants"].round(1).tolist())
+print("median mutants:", statistics["median"]["mutants"].tolist())
+print("97.5% quantile:", statistics["quantiles"][0.975]["mutants"].round(1).tolist())
+paths = crn.ensemble(
+    model,
+    end=25_920.0,
+    report_times=24.0 * days,
+    replicates=200,
+    seed=1,
+    threads=2,
+    method="mtdna_direct",
+    keep_paths="all",
+).simulate()
+last = paths.paths.sel(time=25_920.0, variable="mutants").to_numpy()
+print("equal to numpy:", np.quantile(last, 0.975) == statistics["quantiles"][0.975]["mutants"].iloc[-1])
+```
+
+```text
+quantile levels: [0.025, 0.25, 0.5, 0.75, 0.975]
+mean mutants:   [0.0, 25.2, 67.0, 120.7]
+median mutants: [0.0, 0.0, 0.0, 0.0]
+97.5% quantile: [0.0, 336.4, 995.0, 998.0]
+equal to numpy: True
+```
+
+The median is zero at every report time, while the mean rises to 121: the
+typical cell has no mutant, and the mean is carried by the cells that were
+taken over. The 97.5% quantile shows how far a cell can go. Quantiles need all
+cells: like the other statistics they are withheld when a cell ended on a
+budget.
+
+### Saving results
+
+`result.save(file_name)` writes the model, the simulation settings and the
+results to one file. The extension chooses the format: `.md` writes a markdown
+report that a person can read, `.json` writes `crn-craft.report/1.0`, a JSON
+document with the model, the request and the results, and `crn.load_report`
+reads it back. `paths=False` leaves the kept trajectories out. The same result
+always gives the same bytes: a report holds no timestamp, host name or timing.
+It names the package version and both SHA-256 hashes, so a report identifies
+the exact model and request. A report is a readable record of a run. For a
+sealed record that `crn-craft verify` can check, use an archive (section 15).
+
+```python
+"""Save a result as a markdown report and as a JSON report."""
+
+import tempfile
+from pathlib import Path
+
+import crn_craft as crn
+
+model = crn.load("models/rules/mtdna-three-class.rules.json")
+result = crn.ensemble(
+    model,
+    end=8_640.0,
+    report_times=[0.0, 4_320.0, 8_640.0],
+    replicates=50,
+    seed=2,
+    threads=2,
+    method="mtdna_direct",
+).simulate()
+with tempfile.TemporaryDirectory() as folder:
+    markdown = result.save(Path(folder) / "takeover.md")
+    saved = result.save(Path(folder) / "takeover.json", paths=False)
+    print(markdown.name, saved.name)
+    report = crn.load_report(saved)
+    print(report["schema"], sorted(report))
+    print("same sampler:", report["result"]["sampler"] == result.metadata["sampler"])
+    # The markdown report: one section per statistic.
+    text = markdown.read_text()
+    print(text[text.index("### median") : text.index("### 97.5% percentile")].rstrip())
+```
+
+````text
+takeover.md takeover.json
+crn-craft.report/1.0 ['crn_craft_version', 'model', 'request', 'result', 'schema']
+same sampler: True
+### median
+
+```text
+D: 1000, 997, 997.5
+N: 1000, 997, 997
+advantaged_mutants: 0, 0, 0
+mutants: 0, 0, 0
+neutral_mutants: 0, 0, 0
+wild_type: 1000, 997, 997
+```
+````
+
+`result.model` and `result.request` give the documents a result came from, as
+new dictionaries; `result.save` raises `ValueError` for a result that does not
+know them (one built by hand from a metadata document).
 
 ## 4. Seeds, threads and reproducibility
 
@@ -264,14 +397,14 @@ larger ensemble.
 
 import json
 
-from crn_craft import rules
+import crn_craft as crn
 
-model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
+model = json.loads(crn.load("models/rules/mtdna-three-class.rules.json"))
 model["stop"] = "N > 0 && mutants >= 0.9 * N"
 
 
 def run(seed, threads):
-    ensemble = rules.ensemble(
+    ensemble = crn.ensemble(
         model,
         end=25_920.0,
         report_times=[0.0, 8640.0, 17_280.0, 25_920.0],
@@ -294,7 +427,7 @@ print(
     one.records["stop_time"].equals(other.records["stop_time"]),
 )
 # Replicate i always uses the same stream, whatever the ensemble size.
-small = rules.ensemble(
+small = crn.ensemble(
     model,
     end=25_920.0,
     report_times=[0.0, 8640.0, 17_280.0, 25_920.0],
@@ -367,7 +500,7 @@ comparable across methods in distribution, not path by path.
 
 A `stop` condition ends a cell the first time it is true after an event.
 The cell's termination is `stopped` and `stop_time` is the event time.
-Here it is a field of the model dictionary; a model built with `rules.Model`
+Here it is a field of the model dictionary; a model built with `crn.Model`
 sets it with `model.set_stop(...)` (section 12).
 The two common outputs are:
 
@@ -380,11 +513,11 @@ The two common outputs are:
 
 import json
 
-from crn_craft import rules
+import crn_craft as crn
 
-model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
+model = json.loads(crn.load("models/rules/mtdna-three-class.rules.json"))
 model["stop"] = "N > 0 && mutants >= 0.9 * N"
-result = rules.ensemble(
+result = crn.ensemble(
     model,
     end=25_920.0,
     report_times=[0.0, 25_920.0],
@@ -440,11 +573,11 @@ report per cell:
 
 import json
 
-from crn_craft import rules
+import crn_craft as crn
 
-model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
+model = json.loads(crn.load("models/rules/mtdna-three-class.rules.json"))
 model["stop"] = "N > 0 && mutants >= 0.9 * N"
-run = rules.ensemble(
+run = crn.ensemble(
     model,
     end=25_920.0,
     report_times=[0.0, 25_920.0],
@@ -531,10 +664,10 @@ the rule, the participating instances and the observables after the event.
 
 import json
 
-from crn_craft import rules
+import crn_craft as crn
 
-model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
-run = rules.ensemble(
+model = json.loads(crn.load("models/rules/mtdna-three-class.rules.json"))
+run = crn.ensemble(
     model,
     end=25_920.0,
     report_times=[0.0, 25_920.0],
@@ -578,10 +711,10 @@ rule index; `run.rule_names[event["rule"]]` gives the rule's name:
 import json
 from collections import Counter
 
-from crn_craft import rules
+import crn_craft as crn
 
-model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
-run = rules.ensemble(
+model = json.loads(crn.load("models/rules/mtdna-three-class.rules.json"))
+run = crn.ensemble(
     model,
     end=25_920.0,
     report_times=[0.0, 25_920.0],
@@ -652,7 +785,7 @@ depends on mtDNA or on the names in a model:
 
 | `method` | Kind | Scope | Use it for |
 | --- | --- | --- | --- |
-| `"static_direct"` | exact | closed models (a fixed set of attribute vectors) | the default for most work; Ziggurat waiting times and sparse count trackers (rules-run/0.6) |
+| `"static_direct"` | exact | closed models (a fixed set of attribute vectors) | the default for most work; Ziggurat waiting times and sparse count trackers; a selector chooses the next event (below) |
 | `{"kind": "static_direct", "waiting_time": "inverse", "sparse_trackers": False}` | exact | closed models | the Static Direct of release 0.3.0: inverse waiting times and per-event trackers; reproduces its numbers |
 | `"next_reaction"` | exact | closed models | Gibson–Bruck; pays off in large sparse networks, not here, where every event changes every rate |
 | `None` (tree) | exact | every model without an ATP block or continuous variables | models whose instances change identity, such as the clone model |
@@ -675,9 +808,9 @@ The same 64 cells under each method that runs the three-class model:
 import json
 import time
 
-from crn_craft import rules
+import crn_craft as crn
 
-model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
+model = json.loads(crn.load("models/rules/mtdna-three-class.rules.json"))
 model["stop"] = "N > 0 && mutants >= 0.9 * N"
 methods = {
     "tree": None,
@@ -694,7 +827,7 @@ methods = {
     "mtdna_direct (opt-in)": "mtdna_direct",
 }
 for label, method in methods.items():
-    run = rules.ensemble(
+    run = crn.ensemble(
         model,
         end=25_920.0,
         report_times=[0.0, 12_960.0, 25_920.0],
@@ -742,6 +875,113 @@ events. It costs more per
 event, since it integrates between events. The
 [performance analysis](mtdna-performance-analysis.md) compares the methods
 at full scale.
+
+### Selectors for Static Direct
+
+Static Direct chooses the next event among the channels of the lowered model.
+A plain scan is the fastest choice for the eight channels of the three-class
+model, and a slow one for a model with hundreds of channels. A *selector*
+changes how the channel is chosen, not the process: every selector samples the
+same law, uses the random stream in its own way, and puts its name into
+`metadata["sampler"]`, so the same seed gives different paths.
+
+| `selector` | How it chooses |
+| --- | --- |
+| `"linear"` | scans the channels in order |
+| `"composition_rejection"` | groups the channels by the binary exponent of their rates, then draws a group and a member |
+| `"sorting"` | scans in an order that moves each fired channel one place forward |
+| `"rssa_cr"` | draws candidates from upper bounds of the rates over population intervals and accepts them against lower bounds or the exact rate |
+| `"auto"` | picks one of the first, three, or `linear`, at preparation (below) |
+
+`crn.ensemble(..., method="static_direct", selector="rssa_cr")` and
+`method={"kind": "static_direct", "selector": "rssa_cr"}` are the same request.
+`crn.ensemble` leaves the choice to `auto`. It picks RSSA-CR from 8 channels
+when no rate reads two or more species, and from 128 channels when the species
+that start with molecules average fewer than 8; otherwise composition–rejection
+from 128 channels, and otherwise the linear scan. It decides from the initial
+counts, so a model whose populations later grow or shrink far from them can end
+up with a slower selector than another choice would give.
+`crn.describe()["selectors"]["auto"]` lists the thresholds. The three-class
+model has eight channels whose rates read the molecule counts, so `auto` runs
+the linear scan there, and every example above gives the same numbers as
+before.
+
+**`crn_craft.rules` keeps the linear scan.** A request that `crn.rules.ensemble`
+writes always scans, as in every earlier release, so adding `quantiles=` to a
+0.6.0 script never changes its paths. Only `crn.ensemble` leaves the choice to
+`auto`, and `selector=` overrides it in either module. `crn.prepare` of a
+`rules-run` request keeps that request's linear scan.
+
+The example builds twenty strains that compete for room. Each strain grows into
+the free room, dies, and gives rise to the next strain. Every rate reads all
+the strains, so `auto` runs the linear scan on these 59 channels:
+
+```python
+"""Selectors on a twenty-strain competition model."""
+
+import time
+
+import crn_craft as crn
+
+
+def strains(count, builder=crn.Model):
+    """Strains S0, S1, ... share room K; strain i gives rise to strain i + 1."""
+    names = [f"S{i}" for i in range(count)]
+    model = builder(f"strains_{count}")
+    model.add_parameter({"K": 500.0, "g": 0.02, "mu": 0.001})
+    model.add_species({name: 200 if i == 0 else 0 for i, name in enumerate(names)})
+    free = f"max(0, K - ({' + '.join(names)})) / K"
+    for i, name in enumerate(names):
+        model.add_reaction(f"g * {name} * {free}", [name], [name, name], f"grow_{i}")
+        model.add_reaction(0.01, [name], [], f"die_{i}")
+        if i + 1 < count:
+            model.add_reaction(f"mu * {name}", [name], [name, names[i + 1]], f"mutate_{i}")
+    return model
+
+
+model = strains(20)
+for selector in ("linear", "composition_rejection", "sorting", "rssa_cr", "auto"):
+    run = crn.ensemble(
+        model,
+        end=300.0,
+        report_times=[0.0, 300.0],
+        replicates=200,
+        seed=1,
+        threads=2,
+        method="static_direct",
+        selector=selector,
+    )
+    start = time.perf_counter()
+    result = run.simulate()
+    seconds = time.perf_counter() - start
+    total = result.statistics["mean"].iloc[-1].sum()
+    print(
+        f"{selector:22s} {seconds:5.2f} s  {result.metadata['events']:>9,} events  "
+        f"molecules {total:6.1f}  {result.metadata['sampler']}"
+    )
+# The 0.6.0 module scans, whatever the model's size.
+old = crn.rules.ensemble(
+    model, end=300.0, report_times=[0.0, 300.0], replicates=200, seed=1,
+    threads=2, method="static_direct",
+).simulate()
+print("crn.rules:", old.metadata["sampler"])
+```
+
+```text
+linear                  0.10 s    312,169 events  molecules  270.5  chacha8-u53-ziggurat/rules-static-direct/1
+composition_rejection   0.14 s    313,771 events  molecules  270.8  chacha8-u53-ziggurat/rules-static-direct-cr/1
+sorting                 0.13 s    312,179 events  molecules  270.7  chacha8-u53-ziggurat/rules-static-direct-sorting/1
+rssa_cr                 0.20 s    313,771 events  molecules  270.8  chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1
+auto                    0.10 s    312,169 events  molecules  270.5  chacha8-u53-ziggurat/rules-static-direct/1
+crn.rules: chacha8-u53-ziggurat/rules-static-direct/1
+```
+
+The molecule counts agree within sampling error, and each selector names itself
+in the sampler. Every rate here reads all strains, so RSSA-CR pins its bounds to
+the current counts and draws the same events as composition–rejection. With 59
+channels none is faster than the scan. Selectors pay off on larger models: see
+[Larger models](#larger-models). Generated event loops (below) run only the
+linear scan.
 
 ### The opt-in fast path `mtdna_direct`
 
@@ -809,7 +1049,7 @@ A strain that dies faster breaks check 2:
 import copy
 import time
 
-from crn_craft import rules
+import crn_craft as crn
 
 # Three strains share `room` places. The resident strain (0) gives rise to
 # the two variants; every strain dies at one rate and grows into free room.
@@ -855,7 +1095,7 @@ for strain in (1, 2):
 
 def run(model, method):
     start = time.perf_counter()
-    result = rules.ensemble(
+    result = crn.ensemble(
         model,
         end=2000.0,
         report_times=[0.0, 2000.0],
@@ -899,8 +1139,8 @@ Direct, at its speed.
 *Opt-in, off by default; needs a Rust toolchain. New in 0.4.0; string
 rates since 0.5.0.*
 
-`rules.compile_loop(model)` compiles the whole Static Direct event of one
-model into a small native program; `compiled=loop`, on `rules.ensemble` or
+`crn.compile_loop(model)` compiles the whole Static Direct event of one
+model into a small native program; `compiled=loop`, on `crn.ensemble` or
 on `simulate()`, then runs Static Direct requests in it. Results are byte-identical to the interpreter's: the same
 records, statistics, paths, trackers, event logs and sampler identity, so
 replays and stored results keep their meaning. Unlike `mtdna_direct`, it
@@ -913,12 +1153,13 @@ three-class structure.
 import json
 import time
 
-from crn_craft import rules
+import crn_craft as crn
 
-model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
-model["stop"] = "N > 0 && mutants >= 0.9 * N"
-loop = rules.compile_loop(model)  # about a minute the first time, then cached
-run = rules.ensemble(
+document = json.loads(crn.load("models/rules/mtdna-three-class.rules.json"))
+document["stop"] = "N > 0 && mutants >= 0.9 * N"
+model = crn.Model.from_dict(document)  # model/1.0, the form crn.ensemble runs
+loop = crn.compile_loop(model)  # about a minute the first time, then cached
+run = crn.ensemble(
     model,
     end=25_920.0,
     report_times=[0.0, 12_960.0, 25_920.0],
@@ -957,7 +1198,7 @@ medians of three on the two-CPU host
 (`validation/mtdna/compiled-loop-python.json`).
 `mtdna_direct` is faster still where it applies.
 
-`compile_loop` also compiles string rates. A string rate in `rules.Model`
+`compile_loop` also compiles string rates. A string rate in `crn.Model`
 is a whole-rule propensity, and the generator emits it, like any rate
 expression, with the interpreter's operations in the interpreter's order:
 the same `libm` functions, NaN propagation through comparisons, logic and
@@ -970,15 +1211,15 @@ checks:
 
 import time
 
-from crn_craft import CrnError, rules
+import crn_craft as crn
 
-sir = rules.Model("sir")
+sir = crn.Model("sir")
 sir.add_species({"S": 9_990, "I": 10, "R": 0})
 sir.add_parameter({"beta": 0.3, "gamma": 0.1, "N": 10_000.0})
 sir.add_reaction("beta * S * I / N", ["S", "I"], ["I", "I"], name="infection")
 sir.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
-loop = rules.compile_loop(sir)  # string rates compile like constant ones
-run = rules.ensemble(
+loop = crn.compile_loop(sir)  # string rates compile like constant ones
+run = crn.ensemble(
     sir,
     end=400.0,
     report_times=[0.0, 100.0, 200.0, 400.0],
@@ -996,10 +1237,10 @@ loop.verify(run)
 print("byte-identical")
 
 # Without cargo: the generator still refuses models only another method runs.
-atp = rules.load("models/rules/mtdna-three-class-atp-continuous.rules.json")
+atp = crn.load("models/rules/mtdna-three-class-atp-continuous.rules.json")
 try:
-    rules.loop_source(atp)
-except CrnError as error:
+    crn.loop_source(atp)
+except crn.CrnError as error:
     print(error.diagnostics[0]["code"], error.diagnostics[0]["message"])
 ```
 
@@ -1016,13 +1257,13 @@ against 3.35 s with inverse waits (2.00×) and 1.36 s against 2.97 s with
 Ziggurat waits (2.18×), medians of three on the two-CPU host
 (`validation/rules/compiled-loop-string-rates.json`).
 
-**`compiled=` on `rules.ensemble` or on `simulate()`.** A loop can be
+**`compiled=` on `crn.ensemble` or on `simulate()`.** A loop can be
 given in two places, and both run the same program with the same results:
 
-- `rules.ensemble(..., compiled=loop)` (or `rules.prepare(model, request,
+- `crn.ensemble(..., compiled=loop)` (or `crn.prepare(model, request,
   compiled=loop)`) attaches the loop to the prepared run. Preparation
   checks once that the loop was compiled for these model bytes and that
-  the request selects `static_direct`, and raises `CrnError` `CRN-R020`
+  the request selects `static_direct`, and raises `crn.CrnError` `CRN-R020`
   (at `/model` or `/method`) otherwise, before anything runs. Every
   `run.simulate()` then uses the loop without further arguments. Use it
   when all runs of a request should be compiled: repeated calls, or code
@@ -1040,12 +1281,12 @@ compiled for.
 
 **Requirements.** Rust 1.85 or newer, the MSRV of the crates (install it
 with [rustup](https://rustup.rs)), and network access to crates.io: the
-program depends on `crn-craft-rules` at exactly the installed version.
+program depends on `crn-craft` at exactly the installed version.
 Offline, or with a version that is not on crates.io (a wheel built from a
 clone), pass `source=` a CRN-craft checkout of that version, or set
 `CRN_CRAFT_SOURCE`. `cargo=` names another cargo executable.
 
-**Build time and cache.** The first build compiles `crn-craft-rules` and
+**Build time and cache.** The first build compiles `crn-craft` and
 its dependencies: about 40 s on the two-CPU host after the downloads, several
 minutes on slower machines. `compile_loop` prints cargo's progress and the
 path of the build log to stderr (`progress=False` silences it). Builds are
@@ -1054,11 +1295,16 @@ Linux; `cache_dir=` or `CRN_CRAFT_CACHE_DIR` choose another), keyed by the
 loop's fingerprint, the installed version, `rustc -vV`, the target and
 Rust flags. A cached call took 0.06 s. All builds share one Cargo target
 directory (`CARGO_TARGET_DIR` if set), so a second model built in 3 s.
-The cache takes about 160 MB; delete the directory to reclaim it.
+The cache takes about 160 MB; delete the directory to reclaim it. Loops cached
+by release 0.6.0 are built again once on first use, with the same results, and
+their entries stay in the cache until you delete it.
 
 **Limitations.**
 
-- Only `method="static_direct"`, with any options. Other methods are
+- Only `method="static_direct"`, with any options, and only the linear scan:
+  `crn.ensemble` leaves the selector to `auto`, so for a model whose `auto`
+  choice is another selector, name `selector="linear"` together with
+  `compiled=` (`CRN-R020` at `/method/selector` otherwise). Other methods are
   refused with `CRN-R020` at `/method`.
 - The generator emits every model that `method="static_direct"` runs:
   constant, vacancy and expression rates, string rates (`propensity`
@@ -1067,8 +1313,13 @@ The cache takes about 160 MB; delete the directory to reclaim it.
   another method runs (continuous variables, ATP blocks, instances that
   change identity), and loops that would exceed 1 MiB of source, which
   densely coupled networks with many channels reach.
-  `rules.loop_source(model)` returns the source, or that error, without
+  `crn.loop_source(model)` returns the source, or that error, without
   cargo.
+- The loop is compiled for the exact model bytes. `crn.compile_loop`
+  builds for the document `crn.ensemble` runs (`model/1.0`), so the same
+  dictionary or `crn.Model` works for both calls. `crn.rules.compile_loop`
+  builds for the bytes as given, which `crn.rules.ensemble` runs; a loop
+  compiled for other bytes is refused with `CRN-R020` at `/model`.
 - Parameters are compiled in, so another parameter set needs another loop.
   A loop passed for other model bytes, or for a `bind_parameters`
   candidate, is refused with `CRN-R020` at `/model`; candidates run
@@ -1082,7 +1333,7 @@ The cache takes about 160 MB; delete the directory to reclaim it.
   the interpreter
   ([details](specialized-kernels.md#generated-rules-event-loops)).
 - Missing cargo, a failed build (`error.log` is the build log) and a
-  result that differs raise `rules.CompiledLoopError`, whose `reason` is
+  result that differs raise `crn.CompiledLoopError`, whose `reason` is
   `"cargo_missing"`, `"build_failed"` or `"mismatch"`.
 
 **Confirming identity.** Every `compile_loop` call, cached or not, runs
@@ -1106,12 +1357,12 @@ The full event log then gives every lineage's birth, death and peak size:
 import json
 
 import numpy as np
-from crn_craft import rules
+import crn_craft as crn
 
 # Every new mutant is its own clone (attribute `clone` from new_id()).
-model = json.loads(rules.load("models/rules/mtdna-fixed.rules.json"))
+model = json.loads(crn.load("models/rules/mtdna-fixed.rules.json"))
 model["parameters"].update({"K": 100, "w0": 100, "mu": 0.01, "delta": 0.05})
-run = rules.ensemble(
+run = crn.ensemble(
     model,
     end=400.0,
     report_times=[0.0, 100.0, 200.0, 400.0],
@@ -1200,13 +1451,13 @@ and each replication rate reads it.
 import json
 
 import numpy as np
-from crn_craft import rules
+import crn_craft as crn
 
-data = rules.load("models/rules/mtdna-three-class-atp-continuous.rules.json")
+data = crn.load("models/rules/mtdna-three-class-atp-continuous.rules.json")
 model = json.loads(data)
 print("continuous:", model["continuous"])
 print("replication_wt rate:", model["rules"][1]["rate"])
-run = rules.ensemble(
+run = crn.ensemble(
     data,
     end=25_920.0,
     report_times=24.0 * np.arange(0, 1081, 180),
@@ -1269,34 +1520,35 @@ where the integrated propensity reaches an exponential threshold. It is
 approximate at its tolerances `rtol` and `atol`, which the request states and
 `metadata["method"]` records. The defaults `rtol=1e-6` and `atol=1e-9` apply
 unless you pass `method={"kind": "hybrid", "rtol": ..., "atol": ...}`. The
-request uses rules-run/0.5, and the result is rules-result/0.3 with the
-`method` and the `continuous` column names. `validation/check_hybrid.py`
+request is `run/1.0` (`rules-run/0.5` under `crn.rules.ensemble` for a
+`rules-model` document), and the result records the `method` and the
+`continuous` column names. `validation/check_hybrid.py`
 checks `hybrid` against exact laws and against exact thinning on this model
 ([results](../validation/hybrid/RESULTS.md)). On the test host it took about
 eleven times as long as thinning on the ATP model, since every event needs an
 integration step. The error has not yet been measured as a function of the
 tolerances.
 
-**Your own variables.** `rules.Model.add_ode(name, initial, derivative, *,
+**Your own variables.** `crn.Model.add_ode(name, initial, derivative, *,
 independent=False, lower_bound=None, on_bound="stop")` adds a variable to a
 builder model (section 12); string rates may read it. `independent=True`
 marks an ODE that reads only parameters and other independent variables
-(rules-model/0.4). `add_ODE` is the same method, and `add_continuous`, its
+(from `rules-model/0.4` on). `add_ODE` is the same method, and `add_continuous`, its
 name before 0.5.0, still works with the same arguments but emits a
 `DeprecationWarning`:
 
 ```python
 """A continuous variable in a builder model."""
 
-from crn_craft import rules
+import crn_craft as crn
 
-cell = rules.Model("atp_wild_type")
+cell = crn.Model("atp_wild_type")
 cell.add_parameter({"f": 0.1, "v1": 0.2, "v2": 0.01, "c": 1.3034153747670567})
 cell.add_species("W", 1000)
 cell.add_ode("ATP", 450.0, "f * W - v1 * ATP - v2 * W", lower_bound=0)
 cell.add_reaction("c / (c + ATP) * W", ["W"], ["W", "W"], name="replication")
 cell.add_reaction(0.0028881132523331052, ["W"], [], name="degradation")
-result = rules.ensemble(
+result = crn.ensemble(
     cell,
     end=2_400.0,
     report_times=[0.0, 1_200.0, 2_400.0],
@@ -1334,13 +1586,12 @@ Rules for continuous variables:
 
 ### Independent ODEs
 
-*New in 0.5.0 (rules-model/0.4).*
+*New in 0.5.0 (`rules-model/0.4`).*
 
 Some continuous variables do not depend on the molecules at all: a forcing
 such as a daily rhythm, a drug concentration that decays on its own, or a
 hazard that grows with age. Declare such a variable with
-`add_ode(..., independent=True)`, which writes `"independent": true` and
-rules-model/0.4. Its `initial` and `derivative` may then read only
+`add_ode(..., independent=True)`, which writes `"independent": true`. Its `initial` and `derivative` may then read only
 parameters and other independent variables; anything else is refused with
 `CRN-R012` at the derivative's path. Rates, propensities and the
 derivatives of the other variables read it as before, and results report it
@@ -1367,20 +1618,20 @@ the step budget `max_sampling_steps` bounds it. Without `independent`, a
 rules-model/0.4 document means what it means as 0.3.
 
 ```python
-"""An independent ODE: Gompertz mortality (rules-model/0.4, hybrid)."""
+"""An independent ODE: Gompertz mortality (hybrid)."""
 
 import math
 
-from crn_craft import CrnError, rules
+import crn_craft as crn
 
 # The hazard m grows as dm/dt = g m whatever the molecules do.
-gompertz = rules.Model("gompertz")
+gompertz = crn.Model("gompertz")
 gompertz.add_parameter({"g": 0.5, "m0": 0.1})
 gompertz.add_species({"A": 20})
 gompertz.add_ode("m", "m0", "g * m", independent=True)
 gompertz.add_reaction("m * A", ["A"], [], name="death")
 print("schema:", gompertz.to_dict()["schema"])
-result = rules.ensemble(
+result = crn.ensemble(
     gompertz,
     end=4.0,
     report_times=[0.0, 2.0, 4.0],
@@ -1398,14 +1649,14 @@ print(f"exact mean at t = 4: {20 * survival:.3f}")
 model = gompertz.to_dict()
 model["continuous"][0]["derivative"] = "g * m * A"
 try:
-    rules.ensemble(model, end=4.0, report_times=[4.0], method="hybrid")
-except CrnError as error:
+    crn.ensemble(model, end=4.0, report_times=[4.0], method="hybrid")
+except crn.CrnError as error:
     print(error.diagnostics[0]["code"], error.diagnostics[0]["path"])
     print(error.diagnostics[0]["message"])
 ```
 
 ```text
-schema: crn-craft.rules-model/0.4
+schema: crn-craft.model/1.0
 ['m'] chacha8-u53/rules-approximate-hybrid-dopri54/1
            A      m
 time               
@@ -1435,11 +1686,11 @@ variables.
 
 import json
 
-from crn_craft import rules
+import crn_craft as crn
 
-data = rules.load("models/rules/mtdna-three-class-atp.rules.json")
+data = crn.load("models/rules/mtdna-three-class-atp.rules.json")
 print("ATP block:", json.loads(data)["atp"])
-result = rules.ensemble(
+result = crn.ensemble(
     data,
     end=25_920.0,
     report_times=[0.0, 25_920.0],
@@ -1481,11 +1732,11 @@ and lowered once, in about 0.3 ms.
 import json
 import time
 
-from crn_craft import rules
+import crn_craft as crn
 
-model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
+model = json.loads(crn.load("models/rules/mtdna-three-class.rules.json"))
 model["stop"] = "N > 0 && mutants >= 0.9 * N"
-template = rules.ensemble(
+template = crn.ensemble(
     model,
     end=25_920.0,
     report_times=[0.0, 25_920.0],
@@ -1527,16 +1778,16 @@ request, so every result names its parameters.
 
 ## 12. Building models in Python
 
-`rules.Model` writes a rules model from Python calls, in the style of
+`crn.Model` writes a model from Python calls, in the style of
 rebop's `Gillespie` class. Every species is an attribute-free type, and
 every species count is an observable with the species name.
 
 ```python
-"""An SIR epidemic written with rules.Model."""
+"""An SIR epidemic written with crn.Model."""
 
-from crn_craft import rules
+import crn_craft as crn
 
-sir = rules.Model("sir")
+sir = crn.Model("sir")
 sir.add_species({"S": 490, "I": 10, "R": 0})  # or one at a time: add_species("S", 490)
 sir.add_parameter("gamma", 0.1)
 # A number is a mass-action constant: S + I fires at 5e-4 * S * I.
@@ -1544,7 +1795,7 @@ sir.add_reaction(5e-4, ["S", "I"], ["I", "I"], name="infection")
 # A string is the whole propensity, over parameters and species counts.
 sir.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
 print(sir)
-run = rules.ensemble(
+run = crn.ensemble(
     sir,
     end=60.0,
     report_times=[0.0, 20.0, 40.0, 60.0],
@@ -1573,12 +1824,12 @@ The calls:
 
 | Call | Effect |
 | --- | --- |
-| `rules.Model(name="model")` | a new rules-model/0.3 document (0.4 with an independent ODE) |
+| `crn.Model(name="model")` | a new `crn-craft.model/1.0` document (`crn.rules.Model` writes `rules-model/0.3`, or 0.4 with an independent ODE) |
 | `add_parameter(name, value)` or `add_parameter(mapping)` | parameters that string rates may read; `add_parameters` is the same method |
 | `add_species(name, initial=0)` or `add_species(mapping)` | species types, their count observables and their initial counts |
 | `set_initial(mapping)` or `set_initial(S=490, I=10)` | initial counts of declared species |
 | `add_reaction(rate, reactants, products, name=None)` | a rule; species are lists of names, repeated for multiplicity; undeclared species start at 0; names default to `r0`, `r1`, ... |
-| `add_ode(name, initial, derivative, *, independent=False, lower_bound=None, on_bound="stop")` | a continuous variable (section 10); the other arguments are keyword-only. `independent=True` marks an ODE that reads only parameters and other independent variables and makes `to_dict()` write rules-model/0.4. `add_ODE` is the same method; `add_continuous`, the name before 0.5.0, warns |
+| `add_ode(name, initial, derivative, *, independent=False, lower_bound=None, on_bound="stop")` | a continuous variable (section 10); the other arguments are keyword-only. `independent=True` marks an ODE that reads only parameters and other independent variables. `add_ODE` is the same method; `add_continuous`, the name before 0.5.0, warns |
 | `set_stop(condition)` | the model's stop condition, an expression over parameters and species counts such as `"I == 0"`; `None` removes it |
 | `to_dict()`, `to_json()` | the JSON document |
 
@@ -1587,7 +1838,8 @@ its entries in order with the checks of one call each. If an entry is
 invalid, the call raises and declares none of them. A mapping takes no
 second argument: `add_species({"S": 490}, 10)` is a `TypeError`.
 
-`rules.ensemble` and `rules.prepare` accept the `Model` itself. Every method
+`crn.ensemble` and `crn.prepare` accept the `Model` itself, and `Model.from_dict`
+builds one from a model dictionary or model bytes. Every method
 runs builder models; `tree` is never needed, since the species have no
 attributes.
 
@@ -1605,15 +1857,15 @@ does not cover:
 ```python
 """A stop condition in a builder model: the end of an SIR epidemic."""
 
-from crn_craft import rules
+import crn_craft as crn
 
-sir = rules.Model("sir")
+sir = crn.Model("sir")
 sir.add_species({"S": 490, "I": 10, "R": 0})
 sir.add_parameter({"beta": 5e-4, "gamma": 0.1})
 sir.add_reaction("beta * S * I", ["S", "I"], ["I", "I"], name="infection")
 sir.add_reaction("gamma * I", ["I"], ["R"], name="recovery")
 sir.set_stop("I == 0")  # the epidemic is over
-result = rules.ensemble(
+result = crn.ensemble(
     sir,
     end=1000.0,
     report_times=[0.0, 1000.0],
@@ -1644,12 +1896,16 @@ of CRN-craft: k times the number of distinct combinations of reactant
 molecules. `A` fires at k·A, `A + B` at k·A·B and `A + A` at k·A(A − 1)/2.
 rebop drops the 1/2 for identical reactants, so its rate k on `["A", "A"]`
 equals `2 * k` here; reactions without identical reactants agree. A string
-rate is the reaction's whole propensity (rules-model/0.3 `propensity`), an
-expression over parameters and species counts with the operators
+rate is the reaction's whole propensity (the `propensity` field of the
+model), an expression over parameters and species counts with the operators
 `+ - * / ^`, comparisons and the functions `min max exp log sqrt abs floor
 ceil if`. It applies while each reactant has enough molecules (two for
 `["A", "A"]`) and is 0 otherwise, so `"vmax * S / (Km + S)"` on `["S"]` stops
-when `S` is used up. A reaction takes at most two reactant molecules.
+when `S` is used up. A reaction may take any number of reactant molecules:
+`["A", "A", "A"]` is a third-order reaction, written as a pattern with
+`count: 3` (the model reference describes
+[higher-order rules](rules-language.md#higher-order-rules-model10)).
+`crn.rules.Model` keeps the limit of two.
 `validation/check_builder.py` compares builder models with exact means and
 with rebop 0.10.0 ([results](../validation/builder/RESULTS.md)).
 
@@ -1658,11 +1914,11 @@ class and the vacancy law in the propensities. `examples/mtdna/12_builder.py`
 builds it and compares it with the JSON file:
 
 ```python
-"""The three-class model built with rules.Model."""
+"""The three-class model built with crn.Model."""
 
-from crn_craft import rules
+import crn_craft as crn
 
-model = rules.Model("mtdna_three_species")
+model = crn.Model("mtdna_three_species")
 parameters = {"K": 1000, "delta": 0.0028881132523331052, "sw": 1.0, "sm": 1.5}
 parameters |= {"mu": 3e-05, "fracAdv": 0.2}
 model.add_parameter(parameters)
@@ -1675,7 +1931,7 @@ model.add_reaction(f"{vacancy} * sw * M", ["M"], ["M", "M"], "replication_mt")
 model.add_reaction(f"{vacancy} * sm * A", ["A"], ["A", "A"], "replication_mtAdv")
 for species in ("W", "M", "A"):
     model.add_reaction(parameters["delta"], [species], [], f"degradation_{species}")
-result = rules.ensemble(
+result = crn.ensemble(
     model,
     end=25_920.0,
     report_times=[0.0, 25_920.0],
@@ -1701,10 +1957,64 @@ models it runs Static Direct and says so in a `CRN-R051` warning. Species
 with attributes (clone identities, drawn fitness) need the JSON language
 (section 2 and the [rules language](rules-language.md)).
 
+### Larger models
+
+A model written with `crn.Model` is `crn-craft.model/1.0`, which accepts 4,096
+species types, 16,384 parameters, 4,096 observables and 65,536 rules, sixteen
+times the limits of the `rules-model` versions (64, 1,024, 256 and 1,024). The
+static methods accept 4,096 instance tuples and 65,536 channels. To lift the
+limits of a model file, change its `schema` string to `crn-craft.model/1.0`:
+the two mean the same thing. The next block builds the competition model of
+section 8 with a hundred strains, which `crn.rules.Model` refuses. With 299
+channels, `auto` runs composition–rejection:
+
+```python
+"""A hundred strains: beyond the limits of the 0.6.0 model, run with auto."""
+
+import crn_craft as crn
+
+
+def strains(count, builder=crn.Model):
+    """Strains S0, S1, ... share room K; strain i gives rise to strain i + 1."""
+    names = [f"S{i}" for i in range(count)]
+    model = builder(f"strains_{count}")
+    model.add_parameter({"K": 500.0, "g": 0.02, "mu": 0.001})
+    model.add_species({name: 200 if i == 0 else 0 for i, name in enumerate(names)})
+    free = f"max(0, K - ({' + '.join(names)})) / K"
+    for i, name in enumerate(names):
+        model.add_reaction(f"g * {name} * {free}", [name], [name, name], f"grow_{i}")
+        model.add_reaction(0.01, [name], [], f"die_{i}")
+        if i + 1 < count:
+            model.add_reaction(f"mu * {name}", [name], [name, names[i + 1]], f"mutate_{i}")
+    return model
+
+
+settings = dict(end=100.0, report_times=[0.0, 100.0], replicates=20, seed=1, threads=2)
+old = strains(100, crn.rules.Model)
+print("rules.Model schema:", old.to_dict()["schema"])
+try:
+    crn.rules.ensemble(old, method="static_direct", **settings)
+except crn.CrnError as error:
+    print("refused:", error.diagnostics[0]["code"], error.diagnostics[0]["path"])
+model = strains(100)
+print("Model schema:", model.to_dict()["schema"])
+result = crn.ensemble(model, method="static_direct", **settings).simulate()
+print(result.metadata["sampler"], result.metadata["termination"])
+print(f"{result.metadata['events']:,} events;", len(result.rule_names), "rules")
+```
+
+```text
+rules.Model schema: crn-craft.rules-model/0.3
+refused: CRN-R015 /types
+Model schema: crn-craft.model/1.0
+chacha8-u53-ziggurat/rules-static-direct-cr/1 completed
+10,163 events; 299 rules
+```
+
 ## 13. Model variants
 
-The model file is plain JSON. Load it with `json.loads(rules.load(path))`,
-change it, and pass the dictionary to `rules.ensemble`.
+The model file is plain JSON. Load it with `json.loads(crn.load(path))`,
+change it, and pass the dictionary to `crn.ensemble`.
 
 - **Copy number and half-life:** set `K`, `w0` and `delta = ln 2 / half-life`.
 - **Initial heteroplasmy:** add an `initial` entry for the mutant class.
@@ -1719,16 +2029,16 @@ change it, and pass the dictionary to `rules.ensemble`.
 import json
 import math
 
-from crn_craft import CrnError, rules
+import crn_craft as crn
 
-model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
+model = json.loads(crn.load("models/rules/mtdna-three-class.rules.json"))
 model["parameters"].update({"K": 500, "w0": 400, "delta": math.log(2) / (20 * 24)})
 # Start heteroplasmic: 400 wild type and 100 neutral mutants (class 1).
 model["initial"].append(
     {"type": "mtDNA", "attributes": {"clone": 1, "s": "sw", "wt": 0}, "count": 100}
 )
 model["stop"] = "N > 0 && mutants >= 0.6 * N"  # 60% threshold
-run = rules.ensemble(
+run = crn.ensemble(
     model,
     end=25_920.0,
     report_times=[0.0, 8640.0, 17_280.0, 25_920.0],
@@ -1746,7 +2056,7 @@ print(f"cells past 60% within three years: {stopped.mean():.2%}")
 # recognize runs Static Direct and says why in a CRN-R051 warning.
 odd = json.loads(json.dumps(model))
 odd["stop"] = "mutants > 250"
-result = rules.ensemble(
+result = crn.ensemble(
     odd, end=100.0, report_times=[0.0, 100.0], replicates=2, method="mtdna_direct"
 ).simulate()
 print(result.metadata["sampler"])
@@ -1756,8 +2066,8 @@ print([d["message"] for d in result.metadata["diagnostics"]])
 broken = json.loads(json.dumps(model))
 broken["rules"][1]["rate"] = "max(0, K - N) / DD * sw"
 try:
-    rules.ensemble(broken, end=1.0, report_times=[0.0, 1.0])
-except CrnError as error:
+    crn.ensemble(broken, end=1.0, report_times=[0.0, 1.0])
+except crn.CrnError as error:
     print("rejected:", error)
 ```
 
@@ -1773,8 +2083,9 @@ Validation is strict:
 
 - unknown fields, duplicate keys and unknown names are errors;
 - every diagnostic has a stable code (`CRN-R0xx`) and a JSON path;
-- `rules.load(path)` checks a model file before any run;
-- `crn-craft rules-check MODEL` does the same from the command line.
+- `crn.load(path)` checks a model file before any run;
+- `crn-craft check MODEL [REQUEST]` does the same from the command line, and
+  with a request it checks that `run` would accept both.
 
 ## 14. Budgets, wall time and cancellation
 
@@ -1800,9 +2111,9 @@ cells.
 
 import json
 
-from crn_craft import rules
+import crn_craft as crn
 
-model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
+model = json.loads(crn.load("models/rules/mtdna-three-class.rules.json"))
 
 
 def summary(result):
@@ -1813,7 +2124,7 @@ def summary(result):
 
 # Too few events for three years: every cell ends with event_limit and the
 # ensemble withholds its statistics.
-small = rules.ensemble(
+small = crn.ensemble(
     model,
     end=25_920.0,
     report_times=[0.0, 25_920.0],
@@ -1826,7 +2137,7 @@ result = small.simulate()
 print(summary(result), "statistics:", result.statistics)
 
 # A wall-time budget stops the ensemble cooperatively.
-slow = rules.ensemble(
+slow = crn.ensemble(
     model,
     end=25_920.0,
     report_times=[0.0, 25_920.0],
@@ -1856,7 +2167,7 @@ path and SHA-256, so a result always names the exact model it came from.
 ```python
 """Write a model and a run request for the command line, and run them.
 
-Usage: python examples/mtdna/11_cli_request.py [DIRECTORY [CRN_CRAFT_BINARY]]
+Usage: python SCRIPT [DIRECTORY [CRN_CRAFT_BINARY]]
 
 DIRECTORY defaults to `takeover` in the temporary directory, /tmp/takeover
 on Linux. With the native CLI binary, the script also runs the request.
@@ -1879,7 +2190,7 @@ model["stop"] = "N > 0 && mutants >= 0.9 * N"
 data = (json.dumps(model, indent=2) + "\n").encode()
 (folder / "takeover.rules.json").write_bytes(data)
 request = {
-    "schema": "crn-craft.rules-run/0.3",
+    "schema": "crn-craft.run/1.0",
     # The request binds the model by relative path and exact SHA-256.
     "model": {
         "path": "takeover.rules.json",
@@ -1889,6 +2200,7 @@ request = {
     "ensemble": {"replicates": 1000, "root_seed": 11},
     "outputs": {
         "statistics": ["mean", "variance"],
+        "quantiles": [0.5],
         "keep_paths": 0,
         "keep_instances": 0,
     },
@@ -1906,7 +2218,7 @@ request = {
 print("model sha256:", request["model"]["sha256"])
 if len(sys.argv) > 2:
     done = subprocess.run(
-        [sys.argv[2], "rules", "takeover.rules.json", "takeover.run.json"],
+        [sys.argv[2], "run", "takeover.rules.json", "takeover.run.json"],
         cwd=folder,
         capture_output=True,
         check=True,
@@ -1923,29 +2235,40 @@ if len(sys.argv) > 2:
     print("result fields:", sorted(result))
 ```
 
-These commands need the native CLI (`cargo install crn-craft-cli --locked`),
-not the command of the same name from the Python package; see section 1.
+These commands run with the native CLI (`cargo install crn-craft-cli --locked`)
+or with the `crn-craft` command of the Python package, which has the same
+commands and reports (section 1). `rules-check` and `rules` are aliases of
+`check` and `run`.
 
 ```sh
 python examples/mtdna/11_cli_request.py /tmp/takeover
-crn-craft rules-check /tmp/takeover/takeover.rules.json
-crn-craft rules /tmp/takeover/takeover.rules.json /tmp/takeover/takeover.run.json > result.json
-crn-craft describe rules-run      # the JSON Schema of the request
-crn-craft describe rules-result   # and of the result
+crn-craft check /tmp/takeover/takeover.rules.json /tmp/takeover/takeover.run.json
+crn-craft run /tmp/takeover/takeover.rules.json /tmp/takeover/takeover.run.json > result.json
+crn-craft run /tmp/takeover/takeover.rules.json /tmp/takeover/takeover.run.json --archive /tmp/takeover/archive
+crn-craft verify /tmp/takeover/archive
+crn-craft describe run-1.0       # the JSON Schema of the request
+crn-craft describe result-1.0    # and of the result
 ```
+
+`check` reports whether `run` would accept the two documents, without running
+them. `run --archive NEW_DIRECTORY` also writes the model, the request and the
+result with a manifest (`crn-craft.archive/1.0`), and `verify` checks such a
+directory later; from Python, `run.archive(directory)` and `crn.verify_archive`
+do the same. See the [archive contract](archive-contract.md).
 
 ```text
 model sha256: f9eaaa59e4e449a55bd991350c748fdd8118b7c79dd81d6bcb0fc57bf025c0c2
 completed chacha8-u53-ziggurat/rules-mtdna-direct/1
 cells: 1000 stopped: 107
 events: 142356193
-result fields: ['completed_replicates', 'diagnostics', 'events', 'final_instances', 'model_sha256', 'observables', 'observations', 'paths', 'replicates', 'report_times', 'requested_replicates', 'root_seed', 'rules', 'run_sha256', 'sampler', 'schema', 'statistics', 'stopped_replicates', 'termination', 'types']
+result fields: ['completed_replicates', 'diagnostics', 'events', 'final_instances', 'method', 'model_sha256', 'observables', 'observations', 'paths', 'replicates', 'report_times', 'requested_replicates', 'root_seed', 'rules', 'run_sha256', 'sampler', 'schema', 'statistics', 'stopped_replicates', 'termination', 'types']
 ```
 
 The request versions decide which fields are allowed:
 
 | Version | Adds |
 | --- | --- |
+| `crn-craft.run/1.0` | `method.selector` for `static_direct`, `outputs.quantiles`, the method `fsp`; Static Direct defaults to the selector `auto`; the result is `crn-craft.result/1.0` |
 | `crn-craft.rules-run/0.1` | the tree method only |
 | `crn-craft.rules-run/0.2` | `method`, `trackers`, `event_log` |
 | `crn-craft.rules-run/0.3` | `mtdna_direct` |
@@ -1953,23 +2276,31 @@ The request versions decide which fields are allowed:
 | `crn-craft.rules-run/0.5` | `hybrid` with its `rtol` and `atol`; the result is rules-result/0.3, which adds `method` and `continuous` |
 | `crn-craft.rules-run/0.6` | no field; Static Direct defaults to Ziggurat waits and sparse trackers; the result is rules-result/0.3 |
 
-`rules.ensemble` picks the lowest version that fits its arguments, and
-rules-run/0.6 for `static_direct`.
-`rules.prepare(model, request)` takes a request you wrote yourself. Stored
+`crn.ensemble` always writes `run/1.0`. `crn.rules.ensemble` picks the lowest
+`rules-run` version that fits its arguments, and rules-run/0.6 for
+`static_direct`; it writes `run/1.0` only when an argument needs it
+(`quantiles=`, `selector=`) or the model is `crn-craft.model/1.0`.
+`crn.prepare(model, request)` takes a request you wrote yourself. Stored
 requests of every earlier version keep their meaning and replay
 byte-identically.
 
-Model files carry their own version: rules-model/0.1 is the base language,
-0.2 adds the legacy `atp` block, and 0.3 adds whole-rule `propensity` and
-`continuous` variables. `rules.Model` writes 0.3.
+Model files carry their own version: `rules-model/0.1` is the base language,
+0.2 adds the legacy `atp` block, 0.3 adds whole-rule `propensity` and
+`continuous` variables, and 0.4 adds independent variables. `crn-craft.model/1.0`
+means what 0.4 means, with larger limits and the pattern `count`.
+`crn.Model` writes `model/1.0`, and `crn.rules.Model` writes 0.3 (0.4 with an
+independent ODE). A `rules-model` file runs under either request family.
 
 ## 16. Rust
 
-The crate `crn-craft-rules` is the engine behind Python and the CLI.
-`prepare` validates exact model and request bytes, and `execute` runs them:
+The crate `crn-craft` is the engine behind Python and the CLI; its module
+`crn_craft::rules` holds the functions below. `prepare` validates exact model
+and request bytes, and `execute` runs them. The crate `crn-craft-rules` is a
+deprecated facade that re-exports the module, so `crn_craft_rules::X` still
+compiles:
 
 ```rust
-use crn_craft_rules::{Control, execute, prepare};
+use crn_craft::rules::{Control, execute, prepare};
 
 let prepared = prepare(&model_bytes, &request_bytes)?;
 let result = execute(&prepared, &Control::default())?;
@@ -1992,7 +2323,7 @@ println!("{} cells stopped", result.stopped_replicates);
   2.4× faster than interpreted Static Direct. On networks with many
   constant-rate channels it can be slower, so measure first
   ([details](specialized-kernels.md#generated-rules-event-loops)). From
-  Python, `rules.compile_loop` builds such a loop into a separate program
+  Python, `crn.compile_loop` builds such a loop into a separate program
   and runs it (section 8).
 
 ## 17. Checking results
@@ -2000,6 +2331,10 @@ println!("{} cells stopped", result.stopped_replicates);
 Exactness is checked against independent references, and the checks can be
 rerun:
 
+- **Quantiles and selectors.** `validation/merge/check_quantiles.py` checks
+  the quantile statistics against NumPy, bit for bit, and
+  `validation/merge/check_selectors.py` checks every selector against the
+  exact laws, with declared tests (`validation/merge/RESULTS.md`).
 - **Master equation.** `validation/check_mtdna.py` compares the
   `mtdna-three-class-cme` model (K = 20) under every exact method, the fast
   path `mtdna_direct` included, with an exact solution of the chemical
@@ -2025,17 +2360,20 @@ validate the model against biology.
 
 ## 18. Reference
 
-`rules.ensemble` arguments:
+`crn.ensemble` arguments (`crn.rules.ensemble` has the same, with the defaults
+of release 0.6.0):
 
 | Argument | Meaning |
 | --- | --- |
-| `model` | model bytes from `rules.load`, a dictionary, or a `rules.Model` (section 12) |
+| `model` | model bytes from `crn.load`, a dictionary, or a `crn.Model` (section 12) |
 | `end`, `report_times` | horizon in hours; increasing report times in [0, end] |
 | `replicates`, `seed`, `threads` | number of cells, root seed, 1–64 native threads |
 | `keep_paths` | how many cells keep their full observable series (`result.paths`); `"all"` or `True` for every cell |
 | `keep_instances` | how many cells keep their final instances (`metadata["final_instances"]`) |
 | `method` | a method name or dictionary (section 8) |
-| `compiled` | a loop from `rules.compile_loop` for this model, checked here and run by every `simulate()`; `simulate(compiled=loop)` uses one for a single call instead (section 8) |
+| `selector` | the Static Direct selector (section 8); absent means `auto` for `crn.ensemble` and the linear scan for `crn.rules.ensemble` |
+| `quantiles` | probabilities for `statistics["quantiles"]` and `["median"]`: 0.025, 0.5 and 0.975 by default in `crn.ensemble`, none in `crn.rules.ensemble`; `()` asks for none (section 3) |
+| `compiled` | a loop from `crn.compile_loop` for this model, checked here and run by every `simulate()`; `simulate(compiled=loop)` uses one for a single call instead (section 8) |
 | `trackers` | list of `{"observable", "first_passage"?, "keep_episodes"?}` |
 | `event_log` | `{"max_entries": n, "rules": [...]}` |
 | budgets | `max_events`, `max_sampling_steps`, `max_instances`, `max_output_bytes`, `wall_time_s` |
@@ -2046,7 +2384,9 @@ The result, `run.simulate()`:
 | --- | --- |
 | `records` | DataFrame, one row per cell, index `replicate`: `started` (bool), `termination` (categorical), `stop_time` (float), `events`, `rng_words`, `peak_instances`, `created_instances`, `saved_points` (unsigned integers) |
 | `rule_events` | DataFrame, one row per cell, one column per rule name: events of each rule |
-| `statistics` | `None` if withheld; else `samples` and the DataFrames `mean`, `sample_variance`, `mean_standard_error`, index `time`, one column per observable |
+| `statistics` | `None` if withheld; else `samples` and the DataFrames `mean`, `sample_variance`, `mean_standard_error`, index `time`, one column per observable; with quantiles also `quantiles` (a dictionary from probability to DataFrame) and, for 0.5, `median` |
+| `model`, `request` | the model and request documents that ran, as new dictionaries |
+| `save(path, *, paths=True)` | writes a markdown (`.md`) or JSON (`.json`) report; see `crn.load_report` (section 3) |
 | `paths` | DataArray of the kept series, dimensions (`replicate`, `time`, `variable`), NaN after a budget stop; `attrs` with `sampler`, `method`, `root_seed`, `model_sha256`, `run_sha256` |
 | `paths_frame()` | DataFrame of the kept series, index (`replicate`, `time`), one column per observable (release 0.4.0's `paths`) |
 | `to_xarray()` | Dataset of the kept series, dimensions `replicate` and `time`, one variable per observable |
@@ -2057,7 +2397,20 @@ The result, `run.simulate()`:
 | `observations`, `record_diagnostics`, `metadata` | trackers and logs as documents, per-cell errors by id, the full result document |
 
 Every DataFrame, column and DataArray has `.to_numpy()`. Code written for
-release 0.5.0 changes as follows:
+release 0.6.0 with `from crn_craft import rules` runs unchanged: the same
+names, defaults, documents, hashes and numbers (CI runs the 0.6.0 manual to
+check it). Code that moves to the top-level names changes as follows:
+
+| `crn.rules` (0.6.0) | `crn` (0.7.0) |
+| --- | --- |
+| `rules.Model` writes `rules-model/0.3` | `crn.Model` writes `crn-craft.model/1.0`: larger limits, three or more reactant molecules |
+| `rules.ensemble` writes the lowest `rules-run` version, and Static Direct scans | `crn.ensemble` writes `crn-craft.run/1.0`; Static Direct uses the selector `auto`, so its paths can differ for models with many channels (`selector="linear"` keeps them) |
+| `statistics` has `mean`, `sample_variance` and `mean_standard_error` | also `median` and `quantiles` by default |
+| `result.metadata["schema"]` is `crn-craft.rules-result/0.x` | `crn-craft.result/1.0`, with new hashes |
+| `crn_craft.rules.describe()` | `crn.describe()`: `crn-craft.describe/1.0`; the 0.6.0 fields are under `legacy.rules` |
+| the network functions of the top level (`run_spec`, `simulate`, `ssa_spec`, `simulate_ssa`, `prepare_ssa`, `prepare_parameters`, `tau`, `fsp`, `analyze` on network documents) | removed: `crn.ensemble`, `Model.fsp(...)`, `Model.analyze()`; the changelog lists each |
+
+Code written for release 0.5.0 changes as follows:
 
 | 0.5.0 | Now |
 | --- | --- |
@@ -2079,7 +2432,7 @@ Code written for the NumPy results of release 0.2.0 changes as follows:
 
 | 0.2.0 | Now |
 | --- | --- |
-| `records["termination"] == rules.TERMINATIONS.index("stopped")` | `records["termination"] == "stopped"`; the old form is silently all `False` |
+| `records["termination"] == crn.rules.TERMINATIONS.index("stopped")` | `records["termination"] == "stopped"`; the old form is silently all `False` |
 | `records["id"]` | `records.index` |
 | `records["rule_events"]` | `result.rule_events` |
 | `records[name]` (an array) | `records[name].to_numpy()`; integer termination codes are `records["termination"].cat.codes` |
@@ -2097,13 +2450,13 @@ Result metadata:
 | `sampler`, `termination`, `diagnostics` | what ran, how the ensemble ended, warnings and errors |
 | `events`, `completed_replicates`, `stopped_replicates` | totals |
 | `rules`, `observables`, `types`, `report_times` | names and grid, in result order; rule names also as `run.rule_names` and `result.rule_names` |
-| `statistics` | `mean`, `sample_variance`, `mean_standard_error`, `samples` (also `result.statistics`) |
+| `statistics` | `mean`, `sample_variance`, `mean_standard_error`, `samples` and, when asked, `quantiles` as a list of `{p, values}` (also `result.statistics`, where `quantiles` is a dictionary) |
 | `paths`, `final_instances`, `observations` | kept series, kept instances, and (with trackers or a log) trackers and logs |
 | `model_sha256`, `run_sha256`, `root_seed` | provenance |
 | `method`, `continuous` | rules-result/0.3 (`hybrid`, `static_direct`): the request's method, with the tolerances of `hybrid`, and the names of the continuous columns |
 
 Terminations, the categories of `records["termination"]` in the order of
-`rules.TERMINATIONS`: `completed`, `stopped`, `event_limit`,
+`crn.rules.TERMINATIONS`: `completed`, `stopped`, `event_limit`,
 `sampling_limit`, `instance_limit`, `wall_time_limit`, `cancelled`,
 `failed`, `output_limit`.
 
@@ -2140,13 +2493,13 @@ Frequent diagnostics:
   block need `thinning`.
 - **A Python callback is slow.** It holds the interpreter lock. Use trackers
   or event logs for whole ensembles.
-- **`'Model' object does not support item assignment`.** A `rules.Model` is
+- **`'Model' object does not support item assignment`.** A `crn.Model` is
   not a dictionary: set a stop with `model.set_stop(...)`, or edit
   `model.to_dict()` and pass that dictionary (section 12).
-- **`rules.compile_loop` fails.** `CompiledLoopError.reason` says why:
+- **`crn.compile_loop` fails.** `CompiledLoopError.reason` says why:
   `"cargo_missing"` (install Rust with rustup), `"build_failed"` (read
   `error.log`; for a version that is not on crates.io pass `source=` a
-  checkout), or `"mismatch"`. A `CrnError` with `CRN-R020` at `/method`
+  checkout), or `"mismatch"`. A `crn.CrnError` with `CRN-R020` at `/method`
   means the generator does not support the model (section 8).
 - **Different results with another method.** Each method uses the random
   stream differently. Compare distributions, not paths.
@@ -2155,7 +2508,7 @@ Frequent diagnostics:
   level; the tree method resolves rules and instances separately.
 - **No cell stopped, though some should have.** Compare `termination` with
   a name, `records["termination"] == "stopped"`. A comparison with the
-  integer `rules.TERMINATIONS.index("stopped")`, as in release 0.2.0, is
+  integer `crn.rules.TERMINATIONS.index("stopped")`, as in release 0.2.0, is
   `False` for every cell.
 - **Column positions.** Select DataFrame columns by observable name. In the
   raw matrices of `result.metadata`, observables are sorted by name; use

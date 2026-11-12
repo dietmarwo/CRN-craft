@@ -1674,3 +1674,110 @@ per-call run preparation and per-path setup outweigh the events). Within
 each engine the routes returned identical moments at every point. Recorded,
 not optimized (owner decision for M4d); follow-up: a bind path that patches
 the parameter values of an already prepared run.
+
+### M10c (GillesPy2 comparison on the unified engine): declaration
+
+Committed before the first run. The measurement repeats
+`docs/comparison-gillespy2.md` on the unified engine. It is informative:
+there is no speed target.
+
+- **Script:** `validation/compare_gillespy2.py` as ported in M8a, unchanged:
+  workloads W1–W4 of `benchmark_campaign.models()`, 64 paths over t in
+  [0, 100], reports at 0 and 100, one thread, root seed 4242; the agreement
+  checks use 512 paths per simulator with the script's fixed seeds (777,
+  778, 779).
+- **Build:** the CLI and the wheel of the branch `merge/M10c` at this
+  commit, `cargo build --release --workspace --locked` and
+  `maturin build --release --locked` from the root; the wheel installed in a
+  virtual environment with the package set of the merge suite (Python
+  3.12.3, GillesPy2 1.8.3, NumPy 2.3.5, SciPy 1.18.1, matplotlib 3.11.2,
+  SCons 4.11.1); g++ 13.3.
+- **Runs:** four parts, `--only W1` to `--only W4`, each under the CPU lock,
+  with the script's defaults: five interleaved repeats of every CRN-craft
+  row and of GillesPy2's `SSACSolver`, three repeats of its
+  `NumPySSASolver`; a row's time is the median. A part that is interrupted is
+  rerun whole. The four reports are merged by workload into
+  `validation/merge/gillespy2-comparison-0.7.json`; their other fields must
+  be equal. The figure is plotted from the merged report with
+  `--plot-only`.
+- **Rows:** the CLI process (`crn-craft run`, wall time of the process), the
+  Python calls `crn.ensemble(...).simulate()` (preparation included) for the
+  default Static Direct request (`auto` selector, Ziggurat waits), the
+  checked configuration (`linear`, inverse waits) and each selector with
+  Ziggurat waits, GillesPy2's C++ solver (built once; compile time reported
+  separately) and its NumPy solver.
+- **Agreement rule:** the script reports 20 two-sample Kolmogorov–Smirnov
+  p-values (up to three species per workload, for the checked and the
+  default configuration) and 8 pooled chi-square p-values against the exact
+  Poisson laws of W1 and W2 (both simulators, both configurations). With a
+  family-wise error rate of 0.01 over these 28 tests (Bonferroni), a p-value
+  below 0.01 / 28 = 3.6e-4 is a failed row. On W4 every species must stay
+  equal within each path, in both simulators. Failed rows are kept, and
+  nothing is rerun with other seeds.
+
+### M10c (mtDNA workload, 0.6.0 against 0.7.0): results, without a declared target
+
+Measured by the coordinator on 2026-11-12, before this section was written.
+This measurement had **no declared target**; it is informative and gates
+nothing. Files: `validation/merge/mtdna-workload/` (`bench.py`, `run.sh`,
+`timings.jsonl`, `summary.json`), copied unchanged from the run directory.
+
+- Workload: `models/rules/mtdna-three-class-cme.rules.json`, a 37-point
+  report grid from 0 to 25,920 h every 720 h, seed 1, through
+  `crn_craft.rules.ensemble(...)` (so `rules-run` requests), wall time of
+  `simulate()` including preparation.
+- Versions: 0.6.0 is the kept 0.6.0 wheel (`/home/claude/m07/venv060`);
+  0.7.0 is a development wheel of the integration branch with the Rust
+  sources of `21f71b8` (`/home/claude/m07/venv-m6`). Both report the version
+  string `0.6.0`, because the version number changes only at the release;
+  the `python` field of each row tells them apart.
+- Runs: five per version, method and thread count, alternating which
+  version runs first, each pair under the CPU lock; the table holds medians.
+- Identity: per method and thread count, every run of both versions has the
+  same digest of the statistics and records and the same sampler identity.
+
+| Method | Cells | Threads | 0.6.0 s | 0.7.0 s | Ratio |
+|---|---:|---:|---:|---:|---:|
+| `mtdna_direct` | 1000 | 1 | 10.67 | 10.27 | 0.96 |
+| `mtdna_direct` | 1000 | 2 | 5.42 | 5.26 | 0.97 |
+| `static_direct` | 400 | 1 | 13.20 | 9.49 | 0.72 |
+| `static_direct` | 400 | 2 | 6.70 | 5.63 | 0.84 |
+| `tree` | 100 | 1 | 10.04 | 9.94 | 0.99 |
+| `tree` | 100 | 2 | 5.46 | 5.45 | 1.00 |
+
+Static Direct runs the tuned linear loop of M4f in 0.7.0, with the same
+results; `mtdna_direct` and `tree` are essentially unchanged.
+
+### M10c (GillesPy2 comparison on the unified engine): results
+
+2026-11-12 (parts finished at 13:11, 13:13, 13:16 and 13:20), this host, CLI and wheel built from `merge/M10c`
+at the declaration commit (`cec91ed`; the build reports version 0.6.0),
+four parts under the CPU lock, each completed on its first run (no part was
+rerun). Report: `validation/merge/gillespy2-comparison-0.7.json` (the four
+parts merged by workload; their other fields were equal). Figure:
+`docs/images/gillespy2-time-per-event-0.7.png` (`--plot-only`).
+
+**Agreement rule: passed.** 28 of 28 tests above the declared threshold of
+3.6e-4: the 20 Kolmogorov–Smirnov p-values are at least 0.209, the 8 pooled
+chi-square p-values against the exact Poisson laws at least 0.044
+(GillesPy2 on W2, second run). On W4 every species stayed equal within each
+path in both simulators, in both runs.
+
+Median seconds (five runs; NumPy solver three):
+
+| Row | W1 | W2 | W3 | W4 |
+|---|---:|---:|---:|---:|
+| `cli_run_process` (default request) | 0.0486 | 0.0995 | 0.2691 | 0.1071 |
+| `python_default` (`auto`, Ziggurat) | 0.0484 | 0.1022 | 0.2603 | 0.1183 |
+| `python_checked` (`linear`, inverse) | 0.0507 | 0.1938 | 0.2570 | 0.8431 |
+| `python_linear` (Ziggurat) | 0.0486 | 0.2075 | 0.2624 | 0.7894 |
+| `python_composition_rejection` | 0.0873 | 0.1327 | 0.5110 | 1.2397 |
+| `python_sorting` | 0.0690 | 0.1562 | 0.3747 | 1.1723 |
+| `python_rssa_cr` | 0.0661 | 0.1025 | 0.4055 | 0.1134 |
+| `gillespy2_ssa_cpp` | 0.1409 | 1.0800 | 0.9445 | 1.0960 |
+| `gillespy2_numpy` | 6.4960 | 31.9512 | 37.4143 | 42.2989 |
+| C++ compile seconds | 2.85 | 2.14 | 2.07 | 2.29 |
+
+`auto` picked the linear scan on W1 and W3 and RSSA-CR on W2 and W4 (equal
+event counts with those rows). GillesPy2's C++ solver with the redundant
+reactant gates on W4: 9.32 s.

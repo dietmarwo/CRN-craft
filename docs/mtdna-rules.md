@@ -5,7 +5,7 @@ the [optimization tutorial](mtdna-optimization-tutorial.md) and the
 [performance analysis](mtdna-performance-analysis.md). This page is the
 reference behind them.
 
-The rules engine represents wild type, neutral mutants and advantaged mutants
+CRN-craft represents wild type, neutral mutants and advantaged mutants
 with three fixed attribute tuples. The model
 `models/rules/mtdna-three-class.rules.json` starts at 1000 wild types. It
 uses degradation ln(2)/240 per hour and replication proportional to
@@ -18,10 +18,10 @@ lineage identity through its `clone` attribute.
 ## Python and event observation
 
 ```python
-from crn_craft import rules
+import crn_craft as crn
 
-model = rules.load("models/rules/mtdna-three-class.rules.json")
-run = rules.ensemble(
+model = crn.load("models/rules/mtdna-three-class.rules.json")
+run = crn.ensemble(
     model, end=25920.0, report_times=range(0, 25921, 720),
     replicates=10_000, threads=20, seed=17, method="static_direct",
     trackers=[{
@@ -36,6 +36,13 @@ print(result.rule_events.sum())  # events per rule, summed over replicates
 passage = result.tracker_columns(0)["first_passage"]  # NaN: never reached
 print(passage.dropna().describe())
 ```
+
+The blocks use the top-level names, which write `crn-craft.model/1.0` and
+`crn-craft.run/1.0` documents; `crn_craft.rules` is the same API under its
+0.6.0 name and writes the `rules-*` versions
+([user manual](mtdna-user-manual.md#18-reference)). For this model both
+run the same Static Direct sampler: the default selector `auto` picks the
+linear scan here.
 
 Since 0.3.0 Python results are pandas objects (pandas is a required
 dependency): `result.records` is a DataFrame indexed by replicate id with a
@@ -77,8 +84,12 @@ away.
 
 ## Algorithms and contract migration
 
-Rules model and run version 0.1 still select the tree engine and the
-original sampler. Use rules-run/0.2 for a `method` object, `trackers`
+`crn-craft.model/1.0` and `crn-craft.run/1.0` mean what rules-model/0.4 and
+rules-run/0.6 mean, plus the features that arrived with them: Static Direct
+selectors, quantile statistics, the `fsp` method, higher-order rules and
+larger limits ([model reference](rules-language.md)). The history of the
+older versions follows. Rules model and run version 0.1 still select the
+tree method and the original sampler. Use rules-run/0.2 for a `method` object, `trackers`
 or `event_log`. It returns rules-result/0.2 with a sampler identity and
 optional ordered `observations`. Rules-run/0.3 adds `mtdna_direct` and 0.4
 the Static Direct options (below); both return rules-result/0.2.
@@ -109,6 +120,11 @@ preserves a completed numerical payload apart from its request hash.
 | `thinning` | Exact stochastic thinning with analytic ATP flow and a deterministic zero crossing |
 | `hybrid` | Approximate piecewise-deterministic simulation of continuous variables (rules-model/0.3; independent variables once per run in 0.4) at declared tolerances; rules-run/0.5 |
 
+Higher-order rules of `model/1.0` (a pattern `count` above one, or more than
+two patterns) run on `static_direct`, `next_reaction`, `tau` and `hybrid`;
+`tree`, `mtdna_direct` and `binomial` refuse them with `CRN-R020` at
+`/method`.
+
 Rules-model/0.3 adds whole-rule propensities
 ([rules language](rules-language.md#whole-rule-propensities-rules-model03)),
 which `crn_craft.rules.Model` writes for string rates. Every method above
@@ -121,20 +137,21 @@ they emit every rate expression and observable that Static Direct runs
 ([checklist](specialized-kernels.md#generated-rules-event-loops)).
 
 Static lowering evaluates local predicates and factors once and compiles
-constant and vacancy-rate kernels. It accepts up to 256 tuples and 4096
-channels. Static Direct and leap fallbacks select among all channels in one
+constant and vacancy-rate kernels. It accepts up to 256 tuples and 4,096
+channels for the rules-model versions, and 4,096 tuples and 65,536 channels
+for `model/1.0`. Static Direct and leap fallbacks select among all channels in one
 level, so every positive channel must be at least 2⁻⁵³ of the total
 (`CRN-R031`); the tree engine resolves rules and instances separately and can
-run such models. Random product attributes use the tree engine. Identical pairs
-in the static path require a single matching tuple. The network engine
-also exposes Gibson–Bruck under ssa-run/0.4, inverse waiting time and
-checked policy. Other SSA schemas retain their existing defaults.
+run such models. Random product attributes use the tree method. Identical pairs
+in the static path require a single matching tuple. Under `run/1.0` Static
+Direct also has the selectors of [exact methods](direct-ssa.md#selectors).
 
 ### Specialized fixed-population Direct
 
 Use `{"schema": "crn-craft.rules-run/0.3", "method": {"kind": "mtdna_direct"}}`
-in the corresponding request fields, or pass `method="mtdna_direct"` to
-`rules.ensemble`. The result uses the existing rules-result/0.2 shape.
+in the corresponding request fields (or any later request version,
+`crn-craft.run/1.0` included), or pass `method="mtdna_direct"` to
+`crn.ensemble`. The result uses the existing rules-result/0.2 shape.
 The sampler `chacha8-u53-ziggurat/rules-mtdna-direct/1` confirms that the
 specialization executed. On a fallback the result carries the Static Direct
 sampler identity and a `CRN-R051` warning that names the reason.
@@ -170,11 +187,11 @@ model and request, not a file on disk; even an empty override changes them.
 
 ```python
 import json
-from crn_craft import rules
+import crn_craft as crn
 
-model = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
+model = json.loads(crn.load("models/rules/mtdna-three-class.rules.json"))
 model["stop"] = "N > 0 && mutants >= 0.9 * N"
-template = rules.ensemble(
+template = crn.ensemble(
     model, end=25920.0, report_times=range(0, 25921, 720),
     replicates=10_000, threads=8, seed=17, method="mtdna_direct",
     keep_paths=10_000, max_output_bytes=512 << 20,
@@ -313,7 +330,10 @@ What an absent option means depends on the request version:
 | Request | Absent `waiting_time` | Absent `sparse_trackers` |
 | --- | --- | --- |
 | rules-run/0.2 to 0.5 | `"inverse"` | `false` |
-| rules-run/0.6 | `"ziggurat"` | sparse where a tracker is eligible, otherwise per-event integration without a warning |
+| rules-run/0.6 and `crn-craft.run/1.0` | `"ziggurat"` | sparse where a tracker is eligible, otherwise per-event integration without a warning |
+
+Under `run/1.0` the method object also takes `selector`; absent means
+`auto`, which picks the linear scan for this model.
 
 So `{"kind": "static_direct"}` in rules-run/0.6 runs
 `chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1` with eligible
@@ -322,14 +342,15 @@ trackers and `chacha8-u53-ziggurat/rules-static-direct/1` without, and
 false}` runs the earlier default with its numbers. The Python rules helper
 selects rules-run/0.6 for every `static_direct` method. Rust callers
 constructing `Method::StaticDirect` with `waiting_time: None,
-sparse_trackers: None` get the defaults of their request's version.
+sparse_trackers: None, selector: None` get the defaults of their request's
+version.
 Attaching a Continue observer or an event log leaves the tracker policy
 consistent. `mtdna_direct`'s fallback keeps inverse waits and per-event
 trackers in every version.
 
-On a two-CPU host Ziggurat waits with sparse trackers took about
-100–110 ns per event on the 128-cell probe, against about 35 ns for
-`mtdna_direct`; on the 1000-cell three-class case they were 1.17× faster
+Measured on releases 0.5.0 and 0.6.0, on a two-CPU host, Ziggurat waits
+with sparse trackers took about 100–110 ns per event on the 128-cell probe,
+against about 35 ns for `mtdna_direct`; on the 1000-cell three-class case they were 1.17× faster
 than inverse waits with per-event trackers
 ([performance analysis](mtdna-performance-analysis.md#2-methods)). Inline
 factors, a fused resolution check, exact incremental projections and a
@@ -339,9 +360,11 @@ From Rust, a generated event loop runs the same requests with
 byte-identical results at about 48 ns per event, whether the stop
 is written in the fused fraction form or not
 ([generated event loops](specialized-kernels.md#generated-rules-event-loops)).
-From Python, `rules.compile_loop` builds that loop with a local Rust
+From Python, `crn.compile_loop` builds that loop with a local Rust
 toolchain and runs it with `compiled=`, about 2.2× faster than interpreted
-Static Direct with its defaults, end to end. `mtdna_direct` remains the fastest route for the
+Static Direct with its defaults, end to end, as measured on 0.6.0. Release
+0.7.0 made interpreted Static Direct faster (0.72 times the time on the
+[three-class workload](mtdna-performance-analysis.md#release-070)). `mtdna_direct` remains the fastest route for the
 fixed three-class topology and the only fast one from the CLI.
 
 Cached rates and dependency-aware projection refresh apply to the default

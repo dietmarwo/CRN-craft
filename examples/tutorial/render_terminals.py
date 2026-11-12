@@ -2,12 +2,20 @@
 """Render the tutorial's terminal transcripts (*.terminal.html) to PNG.
 
 Needs Playwright with Chromium (`pip install playwright` and
-`playwright install chromium`, or a preinstalled browser):
+`playwright install chromium`):
 
     python examples/tutorial/render_terminals.py docs/images/tutorial
+
+To use a browser that is already installed, such as Chrome, name it with
+`--browser PATH` or the environment variable `CRN_TUTORIAL_BROWSER`; Playwright
+then launches that executable instead of its own download:
+
+    python examples/tutorial/render_terminals.py docs/images/tutorial \\
+        --browser /usr/bin/google-chrome
 """
 
 import argparse
+import os
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
@@ -28,10 +36,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("folder", type=Path)
     parser.add_argument("--keep-html", action="store_true")
+    parser.add_argument(
+        "--browser",
+        default=os.environ.get("CRN_TUTORIAL_BROWSER"),
+        help="path of an installed Chromium-based browser (default: the one "
+        "Playwright downloaded; env CRN_TUTORIAL_BROWSER)",
+    )
     args = parser.parse_args()
     pages = sorted(args.folder.glob("*.terminal.html"))
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch()
+        options = {} if args.browser is None else {"executable_path": args.browser}
+        browser = playwright.chromium.launch(**options)
         page = browser.new_page(
             viewport={"width": 980, "height": 400}, device_scale_factor=1.5
         )

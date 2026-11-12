@@ -42,6 +42,13 @@
     "events": 88037,
     "final_mean": 20.092500000000012
   },
+  "quantiles": {
+    "final_quantiles": {
+      "0.025": 12.0,
+      "0.5": 20.0,
+      "0.975": 30.0
+    }
+  },
   "repressilator": {
     "autocorrelation_peak": 0.5863675168425367,
     "classification": "oscillatory",

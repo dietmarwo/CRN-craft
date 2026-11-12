@@ -22,6 +22,46 @@ BUDGET = {
 SAVE_TIMES = [0.0, 1.0, 2.0, 5.0, 10.0]
 
 
+# An SBML Level 3 Version 2 model of the dimerization 2 A -> B.
+SBML_DIMER = (
+    '<sbml xmlns="http://www.sbml.org/sbml/level3/version2/core" level="3" '
+    'version="2">\n'
+    '  <model id="Dimer" substanceUnits="item" timeUnits="second">\n'
+    "    <listOfCompartments>\n"
+    '      <compartment id="cell" size="1" constant="true"/>\n'
+    "    </listOfCompartments>\n"
+    "    <listOfSpecies>\n"
+    '      <species id="A" compartment="cell" initialAmount="20"'
+    ' hasOnlySubstanceUnits="true" boundaryCondition="false" constant="false"/>\n'
+    '      <species id="B" compartment="cell" initialAmount="0"'
+    ' hasOnlySubstanceUnits="true" boundaryCondition="false" constant="false"/>\n'
+    "    </listOfSpecies>\n"
+    "    <listOfParameters>\n"
+    '      <parameter id="k" value="0.1" constant="true"/>\n'
+    "    </listOfParameters>\n"
+    "    <listOfReactions>\n"
+    '      <reaction id="dimerize" reversible="false">\n'
+    "        <listOfReactants>\n"
+    '          <speciesReference species="A" stoichiometry="2" constant="true"/>\n'
+    "        </listOfReactants>\n"
+    "        <listOfProducts>\n"
+    '          <speciesReference species="B" stoichiometry="1" constant="true"/>\n'
+    "        </listOfProducts>\n"
+    "        <kineticLaw>\n"
+    '          <math xmlns="http://www.w3.org/1998/Math/MathML">\n'
+    "            <apply><divide/>\n"
+    "              <apply><times/><ci>k</ci><ci>A</ci>\n"
+    "                <apply><minus/><ci>A</ci><cn>1</cn></apply></apply>\n"
+    "              <cn>2</cn></apply>\n"
+    "          </math>\n"
+    "        </kineticLaw>\n"
+    "      </reaction>\n"
+    "    </listOfReactions>\n"
+    "  </model>\n"
+    "</sbml>\n"
+)
+
+
 def request(workdir, name, **changes):
     """A `run/1.0` Static Direct request of the model file `name` in `workdir`."""
     digest = hashlib.sha256((workdir / f"{name}.model.json").read_bytes()).hexdigest()
@@ -87,5 +127,11 @@ def prepare_workdir(workdir):
         "begin parameters\n1 k 0.1\nend parameters\n"
         "begin species\n1 A() 20\n2 B() 0\nend species\n"
         "begin reactions\n1 1,1 2 k\nend reactions\n"
+    )
+    (workdir / "dimer.xml").write_text(SBML_DIMER)
+    # The same model in the network format that release 0.6.0 wrote.
+    shutil.copy2(
+        ROOT / "models/legacy/immigration-death.model.json",
+        workdir / "immigration-death.network.json",
     )
     (workdir / "runs").mkdir()

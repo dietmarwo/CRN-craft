@@ -6,10 +6,14 @@ and, if the manual shows its output (the first ```text block after it and
 before the next Python block), when it prints that output. Timings
 (`<number> s`) and runs of whitespace are normalized before comparing.
 
+A fence may use more than three backticks; it ends at a line of at least as
+many. Blocks inside a longer fence, such as an example of a markdown report,
+are text and never run.
+
 Blocks that read `sys.argv` get a fresh directory and, with `--binary`, the
 native CLI as arguments. Without `--binary` their output is not compared.
 
-`--max-replicates N` caps every `rules.ensemble` call at N replicates (and
+`--max-replicates N` caps every `crn.ensemble` and `crn.rules.ensemble` call at N replicates (and
 `keep_paths` at that count) without changing the manual text. It is a quick
 smoke run: the numbers then differ from the manual, so output is not
 compared.
@@ -34,7 +38,7 @@ import time
 
 ROOT = Path(__file__).resolve().parents[1]
 MANUAL = ROOT / "docs" / "mtdna-user-manual.md"
-FENCE = re.compile(r"^```(\w*)\s*$")
+FENCE = re.compile(r"^(`{3,})(\w*)\s*$")
 SECONDS = re.compile(r"\b\d+(?:\.\d+)? s\b")
 
 # Prepended in --max-replicates mode; `CAP` is filled in.
@@ -42,19 +46,23 @@ CAPPED = """\
 import runpy
 import sys
 
+import crn_craft as _crn
 import crn_craft.rules as _rules
 
-_ensemble = _rules.ensemble
+
+def _cap(ensemble):
+    def capped(model, *, replicates=1, keep_paths=0, **kwargs):
+        replicates = min(int(replicates), CAP)
+        if not isinstance(keep_paths, (bool, str)):
+            keep_paths = min(int(keep_paths), replicates)
+        return ensemble(model, replicates=replicates, keep_paths=keep_paths, **kwargs)
+
+    return capped
 
 
-def _capped(model, *, replicates=1, keep_paths=0, **kwargs):
-    replicates = min(int(replicates), CAP)
-    if not isinstance(keep_paths, (bool, str)):
-        keep_paths = min(int(keep_paths), replicates)
-    return _ensemble(model, replicates=replicates, keep_paths=keep_paths, **kwargs)
-
-
-_rules.ensemble = _capped
+# Both spellings: `crn.ensemble` and `crn.rules.ensemble`.
+_rules.ensemble = _cap(_rules.ensemble)
+_crn.ensemble = _cap(_crn.ensemble)
 sys.argv = sys.argv[1:]
 runpy.run_path(sys.argv[0], run_name="__main__")
 """
@@ -73,9 +81,11 @@ def blocks(text):
         if not match:
             index += 1
             continue
-        language, start, body = match.group(1), index + 1, []
+        ticks, language = match.group(1), match.group(2)
+        start, body = index + 1, []
         index += 1
-        while index < len(lines) and not lines[index].startswith("```"):
+        closing = re.compile(r"^" + ticks + r"`*\s*$")
+        while index < len(lines) and not closing.match(lines[index]):
             body.append(lines[index])
             index += 1
         index += 1

@@ -1,25 +1,35 @@
-# Dynamic, attributed species: the rules language
+# Model reference: `crn-craft.model/1.0`
 
-**Status:** experimental. Contracts `crn-craft.rules-model/0.1` to `0.3`,
-`crn-craft.rules-check/0.1`, `crn-craft.rules-run/0.1` to `0.6`,
-`crn-craft.rules-result/0.1` to `0.3`; crate `crn-craft-rules`; CLI
-`rules-check` and `rules`; Python `crn_craft.rules`. This page describes the
-0.1 language and the `tree` method; [mtDNA ensembles](mtdna-rules.md) covers
-the other methods, trackers and later versions. Protocol and gates:
-`docs/decisions/rules-k0-k1-2026-11-02.md`.
+> This file keeps its former name, "rules language", so that old links
+> resolve. It is the reference for the model contract `crn-craft.model/1.0`,
+> and for the older `rules-model` versions that mean the same thing.
 
-The network engine needs every species listed in advance. Some models cannot
-do that: each new mitochondrial mutant is its own clone, polymers have a
-length, clusters have a size, cells carry a lineage. The rules engine
-simulates such systems exactly. Species *types* carry numeric *attributes*;
-an *instance* is a type plus one value per attribute and a copy number.
+**Contracts.** The model is `crn-craft.model/1.0` (`crn-craft describe
+model-1.0`). The versions `crn-craft.rules-model/0.1` to `0.4` are still read
+and run; a `rules-model/0.4` document means what a `model/1.0` document means,
+with smaller limits ([limits](#limits)). The request is `crn-craft.run/1.0`
+or `rules-run/0.1` to `0.6`, and the result `crn-craft.result/1.0` or
+`rules-result/0.1` to `0.3` ([contracts](contracts.md)). The crate is
+`crn-craft` (module `crn_craft::rules`), the command line `crn-craft check`
+and `crn-craft run`, and the Python package `crn_craft`. This page describes
+the language, starting from the `tree` method; [mtDNA ensembles](mtdna-rules.md)
+covers the other methods, trackers and the older request versions. Protocol and
+gates: `docs/decisions/rules-k0-k1-2026-11-02.md`.
+
+Species are not a fixed list. Some models cannot list their species in
+advance: each new mitochondrial mutant is its own clone, polymers have a
+length, clusters have a size, cells carry a lineage. The engine simulates
+such systems exactly. Species *types* carry numeric *attributes*; an
+*instance* is a type plus one value per attribute and a copy number.
 Instances appear when a rule produces a new attribute vector and disappear
 when their count reaches zero. Rules are schemata: one rule stands for the
-reactions of every matching instance.
+reactions of every matching instance. A model whose types have no attributes
+is an ordinary reaction network, written with `crn_craft.Model`, and a network
+`model/0.1` file converts to one with `crn-craft convert`.
 
 ## A first model
 
-Kowald's fixed-population mtDNA model: molecules degrade, replicate into the
+the fixed-population mtDNA model: molecules degrade, replicate into the
 vacancies below a copy-number target `K`, and a wild-type replication can
 produce a new mutant clone, advantaged (`sm`) with probability `fracAdv`.
 
@@ -55,10 +65,14 @@ The full file is `models/rules/mtdna-fixed.rules.json`; the aggregation,
 immigration–death and immigration–dimerization models sit beside it.
 
 ```sh
-crn-craft rules-check models/rules/mtdna-fixed.rules.json
-crn-craft rules MODEL REQUEST [--cancel-file PATH]
-crn-craft describe rules-model     # JSON Schema; also rules-check, rules-run, rules-result
+crn-craft check models/rules/mtdna-fixed.rules.json
+crn-craft run MODEL REQUEST [--archive NEW_DIRECTORY] [--cancel-file PATH]
+crn-craft describe model-1.0       # JSON Schema; also run-1.0, result-1.0, check-1.0
 ```
+
+The file above is a `rules-model/0.1` document. Writing its `schema` as
+`crn-craft.model/1.0` gives the same model. `rules-check` and `rules` are
+aliases of `check` and `run`.
 
 ## Model
 
@@ -68,7 +82,7 @@ crn-craft describe rules-model     # JSON Schema; also rules-check, rules-run, r
 | `types` | `{name, attributes}`. Attribute values are finite f64; `-0` is stored as `0`. |
 | `initial` | `{type, attributes, count}`: every attribute, and a nonnegative integer count, as numbers or parameter expressions. Equal attribute vectors merge. |
 | `observables` | Named reductions over the instances of one type (below). |
-| `rules` | `{name, reactants, rate, products}` with zero, one or two reactant patterns; in 0.3 `propensity` may replace `rate`. |
+| `rules` | `{name, reactants, rate, products}` with reactant patterns; in 0.3 `propensity` may replace `rate`. Up to `rules-model/0.4`, at most two patterns. In `model/1.0`, any number, and a pattern may carry a `count` ([higher-order rules](#higher-order-rules-model10)). |
 | `stop` | Optional condition over parameters and observables. Once true, the state is held to the end of the report grid and the replicate is `stopped`. |
 | `continuous` | rules-model/0.3: continuous variables, ODEs between events that rates may read (below); rules-model/0.4 adds `independent` variables. |
 
@@ -102,9 +116,9 @@ n_x the count of instance x:
 | two identical patterns (same type, `where` and `factor`) | g × Σ over unordered pairs of distinct molecules h(x) h(y) = g × ½[(Σ h n)² − Σ h² n] |
 | two patterns over different types | g × (Σ h_x n_x)(Σ h_y n_y) |
 
-For one instance this is the stochastic mass-action convention n(n−1)/2 of the
-network engine (a `2A` channel with coefficient c). Two *different* patterns
-over the same type are rejected in 0.1. Patterns are compared after their
+For one instance this is the stochastic mass-action convention n(n−1)/2 (a
+`2A` channel with coefficient c). Two *different* patterns over the same type
+are rejected in 0.1. Patterns are compared after their
 labels are resolved, so `a.size` and `b.size` are identical factors.
 
 #### Counting identical reactants, and rebop
@@ -118,7 +132,7 @@ identical reactants: its numeric rate k on `["A", "A"]` fires at k·n(n−1)
 (its documentation equates `4.2` with `"4.2 * A * (A-1)"`). A rebop model
 with a numeric rate k on `A + A` corresponds to rate 2k here; models without
 identical reactants agree. String rates are full propensities in both. The
-Python builder `crn_craft.rules.Model` follows the convention of this
+Python builder `crn_craft.Model` follows the convention of this
 engine, so its JSON equals a hand-written model; see
 `validation/check_builder.py` for the statistical comparison with rebop.
 
@@ -160,6 +174,33 @@ Reactants are consumed. A product is `{type, copy?, attributes}`: `copy` names
 a reactant of the same type whose attributes are copied, and `attributes`
 overrides some (with `copy`) or gives all (without). A product equal to a
 reactant cancels its consumption, so `x → x + x` only adds one copy.
+
+### Higher-order rules (`model/1.0`)
+
+A reactant pattern of an attribute-free type may carry `count`, an integer
+from 1 to 2,147,483,647 (default 1). It stands for `count` molecules of that
+type. A rule has any number of patterns, so `A + A + A → ...` is a pattern with
+`count: 3`, or three identical patterns, which means the same. Patterns with
+`count` take no `where` or `factor`, and their type has no attributes
+(`CRN-R013`). The rule's `rate` gives
+
+rate × Π C(n, k)
+
+over the patterns, with n the count of the type's molecules and k the pattern's
+`count`; this is the combinatorial convention of every other rate. For a
+whole-rule `propensity`, the value applies while every pattern has enough
+molecules. A product list may be any length up to 64 molecules.
+
+Which methods run higher-order rules:
+
+| Method | Higher-order rules |
+| --- | --- |
+| `static_direct`, `next_reaction`, `tau`, `hybrid`, generated event loops | yes |
+| `tree` (the default when `method` is absent), `mtdna_direct`, `binomial`, generated rates kernels | refused: `CRN-R020` at `/method` |
+
+`crn_craft.Model.add_reaction` takes three or more reactant molecules and
+writes the `count` for you. `crn-craft convert` writes a network reaction of
+three or more molecules the same way, with labels `x`, `y` or `x1`, `x2`, ….
 
 ### Expressions
 
@@ -335,7 +376,18 @@ fails the replicate (`CRN-R030`). Validation:
 
 ## Run request and result
 
-`crn-craft.rules-run/0.1` binds the model by relative path and SHA-256 and
+`crn-craft.run/1.0` has the shape of `rules-run/0.6` and adds three things:
+`method.selector` for `static_direct` (`linear`, `composition_rejection`,
+`sorting`, `rssa_cr` or `auto`, the default; see [exact methods](direct-ssa.md)),
+`outputs.quantiles` (up to 16 probabilities in (0, 1); the result's
+`statistics.quantiles` holds the quantile of every report time and observable,
+and the median is the quantile at 0.5; see the [result contract](result-contract.md))
+and the method `fsp` (finite state projection: `bounds`, `max_states` and
+`tolerance`; the result is `crn-craft.fsp-result/1.0`). Its result is
+`crn-craft.result/1.0`. A `rules-run` request refuses these fields (`CRN-R020`
+at `/schema`) and keeps its meaning, its numbers and its hashes. The rest of
+this section describes the common core, starting with
+`crn-craft.rules-run/0.1`, which binds the model by relative path and SHA-256 and
 gives `time.end`, strictly increasing `time.report_times` in [0, end],
 `ensemble.replicates` and `root_seed`, `outputs` (`statistics` from mean and
 variance, `keep_paths`, `keep_instances`) and an explicit `budget`
@@ -415,9 +467,11 @@ or stopped.
 | CRN-R012 | expression syntax, unknown name, out-of-scope name or random draw outside products; an independent variable's derivative that reads an observable or a dependent variable |
 | CRN-R013 | unsupported rule shape, missing or unknown attribute, bad `copy`; both or neither of `rate` and `propensity`, `where` or `factor` on a propensity rule's reactant; `lower_bound` without `on_bound` or the reverse |
 | CRN-R014 | invalid initial count or attribute; a continuous variable's initial value or bound that is not finite, or an initial value below its bound |
-| CRN-R015 | model size limit (also 64 continuous variables); a field used before its model version (`atp` in 0.1, `propensity` and `continuous` in 0.1 or 0.2, `independent` before 0.4); `atp` together with `continuous` |
-| CRN-R020 | invalid run request (hash, path, grid, ensemble, budget, method, tracker, log or version gate; generated-kernel fingerprint mismatch) |
-| CRN-R030 | negative or non-finite rate, factor, weight or product attribute; overflow |
+| CRN-R013 and R020 | for `model/1.0`: a pattern `count` outside 1 to 2,147,483,647, or on an attributed type or with `where` or `factor` (`R013`); a higher-order rule under a method that refuses it (`R020` at `/method`) |
+| CRN-R015 | model size limit (the table above; also 64 continuous variables); a field used before its model version (`atp` in 0.1, `propensity` and `continuous` in 0.1 or 0.2, `independent` before 0.4); `atp` together with `continuous` |
+| CRN-R016, R017 | a network model the converter cannot write (`R016`); a model without a flat view, which finite state projection, analysis, ODE export and GillesPy2 export need (`R017`) |
+| CRN-R020 | invalid run request (hash, path, grid, ensemble, budget, method, selector, quantiles, tracker, log or version gate; generated-kernel fingerprint mismatch) |
+| CRN-R030 | negative or non-finite rate, factor, weight or product attribute; overflow; under `run/1.0`, 1,000,000 consecutive waits that do not advance the clock |
 | CRN-R031 | weight below 53-bit resolution (Static Direct: a channel below 2⁻⁵³ of the total) |
 | CRN-R040–R045 | event, sampling, instance (including a count above 2⁵³), wall-time, cancellation and output limits |
 | CRN-R050 | warning: incomplete ensemble, statistics withheld |
@@ -427,25 +481,42 @@ or stopped.
 
 `validation/check_rules.py` compares 100,000 replicates per fixture with exact
 laws (Poisson; master equations by uniformization over truncated or finite
-state spaces): immigration–death, immigration–dimerization (rules and network
-engines), Kowald's fixed-population mtDNA model, and aggregation with constant
+state spaces): immigration–death, immigration–dimerization, the fixed-population mtDNA model, and aggregation with constant
 and multiplicative kernels over the 77 partitions of 12. Thirty marginal CDFs
 share one DKW family at alpha 0.001. Results: `validation/rules/RESULTS.md`.
 
-## Limits of 0.1
+## Limits
+
+| | `rules-model/0.1` to `0.4` | `crn-craft.model/1.0` |
+| --- | ---: | ---: |
+| Types | 64 | 4,096 |
+| Parameters | 1,024 | 16,384 |
+| Observables | 256 | 4,096 |
+| Rules | 1,024 | 65,536 |
+| Instance tuples (static methods) | 256 | 4,096 |
+| Channels (static methods) | 4,096 | 65,536 |
+
+Both versions share the other limits: 64 attributes per type, 64 products
+per rule, expressions of at most 4,096 bytes, 100,000 initial entries,
+documents of at most 16 MiB and JSON nesting of at most 48
+(`describe()["limits"]`). Exceeding a model limit is `CRN-R015`. To use the
+larger limits, change only the `schema` string to `crn-craft.model/1.0`.
+
+## What is not supported
 
 - ODE coupling: rules-model/0.2 adds one fixed case, the ATP flow of
-  Kowald's variable-population model, solved with exact thinning
+  the variable-population mtDNA model, solved with exact thinning
   ([mtDNA ensembles](mtdna-rules.md)); rules-model/0.3 adds general
   continuous variables, simulated approximately by `hybrid` (below), and
   rules-model/0.4 independent variables, which `hybrid` integrates once per
   run. An independent variable can carry explicit time dependence (a clock
   `t' = 1`, or a forcing such as a seasonal oscillator). No compartments.
-- Two different patterns over one type, three or more reactants, and counts
-  inside expressions (largest clone *size*) are not supported yet.
-- Models are JSON. `crn_craft.rules` prepares and runs ensembles from Python
-  ([mtDNA ensembles](mtdna-rules.md)), and `crn_craft.rules.Model` builds
-  rules-model/0.3 documents over attribute-free species from
+- Two different patterns over one type, higher-order rules over attributed
+  types, and counts inside expressions (largest clone *size*) are not
+  supported yet.
+- Models are JSON. `crn_craft` prepares and runs ensembles from Python
+  ([mtDNA ensembles](mtdna-rules.md)), and `crn_craft.Model` builds
+  `model/1.0` documents over attribute-free species from
   `add_reaction(rate, reactants, products)` calls: a numeric rate is a
   mass-action constant with the counting above, a string the whole
   propensity.
@@ -455,8 +526,9 @@ share one DKW family at alpha 0.001. Results: `validation/rules/RESULTS.md`.
 
 ## Prepared Python ensembles and static methods
 
-The mtDNA extension adds `crn_craft.rules`, event observation, fixed-channel
-Direct and next reaction, approximate leaps, and ATP thinning. See the
+The module `crn_craft.rules` is the same module as the top-level `crn_craft`
+under its 0.6.0 name. It adds event observation, fixed-channel Direct and next
+reaction, approximate leaps, and ATP thinning. See the
 [mtDNA rules guide](mtdna-rules.md) for rules-run/0.2–0.4, rules-result/0.2 and rules-model/0.2, examples,
 supported model shapes and validation commands. rules-run/0.5 adds `hybrid`
 and returns rules-result/0.3 (0.2 plus `method` and `continuous`); see

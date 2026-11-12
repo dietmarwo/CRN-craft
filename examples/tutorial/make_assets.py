@@ -281,6 +281,16 @@ def sessions(terminal, output):
     )
     t.session(
         output,
+        "12-convert",
+        "Converting a network model",
+        [
+            ("crn-craft convert immigration-death.network.json", 24, 0),
+            "crn-craft convert immigration-death.network.json > converted.model.json"
+            " && crn-craft check converted.model.json | grep valid",
+        ],
+    )
+    t.session(
+        output,
         "11-export",
         "Exporting to GillesPy2 source",
         [
@@ -341,6 +351,69 @@ def immigration_death(output):
     fig.savefig(output / "immigration-death.png")
     plt.close(fig)
     return {"events": result.metadata["events"], "final_mean": float(mean[-1])}
+
+
+def poisson_quantile(mean, p):
+    """The smallest k with P(X <= k) >= p for a Poisson variable."""
+    if mean == 0:
+        return 0
+    term = cdf = math.exp(-mean)
+    k = 0
+    while cdf < p:
+        k += 1
+        term *= mean / k
+        cdf += term
+    return k
+
+
+def quantile_band(output):
+    """The median and the 95% band of the ensemble against the exact law."""
+    model = crn.load_example("immigration-death")
+    grid = np.linspace(0, 30, 31).round(10).tolist()
+    result = crn.ensemble(
+        model,
+        end=30.0,
+        report_times=grid,
+        replicates=400,
+        seed=42,
+        method="static_direct",
+        max_events=10_000_000,
+    ).simulate()
+    t = np.array(grid)
+    mu = 20 * (1 - np.exp(-0.2 * t))
+    quantiles = result.statistics["quantiles"]
+    fig, axis = plt.subplots(figsize=(7, 3.8))
+    axis.fill_between(
+        t,
+        quantiles[0.025]["A"].to_numpy(),
+        quantiles[0.975]["A"].to_numpy(),
+        color=GRID,
+        step="post",
+        label="2.5% to 97.5% (400 paths)",
+    )
+    axis.step(
+        t,
+        result.statistics["median"]["A"].to_numpy(),
+        where="post",
+        color=BLUE,
+        label="median",
+    )
+    for p, style in [(0.025, ":"), (0.5, "--"), (0.975, ":")]:
+        axis.step(
+            t,
+            [poisson_quantile(m, p) for m in mu],
+            where="post",
+            color=ORANGE,
+            ls=style,
+            label="exact Poisson quantiles" if p == 0.5 else None,
+        )
+    axis.set(title="Median and 95% band of A", xlabel="time", ylabel="A")
+    axis.legend(loc="lower right")
+    fig.tight_layout()
+    fig.savefig(output / "quantiles.png")
+    plt.close(fig)
+    last = {p: float(quantiles[p]["A"].iloc[-1]) for p in quantiles}
+    return {"final_quantiles": {str(p): v for p, v in last.items()}}
 
 
 def fsp_vs_ssa(output):
@@ -564,6 +637,7 @@ def main():
         sessions(terminal, args.output)
     numbers = {
         "immigration_death": immigration_death(args.output),
+        "quantiles": quantile_band(args.output),
         "fsp": fsp_vs_ssa(args.output),
         "repressilator": repressilator(args.output),
         "tau": tau_accuracy(args.output),

@@ -57,6 +57,7 @@ import tempfile
 import time
 import tomllib
 
+import crn_craft
 from crn_craft import CrnError, _rules_loop, rules
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -538,6 +539,30 @@ def main():
         and list(verified.statistics["quantiles"]) == list(quantiles),
         "verify() of a quantile run",
     )
+
+    # The top-level API runs crn-craft.model/1.0, so crn_craft.compile_loop
+    # and crn_craft.loop_source build for the document crn_craft.ensemble
+    # runs: the same rules-model dictionary serves both calls unchanged.
+    top_loop = crn_craft.compile_loop(model, progress=False, **build)
+    require(
+        top_loop.fingerprint == unified_loop.fingerprint
+        and _rules_loop.fingerprint_of(crn_craft.loop_source(model))
+        == unified_loop.fingerprint,
+        "crn_craft.compile_loop and loop_source build the model/1.0 document",
+    )
+    top_run = crn_craft.ensemble(
+        model,
+        end=25_920.0,
+        report_times=GRID,
+        replicates=24,
+        seed=11,
+        threads=2,
+        method="static_direct",
+        selector="linear",
+        trackers=TRACKERS,
+        compiled=top_loop,
+    )
+    identical("top-level compile_loop and ensemble", top_run, top_loop, rows)
 
     # String rates and whole-rule propensities.
     for label, build_model, settings, trackers, log in STRING_RATES:

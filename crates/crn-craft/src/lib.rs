@@ -87,7 +87,7 @@
 //! | Finite state projection of a closed rules model | [`fsp::v1::solve`], [`fsp::v1::solve_files`], [`rules::FlatView`] | `run/1.0` with `fsp` → `fsp-result/1.0` |
 //! | Approximate tau leaping (experimental) | [`tau::solve`], [`tau::solve_files`] | `tau-request/0.1` → `tau-result/0.1` |
 //! | Parameter sweeps and optimization | [`parameters::ParameterTemplate`], [`codegen::mass_action_source`], [`ssa::execute_with_kernel`] | `ssa-run` |
-//! | Reference export | [`export::export_gillespy2`], [`export_gillespy2_file`] | `export/0.1` |
+//! | Reference export | [`export::export_gillespy2`], [`export_gillespy2_file`] | `model/0.1`, rules models, `model/1.0` → `export/0.1` |
 //! | Deterministic kinetics and Jacobians | [`kinetics::Kinetics`] | — |
 //! | Discovery | [`describe`], [`schema`] | `describe/0.11` |
 //!
@@ -318,8 +318,9 @@ pub fn analyze_files(model_path: &Path, state_path: Option<&Path>) -> AnalysisRe
     analyze_bytes(&model, state.as_deref())
 }
 
-/// Reads a model file and runs [`export::export_gillespy2`]; read failures
-/// give a failed report with `CRN-E030` or `CRN-E004`.
+/// Reads a model file (a network `crn-craft.model/0.1`, a rules model or a
+/// `crn-craft.model/1.0`) and runs [`export::export_gillespy2`]; read
+/// failures give a failed report with `CRN-E030` or `CRN-E004`.
 pub fn export_gillespy2_file(model_path: &Path) -> export::ExportReport {
     match read_document(model_path) {
         Ok(bytes) => export::export_gillespy2(&bytes),
@@ -523,7 +524,7 @@ pub fn describe() -> Value {
         "alternative_exact_ssa": {"request":"crn-craft.ssa-run/0.3", "result":"crn-craft.ssa-result/0.3", "accepted_requests":["crn-craft.ssa-run/0.1","crn-craft.ssa-run/0.2","crn-craft.ssa-run/0.3","crn-craft.ssa-run/0.4"], "next_reaction_request":"crn-craft.ssa-run/0.4", "next_reaction_result":"crn-craft.ssa-result/0.4", "aggregators":["direct","cached_direct","direct_cr","sorting_direct","rssa_cr","next_reaction"], "waiting_times":["inverse","ziggurat"], "fast":{"default":true, "default_by_request":{"crn-craft.ssa-run/0.1":"unavailable","crn-craft.ssa-run/0.2":false,"crn-craft.ssa-run/0.3":true,"crn-craft.ssa-run/0.4":true}, "next_reaction_policy":"checked only; method.fast defaults to false and must not be true", "checked_policy":"method.fast=false: ChaCha8 words, lost-increment and 53-bit resolution checks, stop polls before every random word", "emulates":"JumpProcesses.jl 10.0.1: Xoshiro256++, running totals without loss or resolution checks, batched stop polls"}, "archive_format":null},
         "optional_integrations": {"python":"bindings/python", "jobs":"integrations/jobs", "ode_bdf_sensitivities":"integrations/diffsol"},
         "rate_laws": ["mass_action", "hill_activation", "hill_repression", "michaelis_menten"],
-        "reference_exporters": [{"target":"gillespy2", "version": export::GILLESPY2_VERSION, "subset":"elementary_mass_action", "maximum_reactant_order":2}],
+        "reference_exporters": [{"target":"gillespy2", "version": export::GILLESPY2_VERSION, "subset":"mass_action_and_custom_propensities", "maximum_mass_action_order":2, "maximum_custom_order": export::MAX_CUSTOM_ORDER}],
         "rate_evaluation_available": true, "observables": ["python_trajectory_autocorrelation_spectrum", "python_interval_censored_first_passage"],
         "model_cards": ["docs/model-cards/rate-laws.md", "docs/model-cards/direct.md"],
         "limits": {"document_bytes": strict_json::MAX_DOCUMENT_BYTES, "json_depth": strict_json::MAX_JSON_DEPTH,

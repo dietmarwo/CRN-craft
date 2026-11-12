@@ -42,7 +42,7 @@
 //! assert_eq!(view.propensity(0, &[10, 0]).unwrap(), 22.5);
 //! ```
 use super::engine::Halt;
-use super::expr::{Env, Expr};
+use super::expr::{Env, Expr, Slot, python_literal};
 use super::flat::{Network, RateCache};
 use super::model::{self, Compiled, MAX_COUNT, Model, Reduce};
 use crate::diagnostic::Diagnostic;
@@ -495,6 +495,46 @@ impl FlatView {
     #[allow(dead_code)]
     pub(crate) fn rate_expression(&self, rule: usize) -> &Expr {
         &self.compiled.rules[rule].rate
+    }
+
+    /// A rule's rate or propensity as a Python expression over the species
+    /// `S0`, `S1`, … (view indices), for the GillesPy2 export: parameter
+    /// values inlined, each observable as the weighted sum of its species,
+    /// `^` as `**`. The error names the first construct GillesPy2 cannot
+    /// evaluate in both its solvers (comparisons, logic, functions, an
+    /// observable that is not a sum).
+    pub(crate) fn python_rate(&self, rule: usize) -> Result<String, String> {
+        let names = self.observable_names();
+        let values = self.parameter_values();
+        self.compiled.rules[rule]
+            .rate
+            .to_python(&mut |slot| match slot {
+                Slot::Param(i) => python_literal(values[i]),
+                Slot::Observable(o) => {
+                    let (reduce, terms) = self.observable(o);
+                    if reduce != Reduce::Sum {
+                        return Err(format!("the observable `{}`, which is not a sum", names[o]));
+                    }
+                    if terms.is_empty() {
+                        return Ok("0.0".into());
+                    }
+                    let parts: Vec<String> = terms
+                        .iter()
+                        .map(|&(s, w)| {
+                            if w == 1.0 {
+                                Ok(format!("S{s}"))
+                            } else {
+                                Ok(format!("{} * S{s}", python_literal(w)?))
+                            }
+                        })
+                        .collect::<Result<_, String>>()?;
+                    Ok(match parts.as_slice() {
+                        [one] if !one.contains(' ') => one.clone(),
+                        _ => format!("({})", parts.join(" + ")),
+                    })
+                }
+                Slot::Attribute { .. } => Err("a reactant attribute".into()),
+            })
     }
 
     /// Parameter names in the order expressions index them (sorted).

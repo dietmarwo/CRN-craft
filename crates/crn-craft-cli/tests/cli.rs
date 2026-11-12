@@ -325,14 +325,28 @@ fn export_cli_is_json_and_rejects_unsupported_or_missing_inputs() {
             .unwrap()
             .contains("def build_model():")
     );
+    // Michaelis-Menten, refused by 0.6.0, exports a custom propensity
+    // (M5f); a model with ATP has no flat view.
+    let (code, report) = invoke(&[
+        "export",
+        "models/examples/michaelis-menten.model.json",
+        "gillespy2",
+    ]);
+    assert_eq!(code, 0, "{report}");
+    assert!(
+        report["artifact"]["source"]
+            .as_str()
+            .unwrap()
+            .contains("propensity_function=")
+    );
     for (args, expected) in [
         (
             vec![
                 "export",
-                "models/examples/michaelis-menten.model.json",
+                "models/rules/mtdna-three-class-atp.rules.json",
                 "gillespy2",
             ],
-            "CRN-E050",
+            "CRN-R017",
         ),
         (
             vec!["export", "missing-model.json", "gillespy2"],
@@ -510,7 +524,6 @@ fn network_commands_refuse_1_0_documents_and_rules_commands_run_them() {
     for args in [
         vec!["check", model],
         vec!["check", model, run],
-        vec!["export", model, "gillespy2"],
         vec!["simulate", model, run, out],
         vec!["fsp", model, run],
         vec!["ssa", model, request],

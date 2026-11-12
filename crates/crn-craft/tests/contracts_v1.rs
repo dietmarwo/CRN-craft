@@ -227,8 +227,9 @@ fn network_entry_points_refuse_1_0_and_rules_documents() {
         // Analysis reads every model version since M5b.
         let analysis = crn_craft::analyze_bytes(&model, None);
         assert!(analysis.success, "{:?}", analysis.diagnostics);
+        // So does the GillesPy2 export since M5f.
         let export = crn_craft::export::export_gillespy2(&model);
-        assert!(has_e032(&export.diagnostics), "{:?}", export.diagnostics);
+        assert!(export.success, "{:?}", export.diagnostics);
         // A request bound to the 1.0 model still fails on the model.
         let mut request: Value = serde_json::from_slice(&run).unwrap();
         rehash(&mut request, &model);

@@ -46,6 +46,25 @@ enum Func {
 }
 
 impl Func {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Min => "min",
+            Self::Max => "max",
+            Self::Exp => "exp",
+            Self::Log => "log",
+            Self::Sqrt => "sqrt",
+            Self::Abs => "abs",
+            Self::Floor => "floor",
+            Self::Ceil => "ceil",
+            Self::If => "if",
+            Self::Bernoulli => "bernoulli",
+            Self::Choice => "choice",
+            Self::Uniform => "uniform",
+            Self::Normal => "normal",
+            Self::NewId => "new_id",
+        }
+    }
+
     fn parse(name: &str) -> Option<(Self, usize, bool)> {
         // (function, arity, random)
         Some(match name {
@@ -114,6 +133,19 @@ pub(crate) struct Draw<'a, R: RngCore> {
     pub words: &'a mut u64,
     /// Set when `new_id()` would return 2^53 or more.
     pub id_overflow: &'a mut bool,
+}
+
+/// A finite number as a Python literal that reads back to the same `f64`
+/// (Rust's shortest round-trip form; a negative number in parentheses).
+pub(crate) fn python_literal(x: f64) -> Result<String, String> {
+    if !x.is_finite() {
+        return Err(format!("the non-finite number {x}"));
+    }
+    Ok(if x.is_sign_negative() && x != 0.0 {
+        format!("(-{:?})", -x)
+    } else {
+        format!("{:?}", x.abs())
+    })
 }
 
 /// First identity `new_id()` cannot return exactly.
@@ -198,6 +230,56 @@ impl Expr {
 
     /// Deterministic evaluation; random functions are rejected at parse time
     /// wherever this is used.
+    /// The expression as Python source, for GillesPy2 custom propensities:
+    /// numbers that read back to the same `f64`, `+ - * /`, `**` for `^`
+    /// and unary minus, every operation parenthesized; `variable` writes
+    /// each parameter, observable or attribute. Comparisons, logic and
+    /// functions have no form that GillesPy2's Python and C++ solvers both
+    /// evaluate: the error names the first such construct (or the
+    /// variable's own error).
+    pub(crate) fn to_python(
+        &self,
+        variable: &mut dyn FnMut(Slot) -> Result<String, String>,
+    ) -> Result<String, String> {
+        fn walk(
+            node: &Node,
+            variable: &mut dyn FnMut(Slot) -> Result<String, String>,
+        ) -> Result<String, String> {
+            Ok(match node {
+                Node::Num(x) => python_literal(*x)?,
+                Node::Var(slot) => variable(*slot)?,
+                Node::Neg(inner) => format!("(-{})", walk(inner, variable)?),
+                Node::Not(_) => return Err("the operator `!`".into()),
+                Node::Bin(op, left, right) => {
+                    let symbol = match op {
+                        Op::Add => "+",
+                        Op::Sub => "-",
+                        Op::Mul => "*",
+                        Op::Div => "/",
+                        Op::Pow => "**",
+                        Op::Eq => return Err("the comparison `==`".into()),
+                        Op::Ne => return Err("the comparison `!=`".into()),
+                        Op::Lt => return Err("the comparison `<`".into()),
+                        Op::Le => return Err("the comparison `<=`".into()),
+                        Op::Gt => return Err("the comparison `>`".into()),
+                        Op::Ge => return Err("the comparison `>=`".into()),
+                        Op::And => return Err("the operator `&&`".into()),
+                        Op::Or => return Err("the operator `||`".into()),
+                    };
+                    format!(
+                        "({} {symbol} {})",
+                        walk(left, variable)?,
+                        walk(right, variable)?
+                    )
+                }
+                Node::Call(function, _) => {
+                    return Err(format!("the function `{}`", function.name()));
+                }
+            })
+        }
+        walk(&self.root, variable)
+    }
+
     pub(crate) fn eval(&self, env: &Env) -> f64 {
         eval_node::<NoRng>(&self.root, env, &mut None)
     }

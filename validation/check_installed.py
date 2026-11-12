@@ -655,7 +655,9 @@ def check_report():
     The expected file is validation/fixtures/sir-report.md. Its line
     `crn-craft = <version>` names the version it was written with; that one
     line is compared with the installed version instead, so the file stays
-    valid across version bumps. Every other byte must be equal.
+    valid across version bumps. Every other byte must be equal. The run asks
+    for the quantiles 0.025, 0.5 and 0.975, so the documents are
+    crn-craft.run/1.0 and crn-craft.model/1.0.
     """
     sir = rules.Model("sir")
     sir.add_species({"S": 999, "I": 1, "R": 0})
@@ -671,7 +673,13 @@ def check_report():
         seed=1,
         keep_paths="all",
         method="static_direct",
+        quantiles=(0.025, 0.5, 0.975),
     ).simulate()
+    require(
+        list(result.statistics["quantiles"]) == [0.025, 0.5, 0.975]
+        and result.statistics["median"] is result.statistics["quantiles"][0.5],
+        "quantile statistics and the median",
+    )
     expected = SIR_REPORT.read_bytes().split(b"\n")
     version = [i for i, line in enumerate(expected) if line.startswith(b"crn-craft = ")]
     require(len(version) == 1, "the SIR fixture has one crn-craft version line")
@@ -695,7 +703,10 @@ def check_report():
         require(
             report["schema"] == "crn-craft.report/1.0"
             and report["crn_craft_version"] == c.__version__
-            and report["model"] == sir.to_dict() == result.model
+            and report["model"]
+            == {**sir.to_dict(), "schema": "crn-craft.model/1.0"}
+            == result.model
+            and report["request"]["schema"] == "crn-craft.run/1.0"
             and report["request"] == result.request
             and report["result"]["observables"] == ["I", "R", "S"]
             and report["result"]["terminations"] == {"completed": 10}

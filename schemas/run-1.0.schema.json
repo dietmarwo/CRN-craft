@@ -307,6 +307,15 @@
           "minimum": 0.0,
           "type": "integer"
         },
+        "quantiles": {
+          "description": "`crn-craft.run/1.0` only (earlier versions refuse the field with `CRN-R020` at `/schema`): probabilities of quantile statistics, at most 16, strictly increasing, each in (0, 1); absent or empty means none. The result's `statistics.quantiles` then holds, for every report time and observable, the linear-interpolation quantile of the values of all replicates, NumPy's default (Hyndman and Fan type 7): with the n values sorted ascending, `h = (n - 1) * p`, `j = floor(h)` and `g = h - j`, the quantile is `x[j] + g * (x[j+1] - x[j])`, evaluated as `numpy.quantile(x, p)` evaluates it (`x[j+1] - (1 - g) * (x[j+1] - x[j])` for `g >= 0.5`, `x[n-1]` for `h >= n - 1`, NaN if a value is NaN), so the values equal NumPy's bit for bit. Quantiles are withheld with the other statistics. They keep replicates x report times x observables values in memory during the run, counted against the 2 GiB workspace limit (`CRN-R020` at `/outputs/quantiles` above it).",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
         "statistics": {
           "description": "Ensemble statistics per report time and observable, each listed at most once: `mean`, and `variance` for the sample variance and the standard error of the mean. They are withheld unless every replicate completed or stopped.",
           "items": {
@@ -398,7 +407,7 @@
       "type": "object"
     }
   },
-  "description": "A run request: `crn-craft.run/1.0`, the unified request contract, with the fields and defaults of `crn-craft.rules-run/0.6`.\n\nIt binds one model, `crn-craft.model/1.0` or any `crn-craft.rules-model` version, by hash and states the time grid, the ensemble, the outputs and an explicit budget. Unknown fields and duplicate keys are rejected. It returns `crn-craft.result/1.0`.",
+  "description": "A run request: `crn-craft.run/1.0`, the unified request contract, with the fields and defaults of `crn-craft.rules-run/0.6` plus `outputs.quantiles`.\n\nIt binds one model, `crn-craft.model/1.0` or any `crn-craft.rules-model` version, by hash and states the time grid, the ensemble, the outputs and an explicit budget. Unknown fields and duplicate keys are rejected. It returns `crn-craft.result/1.0`.",
   "properties": {
     "budget": {
       "$ref": "#/definitions/Budget"

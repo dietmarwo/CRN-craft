@@ -13,8 +13,11 @@ Static Direct event loop, and ``compiled=`` runs it with byte-identical
 results; :func:`loop_source` shows whether a model is supported.
 """
 
+from collections.abc import Iterable, Mapping
+import copy
 import hashlib
 import json
+import numbers
 import operator
 from functools import cached_property
 from pathlib import Path
@@ -76,6 +79,123 @@ _TRACKER_VALUES = (
 _ARRAY_ATTRS = ("sampler", "method", "root_seed", "model_sha256", "run_sha256")
 # The `rule` of an event-array entry past a replicate's logged length.
 _PADDING_RULE = -2
+# Quantile statistics need the 1.0 contracts (see ensemble).
+MODEL_1_0 = "crn-craft.model/1.0"
+RUN_1_0 = "crn-craft.run/1.0"
+_RULES_MODEL = "crn-craft.rules-model/"
+# Request versions whose Static Direct defaults differ from run/1.0's: inverse
+# waits and per-event trackers unless the method says otherwise.
+_BEFORE_ZIGGURAT_DEFAULTS = (
+    "crn-craft.rules-run/0.2",
+    "crn-craft.rules-run/0.3",
+    "crn-craft.rules-run/0.4",
+    "crn-craft.rules-run/0.5",
+)
+
+
+def _probabilities(quantiles):
+    """The probabilities of ``quantiles=`` as floats; an empty list for none."""
+    if quantiles is None:
+        return []
+    if isinstance(quantiles, str | bytes | Mapping) or not isinstance(
+        quantiles, Iterable
+    ):
+        raise TypeError(
+            "quantiles must be a sequence of probabilities, for example "
+            f"(0.025, 0.5, 0.975): {quantiles!r}"
+        )
+    values = list(quantiles)
+    for p in values:
+        if isinstance(p, bool | np.bool_) or not isinstance(p, numbers.Real):
+            raise TypeError(f"quantile probabilities must be real numbers: {p!r}")
+    return [float(p) for p in values]
+
+
+def _as_model_1_0(model):
+    """The model's bytes as ``crn-craft.model/1.0``, only the schema changed.
+
+    A rules-model document gets the schema string ``crn-craft.model/1.0``,
+    which means what rules-model/0.4 means; every other byte is kept. A
+    dictionary or ``Model`` is serialized as without quantiles, with the
+    ``schema`` value replaced in place. A model/1.0 document, and anything
+    that is no rules model (the engine refuses it), is returned unchanged.
+    """
+    if isinstance(model, Model):
+        model = model.to_dict()
+    if isinstance(model, Mapping):
+        schema = model.get("schema")
+        if isinstance(schema, str) and schema.startswith(_RULES_MODEL):
+            model = {**model, "schema": MODEL_1_0}
+        return model_bytes(model)
+    data = model_bytes(model)
+    try:
+        schema = json.loads(data).get("schema")
+    except (ValueError, AttributeError):
+        return data
+    if not (isinstance(schema, str) and schema.startswith(_RULES_MODEL)):
+        return data
+    old = json.dumps(schema).encode()
+    if data.count(old) != 1:
+        raise ValueError(
+            f"cannot rewrite the model's schema {schema!r} to {MODEL_1_0!r} in "
+            f"place: the string occurs {data.count(old)} times in the bytes; "
+            "pass the model as a dictionary"
+        )
+    return data.replace(old, json.dumps(MODEL_1_0).encode())
+
+
+def _unique_keys(pairs):
+    keys = [key for key, _ in pairs]
+    if len(set(keys)) != len(keys):
+        duplicate = next(k for k in keys if keys.count(k) > 1)
+        raise CrnError(
+            [
+                {
+                    "code": "CRN-E002",
+                    "path": "",
+                    "message": f"duplicate JSON key {duplicate!r} in the request",
+                    "hint": "Remove the duplicate key.",
+                }
+            ]
+        )
+    return dict(pairs)
+
+
+def _request_with_quantiles(request, probabilities, old_sha256, new_sha256):
+    """A request as ``crn-craft.run/1.0`` with ``outputs.quantiles``.
+
+    The request keeps its meaning: a Static Direct method of rules-run/0.2
+    to 0.5 gets its version's defaults (inverse waits, per-event trackers)
+    written out, and a model hash of the original model bytes is replaced by
+    the hash of the model/1.0 bytes.
+    """
+    if isinstance(request, bytes | str):
+        request = json.loads(request, object_pairs_hook=_unique_keys)
+    else:
+        request = copy.deepcopy(request)
+    if not isinstance(request, dict):
+        raise TypeError("the request must be a JSON object")
+    outputs = request.get("outputs")
+    if isinstance(outputs, dict):
+        if "quantiles" in outputs:
+            raise ValueError(
+                "the request already has outputs.quantiles; give quantiles= or "
+                "the field, not both"
+            )
+        outputs["quantiles"] = probabilities
+    method = request.get("method")
+    if (
+        request.get("schema") in _BEFORE_ZIGGURAT_DEFAULTS
+        and isinstance(method, dict)
+        and method.get("kind") == "static_direct"
+    ):
+        method.setdefault("waiting_time", "inverse")
+        method.setdefault("sparse_trackers", False)
+    request["schema"] = RUN_1_0
+    bound = request.get("model")
+    if isinstance(bound, dict) and bound.get("sha256") == old_sha256:
+        bound["sha256"] = new_sha256
+    return request
 
 
 def describe():
@@ -111,7 +231,10 @@ class Result:
       number of replicates included) and one DataFrame per statistic
       (``mean``, ``sample_variance``, ``mean_standard_error``), indexed by
       report time with one column per observable. A statistic that was not
-      computed is None.
+      computed is None. A run with ``quantiles=`` also has ``quantiles``, a
+      dict from each requested probability to a DataFrame of that shape,
+      and, when 0.5 was requested, ``median``, the DataFrame of
+      ``quantiles[0.5]`` (see :func:`ensemble`).
     - ``paths``: the kept series as an xarray DataArray with dimensions
       (``replicate``, ``time``, ``variable``); ``paths_frame()`` gives the
       DataFrame of release 0.4.0, ``to_xarray()`` a Dataset.
@@ -160,16 +283,26 @@ class Result:
             self.statistics = None
         else:
             times = pd.Index(self.metadata["report_times"], name="time")
+
+            def table(rows):
+                matrix = np.array(rows, dtype=np.float64)
+                return pd.DataFrame(
+                    matrix.reshape(len(times), len(observables)),
+                    index=times,
+                    columns=observables,
+                )
+
             self.statistics = {}
             for key, value in stats.items():
-                if isinstance(value, list):
-                    matrix = np.array(value, dtype=np.float64)
-                    value = pd.DataFrame(
-                        matrix.reshape(len(times), len(observables)),
-                        index=times,
-                        columns=observables,
-                    )
+                if key == "quantiles":
+                    # crn-craft.result/1.0: [{"p": ..., "values": ...}] in
+                    # request order (increasing p).
+                    value = {q["p"]: table(q["values"]) for q in value}
+                elif isinstance(value, list):
+                    value = table(value)
                 self.statistics[key] = value
+            if 0.5 in self.statistics.get("quantiles", {}):
+                self.statistics["median"] = self.statistics["quantiles"][0.5]
 
     @property
     def model(self):
@@ -489,9 +622,21 @@ class Result:
 
 
 class PreparedEnsemble:
-    def __init__(self, native, rule_names, documents=None, compiled=None, *, ran=None):
+    def __init__(
+        self,
+        native,
+        rule_names,
+        documents=None,
+        compiled=None,
+        *,
+        ran=None,
+        unified_from=None,
+    ):
         self._native = native
         self._rule_names = tuple(rule_names)
+        # SHA-256 of the rules-model bytes that quantiles= rewrote to
+        # crn-craft.model/1.0, so a loop compiled for them is explained.
+        self._unified_from = unified_from
         # The exact (model, request) bytes, which a compiled loop runs.
         self._documents = documents
         # What results report as Result.model and Result.request:
@@ -516,15 +661,27 @@ class PreparedEnsemble:
                 raise _crn_error(error) from None
             self._fingerprint = fingerprint_of(source)
         if self._fingerprint != compiled.fingerprint or self._documents is None:
+            hint = (
+                "A compiled loop runs only the model bytes it was compiled for; "
+                "compile one for this model and parameter set with "
+                "rules.compile_loop."
+            )
+            if self._unified_from is not None and (
+                compiled.model_sha256 == self._unified_from
+            ):
+                hint = (
+                    "The loop was compiled for the rules-model bytes, but "
+                    "quantiles run the model as crn-craft.model/1.0. Compile the "
+                    "loop for the model with its schema set to "
+                    "crn-craft.model/1.0, or run without quantiles."
+                )
             raise CrnError(
                 [
                     {
                         "code": "CRN-R020",
                         "path": "/model",
                         "message": "generated rules loop fingerprint mismatch",
-                        "hint": "A compiled loop runs only the model bytes it was "
-                        "compiled for; compile one for this model and parameter "
-                        "set with rules.compile_loop.",
+                        "hint": hint,
                     }
                 ]
             )
@@ -638,17 +795,44 @@ class PreparedEnsemble:
         return result
 
 
-def prepare(model, request, *, compiled=None):
+def prepare(model, request, *, compiled=None, quantiles=None):
     """Prepare a rules-run contract, preserving the supplied model bytes.
 
     ``model`` is bytes, text, a dictionary or a ``Model``. ``compiled`` is
     an optional :class:`CompiledLoop` for this model, attached as in
     :func:`ensemble`: the request is checked against it here, once, and
     every ``simulate()`` of the prepared run uses it.
+
+    ``quantiles``, a sequence of increasing probabilities in (0, 1), adds
+    ``outputs.quantiles`` to the request, as in :func:`ensemble`: the
+    request is written as ``crn-craft.run/1.0`` and a rules-model as
+    ``crn-craft.model/1.0`` (only its schema string changes; the request's
+    model hash follows when it was the hash of the supplied bytes). A
+    Static Direct request of rules-run/0.2 to 0.5 gets the defaults of its
+    version written out (``"waiting_time": "inverse"``,
+    ``"sparse_trackers": False``), so it runs the same paths. A request
+    that already has ``outputs.quantiles`` raises ``ValueError``. ``None``
+    or an empty sequence, the default, leaves both documents as supplied; a
+    ``crn-craft.run/1.0`` request may also carry ``outputs.quantiles``
+    itself.
     """
+    probabilities = _probabilities(quantiles)
     if isinstance(model, Model):
         model = model.to_dict()
-    data = model_bytes(model)
+    unified_from = None
+    if probabilities:
+        original = model_bytes(model)
+        data = _as_model_1_0(model)
+        old, new = (hashlib.sha256(d).hexdigest() for d in (original, data))
+        request = _request_with_quantiles(request, probabilities, old, new)
+        unified_from = old if old != new else None
+    else:
+        data = model_bytes(model)
+    return _prepared(data, request, compiled, unified_from)
+
+
+def _prepared(data, request, compiled, unified_from):
+    """Prepare exact model bytes with a request (bytes or a dictionary)."""
     request = model_bytes(request)
     try:
         native = _native.prepare_rules(data, request)
@@ -656,7 +840,9 @@ def prepare(model, request, *, compiled=None):
         raise _crn_error(error) from None
     # The engine has validated the model; results list rules in this order.
     names = [r["name"] for r in json.loads(data)["rules"]]
-    return PreparedEnsemble(native, names, (data, request), compiled)
+    return PreparedEnsemble(
+        native, names, (data, request), compiled, unified_from=unified_from
+    )
 
 
 def ensemble(
@@ -678,6 +864,7 @@ def ensemble(
     event_log=None,
     method=None,
     compiled=None,
+    quantiles=None,
 ):
     """Build and prepare a rules request with explicit work/output budgets.
 
@@ -748,10 +935,46 @@ def ensemble(
     it without ``compiled`` for those. Candidates from
     ``bind_parameters`` run interpreted, since a loop serves only the
     parameter set it was compiled for.
+
+    ``quantiles`` is a sequence of at most 16 strictly increasing
+    probabilities in (0, 1), for example ``(0.025, 0.5, 0.975)``. The
+    engine then also reports, for every report time and observable, the
+    quantile of the replicates' values: ``result.statistics["quantiles"]``
+    is a dict from each probability to a DataFrame shaped like
+    ``statistics["mean"]``, and ``statistics["median"]`` is
+    ``quantiles[0.5]`` when 0.5 was requested. The quantile is NumPy's
+    default (``numpy.quantile(x, p)``, linear interpolation, type 7) and
+    equals it bit for bit. Quantiles are withheld with the other statistics
+    (``statistics`` is None when a replicate did not complete). The engine
+    keeps replicates x report times x observables values for them during
+    the run; above its 2 GiB workspace limit the request is refused with
+    ``CRN-R020`` at ``/outputs/quantiles``.
+
+    The default, ``None``, and an empty sequence request no quantiles: the
+    documents are then exactly those written without the argument, as in
+    release 0.6.0. Quantiles exist only in the 1.0 contracts: with them the request is written as
+    ``crn-craft.run/1.0`` (the fields and defaults of rules-run/0.6, so the
+    paths are those of the request without quantiles) and a rules-model,
+    such as a :class:`Model`, as ``crn-craft.model/1.0``, which means what
+    rules-model/0.4 means: only its schema string changes. The result is
+    then ``crn-craft.result/1.0`` with new hashes, and ``result.model`` is
+    the model/1.0 document. A compiled loop serves exact model bytes, so
+    compile it for the model/1.0 document to use it with quantiles (for a
+    :class:`Model`: ``d = m.to_dict(); d["schema"] = "crn-craft.model/1.0";
+    loop = compile_loop(d)``); a loop compiled for the rules-model bytes is
+    refused with ``CRN-R020`` at ``/model``.
     """
+    probabilities = _probabilities(quantiles)
     if isinstance(model, Model):
         model = model.to_dict()
-    data = model_bytes(model)
+    unified_from = None
+    if probabilities:
+        data = _as_model_1_0(model)
+        original = hashlib.sha256(model_bytes(model)).hexdigest()
+        if original != hashlib.sha256(data).hexdigest():
+            unified_from = original
+    else:
+        data = model_bytes(model)
     # NumPy scalars and arrays are converted; counts must be integral.
     count = operator.index
     if isinstance(keep_paths, bool | np.bool_):
@@ -811,8 +1034,11 @@ def ensemble(
         ):
             # Options left out take the rules-run/0.6 defaults.
             request["schema"] = "crn-craft.rules-run/0.6"
-    if json.loads(data).get("schema") == "crn-craft.model/1.0":
+    if json.loads(data).get("schema") == MODEL_1_0 or probabilities:
         # A crn-craft.model/1.0 model runs only with crn-craft.run/1.0,
-        # which has the fields and defaults of rules-run/0.6.
-        request["schema"] = "crn-craft.run/1.0"
-    return prepare(data, request, compiled=compiled)
+        # which has the fields and defaults of rules-run/0.6; quantiles
+        # exist only there. Static Direct is already rules-run/0.6 above.
+        request["schema"] = RUN_1_0
+    if probabilities:
+        request["outputs"]["quantiles"] = probabilities
+    return _prepared(data, request, compiled, unified_from)

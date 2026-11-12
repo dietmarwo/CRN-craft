@@ -48,14 +48,11 @@ def result_bytes(result):
     out = [frame_bytes(result.records), frame_bytes(result.rule_events)]
     if result.statistics is not None:
         for key, value in sorted(result.statistics.items()):
-            out.append(
-                (
-                    key,
-                    value
-                    if value is None or isinstance(value, int)
-                    else frame_bytes(value),
-                )
-            )
+            if key == "quantiles":
+                value = [(p, frame_bytes(frame)) for p, frame in value.items()]
+            elif not (value is None or isinstance(value, int)):
+                value = frame_bytes(value)
+            out.append((key, value))
     return out
 
 
@@ -667,23 +664,6 @@ def check_report_markdown(result, text, order, *, paths=True):
         )
 
 
-def with_quantiles(result, probabilities):
-    """`result` with quantiles of its kept paths, as M4e will add them."""
-    mean = result.statistics["mean"]
-    quantiles = {
-        p: pd.DataFrame(
-            np.quantile(result.paths.values, p, axis=0),
-            index=mean.index,
-            columns=mean.columns,
-        )
-        for p in probabilities
-    }
-    result.statistics["quantiles"] = quantiles
-    if 0.5 in quantiles:
-        result.statistics["median"] = quantiles[0.5]
-    return result
-
-
 def saved(result, folder, name, **kwargs):
     """Save `result` under `folder` and return (returned path, text)."""
     path = result.save(Path(folder) / name, **kwargs)
@@ -791,6 +771,391 @@ def check_result_documents(model):
     )
 
 
+QUANTILES = (0.025, 0.25, 0.5, 0.75, 0.975)
+
+
+def check_numpy_quantiles(result, probabilities, label):
+    """statistics["quantiles"][p] is np.quantile of the kept paths, bit for
+    bit, shaped like statistics["mean"]; "median" is quantiles[0.5]."""
+    stats = result.statistics
+    require(stats is not None, f"{label}: statistics present")
+    mean = stats["mean"]
+    quantiles = stats["quantiles"]
+    require(
+        list(quantiles) == list(probabilities)
+        and all(isinstance(p, float) for p in quantiles),
+        f"{label}: one float key per probability, in request order",
+    )
+    cube = result.paths.values
+    require(
+        cube.shape[0] == result.metadata["requested_replicates"],
+        f"{label}: every path is kept",
+    )
+    for p, frame in quantiles.items():
+        expected = np.quantile(cube, p, axis=0)
+        require(
+            isinstance(frame, pd.DataFrame)
+            and frame.index.equals(mean.index)
+            and list(frame.columns) == list(mean.columns)
+            and all(str(t) == "float64" for t in frame.dtypes)
+            and frame.to_numpy().shape == expected.shape
+            and frame.to_numpy().tobytes() == expected.tobytes(),
+            f"{label}: quantiles[{p}] equals numpy.quantile of the paths",
+        )
+    if 0.5 in quantiles:
+        require(stats["median"] is quantiles[0.5], f"{label}: median")
+    else:
+        require("median" not in stats, f"{label}: no median without 0.5")
+
+
+def without_quantiles(result):
+    """result_bytes without the quantile entries."""
+    return [
+        entry
+        for entry in result_bytes(result)
+        if not (isinstance(entry, tuple) and entry[0] in ("quantiles", "median"))
+    ]
+
+
+def refused_with(action, expected, label):
+    """`action` raises CrnError with the (code, path) `expected`; returns it."""
+    try:
+        action()
+    except crn_craft.CrnError as error:
+        first = error.diagnostics[0]
+        require(
+            (first["code"], first["path"]) == expected,
+            f"{label}: expected {expected}, got {(first['code'], first['path'])}",
+        )
+        return first
+    raise RuntimeError(f"{label}: accepted")
+
+
+def check_quantiles(model):
+    """quantiles= on ensemble and prepare: engine quantiles equal
+    numpy.quantile of the kept paths; the documents are the 1.0 contracts,
+    rewriting only the schema strings; 0.6.0 documents without them."""
+    sir = sir_model()
+    settings = {
+        "end": 250.0,
+        "report_times": [0, 50, 100, 150, 200, 250],
+        "replicates": 40,
+        "seed": 1,
+        "keep_paths": "all",
+        "method": "static_direct",
+    }
+    plain_run = rules.ensemble(sir, **settings)
+    run = rules.ensemble(sir, quantiles=QUANTILES, **settings)
+    # Without quantiles the documents are those of 0.6.0, byte for byte.
+    for none in (None, (), [], np.array([])):
+        require(
+            rules.ensemble(sir, quantiles=none, **settings)._documents
+            == plain_run._documents,
+            f"quantiles={none!r} writes the documents without quantiles",
+        )
+    old_model, old_request = plain_run._documents
+    require(
+        json.loads(old_request)["schema"] == "crn-craft.rules-run/0.6"
+        and json.loads(old_model)["schema"] == "crn-craft.rules-model/0.3",
+        "the SIR documents without quantiles",
+    )
+    data, request = run._documents
+    expected_request = json.loads(old_request)
+    expected_request["schema"] = rules.RUN_1_0
+    expected_request["model"]["sha256"] = hashlib.sha256(data).hexdigest()
+    expected_request["outputs"]["quantiles"] = list(QUANTILES)
+    require(
+        data
+        == old_model.replace(
+            b'"crn-craft.rules-model/0.3"', b'"crn-craft.model/1.0"', 1
+        )
+        and json.loads(request) == expected_request,
+        "quantiles write run/1.0 and model/1.0, changing only schema strings",
+    )
+    plain, result = plain_run.simulate(), run.simulate()
+    require(
+        result.metadata["schema"] == "crn-craft.result/1.0"
+        and result.model == {**sir.to_dict(), "schema": rules.MODEL_1_0}
+        and result.request == json.loads(request)
+        and result.metadata["sampler"] == plain.metadata["sampler"]
+        and without_quantiles(result) == result_bytes(plain)
+        and result.paths.equals(plain.paths),
+        "quantiles change the schemas and hashes, not the numbers",
+    )
+    check_numpy_quantiles(result, QUANTILES, "SIR")
+    # Widely spread values: x[j] + g (x[j+1] - x[j]) as written rounds
+    # differently from numpy.quantile in some cells; the engine is NumPy's.
+    spread = (0.01, 0.03, 0.07, 0.12, 0.2, 0.3, 0.38, 0.45, 0.55, 0.62)
+    spread += (0.7, 0.8, 0.88, 0.93, 0.97, 0.99)
+    epidemics = rules.ensemble(
+        {**sir.to_dict(), "schema": rules.MODEL_1_0},
+        end=100.0,
+        report_times=[0.0, 20.0, 30.0, 40.0, 50.0, 100.0],
+        replicates=10,
+        seed=17,
+        keep_paths="all",
+        method="static_direct",
+        quantiles=spread,
+    ).simulate()
+    check_numpy_quantiles(epidemics, spread, "SIR, ten epidemics")
+    ordered = np.sort(epidemics.paths.values, axis=0)
+    as_written = 0
+    for p in spread:
+        h = 9 * p
+        j = int(np.floor(h))
+        written = ordered[j] + (h - j) * (ordered[j + 1] - ordered[j])
+        as_written += int(
+            (written != np.quantile(epidemics.paths.values, p, axis=0)).sum()
+        )
+    require(as_written > 0, "the ten epidemics tell the two evaluations apart")
+    # Every method, on models of its scope; bytes from rules.load keep every
+    # byte but the schema string.
+    data = model
+    loaded = rules.ensemble(
+        data, end=3.0, report_times=[0.0, 3.0], quantiles=(0.5,)
+    )._documents[0]
+    require(
+        loaded
+        == data.replace(b'"crn-craft.rules-model/0.1"', b'"crn-craft.model/1.0"'),
+        "model bytes keep every byte but the schema string",
+    )
+    common = {
+        "end": 3.0,
+        "report_times": [0.0, 1.0, 3.0],
+        "replicates": 30,
+        "seed": 9,
+        "keep_paths": "all",
+        "quantiles": QUANTILES,
+    }
+    for method in (
+        None,
+        "static_direct",
+        {"kind": "static_direct", "waiting_time": "inverse"},
+        "next_reaction",
+        {"kind": "tau", "epsilon": 0.03},
+        "mtdna_direct",
+    ):
+        check_numpy_quantiles(
+            rules.ensemble(model, method=method, **common).simulate(),
+            QUANTILES,
+            f"method {method}",
+        )
+    birth_death = {
+        "schema": "crn-craft.rules-model/0.1",
+        "name": "birth_death",
+        "parameters": {"b": 0.9, "d": 1.0},
+        "types": [{"name": "X"}],
+        "initial": [{"type": "X", "count": 30}],
+        "observables": {"X": {"type": "X"}},
+        "rules": [
+            {
+                "name": "birth",
+                "reactants": [{"label": "x", "type": "X"}],
+                "rate": "b",
+                "products": [{"type": "X"}, {"type": "X"}],
+            },
+            {
+                "name": "death",
+                "reactants": [{"label": "x", "type": "X"}],
+                "rate": "d",
+                "products": [],
+            },
+        ],
+    }
+    check_numpy_quantiles(
+        rules.ensemble(
+            birth_death, method={"kind": "binomial", "step": 0.01}, **common
+        ).simulate(),
+        QUANTILES,
+        "binomial",
+    )
+    atp = rules.load(ROOT / "models/rules/mtdna-three-class-atp.rules.json")
+    thinning = rules.ensemble(
+        atp, method="thinning", **{**common, "end": 200.0, "report_times": [0, 200]}
+    ).simulate()
+    require("ATP" in thinning.statistics["mean"].columns, "thinning reports ATP")
+    check_numpy_quantiles(thinning, QUANTILES, "thinning")
+    ramp = rules.Model("ramp")
+    ramp.add_species("A")
+    ramp.add_ode("x", 0.0, "2", lower_bound=0, on_bound="clamp")
+    ramp.add_reaction("x", [], ["A"], name="immigration")
+    hybrid = rules.ensemble(ramp, method="hybrid", **common).simulate()
+    require(
+        list(hybrid.statistics["mean"].columns) == ["A", "x"]
+        and hybrid.model["schema"] == rules.MODEL_1_0,
+        "hybrid: the continuous column, model/1.0",
+    )
+    check_numpy_quantiles(hybrid, QUANTILES, "hybrid")
+    # Thread counts do not change any frame.
+    threads = {
+        n: result_bytes(
+            rules.ensemble(
+                model, threads=n, method="static_direct", **common
+            ).simulate()
+        )
+        for n in (1, 2, 4)
+    }
+    require(threads[1] == threads[2] == threads[4], "quantiles for 1, 2, 4 threads")
+    # Only quantiles: the other statistics are None.
+    only = rules.ensemble(sir, quantiles=(0.5,), **settings)
+    document = json.loads(only._documents[1])
+    document["outputs"]["statistics"] = []
+    only = rules.prepare(only._documents[0], document).simulate()
+    require(
+        only.statistics["mean"] is None
+        and only.statistics["samples"] == 40
+        and list(only.statistics["quantiles"]) == [0.5],
+        "quantiles without other statistics",
+    )
+    # Withheld with the other statistics.
+    limited = rules.ensemble(
+        model, max_events=20, method="static_direct", **common
+    ).simulate()
+    require(limited.statistics is None, "quantiles are withheld")
+    # prepare(): a rules-run/0.4 Static Direct request keeps its meaning
+    # (inverse waits, per-event trackers), as bytes, text or a dictionary.
+    base = json.loads(
+        rules.ensemble(model, method="static_direct", **common)._documents[1]
+    )
+    base["schema"] = "crn-craft.rules-run/0.4"
+    base["model"]["sha256"] = hashlib.sha256(model).hexdigest()
+    del base["outputs"]["quantiles"]
+    reference = rules.prepare(model, base).simulate()
+    for given in (base, json.dumps(base), json.dumps(base).encode()):
+        prepared = rules.prepare(model, given, quantiles=QUANTILES).simulate()
+        require(
+            prepared.request["schema"] == rules.RUN_1_0
+            and prepared.request["method"]
+            == {
+                "kind": "static_direct",
+                "waiting_time": "inverse",
+                "sparse_trackers": False,
+            }
+            and prepared.request["model"]["sha256"] == prepared.metadata["model_sha256"]
+            and prepared.model["schema"] == rules.MODEL_1_0
+            and prepared.metadata["sampler"] == reference.metadata["sampler"]
+            and without_quantiles(prepared) == result_bytes(reference)
+            and prepared.paths.equals(reference.paths),
+            f"prepare(quantiles=) keeps a rules-run/0.4 request's paths "
+            f"({type(given).__name__})",
+        )
+        check_numpy_quantiles(prepared, QUANTILES, "prepare")
+    require(base["schema"] == "crn-craft.rules-run/0.4", "the caller's request")
+    # A run/1.0 request may carry the field itself, with a rules-model.
+    unified = {**base, "schema": rules.RUN_1_0}
+    unified["outputs"] = {**base["outputs"], "quantiles": [0.5]}
+    carried = rules.prepare(model, unified)
+    require(
+        carried._documents[0] == model
+        and list(carried.simulate().statistics["quantiles"]) == [0.5],
+        "a run/1.0 request with outputs.quantiles and a rules-model",
+    )
+    try:
+        rules.prepare(model, unified, quantiles=(0.5,))
+    except ValueError as error:
+        require("not both" in str(error), "quantiles given twice")
+    else:
+        raise RuntimeError("quantiles given twice were accepted")
+    duplicate = json.dumps(base)[:-1] + ', "schema": "crn-craft.rules-run/0.4"}'
+    refused_with(
+        lambda: rules.prepare(model, duplicate, quantiles=(0.5,)),
+        ("CRN-E002", ""),
+        "a duplicate key in the request",
+    )
+    # bind_parameters candidates keep the quantiles and the 1.0 documents.
+    template = rules.ensemble(model, method="static_direct", **common)
+    candidate = template.bind_parameters({"mu": 0.3}).simulate()
+    require(
+        candidate.request["outputs"]["quantiles"] == list(QUANTILES)
+        and candidate.model["schema"] == rules.MODEL_1_0
+        and candidate.metadata["schema"] == "crn-craft.result/1.0",
+        "a bound candidate keeps the quantiles",
+    )
+    check_numpy_quantiles(candidate, QUANTILES, "bound candidate")
+    # Refusals: the engine's, with codes, and Python's type checks.
+    for given, pointer in (
+        ((0.5, 0.5), "/outputs/quantiles/1"),
+        ((0.0,), "/outputs/quantiles/0"),
+        ((0.2, 1.0), "/outputs/quantiles/1"),
+        (tuple(i / 18 for i in range(1, 18)), "/outputs/quantiles"),
+    ):
+        refused_with(
+            lambda q=given: rules.ensemble(sir, quantiles=q, **settings),
+            ("CRN-R020", pointer),
+            f"quantiles {given}",
+        )
+    for given in (0.5, "0.5", (True,), ("0.5",), {0.5: 1}):
+        try:
+            rules.ensemble(sir, quantiles=given, **settings)
+        except TypeError:
+            pass
+        else:
+            raise RuntimeError(f"quantiles={given!r} accepted")
+    require(
+        list(
+            rules.ensemble(sir, quantiles=np.array([0.025, 0.975]), **settings)
+            .simulate()
+            .statistics["quantiles"]
+        )
+        == [0.025, 0.975],
+        "a NumPy array of probabilities",
+    )
+    large = {
+        "end": 3.0,
+        "report_times": [i * 0.02 for i in range(150)],
+        "replicates": 1_000_000,
+        "max_output_bytes": 1 << 30,
+    }
+    hint = refused_with(
+        lambda: rules.ensemble(model, quantiles=(0.5,), **large),
+        ("CRN-R020", "/outputs/quantiles"),
+        "the quantile buffer above the workspace limit",
+    )["hint"]
+    require(
+        all(
+            s in hint
+            for s in ("fewer report times", "fewer replicates", "no quantiles")
+        ),
+        "the workspace refusal names its remedies",
+    )
+    rules.ensemble(model, **large)  # admitted without quantiles
+
+    # Compiled loops serve exact bytes: one compiled for the model/1.0
+    # document runs quantiles (here a stand-in that runs the interpreter);
+    # one for the rules-model bytes is refused with a hint.
+    def stand_in(document):
+        loop = CompiledLoop(
+            fingerprint=fingerprint_of(rules.loop_source(document)),
+            model_sha256=hashlib.sha256(crn_craft.model_bytes(document)).hexdigest(),
+            version=crn_craft._native.__version__,
+            directory=tempfile.gettempdir(),
+            cached=True,
+        )
+        return loop
+
+    old_loop = stand_in(sir.to_dict())
+    hint = refused_with(
+        lambda: rules.ensemble(sir, quantiles=QUANTILES, compiled=old_loop, **settings),
+        ("CRN-R020", "/model"),
+        "a loop for the rules-model bytes with quantiles",
+    )["hint"]
+    require("crn-craft.model/1.0" in hint, "the hint names the model/1.0 document")
+    rules.ensemble(sir, compiled=old_loop, **settings)  # without quantiles: fine
+    new_loop = stand_in({**sir.to_dict(), "schema": rules.MODEL_1_0})
+    compiled_run = rules.ensemble(
+        sir, quantiles=QUANTILES, compiled=new_loop, **settings
+    )
+    new_loop.execute = lambda request, cancel_file=None: compiled_run._native.simulate(
+        None, None
+    )
+    verified = new_loop.verify(compiled_run)
+    check_numpy_quantiles(verified, QUANTILES, "compiled stand-in")
+    require(
+        result_bytes(verified) == result_bytes(compiled_run.simulate()),
+        "the compiled path reports the quantiles",
+    )
+
+
 def check_reports(model):
     """Result.save: markdown and JSON reports of builder, attributed and
     hybrid models, with and without paths, statistics and quantiles."""
@@ -885,9 +1250,19 @@ def check_reports(model):
         (sir.metadata, result_bytes(sir)) == before,
         "saving changes nothing about the result",
     )
-    # Quantiles, as M4e will add them to result.statistics: after the
-    # sample variance, in ascending order, 0.5 as the median.
-    quantiled = with_quantiles(sir, (0.975, 0.025, 0.5, 0.25))
+    # The engine's quantiles: after the sample variance, in ascending order,
+    # 0.5 as the median.
+    quantiled = rules.ensemble(
+        sir_model(),
+        end=250.0,
+        report_times=[0, 50, 100, 150, 200, 250],
+        replicates=10,
+        seed=1,
+        keep_paths="all",
+        method="static_direct",
+        quantiles=(0.025, 0.25, 0.5, 0.975),
+    ).simulate()
+    check_numpy_quantiles(quantiled, (0.025, 0.25, 0.5, 0.975), "report")
     with tempfile.TemporaryDirectory() as folder:
         _, markdown = saved(quantiled, folder, "q.md")
         check_report_markdown(quantiled, markdown, ["S", "I", "R"])
@@ -1454,6 +1829,7 @@ def main():
         else:
             raise RuntimeError(f"keep_paths {bad!r} accepted")
     check_result_documents(model)
+    check_quantiles(model)
     check_reports(model)
     args.output.write_text(
         json.dumps(
@@ -1483,6 +1859,7 @@ def main():
                     "tracker index bounds",
                     "trackers without a method",
                     "result model and request of every path",
+                    "quantiles equal numpy.quantile of the paths",
                     "markdown and JSON reports",
                 ],
             },

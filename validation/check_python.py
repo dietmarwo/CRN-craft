@@ -195,8 +195,6 @@ def check_names(rows):
     require(not missing, f"crn_craft.rules lost 0.6.0 names: {sorted(missing)}")
     require(
         rules.CrnError is crn.CrnError
-        and rules.compile_loop is crn.compile_loop
-        and rules.loop_source is crn.loop_source
         and rules.load_report is crn.load_report
         and rules.archive is crn.archive
         and rules.verify_archive is crn.verify_archive

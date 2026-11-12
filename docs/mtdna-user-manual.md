@@ -1315,11 +1315,11 @@ their entries stay in the cache until you delete it.
   densely coupled networks with many channels reach.
   `crn.loop_source(model)` returns the source, or that error, without
   cargo.
-- The loop is compiled for the exact model bytes. `crn.ensemble` writes a
-  `rules-model` dictionary as `model/1.0`, so give `compile_loop` and
-  `ensemble` the same `crn.Model` (for example from `Model.from_dict`, as
-  above); a loop compiled for the dictionary is refused with `CRN-R020` at
-  `/model`.
+- The loop is compiled for the exact model bytes. `crn.compile_loop`
+  builds for the document `crn.ensemble` runs (`model/1.0`), so the same
+  dictionary or `crn.Model` works for both calls. `crn.rules.compile_loop`
+  builds for the bytes as given, which `crn.rules.ensemble` runs; a loop
+  compiled for other bytes is refused with `CRN-R020` at `/model`.
 - Parameters are compiled in, so another parameter set needs another loop.
   A loop passed for other model bytes, or for a `bind_parameters`
   candidate, is refused with `CRN-R020` at `/model`; candidates run

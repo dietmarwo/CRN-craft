@@ -583,3 +583,78 @@ Added memory: 7,180 KiB (median of the peaks), against a buffer of
 column. Added time: −1.90 s, inside the run-to-run spread of about ±3 s; the
 quantile work (222 columns of 4,000 values sorted once, three evaluations
 each) is not measurable against 65 s of simulation.
+
+### M4c (selectors): declaration
+
+Written and committed before any run of the checks below. Mechanical smoke
+runs of the scripts (300 replicates of the exact-law check, 2,000 events of
+the benchmark, 2,000 replicates of the law gate on W1 and W4) checked only
+that the scripts run; they are listed in the M4c log and decide nothing.
+Engine under test: branch `merge-0.7` at the M4c implementation, CLI
+`target/release/crn-craft` and the wheel built from the checkout, under the
+CPU lock.
+
+**1. Selector-threshold benchmark** (`selector_threshold.py --binary ...`,
+output `validation/merge/selector-threshold.json`). Five families of
+`crn-craft.model/1.0` models:
+
+| Family | Network | Molecules per species | Rates |
+| --- | --- | ---: | --- |
+| `ring` | n species, X_i → X_(i+1 mod n) | 100 | 1 |
+| `ring_small` | the same | 4 | 1 |
+| `dense` | m species, every X_i → X_j, i ≠ j (n = m(m − 1)) | 32 | 1 |
+| `michaelis` | the ring | 100 | whole propensity vmax X_i / (km + X_i), vmax 1, km 10 |
+| `two_reads` | the ring | 100 | whole propensity X_i X_(i+1) / (1 + X_(i+1)) |
+
+Grid: n = 8, 16, 32, 64, 128, 256, 512, 1,024, 2,048, 4,096 channels for the
+ring families; m = 3, 4, 6, 8, 12, 16, 23, 32, 46, 64 (n = 6 … 4,032) for
+`dense`. Every point runs `linear`, `composition_rejection`, `sorting` and
+`rssa_cr` (`crn-craft.run/1.0`, Ziggurat waits, one replicate, one thread,
+root seed 4242, end = 1,000,000 / a0 with a0 the initial total propensity).
+A point's time is the median wall time of three `crn-craft rules` processes
+after a warm-up, divided by the run's events. The rule, fixed from the file
+without change:
+
+- N_cr: the smallest grid n such that composition–rejection is faster than
+  the linear scan at every point with at least n channels of every family;
+- N_rssa: the smallest grid n such that RSSA-CR is faster than both the
+  linear scan and composition–rejection at every such point of every family
+  except `two_reads`;
+- `auto` = `rssa_cr` when every rule's rate reads at most one species (no
+  RSSA-CR bound is a point by construction) and n ≥ N_rssa; else
+  `composition_rejection` when n ≥ N_cr; else `linear`. Sorting is never
+  picked. If no grid n qualifies, the branch never applies.
+
+**2. Exact-law check per selector** (`check_selectors.py --binary ...`, 2
+threads, report `validation/merge/laws/selectors-exact.json`), the structure
+of `validation/check_alternative_ssa.py`: the fixtures pure-decay,
+immigration-zero and immigration-nonzero (closed-form laws, the seeds of their
+run files) and the CME fixtures F1 dimerization, F2 heterodimer, F3
+Michaelis–Menten with Hill recycling and F4 open annihilation of
+`validation/check_cme.py` (laws by uniformization, their seeds), converted by
+the engine under test. Each runs with the four selectors and both waiting
+times (8 variants), n = 100,000 replicates, every path kept. Per variant,
+fixture and positive report time: the largest CDF distance of the marginal
+to the exact law is at most ε = sqrt(ln(2 · 168 / 0.001) / (2n)) = 0.00798
+(168 tests, family α = 0.001); the reported mean and variance equal the
+paths' moments to 2e-12 relative; for F1 and F4 every variant rejects the
+falling-factorial law at some time (16 power checks). Expected failures:
+about 0.001 for the family; **0 failures are expected**. A failure is
+investigated once, not rerun with other seeds.
+
+**3. Law gate per selector** (`check_laws.py --python ... --method
+'{"kind": "static_direct", "selector": S}' --label m4c-S`) for S = `linear`,
+`composition_rejection`, `sorting`, `rssa_cr`: all twelve models, the gate
+seeds of `models.json`, 2 threads. Per selector N = 4,814 comparisons (4,636
+against the references, 178 against FSP laws), 940 at t = 0; about 0.002
+failures expected per selector: **0 failures are expected** for each. For
+`linear`, the power sums and event counts of every model must also equal
+those of `laws/m4-static_direct.json` (the M4b regression run, the same
+linear scan under `crn-craft.run/1.0` before the selector existed). Failed
+rows are kept; a failure is investigated once, then reported.
+
+**4. Informative timings** (`compare_speed.py --old /home/claude/m07/bin060/crn-craft
+--new target/release/crn-craft`): W1–W7 at the sizes of the speed gate, the
+0.6.0 best method rerun in the same session, and the unified engine with
+each selector and with `auto`; medians of three after a warm-up. No target;
+the speed gate is M4d.

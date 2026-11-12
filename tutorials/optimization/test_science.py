@@ -4,6 +4,7 @@ import copy
 import json
 import math
 from pathlib import Path
+from types import SimpleNamespace
 import tempfile
 import unittest
 import numpy as np
@@ -31,10 +32,10 @@ class ScienceChecks(unittest.TestCase):
             statistics={},
         )
         with self.assertRaises(ValueError):
-            checked(r)
+            checked(SimpleNamespace(metadata=r))
         r.update(completed_replicates=4, termination="event_limit")
         with self.assertRaises(ValueError):
-            checked(r)
+            checked(SimpleNamespace(metadata=r))
 
     def test_two_monomer_survival_probability(self):
         times = [0, 0.3, 1.0]
@@ -54,7 +55,7 @@ class ScienceChecks(unittest.TestCase):
         self.assertGreater(float(np.max(np.abs(a - b))), 0.1)
 
     def test_binding_initial_and_conserved_moments(self):
-        self.assertEqual(len(binding_model()["reactions"]), 2)
+        self.assertEqual(len(binding_model()["rules"]), 2)
         mean, variance = moments("binding", [0.4, 0.2], [0, 1, 100])
         np.testing.assert_allclose(mean.sum(axis=1), 30)
         np.testing.assert_array_equal(mean[0], [30, 0])
@@ -134,8 +135,12 @@ class ScienceChecks(unittest.TestCase):
                 a["policy"]: a["sampler"]
                 for a in verified["presets"][preset]["C1"]["results"]["arms"]
             }
-            self.assertTrue(policies["fast"].startswith("xoshiro256pp"))
-            self.assertTrue(policies["checked"].startswith("chacha8"))
+            self.assertTrue(
+                policies["direct"].startswith("chacha8-u53-ziggurat/rules-static")
+            )
+            self.assertTrue(
+                policies["next_reaction"].startswith("chacha8-u53/rules-next-reaction")
+            )
 
     def test_record_refuses_an_incomplete_run(self):
         with tempfile.TemporaryDirectory() as temp:

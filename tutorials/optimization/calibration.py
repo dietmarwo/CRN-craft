@@ -1,45 +1,60 @@
 """C1: complete fresh-versus-bound parameter fits with independent moments."""
 
 import copy
-import json
 import time
 import numpy as np
-import crn_craft._legacy as crn
+import crn_craft as crn
 import fcmaes_rust
-from common import ROOT, arm_manifest, checked, require, write
+from common import arm_manifest, checked, require, write
 
 
 START, LOWER, UPPER = 1.25, 0.35, 2.5  # multiples of the true rates
+TIMES = np.linspace(0, 6, 7).tolist()
+METHODS = {"direct": "static_direct", "next_reaction": "next_reaction"}
 
 
 def options(parser):
     parser.add_argument(
-        "--include-checked",
+        "--include-next-reaction",
         action="store_true",
-        help="add a separate arm with the checked exact policy (fast=False)",
+        help="add a separate arm with the next-reaction method (its own random stream)",
     )
 
 
 def binding_model():
-    return dict(
-        schema="crn-craft.model/0.1",
-        name="reversible_binding",
-        convention="stochastic_counts",
-        omega=1.0,
-        parameters={"forward": 0.4, "reverse": 0.2},
-        species=[dict(name="A", initial_count=30), dict(name="B", initial_count=0)],
-        reactions=[
-            dict(
-                name=name,
-                reactants={a: 1},
-                products={b: 1},
-                rate=dict(kind="mass_action", coefficient=parameter),
-            )
-            for name, a, b, parameter in [
-                ("bind", "A", "B", "forward"),
-                ("release", "B", "A", "reverse"),
-            ]
-        ],
+    """The reversible binding fixture as a crn-craft.model/1.0 document."""
+    model = crn.Model("reversible_binding")
+    model.add_species({"A": 30, "B": 0})
+    model.add_parameter({"forward": 0.4, "reverse": 0.2})
+    model.add_reaction("forward * A", ["A"], ["B"], name="bind")
+    model.add_reaction("reverse * B", ["B"], ["A"], name="release")
+    return model.to_dict()
+
+
+def without_hashes(result):
+    """Result metadata without the hashes of the serialized model and request.
+
+    A binding serializes the bound model itself, so its hashes need not equal
+    those of a model prepared afresh from the same values; every other field,
+    including the sampler, events and statistics, must.
+    """
+    return {
+        k: v
+        for k, v in result.metadata.items()
+        if k not in ("model_sha256", "run_sha256")
+    }
+
+
+def request(model, method, **settings):
+    """One Static Direct (or next-reaction) ensemble of the model document."""
+    return crn.ensemble(
+        crn.Model.from_dict(model),
+        end=6,
+        report_times=TIMES,
+        method=method,
+        quantiles=(),
+        max_events=100000,
+        **settings,
     )
 
 
@@ -56,7 +71,7 @@ def moments(kind, values, times):
 
 
 def loss(result, target):
-    statistics = result["statistics"]
+    statistics = result.statistics
     mean, variance = target
     return float(
         np.mean(((np.asarray(statistics["mean"]) - mean) / (1 + mean)) ** 2)
@@ -74,7 +89,8 @@ def run(args, report):
     holdout = 1024 if args.preset == "smoke" else 4096
     seeds = [7001] if args.preset == "smoke" else [7001, 7002, 7003]
     seeds = [seed + args.seed_offset for seed in seeds]
-    times = np.linspace(0, 6, 7).tolist()
+    times = TIMES
+    policies = ["direct", "next_reaction"] if args.include_next_reaction else ["direct"]
     report["budgets"] = dict(
         requested_calls=budget,
         training_paths=training,
@@ -87,50 +103,33 @@ def run(args, report):
         training_sample="one ensemble, seed 77201, shared by all optimizer seeds",
         start_multiple_of_truth=START,
         bounds_multiple_of_truth=[LOWER, UPPER],
-        policies=["fast", "checked"] if args.include_checked else ["fast"],
+        policies=policies,
         event_cap_per_path=100000,
         threads=args.threads,
     )
     for kind, model in [
-        (
-            "immigration",
-            json.loads(
-                (ROOT / "models/examples/immigration-death.model.json").read_text()
-            ),
-        ),
+        ("immigration", crn.load_example("immigration-death").to_dict()),
         ("binding", binding_model()),
     ]:
         names = sorted(model["parameters"])
         truth = np.array([model["parameters"][name] for name in names])
+        truth_values = dict(zip(names, truth.tolist(), strict=True))
         target = moments(kind, truth, times)
         write(args.output / f"{kind}.model.json", model)
-        for fast in [True, False] if args.include_checked else [True]:
-            policy = "fast" if fast else "checked"
+        for policy in policies:
+            method = METHODS[policy]
             setup = time.perf_counter()
-            request = crn.ssa_spec(
-                model,
-                fast=fast,
-                aggregator="cached_direct",
-                end=6,
-                save_times=times,
-                replicates=training,
-                seed=77201,
-                threads=args.threads,
-                max_events=100000,
-            )
-            template = crn.prepare_parameters(model, request)
-            require(
-                list(template.parameter_names) == names,
-                "parameter coordinate order changed",
+            template = request(
+                model, method, replicates=training, seed=77201, threads=args.threads
             )
             setup_seconds = time.perf_counter() - setup
             # The training loss of the true rates on the same sample tells
             # overfitting apart from search failure.
-            at_truth = checked(template.simulate(truth))
+            at_truth = checked(template.bind_parameters(truth_values).simulate())
             require(
-                at_truth["method"]["fast"] is fast
-                and at_truth["schema"] == "crn-craft.ssa-result/0.3",
-                f"{kind}-{policy}: result does not state the requested policy",
+                at_truth.metadata["method"]["kind"] == method
+                and at_truth.metadata["schema"] == "crn-craft.result/1.0",
+                f"{kind}-{policy}: result does not state the requested method",
             )
             truth_training_loss = loss(at_truth, target)
             for seed in seeds:
@@ -145,34 +144,29 @@ def run(args, report):
                         template=template,
                         model=model,
                         names=names,
-                        fast=fast,
+                        method=method,
                         target=target,
                         work=work,
                         trace=trace,
                     ):
-                        rates = np.exp(x)
+                        rates = dict(zip(names, np.exp(x).tolist(), strict=True))
                         if route == "reusable":
-                            result = checked(template.simulate(rates))
+                            result = checked(template.bind_parameters(rates).simulate())
                         else:
                             candidate = copy.deepcopy(model)
-                            candidate["parameters"] = dict(
-                                zip(names, rates.tolist(), strict=True)
+                            candidate["parameters"] = rates
+                            result = checked(
+                                request(
+                                    candidate,
+                                    method,
+                                    replicates=training,
+                                    seed=77201,
+                                    threads=args.threads,
+                                ).simulate()
                             )
-                            spec = crn.ssa_spec(
-                                candidate,
-                                fast=fast,
-                                aggregator="cached_direct",
-                                end=6,
-                                save_times=times,
-                                replicates=training,
-                                seed=77201,
-                                threads=args.threads,
-                                max_events=100000,
-                            )
-                            result = checked(crn.simulate_ssa(candidate, spec))
                         value = loss(result, target)
-                        work["events"] += result["events"]
-                        work["paths"] += result["completed_replicates"]
+                        work["events"] += result.metadata["events"]
+                        work["paths"] += result.metadata["completed_replicates"]
                         trace.append(dict(x=list(x), value=value))
                         return value
 
@@ -190,25 +184,23 @@ def run(args, report):
                     x, value, actual = answer[:3]
                     require(actual == len(trace), "optimizer call accounting differs")
                     validation_start = time.perf_counter()
-                    validation_request = crn.ssa_spec(
+                    validation_template = request(
                         model,
-                        fast=fast,
-                        aggregator="cached_direct",
-                        end=6,
-                        save_times=times,
+                        method,
                         replicates=holdout,
                         seed=99173,
                         threads=args.threads,
-                        max_events=100000,
                     )
-                    validation_template = crn.prepare_parameters(
-                        model, validation_request
+                    fitted_rates = dict(zip(names, np.exp(x).tolist(), strict=True))
+                    fitted = checked(
+                        validation_template.bind_parameters(fitted_rates).simulate()
                     )
-                    fitted = checked(validation_template.simulate(np.exp(x)))
-                    reference = checked(validation_template.simulate(truth))
+                    reference = checked(
+                        validation_template.bind_parameters(truth_values).simulate()
+                    )
                     exact_fitted = moments(kind, np.exp(x), times)[0]
-                    empirical = np.asarray(fitted["statistics"]["mean"])
-                    se = np.asarray(fitted["statistics"]["mean_standard_error"])
+                    empirical = np.asarray(fitted.statistics["mean"])
+                    se = np.asarray(fitted.statistics["mean_standard_error"])
                     error = float(
                         np.max(
                             np.abs(empirical - exact_fitted)
@@ -219,29 +211,44 @@ def run(args, report):
                         error < 6,
                         "held-out means disagree with independent exact moments",
                     )
-                    bound = template.bind(np.exp(x))
+                    # The ordinary replay prepares the fitted model afresh; the
+                    # reusable binding must give the same result.
+                    ordinary = copy.deepcopy(model)
+                    ordinary["parameters"] = fitted_rates
                     replay = checked(
-                        crn.simulate_ssa(bound.model_bytes, bound.request_bytes)
+                        request(
+                            ordinary,
+                            method,
+                            replicates=holdout,
+                            seed=99173,
+                            threads=args.threads,
+                        ).simulate()
                     )
-                    repeat = checked(bound.simulate())
+                    repeat = checked(
+                        validation_template.bind_parameters(fitted_rates).simulate()
+                    )
                     require(
-                        replay == repeat, "ordinary replay and reusable binding differ"
+                        without_hashes(replay) == without_hashes(repeat)
+                        and replay.statistics["mean"].equals(repeat.statistics["mean"])
+                        and replay.statistics["sample_variance"].equals(
+                            repeat.statistics["sample_variance"]
+                        ),
+                        "ordinary replay and reusable binding differ",
                     )
                     tag = f"{kind}-{policy}-{seed}-{route}"
                     write(args.output / f"{tag}.trace.json", trace)
                     validation_work = dict(
-                        events=fitted["events"]
-                        + reference["events"]
-                        + replay["events"]
-                        + repeat["events"],
+                        events=fitted.metadata["events"]
+                        + reference.metadata["events"]
+                        + replay.metadata["events"]
+                        + repeat.metadata["events"],
                         paths=2 * holdout + 2 * training,
                     )
                     row = dict(
                         model=kind,
-                        fast=fast,
                         policy=policy,
-                        sampler=fitted["sampler"],
-                        request_schema=validation_request["schema"],
+                        sampler=fitted.metadata["sampler"],
+                        request_schema=fitted.metadata["schema"],
                         route=route,
                         seed=seed,
                         rates=np.exp(x),
@@ -250,8 +257,8 @@ def run(args, report):
                         training_loss=value,
                         truth_training_loss=truth_training_loss,
                         truth_training_work=dict(
-                            events=at_truth["events"],
-                            paths=at_truth["completed_replicates"],
+                            events=at_truth.metadata["events"],
+                            paths=at_truth.metadata["completed_replicates"],
                         ),
                         best_is_start=bool(np.allclose(x, x0, rtol=0, atol=1e-12)),
                         holdout_loss=loss(fitted, target),

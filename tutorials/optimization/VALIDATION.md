@@ -7,7 +7,7 @@ compatibility implementation.
 
 [results/verified.json](results/verified.json) holds the numbers below for one
 complete smoke and one complete study run of the committed lessons (C1 with
-`--include-checked`, `--threads 2`). [record.py](record.py) writes it from the
+`--include-next-reaction`, `--threads 2`), made on the unified 0.7.0 API. [record.py](record.py) writes it from the
 runs' summaries and refuses incomplete or failed runs:
 
 ```bash
@@ -15,20 +15,24 @@ python tutorials/optimization/record.py --smoke SMOKE_DIR --study STUDY_DIR \
   --output tutorials/optimization/results/verified.json
 ```
 
-SSA runs use the default `fast` policy (`crn-craft.ssa-run/0.3`, sampler
-`xoshiro256pp-u53/...`); C1's checked arm uses `fast=False` (`chacha8-u53/...`).
-The two policies draw different paths, so their rows differ and are never
-pooled.
+SSA runs are Static Direct ensembles of `crn-craft.run/1.0` (sampler
+`chacha8-u53-ziggurat/rules-static-direct/1`); C1's second arm uses the
+`next_reaction` method (`chacha8-u53/rules-next-reaction/1`). The two methods
+draw different paths, so their rows differ and are never pooled. The
+0.6.0 record (xoshiro256++ `fast` and ChaCha8 `checked` policies) is replaced:
+the random stream changed with the merge, so the sampled numbers below differ
+from it; the deterministic ones (C2 audits and ODE fits, C4, which ran on the
+rules engine before) are unchanged, and every threshold is unchanged.
 
 | Check | Result (smoke; study) |
 |---|---|
-| C1 fresh and reusable candidate streams, ordinary replay, held-out moments | Equal streams and replay for every arm and both policies; largest held-out mean error 2.0 standard errors (smoke), 2.2 (study), against a gate of 6 |
-| C1 training loss of the fitted versus the true rates | Fitted below truth in most arms, e.g. study binding, checked: 0.012–0.014 against 0.108; the fits follow the shared training sample |
+| C1 fresh and reusable candidate streams, ordinary replay, held-out moments | Equal streams and replay for every arm and both methods; largest held-out mean error 2.3 standard errors (smoke), 2.8 (study), against a gate of 6 (0.6.0: 2.0 and 2.2) |
+| C1 training loss of the fitted versus the true rates | Fitted below truth in most arms, e.g. study binding, next-reaction: 0.005–0.013 against 0.025; the fits follow the shared training sample |
 | C2 integration and log-gradient audits | Gradient error 9.1e-10, state error 6.5e-11, tightened 3.2e-12 |
 | C2 local identifiability | Full-observation condition number 2.6 at the truth; a terminal-product twin (0.74, 0.84) matches P(T) to 2e-13 with full-trajectory RMSE 0.029 |
 | C2 fits | Multistart and global-local SQP recover (1.0, 0.8); BiteOpt alone 12% rate error (smoke), 0.4% (study) |
-| C3 generator, cross-backend control, MODE/archive and held-out paths | Generator error below 1e-14; control within 1.4 (smoke) and 1.7 (study) standard errors; archives occupy 3 of 16 cells in both presets |
-| C3 oscillation behind the selections | Quality-optimal Pareto design: 75% of training and 31% of held-out paths oscillatory (smoke), 94% and 78% (study); archive elites at most 6% |
+| C3 generator, cross-backend control, MODE/archive and held-out paths | Generator error below 1e-14; control within 1.1 (smoke) and 1.8 (study) standard errors; archives occupy 2 of 16 cells in both presets (0.6.0: 3) |
+| C3 oscillation behind the selections | Quality-optimal Pareto design: 75% of training and 62% of held-out paths oscillatory (smoke), 81% and 66% (study); archive elites at most 15% |
 | C4 mass and four-marginal law gate per kernel | Largest held-out CDF distance 0.030 (smoke) and 0.011 (study) against bounds 0.066 and 0.023 |
 | C4 fitted rate versus exact-law reference | Constant kernel 0.87 (smoke) and 1.17 (study) against 1.2; multiplicative 0.60, the start (smoke), and 0.64 (study) against 0.67 |
 | Fifteen Python unit and negative checks | Pass normally and under `python -O` |

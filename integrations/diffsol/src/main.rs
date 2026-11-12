@@ -1,9 +1,10 @@
 #![forbid(unsafe_code)]
 //! Optional BDF solve of the deterministic count kinetics with forward sensitivities.
 //!
-//! The model is a network `crn-craft.model/0.1`, a rules model or a `crn-craft.model/1.0`; the
+//! The model is a `crn-craft.model/1.0`, a rules model or a network `crn-craft.model/0.1`; the
 //! kinetics read it through its flat view (`Kinetics::from_bytes`). Population limits exist in
-//! network models only.
+//! network models only; this program reads them from the JSON itself, not through the
+//! network types of `crn-craft` (those leave the crate in 0.7.0).
 //!
 //! State-domain rule (docs/campaign/M7.md):
 //! - Rates and parameter derivatives are evaluated at `max(y, 0)`, and the state Jacobian is the
@@ -131,16 +132,27 @@ fn domain_error(
     )
 }
 
-/// Whether the document names the network model contract (population limits live there only).
-fn is_network_model(bytes: &[u8]) -> bool {
-    serde_json::from_slice::<serde_json::Value>(bytes)
-        .ok()
-        .and_then(|v| {
-            v.get("schema")?
-                .as_str()
-                .map(|s| s == "crn-craft.model/0.1")
+/// Species names and population limits of a network `crn-craft.model/0.1` document, read from
+/// the JSON itself (population limits live in that contract only and the kinetics never read
+/// them). `None` for any other document, and for a network document too malformed to list its
+/// species: the kinetics then report the model's own diagnostics.
+fn network_species(bytes: &[u8]) -> Option<Vec<(String, Option<i64>)>> {
+    let value: serde_json::Value = serde_json::from_slice(bytes).ok()?;
+    if value.get("schema")?.as_str()? != "crn-craft.model/0.1" {
+        return None;
+    }
+    value
+        .get("species")?
+        .as_array()?
+        .iter()
+        .map(|s| {
+            Some((
+                s.get("name")?.as_str()?.to_string(),
+                s.get("population_limit")
+                    .and_then(serde_json::Value::as_i64),
+            ))
         })
-        .unwrap_or(false)
+        .collect()
 }
 fn run() -> Result<(), Diagnostic> {
     let args: Vec<_> = std::env::args().collect();
@@ -156,11 +168,7 @@ fn run() -> Result<(), Diagnostic> {
     }
     let read = |path: &str| std::fs::read(path).map_err(|e| failure(format!("{path}: {e}")));
     let bytes = read(&args[1])?;
-    let network = if is_network_model(&bytes) {
-        Some(crn_craft::parse_model(&bytes).map_err(|e| failure(e.message))?)
-    } else {
-        None
-    };
+    let network = network_species(&bytes);
     let request: Request =
         crn_craft::strict_json::parse(&read(&args[2])?).map_err(|e| failure(e.message))?;
     let _schema = &request.schema;
@@ -192,7 +200,7 @@ fn run() -> Result<(), Diagnostic> {
     // A network model keeps its species order and names in the kinetics (names the rules
     // language reserves are renamed there); diagnostics use the model's own names.
     let names: Vec<String> = match &network {
-        Some(model) => model.species.iter().map(|s| s.name.clone()).collect(),
+        Some(species) => species.iter().map(|(name, _)| name.clone()).collect(),
         None => kinetics.species().to_vec(),
     };
     if names.len() != n {
@@ -200,8 +208,8 @@ fn run() -> Result<(), Diagnostic> {
     }
     let named_limits: Vec<(usize, i64)> = network
         .iter()
-        .flat_map(|model| model.species.iter().enumerate())
-        .filter_map(|(i, s)| s.population_limit.map(|l| (i, l)))
+        .flat_map(|species| species.iter().enumerate())
+        .filter_map(|(i, (_, limit))| limit.map(|l| (i, l)))
         .collect();
     let (atol, rtol) = (request.atol, request.rtol);
     // (species index, limit, accepted excess above the limit)

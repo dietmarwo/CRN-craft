@@ -2,21 +2,22 @@
 
 Use one trace evaluator for multi-objective search, quality diversity and final
 validation. The executable [oscillators.py](oscillators.py) builds an additive
-Hill network, runs native MODE and MAP-Elites through their Python APIs, and
+Hill network as a `crn-craft.model/1.0` document, runs native MODE and MAP-Elites through their Python APIs, and
 checks a second simulator backend before interpreting the archive.
 
 ## Define the model before comparing it
 
 The search model has three species. Each species has basal production and
 linear degradation; each active signed edge adds a separate Hill production
-channel. The default topology is a three-edge repression ring. Splitting a
+channel (a propensity expression such as `vmax / (1 + (X2 / k)^n)`). The default topology is a three-edge repression ring. Splitting a
 summed production rate into channels changes random-number consumption but
 preserves the continuous-time Markov generator when propensities and state
 changes agree.
 
 The generator audit includes zero populations, half-saturation, random states,
 multiple incoming edges and both signs. It compares CRN's aggregated production
-and death rates with the explicit additive formula. A second native reference,
+and death rates, read from `Model.analyze()` at each state, with the explicit
+additive formula. A second native reference,
 [crn_reference.rs](https://github.com/dietmarwo/fcmaes-rust/blob/main/tutorials/oscillator-topology-search/examples/crn_reference.rs),
 uses the existing topology tutorial's **local ReBop 0.9.7 compatibility backend**
 and six aggregate channels. This is not a claim to benchmark unmodified
@@ -42,8 +43,9 @@ MODE and MAP-Elites each receive 32 smoke or 256 study requests. Each candidate
 uses 4 or 16 training paths, sampled at 201 equally spaced times over 125 time
 units, with a 200,000-event cap per path. The three fitted coordinates are log
 Hill strength, half-saturation and degradation rate. Topology is held fixed.
-All SSA runs use CRN-craft's default `fast` policy (`crn-craft.ssa-run/0.3`);
-the summary records the request schema and every evaluation's sampler.
+All SSA runs are Static Direct ensembles (`crn.ensemble`, request
+`crn-craft.run/1.0`) whose candidates are bound with `bind_parameters`; the
+summary records the request schema and every evaluation's sampler.
 
 ## State the scoring rule
 

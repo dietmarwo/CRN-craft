@@ -1,10 +1,10 @@
 # C4 — Infer aggregation rates with the rules engine
 
 Dynamic species require different semantics from a fixed reaction network.
-This lesson uses the native K1 rules CLI, a small independent finite-state
-reference and a bounded scalar search. It does not pass rules through the
-network Python builder, `fast` policy or parameter-template interface. See
-[rules.py](rules.py).
+This lesson uses the native `crn-craft run` command with `crn-craft.run/1.0`
+requests, a small independent finite-state reference and a bounded scalar
+search. It does not pass dynamic species through the Python builder or the
+parameter-binding interface. See [rules.py](rules.py).
 
 ## A system small enough to check independently
 

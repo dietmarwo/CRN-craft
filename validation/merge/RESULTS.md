@@ -1674,3 +1674,43 @@ per-call run preparation and per-path setup outweigh the events). Within
 each engine the routes returned identical moments at every point. Recorded,
 not optimized (owner decision for M4d); follow-up: a bind path that patches
 the parameter values of an already prepared run.
+
+### M10c (GillesPy2 comparison on the unified engine): declaration
+
+Committed before the first run. The measurement repeats
+`docs/comparison-gillespy2.md` on the unified engine. It is informative:
+there is no speed target.
+
+- **Script:** `validation/compare_gillespy2.py` as ported in M8a, unchanged:
+  workloads W1–W4 of `benchmark_campaign.models()`, 64 paths over t in
+  [0, 100], reports at 0 and 100, one thread, root seed 4242; the agreement
+  checks use 512 paths per simulator with the script's fixed seeds (777,
+  778, 779).
+- **Build:** the CLI and the wheel of the branch `merge/M10c` at this
+  commit, `cargo build --release --workspace --locked` and
+  `maturin build --release --locked` from the root; the wheel installed in a
+  virtual environment with the package set of the merge suite (Python
+  3.12.3, GillesPy2 1.8.3, NumPy 2.3.5, SciPy 1.18.1, matplotlib 3.11.2,
+  SCons 4.11.1); g++ 13.3.
+- **Runs:** four parts, `--only W1` to `--only W4`, each under the CPU lock,
+  with the script's defaults: five interleaved repeats of every CRN-craft
+  row and of GillesPy2's `SSACSolver`, three repeats of its
+  `NumPySSASolver`; a row's time is the median. A part that is interrupted is
+  rerun whole. The four reports are merged by workload into
+  `validation/merge/gillespy2-comparison-0.7.json`; their other fields must
+  be equal. The figure is plotted from the merged report with
+  `--plot-only`.
+- **Rows:** the CLI process (`crn-craft run`, wall time of the process), the
+  Python calls `crn.ensemble(...).simulate()` (preparation included) for the
+  default Static Direct request (`auto` selector, Ziggurat waits), the
+  checked configuration (`linear`, inverse waits) and each selector with
+  Ziggurat waits, GillesPy2's C++ solver (built once; compile time reported
+  separately) and its NumPy solver.
+- **Agreement rule:** the script reports 20 two-sample Kolmogorov–Smirnov
+  p-values (up to three species per workload, for the checked and the
+  default configuration) and 8 pooled chi-square p-values against the exact
+  Poisson laws of W1 and W2 (both simulators, both configurations). With a
+  family-wise error rate of 0.01 over these 28 tests (Bonferroni), a p-value
+  below 0.01 / 28 = 3.6e-4 is a failed row. On W4 every species must stay
+  equal within each path, in both simulators. Failed rows are kept, and
+  nothing is rerun with other seeds.

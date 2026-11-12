@@ -9,7 +9,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-import crn_craft as crn
+import crn_craft._legacy as crn
 from jsonschema import Draft7Validator
 from check_alternative_ssa import VARIANTS
 

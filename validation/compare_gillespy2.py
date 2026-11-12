@@ -55,7 +55,7 @@ import gillespy2 as gp
 import numpy as np
 from scipy import stats
 
-import crn_craft as crn
+import crn_craft._legacy as crn
 from benchmark_campaign import models
 
 NAMES = {"two_channel": "W1", "sparse_66": "W2", "circuit_12": "W3", "dense_66": "W4"}

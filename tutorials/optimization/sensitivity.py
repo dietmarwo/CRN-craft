@@ -7,7 +7,7 @@ import time
 import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.optimize import brentq
-import crn_craft as crn
+import crn_craft._legacy as crn
 import fcmaes_rust
 import sqp_craft as sqp
 from common import ROOT, arm_manifest, call_json, checked, digest, require, write

@@ -4,7 +4,7 @@ import copy
 import json
 import time
 import numpy as np
-import crn_craft as crn
+import crn_craft._legacy as crn
 import fcmaes_rust
 from common import ROOT, arm_manifest, checked, require, write
 

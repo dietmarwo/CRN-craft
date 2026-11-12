@@ -13,7 +13,7 @@ import random
 import statistics
 import sys
 import time
-import crn_craft as crn
+import crn_craft._legacy as crn
 import numpy as np
 from scipy import stats
 from acceleration_workloads import FOLDER, workloads, encode

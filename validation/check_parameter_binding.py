@@ -16,7 +16,7 @@ import math
 from pathlib import Path
 import tempfile
 
-import crn_craft as crn
+import crn_craft._legacy as crn
 from crn_craft import rules
 from parameter_optimization import Worker, save
 from parameter_optimization_models import fixtures

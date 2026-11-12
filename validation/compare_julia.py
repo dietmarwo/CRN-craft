@@ -19,7 +19,7 @@ import sys
 import tempfile
 import time
 
-import crn_craft as crn
+import crn_craft._legacy as crn
 import numpy as np
 from scipy import stats
 

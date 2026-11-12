@@ -12,7 +12,7 @@ import itertools
 import json
 from pathlib import Path
 import tempfile
-import crn_craft as crn
+import crn_craft._legacy as crn
 from parameter_optimization_models import FOLDER, fixtures
 
 

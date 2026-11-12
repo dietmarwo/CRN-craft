@@ -1067,7 +1067,10 @@ impl Expr {
         if let Some(kernel) = vacancy() {
             return kernel;
         }
-        RateKernel::Expression(self.clone())
+        RateKernel::Expression {
+            expr: self.clone(),
+            program: Program::compile(self, params),
+        }
     }
 }
 
@@ -1079,7 +1082,12 @@ pub(crate) enum RateKernel {
         denominator: usize,
         factors: Vec<f64>,
     },
-    Expression(Expr),
+    /// A general rate: the expression (for generated code) and the program
+    /// that evaluates it.
+    Expression {
+        expr: Expr,
+        program: Program,
+    },
 }
 
 impl RateKernel {
@@ -1096,9 +1104,207 @@ impl RateKernel {
                     (limit - env.observables[*count]).max(0.0) / env.observables[*denominator];
                 factors.iter().fold(base, |x, f| x * f)
             }
-            Self::Expression(expr) => expr.eval(env),
+            Self::Expression { program, .. } => program.eval(env),
         }
     }
+}
+
+/// Largest operand stack of a flat [`Program`]; deeper expressions keep the
+/// tree evaluator.
+const STACK: usize = 32;
+
+/// One step of a flat [`Program`]. `acc` holds the value of the last
+/// subexpression; `Push` saves it for a later operation's left operand.
+#[derive(Debug, Clone, Copy)]
+enum Step {
+    Const(f64),
+    Load(usize),
+    Push,
+    Neg,
+    Not,
+    /// `acc = pop op acc`.
+    Bin(Op),
+    /// `acc = acc op c`.
+    BinConst(Op, f64),
+    /// `acc = c op acc`.
+    ConstBin(Op, f64),
+    /// `acc = f(acc)`.
+    Call1(Func),
+    /// `acc = f(pop, acc)`.
+    Call2(Func),
+    /// `if(c, a, acc)` with `c` and `a` popped.
+    Select,
+}
+
+/// A deterministic expression over parameters and observables, compiled for
+/// repeated evaluation with fixed parameter values.
+///
+/// Parameters are read at compilation, and every parameter-only
+/// subexpression is evaluated there once by the tree evaluator, so it is
+/// the value the tree would compute. Every other operation is the tree's
+/// operation on the same operands in the same order, so the program's value
+/// has the bits of [`Expr::eval`] with the same parameters (a NaN may carry
+/// another payload, which Rust does not specify; a NaN rate is an error
+/// whatever its payload). `&&`, `||` and
+/// `if` evaluate both operands and then select, which gives the tree's value
+/// because deterministic evaluation has no side effects. Expressions that
+/// read attributes, draw, or need more than 32 stack slots keep the tree.
+#[derive(Debug, Clone)]
+pub(crate) enum Program {
+    Flat(Code),
+    Tree(Expr),
+}
+
+/// The steps of a flat [`Program`].
+#[derive(Debug, Clone)]
+pub(crate) struct Code(Vec<Step>);
+
+/// The binary operation of the tree evaluator, with its short-circuit logic
+/// applied to an already evaluated right operand.
+#[inline]
+fn apply(op: Op, x: f64, y: f64) -> f64 {
+    match op {
+        Op::And | Op::Or if x.is_nan() => x,
+        Op::And if !truth(x) => 0.0,
+        Op::Or if truth(x) => 1.0,
+        _ => eval_binary(op, x, y),
+    }
+}
+
+impl Program {
+    pub(crate) fn compile(expr: &Expr, params: &[f64]) -> Self {
+        fn constant(node: &Node, params: &[f64]) -> Option<f64> {
+            let tree = Expr { root: node.clone() };
+            tree.parameter_only().then(|| {
+                tree.eval(&Env {
+                    params,
+                    observables: &[],
+                    attributes: [&[], &[]],
+                })
+            })
+        }
+        fn emit(
+            node: &Node,
+            params: &[f64],
+            code: &mut Vec<Step>,
+            depth: usize,
+            deepest: &mut usize,
+        ) -> Option<()> {
+            *deepest = (*deepest).max(depth);
+            if let Some(c) = constant(node, params) {
+                code.push(Step::Const(c));
+                return Some(());
+            }
+            match node {
+                Node::Num(_) | Node::Var(Slot::Param(_)) => unreachable!("folded"),
+                Node::Var(Slot::Observable(i)) => code.push(Step::Load(*i)),
+                Node::Var(Slot::Attribute { .. }) => return None,
+                Node::Neg(a) => {
+                    emit(a, params, code, depth, deepest)?;
+                    code.push(Step::Neg);
+                }
+                Node::Not(a) => {
+                    emit(a, params, code, depth, deepest)?;
+                    code.push(Step::Not);
+                }
+                Node::Bin(op, a, b) => {
+                    if let Some(c) = constant(b, params) {
+                        emit(a, params, code, depth, deepest)?;
+                        code.push(Step::BinConst(*op, c));
+                    } else if let Some(c) = constant(a, params) {
+                        emit(b, params, code, depth, deepest)?;
+                        code.push(Step::ConstBin(*op, c));
+                    } else {
+                        emit(a, params, code, depth, deepest)?;
+                        code.push(Step::Push);
+                        emit(b, params, code, depth + 1, deepest)?;
+                        code.push(Step::Bin(*op));
+                    }
+                }
+                Node::Call(Func::If, args) => {
+                    emit(&args[0], params, code, depth, deepest)?;
+                    code.push(Step::Push);
+                    emit(&args[1], params, code, depth + 1, deepest)?;
+                    code.push(Step::Push);
+                    emit(&args[2], params, code, depth + 2, deepest)?;
+                    code.push(Step::Select);
+                }
+                Node::Call(
+                    Func::Bernoulli | Func::Choice | Func::Uniform | Func::Normal | Func::NewId,
+                    _,
+                ) => return None,
+                Node::Call(f, args) if args.len() == 1 => {
+                    emit(&args[0], params, code, depth, deepest)?;
+                    code.push(Step::Call1(*f));
+                }
+                Node::Call(f, args) => {
+                    emit(&args[0], params, code, depth, deepest)?;
+                    code.push(Step::Push);
+                    emit(&args[1], params, code, depth + 1, deepest)?;
+                    code.push(Step::Call2(*f));
+                }
+            }
+            Some(())
+        }
+        let mut code = Vec::new();
+        let mut deepest = 0;
+        match emit(&expr.root, params, &mut code, 0, &mut deepest) {
+            Some(()) if deepest + 2 <= STACK => Self::Flat(Code(code)),
+            _ => Self::Tree(expr.clone()),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn eval(&self, env: &Env<'_>) -> f64 {
+        match self {
+            Self::Flat(Code(code)) => run(code, env.observables),
+            Self::Tree(expr) => expr.eval(env),
+        }
+    }
+}
+
+fn run(code: &[Step], observables: &[f64]) -> f64 {
+    const MASK: usize = STACK - 1;
+    let mut stack = [0.0f64; STACK];
+    let mut top = 0usize;
+    let mut acc = 0.0;
+    for step in code {
+        match *step {
+            Step::Const(c) => acc = c,
+            Step::Load(i) => acc = observables[i],
+            Step::Push => {
+                stack[top & MASK] = acc;
+                top += 1;
+            }
+            Step::Neg => acc = -acc,
+            Step::Not => {
+                if !acc.is_nan() {
+                    acc = flag(!truth(acc));
+                }
+            }
+            Step::Bin(op) => {
+                top -= 1;
+                acc = apply(op, stack[top & MASK], acc);
+            }
+            Step::BinConst(op, c) => acc = apply(op, acc, c),
+            Step::ConstBin(op, c) => acc = apply(op, c, acc),
+            Step::Call1(f) => acc = deterministic_call(f, acc, 0.0),
+            Step::Call2(f) => {
+                top -= 1;
+                acc = deterministic_call(f, stack[top & MASK], acc);
+            }
+            Step::Select => {
+                top -= 2;
+                let condition = stack[top & MASK];
+                if condition.is_nan() {
+                    acc = condition;
+                } else if truth(condition) {
+                    acc = stack[(top + 1) & MASK];
+                }
+            }
+        }
+    }
+    acc
 }
 
 #[cfg(test)]
@@ -1158,6 +1364,90 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Random expressions over two parameters and three observables, every
+    /// operator and deterministic function, at special values: the flat
+    /// program has the tree's bits. NaN payloads are not specified by Rust
+    /// (the compiler may swap the operands of `+` and `*`), and a NaN rate is
+    /// an error whatever its payload, so any NaN matches any NaN.
+    #[test]
+    fn rate_programs_have_the_bits_of_the_tree() {
+        use rand_core::SeedableRng;
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(0x4f);
+        fn expression(rng: &mut impl RngCore, depth: u8) -> String {
+            let draw = rng.next_u32();
+            if depth == 0 {
+                return ["x", "y", "z", "k", "m", "0", "-0", "0/0", "1/0", "2", "0.1"]
+                    [(draw % 11) as usize]
+                    .into();
+            }
+            let a = expression(rng, depth - 1);
+            let b = expression(rng, depth - 1);
+            let c = expression(rng, depth - 1);
+            match draw % 22 {
+                0 => format!("max(({a}),({b}))"),
+                1 => format!("min(({a}),({b}))"),
+                2 => format!("if(({a}),({b}),({c}))"),
+                3 => format!("!({a})"),
+                4 => format!("-({a})"),
+                5 => format!("exp({a})"),
+                6 => format!("log({a})"),
+                7 => format!("sqrt({a})"),
+                8 => format!("abs({a})"),
+                9 => format!("floor({a})"),
+                10 => format!("ceil({a})"),
+                k => {
+                    let op = ["+", "-", "*", "/", "^", "<", "!=", "&&", "||", ">=", "=="]
+                        [(k - 11) as usize];
+                    format!("({a}){op}({b})")
+                }
+            }
+        }
+        let params = BTreeMap::from([("k".into(), 0), ("m".into(), 1)]);
+        let names = BTreeMap::from([("x".into(), 0), ("y".into(), 1), ("z".into(), 2)]);
+        let scope = Scope {
+            params: &params,
+            observables: Some(&names),
+            reactants: &[],
+            random: false,
+        };
+        let parameter_values = [[3.0, 0.5], [0.0, -2.0], [f64::NAN, 1e300]];
+        let mut flat = 0;
+        for round in 0..3000 {
+            let source = expression(&mut rng, 1 + (round % 5) as u8);
+            let expr = Expr::parse(&source, &scope).unwrap();
+            for p in &parameter_values {
+                let program = Program::compile(&expr, p);
+                flat += usize::from(matches!(program, Program::Flat(_)));
+                for values in [
+                    [0.0, -0.0, 1.0],
+                    [-2.0, 2.0, 0.5],
+                    [f64::INFINITY, f64::NAN, -f64::INFINITY],
+                    [1.0, 0.4, 7.0],
+                    [1e308, -1e-310, 3.0],
+                ] {
+                    let env = Env {
+                        params: p,
+                        observables: &values,
+                        attributes: [&[], &[]],
+                    };
+                    let (a, b) = (expr.eval(&env), program.eval(&env));
+                    assert!(
+                        a.to_bits() == b.to_bits() || (a.is_nan() && b.is_nan()),
+                        "{source} at {p:?}, {values:?}: {a:?} != {b:?}"
+                    );
+                }
+            }
+        }
+        assert_eq!(flat, 9000, "every expression compiles to a flat program");
+        // Deep nesting keeps the tree.
+        let deep = (0..40).fold("x".to_string(), |e, _| format!("y + ({e}) * z"));
+        let expr = Expr::parse(&deep, &scope).unwrap();
+        assert!(matches!(
+            Program::compile(&expr, &[1.0, 2.0]),
+            Program::Tree(_)
+        ));
     }
 
     #[test]

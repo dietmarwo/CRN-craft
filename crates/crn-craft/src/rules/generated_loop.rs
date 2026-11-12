@@ -231,7 +231,7 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
                 }
                 (Some(slot), Global::Inline(expression))
             }
-            RateKernel::Expression(expr) => {
+            RateKernel::Expression { expr, .. } => {
                 if let Entry::Vacant(entry) = rule_code.entry(c.rule) {
                     // Validation lets rates and propensities read only
                     // parameters and observables, and never draw.

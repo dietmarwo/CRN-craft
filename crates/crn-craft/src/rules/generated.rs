@@ -207,7 +207,7 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
                 }
                 expression
             }
-            RateKernel::Expression(_) => return Err(unsupported()),
+            RateKernel::Expression { .. } => return Err(unsupported()),
         };
         let weight = match *c.reactants.as_slice() {
             [] => "1.0".into(),

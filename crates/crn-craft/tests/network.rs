@@ -1,11 +1,7 @@
-use crn_craft::{
-    CompiledNetwork, analyze_bytes,
-    conservation::{ConservationStatus, analyze_conservation},
-    contracts::Model,
-    parse_model,
-};
+//! The network engine's compiled networks and rate laws. The conservation
+//! tests moved to tests/structure.rs with the analysis (M5b).
+use crn_craft::{CompiledNetwork, contracts::Model, parse_model};
 use serde_json::{Value, json};
-use std::path::PathBuf;
 
 fn make(species: &[(&str, i64)], reactions: Vec<Value>) -> Model {
     parse_model(&serde_json::to_vec(&json!({"schema":"crn-craft.model/0.1","name":"test","convention":"stochastic_counts","omega":1.0,"parameters":{},"species":species.iter().map(|(name,count)|json!({"name":name,"initial_count":count})).collect::<Vec<_>>(),"reactions":reactions})).unwrap()).unwrap()
@@ -428,131 +424,6 @@ fn population_limit_is_transactional() {
 }
 
 #[test]
-fn known_enzyme_laws_and_bounds_are_found() {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../models/examples/enzyme-mechanism.model.json");
-    let bytes = std::fs::read(path).unwrap();
-    let model = parse_model(&bytes).unwrap();
-    let network = CompiledNetwork::compile(&model).unwrap();
-    let c = analyze_conservation(&network);
-    assert_eq!(c.status, ConservationStatus::Exact);
-    assert_eq!(c.rank, Some(2));
-    let laws: Vec<Vec<i128>> = c
-        .basis
-        .iter()
-        .map(|l| l.coefficients.iter().map(|s| s.parse().unwrap()).collect())
-        .collect();
-    assert!(laws.contains(&vec![0, 1, 1, 0]));
-    assert!(laws.contains(&vec![1, 0, 1, 1]));
-    assert_eq!(
-        c.initial_class_upper_bounds,
-        [
-            Some("50".into()),
-            Some("10".into()),
-            Some("10".into()),
-            Some("50".into())
-        ]
-    );
-    let report = analyze_bytes(&bytes, None);
-    assert!(report.success);
-    assert!(!report.diagnostics.iter().any(|d| d.code == "CRN-W001"));
-}
-
-#[test]
-fn signed_law_does_not_prove_individual_count_bounds() {
-    let model = make(
-        &[("A", 0), ("B", 0)],
-        vec![reaction("grow", json!({}), json!({"A":1,"B":1}), ma(1.0))],
-    );
-    let c = analyze_conservation(&CompiledNetwork::compile(&model).unwrap());
-    assert_eq!(c.status, ConservationStatus::Exact);
-    assert_eq!(c.basis[0].coefficients, ["1", "-1"]);
-    assert_eq!(c.initial_class_upper_bounds, [None, None]);
-}
-
-#[test]
-fn empty_network_has_complete_identity_conservation_basis() {
-    let c = analyze_conservation(
-        &CompiledNetwork::compile(&make(&[("A", 7), ("B", 9)], vec![])).unwrap(),
-    );
-    assert_eq!(c.rank, Some(0));
-    assert_eq!(c.basis.len(), 2);
-    assert_eq!(
-        c.initial_class_upper_bounds,
-        [Some("7".into()), Some("9".into())]
-    );
-}
-
-#[test]
-fn full_rank_network_has_no_conservation_basis() {
-    let c = analyze_conservation(
-        &CompiledNetwork::compile(&make(
-            &[("A", 0)],
-            vec![reaction("grow", json!({}), json!({"A":1}), ma(1.0))],
-        ))
-        .unwrap(),
-    );
-    assert_eq!(c.rank, Some(1));
-    assert!(c.basis.is_empty());
-}
-
-#[test]
-fn conservation_size_limit_is_honest() {
-    let names: Vec<_> = (0..65).map(|i| format!("X{i}")).collect();
-    let species: Vec<_> = names.iter().map(|n| (n.as_str(), 0)).collect();
-    let at_limit =
-        analyze_conservation(&CompiledNetwork::compile(&make(&species[..64], vec![])).unwrap());
-    assert_eq!(at_limit.status, ConservationStatus::Exact);
-    assert_eq!(at_limit.basis.len(), 64);
-    let c = analyze_conservation(&CompiledNetwork::compile(&make(&species, vec![])).unwrap());
-    assert_eq!(c.status, ConservationStatus::SizeLimit);
-    assert_eq!(c.rank, None);
-    assert!(c.basis.is_empty());
-    assert_eq!(c.diagnostics[0].code, "CRN-W010");
-    for count in [256, 257] {
-        let reactions = (0..count)
-            .map(|i| reaction(&format!("r{i}"), json!({}), json!({}), ma(1.0)))
-            .collect();
-        let report = analyze_bytes(
-            &serde_json::to_vec(&make(&[("A", 1)], reactions)).unwrap(),
-            None,
-        );
-        assert!(report.success);
-        let conservation = report.analysis.unwrap().conservation;
-        if count == 256 {
-            assert_eq!(conservation.status, ConservationStatus::Exact);
-            assert_eq!(conservation.rank, Some(0));
-        } else {
-            assert_eq!(conservation.status, ConservationStatus::SizeLimit);
-            assert_eq!(conservation.rank, None);
-            assert!(conservation.basis.is_empty());
-            assert!(report.diagnostics.iter().any(|d| d.code == "CRN-W010"));
-        }
-    }
-}
-
-#[test]
-fn conservation_overflow_never_reports_partial_basis() {
-    let names: Vec<_> = (0..7).map(|i| format!("X{i}")).collect();
-    let species: Vec<_> = names.iter().map(|n| (n.as_str(), 0)).collect();
-    let reactions = (0..6)
-        .map(|i| {
-            reaction(
-                &format!("r{i}"),
-                json!({names[i].clone():1}),
-                json!({names[i+1].clone():2147483647_i64}),
-                ma(1.0),
-            )
-        })
-        .collect();
-    let c = analyze_conservation(&CompiledNetwork::compile(&make(&species, reactions)).unwrap());
-    assert_eq!(c.status, ConservationStatus::ArithmeticOverflow);
-    assert!(c.basis.is_empty());
-    assert_eq!(c.rank, None);
-    assert_eq!(c.diagnostics[0].code, "CRN-W011");
-}
-
-#[test]
 fn dependency_edge_limit_is_explicit() {
     let reactions: Vec<_> = (0..1001)
         .map(|i| reaction(&format!("r{i}"), json!({"A":1}), json!({"A":2}), ma(1.0)))
@@ -569,27 +440,6 @@ fn dependency_edge_limit_is_explicit() {
             .iter()
             .any(|d| d.code == "CRN-E040")
     );
-}
-
-#[test]
-fn analysis_failure_and_state_identity_are_honest() {
-    let model = make(&[("A", 1)], vec![]);
-    let bytes = serde_json::to_vec(&model).unwrap();
-    let state = br#"{"schema":"crn-craft.state/0.1","counts":{"A":9}}"#;
-    let report = analyze_bytes(&bytes, Some(state));
-    assert!(report.success);
-    assert!(!report.simulation_available);
-    assert_eq!(report.state_sha256, Some(crn_craft::sha256(state)));
-    let data = report.analysis.unwrap();
-    assert_eq!(data.evaluation_counts, [9]);
-    assert_eq!(data.initial_counts, [1]);
-    assert_eq!(
-        data.conservation.initial_class_upper_bounds,
-        [Some("1".into())]
-    );
-    let bad = analyze_bytes(&bytes, Some(b"{}"));
-    assert!(!bad.success);
-    assert!(bad.analysis.is_none());
 }
 
 #[test]
@@ -610,27 +460,6 @@ fn hill_near_threshold_uses_log1p_not_a_difference_of_logs() {
         .unwrap();
         close(network.propensity(0, &[x]).unwrap(), expected);
     }
-}
-
-#[test]
-fn weighted_nonnegative_law_divides_its_bound_by_the_weight() {
-    // 2A <-> B conserves A + 2B = 7, so B <= floor(7 / 2).
-    let model = make(
-        &[("A", 5), ("B", 1)],
-        vec![
-            reaction("bind", json!({"A":2}), json!({"B":1}), ma(1.0)),
-            reaction("split", json!({"B":1}), json!({"A":2}), ma(1.0)),
-        ],
-    );
-    let c = analyze_conservation(&CompiledNetwork::compile(&model).unwrap());
-    assert_eq!(c.status, ConservationStatus::Exact);
-    assert_eq!(c.basis.len(), 1);
-    assert_eq!(c.basis[0].coefficients, ["1", "2"]);
-    assert_eq!(c.basis[0].initial_total, "7");
-    assert_eq!(
-        c.initial_class_upper_bounds,
-        [Some("7".into()), Some("3".into())]
-    );
 }
 
 #[test]

@@ -1,0 +1,208 @@
+{
+  "schema": "crn-craft.merge-analysis-references/0.1",
+  "declared_in": "validation/merge/RESULTS.md (M5b declaration)",
+  "binary": {
+    "sha256": "f4d816b661adc40c7aa7e9ede111ba67c7f43a9b785d24d185b6089d403cf14b",
+    "version": {
+      "milestone": "SSA-acceleration",
+      "version": "0.6.0"
+    }
+  },
+  "leaves": 194388,
+  "failures": 0,
+  "passed": true,
+  "models": [
+    {
+      "model": "W1",
+      "input": "network",
+      "leaves": 45,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "W1",
+      "input": "converted",
+      "leaves": 44,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "W2",
+      "input": "network",
+      "leaves": 1005,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "W2",
+      "input": "converted",
+      "leaves": 1004,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "W3",
+      "input": "network",
+      "leaves": 239,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "W3",
+      "input": "converted",
+      "leaves": 238,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "W4",
+      "input": "network",
+      "leaves": 4963,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "W4",
+      "input": "converted",
+      "leaves": 4962,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "W5",
+      "input": "network",
+      "leaves": 11514,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "W5",
+      "input": "converted",
+      "leaves": 11513,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "W6",
+      "input": "network",
+      "leaves": 74784,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "W6",
+      "input": "converted",
+      "leaves": 74783,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "W7",
+      "input": "network",
+      "leaves": 3698,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "W7",
+      "input": "converted",
+      "leaves": 3697,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "enzyme-mechanism",
+      "input": "network",
+      "leaves": 134,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "enzyme-mechanism",
+      "input": "converted",
+      "leaves": 133,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "immigration-death",
+      "input": "network",
+      "leaves": 45,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "immigration-death",
+      "input": "converted",
+      "leaves": 44,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "michaelis-menten",
+      "input": "network",
+      "leaves": 53,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "michaelis-menten",
+      "input": "converted",
+      "leaves": 52,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "repressilator",
+      "input": "network",
+      "leaves": 239,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "repressilator",
+      "input": "converted",
+      "leaves": 238,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "vilar-noise",
+      "input": "network",
+      "leaves": 481,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    },
+    {
+      "model": "vilar-noise",
+      "input": "converted",
+      "leaves": 480,
+      "failures": [],
+      "propensity_differences": [],
+      "largest_relative_propensity_difference": 0.0
+    }
+  ]
+}

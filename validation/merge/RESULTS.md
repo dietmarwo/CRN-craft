@@ -829,3 +829,248 @@ scan), W4 2.36, W5 1.27, W6 1.10, W7 1.06.
 Timings on this host varied between sessions by up to about 30% per row (an
 earlier run of the same script, before `4fe800d`, gave for example W6
 `composition_rejection` 0.379 s and W1 `linear` 1.16).
+
+### M5a (finite state projection on the flat view): declaration
+
+Written and committed before the first run of the checks below. The engine
+under test solves `crn-craft.run/1.0` requests with method `fsp` through
+`crn-craft rules MODEL REQUEST` (`crn_craft::fsp::v1`), on models converted
+by the engine under test (`crn-craft convert`).
+
+**Reference gate** (`validation/merge/check_fsp_references.py --binary
+target/release/crn-craft`, standard library only). For each stored 0.6.0
+FSP reference (W1, W4, enzyme-mechanism, immigration-death and
+michaelis-menten from M0c; third-order-decay and trimolecular from M4b):
+convert the network model, request the same bounds (by species name),
+`max_states` and tolerance (1e-12) as the reference, with `end` and the
+report times of the reference's save grid, and compare by species name and
+state:
+
+1. the projected state set equals the reference's (7 checks);
+2. every probability: |p − p_ref| ≤ 1e-10 absolute (11,232 comparisons:
+   W1 251 × 6, W4 1,001 × 6, enzyme-mechanism 506 × 5, immigration-death
+   151 × 5, michaelis-menten 51 × 5, third-order-decay 14 × 6,
+   trimolecular 16 × 6 states × report times);
+3. the sink probability at every report time: |leak − leak_ref| ≤ 1e-10
+   (38 comparisons).
+
+N = 11,277 checks; **0 failures are expected**. Rates are evaluated by
+expressions, so bits may differ (Hill laws, mass action over pairs); all
+seven models are mass action or Michaelis–Menten. The report lists the
+largest difference per model, and as information (not gated) the
+uniformization rate, the edge count and the largest moment difference. The
+report must be identical normally and under `python -O`.
+
+**Migrated `check_fsp.py`** (`validation/check_fsp_rules.py --binary
+target/release/crn-craft --dsmts DSMTS_CHECKOUT`): every case of
+`validation/check_fsp.py` (the four CME fixtures F1–F4 of `check_cme.py`
+and DSMTS 001-01 and 002-01) on the converted model through the new
+command, with the old script's tolerances: distribution error against an
+independent matrix exponential ≤ 2e-12 at every report time, series tail
+bound ≤ 1.01e-14, mass balance |Σp + discarded − 1| < 2e-12, DSMTS
+analytic mean error < 1e-9 and variance error < 1e-7, and the upstream
+rounded DSMTS means < 5.1e-6 from the analytic law. `check_fsp.py` stays
+on the network `crn-craft fsp` command until the network engine is
+removed (M8). The report must be identical normally and under `python -O`.
+
+### M5a (finite state projection on the flat view): results
+
+Engine of the M5a commit, release build, this host, under the CPU lock.
+
+**Reference gate** (`validation/merge/check_fsp_references.py`, report
+`validation/merge/fsp/references.json`, identical under `python -O`):
+**0 failures** in 11,278 checks. The declaration counted 38 sink
+comparisons and N = 11,277; the seven references have 6 + 6 + 5 + 5 + 5 +
+6 + 6 = 39 report times, so the run made 39 sink comparisons and N =
+11,278. The checks themselves are as declared.
+
+| Model | States × report times | State set | Largest probability difference | Largest sink difference | λ, edges (new = reference) |
+| --- | --- | --- | ---: | ---: | --- |
+| W1 | 251 × 6 | equal | 0 | 0 | 350, 501 |
+| W4 | 1,001 × 6 | equal | 0 | 0 | 196.0588…, 2,001 |
+| enzyme-mechanism | 506 × 5 | equal | 1.4e-17 | 0 | 6, 1,365 |
+| immigration-death | 151 × 5 | equal | 0 | 0 | 34, 301 |
+| michaelis-menten | 51 × 5 | equal | 0 | 0 | 3.5714…, 50 |
+| third-order-decay | 14 × 6 | equal | 0 | 0 | 19.76, 13 |
+| trimolecular | 16 × 6 | equal | 0 | 0 | 17.4, 15 |
+
+Six of seven models reproduce the 0.6.0 probabilities bit for bit; in
+enzyme-mechanism the mass action over pairs (E + S) differs in the last
+bits (the M2 tolerance of 4 ε relative), largest raw-moment difference
+2.3e-13.
+
+**Migrated `check_fsp.py`** (`validation/check_fsp_rules.py` with the
+pinned DSMTS checkout `e79fd58`): 16 of 16 checks pass, normally and under
+`python -O` with identical reports. Largest distribution error against the
+independent matrix exponential 4.49e-14 (F4), the same as `check_fsp.py`
+on the network command; every row equals the old script's row except F3
+(Hill and Michaelis–Menten), 5.83e-16 against 6.11e-16. `check_fsp.py` on
+the network `crn-craft fsp` command of this build gives a report
+byte-identical to the 0.6.0 binary's (it includes the SHA-256 of every
+result), so the old command's output is unchanged.
+
+### M5b (network analysis on the flat view): declaration
+
+Written and committed before the first run of the checks below. The engine
+under test analyzes a model with `crn-craft analyze MODEL`, which reads a
+network `crn-craft.model/0.1` through the converter and a rules model or
+`crn-craft.model/1.0` directly, and reports `crn-craft.analysis/1.0`.
+
+**Reference gate** (`validation/merge/check_analysis_references.py --binary
+target/release/crn-craft`, standard library only). For each of the twelve
+models of `models.json`, two runs of `crn-craft analyze`:
+
+1. on the network model file (the input of the 0.6.0 reference);
+2. on the model converted by the engine under test (`crn-craft convert`).
+
+Each parsed report is compared with the stored 0.6.0 report
+(`reference/<name>.analysis.json.gz`) leaf by leaf: every object key, every
+list length and every value. Ignored: `schema` (0.6.0
+`crn-craft.analysis/0.2`, now `crn-craft.analysis/1.0`, checked to be that
+string), and in run 2 `model_sha256`, which is the hash of the converted
+bytes there (checked to be that hash). The exit code must be 0 as in the
+reference. Values must be equal, with one declared exception: an element of
+`propensities` may differ when the 0.6.0 channel is a Hill law (relative
+difference ≤ 1e-14 · max(1, n)) or mass action over two molecules (relative
+difference ≤ 4 ε), the rate tolerances M2 declared and measured for the
+converted laws. Every such difference is listed in the report; a difference
+outside it, or in any other leaf, is a failure. N is the number of leaves
+compared, counted by the script. **0 failures are expected.** The report,
+`validation/merge/analysis/references.json`, holds no timings and must be
+identical normally and under `python -O`.
+
+**Migrated `check_network.py` and `check_structure.py`**: the same random
+network streams (seeds 20261101 and 20261103, unchanged fixture hashes),
+example models and special cases, analyzed by `crn-craft analyze` of the
+engine under test on the network files, with every structural and numerical
+check and tolerance of the 0.6.0 scripts. Cases whose expected outcome
+changes with the converter are counted and listed in the reports: a network
+without reactions is refused (`CRN-R016`, a rules model needs a rule); a
+propensity that overflows f64 fails with `CRN-R030` (0.6.0: `CRN-E042`); a
+positive propensity that underflows to 0 is reported as 0 (0.6.0: refused
+with `CRN-E042`); its tolerance check against the exact value applies as
+before. Both reports must be identical normally and under `python -O`.
+
+### M5f (GillesPy2 export on the flat view): declaration
+
+Written and committed before the first run of the checks below. The engine
+under test exports with `crn-craft export MODEL gillespy2`, which reads a
+network `crn-craft.model/0.1` through the converter and a rules model or
+`crn-craft.model/1.0` directly. A rule whose rate is a constant and whose
+channel takes at most two molecules exports as GillesPy2 mass action, as in
+0.6.0; any other channel exports as a custom propensity string.
+
+**Export equivalence** (`validation/merge/check_export_references.py
+--binary target/release/crn-craft --reference-binary BINARY_0_6_0`,
+standard library only), over the twelve models of `models.json`, the five
+examples and the fixture of `validation/check_export.py`:
+
+1. every model the 0.6.0 binary exports successfully exports again, and its
+   `artifact` (source, aliases, notes) is byte-identical to the 0.6.0
+   artifact;
+2. every model the 0.6.0 binary refused with `CRN-E050` (Hill and
+   Michaelis–Menten laws, reactant order above two) now exports; each
+   custom propensity string, evaluated with Python floats (the operators
+   GillesPy2 1.8.3 keeps: `+ - * /` and `pow`), equals the engine's
+   propensity (`crn-craft analyze MODEL STATE`) within the tolerance of
+   `check_export.py` (relative 2e-12 plus absolute 8 × 2^-1074) at four
+   states per model: the initial counts, all counts 0, all counts 7, and
+   count i = initial count + i + 1 of species i;
+3. no other export outcome changes (refusals keep their code).
+
+N is the number of artifacts and propensities compared, counted by the
+script. **0 failures are expected.** The report,
+`validation/merge/export/references.json`, holds no timings and must be
+identical normally and under `python -O`.
+
+**Migrated `check_export.py` and `check_importers.py`**: every case and
+tolerance of the 0.6.0 scripts. `check_export.py` keeps its fixture, its
+GillesPy2 1.8.3 run and its rate comparisons; the two models it expected to
+be refused (Michaelis–Menten, repressilator) now export custom propensities
+and are compared like the others. The importers return the converted
+`crn-craft.model/1.0` document; `check_importers.py` reads its rate
+constants from the converted rules. Both reports must be identical
+normally and under `python -O`.
+
+### M5b (network analysis on the flat view): results
+
+Engine of the M5b commit, release build, this host, under the CPU lock.
+
+**Reference gate** (`validation/merge/check_analysis_references.py`, report
+`validation/merge/analysis/references.json`, identical under `python -O`):
+**0 failures** in 194,388 compared leaves (twelve models, each analyzed
+from the network file and from its converted model). No propensity
+differs: the declared exception for Hill laws and mass action over pairs
+was not needed at the initial states.
+
+| Model | Leaves (network file / converted) | Failures | Listed propensity differences |
+| --- | ---: | ---: | ---: |
+| W1 | 45 / 44 | 0 | 0 |
+| W2 | 1,005 / 1,004 | 0 | 0 |
+| W3 | 239 / 238 | 0 | 0 |
+| W4 | 4,963 / 4,962 | 0 | 0 |
+| W5 | 11,514 / 11,513 | 0 | 0 |
+| W6 | 74,784 / 74,783 | 0 | 0 |
+| W7 | 3,698 / 3,697 | 0 | 0 |
+| enzyme-mechanism | 134 / 133 | 0 | 0 |
+| immigration-death | 45 / 44 | 0 | 0 |
+| michaelis-menten | 53 / 52 | 0 | 0 |
+| repressilator | 239 / 238 | 0 | 0 |
+| vilar-noise | 481 / 480 | 0 | 0 |
+
+(The converted run has one leaf fewer: its `model_sha256` is checked
+separately.)
+
+**Migrated `check_network.py`** (report schema `network-validation/0.2`,
+identical under `python -O`): 219 of 219 checks, the same fixture stream
+(`e6a64d11…`) and the same 219 cases as the 0.6.0 script on the 0.6.0
+binary. 1,030 rates evaluated (0.6.0: 1,028; the two underflow cases are now
+evaluated), largest relative error 4.36e-15 (0.6.0: 2.37e-14). Changed
+expectations, as declared: 21 random networks without reactions refused
+with `CRN-R016`; `mass_2000_1000_1` fails with `CRN-R030`;
+`hill_repression_1_5e-324` and `mm_underflow` report 0.
+
+**Not declared before the run**: one case, `hill_activation_1_1e+300`
+(x = 1, k = vmax = 1e300, n = 2, exact value 1e-300), fails the 0.6.0
+tolerance: the converted law `basal + vmax / (1 + (k / R)^n)` gives 0 where
+`(k / R)^n` overflows. This is the limitation M2 declared and measured for
+the converted Hill laws (absolute floor vmax · 2^-1020 where the induced
+term underflows; there the converted propensity is basal). The migrated
+script accepts a Hill propensity that misses the 0.6.0 tolerance only when
+it equals the basal rate exactly and lies within M2's floor, and lists each
+such case (`hill_floor_cases`: this one case). No other tolerance changed.
+
+**Migrated `check_structure.py`** (report schema
+`structure-validation/0.2`, identical under `python -O`): 309 of 309
+checks, the same fixture stream (`1373b12d…`) and cases as 0.6.0. 37 of the
+300 random networks have no reactions and are refused with `CRN-R016` as
+declared, so fewer rays and bounds are checked than in 0.6.0: 211 extreme
+rays (0.6.0: 373), 349 basis-bounded and 363 cone-bounded species (0.6.0:
+511 and 525); the cone adds 14 bounds over the basis in both.
+
+### M5f (GillesPy2 export on the flat view): results
+
+Engine of the M5f commits, release build, this host, under the CPU lock;
+reference binary: the 0.6.0 build of M0c (`/home/claude/m07/bin060`).
+
+**Export equivalence** (`validation/merge/check_export_references.py`,
+report `validation/merge/export/references.json`, identical under `python
+-O`): **0 failures**. The nine models 0.6.0 exported (W1, W2, W5, W6, W7,
+enzyme-mechanism, immigration-death, vilar-noise and the `check_export.py`
+fixture) export byte-identical artifacts. The four models 0.6.0 refused with
+`CRN-E050` (W3, W4, michaelis-menten, repressilator) now export 40 custom
+propensities; at the four declared states each, 160 evaluations, every one
+equal to the engine's propensity bit for bit (largest relative difference
+0).
+
+**Migrated `check_export.py`** (GillesPy2 1.8.3, report schema
+`reference-export-validation/0.2`, identical under `python -O`): 9 of 9
+checks; 15,756 rate comparisons, largest relative error 1.35e-16, the grid
+fixture exact as in 0.6.0. The Michaelis–Menten and repressilator examples
+now export and pass the rate checks; a GillesPy2 SSA smoke run of the
+Michaelis–Menten custom propensity conserves S + P; the two refusal rows
+use a rate with a function and a stop condition (`CRN-E050`).
+
+**Migrated `check_importers.py`**: 49 of 49 checks (the 48 of 0.6.0 and the
+new rejection of an SBML model without reactions), identical under
+`python -O`.

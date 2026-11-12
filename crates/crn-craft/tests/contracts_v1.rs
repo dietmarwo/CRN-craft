@@ -234,14 +234,12 @@ fn network_entry_points_refuse_1_0_and_rules_documents() {
         assert!(!report.valid);
         assert!(has_e032(&report.diagnostics), "{:?}", report.diagnostics);
         assert!(has_e032(&[crn_craft::parse_model(&model).unwrap_err()]));
+        // Analysis reads every model version since M5b.
         let analysis = crn_craft::analyze_bytes(&model, None);
-        assert!(
-            has_e032(&analysis.diagnostics),
-            "{:?}",
-            analysis.diagnostics
-        );
+        assert!(analysis.success, "{:?}", analysis.diagnostics);
+        // So does the GillesPy2 export since M5f.
         let export = crn_craft::export::export_gillespy2(&model);
-        assert!(has_e032(&export.diagnostics), "{:?}", export.diagnostics);
+        assert!(export.success, "{:?}", export.diagnostics);
         // A request bound to the 1.0 model still fails on the model.
         let mut request: Value = serde_json::from_slice(&run).unwrap();
         rehash(&mut request, &model);
@@ -320,7 +318,28 @@ fn schemas_match_their_snapshots_and_list_only_their_versions() {
             schema == snapshot,
             "{kind}: regenerate schemas/{kind}.schema.json"
         );
-        let reference = schema["properties"]["schema"]["$ref"].as_str().unwrap();
+        // run-1.0 lists the simulation and the FSP request under `oneOf`
+        // (M5a); both reference the same version definition.
+        let documents: Vec<&Value> = match schema.get("oneOf") {
+            Some(Value::Array(shapes)) => shapes
+                .iter()
+                .map(|shape| {
+                    let name = shape["$ref"].as_str().unwrap().rsplit('/').next().unwrap();
+                    &schema["definitions"][name]
+                })
+                .collect(),
+            _ => vec![&schema],
+        };
+        assert_eq!(documents.len(), if kind == "run-1.0" { 2 } else { 1 });
+        let reference = documents[0]["properties"]["schema"]["$ref"]
+            .as_str()
+            .unwrap();
+        for document in &documents {
+            assert_eq!(
+                document["properties"]["schema"]["$ref"], reference,
+                "{kind}"
+            );
+        }
         let definition = reference.rsplit('/').next().unwrap();
         assert_eq!(
             schema["definitions"][definition]["enum"],
@@ -328,6 +347,18 @@ fn schemas_match_their_snapshots_and_list_only_their_versions() {
             "{kind}"
         );
     }
+    // The FSP result of run/1.0 comes from the crate-level schemas.
+    let fsp = crn_craft::schema("fsp-result-1.0").unwrap();
+    let snapshot: Value =
+        serde_json::from_slice(&read("schemas/fsp-result-1.0.schema.json")).unwrap();
+    assert!(
+        fsp == snapshot,
+        "regenerate schemas/fsp-result-1.0.schema.json"
+    );
+    assert_eq!(
+        fsp["definitions"]["FspVersion"]["enum"],
+        json!(["crn-craft.fsp-result/1.0"])
+    );
     // The 1.0 model schema carries the corrected `continuous` description.
     let model = crn_craft::rules::schema("model-1.0").unwrap();
     let text = model["properties"]["continuous"]["description"]

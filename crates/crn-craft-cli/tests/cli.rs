@@ -30,8 +30,9 @@ fn cli_description_and_example_check() {
     // so the native discovery moved from 0.11 to 0.12; it gained
     // `static_direct_defaults_request` and `accepted_requests` with
     // rules-run/0.6, so it moved to 0.13. The `convert` command and the
-    // rules entry's `convert` key moved it to 0.14.
-    assert_eq!(value["schema"], "crn-craft.describe/0.14");
+    // rules entry's `convert` key moved it to 0.14; the analysis/1.0 report
+    // and the removal of `analyze-v1` (M5b) moved it to 0.15.
+    assert_eq!(value["schema"], "crn-craft.describe/0.15");
     assert_eq!(
         value["commands"].as_array().unwrap().last().unwrap(),
         "convert"
@@ -124,7 +125,7 @@ fn analyze_supports_named_state_and_reports_real_capabilities() {
     let model = temp.0.join("immigration-death.model.json");
     let (code, report) = invoke(&["analyze", model.to_str().unwrap(), state.to_str().unwrap()]);
     assert_eq!(code, 0);
-    assert_eq!(report["schema"], "crn-craft.analysis/0.2");
+    assert_eq!(report["schema"], "crn-craft.analysis/1.0");
     assert_eq!(report["success"], true);
     assert_eq!(report["simulation_available"], false);
     assert_eq!(
@@ -259,24 +260,53 @@ fn symlink_outside_run_directory_rejected_even_when_hash_matches() {
 }
 
 #[test]
-fn legacy_analysis_retains_version_and_common_payload() {
-    let path = "models/examples/enzyme-mechanism.model.json";
-    let (code, mut current) = invoke(&["analyze", path]);
+fn analyze_reads_network_rules_and_1_0_models_and_analyze_v1_is_gone() {
+    let temp = Temp::new();
+    let network = "models/examples/enzyme-mechanism.model.json";
+    let (code, report) = invoke(&["analyze", network]);
+    assert_eq!(code, 0, "{report}");
+    assert_eq!(report["schema"], "crn-craft.analysis/1.0");
+    let expected = crn_craft::analyze_bytes(&std::fs::read(root().join(network)).unwrap(), None);
+    assert_eq!(report, serde_json::to_value(expected).unwrap());
+    // The converted model gives the same analysis.
+    let converted =
+        crn_craft::rules::convert::from_network(&std::fs::read(root().join(network)).unwrap())
+            .unwrap();
+    std::fs::write(temp.0.join("model.json"), &converted).unwrap();
+    let path = temp.0.join("model.json");
+    let (code, other) = invoke(&["analyze", path.to_str().unwrap()]);
+    assert_eq!(code, 0, "{other}");
+    assert_eq!(other["analysis"], report["analysis"]);
+    assert_eq!(other["model_sha256"], crn_craft::sha256(&converted));
+    // A rules model of an older version.
+    let (code, rules) = invoke(&["analyze", "models/rules/immigration-death.rules.json"]);
+    assert_eq!(code, 0, "{rules}");
+    assert_eq!(rules["schema"], "crn-craft.analysis/1.0");
+    // The legacy command is gone; its schema is no longer described.
+    let (code, report) = invoke(&["analyze-v1", network]);
+    assert_eq!(code, 1);
+    assert_eq!(report["diagnostics"][0]["code"], "CRN-E031");
+    let (code, _) = invoke(&["describe", "analysis-v1"]);
+    assert_eq!(code, 1);
+    let (code, schema) = invoke(&["describe", "analysis-1.0"]);
     assert_eq!(code, 0);
-    let (code, legacy) = invoke(&["analyze-v1", path]);
-    assert_eq!(code, 0);
-    assert_eq!(current["schema"], "crn-craft.analysis/0.2");
-    assert_eq!(legacy["schema"], "crn-craft.analysis/0.1");
-    let data = current["analysis"].as_object_mut().unwrap();
-    for key in [
-        "nonnegative_conservation",
-        "linkage",
-        "initial_class_upper_bounds",
-    ] {
-        assert!(data.remove(key).is_some());
-    }
-    assert_eq!(current["analysis"], legacy["analysis"]);
-    assert_eq!(current["model_sha256"], legacy["model_sha256"]);
+    let snapshot: Value = serde_json::from_slice(
+        &std::fs::read(root().join("schemas/analysis-1.0.schema.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(schema, snapshot);
+    let (_, description) = invoke(&["describe"]);
+    assert!(
+        !description["commands"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c == "analyze-v1")
+    );
+    assert_eq!(
+        description["dynamic_species"]["contracts_1_0"]["analysis"]["result"],
+        "crn-craft.analysis/1.0"
+    );
 }
 
 #[test]
@@ -295,14 +325,28 @@ fn export_cli_is_json_and_rejects_unsupported_or_missing_inputs() {
             .unwrap()
             .contains("def build_model():")
     );
+    // Michaelis-Menten, refused by 0.6.0, exports a custom propensity
+    // (M5f); a model with ATP has no flat view.
+    let (code, report) = invoke(&[
+        "export",
+        "models/examples/michaelis-menten.model.json",
+        "gillespy2",
+    ]);
+    assert_eq!(code, 0, "{report}");
+    assert!(
+        report["artifact"]["source"]
+            .as_str()
+            .unwrap()
+            .contains("propensity_function=")
+    );
     for (args, expected) in [
         (
             vec![
                 "export",
-                "models/examples/michaelis-menten.model.json",
+                "models/rules/mtdna-three-class-atp.rules.json",
                 "gillespy2",
             ],
-            "CRN-E050",
+            "CRN-R017",
         ),
         (
             vec!["export", "missing-model.json", "gillespy2"],
@@ -480,8 +524,6 @@ fn network_commands_refuse_1_0_documents_and_rules_commands_run_them() {
     for args in [
         vec!["check", model],
         vec!["check", model, run],
-        vec!["analyze", model],
-        vec!["export", model, "gillespy2"],
         vec!["simulate", model, run, out],
         vec!["fsp", model, run],
         vec!["ssa", model, request],
@@ -515,4 +557,74 @@ fn network_commands_refuse_1_0_documents_and_rules_commands_run_them() {
         .unwrap();
         assert_eq!(schema, snapshot, "{kind}");
     }
+}
+
+#[test]
+fn rules_solves_fsp_requests_and_describes_their_contracts() {
+    let temp = Temp::new();
+    let path = |name: &str| temp.0.join(name).to_str().unwrap().to_string();
+    let network =
+        std::fs::read(root().join("models/examples/immigration-death.model.json")).unwrap();
+    let converted = crn_craft::rules::convert::from_network(&network).unwrap();
+    std::fs::write(temp.0.join("model.json"), &converted).unwrap();
+    let mut request = serde_json::json!({
+        "schema": "crn-craft.run/1.0",
+        "model": {"path": "model.json", "sha256": crn_craft::sha256(&converted)},
+        "time": {"end": 5.0, "report_times": [0.0, 1.0, 5.0]},
+        "method": {"kind": "fsp", "bounds": {"A": 100}, "max_states": 200, "tolerance": 1e-12},
+        "budget": {"max_output_bytes": 10000000}
+    });
+    let bytes = serde_json::to_vec(&request).unwrap();
+    std::fs::write(temp.0.join("request.json"), &bytes).unwrap();
+    let (model, file) = (path("model.json"), path("request.json"));
+    let output = Command::new(env!("CARGO_BIN_EXE_crn-craft"))
+        .args(["rules", &model, &file])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    assert!(output.stderr.is_empty());
+    // Compact JSON with sorted keys (as every CLI output) and a newline,
+    // with the engine's numbers.
+    let expected =
+        crn_craft::fsp::v1::solve(&converted, &bytes, &crn_craft::rules::Control::default())
+            .unwrap();
+    let mut text = serde_json::to_vec(&serde_json::to_value(&expected).unwrap()).unwrap();
+    text.push(b'\n');
+    assert_eq!(output.stdout, text);
+    let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["schema"], "crn-craft.fsp-result/1.0");
+    assert_eq!(result["species"], serde_json::json!(["A"]));
+    // A refused request exits 1 with its diagnostics.
+    request["method"]["bounds"] = serde_json::json!({"B": 3});
+    std::fs::write(
+        temp.0.join("request.json"),
+        serde_json::to_vec(&request).unwrap(),
+    )
+    .unwrap();
+    let (code, report) = invoke(&["rules", &model, &file]);
+    assert_eq!(code, 1);
+    assert_eq!(report["success"], false);
+    assert_eq!(report["diagnostics"][0]["code"], "CRN-R020");
+    assert_eq!(report["diagnostics"][0]["path"], "/method/bounds/B");
+    // An existing cancel file stops the solve.
+    std::fs::write(temp.0.join("request.json"), &bytes).unwrap();
+    std::fs::write(temp.0.join("cancel"), b"").unwrap();
+    let cancel = path("cancel");
+    let (code, report) = invoke(&["rules", &model, &file, "--cancel-file", &cancel]);
+    assert_eq!(code, 1);
+    assert_eq!(report["diagnostics"][0]["code"], "CRN-E070");
+    for kind in ["fsp-result-1.0", "run-1.0"] {
+        let (code, schema) = invoke(&["describe", kind]);
+        assert_eq!(code, 0);
+        let snapshot: Value = serde_json::from_slice(
+            &std::fs::read(root().join(format!("schemas/{kind}.schema.json"))).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(schema, snapshot, "{kind}");
+    }
+    let (_, description) = invoke(&["describe"]);
+    assert_eq!(
+        description["dynamic_species"]["contracts_1_0"]["fsp"]["result"],
+        "crn-craft.fsp-result/1.0"
+    );
 }

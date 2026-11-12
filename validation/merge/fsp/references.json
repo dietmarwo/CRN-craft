@@ -1,0 +1,205 @@
+{
+ "binary": {
+  "sha256": "aeeb13e8ffb71dd7a305ba053f92082e122c1bdf465e6885b84def32a73a20d2",
+  "version": {
+   "milestone": "SSA-acceleration",
+   "version": "0.6.0"
+  }
+ },
+ "checks": 11278,
+ "declared_in": "validation/merge/RESULTS.md",
+ "failures": 0,
+ "passed": true,
+ "rows": [
+  {
+   "comparisons": 1513,
+   "failures": [],
+   "information": {
+    "max_raw_moment_difference": 0.0,
+    "sparse_edges": [
+     501,
+     501
+    ],
+    "uniformization_rate": [
+     350.0,
+     350.0
+    ]
+   },
+   "max_leakage_difference": 0.0,
+   "max_probability_difference": 0.0,
+   "model": "W1",
+   "passed": true,
+   "report_times": 6,
+   "species": [
+    "X"
+   ],
+   "state_set_equal": true,
+   "states": 251
+  },
+  {
+   "comparisons": 6013,
+   "failures": [],
+   "information": {
+    "max_raw_moment_difference": 0.0,
+    "sparse_edges": [
+     2001,
+     2001
+    ],
+    "uniformization_rate": [
+     196.0588235294117,
+     196.0588235294117
+    ]
+   },
+   "max_leakage_difference": 0.0,
+   "max_probability_difference": 0.0,
+   "model": "W4",
+   "passed": true,
+   "report_times": 6,
+   "species": [
+    "X0",
+    "X1",
+    "X2",
+    "X3",
+    "X4",
+    "X5",
+    "X6",
+    "X7"
+   ],
+   "state_set_equal": true,
+   "states": 1001
+  },
+  {
+   "comparisons": 2536,
+   "failures": [],
+   "information": {
+    "max_raw_moment_difference": 2.2737367544323206e-13,
+    "sparse_edges": [
+     1365,
+     1365
+    ],
+    "uniformization_rate": [
+     6.0,
+     6.0
+    ]
+   },
+   "max_leakage_difference": 0.0,
+   "max_probability_difference": 1.3877787807814457e-17,
+   "model": "enzyme-mechanism",
+   "passed": true,
+   "report_times": 5,
+   "species": [
+    "S",
+    "E",
+    "ES",
+    "P"
+   ],
+   "state_set_equal": true,
+   "states": 506
+  },
+  {
+   "comparisons": 761,
+   "failures": [],
+   "information": {
+    "max_raw_moment_difference": 0.0,
+    "sparse_edges": [
+     301,
+     301
+    ],
+    "uniformization_rate": [
+     34.0,
+     34.0
+    ]
+   },
+   "max_leakage_difference": 0.0,
+   "max_probability_difference": 0.0,
+   "model": "immigration-death",
+   "passed": true,
+   "report_times": 5,
+   "species": [
+    "A"
+   ],
+   "state_set_equal": true,
+   "states": 151
+  },
+  {
+   "comparisons": 261,
+   "failures": [],
+   "information": {
+    "max_raw_moment_difference": 0.0,
+    "sparse_edges": [
+     50,
+     50
+    ],
+    "uniformization_rate": [
+     3.5714285714285716,
+     3.5714285714285716
+    ]
+   },
+   "max_leakage_difference": 0.0,
+   "max_probability_difference": 0.0,
+   "model": "michaelis-menten",
+   "passed": true,
+   "report_times": 5,
+   "species": [
+    "S",
+    "P"
+   ],
+   "state_set_equal": true,
+   "states": 51
+  },
+  {
+   "comparisons": 91,
+   "failures": [],
+   "information": {
+    "max_raw_moment_difference": 0.0,
+    "sparse_edges": [
+     13,
+     13
+    ],
+    "uniformization_rate": [
+     19.76,
+     19.76
+    ]
+   },
+   "max_leakage_difference": 0.0,
+   "max_probability_difference": 0.0,
+   "model": "third-order-decay",
+   "passed": true,
+   "report_times": 6,
+   "species": [
+    "A"
+   ],
+   "state_set_equal": true,
+   "states": 14
+  },
+  {
+   "comparisons": 103,
+   "failures": [],
+   "information": {
+    "max_raw_moment_difference": 0.0,
+    "sparse_edges": [
+     15,
+     15
+    ],
+    "uniformization_rate": [
+     17.4,
+     17.4
+    ]
+   },
+   "max_leakage_difference": 0.0,
+   "max_probability_difference": 0.0,
+   "model": "trimolecular",
+   "passed": true,
+   "report_times": 6,
+   "species": [
+    "A",
+    "B",
+    "C"
+   ],
+   "state_set_equal": true,
+   "states": 16
+  }
+ ],
+ "schema": "crn-craft.merge-fsp-references/0.1",
+ "tolerance": 1e-10
+}

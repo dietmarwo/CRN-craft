@@ -17,12 +17,12 @@ def main():
     sub = parser.add_subparsers(dest="command", required=True)
     describe_parser = sub.add_parser("describe")
     describe_parser.add_argument("schema", nargs="?")
-    for command in ["check", "analyze", "analyze-v1", "fsp", "tau", "ssa", "export"]:
+    for command in ["check", "analyze", "fsp", "tau", "ssa", "export"]:
         p = sub.add_parser(command)
         p.add_argument("model", type=Path)
         if command == "check":
             p.add_argument("run", type=Path, nargs="?")
-        if command in ["analyze", "analyze-v1"]:
+        if command == "analyze":
             p.add_argument("state", type=Path, nargs="?")
         if command in ["fsp", "tau", "ssa"]:
             p.add_argument("run", type=Path)
@@ -53,12 +53,11 @@ def main():
                 )
             )
             success = report["valid"]
-        elif args.command in ["analyze", "analyze-v1"]:
+        elif args.command == "analyze":
             report = json.loads(
                 _native.analyze_state_json(
                     args.model.read_bytes(),
                     args.state.read_bytes() if args.state else None,
-                    args.command == "analyze-v1",
                 )
             )
             success = report["success"]

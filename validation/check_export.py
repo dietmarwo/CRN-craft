@@ -1,4 +1,14 @@
-"""Build actual GillesPy2 exports; independently verify count conventions and smoke SSA."""
+"""Build actual GillesPy2 exports; independently verify count conventions and smoke SSA.
+
+Since 0.7.0 (M5f) `crn-craft export` reads network models through the
+converter, and reactions without a constant rate of order at most two
+export as custom propensity strings. The Michaelis-Menten and repressilator
+examples, refused by 0.6.0, are exported and checked like the others: their
+custom propensities (evaluated with `pow`, which GillesPy2 writes for `**`)
+against the exact rate law and the engine's rates, and a reference SSA smoke
+run of the Michaelis-Menten model. The refusal checks use a rate with a
+function and a stop condition, which GillesPy2 cannot evaluate.
+"""
 
 import argparse
 import hashlib
@@ -59,7 +69,12 @@ def main():
             name,
             json.loads((ROOT / "models/examples" / (name + ".model.json")).read_text()),
         )
-        for name in ("immigration-death", "enzyme-mechanism")
+        for name in (
+            "immigration-death",
+            "enzyme-mechanism",
+            "michaelis-menten",
+            "repressilator",
+        )
     ]
     with tempfile.TemporaryDirectory(prefix="crn-export-") as folder:
         path, state_path = Path(folder) / "model.json", Path(folder) / "state.json"
@@ -160,8 +175,11 @@ def main():
                         analyzed["analysis"]["propensities"],
                         strict=True,
                     ):
+                        # Custom propensities use pow, as GillesPy2 writes `**`.
                         actual = eval(
-                            translated.propensity_function, {"__builtins__": {}}, values
+                            translated.propensity_function,
+                            {"__builtins__": {}, "pow": pow},
+                            values,
                         )
                         expected = float(exact_rate(model, original, counts))
                         require(
@@ -189,6 +207,28 @@ def main():
                             )
                         rate_checks += 1
                 checks.append({"case": label, "passed": True, "states": len(states)})
+                if label == "michaelis-menten":
+                    # The custom propensity runs in the reference solver.
+                    target.timespan(np.array([0.0, 1.0, 2.0]))
+                    result = target.run(
+                        solver=gp.NumPySSASolver(model=target),
+                        number_of_trajectories=2,
+                        seed=20261111,
+                    )
+                    require(len(result) == 2, "wrong custom smoke replicate count")
+                    for trajectory in result:
+                        total = trajectory["S0"] + trajectory["S1"]
+                        require(
+                            all(float(v) == 50 for v in total)
+                            and all(float(v) >= 0 for v in trajectory["S0"]),
+                            "custom propensity smoke run lost molecules",
+                        )
+                    checks.append(
+                        {
+                            "case": "reference_ssa_smoke_custom_propensity",
+                            "passed": True,
+                        }
+                    )
                 if label == "immigration-death":
                     target.timespan(np.array([0.0, 1.0, 2.0]))
                     result = target.run(
@@ -221,14 +261,27 @@ def main():
                     )
             except Exception as error:
                 checks.append({"case": label, "passed": False, "error": str(error)})
-        for name in ("michaelis-menten", "repressilator"):
+        # What GillesPy2 cannot evaluate is refused (0.6.0 refused these two
+        # examples, which now export custom propensities).
+        rules = json.loads(
+            (ROOT / "models/rules/immigration-death.rules.json").read_text()
+        )
+        function = json.loads(json.dumps(rules))
+        # A rate that reads the observable X through a function.
+        function["rules"][-1]["rate"] = (
+            function["rules"][-1]["rate"] + " * exp(X / 1000)"
+        )
+        stopped = json.loads(json.dumps(rules))
+        stopped["stop"] = "1 > 2"
+        for name, document, path in [
+            ("function_rate", function, f"/rules/{len(rules['rules']) - 1}/rate"),
+            ("stop_condition", stopped, "/stop"),
+        ]:
+            raw = (json.dumps(document, sort_keys=True) + "\n").encode()
+            path_file = Path(folder) / "unsupported.json"
+            path_file.write_bytes(raw)
             result = subprocess.run(
-                [
-                    binary,
-                    "export",
-                    str(ROOT / "models/examples" / (name + ".model.json")),
-                    "gillespy2",
-                ],
+                [binary, "export", str(path_file), "gillespy2"],
                 capture_output=True,
                 check=False,
                 timeout=15,
@@ -241,11 +294,14 @@ def main():
                     "passed": result.returncode == 1
                     and not report["success"]
                     and report["artifact"] is None
-                    and any(d["code"] == "CRN-E050" for d in report["diagnostics"]),
+                    and any(
+                        d["code"] == "CRN-E050" and d["path"] == path
+                        for d in report["diagnostics"]
+                    ),
                 }
             )
     report = {
-        "schema": "crn-craft.reference-export-validation/0.1",
+        "schema": "crn-craft.reference-export-validation/0.2",
         "gillespy2": gp.__version__,
         "numpy": importlib.metadata.version("numpy"),
         "scope": "exported_propensities_and_reference_smoke_no_crn_simulation",

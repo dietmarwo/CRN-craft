@@ -146,6 +146,27 @@ fn prepare_rules(py: Python<'_>, model: Vec<u8>, request: Vec<u8>) -> PyResult<P
         .map_err(|d| failure(&d))
 }
 
+/// Finite state projection of a `crn-craft.run/1.0` request whose method is
+/// `fsp`: the `crn-craft.fsp-result/1.0` document as JSON. A refusal raises
+/// `NativeError` with the diagnostics; Ctrl-C cancels the solve.
+#[pyfunction]
+#[pyo3(signature = (model, request, cancel_file=None))]
+fn rules_fsp_json(
+    py: Python<'_>,
+    model: Vec<u8>,
+    request: Vec<u8>,
+    cancel_file: Option<String>,
+) -> PyResult<String> {
+    let mut control = Control::default();
+    control.cancel_file = cancel_file.map(PathBuf::from);
+    let result = run_interruptible(py, control, Control::cancel, move |c| {
+        crn_craft::fsp::v1::solve(&model, &request, c)
+    })?
+    .map_err(|d| failure(&d))?;
+    serde_json::to_string(&result)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PreparedRules>()?;
     module.add_function(wrap_pyfunction!(describe_rules_json, module)?)?;
@@ -153,5 +174,6 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(prepare_rules, module)?)?;
     module.add_function(wrap_pyfunction!(convert_network, module)?)?;
     module.add_function(wrap_pyfunction!(rules_loop_driver, module)?)?;
+    module.add_function(wrap_pyfunction!(rules_fsp_json, module)?)?;
     Ok(())
 }

@@ -1,6 +1,5 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "additionalProperties": false,
   "definitions": {
     "Budget": {
       "additionalProperties": false,
@@ -75,6 +74,103 @@
       "required": [
         "replicates",
         "root_seed"
+      ],
+      "type": "object"
+    },
+    "FspBudget": {
+      "additionalProperties": false,
+      "description": "Resource limits of an FSP request.",
+      "properties": {
+        "max_output_bytes": {
+          "description": "Size limit of the result as compact JSON plus a trailing newline, positive; execution never uses more than 1 GiB.",
+          "format": "uint64",
+          "minimum": 1.0,
+          "type": "integer"
+        },
+        "wall_time_s": {
+          "description": "Optional wall-clock limit in seconds, positive and finite. It is polled cooperatively; reaching it fails the solve (`CRN-E070`).",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "max_output_bytes"
+      ],
+      "type": "object"
+    },
+    "FspMethod": {
+      "description": "The method of an FSP request, tagged by `kind`.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Finite state projection on the box of the bounds: the states reachable from the initial counts inside it, with every transition that leaves it moved to an absorbing sink. Result `crn-craft.fsp-result/1.0`.",
+          "properties": {
+            "bounds": {
+              "additionalProperties": {
+                "format": "uint64",
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              "description": "Inclusive upper count bound for every species label of the model's flat view (`A`, or `T{a=1,b=0.5}` for an attributed type), each at least the initial count. Probability that leaves the box moves to an absorbing sink.",
+              "type": "object"
+            },
+            "kind": {
+              "enum": [
+                "fsp"
+              ],
+              "type": "string"
+            },
+            "max_states": {
+              "description": "Most reachable states to enumerate, ≥ 1; execution also caps it at 100000.",
+              "format": "uint64",
+              "minimum": 1.0,
+              "type": "integer"
+            },
+            "tolerance": {
+              "description": "Total Poisson-series truncation budget over the whole run, 0 < tolerance < 1. It does not bound floating-point error.",
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "required": [
+            "bounds",
+            "kind",
+            "max_states",
+            "tolerance"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "FspRequest": {
+      "additionalProperties": false,
+      "description": "A `crn-craft.run/1.0` request whose method is `fsp`: compute the probability distribution of a closed model's counts at the report times by finite state projection.\n\nUnknown fields and duplicate keys are rejected; a request without `ensemble`, `outputs`, `trackers` and `event_log`.",
+      "properties": {
+        "budget": {
+          "$ref": "#/definitions/FspBudget"
+        },
+        "method": {
+          "$ref": "#/definitions/FspMethod"
+        },
+        "model": {
+          "$ref": "#/definitions/ModelRef"
+        },
+        "schema": {
+          "$ref": "#/definitions/RunVersion"
+        },
+        "time": {
+          "$ref": "#/definitions/Time"
+        }
+      },
+      "required": [
+        "budget",
+        "method",
+        "model",
+        "schema",
+        "time"
       ],
       "type": "object"
     },
@@ -347,6 +443,62 @@
       ],
       "type": "string"
     },
+    "RunRequest": {
+      "additionalProperties": false,
+      "description": "A run request: `crn-craft.run/1.0`, the unified request contract, with the fields and defaults of `crn-craft.rules-run/0.6` plus `outputs.quantiles` and the Static Direct `selector`, whose default `auto` picks a selector from the lowered network (`\"selector\": \"linear\"` runs what rules-run/0.6 runs).\n\nIt binds one model, `crn-craft.model/1.0` or any `crn-craft.rules-model` version, by hash and states the time grid, the ensemble, the outputs and an explicit budget. Unknown fields and duplicate keys are rejected. It returns `crn-craft.result/1.0`.",
+      "properties": {
+        "budget": {
+          "$ref": "#/definitions/Budget"
+        },
+        "ensemble": {
+          "$ref": "#/definitions/Ensemble"
+        },
+        "event_log": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/LogSpec"
+            }
+          ],
+          "description": "Retains selected events of each replicate in the result's `observations`. rules-run/0.2 and later. `null` is rejected."
+        },
+        "method": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/Method"
+            }
+          ],
+          "description": "The simulation method. rules-run/0.2 and later; absent selects `tree`. `null` is rejected."
+        },
+        "model": {
+          "$ref": "#/definitions/ModelRef"
+        },
+        "outputs": {
+          "$ref": "#/definitions/Outputs"
+        },
+        "schema": {
+          "$ref": "#/definitions/RunVersion"
+        },
+        "time": {
+          "$ref": "#/definitions/Time"
+        },
+        "trackers": {
+          "description": "Event trackers, at most 256, each summarizing one observable per replicate in the result's `observations`. rules-run/0.2 and later. Not allowed in 0.1, even when empty.",
+          "items": {
+            "$ref": "#/definitions/TrackerSpec"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "budget",
+        "ensemble",
+        "model",
+        "outputs",
+        "schema",
+        "time"
+      ],
+      "type": "object"
+    },
     "RunVersion": {
       "description": "The version of a run request, its `schema` field.",
       "enum": [
@@ -426,58 +578,14 @@
       "type": "object"
     }
   },
-  "description": "A run request: `crn-craft.run/1.0`, the unified request contract, with the fields and defaults of `crn-craft.rules-run/0.6` plus `outputs.quantiles` and the Static Direct `selector`, whose default `auto` picks a selector from the lowered network (`\"selector\": \"linear\"` runs what rules-run/0.6 runs).\n\nIt binds one model, `crn-craft.model/1.0` or any `crn-craft.rules-model` version, by hash and states the time grid, the ensemble, the outputs and an explicit budget. Unknown fields and duplicate keys are rejected. It returns `crn-craft.result/1.0`.",
-  "properties": {
-    "budget": {
-      "$ref": "#/definitions/Budget"
+  "description": "A run request: `crn-craft.run/1.0`, the unified request contract. A simulation request (`RunRequest`) has the fields and defaults of `crn-craft.rules-run/0.6` plus `outputs.quantiles` and returns `crn-craft.result/1.0`. A request whose method is `fsp` (`FspRequest`) computes the distribution of a closed model's counts by finite state projection and returns `crn-craft.fsp-result/1.0`.\n\nBoth bind one model, `crn-craft.model/1.0` or any `crn-craft.rules-model` version, by hash. Unknown fields and duplicate keys are rejected.",
+  "oneOf": [
+    {
+      "$ref": "#/definitions/RunRequest"
     },
-    "ensemble": {
-      "$ref": "#/definitions/Ensemble"
-    },
-    "event_log": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/LogSpec"
-        }
-      ],
-      "description": "Retains selected events of each replicate in the result's `observations`. rules-run/0.2 and later. `null` is rejected."
-    },
-    "method": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/Method"
-        }
-      ],
-      "description": "The simulation method. rules-run/0.2 and later; absent selects `tree`. `null` is rejected."
-    },
-    "model": {
-      "$ref": "#/definitions/ModelRef"
-    },
-    "outputs": {
-      "$ref": "#/definitions/Outputs"
-    },
-    "schema": {
-      "$ref": "#/definitions/RunVersion"
-    },
-    "time": {
-      "$ref": "#/definitions/Time"
-    },
-    "trackers": {
-      "description": "Event trackers, at most 256, each summarizing one observable per replicate in the result's `observations`. rules-run/0.2 and later. Not allowed in 0.1, even when empty.",
-      "items": {
-        "$ref": "#/definitions/TrackerSpec"
-      },
-      "type": "array"
+    {
+      "$ref": "#/definitions/FspRequest"
     }
-  },
-  "required": [
-    "budget",
-    "ensemble",
-    "model",
-    "outputs",
-    "schema",
-    "time"
   ],
-  "title": "RunRequest",
-  "type": "object"
+  "title": "Run"
 }

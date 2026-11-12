@@ -65,7 +65,8 @@ optional `crn-diffsol` integration reports a species exceeding its
 `population_limit` between or at requested times with CRN-E044.
 
 Campaign codes: CRN-E070 covers FSP capacity, work, normalization, output and
-interruption failures; CRN-E080 covers optional deterministic domains/unsupported
+interruption failures, for the network `fsp` command and for `crn-craft.run/1.0`
+requests with method `fsp`; CRN-E080 covers optional deterministic domains/unsupported
 smooth extensions/solver failures; CRN-E085 covers approximate Poisson-leap
 requests, budgets and numerical failures; CRN-E090 covers importer syntax,
 unsupported semantics, explicit-convention and resource failures. None denotes
@@ -86,9 +87,17 @@ limits (64 types, 1,024 parameters, 256 observables and 1,024 rules up to
 converter (`crn-craft convert`, `crn_craft.convert`) cannot write as a rules
 model yet (no reaction, more than 64 product molecules in a reaction, an
 initial count above 2^53, or a population limit; the path points into the
-network model),
+network model), `CRN-R017` a model that has no flat view, which finite
+state projection (and from 0.7.0 analysis, ODE and export) needs: a model
+whose products can create attribute tuples during a run, with random
+product attributes, a whole-rule propensity over a type with several tuples
+or above the static lowering limits (at `/rules`), with an `atp` block (at
+`/atp`) or with continuous variables (at `/continuous`),
 `CRN-R020` run requests (including method, tracker, log and version
-gates, a `crn-craft.model/1.0` model with a `rules-run` request, a
+gates, a request with method `fsp` where a simulation is expected (at
+`/method`), the `fsp` request's version (at `/schema`), `max_states`,
+`tolerance` and bounds (a missing bound, a bound below the initial count,
+or an unknown species label, at `/method/bounds/LABEL`), a `crn-craft.model/1.0` model with a `rules-run` request, a
 higher-order rule with `tree`, `mtdna_direct`, `binomial` or a generated
 rates kernel, `outputs.quantiles` in a request before `crn-craft.run/1.0`
 (at `/schema`), more than 16 or not strictly increasing quantile

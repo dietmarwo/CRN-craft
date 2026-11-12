@@ -167,6 +167,28 @@ fn rules_fsp_json(
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
+/// Runs a rules request (any rules-run version, or `crn-craft.run/1.0`
+/// with any method) and writes a `crn-craft.archive/1.0` directory at
+/// `output`: the `crn-craft.archive-check/1.0` report as JSON. Failures are
+/// an invalid report, never an exception; Ctrl-C cancels the run.
+#[pyfunction]
+#[pyo3(signature = (model, request, output, cancel_file=None))]
+fn rules_archive_json(
+    py: Python<'_>,
+    model: Vec<u8>,
+    request: Vec<u8>,
+    output: String,
+    cancel_file: Option<String>,
+) -> PyResult<String> {
+    let mut control = Control::default();
+    control.cancel_file = cancel_file.map(PathBuf::from);
+    let report = run_interruptible(py, control, Control::cancel, move |c| {
+        crn_craft::archive::v1::write(&model, &request, std::path::Path::new(&output), c)
+    })?;
+    serde_json::to_string(&report)
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PreparedRules>()?;
     module.add_function(wrap_pyfunction!(describe_rules_json, module)?)?;
@@ -175,5 +197,6 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(convert_network, module)?)?;
     module.add_function(wrap_pyfunction!(rules_loop_driver, module)?)?;
     module.add_function(wrap_pyfunction!(rules_fsp_json, module)?)?;
+    module.add_function(wrap_pyfunction!(rules_archive_json, module)?)?;
     Ok(())
 }

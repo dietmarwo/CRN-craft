@@ -882,6 +882,147 @@ def check_fsp():
             raise RuntimeError(f"fsp bounds {bounds!r} accepted")
 
 
+def check_archives():
+    """rules.archive, PreparedEnsemble.archive and rules.verify_archive."""
+    sir = sir_model()
+    run = rules.ensemble(
+        sir,
+        end=50.0,
+        report_times=[0.0, 25.0, 50.0],
+        replicates=6,
+        seed=5,
+        threads=2,
+        keep_paths="all",
+        quantiles=(0.5,),
+    )
+    result = run.simulate()
+    with tempfile.TemporaryDirectory() as folder:
+        folder = Path(folder)
+        report = run.archive(folder / "run")
+        require(
+            report["schema"] == "crn-craft.archive-check/1.0"
+            and report["valid"]
+            and report["simulation_complete"]
+            and report["termination"] == "completed"
+            and report["result"] == "crn-craft.result/1.0"
+            and report["model_sha256"] == result.metadata["model_sha256"]
+            and report["run_sha256"] == result.metadata["run_sha256"],
+            f"prepared run archive: {report}",
+        )
+        model, request = run._documents
+        require(
+            (folder / "run/model.json").read_bytes() == model
+            and (folder / "run/request.json").read_bytes() == request,
+            "archived input bytes",
+        )
+        archived = json.loads((folder / "run/result.json").read_bytes())
+        require(
+            archived["statistics"]["mean"] == result.metadata["statistics"]["mean"]
+            and archived["statistics"]["quantiles"]
+            == result.metadata["statistics"]["quantiles"]
+            and [r["events"] for r in archived["replicates"]]
+            == result.records["events"].tolist(),
+            "archived result equals the simulated result",
+        )
+        verified = rules.verify_archive(folder / "run")
+        require(
+            verified["valid"] and verified["run_sha256"] == report["run_sha256"],
+            "verify a prepared run archive",
+        )
+        # The same archive from the documents, and refusals as reports.
+        pretty = json.dumps(json.loads(model), indent=1)
+        same = rules.archive(pretty, request, folder / "documents")
+        require(
+            not same["valid"]
+            and (same["diagnostics"][0]["code"], same["diagnostics"][0]["path"])
+            == ("CRN-R020", "/model/sha256")
+            and not (folder / "documents").exists(),
+            "a re-serialized model has another hash",
+        )
+        same = rules.archive(model, request, folder / "documents")
+        require(
+            same == report
+            and (folder / "documents/result.json").read_bytes()
+            == (folder / "run/result.json").read_bytes(),
+            "rules.archive equals PreparedEnsemble.archive",
+        )
+        again = run.archive(folder / "run")
+        require(
+            not again["valid"] and again["diagnostics"][0]["code"] == "CRN-E065",
+            "an existing directory is refused",
+        )
+        # Tampering: a byte appended to the result.
+        with (folder / "run/result.json").open("ab") as handle:
+            handle.write(b" ")
+        tampered = rules.verify_archive(folder / "run")
+        require(
+            not tampered["valid"]
+            and tampered["diagnostics"][0]["code"] == "CRN-E065",
+            "tampered archive accepted",
+        )
+        # A finite state projection request.
+        decay = rules.Model("decay")
+        decay.add_species({"X": 5})
+        decay.add_reaction(1.0, ["X"], [])
+        data = crn_craft.model_bytes(decay.to_dict())
+        fsp_request = {
+            "schema": rules.RUN_1_0,
+            "model": {"path": "model.json", "sha256": hashlib.sha256(data).hexdigest()},
+            "time": {"end": 1.0, "report_times": [0.0, 1.0]},
+            "method": {
+                "kind": "fsp",
+                "bounds": {"X": 5},
+                "max_states": 10,
+                "tolerance": 1e-12,
+            },
+            "budget": {"max_output_bytes": 100000},
+        }
+        projected = rules.archive(data, fsp_request, folder / "fsp")
+        require(
+            projected["valid"]
+            and projected["result"] == "crn-craft.fsp-result/1.0"
+            and projected["termination"] is None
+            and rules.verify_archive(folder / "fsp")["valid"],
+            "finite state projection archive",
+        )
+        # A cancelled run is a valid archive of an incomplete run.
+        cancel = folder / "cancel"
+        cancel.write_text("")
+        cancelled = run.archive(folder / "cancelled", cancel_file=cancel)
+        require(
+            cancelled["valid"]
+            and not cancelled["simulation_complete"]
+            and cancelled["termination"] == "cancelled"
+            and rules.verify_archive(folder / "cancelled")["valid"],
+            "cancelled archive",
+        )
+        # The network engine's archive/0.1 keeps its verifier.
+        network = ROOT / "models/examples/immigration-death.model.json"
+        for name in ("immigration-death.model.json", "immigration-death.run.json"):
+            (folder / name).write_bytes((network.parent / name).read_bytes())
+        old = json.loads(
+            crn_craft._native.archive_json(
+                str(folder / "immigration-death.model.json"),
+                str(folder / "immigration-death.run.json"),
+                str(folder / "old"),
+                False,
+            )
+        )
+        checked = rules.verify_archive(folder / "old")
+        require(
+            old["valid"]
+            and checked["valid"]
+            and checked["schema"] == "crn-craft.archive-check/0.1",
+            "network archive verification",
+        )
+    try:
+        run.bind_parameters({"beta": 3e-4}).archive("unused")
+    except ValueError:
+        pass
+    else:
+        raise RuntimeError("a bind_parameters candidate archived without its bytes")
+
+
 def check_quantiles(model):
     """quantiles= on ensemble and prepare: engine quantiles equal
     numpy.quantile of the kept paths; the documents are the 1.0 contracts,
@@ -1881,6 +2022,7 @@ def main():
             raise RuntimeError(f"keep_paths {bad!r} accepted")
     check_result_documents(model)
     check_fsp()
+    check_archives()
     check_quantiles(model)
     check_reports(model)
     args.output.write_text(
@@ -1912,6 +2054,7 @@ def main():
                     "trackers without a method",
                     "result model and request of every path",
                     "rules.fsp law and refusals",
+                    "rules archives and their verification",
                     "quantiles equal numpy.quantile of the paths",
                     "markdown and JSON reports",
                 ],

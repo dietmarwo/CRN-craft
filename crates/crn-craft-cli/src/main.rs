@@ -11,7 +11,7 @@ use std::{
     process::ExitCode,
 };
 
-const HELP: &str = "crn-craft — CRN solvers and network analysis\n\nUsage:\n  crn-craft describe [model|run|result|result-v1|archive|archive-check|check|state|analysis-1.0|export|fsp-result|tau-request|tau-result|ssa-run|ssa-result|rules-model|rules-check|rules-run|rules-result|model-1.0|check-1.0|run-1.0|result-1.0|fsp-result-1.0]\n  crn-craft check MODEL [RUN]\n  crn-craft analyze MODEL [STATE]\n  crn-craft export MODEL gillespy2\n  crn-craft simulate MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft verify DIRECTORY\n  crn-craft simulate-cached MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft fsp MODEL RUN [--cancel-file PATH]\n  crn-craft tau MODEL REQUEST [--cancel-file PATH]\n  crn-craft ssa MODEL REQUEST [--cancel-file PATH]\n  crn-craft rules-check RULES_MODEL\n  crn-craft rules RULES_MODEL REQUEST [--cancel-file PATH]\n  crn-craft convert MODEL\n  crn-craft --version\n\nanalyze and export read crn-craft.model/0.1 (through convert), rules-model/0.1-0.4\nand model/1.0; analyze prints analysis/1.0. The other network commands read\ncrn-craft.model/0.1 and refuse crn-craft.model/1.0 (CRN-E032); rules-check and\nrules read rules-model/0.1-0.4 and model/1.0.\nrules solves a run/1.0 request whose method is fsp and prints fsp-result/1.0.\nAll data output is JSON; convert prints the converted rules model. simulate exits 0 only for a completed ensemble.\nverify exits 0 for a valid archive, including an incomplete simulation.\nOther errors and incomplete simulations exit 1. Optional ODE uses crn-diffsol.\n";
+const HELP: &str = "crn-craft — CRN solvers and network analysis\n\nUsage:\n  crn-craft describe [model|run|result|result-v1|archive|archive-check|check|state|analysis-1.0|export|fsp-result|tau-request|tau-result|ssa-run|ssa-result|rules-model|rules-check|rules-run|rules-result|model-1.0|check-1.0|run-1.0|result-1.0|fsp-result-1.0|archive-1.0|archive-check-1.0]\n  crn-craft check MODEL [RUN]\n  crn-craft analyze MODEL [STATE]\n  crn-craft export MODEL gillespy2\n  crn-craft simulate MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft verify DIRECTORY\n  crn-craft simulate-cached MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft fsp MODEL RUN [--cancel-file PATH]\n  crn-craft tau MODEL REQUEST [--cancel-file PATH]\n  crn-craft ssa MODEL REQUEST [--cancel-file PATH]\n  crn-craft rules-check RULES_MODEL\n  crn-craft rules RULES_MODEL REQUEST [--archive NEW_DIRECTORY] [--cancel-file PATH]\n  crn-craft convert MODEL\n  crn-craft --version\n\nanalyze and export read crn-craft.model/0.1 (through convert), rules-model/0.1-0.4\nand model/1.0; analyze prints analysis/1.0. The other network commands read\ncrn-craft.model/0.1 and refuse crn-craft.model/1.0 (CRN-E032); rules-check and\nrules read rules-model/0.1-0.4 and model/1.0.\nrules solves a run/1.0 request whose method is fsp and prints fsp-result/1.0.\nrules --archive writes the model, request and result with a manifest\n(archive/1.0) and prints an archive-check/1.0 report; it exits 0 only for a\ncompleted run. verify reads archive/0.1 and archive/1.0 directories.\nAll data output is JSON; convert prints the converted rules model. simulate exits 0 only for a completed ensemble.\nverify exits 0 for a valid archive, including an incomplete simulation.\nOther errors and incomplete simulations exit 1. Optional ODE uses crn-diffsol.\n";
 
 fn emit(value: &Value) -> io::Result<()> {
     let mut out = io::stdout().lock();
@@ -134,11 +134,26 @@ fn main() -> ExitCode {
                 success,
             )
         }
-        Some("rules") if args.len() == 3 || (args.len() == 5 && args[3] == "--cancel-file") => {
+        Some("rules") if args.len() >= 3 && rules_options(&args[3..]).is_some() => {
+            let (archive, cancel_file) = rules_options(&args[3..]).expect("checked options");
             let mut control = crn_craft_rules::Control::default();
-            control.cancel_file = args.get(4).map(std::path::PathBuf::from);
+            control.cancel_file = cancel_file.map(std::path::PathBuf::from);
             let fsp = crn_craft::fsp::v1::is_fsp_request_file(Path::new(&args[2]));
-            if fsp {
+            if let Some(directory) = archive {
+                // Archived: the report goes to standard output, the result
+                // into the directory.
+                let report = crn_craft::archive::v1::run_files(
+                    Path::new(&args[1]),
+                    Path::new(&args[2]),
+                    Path::new(directory),
+                    &control,
+                );
+                let success = report.valid && report.simulation_complete;
+                (
+                    serde_json::to_value(report).expect("finite archive report"),
+                    success,
+                )
+            } else if fsp {
                 // A run/1.0 request whose method is `fsp`.
                 match crn_craft::fsp::v1::solve_files(
                     Path::new(&args[1]),
@@ -211,8 +226,9 @@ fn main() -> ExitCode {
             }
         }
         Some("verify") if args.len() == 2 => {
-            let report = crn_craft::archive::verify_archive(Path::new(&args[1]));
-            let success = report.valid;
+            // archive/1.0 or the network engine's archive/0.1.
+            let report = crn_craft::archive::verify_any(Path::new(&args[1]));
+            let success = report.valid();
             (
                 serde_json::to_value(report).expect("finite archive report"),
                 success,
@@ -252,6 +268,29 @@ fn convert(path: &Path) -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// The options after `rules MODEL REQUEST`: `--archive NEW_DIRECTORY` and
+/// `--cancel-file PATH`, each at most once, in any order. `None` for anything
+/// else.
+fn rules_options(
+    options: &[std::ffi::OsString],
+) -> Option<(Option<&std::ffi::OsStr>, Option<&std::ffi::OsStr>)> {
+    let (mut archive, mut cancel_file) = (None, None);
+    for pair in options.chunks(2) {
+        let [name, value] = pair else {
+            return None;
+        };
+        let slot = match name.to_str() {
+            Some("--archive") => &mut archive,
+            Some("--cancel-file") => &mut cancel_file,
+            _ => return None,
+        };
+        if slot.replace(value.as_os_str()).is_some() {
+            return None;
+        }
+    }
+    Some((archive, cancel_file))
 }
 
 fn usage_error() -> (Value, bool) {

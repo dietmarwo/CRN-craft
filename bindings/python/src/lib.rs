@@ -397,10 +397,12 @@ fn archive_json(
         .unwrap()
     })
 }
+/// The report of `crn-craft verify DIRECTORY`: `archive-check/1.0` for an
+/// archive of a rules run, `archive-check/0.1` for a network-engine archive.
 #[pyfunction]
 fn verify_json(py: Python<'_>, directory: String) -> String {
     py.detach(move || {
-        serde_json::to_string(&crn_craft::archive::verify_archive(std::path::Path::new(
+        serde_json::to_string(&crn_craft::archive::verify_any(std::path::Path::new(
             &directory,
         )))
         .unwrap()

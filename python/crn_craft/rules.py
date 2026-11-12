@@ -697,6 +697,26 @@ class PreparedEnsemble:
         result._ran = self._ran
         return result
 
+    def archive(self, directory, *, cancel_file=None):
+        """Run this request once more and seal the run in ``directory``.
+
+        As :func:`archive` with the exact model and request bytes this run
+        was prepared from: the archived result equals the result of
+        ``simulate()`` (completed runs replay byte for byte; a compiled loop
+        gives the interpreter's result, which the archive holds). Returns
+        the ``crn-craft.archive-check/1.0`` report. A ``bind_parameters``
+        candidate has no original bytes and raises ``ValueError``: archive
+        its model with the bound values and a request bound to it with
+        :func:`archive`.
+        """
+        if self._documents is None:
+            raise ValueError(
+                "a bind_parameters candidate has no original model and request "
+                "bytes to archive; pass the model with the bound parameter values "
+                "and a request bound to it to rules.archive"
+            )
+        return archive(*self._documents, directory, cancel_file=cancel_file)
+
     @property
     def rule_names(self):
         """Rule names in declaration order.
@@ -1111,3 +1131,59 @@ def fsp(model, end, report_times, bounds, max_states=None, tolerance=None):
     except _native.NativeError as error:
         raise _crn_error(error) from None
     return json.loads(text)
+
+
+def archive(model, request, directory, *, cancel_file=None):
+    """Run a request and seal the run in a new archive directory.
+
+    ``model`` is model bytes, a JSON string, a dictionary or a
+    :class:`Model`; ``request`` is request bytes, a JSON string or a
+    dictionary: any rules-run version, or ``crn-craft.run/1.0`` with any
+    method, ``fsp`` included. The request must bind the exact model bytes
+    (``model.sha256``); its ``model.path`` is kept but not resolved.
+    ``directory`` must not exist; its parent must.
+
+    The directory gets ``model.json`` and ``request.json`` (the exact
+    bytes), ``result.json`` (the result as ``crn-craft rules`` prints it),
+    ``manifest.json`` (``crn-craft.archive/1.0``: length and SHA-256 of the
+    three) and, written last, ``COMPLETE``. This is
+    ``crn-craft rules MODEL REQUEST --archive NEW_DIRECTORY`` without files
+    for the inputs; :meth:`PreparedEnsemble.archive` archives a prepared
+    run.
+
+    Returns the ``crn-craft.archive-check/1.0`` report as a dictionary,
+    also when the run or the write failed: read ``valid`` (the archive was
+    written), ``simulation_complete`` (the run completed) and
+    ``termination`` together, and ``diagnostics`` for the reason of a
+    failure. Input errors create no directory. Check an archive later with
+    :func:`verify_archive`. Ctrl-C cancels the run, which is archived as
+    cancelled before ``KeyboardInterrupt`` is raised.
+
+    An archive is the sealed, verifiable record of a run for replay; a
+    report written by :meth:`Result.save` is a readable record.
+    """
+    if isinstance(model, Model):
+        model = model.to_dict()
+    return json.loads(
+        _native.rules_archive_json(
+            model_bytes(model),
+            model_bytes(request),
+            str(directory),
+            _path(cancel_file),
+        )
+    )
+
+
+def verify_archive(directory):
+    """Check an archive directory without running anything.
+
+    Reads ``crn-craft.archive/1.0`` directories (written by :func:`archive`
+    and ``crn-craft rules ... --archive``) and the network engine's
+    ``crn-craft.archive/0.1`` directories, and returns the report of
+    ``crn-craft verify DIRECTORY`` as a dictionary
+    (``crn-craft.archive-check/1.0`` or ``0.1``): ``valid`` is true for an
+    intact, consistent archive, also of an incomplete run
+    (``simulation_complete`` false); ``diagnostics`` names the first
+    inconsistency otherwise.
+    """
+    return json.loads(_native.verify_json(str(directory)))

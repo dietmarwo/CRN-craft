@@ -83,6 +83,7 @@
 //! | Analyze structure and conservation | [`analyze_bytes`], [`analyze_files`], [`rules::FlatView`] | `model/0.1`, rules models, `model/1.0`, `state/0.1` → `analysis/1.0` |
 //! | Direct SSA with sealed archives | [`archive::simulate_files`], [`archive::verify_archive`], [`simulation::simulate_bytes`] | `run/0.1` → `result/0.2`, `archive/0.1`, `archive-check/0.1` |
 //! | Alternative exact SSA | [`ssa::prepare`], [`ssa::execute`], [`ssa::solve`], [`ssa::solve_files`] | `ssa-run/0.1`–`0.4` → `ssa-result/0.1`–`0.4` |
+//! | Sealed archives of rules runs | [`archive::v1::run_files`], [`archive::v1::write`], [`archive::v1::verify`], [`archive::verify_any`] | rules requests, `run/1.0` → `archive/1.0`, `archive-check/1.0` |
 //! | Finite state projection | [`fsp::solve`] | `run/0.1` with `fsp` → `fsp-result/0.1` |
 //! | Finite state projection of a closed rules model | [`fsp::v1::solve`], [`fsp::v1::solve_files`], [`rules::FlatView`] | `run/1.0` with `fsp` → `fsp-result/1.0` |
 //! | Approximate tau leaping (experimental) | [`tau::solve`], [`tau::solve_files`] | `tau-request/0.1` → `tau-result/0.1` |
@@ -465,7 +466,7 @@ pub fn check_files(model_path: &Path, run_path: Option<&Path>) -> CheckReport {
 /// prints it, or `None` for an unknown kind.
 ///
 /// Kinds: `model`, `run`, `result`, `result-v1`, `archive`, `archive-check`,
-/// `check`, `state`, `analysis-1.0`, `export`, `tau-request`, `tau-result`,
+/// `archive-1.0`, `archive-check-1.0`, `check`, `state`, `analysis-1.0`, `export`, `tau-request`, `tau-result`,
 /// `fsp-result`, `fsp-result-1.0`, `ssa-run` and `ssa-result`. The `rules-*` kinds and the other 1.0 contracts
 /// (`model-1.0`, `run-1.0`, ...) come from [`rules::schema`].
 ///
@@ -483,6 +484,8 @@ pub fn schema(kind: &str) -> Option<Value> {
         "result-v1" => serde_json::to_value(schema_for!(RunResult)).ok(),
         "archive" => serde_json::to_value(schema_for!(archive::Manifest)).ok(),
         "archive-check" => serde_json::to_value(schema_for!(archive::ArchiveReport)).ok(),
+        "archive-1.0" => serde_json::to_value(schema_for!(archive::v1::Manifest)).ok(),
+        "archive-check-1.0" => serde_json::to_value(schema_for!(archive::v1::ArchiveReport)).ok(),
         "check" => serde_json::to_value(schema_for!(CheckReport)).ok(),
         "state" => serde_json::to_value(schema_for!(analysis::NamedState)).ok(),
         "analysis-1.0" => serde_json::to_value(schema_for!(AnalysisReport)).ok(),

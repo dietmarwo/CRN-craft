@@ -805,3 +805,27 @@ recorded. Failures (comparisons) and the largest |z| per model:
   0.6.0 semantics (no engine change); the failed row is kept; the
   remaining 18 chunks were not run, and the factor and seeds are
   unchanged.
+
+**4. Informative timings** (`compare_speed.py`, 2026-11-12, CLI built at
+`4fe800d`, the kept 0.6.0 CLI rerun in the same session, one thread, the
+sizes of the speed gate, medians of three; report
+`validation/merge/speed-m4c.json`). Seconds, and in parentheses the ratio to
+the same-session 0.6.0 best:
+
+| Model | 0.6.0 best | `linear` | `composition_rejection` | `sorting` | `rssa_cr` | `auto` (picks) |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| W1 | `cached_direct/ziggurat/fast` 0.0499 | 0.0657 (1.32) | 0.0914 (1.83) | 0.0814 (1.63) | 0.0805 (1.61) | 0.0668 (1.34), `linear` |
+| W2 | `direct_cr/ziggurat/fast` 0.0947 | 0.1574 (1.66) | 0.1328 (1.40) | 0.1513 (1.60) | 0.1143 (1.21) | 0.1577 (1.67), `linear` |
+| W3 | `cached_direct/ziggurat/fast` 0.2156 | 0.4307 (2.00) | 0.6968 (3.23) | 0.5384 (2.50) | 0.5156 (2.39) | 0.4146 (1.92), `linear` |
+| W4 | `rssa_cr/ziggurat/fast` 0.1052 | 1.7719 (16.84) | 2.2711 (21.59) | 2.2011 (20.92) | 0.2486 (2.36) | 1.8672 (17.75), `linear` |
+| W5 | `direct_cr/ziggurat/fast` 0.0654 | 0.2262 (3.46) | 0.0942 (1.44) | 0.1792 (2.74) | 0.0831 (1.27) | 0.2252 (3.45), `linear` |
+| W6 | `rssa_cr/ziggurat/fast` 0.0750 | 0.4131 (5.50) | 0.4878 (6.50) | 0.4448 (5.93) | 0.0823 (1.10) | 0.3511 (4.68), `composition_rejection` |
+| W7 | `rssa_cr/ziggurat/fast` 0.0197 | 0.0312 (1.58) | 0.0307 (1.55) | 0.0418 (2.12) | 0.0209 (1.06) | 0.0302 (1.53), `linear` |
+
+No target (the speed gate is M4d). The best selector is `rssa_cr` on W2, W4,
+W5, W6 and W7 and `linear` on W1 and W3; against the 1.25 gate of M4d the
+best ratios are W1 1.32, W2 1.21, W3 1.92 (`auto`, which runs the linear
+scan), W4 2.36, W5 1.27, W6 1.10, W7 1.06.
+Timings on this host varied between sessions by up to about 30% per row (an
+earlier run of the same script, before `4fe800d`, gave for example W6
+`composition_rejection` 0.379 s and W1 `linear` 1.16).

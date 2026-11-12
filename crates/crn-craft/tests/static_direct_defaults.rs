@@ -1,7 +1,7 @@
 //! rules-run/0.6: Static Direct defaults to Ziggurat waits and to sparse
 //! integration of every eligible tracker. Explicit options restore the
 //! rules-run/0.5 behavior, and every other method runs as under 0.5.
-use crn_craft_rules::{
+use crn_craft::rules::{
     Control, Prepared, RulesResult, Termination, execute, generate_rules_kernel,
     generate_rules_loop, prepare,
 };
@@ -316,7 +316,7 @@ fn generated_code_serves_the_new_defaults() {
 
 #[test]
 fn discovery_lists_the_new_version() {
-    let entry = crn_craft_rules::describe();
+    let entry = crn_craft::rules::describe();
     assert_eq!(
         entry["static_direct_defaults_request"],
         "crn-craft.rules-run/0.6"
@@ -324,6 +324,6 @@ fn discovery_lists_the_new_version() {
     let requests = entry["accepted_requests"].as_array().unwrap();
     assert_eq!(requests.len(), 6);
     assert_eq!(requests[5], "crn-craft.rules-run/0.6");
-    let schema = crn_craft_rules::schema("rules-run").unwrap();
+    let schema = crn_craft::rules::schema("rules-run").unwrap();
     assert!(schema.to_string().contains("crn-craft.rules-run/0.6"));
 }

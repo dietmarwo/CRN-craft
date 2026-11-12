@@ -3,7 +3,7 @@
 //! Regenerate a fixture with
 //! `cargo run --release -p crn-craft-rules --example generate_rules_loop -- MODEL REQUEST`
 //! when the generator changes; the first test names the stale fixture.
-use crn_craft_rules::{
+use crn_craft::rules::{
     Control, RulesLoop, execute, execute_with_rules_loop, generate_rules_loop, prepare,
 };
 use serde_json::{Value, json};

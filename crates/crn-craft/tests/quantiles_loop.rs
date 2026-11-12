@@ -1,7 +1,7 @@
 //! Quantile statistics (`crn-craft.run/1.0`) with a generated event loop:
 //! the loop's result is byte-identical to the interpreter's, quantiles
 //! included, for any thread count.
-use crn_craft_rules::{Control, execute, execute_with_rules_loop, prepare};
+use crn_craft::rules::{Control, execute, execute_with_rules_loop, prepare};
 use serde_json::json;
 
 mod sir {

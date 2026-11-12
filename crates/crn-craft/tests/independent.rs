@@ -1,7 +1,7 @@
 //! Independent continuous variables (rules-model/0.4) and the shared
 //! `hybrid` solution: the contract, determinism across threads, bounds and
 //! failures. The statistical gates are in `validation/check_hybrid.py`.
-use crn_craft_rules::{Control, RulesResult, Termination, check_model, execute, prepare};
+use crn_craft::rules::{Control, RulesResult, Termination, check_model, execute, prepare};
 use serde_json::{Value, json};
 
 const V04: &str = "crn-craft.rules-model/0.4";

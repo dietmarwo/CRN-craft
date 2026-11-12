@@ -1425,7 +1425,7 @@ mod tests {
     fn corpus() -> Vec<(String, Vec<u8>)> {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let mut out = Vec::new();
-        for folder in ["models/rules", "crates/crn-craft-rules/tests/generated"] {
+        for folder in ["models/rules", "crates/crn-craft/tests/generated"] {
             for entry in std::fs::read_dir(root.join(folder)).unwrap() {
                 let path = entry.unwrap().path();
                 if path.to_string_lossy().ends_with(".rules.json") {

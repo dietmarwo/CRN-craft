@@ -332,7 +332,7 @@ fn a_single_replicate_and_a_stop_give_the_held_values() {
 fn every_stored_request_as_run_1_0_with_quantiles_matches_its_paths() {
     // Every method the stored requests use (tree, static_direct with each
     // option, next_reaction, tau, mtdna_direct, hybrid), on their models.
-    let stored = root().join("crates/crn-craft-rules/tests/stored");
+    let stored = root().join("crates/crn-craft/tests/stored");
     let expected: BTreeMap<String, String> =
         serde_json::from_slice(&std::fs::read(stored.join("expected.json")).unwrap()).unwrap();
     let probabilities = [0.025, 0.25, 0.5, 0.75, 0.975];

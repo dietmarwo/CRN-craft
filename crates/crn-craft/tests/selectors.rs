@@ -225,7 +225,7 @@ fn the_sampler_names_the_selector() {
 /// the schema string, `run_sha256` and the echoed method's `selector`.
 #[test]
 fn linear_under_run_1_0_equals_rules_run_0_6() {
-    let stored = root().join("crates/crn-craft-rules/tests/stored");
+    let stored = root().join("crates/crn-craft/tests/stored");
     let mut names: Vec<String> = std::fs::read_dir(&stored)
         .unwrap()
         .map(|entry| entry.unwrap().file_name().into_string().unwrap())

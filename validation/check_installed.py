@@ -19,7 +19,6 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 import crn_craft as c
-import crn_craft._legacy as legacy
 from crn_craft import rules
 from crn_craft.importers import import_bng_net
 from crn_craft.observables import oscillation, sampled_first_passage
@@ -440,8 +439,8 @@ def check_builder_odes():
     require(
         plain.to_json(indent=None) == ODES_040
         and explicit.to_json(indent=None) == ODES_040
-        and legacy.model_bytes(plain.to_dict())
-        == legacy.model_bytes(json.loads(ODES_040))
+        and rules.model_bytes(plain.to_dict())
+        == rules.model_bytes(json.loads(ODES_040))
         and plain.to_json() == json.dumps(json.loads(ODES_040), indent=2) + "\n",
         "add_ode without independent variables writes the bytes of 0.4.0",
     )
@@ -886,35 +885,53 @@ def main():
         "installed entry point is the Python CLI",
     )
     checks.append("version_and_entry_points")
-    m = legacy.load_example("immigration-death")
-    r = legacy.run_spec(m, end=2.0, replicates=32, seed=77, keep=32)
-    a = legacy.simulate(m, r)
-    b = legacy.simulate(m, r, cached=True)
-    require(a == b, "installed cached identity")
+    m = c.load_example("immigration-death")
+    prepared = c.ensemble(
+        m,
+        end=2.0,
+        report_times=[0.0, 1.0, 2.0],
+        replicates=32,
+        seed=77,
+        keep_paths=32,
+        method={"kind": "static_direct", "waiting_time": "inverse"},
+        selector="linear",
+    )
+    a = prepared.simulate()
+    b = prepared.simulate()
+    require(
+        a.metadata == b.metadata and a.paths.equals(b.paths),
+        "installed replay identity",
+    )
     checks.append("native_API_exact_identity")
     require(
-        legacy.describe()["schema"] == "crn-craft.describe/0.11",
+        c.describe()["schema"] == "crn-craft.describe/1.0",
         "installed capabilities",
     )
     checks.append("discovery")
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
-        (folder / "model.json").write_bytes(m)
-        (folder / "run.json").write_bytes(legacy.model_bytes(r))
+        model_file = folder / a.request["model"]["path"]
+        model_file.write_bytes(rules.model_bytes(a.model))
+        (folder / "run.json").write_bytes(rules.model_bytes(a.request))
         proc = subprocess.run(
             [
                 cli,
-                "simulate-cached",
-                str(folder / "model.json"),
+                "run",
+                str(model_file),
                 str(folder / "run.json"),
+                "--archive",
                 str(folder / "out"),
             ],
             capture_output=True,
             check=False,
         )
         require(proc.returncode == 0, proc.stdout.decode() + proc.stderr.decode())
+        archived = json.loads((folder / "out/result.json").read_bytes())
         require(
-            json.loads((folder / "out/result.json").read_bytes()) == a,
+            {k: v for k, v in archived.items() if k != "replicates"}
+            == {k: v for k, v in a.metadata.items() if k != "replicates"}
+            and [r["events"] for r in archived["replicates"]]
+            == a.records["events"].tolist(),
             "installed CLI/API identity",
         )
         require(
@@ -927,27 +944,34 @@ def main():
             "installed verify",
         )
         for command in [
-            ["describe", "tau-result"],
-            ["analyze", str(folder / "model.json")],
-            ["export", str(folder / "model.json"), "gillespy2"],
+            ["describe", "run-1.0"],
+            ["check", str(model_file), str(folder / "run.json")],
+            ["analyze", str(model_file)],
+            ["export", str(model_file), "gillespy2"],
         ]:
             extra = subprocess.run([cli, *command], capture_output=True, check=False)
-            require(extra.returncode == 0, "installed discovery/legacy/export parity")
-        tau_request = {
-            "schema": "crn-craft.tau-request/0.1",
-            "epsilon": 0.05,
-            "max_leaps_per_replicate": 100000,
-            "reference_run": r,
-        }
-        (folder / "tau.json").write_bytes(legacy.model_bytes(tau_request))
+            require(extra.returncode == 0, "installed discovery/check/export parity")
+        tau = c.ensemble(
+            m,
+            end=2.0,
+            report_times=[0.0, 2.0],
+            replicates=32,
+            seed=77,
+            method={"kind": "tau", "epsilon": 0.05},
+        )
+        approx = tau.simulate()
+        (folder / "tau.json").write_bytes(rules.model_bytes(approx.request))
         extra = subprocess.run(
-            [cli, "tau", str(folder / "model.json"), str(folder / "tau.json")],
+            [cli, "run", str(model_file), str(folder / "tau.json")],
             capture_output=True,
             check=False,
         )
         require(
             extra.returncode == 0
-            and json.loads(extra.stdout)["assessment"] == "approximate_ensemble",
+            and json.loads(extra.stdout)["method"]["kind"] == "tau"
+            and json.loads(extra.stdout)["sampler"].startswith(
+                "chacha8-u53/rules-approximate"
+            ),
             "installed tau CLI parity",
         )
         (folder / "decay.xml").write_bytes(SBML)
@@ -967,24 +991,13 @@ def main():
         decay = json.loads((folder / "decay.json").read_bytes())["model"]
         # The importers return the converted crn-craft.model/1.0 (M5f).
         require(
-            legacy.analyze(decay)["success"]
+            c.Model.from_dict(decay).analyze()["success"]
             and decay["schema"] == "crn-craft.model/1.0"
             and float(decay["rules"][0]["rate"]) == 0.5,
             "installed SBML import script",
         )
         checks.append("installed_CLI_archive_and_import_scripts")
-    fsp = {k: v for k, v in r.items() if k != "ensemble"}
-    fsp["method"] = {
-        "kind": "fsp",
-        "bounds": {"A": 100},
-        "max_states": 101,
-        "tolerance": 1e-12,
-    }
-    fsp["outputs"] = {"statistics": ["mean"], "keep_trajectories": 0}
-    fsp["budget"] = {
-        k: v for k, v in r["budget"].items() if k != "max_events_per_replicate"
-    }
-    result = legacy.fsp(m, fsp)
+    result = rules.fsp(m.to_dict(), 2.0, [0.0, 2.0], {"A": 100}, 101, 1e-12)
     require(not result["numerical_error_certified"], "installed FSP semantics")
     # Immigration-death from zero is Poisson with mean 20 (1 - exp(-0.2 t)).
     final = result["snapshots"][-1]
@@ -995,25 +1008,18 @@ def main():
         "installed FSP matches the Poisson moments",
     )
     checks.append("FSP")
-    approx = legacy.tau(
-        m,
-        {
-            "schema": "crn-craft.tau-request/0.1",
-            "epsilon": 0.05,
-            "max_leaps_per_replicate": 100000,
-            "reference_run": r,
-        },
-    )
     require(
-        approx["assessment"] == "approximate_ensemble",
-        "installed approximate assessment",
+        approx.metadata["termination"] == "completed"
+        and approx.metadata["method"]["kind"] == "tau"
+        and approx.metadata["sampler"] == "chacha8-u53/rules-approximate-cgp-poisson/2",
+        "installed approximate method identity",
     )
     checks.append("tau")
     net = b"begin species\n1 A() 2\nend species\nbegin reactions\n1 1 0 1.0\nend reactions\n"
     require(
-        legacy.analyze(import_bng_net(net, rate_convention="binomial")["model"])[
-            "success"
-        ],
+        c.Model.from_dict(
+            import_bng_net(net, rate_convention="binomial")["model"]
+        ).analyze()["success"],
         "installed importer",
     )
     from crn_craft.importers import ImportFailure
@@ -1038,11 +1044,11 @@ def main():
         "installed oscillation detector",
     )
     try:
-        legacy.fsp(m, dict(fsp, schema="crn-craft.run/9"))
+        c.prepare(m, dict(a.request, schema="crn-craft.run/9"))
     except c.CrnError as error:
         require(error.diagnostics[0]["code"] == "CRN-E003", "installed CrnError")
     else:
-        raise RuntimeError("installed FSP accepted an invalid run")
+        raise RuntimeError("installed prepare accepted an invalid run")
     checks.append("observables")
     # The rules engine (`crn_craft.rules`) ships in the wheel; the mtDNA manual
     # depends on it. Immigration-death has the Poisson law with mean

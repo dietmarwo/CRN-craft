@@ -3,8 +3,12 @@ documents of the top-level names, the Model methods and held-out observable
 checks.
 
 Task M6a rewrote this script for `crn_craft.Model`, `ensemble`, `prepare`
-and `check`; validation/legacy/check_python_network.py keeps the checks of
-the 0.6.0 network functions (now `crn_craft._legacy`) until task M8a.
+and `check`. Task M8a deleted validation/legacy/check_python_network.py, which
+tested the removed network functions of 0.6.0 (`run_spec`, `simulate`,
+`prepare_parameters` and the rest of the old API): this script covers the
+same behavior on the unified API (binding and CLI equivalence for 1, 2 and 8
+threads, reusable parameters and generated code, strict inputs, the
+held-out observable checks, cancel files and keyboard interrupt).
 """
 
 import argparse
@@ -42,7 +46,7 @@ TOP_LEVEL = {
     "read_sbml",
     "verify_archive",
 }
-# The network functions of 0.6.0 that left the top level (crn_craft._legacy).
+# The network functions of 0.6.0 that left the top level.
 REMOVED = {
     "run_spec",
     "simulate",

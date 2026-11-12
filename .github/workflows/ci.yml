@@ -23,8 +23,8 @@ jobs:
       - run: cargo +${{ matrix.toolchain }} test --release --workspace --locked
   contracts:
     runs-on: ubuntu-latest
-    # Mutation gate: the reviewed 35, 8 campaign mutants and the lost-increment
-    # check in the prefix-sum and resumed-sum passes added by P11/P12.
+    # Mutation gate: the mutants of validation/mutation_check.py, on the code of
+    # the unified engine.
     timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
@@ -54,10 +54,6 @@ jobs:
       - run: python validation/check_cme.py --output cme.json
       - run: python -O validation/check_cme.py --output cme-optimized.json
       - run: diff cme.json cme-optimized.json
-      - run: python validation/check_ssa.py --command simulate-cached --output cached-ssa.json
-      - run: diff ssa.json cached-ssa.json
-      - run: python validation/check_cme.py --command simulate-cached --output cached-cme.json
-      - run: diff cme.json cached-cme.json
       - run: python validation/mutation_check.py --output mutations.json
   reference-export:
     runs-on: ubuntu-latest
@@ -79,15 +75,9 @@ jobs:
       - run: python validation/check_fsp.py --binary target/release/crn-craft --dsmts "$RUNNER_TEMP/dsmts" --output fsp.json
       - run: python -O validation/check_fsp.py --binary target/release/crn-craft --dsmts "$RUNNER_TEMP/dsmts" --output fsp-optimized.json
       - run: diff fsp.json fsp-optimized.json
-      - run: python validation/check_fsp_rules.py --binary target/release/crn-craft --dsmts "$RUNNER_TEMP/dsmts" --output fsp-rules.json
-      - run: python -O validation/check_fsp_rules.py --binary target/release/crn-craft --dsmts "$RUNNER_TEMP/dsmts" --output fsp-rules-optimized.json
-      - run: diff fsp-rules.json fsp-rules-optimized.json
       - run: python validation/check_tau.py --binary target/release/crn-craft --output tau.json
       - run: python -O validation/check_tau.py --binary target/release/crn-craft --output tau-optimized.json
       - run: diff tau.json tau-optimized.json
-      - run: python validation/check_tau_rules.py --binary target/release/crn-craft --output tau-rules.json
-      - run: python -O validation/check_tau_rules.py --binary target/release/crn-craft --output tau-rules-optimized.json
-      - run: diff tau-rules.json tau-rules-optimized.json
   rules:
     # K1 exact-law gates for dynamic, attributed species (docs/rules-language.md).
     runs-on: ubuntu-latest
@@ -122,11 +112,6 @@ jobs:
       - run: python validation/check_python.py --binary target/release/crn-craft --output python.json
       - run: python -O validation/check_python.py --binary target/release/crn-craft --output python-optimized.json
       - run: diff python.json python-optimized.json
-      # The 0.6.0 network functions, now in the private crn_craft._legacy,
-      # until task M8a migrates their checks and M8b deletes them.
-      - run: python validation/legacy/check_python_network.py --binary target/release/crn-craft --output python-network.json
-      - run: python -O validation/legacy/check_python_network.py --binary target/release/crn-craft --output python-network-optimized.json
-      - run: diff python-network.json python-network-optimized.json
       - run: python validation/check_rules_python.py --output rules-python.json
       - run: python -O validation/check_rules_python.py --output rules-python-optimized.json
       - run: diff rules-python.json rules-python-optimized.json
@@ -162,9 +147,6 @@ jobs:
       - run: python validation/check_alternative_ssa.py --output alternative-laws.json
       - run: python -O validation/check_alternative_ssa.py --output alternative-laws-optimized.json
       - run: diff alternative-laws.json alternative-laws-optimized.json
-      - run: python validation/check_alternative_ssa.py --fast --output fast-laws.json
-      - run: python -O validation/check_alternative_ssa.py --fast --output fast-laws-optimized.json
-      - run: diff fast-laws.json fast-laws-optimized.json
       - run: python validation/check_importers.py --output importers.json
       - run: python -O validation/check_importers.py --output importers-optimized.json
       - run: diff importers.json importers-optimized.json

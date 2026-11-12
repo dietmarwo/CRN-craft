@@ -583,3 +583,46 @@ Added memory: 7,180 KiB (median of the peaks), against a buffer of
 column. Added time: −1.90 s, inside the run-to-run spread of about ±3 s; the
 quantile work (222 columns of 4,000 values sorted once, three evaluations
 each) is not measurable against 65 s of simulation.
+
+### M5a (finite state projection on the flat view): declaration
+
+Written and committed before the first run of the checks below. The engine
+under test solves `crn-craft.run/1.0` requests with method `fsp` through
+`crn-craft rules MODEL REQUEST` (`crn_craft::fsp::v1`), on models converted
+by the engine under test (`crn-craft convert`).
+
+**Reference gate** (`validation/merge/check_fsp_references.py --binary
+target/release/crn-craft`, standard library only). For each stored 0.6.0
+FSP reference (W1, W4, enzyme-mechanism, immigration-death and
+michaelis-menten from M0c; third-order-decay and trimolecular from M4b):
+convert the network model, request the same bounds (by species name),
+`max_states` and tolerance (1e-12) as the reference, with `end` and the
+report times of the reference's save grid, and compare by species name and
+state:
+
+1. the projected state set equals the reference's (7 checks);
+2. every probability: |p − p_ref| ≤ 1e-10 absolute (11,232 comparisons:
+   W1 251 × 6, W4 1,001 × 6, enzyme-mechanism 506 × 5, immigration-death
+   151 × 5, michaelis-menten 51 × 5, third-order-decay 14 × 6,
+   trimolecular 16 × 6 states × report times);
+3. the sink probability at every report time: |leak − leak_ref| ≤ 1e-10
+   (38 comparisons).
+
+N = 11,277 checks; **0 failures are expected**. Rates are evaluated by
+expressions, so bits may differ (Hill laws, mass action over pairs); all
+seven models are mass action or Michaelis–Menten. The report lists the
+largest difference per model, and as information (not gated) the
+uniformization rate, the edge count and the largest moment difference. The
+report must be identical normally and under `python -O`.
+
+**Migrated `check_fsp.py`** (`validation/check_fsp_rules.py --binary
+target/release/crn-craft --dsmts DSMTS_CHECKOUT`): every case of
+`validation/check_fsp.py` (the four CME fixtures F1–F4 of `check_cme.py`
+and DSMTS 001-01 and 002-01) on the converted model through the new
+command, with the old script's tolerances: distribution error against an
+independent matrix exponential ≤ 2e-12 at every report time, series tail
+bound ≤ 1.01e-14, mass balance |Σp + discarded − 1| < 2e-12, DSMTS
+analytic mean error < 1e-9 and variance error < 1e-7, and the upstream
+rounded DSMTS means < 5.1e-6 from the analytic law. `check_fsp.py` stays
+on the network `crn-craft fsp` command until the network engine is
+removed (M8). The report must be identical normally and under `python -O`.

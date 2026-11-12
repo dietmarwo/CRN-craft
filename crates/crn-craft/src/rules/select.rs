@@ -44,57 +44,30 @@ impl Kind {
     }
 }
 
-/// `auto` picks composition–rejection or RSSA-CR from this many channels on
-/// (declared benchmark in `validation/merge/selector-threshold.json`).
-pub(crate) const AUTO_CHANNELS: usize = 64;
-/// `auto` picks RSSA-CR over composition–rejection when the channels'
-/// dependency lists hold at least this many channels on average.
-pub(crate) const AUTO_RSSA_AFFECTED: f64 = 16.0;
-/// `auto` picks RSSA-CR from this many channels on when at least half of
-/// the channels evaluate an expression or a combination count.
-pub(crate) const AUTO_RSSA_EXPRESSIONS: usize = 64;
+/// `auto` picks composition–rejection from this many channels on: N_cr of
+/// the declared benchmark (`validation/merge/selector-threshold.json`), the
+/// smallest grid size from which it beat the linear scan at every larger
+/// point of every family.
+pub(crate) const AUTO_COMPOSITION_REJECTION: usize = 512;
+/// `auto` picks RSSA-CR from this many channels on, for networks whose
+/// rules each read at most one species: N_rssa of the same benchmark. No
+/// grid size qualified (RSSA-CR was slower than composition–rejection at
+/// the largest sizes with four molecules per species), so it is never
+/// picked; select it explicitly.
+pub(crate) const AUTO_RSSA_CR: Option<usize> = None;
 
-/// Structural features of a lowered network that `auto` reads.
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct Features {
-    pub channels: usize,
-    /// The mean length of the channels' dependency lists (`affected`).
-    pub mean_affected: f64,
-    /// The fraction of channels whose rate is an expression of observables
-    /// or a scaled combination count, rather than a constant.
-    pub expressions: f64,
-    /// Every rule's rate reads at most one species, so every RSSA-CR bound
-    /// is an interval bound rather than a point.
-    pub interval_bounds: bool,
-}
-
-impl Features {
-    pub(crate) fn of(net: &Network) -> Self {
-        let channels = net.channels.len();
-        let affected: usize = net.affected.iter().map(Vec::len).sum();
-        let expressions = (0..channels)
-            .filter(|&i| net.constant_global(i).is_none() || net.scaled_combination(i))
-            .count();
-        Self {
-            channels,
-            mean_affected: affected as f64 / channels.max(1) as f64,
-            expressions: expressions as f64 / channels.max(1) as f64,
-            interval_bounds: net.rule_reads.iter().all(|r| r.len() <= 1),
-        }
-    }
-
-    /// The `auto` rule.
-    pub(crate) fn auto(self) -> Kind {
-        let rssa = self.interval_bounds
-            && ((self.expressions >= 0.5 && self.channels >= AUTO_RSSA_EXPRESSIONS)
-                || (self.channels >= AUTO_CHANNELS && self.mean_affected >= AUTO_RSSA_AFFECTED));
-        if rssa {
-            Kind::RssaCr
-        } else if self.channels >= AUTO_CHANNELS {
-            Kind::CompositionRejection
-        } else {
-            Kind::Linear
-        }
+/// The `auto` rule over the lowered network.
+pub(crate) fn auto(net: &Network) -> Kind {
+    let channels = net.channels.len();
+    // Every RSSA-CR bound is an interval bound, not a point, when every
+    // rule's rate reads at most one species.
+    let intervals = net.rule_reads.iter().all(|r| r.len() <= 1);
+    if intervals && AUTO_RSSA_CR.is_some_and(|from| channels >= from) {
+        Kind::RssaCr
+    } else if channels >= AUTO_COMPOSITION_REJECTION {
+        Kind::CompositionRejection
+    } else {
+        Kind::Linear
     }
 }
 
@@ -113,7 +86,7 @@ pub(crate) fn resolve(
         Selector::CompositionRejection => Kind::CompositionRejection,
         Selector::Sorting => Kind::Sorting,
         Selector::RssaCr => Kind::RssaCr,
-        Selector::Auto => net.map_or(Kind::Linear, |net| Features::of(net).auto()),
+        Selector::Auto => net.map_or(Kind::Linear, auto),
     }
 }
 

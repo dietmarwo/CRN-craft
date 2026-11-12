@@ -191,6 +191,11 @@ def main():
     parser.add_argument("--events", type=int, default=1_000_000)
     parser.add_argument("--families", default=",".join(FAMILIES))
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="keep the finished rows of an existing output and run the others",
+    )
     args = parser.parse_args()
     binary = args.binary.resolve()
     report = {
@@ -202,8 +207,16 @@ def main():
         "boundary": "wall time of one crn-craft rules process, median of three after a warm-up",
         "rows": [],
     }
+    if args.resume and args.output.exists():
+        previous = json.loads(args.output.read_text())
+        if previous["events_per_run"] != args.events:
+            raise RuntimeError("the existing output has another event count")
+        report["rows"] = previous["rows"]
+    done = {(r["family"], r["channels"]) for r in report["rows"]}
     for family in args.families.split(","):
         for channels, model, a0 in points(family):
+            if (family, channels) in done:
+                continue
             model_bytes = dump(model)
             end = args.events / a0
             row = {"family": family, "channels": channels, "end": end, "selectors": {}}
@@ -234,6 +247,12 @@ def main():
         return row["selectors"][selector]["ns_per_event"]
 
     rows = report["rows"]
+    measured = {(r["family"], r["channels"]) for r in rows}
+    expected = {(f, n) for f in FAMILIES for n, _, _ in points(f)}
+    if measured != expected:
+        print(f"{len(expected - measured)} points missing; no rule yet", flush=True)
+        return
+    rows.sort(key=lambda r: (FAMILIES.index(r["family"]), r["channels"]))
     n_cr = threshold(
         rows, FAMILIES, lambda r: ns(r, "composition_rejection") < ns(r, "linear")
     )

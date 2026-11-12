@@ -658,3 +658,83 @@ rows are kept; a failure is investigated once, then reported.
 0.6.0 best method rerun in the same session, and the unified engine with
 each selector and with `auto`; medians of three after a warm-up. No target;
 the speed gate is M4d.
+
+### M4c (selectors): results
+
+**1. Selector-threshold benchmark** (2026-11-11, this host, under the CPU
+lock; report `validation/merge/selector-threshold.json`). Nanoseconds per
+event (median of three processes, warm-up excluded, process start and
+lowering included), the fastest selector of each point last:
+
+| Family | Channels | linear | composition_rejection | sorting | rssa_cr | Fastest |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `ring` | 8 | 77 | 109 | 98 | 70 | `rssa_cr` |
+| `ring` | 16 | 79 | 119 | 107 | 72 | `rssa_cr` |
+| `ring` | 32 | 103 | 117 | 124 | 75 | `rssa_cr` |
+| `ring` | 64 | 133 | 132 | 154 | 83 | `rssa_cr` |
+| `ring` | 128 | 212 | 140 | 202 | 80 | `rssa_cr` |
+| `ring` | 256 | 344 | 143 | 297 | 85 | `rssa_cr` |
+| `ring` | 512 | 647 | 153 | 499 | 100 | `rssa_cr` |
+| `ring` | 1,024 | 1,414 | 207 | 856 | 107 | `rssa_cr` |
+| `ring` | 2,048 | 2,550 | 203 | 1,529 | 132 | `rssa_cr` |
+| `ring` | 4,096 | 4,977 | 290 | 3,138 | 204 | `rssa_cr` |
+| `ring_small` | 8 | 74 | 160 | 102 | 196 | `linear` |
+| `ring_small` | 16 | 84 | 167 | 112 | 190 | `linear` |
+| `ring_small` | 32 | 112 | 172 | 127 | 192 | `linear` |
+| `ring_small` | 64 | 141 | 165 | 156 | 207 | `linear` |
+| `ring_small` | 128 | 213 | 174 | 210 | 203 | `composition_rejection` |
+| `ring_small` | 256 | 349 | 193 | 326 | 210 | `composition_rejection` |
+| `ring_small` | 512 | 652 | 197 | 470 | 241 | `composition_rejection` |
+| `ring_small` | 1,024 | 1,268 | 210 | 875 | 236 | `composition_rejection` |
+| `ring_small` | 2,048 | 2,477 | 263 | 1,565 | 269 | `composition_rejection` |
+| `ring_small` | 4,096 | 4,834 | 338 | 3,113 | 352 | `composition_rejection` |
+| `dense` | 6 | 85 | 177 | 134 | 106 | `linear` |
+| `dense` | 12 | 113 | 237 | 185 | 110 | `rssa_cr` |
+| `dense` | 30 | 163 | 330 | 273 | 124 | `rssa_cr` |
+| `dense` | 56 | 229 | 425 | 369 | 128 | `rssa_cr` |
+| `dense` | 132 | 393 | 631 | 557 | 145 | `rssa_cr` |
+| `dense` | 240 | 570 | 762 | 793 | 161 | `rssa_cr` |
+| `dense` | 506 | 998 | 1,140 | 1,244 | 196 | `rssa_cr` |
+| `dense` | 992 | 1,554 | 1,462 | 1,789 | 238 | `rssa_cr` |
+| `dense` | 2,070 | 3,005 | 2,279 | 3,235 | 309 | `rssa_cr` |
+| `dense` | 4,032 | 5,686 | 3,347 | 5,256 | 414 | `rssa_cr` |
+| `michaelis` | 8 | 131 | 167 | 155 | 78 | `rssa_cr` |
+| `michaelis` | 16 | 141 | 165 | 163 | 78 | `rssa_cr` |
+| `michaelis` | 32 | 183 | 174 | 184 | 80 | `rssa_cr` |
+| `michaelis` | 64 | 197 | 185 | 218 | 82 | `rssa_cr` |
+| `michaelis` | 128 | 270 | 205 | 264 | 108 | `rssa_cr` |
+| `michaelis` | 256 | 422 | 200 | 387 | 94 | `rssa_cr` |
+| `michaelis` | 512 | 711 | 228 | 542 | 102 | `rssa_cr` |
+| `michaelis` | 1,024 | 1,316 | 259 | 955 | 160 | `rssa_cr` |
+| `michaelis` | 2,048 | 2,547 | 332 | 1,683 | 160 | `rssa_cr` |
+| `michaelis` | 4,096 | 5,126 | 472 | 3,163 | 239 | `rssa_cr` |
+| `two_reads` | 8 | 182 | 212 | 207 | 399 | `linear` |
+| `two_reads` | 16 | 232 | 228 | 221 | 360 | `sorting` |
+| `two_reads` | 32 | 197 | 251 | 250 | 352 | `linear` |
+| `two_reads` | 64 | 239 | 241 | 256 | 379 | `linear` |
+| `two_reads` | 128 | 316 | 257 | 320 | 435 | `composition_rejection` |
+| `two_reads` | 256 | 456 | 277 | 416 | 393 | `composition_rejection` |
+| `two_reads` | 512 | 805 | 280 | 641 | 427 | `composition_rejection` |
+| `two_reads` | 1,024 | 1,448 | 320 | 937 | 449 | `composition_rejection` |
+| `two_reads` | 2,048 | 2,733 | 422 | 1,736 | 548 | `composition_rejection` |
+| `two_reads` | 4,096 | 5,075 | 623 | 3,214 | 831 | `composition_rejection` |
+
+Rule, applied as declared: **N_cr = 512** (composition–rejection lost to the
+linear scan at `dense` n = 506, 1,140 against 998 ns, and won at every point
+from 512 on); **N_rssa: none** (RSSA-CR was the fastest selector at every
+point of `ring` and `michaelis` and at every `dense` point from n = 12 on,
+but slower than composition–rejection at every `ring_small` point, by 2–4%
+at the two largest: 269 against 263 ns at n = 2,048 and 352 against 338 ns
+at n = 4,096). So `auto` picks composition–rejection from
+512 channels on and the linear scan below, and never sorting or RSSA-CR:
+`AUTO_COMPOSITION_REJECTION = 512`, `AUTO_RSSA_CR = None` in
+`crates/crn-craft/src/rules/select.rs`.
+
+Run history: a server restart stopped the first run after 27 of 50 points
+(`ring`, `ring_small`, `dense` up to n = 506), each written when it finished.
+The script gained `--resume` (finished points are kept, the others run; no
+setting changed), and the remaining 23 points ran after the restart, one
+family per command. The first 27 points ran on a CLI built from the M4c
+sources before `cargo fmt` and an MSRV-compatible `next_up` helper, which
+changes only the widening of higher-order channels (none in these models);
+the other 23 on the CLI rebuilt from `eb336a6`.

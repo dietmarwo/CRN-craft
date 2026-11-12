@@ -585,7 +585,8 @@ pub enum Selector {
     RssaCr,
     #[doc = concat!(
         "One of the others, chosen from the size and structure of the lowered ",
-        "network; the sampler identity names the one that ran."
+        "network (composition–rejection from 512 channels on, else the linear ",
+        "scan); the sampler identity names the one that ran."
     )]
     Auto,
 }
@@ -647,9 +648,10 @@ pub enum Method {
         /// `crn-craft.run/1.0` only (`CRN-R020` at `/schema` in a `rules-run`
         /// request, which always runs the linear scan). How the next channel
         /// is selected: `linear`, `composition_rejection`, `sorting`,
-        /// `rssa_cr`, or `auto`, the default, which picks the linear scan
-        /// below 64 channels and composition–rejection or RSSA-CR from the
-        /// dependency structure above. The sampler identity names the
+        /// `rssa_cr`, or `auto`, the default, which picks
+        /// composition–rejection from 512 lowered channels on and the linear
+        /// scan below (measured thresholds; `auto` does not pick sorting or
+        /// RSSA-CR). The sampler identity names the
         /// selector that ran: `rules-static-direct` for `linear`,
         /// `rules-static-direct-cr`, `-sorting` or `-rssa-cr` for the others,
         /// followed by `-sparse-trackers` where that applies. Generated event
@@ -2747,7 +2749,11 @@ pub fn describe() -> Value {
             "selectors": {
                 "request": "method.selector", "method": "static_direct",
                 "values": ["linear", "composition_rejection", "sorting", "rssa_cr", "auto"],
-                "default": "auto", "loops": ["linear"]
+                "default": "auto", "loops": ["linear"],
+                "auto": {
+                    "composition_rejection_from_channels": select::AUTO_COMPOSITION_REJECTION,
+                    "rssa_cr_from_channels": select::AUTO_RSSA_CR
+                }
             }
         },
         "sampler": SAMPLER,

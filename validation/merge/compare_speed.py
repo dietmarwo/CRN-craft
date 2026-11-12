@@ -22,7 +22,10 @@ under the CPU lock:
 
 Only the standard library is needed. M4c records these timings as
 information; the speed gate of M4d (declared in `validation/merge/RESULTS.md`)
-compares the best selector against a same-session rerun of `baseline.py`.
+compares the best unified method against a same-session rerun of
+`baseline.py`: `--baseline` names that rerun (or its parts by model), and each
+model then gets a `gate` entry with the reference's best 0.6.0 method, the
+fastest unified method (`next_reaction` counts) and their ratio.
 """
 
 import argparse
@@ -125,6 +128,13 @@ def main():
         "'next_reaction' runs that method",
     )
     parser.add_argument("--repeats", type=int, default=3)
+    parser.add_argument(
+        "--baseline",
+        type=Path,
+        nargs="+",
+        help="baseline.py reports whose CLI best is the speed-gate reference "
+        "(default: the committed baseline-0.6.0.json); parts by model are merged",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     args.new = args.new.resolve()
@@ -132,6 +142,10 @@ def main():
         args.old = args.old.resolve()
     baseline = json.loads((HERE / "baseline-0.6.0.json").read_text())
     summary = baseline["timing_summary"]["cli"]
+    # The speed-gate reference: the best 0.6.0 method of the given reports.
+    reference = {}
+    for path in args.baseline or [HERE / "baseline-0.6.0.json"]:
+        reference.update(json.loads(path.read_text())["timing_summary"]["cli"])
     manifest = json.loads((HERE / "models.json").read_text())
     wanted = args.models.split(",") if args.models else None
     selectors = args.selectors.split(",")
@@ -140,6 +154,7 @@ def main():
         rows_by_model.setdefault(row["model"], []).append(row)
     report = {
         "schema": "crn-craft.merge-speed-comparison/0.1",
+        "reference": [str(p) for p in args.baseline or [HERE / "baseline-0.6.0.json"]],
         "host": {"machine": platform.machine(), "python": platform.python_version()},
         "old": None if args.old is None else str(args.old),
         "new": str(args.new),
@@ -216,6 +231,25 @@ def main():
         if "old_seconds" in result:
             print(
                 f"{name:18s} {'0.6.0 ' + best:22s} {result['old_seconds']:8.4f} s",
+                file=sys.stderr,
+                flush=True,
+            )
+        if name in reference:
+            # The gate: the unified engine's best method against the best
+            # 0.6.0 method of the reference report.
+            fastest = min(
+                result["selectors"], key=lambda k: result["selectors"][k]["seconds"]
+            )
+            result["gate"] = {
+                "reference_method": reference[name]["best"],
+                "reference_seconds": reference[name]["best_seconds"],
+                "best_method": fastest,
+                "best_seconds": result["selectors"][fastest]["seconds"],
+                "ratio": result["selectors"][fastest]["seconds"]
+                / reference[name]["best_seconds"],
+            }
+            print(
+                f"{name:18s} gate {fastest} {result['gate']['ratio']:5.2f}",
                 file=sys.stderr,
                 flush=True,
             )

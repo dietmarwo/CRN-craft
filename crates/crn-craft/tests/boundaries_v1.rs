@@ -464,3 +464,51 @@ fn every_method_replays_across_thread_counts() {
         assert_eq!(results[0], results[1], "{name}");
     }
 }
+
+/// M8b, from the network engine's `tests/tau.rs`: tau leaping never passes
+/// the last reachable count of a critical homodimer (`2X -> X` from three
+/// molecules ends at one), stays non-negative, and replays across thread
+/// counts.
+#[test]
+fn tau_never_passes_the_last_reachable_count_of_a_critical_homodimer() {
+    let model = serde_json::to_vec(&json!({
+        "schema": "crn-craft.model/1.0", "name": "dimer",
+        "parameters": {"k": 100.0}, "types": [{"name": "X"}],
+        "initial": [{"type": "X", "count": 3}], "observables": {"X": {"type": "X"}},
+        "rules": [{"name": "critical", "reactants": [{"label": "x", "type": "X"}, {"label": "y", "type": "X"}],
+                   "rate": "k", "products": [{"type": "X"}]}]
+    }))
+    .unwrap();
+    let results: Vec<Value> = [1, 3]
+        .into_iter()
+        .map(|threads| {
+            let mut document: Value = serde_json::from_slice(&request(
+                &model,
+                json!({"kind": "tau", "epsilon": 0.03}),
+                10.0,
+                1000,
+            ))
+            .unwrap();
+            document["ensemble"]["replicates"] = json!(64);
+            document["outputs"]["keep_paths"] = json!(64);
+            document["budget"]["threads"] = json!(threads);
+            let result = run(
+                &model,
+                &serde_json::to_vec(&document).unwrap(),
+                &Control::default(),
+            );
+            assert_eq!(result.termination, Termination::Completed);
+            assert!(result.paths.iter().all(|p| p.values[1] == [1.0]));
+            assert!(
+                result
+                    .paths
+                    .iter()
+                    .all(|p| p.values.iter().all(|row| row[0] >= 1.0))
+            );
+            let mut value = serde_json::to_value(result).unwrap();
+            value.as_object_mut().unwrap().remove("run_sha256");
+            value
+        })
+        .collect();
+    assert_eq!(results[0], results[1]);
+}

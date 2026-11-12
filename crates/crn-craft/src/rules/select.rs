@@ -363,6 +363,7 @@ fn lemire_accepts(low: u64, n: u64) -> bool {
     low >= n || low >= n.wrapping_neg() % n
 }
 
+#[inline]
 fn joint<R: RngCore>(
     members: &[usize],
     bound: f64,
@@ -402,6 +403,8 @@ pub(crate) struct Composition {
     /// Running envelope sums over `active`, rebuilt only after a membership
     /// change, with the same additions in the same order as a fresh scan.
     cumulative: Vec<f64>,
+    /// The ceiling of each active group, as `cumulative`.
+    ceilings: Vec<f64>,
     stale: bool,
 }
 
@@ -470,8 +473,10 @@ impl Composition {
         let largest = *self.active.last().ok_or_else(unresolvable)?;
         let scale = ceiling(largest);
         self.cumulative.clear();
+        self.ceilings.clear();
         let mut sum = 0.0;
         for &id in &self.active {
+            self.ceilings.push(ceiling(id));
             let weight = (ceiling(id) / scale) * self.groups[id].len() as f64;
             let next = sum + weight;
             if weight <= 0.0 || next <= sum {
@@ -522,7 +527,7 @@ impl Composition {
             let k = self.cumulative.partition_point(|&c| c <= threshold);
             let id = *self.active.get(k).ok_or_else(unresolvable)?;
             let members = &self.groups[id];
-            let bound = ceiling(id);
+            let bound = self.ceilings[k];
             let (channel, threshold) = if members.len() <= JOINT_MEMBERS {
                 joint(members, bound, words)?
             } else {

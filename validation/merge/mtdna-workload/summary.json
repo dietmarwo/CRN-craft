@@ -1,0 +1,68 @@
+[
+ {
+  "method": "mtdna_direct",
+  "replicates": 1000,
+  "threads": 1,
+  "old_s": 10.670642456999985,
+  "new_s": 10.269686783999987,
+  "ratio": 0.9624244112183733,
+  "identical": true,
+  "n_old": 5,
+  "n_new": 5
+ },
+ {
+  "method": "mtdna_direct",
+  "replicates": 1000,
+  "threads": 2,
+  "old_s": 5.416521189999912,
+  "new_s": 5.263106949000758,
+  "ratio": 0.9716766102046475,
+  "identical": true,
+  "n_old": 5,
+  "n_new": 5
+ },
+ {
+  "method": "static_direct",
+  "replicates": 400,
+  "threads": 1,
+  "old_s": 13.196566155000255,
+  "new_s": 9.487118709000242,
+  "ratio": 0.7189081309159745,
+  "identical": true,
+  "n_old": 5,
+  "n_new": 5
+ },
+ {
+  "method": "static_direct",
+  "replicates": 400,
+  "threads": 2,
+  "old_s": 6.698106496000037,
+  "new_s": 5.634714578000057,
+  "ratio": 0.8412399207693975,
+  "identical": true,
+  "n_old": 5,
+  "n_new": 5
+ },
+ {
+  "method": "tree",
+  "replicates": 100,
+  "threads": 1,
+  "old_s": 10.039602895999906,
+  "new_s": 9.942732979000539,
+  "ratio": 0.9903512202621119,
+  "identical": true,
+  "n_old": 5,
+  "n_new": 5
+ },
+ {
+  "method": "tree",
+  "replicates": 100,
+  "threads": 2,
+  "old_s": 5.4570543569998335,
+  "new_s": 5.447610555999745,
+  "ratio": 0.998269432484583,
+  "identical": true,
+  "n_old": 5,
+  "n_new": 5
+ }
+]

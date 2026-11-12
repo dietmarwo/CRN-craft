@@ -291,6 +291,11 @@ fn refreshed_hashes_do_not_hide_false_accounting_or_statistics() {
             Box::new(|r| r["paths"][3]["values"][0][0] = json!(4.0)),
         ),
         (
+            "stop time past the horizon",
+            accounting,
+            Box::new(|r| r["replicates"][0]["stop_time"] = json!(1e9)),
+        ),
+        (
             "record id",
             accounting,
             Box::new(|r| r["replicates"][0]["id"] = json!(1)),

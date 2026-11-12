@@ -7,6 +7,213 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+One engine. The network engine and the rules engine are merged into a
+single engine in the `crn-craft` crate: every network model converts to a
+rules model, and one event loop, one expression language, one random
+number generator (ChaCha8) and one set of contracts serve both. The new
+contracts are `crn-craft.model/1.0`, `run/1.0`, `result/1.0`, `check/1.0`,
+`fsp-result/1.0`, `analysis/1.0`, `archive/1.0`, `import/1.0` and
+`describe/1.0`. Every rules document of 0.6.0 (`rules-model` 0.1–0.4,
+`rules-run` 0.1–0.6) replays byte for byte. Results of the 0.6.0 network
+engine do not replay; they are reproduced in law, not in bytes (see
+**Migration**). New features: quantile statistics and the median, saving
+results as markdown or JSON (`Result.save`), the network engine's event
+selectors for Static Direct, higher-order rules, and limits 16× larger.
+FSP, network analysis, ODE right-hand sides and GillesPy2 export now work
+on rules models. The CLI gate of the merge timed the best unified method
+against the best 0.6.0 method on twelve models: within 1.25× on each,
+between 0.66× and 1.20×. On the mtDNA manual's workload 0.7.0 takes 0.72×
+to 1.00× the time of 0.6.0, with identical results.
+
+### Added
+
+- **Quantile statistics.** `outputs.quantiles` in `run/1.0`: up to 16
+  probabilities in (0, 1). The result's `statistics.quantiles` holds, per
+  report time and observable, NumPy's default quantile (type 7, equal bit
+  for bit). Python: `ensemble(..., quantiles=...)`,
+  `prepare(..., quantiles=...)`, `result.statistics["quantiles"]` (a dict
+  of DataFrames) and `result.statistics["median"]`.
+- **Saving results.** `Result.save(path, *, paths=True)` writes a markdown
+  report (`.md`) or a JSON report (`.json`, `crn-craft.report/1.0`).
+  `crn_craft.load_report(path)` reads the JSON report back. `Result.model`
+  and `Result.request` give the documents a result came from.
+- **Selectors.** `method.selector` for `static_direct` in `run/1.0`:
+  `linear` (the scan of every rules-run version), `composition_rejection`,
+  `sorting`, `rssa_cr` and `auto`. `auto` is the default in `run/1.0`. It
+  chooses RSSA-CR from 8 channels when no rate reads two or more species
+  (from 128 channels when the populations start small),
+  composition–rejection from 128 channels, and the linear scan otherwise;
+  `describe()["selectors"]["auto"]` lists the thresholds.
+- **Higher-order rules.** A pattern `count` (1 to 2,147,483,647) in
+  `model/1.0`, for attribute-free types. `rate` gives rate × Π C(n, k).
+  `static_direct`, `next_reaction`, `tau`, `hybrid` and generated event
+  loops run them; `tree`, `mtdna_direct`, `binomial` and rates kernels
+  refuse them (`CRN-R020` at `/method`). `add_reaction` takes three or more
+  reactant molecules.
+- **Larger limits** in `model/1.0`: 4,096 types, 16,384 parameters, 4,096
+  observables and 65,536 rules; the static methods accept 4,096 instance
+  tuples and 65,536 channels. The `rules-model` versions keep their limits.
+- **Conversion.** `crn-craft convert MODEL` and `crn_craft.convert(model)`
+  turn any network model into `model/1.0`. Hill laws become stable-form
+  propensities and reserved function names are renamed. Networks without
+  reactions and population limits are refused with `CRN-R016`.
+- **Analysis on rules models.** FSP (a `run/1.0` request with method
+  `fsp`, `Model.fsp(...)`, result `fsp-result/1.0`), conservation laws and
+  structure (`crn-craft analyze`, `Model.analyze()`, `analysis/1.0`), ODE
+  right-hand sides and Jacobians (`Kinetics::from_bytes`, `crn-diffsol`)
+  and GillesPy2 export (`crn-craft export MODEL gillespy2`,
+  `Model.to_gillespy2()`) read every model version. A model whose set of
+  species is not closed is refused with `CRN-R017`.
+- **Archives for rules runs.** `crn-craft run MODEL REQUEST --archive DIR`,
+  `PreparedEnsemble.archive`, `crn_craft.rules.verify_archive`; contracts
+  `archive/1.0` and `archive-check/1.0`, read by `crn-craft verify`.
+- **Python.** The rules API at the top level (`import crn_craft as crn`:
+  `crn.Model`, `crn.ensemble`, `crn.prepare`, `crn.compile_loop`,
+  `crn.convert`, `crn.check`, `crn.describe`, `crn.load_example`, ...),
+  `Model.from_dict`,
+  `crn.read_sbml` and `crn.read_bngl` (returning a `Model`), and
+  `python -m crn_craft` with the native commands.
+- **Command line.** `crn-craft run` and `crn-craft check` for every model
+  version, and `crn-craft describe` with `describe/1.0` and one kind per
+  schema (`crn-craft describe run-1.0`).
+
+### Changed
+
+- `crn_craft.rules` keeps its names, defaults, documents and results; it is
+  the same module as the top level. A Static Direct request that it writes
+  as `run/1.0` (because of `quantiles=` or a `model/1.0` model) names
+  `"selector": "linear"`, so adding quantiles never changes the paths. The
+  top-level `crn.ensemble` writes `model/1.0` and `run/1.0` and leaves the
+  selector to `auto`; the top-level `crn.compile_loop` and `crn.loop_source`
+  build for that `model/1.0` document, while `crn_craft.rules.compile_loop`
+  builds for the bytes as given.
+- `crn-craft rules` and `crn-craft rules-check` are now `crn-craft run` and
+  `crn-craft check`; the old names stay as aliases.
+- `crn-craft describe` and `crn_craft.describe()` return `describe/1.0`,
+  the same document from both. The rules engine's 0.6.0 fields are under
+  `legacy.rules`. `crn_craft.rules.describe()` reports `"crate":
+  "crn-craft"`. The `--version` milestone is `unified-engine`.
+- A network model given to a rules command is refused with `CRN-E033` at
+  `/schema` (0.6.0: `CRN-E003`).
+- Under `run/1.0`, a positive wait too small to move the clock is accepted;
+  1,000,000 such steps in a row fail with `CRN-R030`. Every `rules-run`
+  version keeps 0.6.0's strict rule.
+- The importers (`crn_craft.importers.import_sbml`, `import_bng_net`,
+  `crn-craft-import`) return `crn-craft.import/1.0` with a `model/1.0`
+  model. Rate constants are strings in `report["model"]["rules"][i]["rate"]`.
+- Jobs (`crn-job-worker`, `app.crn.fit-moments`, `app.crn.circuit-score`)
+  are at problem version 3. They take `model/1.0` models, and their
+  objective values differ from version 2 (another engine and random
+  stream).
+- The crate `crn-craft-rules` is a deprecated facade that re-exports
+  `crn_craft::rules`.
+
+### Removed
+
+- The network engine of 0.6.0: its event loops (Direct, cached Direct,
+  composition–rejection, sorting Direct, RSSA-CR, next reaction and the
+  checked tau leap of the network crate), the xoshiro256++ stream and the
+  `fast` policy. Its algorithms live on as selectors of the one engine;
+  see **Migration**.
+- Commands `simulate`, `simulate-cached`, `ssa`, `tau` and `fsp` with a
+  network run, and `check MODEL RUN` with a `crn-craft.run/0.1` run.
+- Contracts and schemas `run/0.1`, `result/0.1`, `result-v1`,
+  `ssa-run/0.1`–`0.4`, `ssa-result/0.1`–`0.4`, `tau-request/0.1`,
+  `tau-result/0.1`, `archive/0.1`, `archive-check/0.1`, `analysis/0.2`,
+  `analysis/0.1`, `check/0.1` and `fsp-result/0.1`. The `state` schema
+  stays (`crn-craft analyze MODEL STATE` reads it), and network
+  `model/0.1` files are still read through the converter.
+- Python: the top-level network functions (`run_spec`, `simulate`,
+  `prepare` for network runs, `ssa_spec`, `simulate_ssa`, `prepare_ssa`,
+  `prepare_parameters` and `ParameterTemplate`, `mass_action_kernel_source`,
+  `tau`, `fsp`, `model_bytes`) and the PyO3 functions behind them.
+- Rust: the modules `simulation`, `ssa` (except the Ziggurat sampler),
+  `selectors`, `bounds`, `next_reaction` (its clock heap is
+  `rules::clocks`), `tau`, `rates`, `network`, `parameters`, `codegen`,
+  `validate` and `contracts`, and the network FSP entry point.
+  `ModelRef`, `Ensemble` and `Statistic` moved into `crn_craft::rules`
+  unchanged.
+- The example network files moved to `models/legacy/`; `models/examples/`
+  holds their converted `model/1.0` files.
+
+### Known limitations
+
+- Speed. On the twelve gate models the unified engine's best method takes
+  between 0.66× and 1.20× the time of 0.6.0's best (`validation/merge/RESULTS.md`).
+  The larger generic workloads remain 5–18 % slower, mainly because ChaCha8
+  costs more per random word than 0.6.0's xoshiro256++. Single timings on
+  the measuring host vary by up to 1.5×.
+- Tau leaping on networks with about a thousand channels is far slower than
+  Static Direct: each attempted leap evaluates every channel. Use
+  `static_direct` (with `auto` or `rssa_cr`) there.
+- `bind_parameters` prepares the whole model again for each candidate
+  (about 0.1 ms per call on a 12-species model). On small, short runs this
+  is 1.5× slower than 0.6.0's parameter templates.
+- Generated event loops run the linear scan only, and refuse models whose
+  generated source would exceed 1 MiB.
+
+### Migration
+
+Rules documents and `crn_craft.rules` code of 0.6.0 run unchanged with the
+same results. For network-engine users:
+
+**Results.** Network-engine results of 0.6.0 do not replay byte for byte:
+the network loops and xoshiro256++ are gone. The unified engine samples the
+same laws. A law gate checked it over 4,814 comparisons on twelve models,
+including FSP references, with 0 failures, for every selector.
+
+**Python** (top level, `import crn_craft as crn`):
+
+| 0.6.0 | 0.7.0 |
+| --- | --- |
+| `crn.load_example(name)` (network bytes) | `crn.load_example(name)` returns a `crn.Model` of the converted model |
+| `crn.run_spec(...)` + `crn.simulate(model, run)` | `crn.ensemble(model, end=..., report_times=..., replicates=..., method="static_direct").simulate()` |
+| `crn.prepare(model, run, cached=...)` | `crn.prepare(model, request)` with a rules or `run/1.0` request |
+| `crn.ssa_spec`, `crn.simulate_ssa`, `crn.prepare_ssa` | `crn.ensemble(..., method="static_direct", selector=...)` or `method="next_reaction"` |
+| `crn.prepare_parameters(model, request)`, `ParameterTemplate.bind(values)` | `crn.ensemble(...)` then `run.bind_parameters({name: value})` |
+| `crn.mass_action_kernel_source(model)` | `crn.loop_source(model)`, `crn.compile_loop(model)` |
+| `crn.fsp(model, run)` | `model.fsp(end=..., report_times=..., bounds={...})` |
+| `crn.tau(model, request)` | `crn.ensemble(..., method={"kind": "tau", "epsilon": ...})` |
+| `crn.analyze(model)` | `crn.Model(...).analyze()` or `crn.load_example(name).analyze()` (`analysis/1.0`) |
+| `crn.check(model, run)` (`check/0.1`) | `crn.check(model, request)` (`check/1.0`) |
+| `crn.model_bytes(document)` | `crn.rules.model_bytes(document)` |
+
+**Command line:**
+
+| 0.6.0 | 0.7.0 |
+| --- | --- |
+| `crn-craft simulate MODEL RUN DIR`, `simulate-cached` | `crn-craft convert MODEL > model.json`, then `crn-craft run model.json request.json --archive DIR` |
+| `crn-craft ssa MODEL REQUEST` | `crn-craft run` with `"method": {"kind": "static_direct", "selector": ...}` or `next_reaction` |
+| `crn-craft tau MODEL REQUEST` | `crn-craft run` with `"method": {"kind": "tau", "epsilon": ...}` |
+| `crn-craft fsp MODEL RUN` | `crn-craft run MODEL REQUEST` with method `fsp` |
+| `crn-craft check MODEL [RUN]` (`check/0.1`) | `crn-craft check MODEL [REQUEST]` (`check/1.0`) |
+| `crn-craft verify DIR` of an `archive/0.1` | rerun with `crn-craft run ... --archive DIR`; `verify` reads `archive/1.0` |
+| `crn-craft rules`, `rules-check` | `crn-craft run`, `check` (aliases kept) |
+
+**Contracts:** `model/0.1` → `model/1.0` (by `crn-craft convert`);
+`run/0.1`, `ssa-run/0.1`, `tau-request/0.1` → `run/1.0`; `result/0.1`,
+`result/1` (the old `result-v1`), `ssa-result/0.1`, `tau-result/0.1` →
+`result/1.0`; `fsp-result/0.1` → `fsp-result/1.0`; `check/0.1` →
+`check/1.0`; `archive/0.1`, `archive-check/0.1` → `archive/1.0`,
+`archive-check/1.0`. The `rules-*` contracts are unchanged; `model/1.0`
+means what `rules-model/0.4` means.
+
+**Rust:**
+
+- `crn_craft_rules::X` → `crn_craft::rules::X`. The old paths still compile
+  through the deprecated facade crate.
+- Struct literals gain fields: `Method::StaticDirect { .., selector: None }`,
+  `Outputs { .., quantiles: None }`, `Statistics { .., quantiles: None }`,
+  `RulesCheck { .., run_sha256: None }`.
+- `crn_craft::describe()` is `describe/1.0`.
+- `Kinetics::from_bytes` reads every model version; the public fields
+  `Kinetics::model` and `Kinetics::network` are gone (use `species()`,
+  `initial()`, `parameter_values()`).
+- The analysis functions take a `&crn_craft::rules::FlatView`.
+- `parameters::ParameterTemplate` → `rules::prepare(model,
+  request)?.bind_parameters(&values)`.
+- `crn_craft::tau::poisson_with` → `crn_craft::sampling::poisson_with`.
+
 ## [0.6.0] - 2026-11-10
 
 Two small Python changes from user feedback on 0.5.0, and R documentation.

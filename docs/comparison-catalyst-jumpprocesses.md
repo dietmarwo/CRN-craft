@@ -61,7 +61,7 @@ recorded.
 **Update with `fast` (projected, not remeasured).** Comparisons now time
 CRN-craft with the `fast` switch (then opt-in), which emulates JumpProcesses' policy
 (Xoshiro256++, running totals without loss or resolution checks, batched stop
-polls; see the [README](../README.md#exact-ssa-methods-and-the-fast-switch)).
+polls; see the [0.6.0 README](https://github.com/dietmarwo/CRN-craft/blob/v0.6.0/README.md#exact-ssa-methods-and-the-fast-switch)).
 Julia's package hosts were again unreachable, so this table scales the CRN
 prepared medians of Astra's same-host rerun
 ([gap10 comparison](comparison-julia-gap10.md), `validation/julia-gap10/comparison.json`)

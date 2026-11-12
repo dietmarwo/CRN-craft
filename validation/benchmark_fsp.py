@@ -1,4 +1,9 @@
-"""P10 sparse FSP allocation control, process cost and exact payload identity."""
+"""P10 sparse FSP allocation control, process cost and exact payload identity.
+
+Since 0.7.0 (M8a) the model is converted with `crn-craft convert` and solved as
+a `crn-craft.run/1.0` request with method `fsp` by `crn-craft run`; both
+binaries must be 0.7.0 or later.
+"""
 
 import argparse
 import hashlib
@@ -8,6 +13,8 @@ import statistics
 import subprocess
 import tempfile
 import time
+
+from benchmark_campaign import convert
 
 
 def main():
@@ -41,10 +48,10 @@ def main():
                 },
             ],
         }
-        m = json.dumps(model).encode()
+        m = convert(args.before.resolve(), model, folder)
         (folder / "model.json").write_bytes(m)
         run = {
-            "schema": "crn-craft.run/0.1",
+            "schema": "crn-craft.run/1.0",
             "model": {"path": "model.json", "sha256": hashlib.sha256(m).hexdigest()},
             "method": {
                 "kind": "fsp",
@@ -52,9 +59,8 @@ def main():
                 "max_states": 401,
                 "tolerance": 1e-12,
             },
-            "time": {"end": 40.0, "save_times": [0.0, 40.0]},
-            "outputs": {"statistics": ["mean"], "keep_trajectories": 0},
-            "budget": {"threads": 1, "max_output_bytes": 1000000},
+            "time": {"end": 40.0, "report_times": [0.0, 40.0]},
+            "budget": {"max_output_bytes": 1000000},
         }
         (folder / "run.json").write_text(json.dumps(run))
         digests = []
@@ -65,7 +71,7 @@ def main():
                 proc = subprocess.run(
                     [
                         str(binary.resolve()),
-                        "fsp",
+                        "run",
                         str(folder / "model.json"),
                         str(folder / "run.json"),
                     ],
@@ -80,7 +86,7 @@ def main():
                 pair[label] = elapsed
             rows.append(pair)
     report = {
-        "schema": "crn-craft.fsp-performance/0.1",
+        "schema": "crn-craft.fsp-performance/0.2",
         "identical": len(set(digests)) == 1,
         "numerical_sha256": digests[0],
         "rows": rows,

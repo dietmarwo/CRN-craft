@@ -1,4 +1,13 @@
-"""Frozen dynamic API benchmark. Exact payload identities precede comparisons."""
+"""Frozen dynamic API benchmark. Exact payload identities precede comparisons.
+
+Since 0.7.0 (M8a) the frozen network models W1-W4 are converted with
+`crn-craft convert` and run as `crn-craft.run/1.0` Static Direct requests by
+`crn-craft run MODEL REQUEST` (default selector and Ziggurat waits), so both
+binaries under comparison must be 0.7.0 or later. The 0.6.0 version timed the
+core of `simulate-cached` from the archive's provenance file; archives of the
+1.0 contract have none, so the time is the wall time of the whole process
+(`process_seconds`, which includes the process start and printing the result).
+"""
 
 import argparse
 import hashlib
@@ -72,28 +81,69 @@ def models():
     yield "dense_66", base("Dense66", species, reactions)
 
 
-def run_case(binary, command, model, repetitions, threads=1, horizon=100.0):
+def request_for(model_bytes, threads, horizon, selector=None, waiting_time=None):
+    method = {"kind": "static_direct"}
+    if selector is not None:
+        method["selector"] = selector
+    if waiting_time is not None:
+        method["waiting_time"] = waiting_time
+    return {
+        "schema": "crn-craft.run/1.0",
+        "model": {
+            "path": "model.json",
+            "sha256": hashlib.sha256(model_bytes).hexdigest(),
+        },
+        "method": method,
+        "time": {"end": horizon, "report_times": [0.0, horizon]},
+        "ensemble": {"replicates": 64, "root_seed": 4242},
+        "outputs": {
+            "statistics": ["mean", "variance"],
+            "keep_paths": 0,
+            "keep_instances": 0,
+        },
+        "budget": {
+            "threads": threads,
+            "max_events_per_replicate": 10000000,
+            "max_sampling_steps_per_replicate": 1000000000,
+            "max_instances": 100000,
+            "max_output_bytes": 10000000,
+        },
+    }
+
+
+def convert(binary, model, folder):
+    """The converted `crn-craft.model/1.0` bytes of a network model dictionary."""
+    (folder / "network.json").write_bytes((json.dumps(model) + "\n").encode())
+    p = subprocess.run(
+        [str(binary), "convert", str(folder / "network.json")],
+        capture_output=True,
+        check=False,
+        timeout=60,
+    )
+    if p.returncode:
+        raise RuntimeError(p.stdout.decode() + p.stderr.decode())
+    return p.stdout
+
+
+def run_case(
+    binary,
+    command,
+    model,
+    repetitions,
+    threads=1,
+    horizon=100.0,
+    selector=None,
+    waiting_time=None,
+):
+    """Time `repetitions` runs of `crn-craft COMMAND` (`run`) on a network model."""
     rows = []
     with tempfile.TemporaryDirectory(prefix="crn-bench-") as tmp:
         folder = Path(tmp)
-        m = (json.dumps(model) + "\n").encode()
+        m = convert(binary, model, folder)
         (folder / "model.json").write_bytes(m)
-        run = {
-            "schema": "crn-craft.run/0.1",
-            "model": {"path": "model.json", "sha256": hashlib.sha256(m).hexdigest()},
-            "method": {"kind": "ssa", "aggregator": "direct"},
-            "ensemble": {"replicates": 64, "root_seed": 4242},
-            "time": {"end": horizon, "save_times": [0.0, horizon]},
-            "outputs": {"statistics": ["mean", "variance"], "keep_trajectories": 0},
-            "budget": {
-                "threads": threads,
-                "max_events_per_replicate": 10000000,
-                "max_output_bytes": 10000000,
-            },
-        }
+        run = request_for(m, threads, horizon, selector, waiting_time)
         (folder / "run.json").write_text(json.dumps(run))
-        for i in range(repetitions):
-            output = folder / f"archive{i}"
+        for _ in range(repetitions):
             start = time.perf_counter()
             p = subprocess.run(
                 [
@@ -101,7 +151,6 @@ def run_case(binary, command, model, repetitions, threads=1, horizon=100.0):
                     command,
                     str(folder / "model.json"),
                     str(folder / "run.json"),
-                    str(output),
                 ],
                 capture_output=True,
                 check=False,
@@ -110,8 +159,7 @@ def run_case(binary, command, model, repetitions, threads=1, horizon=100.0):
             elapsed = time.perf_counter() - start
             if p.returncode:
                 raise RuntimeError(p.stdout.decode() + p.stderr.decode())
-            result = json.loads((output / "result.json").read_text())
-            provenance = json.loads((output / "provenance.json").read_text())
+            result = json.loads(p.stdout)
             result.pop("run_sha256")
             digest = hashlib.sha256(
                 json.dumps(result, sort_keys=True, separators=(",", ":")).encode()
@@ -119,16 +167,14 @@ def run_case(binary, command, model, repetitions, threads=1, horizon=100.0):
             rows.append(
                 {
                     "process_seconds": elapsed,
-                    "core_seconds": provenance["elapsed_seconds"],
                     "events": result["events"],
                     "numerical_sha256": digest,
                 }
             )
     return {
-        "median_core_seconds": statistics.median(r["core_seconds"] for r in rows),
         "median_process_seconds": statistics.median(r["process_seconds"] for r in rows),
-        "core_ns_per_event": 1e9
-        * statistics.median(r["core_seconds"] / r["events"] for r in rows),
+        "process_ns_per_event": 1e9
+        * statistics.median(r["process_seconds"] / r["events"] for r in rows),
         "rows": rows,
     }
 
@@ -137,15 +183,15 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--before", type=Path, required=True)
     ap.add_argument("--after", type=Path)
-    ap.add_argument("--before-command", default="simulate")
-    ap.add_argument("--after-command", default="simulate")
+    ap.add_argument("--before-command", default="run")
+    ap.add_argument("--after-command", default="run")
     ap.add_argument("--repetitions", type=int, default=7)
     ap.add_argument("--output", type=Path, required=True)
     ap.add_argument("--only", choices=[n for n, _ in models()])
     ap.add_argument("--threads", type=int, default=1)
     args = ap.parse_args()
     report = {
-        "schema": "crn-craft.performance/0.1",
+        "schema": "crn-craft.performance/0.2",
         "seed": 4242,
         "replicates": 64,
         "end": 100.0,
@@ -173,18 +219,15 @@ def main():
 
         def summary(rows):
             return {
-                "median_core_seconds": statistics.median(
-                    r["core_seconds"] for r in rows
-                ),
-                "core_range_seconds": [
-                    min(r["core_seconds"] for r in rows),
-                    max(r["core_seconds"] for r in rows),
+                "process_range_seconds": [
+                    min(r["process_seconds"] for r in rows),
+                    max(r["process_seconds"] for r in rows),
                 ],
                 "median_process_seconds": statistics.median(
                     r["process_seconds"] for r in rows
                 ),
-                "core_ns_per_event": 1e9
-                * statistics.median(r["core_seconds"] / r["events"] for r in rows),
+                "process_ns_per_event": 1e9
+                * statistics.median(r["process_seconds"] / r["events"] for r in rows),
                 "rows": rows,
             }
 
@@ -195,7 +238,7 @@ def main():
                 len({r["numerical_sha256"] for r in before + after}) == 1
             )
             entry["paired_speedup_median"] = statistics.median(
-                b["core_seconds"] / a["core_seconds"]
+                b["process_seconds"] / a["process_seconds"]
                 for b, a in zip(before, after, strict=True)
             )
             if not entry["identical"]:

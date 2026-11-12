@@ -18,12 +18,12 @@ def main():
     before = []
     after = []
     for _ in range(21):
-        before += run_case(
-            args.before.resolve(), "simulate-cached", model, 1, args.threads, 0.1
-        )["rows"]
-        after += run_case(
-            args.after.resolve(), "simulate-cached", model, 1, args.threads, 0.1
-        )["rows"]
+        before += run_case(args.before.resolve(), "run", model, 1, args.threads, 0.1)[
+            "rows"
+        ]
+        after += run_case(args.after.resolve(), "run", model, 1, args.threads, 0.1)[
+            "rows"
+        ]
     identical = len({r["numerical_sha256"] for r in before + after}) == 1
     result = {
         "secondary_control": True,
@@ -34,7 +34,7 @@ def main():
         "after": after,
         "identical": identical,
         "paired_median_speedup": statistics.median(
-            b["core_seconds"] / a["core_seconds"]
+            b["process_seconds"] / a["process_seconds"]
             for b, a in zip(before, after, strict=True)
         ),
     }

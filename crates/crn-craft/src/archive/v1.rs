@@ -797,7 +797,8 @@ fn check_statistics(
         || stats.mean.is_some() != mean
         || stats.sample_variance.is_some() != variance
         || stats.mean_standard_error.is_some() != variance
-        || stats.quantiles.is_some() != !probabilities.is_empty()
+        // Quantiles are present exactly when the request asks for some.
+        || stats.quantiles.is_some() == probabilities.is_empty()
         || !same_bits(
             &quantiles.iter().map(|q| q.p).collect::<Vec<_>>(),
             probabilities,

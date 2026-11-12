@@ -46,6 +46,7 @@ version = "0.6.0"
 dependencies = [
  "crn-craft",
  "crn-craft-rules",
+ "serde",
  "serde_json",
 ]
 

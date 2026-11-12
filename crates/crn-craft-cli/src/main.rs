@@ -13,17 +13,30 @@ use std::{
 
 const HELP: &str = "crn-craft — CRN solvers and network analysis\n\nUsage:\n  crn-craft describe [model|run|result|result-v1|archive|archive-check|check|state|analysis-1.0|export|fsp-result|tau-request|tau-result|ssa-run|ssa-result|rules-model|rules-check|rules-run|rules-result|model-1.0|check-1.0|run-1.0|result-1.0|fsp-result-1.0]\n  crn-craft check MODEL [RUN]\n  crn-craft analyze MODEL [STATE]\n  crn-craft export MODEL gillespy2\n  crn-craft simulate MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft verify DIRECTORY\n  crn-craft simulate-cached MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft fsp MODEL RUN [--cancel-file PATH]\n  crn-craft tau MODEL REQUEST [--cancel-file PATH]\n  crn-craft ssa MODEL REQUEST [--cancel-file PATH]\n  crn-craft rules-check RULES_MODEL\n  crn-craft rules RULES_MODEL REQUEST [--cancel-file PATH]\n  crn-craft convert MODEL\n  crn-craft --version\n\nanalyze and export read crn-craft.model/0.1 (through convert), rules-model/0.1-0.4\nand model/1.0; analyze prints analysis/1.0. The other network commands read\ncrn-craft.model/0.1 and refuse crn-craft.model/1.0 (CRN-E032); rules-check and\nrules read rules-model/0.1-0.4 and model/1.0.\nrules solves a run/1.0 request whose method is fsp and prints fsp-result/1.0.\nAll data output is JSON; convert prints the converted rules model. simulate exits 0 only for a completed ensemble.\nverify exits 0 for a valid archive, including an incomplete simulation.\nOther errors and incomplete simulations exit 1. Optional ODE uses crn-diffsol.\n";
 
+mod sorted;
+
 fn emit(value: &Value) -> io::Result<()> {
-    let mut out = io::stdout().lock();
+    let mut out = io::BufWriter::new(io::stdout().lock());
     serde_json::to_writer_pretty(&mut out, value)?;
-    out.write_all(b"\n")
+    out.write_all(b"\n")?;
+    out.flush()
 }
 
 /// FSP and tau results are checked against max_output_bytes in compact form,
 /// so they are written compactly.
 fn emit_compact(value: &Value) -> io::Result<()> {
-    let mut out = io::stdout().lock();
+    let mut out = io::BufWriter::new(io::stdout().lock());
     serde_json::to_writer(&mut out, value)?;
+    out.write_all(b"\n")?;
+    out.flush()
+}
+
+/// Prints the bytes [`emit_compact`] prints for `serde_json::to_value(result)`
+/// (compact JSON with sorted keys) without building the value.
+fn emit_sorted(result: &impl serde::Serialize) -> io::Result<()> {
+    let bytes = sorted::to_vec(result).map_err(io::Error::other)?;
+    let mut out = io::stdout().lock();
+    out.write_all(&bytes)?;
     out.write_all(b"\n")
 }
 
@@ -45,6 +58,11 @@ fn main() -> ExitCode {
     }
     if args.len() == 2 && args[0] == "convert" {
         return convert(Path::new(&args[1]));
+    }
+    if args.first().is_some_and(|arg| arg == "rules")
+        && (args.len() == 3 || (args.len() == 5 && args[3] == "--cancel-file"))
+    {
+        return rules(&args);
     }
     let mut compact = false;
     let (value, success) = match args.first().and_then(|arg| arg.to_str()) {
@@ -134,45 +152,6 @@ fn main() -> ExitCode {
                 success,
             )
         }
-        Some("rules") if args.len() == 3 || (args.len() == 5 && args[3] == "--cancel-file") => {
-            let mut control = crn_craft_rules::Control::default();
-            control.cancel_file = args.get(4).map(std::path::PathBuf::from);
-            let fsp = crn_craft::fsp::v1::is_fsp_request_file(Path::new(&args[2]));
-            if fsp {
-                // A run/1.0 request whose method is `fsp`.
-                match crn_craft::fsp::v1::solve_files(
-                    Path::new(&args[1]),
-                    Path::new(&args[2]),
-                    &control,
-                ) {
-                    Ok(result) => {
-                        compact = true;
-                        (serde_json::to_value(result).unwrap(), true)
-                    }
-                    Err(errors) => (
-                        serde_json::json!({"success":false,"diagnostics":errors}),
-                        false,
-                    ),
-                }
-            } else {
-                match crn_craft_rules::solve_files(
-                    Path::new(&args[1]),
-                    Path::new(&args[2]),
-                    &control,
-                ) {
-                    Ok(result) => {
-                        let complete =
-                            result.termination == crn_craft_rules::Termination::Completed;
-                        compact = true;
-                        (serde_json::to_value(result).unwrap(), complete)
-                    }
-                    Err(errors) => (
-                        serde_json::json!({"success":false,"diagnostics":errors}),
-                        false,
-                    ),
-                }
-            }
-        }
         Some("tau") if args.len() == 3 || (args.len() == 5 && args[3] == "--cancel-file") => {
             let mut control = crn_craft::simulation::Control::default();
             control.cancel_file = args.get(4).map(std::path::PathBuf::from);
@@ -224,6 +203,43 @@ fn main() -> ExitCode {
         emit_compact(&value)
     } else {
         emit(&value)
+    };
+    match written {
+        Ok(()) if success => ExitCode::SUCCESS,
+        Ok(()) => ExitCode::FAILURE,
+        Err(error) => {
+            eprintln!("CRN-E030: cannot write JSON output: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// `rules MODEL REQUEST [--cancel-file PATH]`: a rules or run/1.0 simulation,
+/// or a run/1.0 `fsp` request, printed as compact JSON with sorted keys.
+fn rules(args: &[std::ffi::OsString]) -> ExitCode {
+    let mut control = crn_craft_rules::Control::default();
+    control.cancel_file = args.get(4).map(std::path::PathBuf::from);
+    let (model, request) = (Path::new(&args[1]), Path::new(&args[2]));
+    let (written, success) = if crn_craft::fsp::v1::is_fsp_request_file(request) {
+        // A run/1.0 request whose method is `fsp`.
+        match crn_craft::fsp::v1::solve_files(model, request, &control) {
+            Ok(result) => (emit_sorted(&result), true),
+            Err(errors) => (
+                emit(&serde_json::json!({"success":false,"diagnostics":errors})),
+                false,
+            ),
+        }
+    } else {
+        match crn_craft_rules::solve_files(model, request, &control) {
+            Ok(result) => (
+                emit_sorted(&result),
+                result.termination == crn_craft_rules::Termination::Completed,
+            ),
+            Err(errors) => (
+                emit(&serde_json::json!({"success":false,"diagnostics":errors})),
+                false,
+            ),
+        }
     };
     match written {
         Ok(()) if success => ExitCode::SUCCESS,

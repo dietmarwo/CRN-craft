@@ -82,6 +82,10 @@ _PADDING_RULE = -2
 # Quantile statistics need the 1.0 contracts (see ensemble).
 MODEL_1_0 = "crn-craft.model/1.0"
 RUN_1_0 = "crn-craft.run/1.0"
+# What `fsp` requests when max_states or tolerance is not given: the engine's
+# state cap and a total series truncation budget.
+FSP_MAX_STATES = 100_000
+FSP_TOLERANCE = 1e-12
 _RULES_MODEL = "crn-craft.rules-model/"
 # Request versions whose Static Direct defaults differ from run/1.0's: inverse
 # waits and per-event trackers unless the method says otherwise.
@@ -1042,3 +1046,68 @@ def ensemble(
     if probabilities:
         request["outputs"]["quantiles"] = probabilities
     return _prepared(data, request, compiled, unified_from)
+
+
+def fsp(model, end, report_times, bounds, max_states=None, tolerance=None):
+    """Finite state projection: the distribution of a closed model's counts.
+
+    ``model`` is model bytes, a JSON string, a dictionary or a
+    :class:`Model`, of any rules-model version or ``crn-craft.model/1.0``
+    (from :func:`crn_craft.convert`). The engine lowers it to its flat
+    network, as the static simulation methods do, enumerates the states
+    reachable from the initial counts inside the box ``bounds`` and
+    propagates their probabilities by uniformization to each of
+    ``report_times`` (increasing times in [0, ``end``]). Probability that
+    leaves the box moves to an absorbing sink and is reported, not
+    renormalized; a state where the model's ``stop`` condition holds is
+    absorbing.
+
+    ``bounds`` maps every species label to its inclusive upper count, at
+    least the initial count: the type name for a type without attributes
+    (``{"S": 999, "I": 1000, "R": 1000}``), ``"T{a=1,b=0.5}"`` for an
+    attributed type (every attribute in declaration order). ``max_states``
+    caps the enumerated states (default 100,000, which the engine never
+    exceeds) and
+    ``tolerance`` is the total truncation budget of the Poisson series over
+    the run (default ``1e-12``); neither bounds floating-point error.
+
+    Returns the parsed ``crn-craft.fsp-result/1.0`` document: ``species``
+    (the labels), ``states`` (count vectors in discovery order, the initial
+    state first), and one entry of ``snapshots`` per report time with
+    ``probabilities`` (indexed like ``states``), ``physical_leakage_estimate``
+    (the sink), the unnormalized ``projected_first_moment`` and
+    ``projected_second_raw_moment`` per species, and the error terms
+    ``series_tail_upper_bound``, ``discarded_weight_estimate``,
+    ``mass_defect`` and ``roundoff_mass_residual``. A model that is not
+    closed raises ``CrnError`` ``CRN-R017``; a request the engine refuses
+    raises ``CRN-R020``; a projection above the state, edge, work or output
+    limits raises ``CRN-E070``. Ctrl-C cancels the solve.
+    """
+    if isinstance(model, Model):
+        model = model.to_dict()
+    data = model_bytes(model)
+    if not isinstance(bounds, Mapping):
+        raise TypeError(
+            f"bounds must map species labels to counts, for example {{'A': 100}}: {bounds!r}"
+        )
+    count = operator.index
+    request = {
+        "schema": RUN_1_0,
+        "model": {
+            "path": "model.rules.json",
+            "sha256": hashlib.sha256(data).hexdigest(),
+        },
+        "time": {"end": float(end), "report_times": [float(t) for t in report_times]},
+        "method": {
+            "kind": "fsp",
+            "bounds": {str(label): count(bound) for label, bound in bounds.items()},
+            "max_states": count(FSP_MAX_STATES if max_states is None else max_states),
+            "tolerance": float(FSP_TOLERANCE if tolerance is None else tolerance),
+        },
+        "budget": {"max_output_bytes": 1 << 30},
+    }
+    try:
+        text = _native.rules_fsp_json(data, model_bytes(request))
+    except _native.NativeError as error:
+        raise _crn_error(error) from None
+    return json.loads(text)

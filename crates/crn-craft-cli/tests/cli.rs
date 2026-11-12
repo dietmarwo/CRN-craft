@@ -516,3 +516,73 @@ fn network_commands_refuse_1_0_documents_and_rules_commands_run_them() {
         assert_eq!(schema, snapshot, "{kind}");
     }
 }
+
+#[test]
+fn rules_solves_fsp_requests_and_describes_their_contracts() {
+    let temp = Temp::new();
+    let path = |name: &str| temp.0.join(name).to_str().unwrap().to_string();
+    let network =
+        std::fs::read(root().join("models/examples/immigration-death.model.json")).unwrap();
+    let converted = crn_craft::rules::convert::from_network(&network).unwrap();
+    std::fs::write(temp.0.join("model.json"), &converted).unwrap();
+    let mut request = serde_json::json!({
+        "schema": "crn-craft.run/1.0",
+        "model": {"path": "model.json", "sha256": crn_craft::sha256(&converted)},
+        "time": {"end": 5.0, "report_times": [0.0, 1.0, 5.0]},
+        "method": {"kind": "fsp", "bounds": {"A": 100}, "max_states": 200, "tolerance": 1e-12},
+        "budget": {"max_output_bytes": 10000000}
+    });
+    let bytes = serde_json::to_vec(&request).unwrap();
+    std::fs::write(temp.0.join("request.json"), &bytes).unwrap();
+    let (model, file) = (path("model.json"), path("request.json"));
+    let output = Command::new(env!("CARGO_BIN_EXE_crn-craft"))
+        .args(["rules", &model, &file])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    assert!(output.stderr.is_empty());
+    // Compact JSON with sorted keys (as every CLI output) and a newline,
+    // with the engine's numbers.
+    let expected =
+        crn_craft::fsp::v1::solve(&converted, &bytes, &crn_craft::rules::Control::default())
+            .unwrap();
+    let mut text = serde_json::to_vec(&serde_json::to_value(&expected).unwrap()).unwrap();
+    text.push(b'\n');
+    assert_eq!(output.stdout, text);
+    let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["schema"], "crn-craft.fsp-result/1.0");
+    assert_eq!(result["species"], serde_json::json!(["A"]));
+    // A refused request exits 1 with its diagnostics.
+    request["method"]["bounds"] = serde_json::json!({"B": 3});
+    std::fs::write(
+        temp.0.join("request.json"),
+        serde_json::to_vec(&request).unwrap(),
+    )
+    .unwrap();
+    let (code, report) = invoke(&["rules", &model, &file]);
+    assert_eq!(code, 1);
+    assert_eq!(report["success"], false);
+    assert_eq!(report["diagnostics"][0]["code"], "CRN-R020");
+    assert_eq!(report["diagnostics"][0]["path"], "/method/bounds/B");
+    // An existing cancel file stops the solve.
+    std::fs::write(temp.0.join("request.json"), &bytes).unwrap();
+    std::fs::write(temp.0.join("cancel"), b"").unwrap();
+    let cancel = path("cancel");
+    let (code, report) = invoke(&["rules", &model, &file, "--cancel-file", &cancel]);
+    assert_eq!(code, 1);
+    assert_eq!(report["diagnostics"][0]["code"], "CRN-E070");
+    for kind in ["fsp-result-1.0", "run-1.0"] {
+        let (code, schema) = invoke(&["describe", kind]);
+        assert_eq!(code, 0);
+        let snapshot: Value = serde_json::from_slice(
+            &std::fs::read(root().join(format!("schemas/{kind}.schema.json"))).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(schema, snapshot, "{kind}");
+    }
+    let (_, description) = invoke(&["describe"]);
+    assert_eq!(
+        description["dynamic_species"]["contracts_1_0"]["fsp"]["result"],
+        "crn-craft.fsp-result/1.0"
+    );
+}

@@ -11,7 +11,7 @@ use std::{
     process::ExitCode,
 };
 
-const HELP: &str = "crn-craft — CRN solvers and network analysis\n\nUsage:\n  crn-craft describe [model|run|result|result-v1|archive|archive-check|check|state|analysis|analysis-v1|export|fsp-result|tau-request|tau-result|ssa-run|ssa-result|rules-model|rules-check|rules-run|rules-result|model-1.0|check-1.0|run-1.0|result-1.0]\n  crn-craft check MODEL [RUN]\n  crn-craft analyze MODEL [STATE]\n  crn-craft analyze-v1 MODEL [STATE]\n  crn-craft export MODEL gillespy2\n  crn-craft simulate MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft verify DIRECTORY\n  crn-craft simulate-cached MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft fsp MODEL RUN [--cancel-file PATH]\n  crn-craft tau MODEL REQUEST [--cancel-file PATH]\n  crn-craft ssa MODEL REQUEST [--cancel-file PATH]\n  crn-craft rules-check RULES_MODEL\n  crn-craft rules RULES_MODEL REQUEST [--cancel-file PATH]\n  crn-craft convert MODEL\n  crn-craft --version\n\nNetwork commands read crn-craft.model/0.1 and refuse crn-craft.model/1.0\n(CRN-E032); rules-check and rules read rules-model/0.1-0.4 and model/1.0.\nAll data output is JSON; convert prints the converted rules model. simulate exits 0 only for a completed ensemble.\nverify exits 0 for a valid archive, including an incomplete simulation.\nOther errors and incomplete simulations exit 1. Optional ODE uses crn-diffsol.\n";
+const HELP: &str = "crn-craft — CRN solvers and network analysis\n\nUsage:\n  crn-craft describe [model|run|result|result-v1|archive|archive-check|check|state|analysis|analysis-v1|export|fsp-result|tau-request|tau-result|ssa-run|ssa-result|rules-model|rules-check|rules-run|rules-result|model-1.0|check-1.0|run-1.0|result-1.0|fsp-result-1.0]\n  crn-craft check MODEL [RUN]\n  crn-craft analyze MODEL [STATE]\n  crn-craft analyze-v1 MODEL [STATE]\n  crn-craft export MODEL gillespy2\n  crn-craft simulate MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft verify DIRECTORY\n  crn-craft simulate-cached MODEL RUN NEW_DIRECTORY [--cancel-file PATH]\n  crn-craft fsp MODEL RUN [--cancel-file PATH]\n  crn-craft tau MODEL REQUEST [--cancel-file PATH]\n  crn-craft ssa MODEL REQUEST [--cancel-file PATH]\n  crn-craft rules-check RULES_MODEL\n  crn-craft rules RULES_MODEL REQUEST [--cancel-file PATH]\n  crn-craft convert MODEL\n  crn-craft --version\n\nNetwork commands read crn-craft.model/0.1 and refuse crn-craft.model/1.0\n(CRN-E032); rules-check and rules read rules-model/0.1-0.4 and model/1.0.\nrules solves a run/1.0 request whose method is fsp and prints fsp-result/1.0.\nAll data output is JSON; convert prints the converted rules model. simulate exits 0 only for a completed ensemble.\nverify exits 0 for a valid archive, including an incomplete simulation.\nOther errors and incomplete simulations exit 1. Optional ODE uses crn-diffsol.\n";
 
 fn emit(value: &Value) -> io::Result<()> {
     let mut out = io::stdout().lock();
@@ -145,16 +145,40 @@ fn main() -> ExitCode {
         Some("rules") if args.len() == 3 || (args.len() == 5 && args[3] == "--cancel-file") => {
             let mut control = crn_craft_rules::Control::default();
             control.cancel_file = args.get(4).map(std::path::PathBuf::from);
-            match crn_craft_rules::solve_files(Path::new(&args[1]), Path::new(&args[2]), &control) {
-                Ok(result) => {
-                    let complete = result.termination == crn_craft_rules::Termination::Completed;
-                    compact = true;
-                    (serde_json::to_value(result).unwrap(), complete)
+            let fsp = crn_craft::fsp::v1::is_fsp_request_file(Path::new(&args[2]));
+            if fsp {
+                // A run/1.0 request whose method is `fsp`.
+                match crn_craft::fsp::v1::solve_files(
+                    Path::new(&args[1]),
+                    Path::new(&args[2]),
+                    &control,
+                ) {
+                    Ok(result) => {
+                        compact = true;
+                        (serde_json::to_value(result).unwrap(), true)
+                    }
+                    Err(errors) => (
+                        serde_json::json!({"success":false,"diagnostics":errors}),
+                        false,
+                    ),
                 }
-                Err(errors) => (
-                    serde_json::json!({"success":false,"diagnostics":errors}),
-                    false,
-                ),
+            } else {
+                match crn_craft_rules::solve_files(
+                    Path::new(&args[1]),
+                    Path::new(&args[2]),
+                    &control,
+                ) {
+                    Ok(result) => {
+                        let complete =
+                            result.termination == crn_craft_rules::Termination::Completed;
+                        compact = true;
+                        (serde_json::to_value(result).unwrap(), complete)
+                    }
+                    Err(errors) => (
+                        serde_json::json!({"success":false,"diagnostics":errors}),
+                        false,
+                    ),
+                }
             }
         }
         Some("tau") if args.len() == 3 || (args.len() == 5 && args[3] == "--cancel-file") => {

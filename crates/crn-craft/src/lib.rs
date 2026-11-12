@@ -84,6 +84,7 @@
 //! | Direct SSA with sealed archives | [`archive::simulate_files`], [`archive::verify_archive`], [`simulation::simulate_bytes`] | `run/0.1` → `result/0.2`, `archive/0.1`, `archive-check/0.1` |
 //! | Alternative exact SSA | [`ssa::prepare`], [`ssa::execute`], [`ssa::solve`], [`ssa::solve_files`] | `ssa-run/0.1`–`0.4` → `ssa-result/0.1`–`0.4` |
 //! | Finite state projection | [`fsp::solve`] | `run/0.1` with `fsp` → `fsp-result/0.1` |
+//! | Finite state projection of a closed rules model | [`fsp::v1::solve`], [`fsp::v1::solve_files`], [`rules::FlatView`] | `run/1.0` with `fsp` → `fsp-result/1.0` |
 //! | Approximate tau leaping (experimental) | [`tau::solve`], [`tau::solve_files`] | `tau-request/0.1` → `tau-result/0.1` |
 //! | Parameter sweeps and optimization | [`parameters::ParameterTemplate`], [`codegen::mass_action_source`], [`ssa::execute_with_kernel`] | `ssa-run` |
 //! | Reference export | [`export::export_gillespy2`], [`export_gillespy2_file`] | `export/0.1` |
@@ -483,9 +484,9 @@ pub fn check_files(model_path: &Path, run_path: Option<&Path>) -> CheckReport {
 ///
 /// Kinds: `model`, `run`, `result`, `result-v1`, `archive`, `archive-check`,
 /// `check`, `state`, `analysis`, `analysis-v1`, `export`, `tau-request`,
-/// `tau-result`, `fsp-result`, `ssa-run` and `ssa-result`. The `rules-*`
-/// kinds and the 1.0 contracts (`model-1.0`, ...) come from
-/// [`rules::schema`].
+/// `tau-result`, `fsp-result`, `fsp-result-1.0`, `ssa-run` and
+/// `ssa-result`. The `rules-*` kinds and the other 1.0 contracts
+/// (`model-1.0`, `run-1.0`, ...) come from [`rules::schema`].
 ///
 /// ```
 /// let schema = crn_craft::schema("model").unwrap();
@@ -509,6 +510,7 @@ pub fn schema(kind: &str) -> Option<Value> {
         "tau-request" => serde_json::to_value(schema_for!(tau::Request)).ok(),
         "tau-result" => serde_json::to_value(schema_for!(tau::TauResult)).ok(),
         "fsp-result" => serde_json::to_value(schema_for!(fsp::FspResult)).ok(),
+        "fsp-result-1.0" => serde_json::to_value(schema_for!(fsp::v1::FspResult)).ok(),
         "ssa-run" => serde_json::to_value(schema_for!(ssa::Request)).ok(),
         "ssa-result" => serde_json::to_value(schema_for!(ssa::SsaResult)).ok(),
         _ => None,

@@ -216,6 +216,8 @@ pub mod convert;
 mod engine;
 mod expr;
 mod flat;
+pub mod flat_view;
+pub use flat_view::FlatView;
 mod generated;
 mod generated_loop;
 pub use engine::{LoopHalt, LoopHost};
@@ -1516,7 +1518,13 @@ pub fn check_model(model_bytes: &[u8]) -> RulesCheck {
 /// ```
 pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec<Diagnostic>> {
     let model: Model = parse_model(model_bytes).map_err(|e| vec![e])?;
-    let request: RunRequest = crate::strict_json::parse(request_bytes).map_err(|e| vec![e])?;
+    let request: RunRequest = crate::strict_json::parse(request_bytes).map_err(|e| {
+        if crate::fsp::v1::is_fsp_request(request_bytes) {
+            vec![crate::fsp::v1::not_a_simulation()]
+        } else {
+            vec![e]
+        }
+    })?;
     let model_sha256 = crate::sha256(model_bytes);
     let mut diagnostics = validate_request(&request, &model_sha256);
     if model.schema == model::ModelVersion::V10 && request.schema != RunVersion::V10 {
@@ -2460,7 +2468,7 @@ pub fn solve(
     execute(&prepare(model_bytes, request_bytes)?, control).map_err(|e| vec![e])
 }
 
-fn read(path: &Path) -> Result<Vec<u8>, Diagnostic> {
+pub(crate) fn read(path: &Path) -> Result<Vec<u8>, Diagnostic> {
     let error = |message: String| {
         Diagnostic::error(
             "CRN-E030",
@@ -2505,18 +2513,7 @@ pub fn solve_files(
     let model = read(model_path).map_err(|e| vec![e])?;
     let bytes = read(request_path).map_err(|e| vec![e])?;
     let request: RunRequest = crate::strict_json::parse(&bytes).map_err(|e| vec![e])?;
-    let parent = request_path
-        .parent()
-        .filter(|p| !p.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    let resolved = (
-        parent.canonicalize(),
-        parent.join(&request.model.path).canonicalize(),
-        model_path.canonicalize(),
-    );
-    if !crate::validate::valid_relative_path(&request.model.path)
-        || !matches!(resolved, (Ok(ref base), Ok(ref reference), Ok(ref supplied)) if reference.starts_with(base) && reference == supplied)
-    {
+    if !references_model(model_path, request_path, &request.model.path) {
         return Err(vec![request_error(
             "/model/path",
             "rules request does not identify the supplied model below its directory",
@@ -2524,6 +2521,22 @@ pub fn solve_files(
         )]);
     }
     solve(&model, &bytes, control)
+}
+
+/// Whether a request file's `model.path` names `model_path`, inside the
+/// request file's directory.
+pub(crate) fn references_model(model_path: &Path, request_path: &Path, relative: &str) -> bool {
+    let parent = request_path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let resolved = (
+        parent.canonicalize(),
+        parent.join(relative).canonicalize(),
+        model_path.canonicalize(),
+    );
+    crate::validate::valid_relative_path(relative)
+        && matches!(resolved, (Ok(ref base), Ok(ref reference), Ok(ref supplied)) if reference.starts_with(base) && reference == supplied)
 }
 
 /// Reads a model file and checks it like [`check_model`]; this is the
@@ -2601,6 +2614,7 @@ pub fn describe() -> Value {
         "contracts_1_0": {
             "model": "crn-craft.model/1.0", "request": "crn-craft.run/1.0",
             "result": "crn-craft.result/1.0", "check": "crn-craft.check/1.0",
+            "fsp": {"method": "fsp", "result": "crn-craft.fsp-result/1.0", "schema": "fsp-result-1.0", "python": "crn_craft.rules.fsp"},
             "means": {
                 "model": "crn-craft.rules-model/0.4", "request": "crn-craft.rules-run/0.6",
                 "result": "crn-craft.rules-result/0.3", "check": "crn-craft.rules-check/0.1"
@@ -2637,7 +2651,11 @@ pub fn describe() -> Value {
 /// `kind` is `rules-model` ([`Model`]), `rules-check` ([`RulesCheck`]),
 /// `rules-run` ([`RunRequest`]) or `rules-result` ([`RulesResult`]), or one
 /// of the 1.0 contracts generated from the same types: `model-1.0`,
-/// `check-1.0`, `run-1.0` and `result-1.0`. Any other kind gives `None`.
+/// `check-1.0`, `run-1.0` and `result-1.0`. Any other kind gives `None`;
+/// `fsp-result-1.0` comes from [`crate::schema`]. The `run-1.0` schema
+/// lists two request shapes under `oneOf`: the simulation request
+/// ([`RunRequest`], `definitions/RunRequest`) and the finite state
+/// projection request ([`crate::fsp::v1::FspRequest`]).
 /// Each schema lists only its own versions in its `schema` field: the
 /// `rules-*` schemas the 0.x versions, the 1.0 schemas the 1.0 version,
 /// with a description of that contract. The schemas are JSON Schema draft
@@ -2711,6 +2729,10 @@ pub fn schema(kind: &str) -> Option<Value> {
                 *description = (*text).into();
             }
         }
+    }
+    if kind == "run-1.0" {
+        // The fsp method has a request shape of its own.
+        return crate::fsp::v1::unified_run_schema(value);
     }
     Some(value)
 }

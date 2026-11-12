@@ -1159,3 +1159,50 @@ above under "Speed gate (M4d)"); its unified methods are the four selectors
 (and `auto`) of Static Direct and `next_reaction`, all interpreted. The
 compiled event loop of the unified engine (`compile_loop`, linear scan) is
 timed at the Python boundary for information only.
+
+### M4d (law gate of the run/1.0 default, worker speed rerun): declaration
+
+Written and committed before either run below. Engine: `merge-0.7` at
+`a21c358` (engine sources of `57cd574`, the commit of the passing speed-gate
+rerun), wheel built from it with `maturin build --release --locked` and
+installed in the engine venv, under the CPU lock.
+
+**1. Law gate of the run/1.0 default.** `check_laws.py --python
+<engine venv> --method '{"kind": "static_direct"}' --label m4d-auto --state
+<dir>`, all twelve models, the gate seeds of `models.json`, 2 threads,
+report `validation/merge/laws/m4d-auto.json`. The request names no selector,
+so `auto` (the M4f rule) decides per model: `rssa_cr` for W2 and W4–W7,
+`linear` for the others. N = 4,814 comparisons; **0 failures are expected**.
+Also expected, because `auto` runs the selector it picks with the same random
+words and every change since those gates keeps results: each model's
+sampler, chunk event counts and power sums S1–S4 equal those of
+`laws/m4f-rssa_cr.json` (models where `auto` picks `rssa_cr`) or of
+`laws/m4c-linear.json` (models where it picks `linear`). A difference counts
+as a failure of this check and is investigated once. The Python backend is
+used because it stores finished chunks (`--state`), so a server restart does
+not lose a run and each piece stays under ten minutes; the CLI backend has no
+such state. The wheel and `target/release/crn-craft` are release builds of
+the same sources, and I1/I2 tie the CLI to the same results.
+
+**2. Worker speed rerun** (the M5g comparison after M4f). Script
+`validation/merge/compare_parameter_workers.py`, the migrated benchmark
+worker and the fixtures from branch `merge/M5cdg` at `97a60c3` (not yet
+merged into `merge-0.7`), extracted into `/home/claude/m07/m4d/workers/`; the
+migrated worker built in release mode with its own lockfile against the
+`crn-craft` crate of this checkout (`a21c358`). Old workers: the M5g
+binaries `/home/claude/m07/m5cdg/old-worker/dynamic` and `generated` (0.6.0
+network engine, cached Direct, Ziggurat waits, `fast: true`). Protocol as in
+the M5g declaration on that branch: the three frozen cases (`birth_death`,
+`sparse33`, `binding12`), one worker process per route and repetition,
+`init`, 128 training evaluations at the same log-uniform points for every
+route and one held-out evaluation, 3 repetitions with rotated route order,
+medians of the wall time of the 129 calls, 1 thread, under the CPU lock;
+within each engine the routes must return identical moments. The migrated
+worker's `crn-craft.run/1.0` request names no selector, so `auto` decides
+(`linear` for `birth_death` and `binding12`, `rssa_cr` for `sparse33`, 66
+channels starting empty). **Target:** for each case, new `fresh` / old
+`fresh` ≤ 1.25 and new `reuse` / old `reuse` ≤ 1.25 (six ratios; the gate
+passes only if all six do). New `reuse` / old `generated` is recorded for
+information. The M5g row on `merge/M5cdg` stays as the earlier row. A miss
+is recorded with its numbers and hot spots, not optimized further (owner
+decision for M4d).

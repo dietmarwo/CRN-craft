@@ -317,8 +317,20 @@ MUTATIONS.extend(
         (
             "kinetics_parameter_derivative_zeroed",
             "crates/crn-craft/src/kinetics.rs",
-            "dp[j] += product;",
-            "dp[j] += 0.0;",
+            "Input::Parameter(j) => dp[j] += g * scale,",
+            "Input::Parameter(j) => dp[j] += 0.0,",
+        ),
+        (
+            "kinetics_combination_derivative_dropped",
+            "crates/crn-craft/src/kinetics.rs",
+            "dy[s] += e.value * channel.factor * (others * factors[i].1);",
+            "dy[s] += 0.0;",
+        ),
+        (
+            "dual_power_base_factor_dropped",
+            "crates/crn-craft/src/rules/dual.rs",
+            "y * libm::pow(x, y - 1.0)",
+            "libm::pow(x, y - 1.0)",
         ),
     ]
 )

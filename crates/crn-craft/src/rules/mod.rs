@@ -213,6 +213,7 @@ mod combination;
 pub use combination::combination_rate;
 pub mod continuous;
 pub mod convert;
+pub(crate) mod dual;
 mod engine;
 mod expr;
 mod flat;
@@ -230,7 +231,7 @@ pub use libm;
 pub mod model;
 mod mtdna;
 pub mod observe;
-mod quantile;
+pub(crate) mod quantile;
 mod rssa;
 mod select;
 mod tree;
@@ -2745,6 +2746,7 @@ pub fn describe() -> Value {
             "result": "crn-craft.result/1.0", "check": "crn-craft.check/1.0",
             "fsp": {"method": "fsp", "result": "crn-craft.fsp-result/1.0", "schema": "fsp-result-1.0", "python": "crn_craft.rules.fsp"},
             "analysis": {"command": "analyze", "result": "crn-craft.analysis/1.0", "schema": "analysis-1.0", "python": "crn_craft.analyze"},
+            "archive": {"command": "rules MODEL REQUEST --archive NEW_DIRECTORY", "verify": "verify DIRECTORY", "manifest": "crn-craft.archive/1.0", "report": "crn-craft.archive-check/1.0", "schemas": ["archive-1.0", "archive-check-1.0"], "python": ["crn_craft.rules.archive", "crn_craft.rules.verify_archive"]},
             "means": {
                 "model": "crn-craft.rules-model/0.4", "request": "crn-craft.rules-run/0.6",
                 "result": "crn-craft.rules-result/0.3", "check": "crn-craft.rules-check/0.1"

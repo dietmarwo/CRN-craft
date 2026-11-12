@@ -172,10 +172,6 @@ fn highest_orders(network: &CompiledNetwork) -> Vec<(i64, i64)> {
     orders
 }
 
-/// Leap means above this use transformed rejection; at or below it the
-/// multiplication method draws one Poisson variate directly.
-const PTRS_MEAN: f64 = 16.0;
-
 /// A Poisson variate. Means up to 16 use the multiplication method
 /// (product of uniforms against exp(-mean)). Larger means use Hörmann's
 /// transformed rejection with squeeze, PTRS (Hörmann 1993, "The transformed
@@ -195,55 +191,11 @@ fn poisson(mean: f64, rng: &mut impl RngCore, poller: &mut Poller) -> Result<u64
     poisson_with(mean, || Ok(sampling::uniform_open(rng)))
 }
 
-/// Shared Poisson kernel. Callers validate the mean and supply open uniforms
-/// from their own budgeted sampler.
+/// The shared Poisson kernel, moved to [`crate::sampling::poisson_with`];
+/// re-exported here until this module is removed.
 #[doc(hidden)]
-pub fn poisson_with<E>(mean: f64, mut open: impl FnMut() -> Result<f64, E>) -> Result<u64, E> {
-    if mean == 0.0 {
-        return Ok(0);
-    }
-    if mean > PTRS_MEAN {
-        return ptrs(mean, open);
-    }
-    let threshold = libm::exp(-mean);
-    let mut count = 0;
-    let mut product = open()?;
-    while product > threshold {
-        count += 1;
-        product *= open()?;
-    }
-    Ok(count)
-}
+pub use crate::sampling::poisson_with;
 
-/// Hörmann's PTRS for means of at least 10, with his published constants.
-/// Uniforms are drawn from (0, 1), so `us` is positive and every logarithm is
-/// finite. Each pair of uniforms is accepted by the squeeze, rejected, or
-/// accepted by the exact log-density comparison.
-fn ptrs<E>(mean: f64, mut open: impl FnMut() -> Result<f64, E>) -> Result<u64, E> {
-    let root = mean.sqrt();
-    let b = 0.931 + 2.53 * root;
-    let a = -0.059 + 0.02483 * b;
-    let inverse_alpha = 1.1239 + 1.1328 / (b - 3.4);
-    let v_r = 0.9277 - 3.6224 / (b - 2.0);
-    let log_mean = mean.ln();
-    loop {
-        let u = open()? - 0.5;
-        let v = open()?;
-        let us = 0.5 - u.abs();
-        let k = ((2.0 * a / us + b) * u + mean + 0.43).floor();
-        if us >= 0.07 && v <= v_r {
-            return Ok(k as u64);
-        }
-        if k < 0.0 || (us < 0.013 && v > us) {
-            continue;
-        }
-        if v.ln() + inverse_alpha.ln() - (a / (us * us) + b).ln()
-            <= -mean + k * log_mean - libm::lgamma(k + 1.0)
-        {
-            return Ok(k as u64);
-        }
-    }
-}
 fn path(
     network: &CompiledNetwork,
     run: &Run,

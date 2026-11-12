@@ -67,6 +67,8 @@ def main():
         "run-1.0",
         "result-1.0",
         "fsp-result-1.0",
+        "archive-1.0",
+        "archive-check-1.0",
     ):
         code, schema = invoke("describe", kind)
         Draft7Validator.check_schema(schema)

@@ -15,6 +15,7 @@ import subprocess
 import tempfile
 
 import crn_craft as crn
+from crn_craft import rules
 
 
 def require(value, message):
@@ -22,15 +23,19 @@ def require(value, message):
         raise RuntimeError(message)
 
 
-def flatten(rows):
-    return [v for row in rows for v in row]
+def flatten(frame):
+    """A statistics DataFrame (report time x observable) in row-major order."""
+    return [float(v) for v in frame.to_numpy().ravel()]
 
 
 def recompute(model, data, parameters, x):
     """Independent Python evaluation of the worker objective through the binding.
 
-    Same engine (cached Direct SSA), seeds and replicate streams; the loss, seed
-    mean and circuit amplitude penalty are recomputed here from saved statistics.
+    Same engine (Static Direct on crn-craft.run/1.0), seeds and replicate
+    streams; the worker binds each candidate's values to a prepared run, while
+    this preparation edits the model's parameters and prepares it afresh. The
+    loss, seed mean and circuit amplitude penalty are recomputed here from the
+    result's statistics and kept paths.
     """
     # The worker's documented default: every model parameter, in sorted order.
     names = parameters.get("parameter_names", sorted(model["parameters"]))
@@ -42,42 +47,55 @@ def recompute(model, data, parameters, x):
         candidate = copy.deepcopy(model)
         for name, log_rate in zip(names, x, strict=True):
             candidate["parameters"][name] = math.exp(log_rate)
-        run = crn.run_spec(
-            candidate,
-            end=times[-1],
-            save_times=times,
-            replicates=replicates,
-            seed=seed,
-            keep=replicates if circuit else 0,
-            max_events=parameters.get("max_events", 1000000),
-            max_output_bytes=268435456,
+        data_bytes = crn.model_bytes(candidate)
+        run = {
+            "schema": "crn-craft.run/1.0",
+            "model": {
+                "path": "model.json",
+                "sha256": hashlib.sha256(data_bytes).hexdigest(),
+            },
+            "method": {"kind": "static_direct"},
+            "ensemble": {"replicates": replicates, "root_seed": seed},
+            "time": {"end": times[-1], "report_times": times},
+            "outputs": {
+                "statistics": ["mean", "variance"],
+                "keep_paths": replicates if circuit else 0,
+                "keep_instances": 0,
+            },
+            "budget": {
+                "threads": 1,
+                "max_events_per_replicate": parameters.get("max_events", 1000000),
+                "max_sampling_steps_per_replicate": 2**64 - 1,
+                "max_instances": 2**64 - 1,
+                "max_output_bytes": 268435456,
+            },
+        }
+        result = rules.prepare(data_bytes, run).simulate()
+        require(
+            result.metadata["termination"] == "completed", "reference run incomplete"
         )
-        result = crn.simulate(candidate, run, cached=True)
-        require(result["termination"] == "completed", "reference run incomplete")
-        stats = result["statistics"]
+        stats = result.statistics
         for actual, target, variance, target_v in zip(
             flatten(stats["mean"]),
-            flatten(data["mean"]),
+            [v for row in data["mean"] for v in row],
             flatten(stats["sample_variance"]),
-            flatten(data["variance"]),
+            [v for row in data["variance"] for v in row],
             strict=True,
         ):
             loss += ((actual - target) / max(abs(target), 1.0)) ** 2 + (
                 (variance - target_v) / max(abs(target_v), 1.0)
             ) ** 2
         if circuit:
-            species = [s["name"] for s in model["species"]].index(
-                parameters["amplitude_species"]
-            )
             burn_in = parameters.get("burn_in", 0.0)
             keep = [i for i, t in enumerate(times) if t > burn_in]
+            series = result.paths.sel(variable=parameters["amplitude_species"])
             penalty = 0.0
-            for path in result["trajectories"]:
-                values = [float(path["counts"][i][species]) for i in keep]
+            for path in series.to_numpy():
+                values = [float(path[i]) for i in keep]
                 mean = sum(values) / len(values)
                 variance = sum((v - mean) ** 2 for v in values) / len(values)
                 penalty += 1.0 / (1.0 + variance)
-            require(len(result["trajectories"]) == replicates, "missing paths")
+            require(len(series) == replicates, "missing paths")
             loss += penalty / replicates
     return loss / len(parameters["seed_set"])
 
@@ -97,7 +115,7 @@ def main():
     worker = args.worker.resolve()
     runner = args.runner.resolve()
     report = {
-        "schema": "crn-craft.jobs-validation/0.2",
+        "schema": "crn-craft.jobs-validation/0.3",
         "rows": [],
         "jobs": [],
         "protocol_pins": {
@@ -289,15 +307,20 @@ def main():
             folder, s = spec(circuit, topology)
             s["payload"]["points"] = [[5.375278407684165, 0.0]]
             if topology == "broken_ring":
+                # Transcription 3 at its basal rate only: the converted Hill
+                # repression basal + vmax / (1 + (R / k)^n) with vmax = 0.
                 mp = folder / "model.json"
                 model = json.loads(mp.read_text())
-                for reaction in model["reactions"]:
-                    if reaction["name"] == "tx3":
-                        reaction["rate"]["vmax"] = 0.0
+                (tx3,) = [r for r in model["rules"] if r["name"] == "tx3"]
+                require(
+                    tx3["propensity"] == "alpha0 + alpha / (1 + (p2 / K)^n)",
+                    f"unexpected tx3 propensity {tx3['propensity']!r}",
+                )
+                tx3["propensity"] = "alpha0"
                 content = json.dumps(model).encode()
                 mp.write_bytes(content)
                 s["inputs"][0]["sha256"] = hashlib.sha256(content).hexdigest()
-            # m2 is not species 0, so the amplitude species must be resolved by name.
+            # m2 is not observable 0, so the amplitude species must be resolved by name.
             s["payload"]["problem"]["parameters"].update(
                 {"seed_set": [20261210, 20261211], "amplitude_species": "m2"}
             )

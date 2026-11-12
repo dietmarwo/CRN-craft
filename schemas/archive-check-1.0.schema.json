@@ -1,0 +1,145 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "CheckVersion": {
+      "description": "Schema tag of an archive report, `crn-craft.archive-check/1.0`.",
+      "enum": [
+        "crn-craft.archive-check/1.0"
+      ],
+      "type": "string"
+    },
+    "Diagnostic": {
+      "additionalProperties": false,
+      "description": "One structured finding with a stable code, the JSON Pointer of the input it concerns, a message and a repair hint.",
+      "properties": {
+        "code": {
+          "description": "Stable code such as `CRN-E012` or `CRN-W001`, part of the machine contract.",
+          "type": "string"
+        },
+        "hint": {
+          "description": "Suggested repair for the finding.",
+          "type": "string"
+        },
+        "message": {
+          "description": "Human-readable detail; its wording is not part of the contract.",
+          "type": "string"
+        },
+        "path": {
+          "description": "RFC 6901 JSON Pointer. Empty string denotes the document root.",
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/definitions/Severity"
+        }
+      },
+      "required": [
+        "code",
+        "hint",
+        "message",
+        "path",
+        "severity"
+      ],
+      "type": "object"
+    },
+    "Severity": {
+      "description": "Whether a diagnostic blocks use of the input or result: `error` does, `warning` is advisory.",
+      "enum": [
+        "error",
+        "warning"
+      ],
+      "type": "string"
+    },
+    "Termination": {
+      "description": "How a replicate, or the whole ensemble, ended.\n\nValues are ordered by severity, from `completed` to `output_limit`. The ensemble reports `completed` when every replicate completed or stopped, and otherwise the most severe replicate termination.",
+      "oneOf": [
+        {
+          "enum": [
+            "completed",
+            "event_limit",
+            "sampling_limit",
+            "instance_limit",
+            "wall_time_limit",
+            "cancelled",
+            "failed",
+            "output_limit"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "The model's stop condition held, ATP was depleted under thinning, a continuous variable reached its lower bound with `on_bound: \"stop\"` under hybrid, or an observer stopped the replicate; the state is held to the end of the grid.",
+          "enum": [
+            "stopped"
+          ],
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "description": "Report of writing or verifying a `crn-craft.archive/1.0` archive: archive integrity and the outcome of the archived run.",
+  "properties": {
+    "archive_complete": {
+      "description": "True when every file, the manifest and the completion marker are present and consistent. It says nothing about whether the run finished.",
+      "type": "boolean"
+    },
+    "diagnostics": {
+      "description": "Why the archive is invalid; empty for a valid archive.",
+      "items": {
+        "$ref": "#/definitions/Diagnostic"
+      },
+      "type": "array"
+    },
+    "model_sha256": {
+      "description": "SHA-256 of the archived model bytes; null when the archive is invalid.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "result": {
+      "description": "The archived result's `schema`, for example `crn-craft.result/1.0` or `crn-craft.fsp-result/1.0`; null when the archive is invalid.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "run_sha256": {
+      "description": "SHA-256 of the archived request bytes; null when the archive is invalid.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema": {
+      "$ref": "#/definitions/CheckVersion"
+    },
+    "simulation_complete": {
+      "description": "True when the archived result is complete: a simulation result whose termination is `completed`, or a finite state projection.",
+      "type": "boolean"
+    },
+    "termination": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Termination"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The archived simulation result's ensemble termination; null for a finite state projection and when the archive is invalid."
+    },
+    "valid": {
+      "description": "True when the archive was written, or verified, without error.",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "archive_complete",
+    "diagnostics",
+    "schema",
+    "simulation_complete",
+    "valid"
+  ],
+  "title": "ArchiveReport",
+  "type": "object"
+}

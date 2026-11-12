@@ -1,5 +1,18 @@
 # Parameter optimization comparison: reproduction
 
+> **Since 0.7.0 (task M5g of the engine merge).** The worker runs the rules
+> engine: the frozen network models are converted to `crn-craft.model/1.0`,
+> the routes are `crn_fresh` (every candidate prepared afresh) and
+> `crn_reuse` (`Prepared::bind_parameters`), both interpreted Static Direct
+> with Ziggurat waits. There is no generated CRN route: generated rules
+> kernels and loops compile the parameter values in and refuse rebound
+> candidates, and the network engine's propensity modules are gone. The
+> worker checks are `validation/check_parameter_binding.py --worker BINARY`;
+> `check_parameter_interface.py` keeps testing the network engine's Python
+> `ParameterTemplate` until it is removed. The evidence in `evidence/` and
+> the text below describe the 0.6.0 measurement with the network engine's
+> routes (`crn_*_fast`, generated kernels) and have not been repeated.
+
 Base: GitHub main `c16fcc5`, merged PR #8. This adds reusable parameter bindings
 and optional model-specific propensity source generation. The fast policy is
 inherited from the base; the checked default and old schemas remain available.

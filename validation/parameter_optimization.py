@@ -1,4 +1,13 @@
-"""Complete fixed-topology optimization comparison, including AOT compilation."""
+"""Complete fixed-topology optimization comparison, including AOT compilation.
+
+The CRN routes run the rules engine (Static Direct, Ziggurat waits) on the
+frozen models converted to crn-craft.model/1.0: `crn_fresh` prepares every
+candidate, `crn_reuse` binds its values to a prepared run. There is no
+generated CRN route: generated rules kernels and loops compile parameter
+values in. The 0.6.0 evidence under evidence/ was measured with the network
+engine's routes (`crn_*_fast`, cached Direct with fast=True, and generated
+kernels); a rerun replaces it.
+"""
 
 import argparse
 import hashlib
@@ -18,9 +27,8 @@ import fcmaes_rust
 from parameter_optimization_models import ROOT, FOLDER, exact_moments, fixtures, loss
 
 ENGINES = [
-    "crn_fresh_fast",
-    "crn_reuse_fast",
-    "crn_generated_fast",
+    "crn_fresh",
+    "crn_reuse",
     "rebop_expression",
     "rebop_rebuild_lma",
     "rebop_macro",
@@ -40,9 +48,11 @@ def source_hashes():
         ROOT / "validation/parameter_optimization.py",
         ROOT / "validation/parameter_optimization_models.py",
         ROOT / "validation/generate_parameter_workers.py",
-        ROOT / "validation/check_parameter_interface.py",
+        ROOT / "validation/check_parameter_binding.py",
         ROOT / "python/crn_craft/__init__.py",
+        ROOT / "python/crn_craft/rules.py",
         ROOT / "bindings/python/src/lib.rs",
+        ROOT / "bindings/python/src/rules.rs",
     ]
     return {
         str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
@@ -70,7 +80,7 @@ def build(target):
     # Prime model-independent dependencies and retain first/failed build logs.
     with (FOLDER / "evidence/build-prime.log").open("w") as log:
         subprocess.run(
-            common + ["--features", "generated,rebop-macro"],
+            common + ["--features", "rebop-macro"],
             env=env,
             cwd=ROOT,
             stdout=log,
@@ -78,14 +88,13 @@ def build(target):
             check=True,
         )
     result = dict(
-        note="Dependency-cache-warm package rebuilds; whole three-model bundle plus arithmetic guard. No clean-machine installation claim.",
+        note="Dependency-cache-warm package rebuilds; the rebop bundle holds the three models. No clean-machine installation claim.",
         workers={},
     )
     binaries = target / "parameter-worker-binaries"
     binaries.mkdir(exist_ok=True)
     for name, feature in [
         ("dynamic", None),
-        ("generated", "generated"),
         ("rebop_macro", "rebop-macro"),
     ]:
         subprocess.run(
@@ -255,17 +264,10 @@ def start_worker(binary, engine, fixture, row):
 def one_run(engine, fixture, row, optimizer_seed, builds, generation):
     start_total = time.perf_counter()
     if engine.startswith("crn_") or engine == "rebop_macro":
-        variant = (
-            "generated"
-            if engine == "crn_generated_fast"
-            else "rebop_macro"
-            if engine == "rebop_macro"
-            else "dynamic"
-        )
+        variant = "rebop_macro" if engine == "rebop_macro" else "dynamic"
         mode = dict(
-            crn_fresh_fast="fresh",
-            crn_reuse_fast="reuse",
-            crn_generated_fast="generated",
+            crn_fresh="fresh",
+            crn_reuse="reuse",
             rebop_macro="rebop_macro",
         )[engine]
         worker = start_worker(builds["workers"][variant]["binary"], mode, fixture, row)
@@ -341,12 +343,8 @@ def one_run(engine, fixture, row, optimizer_seed, builds, generation):
             builds["workers"][variant]["compilation_seconds"] if variant else 0.0
         )
         generation_seconds = (
-            sum(
-                v
-                for k, v in generation.items()
-                if k.endswith("/crn" if variant == "generated" else "/rebop")
-            )
-            if variant in ["generated", "rebop_macro"]
+            sum(v for k, v in generation.items() if k.endswith("/rebop"))
+            if variant == "rebop_macro"
             else 0.0
         )
         return dict(
@@ -380,7 +378,7 @@ def one_run(engine, fixture, row, optimizer_seed, builds, generation):
 
 
 def run():
-    validation = json.loads((FOLDER / "evidence/parameter-validation.json").read_text())
+    validation = json.loads((FOLDER / "evidence/parameter-binding.json").read_text())
     gates = json.loads((FOLDER / "evidence/final/summary.json").read_text())
     if (
         not validation["passed"]
@@ -462,7 +460,7 @@ def run():
                     result.get("error"),
                     flush=True,
                 )
-    # Whole optimizer traces must agree across the three CRN routes, excluding timings.
+    # Whole optimizer traces must agree across the two CRN routes, excluding timings.
     identity = []
     for row in manifest["rows"]:
         for seed in manifest["optimizer_seeds"]:
@@ -477,7 +475,7 @@ def run():
                 [(v["x"], v["loss"]) for v in r.get("trace", [])] for r in choices
             ]
             equal = (
-                len(choices) == 3
+                len(choices) == 2
                 and all(r["passed"] for r in choices)
                 and all(t == traces[0] for t in traces)
             )

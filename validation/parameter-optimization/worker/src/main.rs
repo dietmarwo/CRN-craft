@@ -1,12 +1,14 @@
 #![forbid(unsafe_code)]
 #![recursion_limit = "512"]
 //! Isolated benchmark worker. The numerical library has no optimizer/rebop dependency.
-use crn_craft::{
-    contracts::Model,
-    parameters::{BoundParameters, ParameterTemplate},
-    simulation::Control,
-    ssa,
-};
+//!
+//! The CRN routes run the rules engine's Static Direct on the model converted
+//! to `crn-craft.model/1.0`: `fresh` prepares every candidate from its model
+//! bytes, `reuse` binds the candidate's values to a prepared run
+//! (`Prepared::bind_parameters`). Generated rules kernels and loops compile
+//! the parameter values in and refuse rebound candidates, so no generated
+//! route serves a parameter search; both routes are interpreted.
+use crn_craft::rules::{self, Control, Prepared, RulesResult, RunRequest, Termination};
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
@@ -14,14 +16,6 @@ use std::{
     time::Instant,
 };
 
-#[cfg(feature = "generated")]
-mod crn_binding12;
-#[cfg(feature = "generated")]
-mod crn_birth_death;
-#[cfg(feature = "generated")]
-mod crn_guard;
-#[cfg(feature = "generated")]
-mod crn_sparse33;
 #[cfg(feature = "rebop-macro")]
 mod rebop_binding12;
 #[cfg(feature = "rebop-macro")]
@@ -66,11 +60,15 @@ impl Moments {
 struct State {
     engine: String,
     case: String,
-    model: Model,
+    /// The rules model (a network model converted to `crn-craft.model/1.0`).
+    model: rules::Model,
     names: Vec<String>,
     times: Vec<f64>,
-    requests: BTreeMap<String, ssa::Request>,
-    templates: BTreeMap<String, ParameterTemplate>,
+    requests: BTreeMap<String, RunRequest>,
+    templates: BTreeMap<String, Prepared>,
+    /// Result column of each type, in type declaration order: the network
+    /// model's species order for a converted model.
+    columns: Option<Vec<usize>>,
 }
 fn error(value: impl std::fmt::Debug) -> String {
     format!("{value:?}")
@@ -81,8 +79,13 @@ fn diagnostics(value: Vec<crn_craft::diagnostic::Diagnostic>) -> String {
 
 impl State {
     fn new(v: &Value) -> Result<Self, String> {
-        let model_bytes = serde_json::to_vec(&v["model"]).map_err(error)?;
-        let model = crn_craft::parse_model(&model_bytes).map_err(error)?;
+        let supplied = serde_json::to_vec(&v["model"]).map_err(error)?;
+        let model_bytes = if v["model"]["schema"] == "crn-craft.model/0.1" {
+            rules::convert::from_network(&supplied).map_err(diagnostics)?
+        } else {
+            supplied
+        };
+        let model: rules::Model = crn_craft::strict_json::parse(&model_bytes).map_err(error)?;
         let times: Vec<f64> = serde_json::from_value(v["times"].clone()).map_err(error)?;
         let engine = v["engine"].as_str().ok_or("engine")?.to_owned();
         let case = v["case"].as_str().ok_or("case")?.to_owned();
@@ -100,16 +103,17 @@ impl State {
                 880431,
             ),
         ] {
-            let request = serde_json::to_vec(&json!({"schema":if v["fast"].as_bool().unwrap_or(true) {"crn-craft.ssa-run/0.2"} else {"crn-craft.ssa-run/0.1"},
+            let request = serde_json::to_vec(&json!({"schema":"crn-craft.run/1.0",
                 "model":{"path":"model.json","sha256":crn_craft::sha256(&model_bytes)},
-                "method":{"kind":"ssa","aggregator":v["algorithm"].as_str().unwrap_or("cached_direct"),"waiting_time":v["wait"].as_str().unwrap_or("ziggurat"),"fast":v["fast"].as_bool().unwrap_or(true)},
-                "time":{"end":times.last(),"save_times":times},"ensemble":{"replicates":paths,"root_seed":seed},
-                "outputs":{"statistics":["mean","variance"],"keep_trajectories":v["keep"].as_u64().unwrap_or(0)},
-                "budget":{"threads":1,"max_events_per_replicate":1000000,"max_sampling_steps_per_replicate":1000000000,"max_output_bytes":64000000}})).map_err(error)?;
+                "method":{"kind":"static_direct","waiting_time":v["wait"].as_str().unwrap_or("ziggurat")},
+                "time":{"end":times.last(),"report_times":times},"ensemble":{"replicates":paths,"root_seed":seed},
+                "outputs":{"statistics":["mean","variance"],"keep_paths":v["keep"].as_u64().unwrap_or(0),"keep_instances":0},
+                "budget":{"threads":1,"max_events_per_replicate":1000000,"max_sampling_steps_per_replicate":1000000000,
+                          "max_instances":1000000,"max_output_bytes":64000000}})).map_err(error)?;
             if engine != "rebop_macro" {
                 templates.insert(
                     phase.into(),
-                    ParameterTemplate::prepare(&model_bytes, &request).map_err(diagnostics)?,
+                    rules::prepare(&model_bytes, &request).map_err(diagnostics)?,
                 );
             }
             requests.insert(
@@ -126,9 +130,24 @@ impl State {
             times,
             requests,
             templates,
+            columns: None,
         })
     }
-    fn evaluate(&self, v: &Value) -> Result<Value, String> {
+    /// The result's columns in type declaration order when every type has an
+    /// observable of its name (a converted network model), else result order.
+    fn columns(&self, result: &RulesResult) -> Vec<usize> {
+        let by_type: Option<Vec<usize>> = self
+            .model
+            .types
+            .iter()
+            .map(|t| result.observables.iter().position(|o| *o == t.name))
+            .collect();
+        match by_type {
+            Some(columns) if columns.len() == result.observables.len() => columns,
+            _ => (0..result.observables.len()).collect(),
+        }
+    }
+    fn evaluate(&mut self, v: &Value) -> Result<Value, String> {
         let values: Vec<f64> = serde_json::from_value(v["values"].clone()).map_err(error)?;
         if values.len() != self.names.len() || values.iter().any(|x| !x.is_finite() || *x < 0.) {
             return Err("invalid benchmark values".into());
@@ -168,61 +187,48 @@ impl State {
             let mut request = request.clone();
             request.model.sha256 = crn_craft::sha256(&model_bytes);
             let request_bytes = serde_json::to_vec(&request).map_err(error)?;
-            let prepared = ssa::prepare(&model_bytes, &request_bytes).map_err(diagnostics)?;
-            BoundParameters {
-                prepared,
-                model_bytes,
-                request_bytes,
-            }
-        } else {
+            rules::prepare(&model_bytes, &request_bytes).map_err(diagnostics)?
+        } else if self.engine == "reuse" {
+            let overrides: BTreeMap<String, f64> = self
+                .names
+                .iter()
+                .cloned()
+                .zip(values.iter().copied())
+                .collect();
             self.templates
                 .get(phase)
                 .ok_or("template")?
-                .bind(&values, None)
+                .bind_parameters(&overrides)
                 .map_err(diagnostics)?
+        } else {
+            return Err("engine".into());
         };
         let binding_seconds = start.elapsed().as_secs_f64();
         let start = Instant::now();
-        let control = Control::default();
-        let result = if self.engine == "generated" {
-            #[cfg(feature = "generated")]
-            {
-                match self.case.as_str() {
-                    "birth_death" => ssa::execute_with_kernel(
-                        &bound.prepared,
-                        &control,
-                        &crn_birth_death::GeneratedKernel,
-                    ),
-                    "sparse33" => ssa::execute_with_kernel(
-                        &bound.prepared,
-                        &control,
-                        &crn_sparse33::GeneratedKernel,
-                    ),
-                    "binding12" => ssa::execute_with_kernel(
-                        &bound.prepared,
-                        &control,
-                        &crn_binding12::GeneratedKernel,
-                    ),
-                    _ => return Err("case".into()),
-                }
-            }
-            #[cfg(not(feature = "generated"))]
-            {
-                return Err("generated feature not built".into());
-            }
-        } else if self.engine == "fresh" || self.engine == "reuse" {
-            ssa::execute(&bound.prepared, &control)
-        } else {
-            return Err("engine".into());
-        }
-        .map_err(error)?;
+        let result = rules::execute(&bound, &Control::default()).map_err(error)?;
         let simulation_seconds = start.elapsed().as_secs_f64();
-        if result.termination != ssa::Termination::Completed {
+        if result.termination != Termination::Completed {
             return Err(format!("incomplete: {:?}", result.termination));
         }
+        let columns = match &self.columns {
+            Some(columns) => columns.clone(),
+            None => {
+                let columns = self.columns(&result);
+                self.columns = Some(columns.clone());
+                columns
+            }
+        };
         let stats = result.statistics.as_ref().ok_or("missing statistics")?;
-        let mut reply = json!({"moments":{"mean":stats.mean,"variance":stats.sample_variance},"events":result.events,
-            "bind_seconds":binding_seconds,"simulation_seconds":simulation_seconds,
+        let order = |rows: &Option<Vec<Vec<f64>>>| -> Result<Vec<Vec<f64>>, String> {
+            Ok(rows
+                .as_ref()
+                .ok_or("missing statistics")?
+                .iter()
+                .map(|row| columns.iter().map(|&c| row[c]).collect())
+                .collect())
+        };
+        let mut reply = json!({"moments":{"mean":order(&stats.mean)?,"variance":order(&stats.sample_variance)?},
+            "events":result.events,"bind_seconds":binding_seconds,"simulation_seconds":simulation_seconds,
             "result_sha256":crn_craft::sha256(&serde_json::to_vec(&result).map_err(error)?)});
         if v["full"].as_bool().unwrap_or(false) {
             reply["result"] = serde_json::to_value(&result).map_err(error)?;
@@ -231,35 +237,6 @@ impl State {
     }
 }
 
-#[cfg(feature = "generated")]
-fn check_kernel<K: ssa::PropensityKernel>(model: &Model, kernel: &K) -> Result<usize, String> {
-    let mut checks = 0;
-    for coefficient in [0., -0., f64::from_bits(1), f64::MIN_POSITIVE, 1., f64::MAX] {
-        let mut model = model.clone();
-        for value in model.parameters.values_mut() {
-            *value = coefficient;
-        }
-        let net = crn_craft::CompiledNetwork::compile(&model).map_err(diagnostics)?;
-        for offset in [0, 1, 2, 3, 5, 31, i64::MAX - 64] {
-            let state: Vec<_> = (0..net.species().len())
-                .map(|i| offset + i as i64)
-                .collect();
-            for rx in 0..net.reactions().len() {
-                let a = net.propensity(rx, &state);
-                let b = kernel.evaluate(&net, rx, &state);
-                match (a, b) {
-                    (Ok(a), Ok(b)) if a.to_bits() == b.to_bits() => (),
-                    (Err(a), Err(b))
-                        if serde_json::to_value(&a).unwrap()
-                            == serde_json::to_value(&b).unwrap() => {}
-                    mismatch => return Err(format!("kernel evaluation mismatch: {mismatch:?}")),
-                }
-                checks += 1;
-            }
-        }
-    }
-    Ok(checks)
-}
 // Internal benchmark requests are strict too: malformed optional fields never
 // silently select a default or hide a misspelled setting.
 fn validate_fields(value: &Value) -> Result<(), String> {
@@ -276,12 +253,9 @@ fn validate_fields(value: &Value) -> Result<(), String> {
             "heldout_paths",
             "seed",
             "keep",
-            "algorithm",
             "wait",
-            "fast",
         ],
         "eval" => &["command", "values", "phase", "path_seeds", "full"],
-        "validate_kernel" => &["command"],
         _ => return Err("unknown command".into()),
     };
     for key in object.keys() {
@@ -294,12 +268,10 @@ fn validate_fields(value: &Value) -> Result<(), String> {
             return Err(format!("{key} must be an unsigned integer"));
         }
     }
-    for key in ["fast", "full"] {
-        if object.contains_key(key) && value[key].as_bool().is_none() {
-            return Err(format!("{key} must be boolean"));
-        }
+    if object.contains_key("full") && value["full"].as_bool().is_none() {
+        return Err("full must be boolean".into());
     }
-    for key in ["algorithm", "wait", "phase"] {
+    for key in ["wait", "phase"] {
         if object.contains_key(key) && value[key].as_str().is_none() {
             return Err(format!("{key} must be a string"));
         }
@@ -323,31 +295,7 @@ fn main() {
                         json!({"ready":true,"case":state.as_ref().unwrap().case,"save_points":state.as_ref().unwrap().times.len(),"initialization_seconds":start.elapsed().as_secs_f64()}),
                     )
                 }
-                "eval" => state.as_ref().ok_or("not initialized")?.evaluate(&value),
-                "validate_kernel" => {
-                    #[cfg(feature = "generated")]
-                    {
-                        let state = state.as_ref().ok_or("not initialized")?;
-                        let checks = match state.case.as_str() {
-                            "birth_death" => {
-                                check_kernel(&state.model, &crn_birth_death::GeneratedKernel)?
-                            }
-                            "sparse33" => {
-                                check_kernel(&state.model, &crn_sparse33::GeneratedKernel)?
-                            }
-                            "binding12" => {
-                                check_kernel(&state.model, &crn_binding12::GeneratedKernel)?
-                            }
-                            "guard" => check_kernel(&state.model, &crn_guard::GeneratedKernel)?,
-                            _ => return Err("case".into()),
-                        };
-                        Ok(json!({"checks":checks,"passed":true}))
-                    }
-                    #[cfg(not(feature = "generated"))]
-                    {
-                        Err("generated feature not built".into())
-                    }
-                }
+                "eval" => state.as_mut().ok_or("not initialized")?.evaluate(&value),
                 _ => Err("unknown command".into()),
             }
         })();

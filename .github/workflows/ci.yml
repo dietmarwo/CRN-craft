@@ -85,6 +85,9 @@ jobs:
       - run: python validation/check_tau.py --binary target/release/crn-craft --output tau.json
       - run: python -O validation/check_tau.py --binary target/release/crn-craft --output tau-optimized.json
       - run: diff tau.json tau-optimized.json
+      - run: python validation/check_tau_rules.py --binary target/release/crn-craft --output tau-rules.json
+      - run: python -O validation/check_tau_rules.py --binary target/release/crn-craft --output tau-rules-optimized.json
+      - run: diff tau-rules.json tau-rules-optimized.json
   rules:
     # K1 exact-law gates for dynamic, attributed species (docs/rules-language.md).
     runs-on: ubuntu-latest

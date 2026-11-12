@@ -1,0 +1,49 @@
+{
+  "epsilon_stat": 0.02085607195544045,
+  "passed": true,
+  "rows": [
+    {
+      "cdf_envelope": 0.07085607195544046,
+      "cdf_error": 0.004259318701307024,
+      "epsilon": 0.1,
+      "events": 736991,
+      "mean_envelope": 3.8877155956732787,
+      "mean_error": 0.0072944117144189136,
+      "min_count": 17,
+      "passed": true,
+      "paths": 10000,
+      "result_sha256": "7ad26a6e63c0d232d9f948825f97aaa3e66ce42fb185a4445e47a3a53e95c9aa",
+      "rng_words": 1293328,
+      "sampler": "chacha8-u53/rules-approximate-cgp-poisson/2"
+    },
+    {
+      "cdf_envelope": 0.04585607195544045,
+      "cdf_error": 0.006603691368033238,
+      "epsilon": 0.05,
+      "events": 735205,
+      "mean_envelope": 2.0716553162589997,
+      "mean_error": 0.06370558828557904,
+      "min_count": 13,
+      "passed": true,
+      "paths": 10000,
+      "result_sha256": "4fa969f32c40e8736b39c08b9f0a58fe3b9cf93ecd4fda019c6c13c9d74bdc47",
+      "rng_words": 1572298,
+      "sampler": "chacha8-u53/rules-approximate-cgp-poisson/2"
+    },
+    {
+      "cdf_envelope": 0.03335607195544045,
+      "cdf_error": 0.006292849301379633,
+      "epsilon": 0.025,
+      "events": 736709,
+      "mean_envelope": 1.1636251765518602,
+      "mean_error": 0.05809441171442131,
+      "min_count": 17,
+      "passed": true,
+      "paths": 10000,
+      "result_sha256": "6d0fe42f922abb00dae6af1723ea6ef82f2e53edec13b41c2d3eb369c077d083",
+      "rng_words": 1493418,
+      "sampler": "chacha8-u53/rules-approximate-cgp-poisson/2"
+    }
+  ],
+  "schema": "crn-craft.tau-rules-validation/0.1"
+}

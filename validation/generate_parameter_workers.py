@@ -1,10 +1,15 @@
-"""Generate CRN propensity modules and rebop macro modules from frozen JSON."""
+"""Generate the rebop macro modules of the benchmark worker from frozen JSON.
+
+The CRN routes run the rules engine interpreted: generated rules kernels and
+loops compile parameter values in, so they cannot serve a parameter search,
+and the 0.6.0 propensity modules (`crn_*.rs`) are gone with the network
+engine's kernels.
+"""
 
 import json
 import math
 import time
-import crn_craft as crn
-from parameter_optimization_models import FOLDER, guard_fixture
+from parameter_optimization_models import FOLDER
 
 
 def rebop_source(model):
@@ -62,15 +67,9 @@ def main():
         case = row["case"]
         data = (FOLDER / "models" / f"{case}.model.json").read_bytes()
         start = time.perf_counter()
-        source = crn.mass_action_kernel_source(data)
-        (FOLDER / "worker/src" / f"crn_{case}.rs").write_text(source)
-        report[case + "/crn"] = time.perf_counter() - start
-        start = time.perf_counter()
         source = rebop_source(json.loads(data))
         (FOLDER / "worker/src" / f"rebop_{case}.rs").write_text(source)
         report[case + "/rebop"] = time.perf_counter() - start
-    data = json.dumps(guard_fixture()).encode()
-    (FOLDER / "worker/src/crn_guard.rs").write_text(crn.mass_action_kernel_source(data))
     (FOLDER / "evidence/generation.json").write_text(
         json.dumps(report, indent=2) + "\n"
     )

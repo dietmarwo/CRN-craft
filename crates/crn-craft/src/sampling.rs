@@ -7,7 +7,8 @@
 //! propensity total, an inverse-transform exponential wait and first-channel
 //! selection. Numerical failures are diagnostics at `/simulation`: `CRN-E061`
 //! for totals and selection, `CRN-E062` for waits and event times. The rules
-//! engine reuses [`uniform_closed_open`].
+//! engine reuses [`uniform_closed_open`] and, for its leaps, the Poisson
+//! sampler [`poisson_with`].
 //!
 //! ```
 //! use crn_craft::sampling::{select_channel, stream, total_propensity, uniform_closed_open,
@@ -368,9 +369,160 @@ pub fn select_channel(rates: &[f64], total: f64, uniform: f64) -> Result<usize, 
     ))
 }
 
+/// Leap means above this use transformed rejection; at or below it the
+/// multiplication method draws one Poisson variate directly.
+const PTRS_MEAN: f64 = 16.0;
+
+/// Shared Poisson kernel. Callers validate the mean and supply open uniforms
+/// from their own budgeted sampler.
+#[doc(hidden)]
+pub fn poisson_with<E>(mean: f64, mut open: impl FnMut() -> Result<f64, E>) -> Result<u64, E> {
+    if mean == 0.0 {
+        return Ok(0);
+    }
+    if mean > PTRS_MEAN {
+        return ptrs(mean, open);
+    }
+    let threshold = libm::exp(-mean);
+    let mut count = 0;
+    let mut product = open()?;
+    while product > threshold {
+        count += 1;
+        product *= open()?;
+    }
+    Ok(count)
+}
+
+/// Hörmann's PTRS for means of at least 10, with his published constants.
+/// Uniforms are drawn from (0, 1), so `us` is positive and every logarithm is
+/// finite. Each pair of uniforms is accepted by the squeeze, rejected, or
+/// accepted by the exact log-density comparison.
+fn ptrs<E>(mean: f64, mut open: impl FnMut() -> Result<f64, E>) -> Result<u64, E> {
+    let root = mean.sqrt();
+    let b = 0.931 + 2.53 * root;
+    let a = -0.059 + 0.02483 * b;
+    let inverse_alpha = 1.1239 + 1.1328 / (b - 3.4);
+    let v_r = 0.9277 - 3.6224 / (b - 2.0);
+    let log_mean = mean.ln();
+    loop {
+        let u = open()? - 0.5;
+        let v = open()?;
+        let us = 0.5 - u.abs();
+        let k = ((2.0 * a / us + b) * u + mean + 0.43).floor();
+        if us >= 0.07 && v <= v_r {
+            return Ok(k as u64);
+        }
+        if k < 0.0 || (us < 0.013 && v > us) {
+            continue;
+        }
+        if v.ln() + inverse_alpha.ln() - (a / (us * us) + b).ln()
+            <= -mean + k * log_mean - libm::lgamma(k + 1.0)
+        {
+            return Ok(k as u64);
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Open uniforms of a tau stream, never failing.
+    fn open(rng: &mut impl RngCore) -> impl FnMut() -> Result<f64, ()> + '_ {
+        move || Ok(uniform_open(rng))
+    }
+
+    /// The law test of `tau.rs` (P19, part a, declared in
+    /// docs/campaign/performance-p11-p20.md) on the kernel itself: 200,000
+    /// draws at each of five means from fixed streams, a two-sided DKW band
+    /// at family alpha 0.001 (Bonferroni over the means) against the exact
+    /// Poisson CDF, and every sample mean within five standard errors.
+    #[test]
+    #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+    fn poisson_with_follows_the_poisson_law_on_both_sides_of_the_switch() {
+        let draws = 200_000u32;
+        let alpha = 0.001 / 5.0;
+        let band = ((2.0f64 / alpha).ln() / (2.0 * f64::from(draws))).sqrt();
+        for (index, mean) in [16.5f64, 30.0, 100.0, 1000.0, 1e5].into_iter().enumerate() {
+            let mut rng = tau_stream(20261101, index as u64);
+            let mut counts = std::collections::BTreeMap::<u64, u32>::new();
+            let mut sum = 0.0;
+            for _ in 0..draws {
+                let k = poisson_with(mean, open(&mut rng)).unwrap();
+                *counts.entry(k).or_default() += 1;
+                sum += k as f64;
+            }
+            let sample_mean = sum / f64::from(draws);
+            let standard_error = (mean / f64::from(draws)).sqrt();
+            assert!(
+                (sample_mean - mean).abs() <= 5.0 * standard_error,
+                "mean {mean}: sample mean {sample_mean}"
+            );
+            let spread = 40.0 * mean.sqrt();
+            let low = (mean - spread).max(0.0).floor() as u64;
+            let high = (mean + spread).ceil() as u64;
+            let (first, last) = (
+                *counts.keys().next().unwrap(),
+                *counts.keys().next_back().unwrap(),
+            );
+            assert!(
+                first >= low && last <= high,
+                "draws outside 40 sd at {mean}"
+            );
+            let (mut cdf, mut empirical, mut worst) = (0.0f64, 0u64, 0.0f64);
+            for k in low..=high {
+                let x = k as f64;
+                cdf += (-mean + x * mean.ln() - libm::lgamma(x + 1.0)).exp();
+                empirical += u64::from(counts.get(&k).copied().unwrap_or(0));
+                worst = worst.max((empirical as f64 / f64::from(draws) - cdf).abs());
+            }
+            assert!(worst <= band, "mean {mean}: DKW distance {worst} > {band}");
+        }
+    }
+
+    #[test]
+    fn poisson_with_keeps_the_multiplication_method_for_small_means() {
+        assert_eq!(poisson_with(0.0, || Err::<f64, ()>(())), Ok(0));
+        for mean in [0.5, 3.0, 16.0] {
+            let (mut a, mut b) = (tau_stream(7, 1), tau_stream(7, 1));
+            for _ in 0..1000 {
+                let k = poisson_with(mean, open(&mut a)).unwrap();
+                let threshold = libm::exp(-mean);
+                let mut expected = 0;
+                let mut product = uniform_open(&mut b);
+                while product > threshold {
+                    expected += 1;
+                    product *= uniform_open(&mut b);
+                }
+                assert_eq!(k, expected);
+            }
+            assert_eq!(a.next_u64(), b.next_u64(), "same words consumed at {mean}");
+        }
+    }
+
+    #[test]
+    fn poisson_with_draws_a_few_uniforms_for_large_means_and_passes_errors_on() {
+        for mean in [17.0, 1e3, 1e5, 1e7] {
+            let mut rng = tau_stream(3, 0);
+            let mut uniforms = 0_u64;
+            for _ in 0..10_000 {
+                poisson_with(mean, || {
+                    uniforms += 1;
+                    Ok::<_, ()>(uniform_open(&mut rng))
+                })
+                .unwrap();
+            }
+            assert!(uniforms <= 30_000, "{uniforms} uniforms at {mean}");
+        }
+        // A failing sampler (an exhausted budget) ends the draw with its error.
+        assert_eq!(
+            poisson_with(3.0, || Err::<f64, &str>("budget")),
+            Err("budget")
+        );
+        assert_eq!(
+            poisson_with(300.0, || Err::<f64, &str>("budget")),
+            Err("budget")
+        );
+    }
 
     fn same(a: Result<usize, Diagnostic>, b: Result<usize, Diagnostic>) {
         match (a, b) {

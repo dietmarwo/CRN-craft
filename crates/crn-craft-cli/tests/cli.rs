@@ -628,3 +628,124 @@ fn rules_solves_fsp_requests_and_describes_their_contracts() {
         "crn-craft.fsp-result/1.0"
     );
 }
+
+#[test]
+fn rules_archives_runs_and_verify_reads_both_archive_versions() {
+    let temp = Temp::new();
+    let path = |name: &str| temp.0.join(name).to_str().unwrap().to_string();
+    let network =
+        std::fs::read(root().join("models/examples/immigration-death.model.json")).unwrap();
+    let converted = crn_craft::rules::convert::from_network(&network).unwrap();
+    std::fs::write(temp.0.join("model.json"), &converted).unwrap();
+    let mut request = serde_json::json!({
+        "schema": "crn-craft.run/1.0",
+        "model": {"path": "model.json", "sha256": crn_craft::sha256(&converted)},
+        "method": {"kind": "static_direct"},
+        "time": {"end": 5.0, "report_times": [0.0, 1.0, 5.0]},
+        "ensemble": {"replicates": 16, "root_seed": 9},
+        "outputs": {"statistics": ["mean", "variance"], "keep_paths": 16, "keep_instances": 0},
+        "budget": {"max_events_per_replicate": 100000, "max_sampling_steps_per_replicate": 10000000,
+                   "max_instances": 1000, "threads": 2, "max_output_bytes": 10000000}
+    });
+    std::fs::write(
+        temp.0.join("request.json"),
+        serde_json::to_vec(&request).unwrap(),
+    )
+    .unwrap();
+    let (model, file) = (path("model.json"), path("request.json"));
+    let plain = Command::new(env!("CARGO_BIN_EXE_crn-craft"))
+        .args(["rules", &model, &file])
+        .output()
+        .unwrap();
+    assert!(plain.status.success(), "{plain:?}");
+    // Both option orders; the archived result is the printed result.
+    for (name, args) in [
+        ("first", vec!["--archive", "OUT"]),
+        (
+            "second",
+            vec!["--cancel-file", "CANCEL", "--archive", "OUT"],
+        ),
+    ] {
+        let out = path(name);
+        let cancel = path("absent-cancel-file");
+        let mut argv = vec!["rules", model.as_str(), file.as_str()];
+        argv.extend(args.into_iter().map(|a| match a {
+            "OUT" => out.as_str(),
+            "CANCEL" => cancel.as_str(),
+            other => other,
+        }));
+        let (code, report) = invoke(&argv);
+        assert_eq!(code, 0, "{report}");
+        assert_eq!(report["schema"], "crn-craft.archive-check/1.0");
+        assert_eq!(report["valid"], true);
+        assert_eq!(report["simulation_complete"], true);
+        assert_eq!(report["result"], "crn-craft.result/1.0");
+        assert_eq!(
+            std::fs::read(temp.0.join(name).join("result.json")).unwrap(),
+            plain.stdout
+        );
+        let (code, verified) = invoke(&["verify", &out]);
+        assert_eq!(code, 0, "{verified}");
+        assert_eq!(verified["schema"], "crn-craft.archive-check/1.0");
+        // An existing directory is never reused.
+        let (code, again) = invoke(&argv);
+        assert_eq!((code, &again["valid"]), (1, &Value::Bool(false)));
+    }
+    // An incomplete run: a valid archive, exit 1; verify exits 0.
+    request["budget"]["max_events_per_replicate"] = 1.into();
+    std::fs::write(
+        temp.0.join("request.json"),
+        serde_json::to_vec(&request).unwrap(),
+    )
+    .unwrap();
+    let partial = path("partial");
+    let (code, report) = invoke(&["rules", &model, &file, "--archive", &partial]);
+    assert_eq!(code, 1, "{report}");
+    assert_eq!(report["valid"], true);
+    assert_eq!(report["simulation_complete"], false);
+    assert_eq!(report["termination"], "event_limit");
+    let (code, report) = invoke(&["verify", &partial]);
+    assert_eq!(
+        (code, &report["simulation_complete"]),
+        (0, &Value::Bool(false))
+    );
+    std::fs::remove_file(temp.0.join("partial").join("COMPLETE")).unwrap();
+    let (code, report) = invoke(&["verify", &partial]);
+    assert_eq!(
+        (code, &report["schema"]),
+        (1, &"crn-craft.archive-check/1.0".into())
+    );
+    // Malformed options are usage errors.
+    for args in [
+        vec!["rules", &model, &file, "--archive"],
+        vec!["rules", &model, &file, "--archive", "a", "--archive", "b"],
+        vec!["rules", &model, &file, "--output", "a"],
+    ] {
+        let (code, report) = invoke(&args);
+        assert_eq!(code, 1);
+        assert_eq!(report["diagnostics"][0]["code"], "CRN-E031", "{args:?}");
+    }
+    // A network-engine archive keeps its 0.1 report.
+    let staged = staged();
+    let old = staged.0.join("old");
+    let paths = |p: &PathBuf| p.to_str().unwrap().to_owned();
+    let (code, _) = invoke(&[
+        "simulate",
+        &paths(&staged.0.join("immigration-death.model.json")),
+        &paths(&staged.0.join("immigration-death.run.json")),
+        &paths(&old),
+    ]);
+    assert_eq!(code, 0);
+    let (code, report) = invoke(&["verify", &paths(&old)]);
+    assert_eq!(code, 0);
+    assert_eq!(report["schema"], "crn-craft.archive-check/0.1");
+    for kind in ["archive-1.0", "archive-check-1.0"] {
+        let (code, schema) = invoke(&["describe", kind]);
+        assert_eq!(code, 0);
+        let snapshot: Value = serde_json::from_slice(
+            &std::fs::read(root().join(format!("schemas/{kind}.schema.json"))).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(schema, snapshot, "{kind}");
+    }
+}

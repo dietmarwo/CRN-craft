@@ -442,3 +442,45 @@ a byte-identical report. The converted models hold
 | **Total** | | | 272 (N) | 24 | **0** | 2.83 |
 
 **Passed:** N = 272 as declared (53 + 83 per method), 0 failures.
+
+**Law gate for W4** (engine at `1f66966`, wheel `85673a83…`, `run/1.0`,
+2 threads). A first run under the lock was stopped by a host restart at
+chunk 17 of 20, before any comparison was written; it was rerun with the
+declared seeds. Report: `validation/merge/laws/m4b-static_direct.json`.
+
+| Model | Cells | Comparisons (reference) | Failures | max \|z\| | Comparisons (FSP) | Failures | max \|z\| | Events | Wall time |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| W4 | 48 | 96 | 0 | 1.94 | 96 | 0 | 1.72 | 742,510,499 (0.6.0 reference 742,514,249) | 558.1 s |
+
+**Passed:** N = 192, 32 at t = 0, 0 failures, as declared. The converted
+W4 has 66 rules, 32 of them with eight count-1 patterns (higher order).
+
+### M4a and M4b: regression run over all twelve models
+
+Engine at `1f66966`, wheel `85673a83…`, `{"kind": "static_direct"}` in
+`run/1.0` (Ziggurat waits), 2 threads, no expected refusal: 32 min 6 s wall.
+Report: `validation/merge/laws/m4-static_direct.json`.
+
+| Model | Cells | Comparisons (reference) | Failures | max \|z\| | Comparisons (FSP) | Failures | max \|z\| | Wall time |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| W1 | 6 | 12 | 0 | 2.45 | 12 | 0 | 2.28 | 13.2 s |
+| W2 | 198 | 396 | 0 | 3.39 | – | – | – | 67.0 s |
+| W3 | 36 | 72 | 0 | 1.88 | – | – | – | 158.4 s |
+| W4 | 48 | 96 | 0 | 1.94 | 96 | 0 | 1.72 | 532.8 s |
+| W5 | 1,280 | 2,560 | 0 | 3.88 | – | – | – | 212.5 s |
+| W6 | 160 | 320 | 0 | 3.33 | – | – | – | 253.1 s |
+| W7 | 480 | 960 | 0 | 2.91 | – | – | – | 112.0 s |
+| enzyme-mechanism | 20 | 40 | 0 | 1.78 | 40 | 0 | 2.16 | 2.9 s |
+| immigration-death | 5 | 10 | 0 | 1.55 | 10 | 0 | 1.81 | 2.2 s |
+| michaelis-menten | 10 | 20 | 0 | 1.90 | 20 | 0 | 2.20 | 2.3 s |
+| repressilator | 30 | 60 | 0 | 1.88 | – | – | – | 58.3 s |
+| vilar-noise | 45 | 90 | 0 | 2.94 | – | – | – | 510.2 s |
+| **Total** | 2,318 | 4,814 (N), 940 at t = 0 | **0** | 3.88 | | | | |
+
+**Passed:** N = 4,814 as declared, 0 failures, every model converts. The
+power sums and event counts of every model are identical to the earlier
+gate runs (M2 for the nine M2 models, M4a for W5 and W7, the W4 gate
+above): the 1.0 limits, the index-based lowering and the higher-order code
+changed no number of these runs. Wall times include conversion, simulation
+with every path kept and decoding in Python; they are informative (the
+speed gate is M4d).

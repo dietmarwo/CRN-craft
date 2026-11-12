@@ -689,9 +689,9 @@ fn the_1_0_schemas_describe_the_selector_and_the_rules_schemas_do_not() {
     );
 }
 
-/// A ring of `n` species and channels X_i -> X_(i+1); with `two_reads` each
-/// rate reads X_i and X_(i+1).
-fn ring(n: usize, two_reads: bool) -> Vec<u8> {
+/// A ring of `n` species and channels X_i -> X_(i+1) with `count` molecules
+/// each; with `two_reads` each rate reads X_i and X_(i+1).
+fn ring(n: usize, two_reads: bool, count: u64) -> Vec<u8> {
     let names: Vec<String> = (0..n).map(|i| format!("X{i}")).collect();
     let rules: Vec<Value> = (0..n)
         .map(|i| {
@@ -709,15 +709,17 @@ fn ring(n: usize, two_reads: bool) -> Vec<u8> {
     bytes(&json!({
         "schema": "crn-craft.model/1.0", "name": "ring", "parameters": {},
         "types": names.iter().map(|x| json!({"name": x})).collect::<Vec<_>>(),
-        "initial": names.iter().map(|x| json!({"type": x, "count": 3})).collect::<Vec<_>>(),
+        "initial": names.iter().map(|x| json!({"type": x, "count": count})).collect::<Vec<_>>(),
         "observables": names.iter().map(|x| (x.clone(), json!({"type": x}))).collect::<serde_json::Map<_, _>>(),
         "rules": rules
     }))
 }
 
-/// The rule fixed from `validation/merge/selector-threshold.json`:
-/// composition–rejection from 512 channels on, the linear scan below; no
-/// grid size qualified RSSA-CR, so `auto` never picks it.
+/// The rule fixed in M4f from `validation/merge/selector-rule.json`: RSSA-CR
+/// from 128 channels on when the mean initial count of the species that
+/// start with molecules is below 8, from 8 channels on otherwise (also when
+/// every species starts at zero), unless a rule reads two or more species;
+/// else composition–rejection from 128 channels on; else the linear scan.
 #[test]
 fn auto_follows_the_declared_threshold() {
     let sampler = |model: &[u8], method: Value| {
@@ -738,29 +740,34 @@ fn auto_follows_the_declared_threshold() {
     };
     let linear = "chacha8-u53-ziggurat/rules-static-direct/1";
     let cr = "chacha8-u53-ziggurat/rules-static-direct-cr/1";
-    for (n, two_reads, expected) in [
-        (511, false, linear),
-        (512, false, cr),
-        (512, true, cr),
-        (2048, false, cr),
-        (64, false, linear),
+    let rssa = "chacha8-u53-ziggurat/rules-static-direct-rssa-cr/1";
+    for (n, two_reads, count, expected) in [
+        (7, false, 8, linear),
+        (8, false, 8, rssa),
+        (8, false, 7, linear),
+        (127, false, 7, linear),
+        (128, false, 7, rssa),
+        (127, true, 100, linear),
+        (128, true, 100, cr),
+        (2048, true, 3, cr),
+        (2048, false, 3, rssa),
     ] {
-        let model = ring(n, two_reads);
+        let model = ring(n, two_reads, count);
         assert_eq!(
             sampler(&model, json!({"kind": "static_direct"})),
             expected,
-            "{n}"
+            "{n} {two_reads} {count}"
         );
         assert_eq!(sampler(&model, static_direct("auto")), expected, "{n}");
     }
     for (name, expected) in [
         ("W1", linear),
-        ("W2", linear),
+        ("W2", rssa),
         ("W3", linear),
-        ("W4", linear),
-        ("W5", linear),
-        ("W6", cr),
-        ("W7", linear),
+        ("W4", rssa),
+        ("W5", rssa),
+        ("W6", rssa),
+        ("W7", rssa),
     ] {
         let model = converted(&format!(
             "validation/ssa-acceleration/models/{name}.model.json"
@@ -771,9 +778,27 @@ fn auto_follows_the_declared_threshold() {
             "{name}"
         );
     }
+    for (name, expected) in [
+        ("enzyme-mechanism", linear),
+        ("immigration-death", linear),
+        ("michaelis-menten", linear),
+        ("repressilator", linear),
+        ("vilar-noise", linear),
+    ] {
+        let model = converted(&format!("models/examples/{name}.model.json"));
+        assert_eq!(
+            sampler(&model, json!({"kind": "static_direct"})),
+            expected,
+            "{name}"
+        );
+    }
     let discovery = crn_craft::rules::describe();
     assert_eq!(
         discovery["contracts_1_0"]["selectors"]["auto"],
-        json!({"composition_rejection_from_channels": 512, "rssa_cr_from_channels": null})
+        json!({
+            "rssa_cr_from_channels": {"population_below_cut": 128, "otherwise": 8},
+            "population_cut": 8.0,
+            "composition_rejection_from_channels": 128
+        })
     );
 }

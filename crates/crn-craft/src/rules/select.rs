@@ -44,17 +44,39 @@ impl Kind {
     }
 }
 
-/// `auto` picks composition–rejection from this many channels on: N_cr of
-/// the declared benchmark (`validation/merge/selector-threshold.json`), the
-/// smallest grid size from which it beat the linear scan at every larger
-/// point of every family.
-pub(crate) const AUTO_COMPOSITION_REJECTION: usize = 512;
-/// `auto` picks RSSA-CR from this many channels on, for networks whose
-/// rules each read at most one species: N_rssa of the same benchmark. No
-/// grid size qualified (RSSA-CR was slower than composition–rejection at
-/// the largest sizes with four molecules per species), so it is never
-/// picked; select it explicitly.
-pub(crate) const AUTO_RSSA_CR: Option<usize> = None;
+/// The `auto` rule of M4f, fixed from the declared benchmark
+/// (`validation/merge/selector-rule.json`, declared in
+/// `validation/merge/RESULTS.md`): RSSA-CR from [`AUTO_RSSA_CR_SMALL`] channels
+/// on when the population is below [`AUTO_POPULATION_CUT`], from
+/// [`AUTO_RSSA_CR_LARGE`] on otherwise, for networks whose rules each read at
+/// most one species; else composition–rejection from
+/// [`AUTO_COMPOSITION_REJECTION`] channels on; else the linear scan. `None`:
+/// the branch never applies.
+pub(crate) const AUTO_RSSA_CR_SMALL: Option<usize> = Some(128);
+/// See [`AUTO_RSSA_CR_SMALL`].
+pub(crate) const AUTO_RSSA_CR_LARGE: Option<usize> = Some(8);
+/// See [`AUTO_RSSA_CR_SMALL`].
+pub(crate) const AUTO_COMPOSITION_REJECTION: Option<usize> = Some(128);
+/// The population (mean initial count of the lowered species that start
+/// with molecules) from which a network counts as large.
+pub(crate) const AUTO_POPULATION_CUT: f64 = 8.0;
+
+/// The mean initial count of the lowered species with a positive initial
+/// count; infinite when every species starts at zero (such counts carry no
+/// scale).
+#[allow(clippy::cast_precision_loss)]
+pub(crate) fn population(net: &Network) -> f64 {
+    let (sum, n) = net
+        .species
+        .iter()
+        .filter(|s| s.initial > 0)
+        .fold((0.0, 0u64), |(sum, n), s| (sum + s.initial as f64, n + 1));
+    if n == 0 {
+        f64::INFINITY
+    } else {
+        sum / n as f64
+    }
+}
 
 /// The `auto` rule over the lowered network.
 pub(crate) fn auto(net: &Network) -> Kind {
@@ -62,9 +84,14 @@ pub(crate) fn auto(net: &Network) -> Kind {
     // Every RSSA-CR bound is an interval bound, not a point, when every
     // rule's rate reads at most one species.
     let intervals = net.rule_reads.iter().all(|r| r.len() <= 1);
-    if intervals && AUTO_RSSA_CR.is_some_and(|from| channels >= from) {
+    let rssa_from = if population(net) < AUTO_POPULATION_CUT {
+        AUTO_RSSA_CR_SMALL
+    } else {
+        AUTO_RSSA_CR_LARGE
+    };
+    if intervals && rssa_from.is_some_and(|from| channels >= from) {
         Kind::RssaCr
-    } else if channels >= AUTO_COMPOSITION_REJECTION {
+    } else if AUTO_COMPOSITION_REJECTION.is_some_and(|from| channels >= from) {
         Kind::CompositionRejection
     } else {
         Kind::Linear

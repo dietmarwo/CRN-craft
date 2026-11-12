@@ -586,9 +586,9 @@ pub enum Selector {
     )]
     RssaCr,
     #[doc = concat!(
-        "One of the others, chosen from the size and structure of the lowered ",
-        "network (composition–rejection from 512 channels on, else the linear ",
-        "scan); the sampler identity names the one that ran."
+        "One of the others, chosen from the size, structure and initial ",
+        "population of the lowered network (RSSA-CR, composition–rejection or ",
+        "the linear scan); the sampler identity names the one that ran."
     )]
     Auto,
 }
@@ -650,10 +650,12 @@ pub enum Method {
         /// `crn-craft.run/1.0` only (`CRN-R020` at `/schema` in a `rules-run`
         /// request, which always runs the linear scan). How the next channel
         /// is selected: `linear`, `composition_rejection`, `sorting`,
-        /// `rssa_cr`, or `auto`, the default, which picks
-        /// composition–rejection from 512 lowered channels on and the linear
-        /// scan below (measured thresholds; `auto` does not pick sorting or
-        /// RSSA-CR). The sampler identity names the
+        /// `rssa_cr`, or `auto`, the default, which picks RSSA-CR from 8
+        /// lowered channels on (from 128 when the species that start with
+        /// molecules hold fewer than 8 on average) unless a rule's rate reads
+        /// two or more species, else composition–rejection from 128 channels
+        /// on, else the linear scan (measured thresholds; `auto` does not
+        /// pick sorting). The sampler identity names the
         /// selector that ran: `rules-static-direct` for `linear`,
         /// `rules-static-direct-cr`, `-sorting` or `-rssa-cr` for the others,
         /// followed by `-sparse-trackers` where that applies. Generated event
@@ -2767,8 +2769,12 @@ pub fn describe() -> Value {
                 "values": ["linear", "composition_rejection", "sorting", "rssa_cr", "auto"],
                 "default": "auto", "loops": ["linear"],
                 "auto": {
-                    "composition_rejection_from_channels": select::AUTO_COMPOSITION_REJECTION,
-                    "rssa_cr_from_channels": select::AUTO_RSSA_CR
+                    "rssa_cr_from_channels": {
+                        "population_below_cut": select::AUTO_RSSA_CR_SMALL,
+                        "otherwise": select::AUTO_RSSA_CR_LARGE
+                    },
+                    "population_cut": select::AUTO_POPULATION_CUT,
+                    "composition_rejection_from_channels": select::AUTO_COMPOSITION_REJECTION
                 }
             }
         },

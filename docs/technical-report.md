@@ -80,9 +80,12 @@ memory reservation; a closed model is lowered to a flat network of species
 and channels whose rates are compiled into programs with folded parameters;
 and one of the methods runs the ensemble. The flat view of the lowered model serves
 FSP, analysis, kinetics and export. The command-line tool and the PyO3
-binding are thin layers over the same crate, `crn-craft`; the line count of
-its sources after the merge is recorded in the M8b log of the
-[implementation log](campaign/merge-0.7/README.md).
+binding are thin layers over the same crate, `crn-craft`. After the merge,
+`crates/*/src` holds 29,372 lines of Rust: 28,492 in `crn-craft` (48
+files), 788 in the command-line crate and 92 in the facade, whose crate
+documentation the final review shortened. Before the network engine was
+deleted it held 37,157 (M8b log of the
+[implementation log](campaign/merge-0.7/README.md)).
 
 ## 4. Numerical methods
 
@@ -288,11 +291,11 @@ with its defaults.
 
 | Gate | Content |
 |---|---|
-| Rust tests | `cargo test --release --workspace --locked`: 538 tests at the documentation commit of the merge (`d419347`, M10b log), before M8b removed the network engine's tests; contracts, conversion, limits, higher-order rules, selectors, quantiles, the clock rule, FSP, analysis, kinetics, export, archives, generated code and the CLI |
+| Rust tests | `cargo test --release --workspace --locked`: 397 tests (29 of them doctests) on the merged tree (final review, 12 November 2026; 538 before M8b removed the network engine's tests); contracts, conversion, limits, higher-order rules, selectors, quantiles, the clock rule, FSP, analysis, kinetics, export, archives, generated code and the CLI |
 | I1: stored requests | `crates/crn-craft/tests/stored_requests.rs` and `static_direct_defaults.rs`: every stored `rules-run` request replays byte for byte; the same requests as `run/1.0` give the `rules-run/0.6` result apart from schema and hashes |
 | I2, I2b: manuals | `check_manual.py` runs every block of the user manual (26) and of the frozen 0.6.0 manual (22), normally and under `python -O`, with identical reports |
 | I3: generated code | 20 checked-in generated sources (19 event loops, 1 rates kernel) equal the generators' output and replay the interpreter byte for byte |
-| Mutation gate | `mutation_check.py`: 47 source mutants, each turning a passing suite into named failures; 47 of 47 caught on the unified code (M8a log) |
+| Mutation gate | `mutation_check.py`: 47 source mutants, each turning a passing suite into named failures; 47 of 47 caught on the unified code (M8a and M8b logs, and again in the final review) |
 | Exact laws | `check_ssa.py` (analytic campaigns, an independent Python oracle that reproduces the engine's paths, thread identity, cancellation latency), `check_cme.py` (exact master-equation checks), `check_alternative_ssa.py` (168 DKW tests: 4 selectors × 2 waiting times, N = 100,000, family α = 0.001) |
 | Features | `check_fsp.py` (including the DSMTS suite), `check_tau.py`, `check_network.py`, `check_structure.py`, `check_export.py`, `check_importers.py`, `check_contracts.py` |
 | Python and documents | `check_python.py`, `check_rules_python.py`, `check_builder.py`, `check_hybrid.py`, `check_installed.py`, `check_tutorial.py`, `check_compiled_loop.py`, `check_links.py` |

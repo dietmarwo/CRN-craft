@@ -449,7 +449,7 @@ fn files_and_the_generated_schema() {
         json!(["crn-craft.analysis/1.0"])
     );
     assert!(schema("analysis").is_none() && schema("analysis-v1").is_none());
-    let description = crn_craft::describe();
+    let description = crn_craft::describe_network();
     assert_eq!(description["schema"], "crn-craft.describe/0.11");
     assert_eq!(description["schemas"]["analysis-1.0"], generated);
     assert!(

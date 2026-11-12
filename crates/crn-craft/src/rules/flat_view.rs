@@ -106,7 +106,8 @@ fn halt(error: Halt) -> Diagnostic {
 /// Parses a rules model strictly, as `prepare` does: a pattern `count`
 /// before `crn-craft.model/1.0` gets the 0.6.0 unknown-field error.
 pub(crate) fn parse(model_bytes: &[u8]) -> Result<Model, Diagnostic> {
-    let model: Model = crate::strict_json::parse(model_bytes)?;
+    let model: Model = crate::strict_json::parse(model_bytes)
+        .map_err(|error| super::network_model_error(error, model_bytes))?;
     match model::legacy_count(&model) {
         Some(diagnostic) => Err(diagnostic),
         None => Ok(model),

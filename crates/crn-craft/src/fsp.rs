@@ -1120,6 +1120,36 @@ pub mod v1 {
         Ok(result)
     }
 
+    /// Checks an FSP request against a model without solving it: the
+    /// errors [`solve`] reports before it enumerates a state (parsing, the
+    /// request's version, binding, time grid, method and budget, the flat
+    /// view and the bounds). `crn-craft check MODEL REQUEST` reports them.
+    #[must_use]
+    pub fn check(model_bytes: &[u8], request_bytes: &[u8]) -> Vec<Diagnostic> {
+        let model = match crate::rules::flat_view::parse(model_bytes) {
+            Ok(model) => model,
+            Err(error) => return vec![error],
+        };
+        let request: FspRequest = match crate::strict_json::parse(request_bytes) {
+            Ok(request) => request,
+            Err(error) => return vec![error],
+        };
+        let mut diagnostics = validate(&request, &sha256(model_bytes));
+        match FlatView::new(&model) {
+            Ok(view) if diagnostics.is_empty() => {
+                let FspMethod::Fsp {
+                    bounds: requested, ..
+                } = &request.method;
+                if let Err(mut errors) = bounds(&view, requested) {
+                    diagnostics.append(&mut errors);
+                }
+            }
+            Ok(_) => {}
+            Err(mut errors) => diagnostics.append(&mut errors),
+        }
+        diagnostics
+    }
+
     /// Solves a request file against the model it references, which must be
     /// the supplied model file below the request's directory, as
     /// [`crate::rules::solve_files`] requires. `crn-craft rules MODEL

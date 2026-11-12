@@ -162,10 +162,12 @@ pub mod simulation;
 pub mod ssa;
 pub mod strict_json;
 pub mod tau;
+pub mod unified;
 pub mod validate;
 
 pub use analysis::{AnalysisReport, analyze_bytes};
 pub use network::CompiledNetwork;
+pub use unified::{AnyCheck, check_any, check_any_files, describe};
 
 use contracts::{Model, Run, RunResult};
 use diagnostic::{Diagnostic, Severity};
@@ -501,23 +503,26 @@ pub fn schema(kind: &str) -> Option<Value> {
     }
 }
 
-/// The `crn-craft.describe/0.11` discovery document.
+/// The network engine's discovery document, `crn-craft.describe/0.11`
+/// (legacy; deleted with the network engine in M8b).
 ///
-/// It lists the version, commands, methods with their status, sampler
-/// identities, the accepted `ssa-run` versions and their `fast` defaults,
-/// rate laws, exporters, optional integrations, input and execution limits,
-/// and the schemas of the original contracts and of the analysis report;
-/// [`schema`] returns the others. The native CLI reports
-/// `crn-craft.describe/0.15`, which adds the rules engine.
+/// [`describe`] is the discovery document of the unified engine. This one
+/// lists the network engine's version, commands (among them the hidden
+/// `simulate`, `simulate-cached`, `fsp`, `tau` and `ssa`), methods with
+/// their status, sampler identities, the accepted `ssa-run` versions and
+/// their `fast` defaults, rate laws, exporters, optional integrations,
+/// input and execution limits, and the schemas of the original contracts
+/// and of the analysis report. The private Python module
+/// `crn_craft._legacy` returns it from `describe()`.
 ///
 /// ```
-/// let description = crn_craft::describe();
+/// let description = crn_craft::describe_network();
 /// assert_eq!(description["schema"], "crn-craft.describe/0.11");
 /// assert_eq!(description["version"], env!("CARGO_PKG_VERSION"));
 /// assert!(description["commands"].as_array().unwrap().iter().any(|c| c == "ssa"));
 /// assert_eq!(description["limits"]["species"], 4096);
 /// ```
-pub fn describe() -> Value {
+pub fn describe_network() -> Value {
     json!({
         "schema": "crn-craft.describe/0.11", "version": env!("CARGO_PKG_VERSION"), "milestone": "SSA-acceleration",
         "commands": ["describe", "check", "analyze", "export", "simulate", "verify", "simulate-cached", "fsp", "tau", "ssa"], "simulation_available": true,

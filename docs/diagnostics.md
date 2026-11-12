@@ -22,6 +22,7 @@ Every diagnostic contains `severity`, `code`, `path`, `message`, `hint`. Paths u
 | CRN-E030 | Input/output filesystem or stream failure | Supply a readable regular file or writable output stream |
 | CRN-E031 | Unsupported command or wrong arguments | Use `--help` for the command list |
 | CRN-E032 | A rules-engine document (`crn-craft.model/1.0`, `crn-craft.run/1.0` or a `crn-craft.rules-*` contract) given to a network command or reader, reported at `/schema` | Use `rules-check` and `rules`; `convert` writes a network model as `crn-craft.model/1.0` |
+| CRN-E033 | A network model (`crn-craft.model/0.1`) given where a rules or 1.0 model is read (`run`, `check MODEL REQUEST`, `crn_craft.rules.prepare`, finite state projection), reported at `/schema` | Convert it with `crn-craft convert MODEL` or `crn_craft.convert`; `crn_craft.ensemble`, `crn_craft.prepare` and `crn_craft.Model.from_dict` convert it themselves |
 | CRN-E040 | Dependency graph exceeds 1000000 edges | Reduce network coupling or size; edges are never silently dropped |
 | CRN-E041 | Invalid state length, missing/extra name, count or safety limit | Provide all species with valid non-negative i64 counts |
 | CRN-E042 | Evaluated rate overflows, is non-finite/negative, or a positive rate becomes zero | Revise/rescale the model; do not treat underflow as an absorbing channel |

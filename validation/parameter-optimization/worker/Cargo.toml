@@ -7,7 +7,6 @@ rust-version = "1.85"
 publish = false
 license = "MIT"
 [features]
-generated = []
 rebop-macro = ["dep:rebop"]
 [dependencies]
 crn-craft = { path = "../../../crates/crn-craft" }

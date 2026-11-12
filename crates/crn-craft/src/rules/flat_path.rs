@@ -242,8 +242,9 @@ impl Path<'_> {
         let mut live = out.peak_instances;
         let mut cache = net.rate_cache();
         let mut rates = vec![0.0; n];
-        // Running total through each channel.
-        let mut sums = vec![-0.0; n];
+        // Running total before each channel and after the last: sums[0] is
+        // the empty sum, sums[k + 1] the total through channel k.
+        let mut sums = vec![-0.0; n + 1];
         let mut least = f64::INFINITY;
         let mut clock = Clock::new(self.lenient_clock);
         let mut previous: Option<usize> = None;
@@ -261,30 +262,26 @@ impl Path<'_> {
                 let affected = &net.affected[channel];
                 for &i in affected {
                     let a = cache.channel(net, i, counts, &env)?;
-                    if a > 0.0 && a < least {
-                        least = a;
-                    }
+                    least = least.min(if a > 0.0 { a } else { f64::INFINITY });
                     rates[i] = a;
                 }
                 affected.first().copied()
             } else {
                 for (i, rate) in rates.iter_mut().enumerate() {
                     let a = cache.channel(net, i, counts, &env)?;
-                    if a > 0.0 && a < least {
-                        least = a;
-                    }
+                    least = least.min(if a > 0.0 { a } else { f64::INFINITY });
                     *rate = a;
                 }
                 Some(0)
             };
             if let Some(first) = first {
-                let mut sum = if first == 0 { -0.0 } else { sums[first - 1] };
-                for (&a, total) in rates[first..].iter().zip(&mut sums[first..]) {
+                let mut sum = sums[first];
+                for (&a, total) in rates[first..].iter().zip(&mut sums[first + 1..]) {
                     sum += a;
                     *total = sum;
                 }
             }
-            let total = sums.last().copied().unwrap_or(-0.0);
+            let total = sums[n];
             if total == 0.0 {
                 net.refresh_cold(counts, values)?;
                 return Ok(None);
@@ -311,17 +308,7 @@ impl Path<'_> {
                 -libm::log(1.0 - words.open()?) / total
             };
             let next = clock.advance(*time, wait)?;
-            let mut target = words.uniform()? * total;
-            let mut channel = usize::MAX;
-            for (i, &a) in rates.iter().enumerate() {
-                if a > 0.0 {
-                    channel = i;
-                    if target < a {
-                        break;
-                    }
-                    target -= a;
-                }
-            }
+            let channel = scan(&rates, words.uniform()? * total);
             previous = Some(channel);
             if out.saved_points < self.report_times.len()
                 && self.report_times[out.saved_points] < next
@@ -650,6 +637,40 @@ impl Path<'_> {
         }
         O::ENABLED && observer.on_event(&event) == ObserverAction::Stop
     }
+}
+
+/// The channel the linear scan of [`direct_with`] selects for `target`:
+/// over the positive rates in order, the first with `target < rate`, the
+/// target reduced by each rate passed; the last positive rate if none.
+///
+/// The target stays nonnegative (it starts at u · total and is reduced only
+/// by a rate it is not below), so a zero rate never selects and leaves it
+/// unchanged. Lists of up to four rates are scanned to the end without a
+/// data-dependent branch; the target after the selected channel is not used.
+#[inline]
+fn scan(rates: &[f64], mut target: f64) -> usize {
+    const NONE: usize = usize::MAX;
+    if rates.len() <= 4 {
+        let (mut chosen, mut last) = (NONE, NONE);
+        for (i, &a) in rates.iter().enumerate() {
+            let hit = (chosen == NONE) & (target < a);
+            chosen = if hit { i } else { chosen };
+            last = if a > 0.0 { i } else { last };
+            target -= a;
+        }
+        return if chosen == NONE { last } else { chosen };
+    }
+    let mut channel = NONE;
+    for (i, &a) in rates.iter().enumerate() {
+        if a > 0.0 {
+            channel = i;
+            if target < a {
+                break;
+            }
+            target -= a;
+        }
+    }
+    channel
 }
 
 #[cold]

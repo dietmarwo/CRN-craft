@@ -1193,6 +1193,19 @@ impl Step {
 /// or need more than 32 stack slots keep the tree.
 #[derive(Debug, Clone)]
 pub(crate) enum Program {
+    /// The converted Hill laws, `c + v / (one + (x / k)^n)` and
+    /// `c + v / (one + (k / x)^n)`: the steps `Load`, `DivConst` or
+    /// `ConstDiv`, `Square` or `PowConst`, `ConstAdd`, `ConstDiv`,
+    /// `ConstAdd`, evaluated without dispatch.
+    Hill(Hill),
+    /// The converted Michaelis–Menten law `v * (x / (k + x))`: the steps
+    /// `Load`, `Push`, `Load` (the same observable), `ConstAdd`, `Bin(Div)`,
+    /// `ConstMul`.
+    Saturation {
+        index: usize,
+        k: f64,
+        v: f64,
+    },
     /// No operand is saved: one accumulator.
     Flat(Code),
     /// Operands are saved on a stack of the given depth.
@@ -1203,6 +1216,68 @@ pub(crate) enum Program {
 /// The steps of a flat [`Program`].
 #[derive(Debug, Clone)]
 pub(crate) struct Code(Vec<Step>);
+
+/// The constants of a [`Program::Hill`].
+#[derive(Debug, Clone)]
+pub(crate) struct Hill {
+    index: usize,
+    /// `x / k` when true, `k / x` otherwise.
+    over_k: bool,
+    k: f64,
+    /// The exponent, `None` for the `Square` step.
+    n: Option<f64>,
+    one: f64,
+    v: f64,
+    c: f64,
+}
+
+impl Hill {
+    /// The Hill program of `code`, if it has that shape.
+    fn of(code: &[Step]) -> Option<Self> {
+        let &[
+            Step::Load(index),
+            ratio,
+            power,
+            Step::ConstAdd(one),
+            Step::ConstDiv(v),
+            Step::ConstAdd(c),
+        ] = code
+        else {
+            return None;
+        };
+        let (over_k, k) = match ratio {
+            Step::DivConst(k) => (true, k),
+            Step::ConstDiv(k) => (false, k),
+            _ => return None,
+        };
+        let n = match power {
+            Step::Square => None,
+            Step::PowConst(n) => Some(n),
+            _ => return None,
+        };
+        Some(Self {
+            index,
+            over_k,
+            k,
+            n,
+            one,
+            v,
+            c,
+        })
+    }
+
+    /// The steps' operations in their order.
+    #[inline]
+    fn eval(&self, observables: &[f64]) -> f64 {
+        let x = observables[self.index];
+        let y = if self.over_k { x / self.k } else { self.k / x };
+        let z = match self.n {
+            None => y * y,
+            Some(n) => libm::pow(y, n),
+        };
+        self.c + self.v / (self.one + z)
+    }
+}
 
 /// The binary operation of the tree evaluator, with its short-circuit logic
 /// applied to an already evaluated right operand.
@@ -1293,10 +1368,29 @@ impl Program {
         }
         let mut code = Vec::new();
         let mut deepest = 0;
-        match emit(&expr.root, params, &mut code, 0, &mut deepest) {
-            Some(()) if deepest == 0 => Self::Flat(Code(code)),
-            Some(()) if deepest + 2 <= STACK => Self::Stacked(Code(code), deepest),
-            _ => Self::Tree(expr.clone()),
+        if emit(&expr.root, params, &mut code, 0, &mut deepest).is_none() || deepest + 2 > STACK {
+            return Self::Tree(expr.clone());
+        }
+        if let Some(hill) = Hill::of(&code) {
+            return Self::Hill(hill);
+        }
+        if let &[
+            Step::Load(index),
+            Step::Push,
+            Step::Load(again),
+            Step::ConstAdd(k),
+            Step::Bin(Op::Div),
+            Step::ConstMul(v),
+        ] = code.as_slice()
+        {
+            if again == index {
+                return Self::Saturation { index, k, v };
+            }
+        }
+        if deepest == 0 {
+            Self::Flat(Code(code))
+        } else {
+            Self::Stacked(Code(code), deepest)
         }
     }
 
@@ -1305,11 +1399,31 @@ impl Program {
     /// value in every state. `None` for a tree, which shares nothing.
     pub(crate) fn key(&self) -> Option<Vec<u64>> {
         let code = match self {
-            Self::Flat(Code(code)) | Self::Stacked(Code(code), _) => code,
+            Self::Flat(Code(code)) | Self::Stacked(Code(code), _) => code.clone(),
+            Self::Hill(h) => vec![
+                Step::Load(h.index),
+                if h.over_k {
+                    Step::DivConst(h.k)
+                } else {
+                    Step::ConstDiv(h.k)
+                },
+                h.n.map_or(Step::Square, Step::PowConst),
+                Step::ConstAdd(h.one),
+                Step::ConstDiv(h.v),
+                Step::ConstAdd(h.c),
+            ],
+            &Self::Saturation { index, k, v } => vec![
+                Step::Load(index),
+                Step::Push,
+                Step::Load(index),
+                Step::ConstAdd(k),
+                Step::Bin(Op::Div),
+                Step::ConstMul(v),
+            ],
             Self::Tree(_) => return None,
         };
         let mut key = Vec::with_capacity(2 * code.len());
-        for step in code {
+        for step in &code {
             // The tag, then the operation, function and number bits.
             let (tag, payload) = match *step {
                 Step::Const(c) => (0, c.to_bits()),
@@ -1344,6 +1458,11 @@ impl Program {
     #[inline]
     pub(crate) fn eval(&self, env: &Env<'_>) -> f64 {
         match self {
+            Self::Hill(hill) => hill.eval(env.observables),
+            &Self::Saturation { index, k, v } => {
+                let x = env.observables[index];
+                v * (x / (k + x))
+            }
             Self::Flat(Code(code)) => run(code, env.observables, &mut []),
             Self::Stacked(Code(code), depth) if *depth < 8 => {
                 run(code, env.observables, &mut [0.0; 8])
@@ -1483,8 +1602,23 @@ mod tests {
             let draw = rng.next_u32();
             if depth == 0 {
                 return [
-                    "x", "y", "z", "k", "m", "0", "-0", "0/0", "1/0", "2", "0.1", "x^2", "(-y)^2",
-                ][(draw % 13) as usize]
+                    "x",
+                    "y",
+                    "z",
+                    "k",
+                    "m",
+                    "0",
+                    "-0",
+                    "0/0",
+                    "1/0",
+                    "2",
+                    "0.1",
+                    "x^2",
+                    "(-y)^2",
+                    "m + k / (1 + (x / 3)^2)",
+                    "0.5 + 2 / (1 + (k / y)^m)",
+                    "k * (z / (m + z))",
+                ][(draw % 16) as usize]
                     .into();
             }
             let a = expression(rng, depth - 1);
@@ -1548,6 +1682,39 @@ mod tests {
             }
         }
         assert_eq!(flat, 9000, "every expression compiles to a flat program");
+        // The converted Hill and Michaelis–Menten laws have their own
+        // programs, with the tree's values at many points.
+        for (source, shape) in [
+            ("m + k / (1 + (x / 3)^2)", "hill"),
+            ("m + k / (1 + (3 / x)^k)", "hill"),
+            ("0.5 + 2 / (1 + (y / k)^m)", "hill"),
+            ("k * (z / (m + z))", "saturation"),
+        ] {
+            let expr = Expr::parse(source, &scope).unwrap();
+            for p in &parameter_values {
+                let program = Program::compile(&expr, p);
+                let found = match program {
+                    Program::Hill(_) => "hill",
+                    Program::Saturation { .. } => "saturation",
+                    _ => "other",
+                };
+                assert_eq!(found, shape, "{source}");
+                for i in 0..2000 {
+                    let x = f64::from(i) * 0.37 - 20.0;
+                    let values = [x, x * 1e-3, x.abs() * 1e5];
+                    let env = Env {
+                        params: p,
+                        observables: &values,
+                        attributes: [&[], &[]],
+                    };
+                    let (a, b) = (expr.eval(&env), program.eval(&env));
+                    assert!(
+                        a.to_bits() == b.to_bits() || (a.is_nan() && b.is_nan()),
+                        "{source} at {p:?}, {values:?}: {a:?} != {b:?}"
+                    );
+                }
+            }
+        }
         // Deep nesting keeps the tree.
         let deep = (0..40).fold("x".to_string(), |e, _| format!("y + ({e}) * z"));
         let expr = Expr::parse(&deep, &scope).unwrap();

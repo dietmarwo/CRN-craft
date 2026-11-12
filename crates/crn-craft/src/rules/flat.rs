@@ -91,6 +91,9 @@ enum Count {
 
 struct ChannelRate {
     factor: Factor,
+    /// The species of a `Count::Single` channel, `usize::MAX` otherwise: a
+    /// plain comparison for the common case instead of a jump table.
+    single: usize,
     count: Count,
     weight: f64,
     rule: usize,
@@ -104,6 +107,10 @@ impl ChannelRate {
     #[allow(clippy::cast_precision_loss)]
     #[inline(always)]
     fn count_weight(&self, counts: &[u64]) -> f64 {
+        // The common first-order channel without a jump table.
+        if self.single != usize::MAX {
+            return counts[self.single] as f64;
+        }
         match self.count {
             Count::Source => 1.0,
             Count::Single(s) => counts[s] as f64,
@@ -619,6 +626,10 @@ impl Network {
                 };
                 ChannelRate {
                     factor,
+                    single: match count {
+                        Count::Single(s) => s,
+                        _ => usize::MAX,
+                    },
                     count,
                     weight: c.factor,
                     rule: c.rule,
@@ -1062,7 +1073,8 @@ impl RateCache {
         env: &Env<'_>,
     ) -> Result<f64, Halt> {
         let value = self.value(net, i, counts, env);
-        if value.is_finite() && value >= 0.0 {
+        // Finite and nonnegative; NaN fails both comparisons.
+        if (0.0..=f64::MAX).contains(&value) {
             Ok(value)
         } else {
             Err(net.rate_error(i))
@@ -1074,10 +1086,14 @@ impl RateCache {
     #[inline(always)]
     fn value(&mut self, net: &Network, i: usize, counts: &[u64], env: &Env<'_>) -> f64 {
         let c = &net.plans[i];
-        if c.higher_order() {
+        #[allow(clippy::cast_precision_loss)]
+        let weight = if c.single != usize::MAX {
+            counts[c.single] as f64
+        } else if c.higher_order() {
             return self.higher_order(net, i, counts, env);
-        }
-        let weight = c.count_weight(counts);
+        } else {
+            c.count_weight(counts)
+        };
         if weight == 0.0 {
             return 0.0;
         }

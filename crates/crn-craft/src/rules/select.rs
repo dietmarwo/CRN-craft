@@ -327,17 +327,25 @@ fn ceiling(group: usize) -> f64 {
 /// 2⁻⁵³ + 2⁻⁵⁴.
 const JOINT_MEMBERS: usize = 1024;
 
+/// Lemire's rejection threshold 2⁶⁴ mod `n`, computed only when needed: a
+/// low product of at least `n` exceeds it (it is below `n`), so the
+/// division runs only for a low product below `n`. The accepted words are
+/// those of testing against the threshold every time.
+#[inline]
+fn lemire_accepts(low: u64, n: u64) -> bool {
+    low >= n || low >= n.wrapping_neg() % n
+}
+
 fn joint<R: RngCore>(
     members: &[usize],
     bound: f64,
     words: &mut Words<'_, R>,
 ) -> Result<(usize, f64), Halt> {
     let n = members.len() as u64;
-    let cutoff = n.wrapping_neg() % n;
     loop {
         let product = u128::from(words.word()?) * u128::from(n);
         let low = product as u64;
-        if low >= cutoff {
+        if lemire_accepts(low, n) {
             let uniform = crate::sampling::uniform_closed_open(low);
             return Ok((members[(product >> 64) as usize], uniform * bound));
         }
@@ -347,10 +355,9 @@ fn joint<R: RngCore>(
 /// A uniform index below `n` (Lemire's method).
 fn index<R: RngCore>(n: usize, words: &mut Words<'_, R>) -> Result<usize, Halt> {
     let n = n as u64;
-    let cutoff = n.wrapping_neg() % n;
     loop {
         let product = u128::from(words.word()?) * u128::from(n);
-        if product as u64 >= cutoff {
+        if lemire_accepts(product as u64, n) {
             return Ok((product >> 64) as usize);
         }
     }
@@ -542,6 +549,40 @@ mod tests {
     use super::*;
     use crate::rules::engine::Words;
     use rand_core::RngCore;
+
+    /// The deferred threshold accepts exactly the products the eager one
+    /// did (M4f), at the edges and at random.
+    #[test]
+    fn lemire_acceptance_defers_the_division_without_changing_it() {
+        let mut rng = crate::sampling::stream(41, 0);
+        let mut cases: Vec<(u64, u64)> = Vec::new();
+        for n in [1, 2, 3, 5, 7, 1023, 1024, 1025, u64::MAX / 3, u64::MAX] {
+            let cutoff = n.wrapping_neg() % n;
+            for low in [
+                0,
+                1,
+                cutoff.saturating_sub(1),
+                cutoff,
+                cutoff + 1,
+                n - 1,
+                n,
+                u64::MAX,
+            ] {
+                cases.push((low, n));
+            }
+        }
+        for _ in 0..100_000 {
+            let n = rng.next_u64() >> (rng.next_u64() % 64);
+            cases.push((rng.next_u64() >> (rng.next_u64() % 64), n.max(1)));
+        }
+        for (low, n) in cases {
+            assert_eq!(
+                lemire_accepts(low, n),
+                low >= n.wrapping_neg() % n,
+                "{low} {n}"
+            );
+        }
+    }
 
     #[test]
     fn composition_matches_declared_categorical_dkw_bound_after_membership_changes() {

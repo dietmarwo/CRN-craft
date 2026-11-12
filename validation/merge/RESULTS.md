@@ -883,3 +883,44 @@ in that directory, with a temporary target directory).
 `validation/check_ode.py --binary <crn-diffsol>` passes with its own
 thresholds, unchanged, normally and under `python -O` with identical
 reports.
+
+### M5e (ODE right-hand side and Jacobians on the flat view): results
+
+Engine of the M5e commits, release build, this host, under the CPU lock.
+
+**Reference gate** (`crates/crn-craft/tests/kinetics_references.rs`,
+report `validation/merge/kinetics/references.json`): **0 failures** in
+6,252 values (3,126 per run) and 12 acceptance checks, as declared. The
+network file (run 1) and the converted `model/1.0` (run 2) gave the same
+numbers:
+
+| Model | Values per run | Bit for bit equal | Largest relative difference (r ≠ 0) | Zero references (reproduced exactly) |
+| --- | ---: | ---: | ---: | ---: |
+| W1 | 4 | 4 | 0 | 0 (0) |
+| W2 | 2,244 | 2,244 | 0 | 2,113 (2,113) |
+| W3 | 168 | 155 | 2.6e-16 | 106 (106) |
+| enzyme-mechanism | 64 | 64 | 0 | 25 (25) |
+| immigration-death | 8 | 8 | 0 | 1 (1) |
+| michaelis-menten | 20 | 16 | 1.7e-16 | 4 (4) |
+| repressilator | 168 | 155 | 2.6e-16 | 106 (106) |
+| vilar-noise | 450 | 450 | 0 | 356 (356) |
+
+W4, W5, W6 and W7 are refused with `CRN-E080`, as in 0.6.0: W4's 33
+Michaelis–Menten propensities take molecules of species they do not vanish
+with; W5, W6 and W7 exceed the size cap. Every zero reference was
+reproduced exactly, so the declared scale rule for zero references never
+applied. The 30 values per run that differ in the last bits are the Hill
+laws (evaluated as the converted fraction instead of the logistic form) and
+the Michaelis–Menten derivatives.
+
+**Downstream.** `integrations/diffsol` builds with `--locked`; its tests
+pass, 10 of 10 (2 new: a converted model solves bit for bit like its network
+model, and an expression rate of a `model/1.0` matches its closed form).
+`validation/check_ode.py`: 50 of 50 checks, identical reports normally and
+under `python -O`. Against the last stored 50-row report
+(`validation/campaign/review-ode-jobs-ode.json`), 31 rows are identical and
+19 rows (repressilator, the Hill fixtures, the Michaelis–Menten long
+horizon) differ in the trailing digits of their errors (largest: the
+repressilator DOP853 error 7.72221e-10 against 7.72216e-10); every
+threshold holds with the same margin. CI runs neither `check_ode.py` nor the
+diffsol build or tests.

@@ -1,37 +1,54 @@
 {
-  "schema": "crn-craft.model/0.1",
+  "schema": "crn-craft.model/1.0",
   "name": "michaelis_menten_reduced",
-  "convention": "stochastic_counts",
-  "omega": 1.0,
+  "description": "Converted from a crn-craft.model/0.1 document.",
   "parameters": {
-    "vmax": 5.0,
-    "km": 20.0
+    "km": 20.0,
+    "vmax": 5.0
   },
-  "species": [
+  "types": [
     {
       "name": "S",
-      "initial_count": 50
+      "attributes": []
     },
     {
       "name": "P",
-      "initial_count": 0
+      "attributes": []
     }
   ],
-  "reactions": [
+  "initial": [
+    {
+      "type": "S",
+      "attributes": {},
+      "count": 50.0
+    }
+  ],
+  "observables": {
+    "P": {
+      "type": "P",
+      "reduce": "sum"
+    },
+    "S": {
+      "type": "S",
+      "reduce": "sum"
+    }
+  },
+  "rules": [
     {
       "name": "conversion",
-      "reactants": {
-        "S": 1
-      },
-      "products": {
-        "P": 1
-      },
-      "rate": {
-        "kind": "michaelis_menten",
-        "substrate": "S",
-        "vmax": "vmax",
-        "km": "km"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "S"
+        }
+      ],
+      "propensity": "vmax * (S / (km + S))",
+      "products": [
+        {
+          "type": "P",
+          "attributes": {}
+        }
+      ]
     }
   ]
 }

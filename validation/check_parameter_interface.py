@@ -1,4 +1,10 @@
-"""Parameter binding, AOT equivalence and replay checks before optimization timing."""
+"""The network engine's ParameterTemplate: binding and replay checks.
+
+This keeps testing the 0.6.0 Python path (`prepare_parameters`,
+`ParameterTemplate`, `simulate_ssa`, `mass_action_kernel_source`) until M6a
+and M8 remove it. The benchmark worker runs the rules engine since M5g; its
+checks moved to check_parameter_binding.py.
+"""
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
@@ -6,9 +12,12 @@ import itertools
 import json
 from pathlib import Path
 import tempfile
-import crn_craft as crn
-from parameter_optimization import Worker, source_hashes, save
-from parameter_optimization_models import FOLDER, fixtures, guard_fixture
+import crn_craft._legacy as crn
+from parameter_optimization_models import FOLDER, fixtures
+
+
+def save(path, payload):
+    path.write_text(json.dumps(payload, indent=2, allow_nan=False) + "\n")
 
 
 def require(value, message):
@@ -39,114 +48,40 @@ def main():
         "--output", type=Path, default=FOLDER / "evidence/parameter-validation.json"
     )
     args = p.parse_args()
-    builds = json.loads((FOLDER / "evidence/builds.json").read_text())
     report = dict(
         passed=False,
-        source_sha256=source_hashes(),
         bindings=0,
-        generated_paths=0,
-        generated_rate_checks=0,
         invalid_inputs=0,
     )
-    worker = Worker(builds["workers"]["generated"]["binary"])
-    try:
-        for invalid, reason in [
-            (dict(command="validate_kernel", unknown=True), "unknown field"),
-            (dict(command="init", paths="4"), "unsigned integer"),
-        ]:
-            try:
-                worker.call(**invalid)
-            except RuntimeError as error:
-                require(
-                    reason in str(error),
-                    "Worker rejected malformed input for the wrong reason",
-                )
-                report["invalid_inputs"] += 1
-            else:
-                raise RuntimeError("Malformed worker request accepted")
-        for fixture in fixtures():
-            model = crn.model_bytes(fixture["model"])
-            truth = [
-                fixture["model"]["parameters"][name]
-                for name in sorted(fixture["model"]["parameters"])
-            ]
-            for algorithm, wait, fast in itertools.product(
-                ["direct", "cached_direct", "direct_cr", "sorting_direct", "rssa_cr"],
-                ["inverse", "ziggurat"],
-                [False, True],
-            ):
-                request = spec(model, fixture["times"], algorithm, wait, fast)
-                template = crn.prepare_parameters(model, request)
-                worker.call(
-                    command="init",
-                    engine="generated",
-                    case=fixture["case"],
-                    model=fixture["model"],
-                    times=fixture["times"],
-                    paths=4,
-                    heldout_paths=4,
-                    seed=7301,
-                    keep=4,
-                    algorithm=algorithm,
-                    wait=wait,
-                    fast=fast,
-                )
-                for multiplier in [[1.0, 1.0], [0.0, 1.7], [1.3, 0.6]]:
-                    values = [a * b for a, b in zip(truth, multiplier, strict=True)]
-                    bound = template.bind(values)
-                    fresh = crn.simulate_ssa(bound.model_bytes, bound.request_bytes)
-                    actual = bound.simulate()
-                    require(actual == fresh, "Binding differs from fresh preparation")
-                    require(
-                        template.simulate(
-                            dict(zip(template.parameter_names, values, strict=True))
-                        )
-                        == actual,
-                        "Named binding differs",
-                    )
-                    require(template.default_values == tuple(truth), "Template mutated")
-                    generated = worker.call(command="eval", values=values, full=True)[
-                        "result"
-                    ]
-                    require(actual == generated, "Generated execution differs")
-                    report["bindings"] += 1
-                    report["generated_paths"] += actual["requested_replicates"]
-                    save(args.output, report)
-            reply = worker.call(command="validate_kernel")
-            report["generated_rate_checks"] += reply["checks"]
-        # Additional emitted dimer and higher-order fallback arithmetic.
-        guard = guard_fixture()
-        worker.call(
-            command="init",
-            engine="generated",
-            case="guard",
-            model=guard,
-            times=[0.0, 1.0],
-            paths=4,
-            heldout_paths=4,
-        )
-        report["generated_rate_checks"] += worker.call(command="validate_kernel")[
-            "checks"
+    for fixture in fixtures():
+        model = crn.model_bytes(fixture["model"])
+        truth = [
+            fixture["model"]["parameters"][name]
+            for name in sorted(fixture["model"]["parameters"])
         ]
-        fixture = fixtures()[2]
-        worker.call(
-            command="init",
-            engine="generated",
-            case="birth_death",
-            model=fixture["model"],
-            times=fixture["times"],
-            paths=4,
-            heldout_paths=4,
-        )
-        try:
-            worker.call(command="eval", values=[0.03, 0.4])
-        except RuntimeError as error:
-            require("topology mismatch" in str(error), "Wrong generated mismatch error")
-            report["invalid_inputs"] += 1
-        else:
-            raise RuntimeError("Wrong generated topology accepted")
-    finally:
-        worker.close()
+        for algorithm, wait, fast in itertools.product(
+            ["direct", "cached_direct", "direct_cr", "sorting_direct", "rssa_cr"],
+            ["inverse", "ziggurat"],
+            [False, True],
+        ):
+            request = spec(model, fixture["times"], algorithm, wait, fast)
+            template = crn.prepare_parameters(model, request)
+            for multiplier in [[1.0, 1.0], [0.0, 1.7], [1.3, 0.6]]:
+                values = [a * b for a, b in zip(truth, multiplier, strict=True)]
+                bound = template.bind(values)
+                fresh = crn.simulate_ssa(bound.model_bytes, bound.request_bytes)
+                actual = bound.simulate()
+                require(actual == fresh, "Binding differs from fresh preparation")
+                require(
+                    template.simulate(
+                        dict(zip(template.parameter_names, values, strict=True))
+                    )
+                    == actual,
+                    "Named binding differs",
+                )
+                require(template.default_values == tuple(truth), "Template mutated")
+                report["bindings"] += 1
+                save(args.output, report)
     f = fixtures()[0]
     model = crn.model_bytes(f["model"])
     template = crn.prepare_parameters(

@@ -10,6 +10,9 @@
 //! without running a solver. Both return a `crn-craft.archive-check/0.1`
 //! [`ArchiveReport`]; archive failures are `CRN-E065`.
 //!
+//! Rules runs are archived as `crn-craft.archive/1.0` by [`v1`];
+//! [`verify_any`] checks an archive of either version.
+//!
 //! A complete archive can hold an incomplete simulation, so read
 //! `archive_complete` and `simulation_complete` together. Integrity checks
 //! are not signatures and do not establish biological validity. See
@@ -62,6 +65,8 @@ use std::{
     io::{Read, Write},
     path::Path,
 };
+
+pub mod v1;
 
 const PAYLOAD_NAMES: [&str; 4] = ["model.json", "run.json", "result.json", "provenance.json"];
 const ALL_NAMES: [&str; 6] = [
@@ -448,6 +453,39 @@ pub fn verify_archive(path: &Path) -> ArchiveReport {
         Ok(ArchiveReport::success(&result))
     })();
     action.unwrap_or_else(|e| ArchiveReport::failure(vec![e]))
+}
+
+/// The report of [`verify_any`]: a 0.1 report for a network-engine archive,
+/// a 1.0 report for an archive of a rules run.
+#[derive(Debug, Clone, Serialize)]
+#[serde(untagged)]
+pub enum AnyReport {
+    /// `crn-craft.archive-check/0.1`, from [`verify_archive`].
+    V01(ArchiveReport),
+    /// `crn-craft.archive-check/1.0`, from [`v1::verify`].
+    V10(v1::ArchiveReport),
+}
+
+impl AnyReport {
+    /// Whether the archive is valid (possibly of an incomplete run).
+    #[must_use]
+    pub fn valid(&self) -> bool {
+        match self {
+            Self::V01(report) => report.valid,
+            Self::V10(report) => report.valid,
+        }
+    }
+}
+
+/// Verifies an archive of either version, the `crn-craft verify DIRECTORY`
+/// command: [`v1::verify`] when [`v1::is_archive`] recognizes a
+/// `crn-craft.archive/1.0` directory, else [`verify_archive`].
+pub fn verify_any(path: &Path) -> AnyReport {
+    if v1::is_archive(path) {
+        AnyReport::V10(v1::verify(path))
+    } else {
+        AnyReport::V01(verify_archive(path))
+    }
 }
 
 /// Checks a Direct result against the exact model and run bytes it claims to

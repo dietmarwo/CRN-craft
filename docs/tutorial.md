@@ -193,7 +193,7 @@ bytes:
 ```python
 import json
 import numpy as np
-import crn_craft as crn
+import crn_craft._legacy as crn
 
 model = crn.load_example("immigration-death")  # bytes of the packaged model
 run = crn.run_spec(model, end=30.0, save_times=list(np.linspace(0, 30, 31)),

@@ -91,9 +91,92 @@ fn run_interruptible<C: Send + Sync + 'static, T: Send + 'static>(
     }
 }
 
+/// The unified discovery document, `crn-craft.describe/1.0`.
 #[pyfunction]
 fn describe_json() -> String {
     crn_craft::describe().to_string()
+}
+/// The network engine's discovery document, `crn-craft.describe/0.11`
+/// (`crn_craft._legacy.describe`; deleted in M8b).
+#[pyfunction]
+fn legacy_describe_json() -> String {
+    crn_craft::describe_network().to_string()
+}
+/// The report of `crn-craft check` on bytes (`crn_craft.check`).
+#[pyfunction]
+#[pyo3(signature = (model, request=None))]
+fn check_any_json(py: Python<'_>, model: Vec<u8>, request: Option<Vec<u8>>) -> String {
+    py.detach(move || {
+        serde_json::to_string(&crn_craft::check_any(&model, request.as_deref()))
+            .expect("finite check report")
+    })
+}
+/// The report of `crn-craft check MODEL [REQUEST]` on files.
+#[pyfunction]
+#[pyo3(signature = (model, request=None))]
+fn check_any_files_json(py: Python<'_>, model: String, request: Option<String>) -> String {
+    py.detach(move || {
+        serde_json::to_string(&crn_craft::check_any_files(
+            std::path::Path::new(&model),
+            request.as_deref().map(std::path::Path::new),
+        ))
+        .expect("finite check report")
+    })
+}
+/// `crn-craft run MODEL REQUEST [--archive NEW_DIRECTORY]` for
+/// `python -m crn_craft run`: the text the native CLI prints (without the
+/// final newline) and whether it exits 0. A result is compact JSON with
+/// sorted keys; an archive report and a refusal are pretty-printed.
+#[pyfunction]
+#[pyo3(signature = (model, request, archive=None, cancel_file=None))]
+fn run_files_json(
+    py: Python<'_>,
+    model: String,
+    request: String,
+    archive: Option<String>,
+    cancel_file: Option<String>,
+) -> PyResult<(String, bool)> {
+    let mut control = crn_craft::rules::Control::default();
+    control.cancel_file = cancel_file.map(PathBuf::from);
+    run_interruptible(py, control, crn_craft::rules::Control::cancel, move |c| {
+        let (model, request) = (std::path::Path::new(&model), std::path::Path::new(&request));
+        let pretty = |value: &serde_json::Value| {
+            serde_json::to_string_pretty(value).expect("finite JSON")
+        };
+        let compact = |value: serde_json::Value| value.to_string();
+        let refusal = |errors: Vec<crn_craft::diagnostic::Diagnostic>| {
+            (
+                pretty(&serde_json::json!({"success": false, "diagnostics": errors})),
+                false,
+            )
+        };
+        if let Some(directory) = archive {
+            let report = crn_craft::archive::v1::run_files(
+                model,
+                request,
+                std::path::Path::new(&directory),
+                c,
+            );
+            let success = report.valid && report.simulation_complete;
+            (
+                pretty(&serde_json::to_value(report).expect("finite archive report")),
+                success,
+            )
+        } else if crn_craft::fsp::v1::is_fsp_request_file(request) {
+            match crn_craft::fsp::v1::solve_files(model, request, c) {
+                Ok(result) => (compact(serde_json::to_value(result).expect("finite")), true),
+                Err(errors) => refusal(errors),
+            }
+        } else {
+            match crn_craft::rules::solve_files(model, request, c) {
+                Ok(result) => {
+                    let complete = result.termination == crn_craft::rules::Termination::Completed;
+                    (compact(serde_json::to_value(result).expect("finite")), complete)
+                }
+                Err(errors) => refusal(errors),
+            }
+        }
+    })
 }
 #[pyfunction]
 fn analyze_json(model: &[u8]) -> PyResult<String> {
@@ -330,6 +413,10 @@ fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PreparedRun>()?;
     module.add_function(wrap_pyfunction!(prepare_json, module)?)?;
     module.add_function(wrap_pyfunction!(describe_json, module)?)?;
+    module.add_function(wrap_pyfunction!(legacy_describe_json, module)?)?;
+    module.add_function(wrap_pyfunction!(check_any_json, module)?)?;
+    module.add_function(wrap_pyfunction!(check_any_files_json, module)?)?;
+    module.add_function(wrap_pyfunction!(run_files_json, module)?)?;
     module.add_function(wrap_pyfunction!(analyze_json, module)?)?;
     module.add_function(wrap_pyfunction!(check_json, module)?)?;
     module.add_function(wrap_pyfunction!(simulate_json, module)?)?;
@@ -397,10 +484,12 @@ fn archive_json(
         .unwrap()
     })
 }
+/// The report of `crn-craft verify DIRECTORY`: `archive-check/1.0` for an
+/// archive of a rules run, `archive-check/0.1` for a network-engine archive.
 #[pyfunction]
 fn verify_json(py: Python<'_>, directory: String) -> String {
     py.detach(move || {
-        serde_json::to_string(&crn_craft::archive::verify_archive(std::path::Path::new(
+        serde_json::to_string(&crn_craft::archive::verify_any(std::path::Path::new(
             &directory,
         )))
         .unwrap()

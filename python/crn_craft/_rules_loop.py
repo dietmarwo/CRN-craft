@@ -22,7 +22,8 @@ import time
 
 import numpy as np
 
-from . import _crn_error, _native, model_bytes
+from . import _native
+from ._common import _crn_error, model_bytes
 
 SOURCE_ENV = "CRN_CRAFT_SOURCE"
 CACHE_ENV = "CRN_CRAFT_CACHE_DIR"

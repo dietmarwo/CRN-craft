@@ -1,196 +1,234 @@
 {
-  "schema": "crn-craft.model/0.1",
+  "schema": "crn-craft.model/1.0",
   "name": "repressilator_hill",
-  "convention": "stochastic_counts",
-  "omega": 1.0,
+  "description": "Converted from a crn-craft.model/0.1 document.",
   "parameters": {
+    "K": 40.0,
     "alpha": 216.0,
     "alpha0": 0.216,
-    "K": 40.0,
-    "n": 2.0,
     "beta": 5.0,
     "gamma_m": 1.0,
-    "gamma_p": 0.2
+    "gamma_p": 0.2,
+    "n": 2.0
   },
-  "species": [
+  "types": [
     {
       "name": "m1",
-      "initial_count": 0
+      "attributes": []
     },
     {
       "name": "p1",
-      "initial_count": 5
+      "attributes": []
     },
     {
       "name": "m2",
-      "initial_count": 0
+      "attributes": []
     },
     {
       "name": "p2",
-      "initial_count": 0
+      "attributes": []
     },
     {
       "name": "m3",
-      "initial_count": 0
+      "attributes": []
     },
     {
       "name": "p3",
-      "initial_count": 0
+      "attributes": []
     }
   ],
-  "reactions": [
+  "initial": [
+    {
+      "type": "p1",
+      "attributes": {},
+      "count": 5.0
+    }
+  ],
+  "observables": {
+    "m1": {
+      "type": "m1",
+      "reduce": "sum"
+    },
+    "m2": {
+      "type": "m2",
+      "reduce": "sum"
+    },
+    "m3": {
+      "type": "m3",
+      "reduce": "sum"
+    },
+    "p1": {
+      "type": "p1",
+      "reduce": "sum"
+    },
+    "p2": {
+      "type": "p2",
+      "reduce": "sum"
+    },
+    "p3": {
+      "type": "p3",
+      "reduce": "sum"
+    }
+  },
+  "rules": [
     {
       "name": "tx1",
-      "reactants": {},
-      "products": {
-        "m1": 1
-      },
-      "rate": {
-        "kind": "hill_repression",
-        "regulator": "p3",
-        "vmax": "alpha",
-        "basal": "alpha0",
-        "k": "K",
-        "n": "n"
-      }
+      "reactants": [],
+      "propensity": "alpha0 + alpha / (1 + (p3 / K)^n)",
+      "products": [
+        {
+          "type": "m1",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "tl1",
-      "reactants": {
-        "m1": 1
-      },
-      "products": {
-        "m1": 1,
-        "p1": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "beta"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "m1"
+        }
+      ],
+      "rate": "beta",
+      "products": [
+        {
+          "type": "m1",
+          "attributes": {}
+        },
+        {
+          "type": "p1",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "dm1",
-      "reactants": {
-        "m1": 1
-      },
-      "products": {},
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "gamma_m"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "m1"
+        }
+      ],
+      "rate": "gamma_m",
+      "products": []
     },
     {
       "name": "dp1",
-      "reactants": {
-        "p1": 1
-      },
-      "products": {},
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "gamma_p"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "p1"
+        }
+      ],
+      "rate": "gamma_p",
+      "products": []
     },
     {
       "name": "tx2",
-      "reactants": {},
-      "products": {
-        "m2": 1
-      },
-      "rate": {
-        "kind": "hill_repression",
-        "regulator": "p1",
-        "vmax": "alpha",
-        "basal": "alpha0",
-        "k": "K",
-        "n": "n"
-      }
+      "reactants": [],
+      "propensity": "alpha0 + alpha / (1 + (p1 / K)^n)",
+      "products": [
+        {
+          "type": "m2",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "tl2",
-      "reactants": {
-        "m2": 1
-      },
-      "products": {
-        "m2": 1,
-        "p2": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "beta"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "m2"
+        }
+      ],
+      "rate": "beta",
+      "products": [
+        {
+          "type": "m2",
+          "attributes": {}
+        },
+        {
+          "type": "p2",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "dm2",
-      "reactants": {
-        "m2": 1
-      },
-      "products": {},
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "gamma_m"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "m2"
+        }
+      ],
+      "rate": "gamma_m",
+      "products": []
     },
     {
       "name": "dp2",
-      "reactants": {
-        "p2": 1
-      },
-      "products": {},
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "gamma_p"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "p2"
+        }
+      ],
+      "rate": "gamma_p",
+      "products": []
     },
     {
       "name": "tx3",
-      "reactants": {},
-      "products": {
-        "m3": 1
-      },
-      "rate": {
-        "kind": "hill_repression",
-        "regulator": "p2",
-        "vmax": "alpha",
-        "basal": "alpha0",
-        "k": "K",
-        "n": "n"
-      }
+      "reactants": [],
+      "propensity": "alpha0 + alpha / (1 + (p2 / K)^n)",
+      "products": [
+        {
+          "type": "m3",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "tl3",
-      "reactants": {
-        "m3": 1
-      },
-      "products": {
-        "m3": 1,
-        "p3": 1
-      },
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "beta"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "m3"
+        }
+      ],
+      "rate": "beta",
+      "products": [
+        {
+          "type": "m3",
+          "attributes": {}
+        },
+        {
+          "type": "p3",
+          "attributes": {}
+        }
+      ]
     },
     {
       "name": "dm3",
-      "reactants": {
-        "m3": 1
-      },
-      "products": {},
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "gamma_m"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "m3"
+        }
+      ],
+      "rate": "gamma_m",
+      "products": []
     },
     {
       "name": "dp3",
-      "reactants": {
-        "p3": 1
-      },
-      "products": {},
-      "rate": {
-        "kind": "mass_action",
-        "coefficient": "gamma_p"
-      }
+      "reactants": [
+        {
+          "label": "x",
+          "type": "p3"
+        }
+      ],
+      "rate": "gamma_p",
+      "products": []
     }
   ]
 }

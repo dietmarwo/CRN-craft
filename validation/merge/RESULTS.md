@@ -1206,3 +1206,233 @@ passes only if all six do). New `reuse` / old `generated` is recorded for
 information. The M5g row on `merge/M5cdg` stays as the earlier row. A miss
 is recorded with its numbers and hot spots, not optimized further (owner
 decision for M4d).
+
+### M5e (ODE right-hand side and Jacobians on the flat view): declaration
+
+Written and committed before the first run of the checks below. The engine
+under test is `crn_craft::kinetics::Kinetics` of the M5e commits, which
+reads every model through its flat view (`Kinetics::from_bytes`; a network
+`crn-craft.model/0.1` is converted first) and evaluates the rate and
+propensity expressions with dual numbers.
+
+**Reference gate** (`crates/crn-craft/tests/kinetics_references.rs`, run
+with `cargo test --release -p crn-craft --test kinetics_references`; with
+`CRN_KINETICS_REPORT=PATH` it also writes its report, committed as
+`validation/merge/kinetics/references.json`, without timings). For each of
+the twelve models of `models.json` and its M0c reference
+`reference/<name>.kinetics.json`:
+
+1. the model file's SHA-256 equals the reference's `model_sha256`;
+2. acceptance: the engine under test accepts the network model file if and
+   only if 0.6.0 did; a refusal is `CRN-E080`, as the reference's (W4, W5,
+   W6, W7 are expected to be refused and have no values);
+3. for each accepted model, run 1 on the network model file and run 2 on
+   the model converted by the engine under test (`crn-craft.model/1.0`
+   bytes from `convert::from_network`): the species labels, parameter names
+   and parameter values equal the reference's `species`, `parameters` and
+   `parameter_values` exactly, and at each stored point (the initial and
+   the probe state, the reference's `y` and parameter values) every entry
+   of the right-hand side (n), the state Jacobian (n × n) and the parameter
+   Jacobian (n × m) is compared with the reference value r:
+   - r ≠ 0: |x − r| ≤ 1e-12 · |r| (relative);
+   - **r = 0 (either sign): |x| ≤ 1e-12 · M**, where M is the largest
+     absolute value of the same array (the right-hand side, the state
+     Jacobian or the parameter Jacobian) at the same point of the same
+     reference; when M = 0, x must be 0. Zero references are thus compared
+     on the scale of their array, since a zero that comes from cancelling
+     terms (W2's probe: 3 − 0.2 · 15) can be off by rounding. The report
+     counts the zero references reproduced exactly (x = ±0) and lists every
+     zero reference that is not;
+   - an evaluation that fails where the reference has values is a failure.
+
+N = 3,126 values per run (W1 4, W2 2,244, W3 168, enzyme-mechanism 64,
+immigration-death 8, michaelis-menten 20, repressilator 168, vilar-noise
+450), 6,252 in both runs, plus the twelve acceptance checks. **0 failures
+are expected.** The report lists, per model and run, the largest relative
+difference over the nonzero references, the number of values that are bit
+for bit equal, and the zero-reference counts. As information (not gated):
+mass action of order 0 and 1 is expected to be bit for bit equal; pairs,
+Michaelis–Menten (derivatives) and Hill laws (evaluated as the converted
+fraction instead of the 0.6.0 logistic form) may differ in the last bits.
+
+**Downstream.** `integrations/diffsol` (its own workspace and lockfile)
+builds with `--locked` and its tests pass (`cargo test --release --locked`
+in that directory, with a temporary target directory).
+`validation/check_ode.py --binary <crn-diffsol>` passes with its own
+thresholds, unchanged, normally and under `python -O` with identical
+reports.
+
+### M5e (ODE right-hand side and Jacobians on the flat view): results
+
+Engine of the M5e commits, release build, this host, under the CPU lock.
+
+**Reference gate** (`crates/crn-craft/tests/kinetics_references.rs`,
+report `validation/merge/kinetics/references.json`): **0 failures** in
+6,252 values (3,126 per run) and 12 acceptance checks, as declared. The
+network file (run 1) and the converted `model/1.0` (run 2) gave the same
+numbers:
+
+| Model | Values per run | Bit for bit equal | Largest relative difference (r ≠ 0) | Zero references (reproduced exactly) |
+| --- | ---: | ---: | ---: | ---: |
+| W1 | 4 | 4 | 0 | 0 (0) |
+| W2 | 2,244 | 2,244 | 0 | 2,113 (2,113) |
+| W3 | 168 | 155 | 2.6e-16 | 106 (106) |
+| enzyme-mechanism | 64 | 64 | 0 | 25 (25) |
+| immigration-death | 8 | 8 | 0 | 1 (1) |
+| michaelis-menten | 20 | 16 | 1.7e-16 | 4 (4) |
+| repressilator | 168 | 155 | 2.6e-16 | 106 (106) |
+| vilar-noise | 450 | 450 | 0 | 356 (356) |
+
+W4, W5, W6 and W7 are refused with `CRN-E080`, as in 0.6.0: W4's 33
+Michaelis–Menten propensities take molecules of species they do not vanish
+with; W5, W6 and W7 exceed the size cap. Every zero reference was
+reproduced exactly, so the declared scale rule for zero references never
+applied. The 30 values per run that differ in the last bits are the Hill
+laws (evaluated as the converted fraction instead of the logistic form) and
+the Michaelis–Menten derivatives.
+
+**Downstream.** `integrations/diffsol` builds with `--locked`; its tests
+pass, 10 of 10 (2 new: a converted model solves bit for bit like its network
+model, and an expression rate of a `model/1.0` matches its closed form).
+`validation/check_ode.py`: 50 of 50 checks, identical reports normally and
+under `python -O`. Against the last stored 50-row report
+(`validation/campaign/review-ode-jobs-ode.json`), 31 rows are identical and
+19 rows (repressilator, the Hill fixtures, the Michaelis–Menten long
+horizon) differ in the trailing digits of their errors (largest: the
+repressilator DOP853 error 7.72221e-10 against 7.72216e-10); every
+threshold holds with the same margin. CI runs neither `check_ode.py` nor the
+diffsol build or tests.
+
+### M5g (parameter binding and workers): declaration
+
+Written and committed before the first run of the measurement below. The
+checks of `validation/check_jobs.py` (objectives equal an independent
+recomputation within relative 1e-12, and its other rows) and of the new
+`validation/check_parameter_binding.py` (exact equalities) keep their own
+rules; they are not statistical gates.
+
+**Worker speed comparison** (`validation/merge/compare_parameter_workers.py`;
+no target, recorded). Workers: the 0.6.0-engine benchmark worker built from
+this tree before the M5g change (the `dynamic` binary for the routes `fresh`
+and `reuse`, the `generated` binary for `generated`; network model, cached
+Direct, Ziggurat waits, `fast: true`, the worker defaults) and the migrated
+worker (routes `fresh` and `reuse` on the rules engine: Static Direct,
+Ziggurat waits, the model converted to `crn-craft.model/1.0`). For each of
+the three frozen cases of `validation/parameter-optimization/fixtures.json`
+(`birth_death`, `sparse33`, `binding12`; 32 training paths with seed 77201,
+4,096 held-out paths with seed 880431, the frozen report times): one worker
+process per route and repetition, `init`, then 128 training evaluations at
+points drawn log-uniformly in [lower, upper] from
+`numpy.random.default_rng(20261112 + case index)` (the same points for
+every route), then one held-out evaluation at the true values. Recorded per
+route: the sums of the replies' `bind_seconds` and `simulation_seconds` and
+the wall time of the 129 calls seen from Python; 3 repetitions, route order
+rotated per repetition, medians reported. 1 worker thread, under the CPU
+lock, this host. Checked as part of the run (not timing): within each
+engine the routes return identical moments at every point (new `fresh` =
+new `reuse`; old `fresh` = old `reuse` = old `generated`).
+
+### M5c (tau leaping on converted models): declaration
+
+Written and committed before the first run. Engine under test: the rules
+method `tau` of `crn-craft.run/1.0` (`{"kind": "tau", "epsilon": ε}`), run
+by `crn-craft rules` on the network model of `validation/check_tau.py`
+converted with `crn-craft convert`.
+
+**Gate** (`validation/check_tau_rules.py`; the gates of `check_tau.py` with
+the same tolerances): the model `TauControl` (X starts at 30, birth 20,
+death 0.5 per molecule), end 2, report times 0 and 2, for ε = 0.1, 0.05 and
+0.025 with root seeds 9101, 9102 and 9103, n = 10,000 replicates, every
+path kept, 1 thread. Exact law at t = 2: Binomial(30, e⁻¹) convolved with
+Poisson(40 (1 − e⁻¹)). For each ε: the Kolmogorov distance between the
+empirical CDF of the final X and the exact CDF is at most
+ε / 2 + sqrt(ln(6 / 0.001) / (2n)); the absolute difference between the
+sample mean and the exact mean is at most ε · mean + 4.5 · sqrt(variance / n);
+the result's termination is `completed`; its sampler is the approximate
+`chacha8-u53/rules-approximate-cgp-poisson/2` and its `method` echoes the
+request (the rules analog of 0.6.0's `approximate_ensemble` assessment).
+**0 failures expected (3 rows).** The report is identical normally and under
+`python -O`. Budgets (not gates): 10,000 events and 10⁸ sampling steps per
+replicate. `check_tau.py` has no binomial variant, so `binomial` gets no
+gate here. A failing row is investigated once; if it persists, the task
+stops and reports.
+
+**Leap-condition cost** (recorded, no target; `tau`'s propensity condition
+evaluates every channel after one firing of every enabled channel,
+O(channels²) per attempted leap): W5 and W6, converted, end 20, report times
+0 and 20, 16 replicates, root seed 4242, 1 thread; `tau` with ε = 0.05
+against `static_direct` (Ziggurat waits); wall time of `crn-craft rules`
+(process), medians of 3, under the CPU lock; events per replicate recorded.
+
+### M5g (parameter binding and workers): results
+
+Release builds of this branch, this host, under the CPU lock.
+
+**Worker speed comparison** (`validation/merge/parameter-workers.json`):
+wall time of the 129 calls (128 training evaluations and the held-out one),
+median of 3, seconds.
+
+| Case | old fresh | old reuse | old generated | new fresh | new reuse | new fresh / old fresh | new reuse / old reuse | new reuse / old generated |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| birth_death | 0.181 | 0.178 | 0.209 | 0.271 | 0.296 | 1.49 | 1.66 | 1.42 |
+| sparse33 | 3.126 | 3.023 | 3.060 | 5.227 | 5.326 | 1.67 | 1.76 | 1.74 |
+| binding12 | 0.067 | 0.045 | 0.041 | 0.075 | 0.074 | 1.11 | 1.65 | 1.81 |
+
+Bind seconds (sum over the 129 calls): old `reuse` 0.002–0.024, old `fresh`
+0.013–0.154, new `fresh` 0.016–0.138, new `reuse` 0.013–0.129: the rules
+binding re-serializes and prepares the whole model, so it costs about what a
+fresh preparation costs. Simulation dominates (sparse33: 2.9 s old, 5.0–5.1 s
+new): the new routes run Static Direct with the linear selector of this
+branch against 0.6.0's cached Direct with `fast: true`. Within each engine
+the routes returned identical moments at every point, as declared. The old
+generated route was no faster than the old reusable route on these models.
+
+**Checks**: `check_jobs.py` passes 15 of 15 rows (14 objectives equal the
+independent recomputation with relative difference 0.0), normally and under
+`python -O` with identical reports; `check_parameter_binding.py` passes (18
+bindings, 36 worker evaluations, 12 refused inputs, 12 concurrent bindings);
+`check_parameter_interface.py` (network path) passes (180 bindings), both
+with identical reports under `python -O`.
+
+### M5c (tau leaping on converted models): results
+
+Release build of `0007ea9`, this host, under the CPU lock.
+
+**Gate** (`validation/check_tau_rules.py`, report
+`validation/merge/tau/check_tau_rules.json`): **0 failures in 3 rows**;
+identical reports normally and under `python -O`.
+
+| ε | CDF error | CDF envelope | mean error | mean envelope | events | random words | passed |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 0.1 | 0.00426 | 0.07086 | 0.00729 | 3.888 | 736,991 | 1,293,328 | yes |
+| 0.05 | 0.00660 | 0.04586 | 0.06371 | 2.072 | 735,205 | 1,572,298 | yes |
+| 0.025 | 0.00629 | 0.03336 | 0.05809 | 1.164 | 736,709 | 1,493,418 | yes |
+
+For comparison (not a gate), `check_tau.py` on the network engine in the
+same build: CDF errors 0.0227, 0.0148, 0.0081 with 73,776, 278,259 and
+730,139 leaps. The rules `tau` leaps far less on this model (about two
+random words per event): its propensity condition and its species bound
+(g = 2, which refuses a leap when ε · n / 2 < 1) send most steps to the
+exact fallback, so its laws are close to the exact ones.
+
+**Leap-condition cost** (`validation/merge/tau/leap-condition-cost.json`):
+
+| Model | Channels | Method | Wall time (s, median of 3) | Events per replicate | Random words per replicate | tau / static_direct |
+| --- | ---: | --- | ---: | ---: | ---: | ---: |
+| W5 | 510 | tau, ε = 0.05 | 3.228 | 20,437 | 40,876 | 14.1 |
+| W5 | 510 | static_direct | 0.229 | 20,420 | 41,536 | |
+| W6 | 992 | tau, ε = 0.05 | 4.962 | 14,365 | 28,731 | 12.9 |
+| W6 | 992 | static_direct | 0.386 | 14,357 | 29,208 | |
+
+At the declared ε = 0.05 neither model leaps (two words per event, as an
+exact step): W5's counts of 4 make every channel critical, and W6's counts
+of 32 give ε · n / 2 = 0.8 < 1, so the species bound refuses a leap before
+the propensity condition runs. The 13–14× cost is therefore the exact
+fallback inside `tau`, which recomputes every channel's rate and the
+criticality of every channel at each step, not the channels² condition.
+Supplementary row, not declared and run once: W6 with ε = 0.1 (where
+ε · n / 2 = 1.6, so leaps are attempted), 1 replicate: 9.97 s, 14,043
+events, 561,290 random words, against about 0.024 s per replicate for
+Static Direct (about 400×). Each attempted leap evaluates the 992 channels
+at the state after one firing of each enabled channel, twice (criticality
+and change pass): about 2 · 992² ≈ 2.0 million channel rates per attempt.

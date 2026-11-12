@@ -7,7 +7,7 @@ import itertools
 import json
 import math
 from pathlib import Path
-import crn_craft as crn
+import crn_craft._legacy as crn
 from check_ssa import analytic_probabilities, cdf_distance
 from check_cme import FIXTURES, TIMES, generator, uniformize, marginal, max_cdf_error
 

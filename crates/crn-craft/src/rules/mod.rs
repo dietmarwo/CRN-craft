@@ -213,6 +213,7 @@ mod combination;
 pub use combination::combination_rate;
 pub mod continuous;
 pub mod convert;
+pub(crate) mod dual;
 mod engine;
 mod expr;
 mod flat;
@@ -230,7 +231,7 @@ pub use libm;
 pub mod model;
 mod mtdna;
 pub mod observe;
-mod quantile;
+pub(crate) mod quantile;
 mod rssa;
 mod select;
 mod tree;
@@ -1445,8 +1446,9 @@ pub enum CheckVersion {
     #[serde(rename = "crn-craft.rules-check/0.1")]
     V01,
     #[doc = concat!(
-        "`crn-craft.check/1.0`, the report of a `crn-craft.model/1.0` document, ",
-        "with the fields of rules-check/0.1."
+        "`crn-craft.check/1.0`, the report of `crn-craft check` for a ",
+        "`crn-craft.model/1.0` document, a network model or a model with a ",
+        "request, with the fields of rules-check/0.1 and `run_sha256`."
     )]
     #[serde(rename = "crn-craft.check/1.0")]
     V10,
@@ -1460,8 +1462,10 @@ pub enum CheckVersion {
 ///
 #[doc = concat!(
     "Returned by [`check_model`] and [`check_model_file`], and printed by ",
-    "`crn-craft rules-check`. A `crn-craft.model/1.0` document gets a ",
-    "`crn-craft.check/1.0` report with the same fields."
+    "`crn-craft check MODEL` (alias `rules-check`). A `crn-craft.model/1.0` ",
+    "document gets a `crn-craft.check/1.0` report with the same fields; ",
+    "[`crate::check_any`] also reports `crn-craft.check/1.0` for a network ",
+    "model and for a model with a request, with `run_sha256`."
 )]
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -1473,9 +1477,17 @@ pub struct RulesCheck {
     pub valid: bool,
     /// SHA-256 of the model bytes, when they could be read.
     pub model_sha256: Option<String>,
+    /// SHA-256 of the request bytes, when a request was checked
+    /// (`crn-craft.check/1.0` only; absent otherwise).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run_sha256: Option<String>,
     /// Errors with stable codes and JSON Pointer paths into the model:
     /// `CRN-E001` to `CRN-E004` from parsing, `CRN-R010` to `CRN-R015` from
     /// validation, `CRN-E030` for an unreadable file.
+    #[doc = concat!(
+        "In a `crn-craft.check/1.0` report with a request, also the errors ",
+        "`crn-craft run` would report before running."
+    )]
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -1530,6 +1542,7 @@ pub fn check_model(model_bytes: &[u8]) -> RulesCheck {
         },
         valid: diagnostics.is_empty(),
         model_sha256: Some(crate::sha256(model_bytes)),
+        run_sha256: None,
         diagnostics,
     }
 }
@@ -1830,11 +1843,29 @@ fn linear_selector(prepared: &Prepared, what: &str) -> Result<(), Diagnostic> {
 /// `crn-craft.model/1.0` gets the strict parser's unknown-field error of
 /// 0.6.0.
 fn parse_model(model_bytes: &[u8]) -> Result<Model, Diagnostic> {
-    let model: Model = crate::strict_json::parse(model_bytes)?;
+    let model: Model = crate::strict_json::parse(model_bytes)
+        .map_err(|error| network_model_error(error, model_bytes))?;
     match model::legacy_count(&model) {
         Some(diagnostic) => Err(diagnostic),
         None => Ok(model),
     }
+}
+
+/// The refusal of a network model (`crn-craft.model/0.1`) where a rules or
+/// 1.0 model is read: a shape error (`CRN-E003`) of such a document becomes
+/// `CRN-E033` at `/schema`, naming the converter. Other errors are kept.
+pub(crate) fn network_model_error(error: Diagnostic, model_bytes: &[u8]) -> Diagnostic {
+    if error.code != "CRN-E003"
+        || crate::schema_field(model_bytes).as_deref() != Some(convert::NETWORK_SCHEMA)
+    {
+        return error;
+    }
+    Diagnostic::error(
+        "CRN-E033",
+        "/schema",
+        "`crn-craft.model/0.1` is a network model; this reads crn-craft.model/1.0 and rules models",
+        "Convert it first: `crn-craft convert MODEL` or crn_craft.convert (crn_craft.ensemble and crn_craft.Model.from_dict convert it themselves).",
+    )
 }
 
 /// `CRN-R020` at `/method` for a higher-order rule on a method that cannot
@@ -2691,6 +2722,7 @@ pub fn check_model_file(model_path: &Path) -> RulesCheck {
             schema: CheckVersion::V01,
             valid: false,
             model_sha256: None,
+            run_sha256: None,
             diagnostics: vec![e],
         },
     }
@@ -2717,7 +2749,7 @@ pub fn check_model_file(model_path: &Path) -> RulesCheck {
 pub fn describe() -> Value {
     serde_json::json!({
         "status": "experimental",
-        "crate": "crn-craft-rules",
+        "crate": "crn-craft",
         "commands": ["rules-check", "rules"],
         "model": "crn-craft.rules-model/0.1",
         "accepted_models": ["crn-craft.rules-model/0.1","crn-craft.rules-model/0.2","crn-craft.rules-model/0.3","crn-craft.rules-model/0.4"],
@@ -2746,7 +2778,8 @@ pub fn describe() -> Value {
             "model": "crn-craft.model/1.0", "request": "crn-craft.run/1.0",
             "result": "crn-craft.result/1.0", "check": "crn-craft.check/1.0",
             "fsp": {"method": "fsp", "result": "crn-craft.fsp-result/1.0", "schema": "fsp-result-1.0", "python": "crn_craft.rules.fsp"},
-            "analysis": {"command": "analyze", "result": "crn-craft.analysis/1.0", "schema": "analysis-1.0", "python": "crn_craft.analyze"},
+            "analysis": {"command": "analyze", "result": "crn-craft.analysis/1.0", "schema": "analysis-1.0", "python": "crn_craft.Model.analyze"},
+            "archive": {"command": "rules MODEL REQUEST --archive NEW_DIRECTORY", "verify": "verify DIRECTORY", "manifest": "crn-craft.archive/1.0", "report": "crn-craft.archive-check/1.0", "schemas": ["archive-1.0", "archive-check-1.0"], "python": ["crn_craft.rules.archive", "crn_craft.rules.verify_archive"]},
             "means": {
                 "model": "crn-craft.rules-model/0.4", "request": "crn-craft.rules-run/0.6",
                 "result": "crn-craft.rules-result/0.3", "check": "crn-craft.rules-check/0.1"
@@ -2829,6 +2862,17 @@ pub fn schema(kind: &str) -> Option<Value> {
         _ => return None,
     };
     let mut value = serde_json::to_value(schema).ok()?;
+    if unified.is_none() {
+        // A rules-check report never holds a request hash.
+        for (root, property) in ONLY_1_0_ROOT {
+            if *root == kind {
+                value
+                    .get_mut("properties")?
+                    .as_object_mut()?
+                    .remove(*property);
+            }
+        }
+    }
     let definitions = value.get_mut("definitions")?.as_object_mut()?;
     if unified.is_none() {
         // A rules-* document cannot hold the fields of the 1.0 contracts.
@@ -2879,10 +2923,10 @@ pub fn schema(kind: &str) -> Option<Value> {
                 .into();
         }
         // Field texts that state the limits of the 0.x model versions.
-        let fields: &[(&str, &str)] = if kind == "model-1.0" {
-            &MODEL_1_0_FIELDS
-        } else {
-            &[]
+        let fields: &[(&str, &str)] = match kind {
+            "model-1.0" => &MODEL_1_0_FIELDS,
+            "check-1.0" => &CHECK_1_0_FIELDS,
+            _ => &[],
         };
         for (pointer, text) in fields {
             if let Some(description) = value.pointer_mut(pointer) {
@@ -2926,6 +2970,12 @@ const MODEL_1_0_FIELDS: [(&str, &str); 6] = [
     ),
 ];
 
+/// Descriptions of `crn-craft.check/1.0` fields that cover requests.
+const CHECK_1_0_FIELDS: [(&str, &str); 1] = [(
+    "/properties/diagnostics/description",
+    "Errors with stable codes and JSON Pointer paths: `CRN-E001` to `CRN-E004` from parsing, `CRN-R010` to `CRN-R016` and `CRN-E033` from the model, `CRN-E030` for an unreadable file, and with a request the errors `crn-craft run` would report before running (`CRN-R020`, `CRN-R017`, ...), with paths into the request or the model.",
+)];
+
 /// Properties (definition, property) of the shared contract types that only
 /// the 1.0 contracts have: the `rules-*` schemas leave them out.
 const ONLY_1_0: &[(&str, &str)] = &[
@@ -2936,6 +2986,8 @@ const ONLY_1_0: &[(&str, &str)] = &[
 ];
 /// Definitions that only the 1.0 schemas use.
 const ONLY_1_0_DEFINITIONS: &[&str] = &["Quantile", "Selector"];
+/// Top-level properties (kind, property) that only the 1.0 contracts have.
+const ONLY_1_0_ROOT: &[(&str, &str)] = &[("rules-check", "run_sha256")];
 
 /// Whether a `schema` string names a 1.0 contract.
 fn is_unified(version: &str) -> bool {
@@ -2950,7 +3002,7 @@ const MODEL_1_0: Descriptions = (
     "The version of a model, its `schema` field.",
 );
 const CHECK_1_0: Descriptions = (
-    "The report of a model check of a `crn-craft.model/1.0` document: `crn-craft.check/1.0`, with the fields of `crn-craft.rules-check/0.1`.\n\nThe check stops at the first stage that fails (parsing, size limits, names and types, then the rest of the model), so `diagnostics` lists the errors of that stage.",
+    "The report of `crn-craft check MODEL [REQUEST]`: `crn-craft.check/1.0`, with the fields of `crn-craft.rules-check/0.1` and `run_sha256`. It is reported for a `crn-craft.model/1.0` document, for a network `crn-craft.model/0.1` (checked by converting it) and for any model with a request (whether `crn-craft run` would accept the two documents).\n\nThe check stops at the first stage that fails (parsing, size limits, names and types, then the rest of the model, then the request), so `diagnostics` lists the errors of that stage.",
     "The version of a model check report, its `schema` field.",
 );
 const RUN_1_0: Descriptions = (

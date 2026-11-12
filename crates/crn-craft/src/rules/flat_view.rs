@@ -106,7 +106,8 @@ fn halt(error: Halt) -> Diagnostic {
 /// Parses a rules model strictly, as `prepare` does: a pattern `count`
 /// before `crn-craft.model/1.0` gets the 0.6.0 unknown-field error.
 pub(crate) fn parse(model_bytes: &[u8]) -> Result<Model, Diagnostic> {
-    let model: Model = crate::strict_json::parse(model_bytes)?;
+    let model: Model = crate::strict_json::parse(model_bytes)
+        .map_err(|error| super::network_model_error(error, model_bytes))?;
     match model::legacy_count(&model) {
         Some(diagnostic) => Err(diagnostic),
         None => Ok(model),
@@ -489,10 +490,9 @@ impl FlatView {
 
     /// The compiled rate or propensity expression of a rule. Its parameter
     /// slots follow [`Self::parameter_names`] and its observable slots
-    /// [`Self::observable_names`]. For dual-number evaluation (ODE
-    /// Jacobians), which is not written yet.
+    /// [`Self::observable_names`]. The kinetics evaluate it with dual
+    /// numbers for their Jacobians.
     #[must_use]
-    #[allow(dead_code)]
     pub(crate) fn rate_expression(&self, rule: usize) -> &Expr {
         &self.compiled.rules[rule].rate
     }

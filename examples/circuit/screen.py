@@ -21,7 +21,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import numpy as np
-import crn_craft as crn
+import crn_craft._legacy as crn
 from crn_craft.observables import oscillation
 
 ALLOCATION = 8

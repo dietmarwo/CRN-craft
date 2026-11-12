@@ -31,7 +31,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 
-import crn_craft as crn  # noqa: E402
+import crn_craft._legacy as crn  # noqa: E402
 from crn_craft.observables import oscillation, sampled_first_passage  # noqa: E402
 from workdir import prepare_workdir  # noqa: E402
 

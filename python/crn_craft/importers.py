@@ -71,7 +71,8 @@ def _model(name):
 
 def _report(raw, source, model, **extra):
     # Reuse the native strict domain validator; import is not biological validation.
-    from . import CrnError, check, convert
+    from ._common import CrnError, convert
+    from ._legacy import check
 
     validation = check(model)
     if not validation["valid"]:

@@ -1,5 +1,5 @@
 use crn_craft::{
-    check_bytes, contracts::*, describe, parse_model, parse_run, schema, sha256, validate,
+    check_bytes, contracts::*, describe_network, parse_model, parse_run, schema, sha256, validate,
 };
 use serde_json::{Value, json};
 use std::path::PathBuf;
@@ -612,7 +612,7 @@ fn fsp_options_initial_state_and_method_incompatibility() {
 
 #[test]
 fn description_distinguishes_exact_implemented_and_experimental_methods() {
-    let value = describe();
+    let value = describe_network();
     assert_eq!(value["simulation_available"], true);
     assert_eq!(
         value["commands"],

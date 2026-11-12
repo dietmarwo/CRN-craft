@@ -84,12 +84,13 @@
 //! | Analyze structure and conservation | [`analyze_bytes`], [`analyze_files`], [`rules::FlatView`] | `model/0.1`, rules models, `model/1.0`, `state/0.1` → `analysis/1.0` |
 //! | Direct SSA with sealed archives | [`archive::simulate_files`], [`archive::verify_archive`], [`simulation::simulate_bytes`] | `run/0.1` → `result/0.2`, `archive/0.1`, `archive-check/0.1` |
 //! | Alternative exact SSA | [`ssa::prepare`], [`ssa::execute`], [`ssa::solve`], [`ssa::solve_files`] | `ssa-run/0.1`–`0.4` → `ssa-result/0.1`–`0.4` |
+//! | Sealed archives of rules runs | [`archive::v1::run_files`], [`archive::v1::write`], [`archive::v1::verify`], [`archive::verify_any`] | rules requests, `run/1.0` → `archive/1.0`, `archive-check/1.0` |
 //! | Finite state projection | [`fsp::solve`] | `run/0.1` with `fsp` → `fsp-result/0.1` |
 //! | Finite state projection of a closed rules model | [`fsp::v1::solve`], [`fsp::v1::solve_files`], [`rules::FlatView`] | `run/1.0` with `fsp` → `fsp-result/1.0` |
 //! | Approximate tau leaping (experimental) | [`tau::solve`], [`tau::solve_files`] | `tau-request/0.1` → `tau-result/0.1` |
 //! | Parameter sweeps and optimization | [`parameters::ParameterTemplate`], [`codegen::mass_action_source`], [`ssa::execute_with_kernel`] | `ssa-run` |
 //! | Reference export | [`export::export_gillespy2`], [`export_gillespy2_file`] | `model/0.1`, rules models, `model/1.0` → `export/0.1` |
-//! | Deterministic kinetics and Jacobians | [`kinetics::Kinetics`] | — |
+//! | Deterministic kinetics and Jacobians | [`kinetics::Kinetics`], [`rules::FlatView`] | `model/0.1`, rules models, `model/1.0` |
 //! | Discovery | [`describe`], [`schema`] | `describe/0.11` |
 //!
 //! Lower-level building blocks are [`strict_json`], [`validate`],
@@ -161,10 +162,12 @@ pub mod simulation;
 pub mod ssa;
 pub mod strict_json;
 pub mod tau;
+pub mod unified;
 pub mod validate;
 
 pub use analysis::{AnalysisReport, analyze_bytes};
 pub use network::CompiledNetwork;
+pub use unified::{AnyCheck, check_any, check_any_files, describe};
 
 use contracts::{Model, Run, RunResult};
 use diagnostic::{Diagnostic, Severity};
@@ -466,7 +469,7 @@ pub fn check_files(model_path: &Path, run_path: Option<&Path>) -> CheckReport {
 /// prints it, or `None` for an unknown kind.
 ///
 /// Kinds: `model`, `run`, `result`, `result-v1`, `archive`, `archive-check`,
-/// `check`, `state`, `analysis-1.0`, `export`, `tau-request`, `tau-result`,
+/// `archive-1.0`, `archive-check-1.0`, `check`, `state`, `analysis-1.0`, `export`, `tau-request`, `tau-result`,
 /// `fsp-result`, `fsp-result-1.0`, `ssa-run` and `ssa-result`. The `rules-*` kinds and the other 1.0 contracts
 /// (`model-1.0`, `run-1.0`, ...) come from [`rules::schema`].
 ///
@@ -484,6 +487,8 @@ pub fn schema(kind: &str) -> Option<Value> {
         "result-v1" => serde_json::to_value(schema_for!(RunResult)).ok(),
         "archive" => serde_json::to_value(schema_for!(archive::Manifest)).ok(),
         "archive-check" => serde_json::to_value(schema_for!(archive::ArchiveReport)).ok(),
+        "archive-1.0" => serde_json::to_value(schema_for!(archive::v1::Manifest)).ok(),
+        "archive-check-1.0" => serde_json::to_value(schema_for!(archive::v1::ArchiveReport)).ok(),
         "check" => serde_json::to_value(schema_for!(CheckReport)).ok(),
         "state" => serde_json::to_value(schema_for!(analysis::NamedState)).ok(),
         "analysis-1.0" => serde_json::to_value(schema_for!(AnalysisReport)).ok(),
@@ -498,23 +503,26 @@ pub fn schema(kind: &str) -> Option<Value> {
     }
 }
 
-/// The `crn-craft.describe/0.11` discovery document.
+/// The network engine's discovery document, `crn-craft.describe/0.11`
+/// (legacy; deleted with the network engine in M8b).
 ///
-/// It lists the version, commands, methods with their status, sampler
-/// identities, the accepted `ssa-run` versions and their `fast` defaults,
-/// rate laws, exporters, optional integrations, input and execution limits,
-/// and the schemas of the original contracts and of the analysis report;
-/// [`schema`] returns the others. The native CLI reports
-/// `crn-craft.describe/0.15`, which adds the rules engine.
+/// [`describe`] is the discovery document of the unified engine. This one
+/// lists the network engine's version, commands (among them the hidden
+/// `simulate`, `simulate-cached`, `fsp`, `tau` and `ssa`), methods with
+/// their status, sampler identities, the accepted `ssa-run` versions and
+/// their `fast` defaults, rate laws, exporters, optional integrations,
+/// input and execution limits, and the schemas of the original contracts
+/// and of the analysis report. The private Python module
+/// `crn_craft._legacy` returns it from `describe()`.
 ///
 /// ```
-/// let description = crn_craft::describe();
+/// let description = crn_craft::describe_network();
 /// assert_eq!(description["schema"], "crn-craft.describe/0.11");
 /// assert_eq!(description["version"], env!("CARGO_PKG_VERSION"));
 /// assert!(description["commands"].as_array().unwrap().iter().any(|c| c == "ssa"));
 /// assert_eq!(description["limits"]["species"], 4096);
 /// ```
-pub fn describe() -> Value {
+pub fn describe_network() -> Value {
     json!({
         "schema": "crn-craft.describe/0.11", "version": env!("CARGO_PKG_VERSION"), "milestone": "SSA-acceleration",
         "commands": ["describe", "check", "analyze", "export", "simulate", "verify", "simulate-cached", "fsp", "tau", "ssa"], "simulation_available": true,

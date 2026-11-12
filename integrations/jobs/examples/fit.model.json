@@ -1,0 +1,46 @@
+{
+  "schema": "crn-craft.model/1.0",
+  "name": "ImmigrationDeathFit",
+  "description": "Converted from a crn-craft.model/0.1 document.",
+  "parameters": {
+    "birth": 3.0,
+    "death": 0.8
+  },
+  "types": [
+    {
+      "name": "X",
+      "attributes": []
+    }
+  ],
+  "initial": [],
+  "observables": {
+    "X": {
+      "type": "X",
+      "reduce": "sum"
+    }
+  },
+  "rules": [
+    {
+      "name": "birth",
+      "reactants": [],
+      "rate": "birth",
+      "products": [
+        {
+          "type": "X",
+          "attributes": {}
+        }
+      ]
+    },
+    {
+      "name": "death",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "X"
+        }
+      ],
+      "rate": "death",
+      "products": []
+    }
+  ]
+}

@@ -4,7 +4,7 @@ import argparse
 import json
 import time
 from pathlib import Path
-import crn_craft as crn
+import crn_craft._legacy as crn
 from benchmark_campaign import models
 
 

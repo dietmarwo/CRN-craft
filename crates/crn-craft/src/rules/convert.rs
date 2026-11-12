@@ -63,6 +63,9 @@ use std::collections::{BTreeMap, BTreeSet};
 /// The contract version of a converted model.
 pub const CONVERTED_VERSION: ModelVersion = ModelVersion::V10;
 
+/// The `schema` string of the network models the converter reads.
+pub(crate) const NETWORK_SCHEMA: &str = "crn-craft.model/0.1";
+
 /// The `schema` string of a converted model.
 pub(crate) fn converted_schema() -> serde_json::Value {
     serde_json::to_value(CONVERTED_VERSION).expect("a version serializes")

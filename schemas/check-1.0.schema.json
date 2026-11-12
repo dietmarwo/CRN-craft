@@ -51,10 +51,10 @@
       "type": "string"
     }
   },
-  "description": "The report of a model check of a `crn-craft.model/1.0` document: `crn-craft.check/1.0`, with the fields of `crn-craft.rules-check/0.1`.\n\nThe check stops at the first stage that fails (parsing, size limits, names and types, then the rest of the model), so `diagnostics` lists the errors of that stage.",
+  "description": "The report of `crn-craft check MODEL [REQUEST]`: `crn-craft.check/1.0`, with the fields of `crn-craft.rules-check/0.1` and `run_sha256`. It is reported for a `crn-craft.model/1.0` document, for a network `crn-craft.model/0.1` (checked by converting it) and for any model with a request (whether `crn-craft run` would accept the two documents).\n\nThe check stops at the first stage that fails (parsing, size limits, names and types, then the rest of the model, then the request), so `diagnostics` lists the errors of that stage.",
   "properties": {
     "diagnostics": {
-      "description": "Errors with stable codes and JSON Pointer paths into the model: `CRN-E001` to `CRN-E004` from parsing, `CRN-R010` to `CRN-R015` from validation, `CRN-E030` for an unreadable file.",
+      "description": "Errors with stable codes and JSON Pointer paths: `CRN-E001` to `CRN-E004` from parsing, `CRN-R010` to `CRN-R016` and `CRN-E033` from the model, `CRN-E030` for an unreadable file, and with a request the errors `crn-craft run` would report before running (`CRN-R020`, `CRN-R017`, ...), with paths into the request or the model.",
       "items": {
         "$ref": "#/definitions/Diagnostic"
       },
@@ -62,6 +62,13 @@
     },
     "model_sha256": {
       "description": "SHA-256 of the model bytes, when they could be read.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "run_sha256": {
+      "description": "SHA-256 of the request bytes, when a request was checked (`crn-craft.check/1.0` only; absent otherwise).",
       "type": [
         "string",
         "null"

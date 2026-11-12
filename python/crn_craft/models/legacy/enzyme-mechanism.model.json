@@ -1,0 +1,73 @@
+{
+  "schema": "crn-craft.model/0.1",
+  "name": "enzyme_mechanism",
+  "convention": "stochastic_counts",
+  "omega": 1.0,
+  "parameters": {
+    "kon": 0.01,
+    "koff": 0.1,
+    "kcat": 0.5
+  },
+  "species": [
+    {
+      "name": "S",
+      "initial_count": 50
+    },
+    {
+      "name": "E",
+      "initial_count": 10
+    },
+    {
+      "name": "ES",
+      "initial_count": 0
+    },
+    {
+      "name": "P",
+      "initial_count": 0
+    }
+  ],
+  "reactions": [
+    {
+      "name": "bind",
+      "reactants": {
+        "S": 1,
+        "E": 1
+      },
+      "products": {
+        "ES": 1
+      },
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "kon"
+      }
+    },
+    {
+      "name": "unbind",
+      "reactants": {
+        "ES": 1
+      },
+      "products": {
+        "S": 1,
+        "E": 1
+      },
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "koff"
+      }
+    },
+    {
+      "name": "catalysis",
+      "reactants": {
+        "ES": 1
+      },
+      "products": {
+        "E": 1,
+        "P": 1
+      },
+      "rate": {
+        "kind": "mass_action",
+        "coefficient": "kcat"
+      }
+    }
+  ]
+}

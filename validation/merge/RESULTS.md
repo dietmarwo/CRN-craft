@@ -704,3 +704,44 @@ propensity that overflows f64 fails with `CRN-R030` (0.6.0: `CRN-E042`); a
 positive propensity that underflows to 0 is reported as 0 (0.6.0: refused
 with `CRN-E042`); its tolerance check against the exact value applies as
 before. Both reports must be identical normally and under `python -O`.
+
+### M5f (GillesPy2 export on the flat view): declaration
+
+Written and committed before the first run of the checks below. The engine
+under test exports with `crn-craft export MODEL gillespy2`, which reads a
+network `crn-craft.model/0.1` through the converter and a rules model or
+`crn-craft.model/1.0` directly. A rule whose rate is a constant and whose
+channel takes at most two molecules exports as GillesPy2 mass action, as in
+0.6.0; any other channel exports as a custom propensity string.
+
+**Export equivalence** (`validation/merge/check_export_references.py
+--binary target/release/crn-craft --reference-binary BINARY_0_6_0`,
+standard library only), over the twelve models of `models.json`, the five
+examples and the fixture of `validation/check_export.py`:
+
+1. every model the 0.6.0 binary exports successfully exports again, and its
+   `artifact` (source, aliases, notes) is byte-identical to the 0.6.0
+   artifact;
+2. every model the 0.6.0 binary refused with `CRN-E050` (Hill and
+   Michaelis–Menten laws, reactant order above two) now exports; each
+   custom propensity string, evaluated with Python floats (the operators
+   GillesPy2 1.8.3 keeps: `+ - * /` and `pow`), equals the engine's
+   propensity (`crn-craft analyze MODEL STATE`) within the tolerance of
+   `check_export.py` (relative 2e-12 plus absolute 8 × 2^-1074) at four
+   states per model: the initial counts, all counts 0, all counts 7, and
+   count i = initial count + i + 1 of species i;
+3. no other export outcome changes (refusals keep their code).
+
+N is the number of artifacts and propensities compared, counted by the
+script. **0 failures are expected.** The report,
+`validation/merge/export/references.json`, holds no timings and must be
+identical normally and under `python -O`.
+
+**Migrated `check_export.py` and `check_importers.py`**: every case and
+tolerance of the 0.6.0 scripts. `check_export.py` keeps its fixture, its
+GillesPy2 1.8.3 run and its rate comparisons; the two models it expected to
+be refused (Michaelis–Menten, repressilator) now export custom propensities
+and are compared like the others. The importers return the converted
+`crn-craft.model/1.0` document; `check_importers.py` reads its rate
+constants from the converted rules. Both reports must be identical
+normally and under `python -O`.

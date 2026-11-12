@@ -87,7 +87,8 @@ are possible explanations, not measured causes. Without a profiler, the
 persistent Python-boundary regression remains unattributed. The patch retains
 it explicitly; the original complete CSV includes every slower row.
 
-[Diagnostic code](../validation/diagnose_gap10_regressions.py) and
+Diagnostic code (`validation/diagnose_gap10_regressions.py`, deleted in 0.7.0 with the
+other gap-10 drivers; see release 0.6.0) and
 [all diagnostic observations](../validation/julia-gap10/regression-diagnostics.json)
 are included. They are follow-up evidence, not extra attempts to satisfy the
 fixed candidate acceptance rule.

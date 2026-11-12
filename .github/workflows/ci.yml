@@ -136,6 +136,12 @@ jobs:
       - run: python validation/check_manual.py --manual validation/compat/manual-0.6.0.md --binary target/release/crn-craft --require-cargo --output manual-0-6-0.json
       - run: python -O validation/check_manual.py --manual validation/compat/manual-0.6.0.md --binary target/release/crn-craft --require-cargo --output manual-0-6-0-optimized.json
       - run: diff manual-0-6-0.json manual-0-6-0-optimized.json
+      # The README of the Python package runs as printed.
+      - run: python validation/check_manual.py --manual python/README.md --require-cargo --output readme.json
+      - run: python -O validation/check_manual.py --manual python/README.md --require-cargo --output readme-optimized.json
+      - run: diff readme.json readme-optimized.json
+      # Every relative link of docs/ and the READMEs resolves.
+      - run: python validation/check_links.py
       # The rules.Model builder against exact means and rebop 0.10.0
       # (validation/builder/RESULTS.md).
       - run: python validation/check_builder.py --output builder.json

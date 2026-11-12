@@ -1781,3 +1781,42 @@ Median seconds (five runs; NumPy solver three):
 `auto` picked the linear scan on W1 and W3 and RSSA-CR on W2 and W4 (equal
 event counts with those rows). GillesPy2's C++ solver with the redundant
 reactant gates on W4: 9.32 s.
+
+### Review (speed ratios quoted in the mtDNA user manual): declaration
+
+Committed before the first timing, during the final review of the merge.
+Sections 3 and 8 of `docs/mtdna-user-manual.md` say that `mtdna_direct`
+takes about 3.3 times less time than Static Direct (section 8: per event,
+and 3.9 times against Static Direct with inverse waits), and section 16
+says that the generated event loop is about 2.4 times faster than
+interpreted Static Direct. These figures were measured before 0.7.0 made
+Static Direct's linear scan faster (M4f). This measurement replaces them.
+
+- **Workload:** the manual's section 3 example:
+  `models/rules/mtdna-three-class.rules.json` with the stop
+  `N > 0 && mutants >= 0.9 * N`, end 25,920 h, report times every 90 days
+  from day 0 to day 1080, 200 cells, seed 1, two threads, through
+  `crn.ensemble` (`crn-craft.run/1.0`).
+- **Arms:** A `mtdna_direct`; B `static_direct` with its defaults (Ziggurat
+  waits, sparse trackers, selector `auto`, which picks the linear scan on
+  this model); C as B with the loop of `crn.compile_loop(model)` passed as
+  `simulate(compiled=loop)` (the Python route of section 8, the subprocess
+  included); D `{"kind": "static_direct", "waiting_time": "inverse",
+  "sparse_trackers": False}`.
+- **Runs:** `validation/merge/manual-ratios/bench.py` in one Python
+  process, with the wheel and release CLI built from the review commit and
+  `CRN_CRAFT_SOURCE` set to the checkout, the whole run under the CPU lock.
+  One untimed warm-up run per arm (it also builds the loop), then three
+  rounds in the arm orders A B C D, D C B A, A B C D. A time is the wall
+  time of `simulate()`; the table holds the median of three per arm.
+- **Ratios:** B/A and D/A, by wall time and by time per event (A and B use
+  the stream differently, so their event counts differ slightly), and B/C
+  by wall time.
+- **Checks** (a failed check voids the run, which is kept and not
+  repeated with other settings): every run of A reports the sampler
+  `chacha8-u53-ziggurat/rules-mtdna-direct/1`; B and C have equal event
+  counts and equal means in every run, and `loop.verify` passes; every run
+  completes.
+- **Target:** none; the ratios are descriptive. The manual's prose takes
+  the measured ratios, rounded to one decimal place, with the date of the
+  measurement, whatever they are.

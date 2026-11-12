@@ -366,12 +366,19 @@ impl Path<'_> {
         let params = &self.model.params;
         let mut live = out.peak_instances;
         let mut cache = net.rate_cache();
-        let mut tree = RateTree::default();
+        // The selector tables of the previous replicate on this thread, reset
+        // below: only their allocations are reused.
+        let mut lease = Lease::take();
+        let Workspace {
+            tree,
+            composition,
+            rates,
+            order,
+            bounds,
+        } = &mut *lease.0;
         tree.reset(n);
-        let mut composition = Composition::default();
-        let mut rates = Vec::new();
-        let mut order = Vec::new();
-        let mut bounds = Bounds::default();
+        rates.clear();
+        order.clear();
         match kind {
             Kind::Sorting => {
                 rates.resize(n, 0.0);
@@ -413,8 +420,8 @@ impl Path<'_> {
                         values,
                         params,
                         &mut cache,
-                        &mut tree,
-                        &mut composition,
+                        tree,
+                        composition,
                     )?;
                     // Every upper bound may be positive while every
                     // propensity is zero.
@@ -485,9 +492,9 @@ impl Path<'_> {
             // RSSA-CR reuses the composition's accepting threshold, uniform
             // below the candidate's upper bound, for its own test.
             let (channel, accepted) = match kind {
-                Kind::Sorting => (sorting_sample(&mut order, &rates, total, words)?, 0.0),
-                Kind::RssaCr => composition.sample_with_threshold(&tree, words)?,
-                _ => (composition.sample(&tree, words)?, 0.0),
+                Kind::Sorting => (sorting_sample(order, rates, total, words)?, 0.0),
+                Kind::RssaCr => composition.sample_with_threshold(tree, words)?,
+                _ => (composition.sample(tree, words)?, 0.0),
             };
             if out.saved_points < self.report_times.len()
                 && self.report_times[out.saved_points] < next
@@ -640,6 +647,41 @@ impl Path<'_> {
             m.observe(&event, &self.model.params);
         }
         O::ENABLED && observer.on_event(&event) == ObserverAction::Stop
+    }
+}
+
+/// The selector tables of [`Path::simulate_selected`]. Each replicate resets
+/// them; a worker thread keeps one set between replicates so their
+/// allocations (a composition table of 2,098 groups among them) are reused.
+#[derive(Default)]
+struct Workspace {
+    tree: RateTree,
+    composition: Composition,
+    rates: Vec<f64>,
+    order: Vec<usize>,
+    bounds: Bounds,
+}
+
+std::thread_local! {
+    static WORKSPACE: std::cell::Cell<Option<Box<Workspace>>> =
+        const { std::cell::Cell::new(None) };
+}
+
+/// The thread's [`Workspace`], taken for one replicate and returned when
+/// dropped; a nested run on the same thread (from an observer) gets a new
+/// one.
+struct Lease(Box<Workspace>);
+
+impl Lease {
+    fn take() -> Self {
+        Self(WORKSPACE.with(std::cell::Cell::take).unwrap_or_default())
+    }
+}
+
+impl Drop for Lease {
+    fn drop(&mut self) {
+        let workspace = std::mem::take(&mut self.0);
+        WORKSPACE.with(|cell| cell.set(Some(workspace)));
     }
 }
 

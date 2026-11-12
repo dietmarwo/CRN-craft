@@ -924,3 +924,64 @@ horizon) differ in the trailing digits of their errors (largest: the
 repressilator DOP853 error 7.72221e-10 against 7.72216e-10); every
 threshold holds with the same margin. CI runs neither `check_ode.py` nor the
 diffsol build or tests.
+
+### M5g (parameter binding and workers): declaration
+
+Written and committed before the first run of the measurement below. The
+checks of `validation/check_jobs.py` (objectives equal an independent
+recomputation within relative 1e-12, and its other rows) and of the new
+`validation/check_parameter_binding.py` (exact equalities) keep their own
+rules; they are not statistical gates.
+
+**Worker speed comparison** (`validation/merge/compare_parameter_workers.py`;
+no target, recorded). Workers: the 0.6.0-engine benchmark worker built from
+this tree before the M5g change (the `dynamic` binary for the routes `fresh`
+and `reuse`, the `generated` binary for `generated`; network model, cached
+Direct, Ziggurat waits, `fast: true`, the worker defaults) and the migrated
+worker (routes `fresh` and `reuse` on the rules engine: Static Direct,
+Ziggurat waits, the model converted to `crn-craft.model/1.0`). For each of
+the three frozen cases of `validation/parameter-optimization/fixtures.json`
+(`birth_death`, `sparse33`, `binding12`; 32 training paths with seed 77201,
+4,096 held-out paths with seed 880431, the frozen report times): one worker
+process per route and repetition, `init`, then 128 training evaluations at
+points drawn log-uniformly in [lower, upper] from
+`numpy.random.default_rng(20261112 + case index)` (the same points for
+every route), then one held-out evaluation at the true values. Recorded per
+route: the sums of the replies' `bind_seconds` and `simulation_seconds` and
+the wall time of the 129 calls seen from Python; 3 repetitions, route order
+rotated per repetition, medians reported. 1 worker thread, under the CPU
+lock, this host. Checked as part of the run (not timing): within each
+engine the routes return identical moments at every point (new `fresh` =
+new `reuse`; old `fresh` = old `reuse` = old `generated`).
+
+### M5c (tau leaping on converted models): declaration
+
+Written and committed before the first run. Engine under test: the rules
+method `tau` of `crn-craft.run/1.0` (`{"kind": "tau", "epsilon": ε}`), run
+by `crn-craft rules` on the network model of `validation/check_tau.py`
+converted with `crn-craft convert`.
+
+**Gate** (`validation/check_tau_rules.py`; the gates of `check_tau.py` with
+the same tolerances): the model `TauControl` (X starts at 30, birth 20,
+death 0.5 per molecule), end 2, report times 0 and 2, for ε = 0.1, 0.05 and
+0.025 with root seeds 9101, 9102 and 9103, n = 10,000 replicates, every
+path kept, 1 thread. Exact law at t = 2: Binomial(30, e⁻¹) convolved with
+Poisson(40 (1 − e⁻¹)). For each ε: the Kolmogorov distance between the
+empirical CDF of the final X and the exact CDF is at most
+ε / 2 + sqrt(ln(6 / 0.001) / (2n)); the absolute difference between the
+sample mean and the exact mean is at most ε · mean + 4.5 · sqrt(variance / n);
+the result's termination is `completed`; its sampler is the approximate
+`chacha8-u53/rules-approximate-cgp-poisson/2` and its `method` echoes the
+request (the rules analog of 0.6.0's `approximate_ensemble` assessment).
+**0 failures expected (3 rows).** The report is identical normally and under
+`python -O`. Budgets (not gates): 10,000 events and 10⁸ sampling steps per
+replicate. `check_tau.py` has no binomial variant, so `binomial` gets no
+gate here. A failing row is investigated once; if it persists, the task
+stops and reports.
+
+**Leap-condition cost** (recorded, no target; `tau`'s propensity condition
+evaluates every channel after one firing of every enabled channel,
+O(channels²) per attempted leap): W5 and W6, converted, end 20, report times
+0 and 20, 16 replicates, root seed 4242, 1 thread; `tau` with ε = 0.05
+against `static_direct` (Ziggurat waits); wall time of `crn-craft rules`
+(process), medians of 3, under the CPU lock; events per replicate recorded.

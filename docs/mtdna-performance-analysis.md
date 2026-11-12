@@ -1,26 +1,38 @@
 # mtDNA simulations: performance analysis
 
 This analysis answers four questions for studies of mtDNA mutant
-accumulation with the CRN-craft rules engine:
+accumulation with CRN-craft:
 
 1. How long does a study take?
 2. Which method should it use?
 3. What do observation and the interfaces cost?
 4. How does the engine compare with other implementations?
 
-It combines new measurements on a two-CPU host with the earlier recorded
+It combines measurements on a two-CPU host with the earlier recorded
 measurements in `validation/mtdna/`. Read the
 [user manual](mtdna-user-manual.md) for the models and methods.
+
+Sections 1 to 8 were measured on release 0.2.0 and later releases up to
+0.6.0, as each section says. Release 0.7.0 merged the network engine into
+the engine these sections measure; the methods for mtDNA models are the
+same, and [release 0.7.0](#release-070) compares their speed with 0.6.0 on
+one workload. There `mtdna_direct` and `tree` run as fast as before and
+Static Direct is faster, so the Static Direct rows of the older sections
+overstate its cost on 0.7.0.
 
 ## Summary
 
 - **Cost model.** A three-year cell at K = 1000 has about 150,000 events
   (2 · δ · K · T). Run time is close to cells × events per cell × cost per
   event ÷ cores.
-- **The generic methods.** Static Direct, the generic exact method for
-  closed models, took about 134 ns of CPU time per event on the two-CPU
-  host with its default since rules-run/0.6, Ziggurat waits and sparse
-  trackers, and 156 ns with inverse waits and per-event trackers, its
+- **Release 0.7.0.** On the three-class workload, one thread, 0.7.0's
+  Static Direct takes 0.72 times the time of 0.6.0's, with identical
+  results; `mtdna_direct` (0.96) and `tree` (0.99) are unchanged
+  ([release 0.7.0](#release-070)).
+- **The generic methods** (release 0.2.0). Static Direct, the generic exact
+  method for closed models, took about 134 ns of CPU time per event on the
+  two-CPU host with its default since rules-run/0.6, Ziggurat waits and
+  sparse trackers, and 156 ns with inverse waits and per-event trackers, its
   default up to release 0.3.0. Next reaction took 214 ns and the tree
   method, which also runs models whose instances change identity, 561 ns.
 - **The opt-in fast path.** `mtdna_direct`, certified at preparation for
@@ -50,9 +62,41 @@ measurements in `validation/mtdna/`. Read the
   time, binding new parameters costs 0.3 ms per candidate, and the pandas
   and xarray results add at most 3% to a simulation.
 
+## Release 0.7.0
+
+Measured on 12 November 2026 on the two-CPU host, with no declared target
+(`validation/merge/mtdna-workload/`, described in
+`validation/merge/RESULTS.md`). The workload is
+`models/rules/mtdna-three-class-cme.rules.json` with a 37-point report grid
+from 0 to 25,920 h, seed 1, run through `crn_craft.rules.ensemble(...)`;
+the times are the wall time of `simulate()`, medians of five runs that
+alternate 0.6.0 and 0.7.0 under a CPU lock. The statistics and records of
+both versions hash identically for every row.
+
+| Method | Cells | Threads | 0.6.0 s | 0.7.0 s | Ratio |
+|---|---:|---:|---:|---:|---:|
+| `mtdna_direct` | 1000 | 1 | 10.67 | 10.27 | 0.96 |
+| `mtdna_direct` | 1000 | 2 | 5.42 | 5.26 | 0.97 |
+| `static_direct` | 400 | 1 | 13.20 | 9.49 | 0.72 |
+| `static_direct` | 400 | 2 | 6.70 | 5.63 | 0.84 |
+| `tree` | 100 | 1 | 10.04 | 9.94 | 0.99 |
+| `tree` | 100 | 2 | 5.46 | 5.45 | 1.00 |
+
+0.7.0 runs Static Direct's linear scan in a tuned loop: compiled rate
+programs, running totals resumed at the first changed channel and
+precomputed count factors, with byte-identical results. `mtdna_direct` and
+`tree` are essentially unchanged. Per cell, one thread, Static Direct took
+23.7 ms and `mtdna_direct` 10.3 ms on 0.7.0 (9.49 s for 400 cells against
+10.27 s for 1000), about 2.3 times as long; the 0.2.0 measurements below,
+on another workload, give 3.3. For the three-class model `crn.ensemble`'s default
+selector `auto` picks the linear scan, because its replication rates read
+several species; the other selectors are for large networks
+([exact methods](direct-ssa.md#selectors)).
+
 ## Measurement setup
 
-New measurements:
+Measurements of sections 1 to 8 (release 0.2.0 unless a section says
+otherwise):
 
 - **Host.** Linux, two CPUs, Python 3.13, `crn-craft` built from `main` at
   `ac91628`; its Python API and engine are those of release 0.2.0.
@@ -246,7 +290,7 @@ For whole ensembles, use trackers, event logs or a Rust observer.
 
 | Operation | Time |
 | --- | ---: |
-| CLI `crn-craft rules`, 1000 cells, `mtdna_direct` | 2.90 s |
+| CLI `crn-craft rules` (in 0.7.0 `crn-craft run`; `rules` is an alias), 1000 cells, `mtdna_direct` | 2.90 s |
 | Python `rules.prepare(...).simulate()`, the same request | 2.81 s |
 | `template.bind_parameters({...})` per candidate | 0.28 ms |
 | a fresh `rules.ensemble(...)` per candidate | 0.29 ms |
@@ -340,9 +384,10 @@ peak traced allocation was 5.2 MB and 32 MB for `event_columns()`, against
 
   It brings Static Direct's identity close to the specialized sampler's
   speed. It also works for models `mtdna_direct` does not certify, such
-  as other stop conditions. From Python, `rules.compile_loop` builds the
+  as other stop conditions. From Python, `crn.compile_loop` builds the
   same loop with a local Rust toolchain (new in 0.4.0; user manual,
-  section 8). On the 1000-cell workload of section 2, end to end from
+  section 8). The loop runs the linear scan, the selector `auto` picks for
+  this model. On the 1000-cell workload of section 2, end to end from
   Python, it took 18.1 against 40.1 ns per event under the Static Direct
   default (Ziggurat waits, sparse trackers; 2.21×) and 26.4 against
   49.1 ns with inverse waits and per-event trackers (1.86×), on the
@@ -444,9 +489,10 @@ Output and memory grow with what is kept, not with the events:
 4. **Choose observation by cost.** Count trackers are free; a first-passage
    tracker or an event log doubles the cost; a Python callback is for a few
    cells.
-5. **Optimize with prepared templates.** Use evaluations of a few hundred
-   to a few thousand cells, with `mtdna_direct` where the model has its
-   structure ([optimization tutorial](mtdna-optimization-tutorial.md)).
+5. **Optimize with `bind_parameters` on a prepared run.** Use evaluations
+   of a few hundred to a few thousand cells, with `mtdna_direct` where the
+   model has its structure
+   ([optimization tutorial](mtdna-optimization-tutorial.md)).
 6. **For the largest studies, use Rust.** Call the engine directly, or use
    the opt-in generated loop for closed models that `mtdna_direct` does
    not certify.

@@ -956,8 +956,7 @@ def check_archives():
             handle.write(b" ")
         tampered = rules.verify_archive(folder / "run")
         require(
-            not tampered["valid"]
-            and tampered["diagnostics"][0]["code"] == "CRN-E065",
+            not tampered["valid"] and tampered["diagnostics"][0]["code"] == "CRN-E065",
             "tampered archive accepted",
         )
         # A finite state projection request.

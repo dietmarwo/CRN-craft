@@ -88,7 +88,7 @@
 //! | Approximate tau leaping (experimental) | [`tau::solve`], [`tau::solve_files`] | `tau-request/0.1` → `tau-result/0.1` |
 //! | Parameter sweeps and optimization | [`parameters::ParameterTemplate`], [`codegen::mass_action_source`], [`ssa::execute_with_kernel`] | `ssa-run` |
 //! | Reference export | [`export::export_gillespy2`], [`export_gillespy2_file`] | `model/0.1`, rules models, `model/1.0` → `export/0.1` |
-//! | Deterministic kinetics and Jacobians | [`kinetics::Kinetics`] | — |
+//! | Deterministic kinetics and Jacobians | [`kinetics::Kinetics`], [`rules::FlatView`] | `model/0.1`, rules models, `model/1.0` |
 //! | Discovery | [`describe`], [`schema`] | `describe/0.11` |
 //!
 //! Lower-level building blocks are [`strict_json`], [`validate`],

@@ -5,7 +5,9 @@ check_parameter_binding.py, which needs the worker built here, while
 check_parameter_interface.py keeps testing the network engine's
 ParameterTemplate until M8. `--evidence` selects where logs and reports go
 (default: the committed evidence directory); `--resume` skips the checks that
-already passed in that directory's summary.
+already passed in that directory's summary; `--skip NAME` leaves a check out
+(for example `msrv-tests` on a host without the 1.85.0 toolchain), which the
+summary records, and then it is not `complete`.
 """
 
 import argparse
@@ -22,6 +24,7 @@ def main():
     parser.add_argument("--target", type=Path, required=True)
     parser.add_argument("--evidence", type=Path, default=FOLDER / "evidence")
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--skip", action="append", default=[])
     args = parser.parse_args()
     target = args.target.resolve()
     evidence = args.evidence.resolve()
@@ -35,12 +38,16 @@ def main():
     passed = set()
     if args.resume and (out / "summary.json").exists():
         previous = json.loads((out / "summary.json").read_text())["checks"]
-        rows = [r for r in previous if r["passed"]]
+        rows = [r for r in previous if r["passed"] and not r.get("skipped")]
         passed = {r["check"] for r in rows}
 
     def run(name, command, *, cwd=ROOT, environment=env):
         if name in passed:
             print(name, "passed before", flush=True)
+            return
+        if name in args.skip:
+            rows.append(dict(check=name, passed=True, skipped=True))
+            print(name, "skipped", flush=True)
             return
         with (out / f"{name}.log").open("w") as log:
             result = subprocess.run(
@@ -311,7 +318,11 @@ def main():
     )
     (out / "summary.json").write_text(
         json.dumps(
-            dict(complete=True, passed=all(r["passed"] for r in rows), checks=rows),
+            dict(
+                complete=not any(r.get("skipped") for r in rows),
+                passed=all(r["passed"] for r in rows),
+                checks=rows,
+            ),
             indent=2,
         )
         + "\n"

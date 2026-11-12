@@ -513,6 +513,32 @@ fn initial_orthant_rays_respect_a_lower_ray_cap() {
     let below = analyze_cone_with_limits(&network, limits(2));
     assert_eq!(below.status, ConeStatus::RayLimit);
     assert!(below.extreme_rays.is_empty());
+    // A view without channels (0.6.0: a network without reactions): the
+    // only rule matches no tuple, so the enumeration loop never runs and
+    // the unit rays alone must respect the cap.
+    let model: Model = serde_json::from_value(json!({
+        "schema": "crn-craft.model/1.0", "name": "idle",
+        "types": [{"name": "M", "attributes": ["wt"]}],
+        "initial": [
+            {"type": "M", "attributes": {"wt": 0}, "count": 1},
+            {"type": "M", "attributes": {"wt": 1}, "count": 2},
+            {"type": "M", "attributes": {"wt": 2}, "count": 3}
+        ],
+        "rules": [{"name": "never", "reactants": [{"label": "x", "type": "M", "where": "x.wt == 5"}],
+                   "rate": "1", "products": []}]
+    }))
+    .unwrap();
+    let network = FlatView::with_every_type(&model).unwrap();
+    assert_eq!((network.species().len(), network.channels()), (3, 0));
+    let at = analyze_cone_with_limits(&network, limits(3));
+    assert_eq!(at.status, ConeStatus::Exact);
+    assert_eq!(
+        at.initial_class_upper_bounds,
+        [Some("1".into()), Some("2".into()), Some("3".into())]
+    );
+    let below = analyze_cone_with_limits(&network, limits(2));
+    assert_eq!(below.status, ConeStatus::RayLimit);
+    assert!(below.extreme_rays.is_empty());
 }
 #[test]
 fn linkage_classes_join_converging_reactions() {

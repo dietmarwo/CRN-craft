@@ -151,7 +151,7 @@ manifest's hash.
 
 ```bash
 mkdir -p runs
-crn-craft simulate immigration-death.model.json immigration-death.run.json runs/first
+crn-craft run immigration-death.model.json immigration-death.run.json --archive runs/first
 crn-craft verify runs/first
 ```
 
@@ -177,9 +177,9 @@ choices, so its result is byte-identical to `simulate`, only faster on larger
 networks:
 
 ```bash
-crn-craft simulate-cached repressilator.model.json repressilator.run.json runs/cached > /dev/null
-crn-craft simulate repressilator.model.json repressilator.run.json runs/plain > /dev/null
-cmp runs/plain/result.json runs/cached/result.json && echo identical
+crn-craft run repressilator.model.json repressilator.run.json --archive runs/replay-a > /dev/null
+crn-craft run repressilator.model.json repressilator.run.json --archive runs/replay-b > /dev/null
+cmp runs/replay-a/result.json runs/replay-b/result.json && echo identical
 ```
 
 ![simulate-cached gives the same bytes](images/tutorial/06-cached.png)
@@ -193,19 +193,19 @@ bytes:
 ```python
 import json
 import numpy as np
-import crn_craft._legacy as crn
+import crn_craft as crn
 
-model = crn.load_example("immigration-death")  # bytes of the packaged model
-run = crn.run_spec(model, end=30.0, save_times=list(np.linspace(0, 30, 31)),
-                   replicates=400, seed=42, keep=8)
-result = crn.simulate(model, run)
-assert result["termination"] == "completed"
+model = crn.load_example("immigration-death")  # a crn.Model of the packaged model
+run = crn.ensemble(model, end=30.0, report_times=list(np.linspace(0, 30, 31)),
+                   replicates=400, seed=42, keep_paths=8, method="static_direct")
+result = run.simulate()
+assert result.metadata["termination"] == "completed"
 
-t = np.array(result["save_times"])
-mean = np.array(result["statistics"]["mean"])[:, 0]
-variance = np.array(result["statistics"]["sample_variance"])[:, 0]
+t = np.array(result.metadata["report_times"])
+mean = result.statistics["mean"]["A"].to_numpy()
+variance = result.statistics["sample_variance"]["A"].to_numpy()
 exact = 20 * (1 - np.exp(-0.2 * t))
-print(f"{result['events']} events; mean at t=30: {mean[-1]:.2f} (exact {exact[-1]:.2f})")
+print(f"{result.metadata['events']} events; mean at t=30: {mean[-1]:.2f} (exact {exact[-1]:.2f})")
 assert abs(mean[-1] - exact[-1]) < 4 * np.sqrt(exact[-1] / 400)
 ```
 
@@ -220,7 +220,7 @@ parsed diagnostics:
 
 ```python
 try:
-    crn.simulate(model, dict(run, time={"end": 1.0, "save_times": [0.0, 2.0]}))
+    crn.ensemble(model, end=1.0, report_times=[0.0, 2.0], method="static_direct")
 except crn.CrnError as error:
     print(error)
     print(error.diagnostics[0]["path"])
@@ -241,11 +241,10 @@ from crn_craft.observables import oscillation
 
 circuit = crn.load_example("repressilator")
 grid = list(np.linspace(0, 200, 1001))
-path = crn.simulate(circuit, crn.run_spec(circuit, end=200.0, save_times=grid,
-                                          replicates=1, keep=1))
-names = [s["name"] for s in json.loads(circuit)["species"]]
-p1 = np.array(path["trajectories"][0]["counts"])[:, names.index("p1")]
-verdict = oscillation(path["save_times"], p1)
+path = crn.ensemble(circuit, end=200.0, report_times=grid, replicates=1,
+                    keep_paths=1, method="static_direct").simulate()
+p1 = path.paths.isel(replicate=0).sel(variable="p1").to_numpy()
+verdict = oscillation(grid, p1)
 print(verdict["classification"], round(verdict["period"], 1))
 ```
 
@@ -266,7 +265,7 @@ probability vector by uniformization. Nothing is renormalized: the lost mass
 is reported, not hidden.
 
 ```bash
-crn-craft fsp immigration-death.model.json immigration-death.fsp.run.json > fsp.json
+crn-craft run immigration-death.model.json immigration-death.fsp.run.json > fsp.json
 python3 -c "import json; print(json.load(open('fsp.json'))['snapshots'][-1]['mass_defect'])"
 ```
 
@@ -290,16 +289,11 @@ The projection matches the exact Poisson law to about 1e-12 and agrees with a
 From Python:
 
 ```python
-fsp_run = {k: v for k, v in crn.run_spec(model, end=20.0,
-           save_times=[0.0, 2.0, 5.0, 20.0]).items() if k != "ensemble"}
-fsp_run["method"] = {"kind": "fsp", "bounds": {"A": 80}, "max_states": 81,
-                     "tolerance": 1e-10}
-fsp_run["outputs"] = {"statistics": ["mean"], "keep_trajectories": 0}
-fsp_run["budget"] = {"threads": 1, "max_output_bytes": 10_000_000}
-projection = crn.fsp(model, fsp_run)
-last = projection["snapshots"][-1]
-print(last["projected_first_moment"], last["mass_defect"])
-assert abs(last["projected_first_moment"][0] - 20 * (1 - np.exp(-4))) < 1e-8
+projection = model.fsp(end=20.0, report_times=[0.0, 2.0, 5.0, 20.0],
+                       bounds={"A": 80}, max_states=81, tolerance=1e-10)
+last_mean = projection.mean["A"].iloc[-1]
+print(float(last_mean), float(projection.truncation["mass_defect"].iloc[-1]))
+assert abs(last_mean - 20 * (1 - np.exp(-4))) < 1e-8
 ```
 
 ## 8. Approximate tau leaping, and when to trust it
@@ -313,7 +307,7 @@ to exhausting a reactant are simulated exactly. Results are labelled
 for exact ones:
 
 ```bash
-crn-craft tau immigration-death.model.json tau.json > tau-result.json
+crn-craft run immigration-death.model.json tau.run.json > tau-result.json
 ```
 
 ![Approximate tau leaping is labelled as such](images/tutorial/08-tau.png)
@@ -321,11 +315,9 @@ crn-craft tau immigration-death.model.json tau.json > tau-result.json
 The request wraps an ordinary run:
 
 ```python
-request = {"schema": "crn-craft.tau-request/0.1", "epsilon": 0.01,
-           "max_leaps_per_replicate": 1_000_000,
-           "reference_run": crn.run_spec(model, end=10.0, replicates=200, keep=200)}
-approx = crn.tau(model, request)
-print(approx["assessment"], approx["leaps"], "leaps for", approx["events"], "firings")
+approx = crn.ensemble(model, end=10.0, report_times=[0.0, 10.0], replicates=200,
+                      keep_paths=200, method={"kind": "tau", "epsilon": 0.01}).simulate()
+print(approx.metadata["sampler"], approx.metadata["events"], "firings")
 ```
 
 For this small system the output is about 12,600 leaps for 12,500 firings:
@@ -358,7 +350,7 @@ Long runs can be stopped cooperatively by creating a file:
 
 ```bash
 touch stop
-crn-craft simulate immigration-death.model.json long.run.json runs/stopped --cancel-file stop || echo "exit status $?"
+crn-craft run immigration-death.model.json long.run.json --archive runs/stopped --cancel-file stop || echo "exit status $?"
 crn-craft verify runs/stopped > /dev/null && echo "partial archive verifies"
 ```
 
@@ -372,9 +364,10 @@ raises `KeyboardInterrupt` within about 50 ms:
 ```python
 import pathlib
 pathlib.Path("stop").touch()
-long_run = crn.run_spec(model, end=1e6, replicates=8, max_events=10**9)
-stopped = crn.simulate(model, long_run, cancel_file="stop")
-print(stopped["termination"], stopped["statistics"])
+long_run = crn.ensemble(model, end=1e6, report_times=[0.0, 1e6], replicates=8,
+                        max_events=10**9, method="static_direct")
+stopped = long_run.simulate(cancel_file="stop")
+print(stopped.metadata["termination"], stopped.metadata["statistics"])
 ```
 
 ## 10. Reproducibility: seeds, streams and threads
@@ -388,10 +381,11 @@ threads:
 ```python
 digests = set()
 for threads in [1, 2, 8]:
-    result = crn.simulate(circuit, crn.run_spec(circuit, end=50.0, replicates=64,
-                                                threads=threads, keep=4))
-    result.pop("run_sha256")  # the run's own hash covers `threads`
-    digests.add(json.dumps(result, sort_keys=True))
+    result = crn.ensemble(circuit, end=50.0, report_times=[0.0, 50.0], replicates=64,
+                          threads=threads, keep_paths=4, method="static_direct").simulate()
+    numbers = dict(result.metadata)
+    numbers.pop("run_sha256")  # the run's own hash covers `threads`
+    digests.add(json.dumps(numbers, sort_keys=True))
 assert len(digests) == 1
 print("identical across 1, 2 and 8 threads")
 ```
@@ -410,7 +404,7 @@ with exact integer arithmetic, the bounds they imply for the initial
 conservation class, and complexes, linkage classes and deficiency.
 
 ```python
-report = crn.analyze(crn.load_example("enzyme-mechanism"))["analysis"]
+report = crn.load_example("enzyme-mechanism").analyze()["analysis"]
 print(report["conservation"]["basis"])           # E + ES and S + ES + P
 print(report["initial_class_upper_bounds"])      # S, E, ES, P cannot exceed these
 print("deficiency", report["linkage"]["deficiency"])
@@ -434,9 +428,9 @@ probability of a passage before the horizon.
 from crn_craft.observables import sampled_first_passage
 
 fine = list(np.linspace(0, 10, 201))
-paths = crn.simulate(model, crn.run_spec(model, end=10.0, save_times=fine,
-                                         replicates=500, keep=500))
-counts = [np.array(p["counts"])[:, 0] for p in paths["trajectories"]]
+paths = crn.ensemble(model, end=10.0, report_times=fine, replicates=500,
+                     keep_paths=500, method="static_direct").simulate()
+counts = list(paths.paths.sel(variable="A").to_numpy())
 for step in [1, 20]:
     bound = sampled_first_passage(fine[::step], [c[::step] for c in counts], 15)
     print(step * 0.05, bound["detected_fraction"], bound["restricted_mean_upper"])

@@ -1930,3 +1930,20 @@ is seen.
   each rerun whole if interrupted, merged by workload into
   `validation/merge/rebop-comparison-0.7.json`. A failed or interrupted
   attempt is listed in the results section.
+- **Amendment, before the run that counts (same day).** The first W1 run
+  (kept at `validation/merge/rebop-comparison-0.7-attempt1-w1.json`; it
+  used the script before this amendment, whose only difference was a
+  lint fix) timed the declared rows: rebop over `crn_default` 1.14 and
+  over `crn_compiled` 1.63 on the repeat shown there. The W2 attempt then
+  failed at the compiled row: a generated loop runs the linear selector,
+  and the default request selects `rssa_cr` on W2, so `compile_loop`
+  output is refused for it (CRN-R020 at `/method/selector`). No threshold,
+  repeat count or rule changes. The script now (a) records a refusal of the
+  compiled loop as a result (`compiled_refusals`), and (b) also times the
+  request with `selector="linear"`, interpreted (`crn_linear`) and
+  compiled (`crn_compiled_linear`) with threads 1 and 2, because that is
+  the like-for-like pair for a loop where the default selector is refused.
+  Ratios over rebop are formed for `crn_default`, `crn_compiled` (where
+  accepted), `crn_linear` and `crn_compiled_linear`. Both workloads are run
+  again from scratch with the amended script, and the first W1 run is kept
+  as a separate file, not merged.

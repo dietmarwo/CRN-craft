@@ -60,7 +60,7 @@ TESTS = 8  # 4 Kolmogorov-Smirnov and 4 chi-square tests in all
 THRESHOLD = 0.01 / TESTS
 
 
-def ensemble(model_bytes, paths, seed, keep, threads=1, compiled=None):
+def ensemble(model_bytes, paths, seed, keep, threads=1, compiled=None, selector=None):
     return crn.ensemble(
         model_bytes,
         end=HORIZON,
@@ -75,6 +75,7 @@ def ensemble(model_bytes, paths, seed, keep, threads=1, compiled=None):
         method={"kind": "static_direct"},
         quantiles=(),
         compiled=compiled,
+        selector=selector,
     )
 
 
@@ -192,18 +193,34 @@ def measure(name, model, build_dir):
     except Exception as error:  # a refusal is a result
         compile_info = {"accepted": False, "error": f"{type(error).__name__}: {error}"}
 
-    # Warm-ups, and the identity of the compiled and interpreted results.
-    interpreted = ensemble(mb, PATHS, SEED, PATHS).simulate()
-    identity = None
-    if compiled:
-        loop = ensemble(mb, PATHS, SEED, PATHS, compiled=compiled).simulate()
-        identity = bool(
-            np.array_equal(interpreted.paths.to_numpy(), loop.paths.to_numpy())
-            and interpreted.metadata["events"] == loop.metadata["events"]
+    # The default request (selector auto) and the linear selector, which is
+    # what a generated loop runs. A refusal of the loop is a result.
+    configs = {"": None, "_linear": "linear"}
+    accepted, identity, refusals = {}, {}, {}
+    interpreted = {}
+    for suffix, selector in configs.items():
+        interpreted[suffix] = ensemble(
+            mb, PATHS, SEED, PATHS, selector=selector
+        ).simulate()
+        if not compiled:
+            continue
+        try:
+            loop = ensemble(
+                mb, PATHS, SEED, PATHS, compiled=compiled, selector=selector
+            ).simulate()
+        except Exception as error:
+            refusals[suffix or "_default"] = f"{type(error).__name__}: {error}"
+            continue
+        accepted[suffix] = True
+        identity[suffix or "_default"] = bool(
+            np.array_equal(interpreted[suffix].paths.to_numpy(), loop.paths.to_numpy())
+            and interpreted[suffix].metadata["events"] == loop.metadata["events"]
         )
     for i in range(PATHS):
         rebop_run(reb, initial, SEED + i)
-    crn_events = int(interpreted.metadata["events"])
+    crn_events = {
+        (k or "_default"): int(v.metadata["events"]) for k, v in interpreted.items()
+    }
     rebop_events = sum(
         len(reb.run(initial, HORIZON, 0, rng=SEED + i)["time"]) - 1
         for i in range(PATHS)
@@ -215,17 +232,21 @@ def measure(name, model, build_dir):
         for i in range(PATHS):
             rebop_run(reb, initial, SEED + i)
 
-    rows = {
-        "crn_default": lambda: ensemble(mb, PATHS, SEED, 0).simulate(),
-        "crn_default_threads2": lambda: ensemble(mb, PATHS, SEED, 0, 2).simulate(),
-    }
-    if compiled:
-        rows["crn_compiled"] = lambda: ensemble(
-            mb, PATHS, SEED, 0, compiled=compiled
+    rows = {}
+    for suffix, selector in configs.items():
+        rows[f"crn{suffix or '_default'}"] = lambda sel=selector: ensemble(
+            mb, PATHS, SEED, 0, selector=sel
         ).simulate()
-        rows["crn_compiled_threads2"] = lambda: ensemble(
-            mb, PATHS, SEED, 0, 2, compiled=compiled
+        rows[f"crn{suffix or '_default'}_threads2"] = lambda sel=selector: ensemble(
+            mb, PATHS, SEED, 0, 2, selector=sel
         ).simulate()
+        if suffix in accepted:
+            rows[f"crn_compiled{suffix}"] = lambda sel=selector: ensemble(
+                mb, PATHS, SEED, 0, compiled=compiled, selector=sel
+            ).simulate()
+            rows[f"crn_compiled{suffix}_threads2"] = lambda sel=selector: ensemble(
+                mb, PATHS, SEED, 0, 2, compiled=compiled, selector=sel
+            ).simulate()
     seconds = {k: [] for k in [*rows, "rebop_dynamic"]}
     for repeat in range(REPEATS):
         order = [*rows, "rebop_dynamic"]
@@ -238,7 +259,7 @@ def measure(name, model, build_dir):
     median = {k: statistics.median(v) for k, v in seconds.items()}
     ratios = {
         f"rebop_over_{k}": median["rebop_dynamic"] / median[k]
-        for k in ("crn_default", "crn_compiled")
+        for k in ("crn_default", "crn_compiled", "crn_linear", "crn_compiled_linear")
         if k in median
     }
     return label, {
@@ -251,11 +272,18 @@ def measure(name, model, build_dir):
         "crn_events": crn_events,
         "rebop_events": rebop_events,
         "ns_per_event": {
-            **{k: 1e9 * median[k] / crn_events for k in median if k != "rebop_dynamic"},
+            **{
+                k: 1e9
+                * median[k]
+                / crn_events["_linear" if "linear" in k else "_default"]
+                for k in median
+                if k != "rebop_dynamic"
+            },
             "rebop_dynamic": 1e9 * median["rebop_dynamic"] / rebop_events,
         },
         "compile_loop": compile_info,
         "compiled_identical_to_interpreter": identity,
+        "compiled_refusals": refusals,
         "agreement": check,
     }
 

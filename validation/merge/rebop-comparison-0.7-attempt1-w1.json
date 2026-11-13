@@ -1,0 +1,128 @@
+{
+  "agreement_threshold": 0.00125,
+  "host": {
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cpu_count": 2,
+    "kernel": "6.18.44-fc-v445",
+    "python": "3.12.3"
+  },
+  "no_speed_target": true,
+  "part": "W1",
+  "repeats": 3,
+  "route": "rebop Python/dynamic API (rebop.Gillespie); not the Rust macro",
+  "schema": "crn-craft.rebop-comparison/0.1",
+  "versions": {
+    "crn_craft_python": "0.7.0",
+    "numpy": "2.3.5",
+    "python": "3.12.3",
+    "rebop": "0.10.0",
+    "rustc": "rustc 1.97.0 (2d8144b78 2026-07-07)"
+  },
+  "work": "64 paths, t in [0, 100.0], output at 0 and 100.0",
+  "workloads": {
+    "W1": {
+      "agreement": {
+        "exact_poisson": {
+          "crn_craft": {
+            "mean": 100.0,
+            "pooled_chi2_pvalue": 0.4218724477305135,
+            "rms_mean_z_over_species": 0.6894291116568838,
+            "variance_over_mean": 0.9771128913894325
+          },
+          "rebop": {
+            "mean": 100.0,
+            "pooled_chi2_pvalue": 0.5542401820838623,
+            "rms_mean_z_over_species": 0.848528137423857,
+            "variance_over_mean": 1.0385909980430528
+          }
+        },
+        "passed": true,
+        "paths_each": 512,
+        "tests": [
+          {
+            "failed": false,
+            "pvalue": 0.5753897140513412,
+            "test": "ks X"
+          },
+          {
+            "failed": false,
+            "pvalue": 0.4218724477305135,
+            "test": "chi2 crn_craft"
+          },
+          {
+            "failed": false,
+            "pvalue": 0.5542401820838623,
+            "test": "chi2 rebop"
+          }
+        ],
+        "threshold": 0.00125,
+        "two_sample": [
+          {
+            "crn_mean": 100.3046875,
+            "ks_pvalue": 0.5753897140513412,
+            "mean_z": 1.0832554845445144,
+            "rebop_mean": 99.625,
+            "species": "X"
+          }
+        ]
+      },
+      "compile_loop": {
+        "accepted": true,
+        "cached": false,
+        "cargo_build_seconds": 54.523649274000036,
+        "compile_seconds": 54.60592846600002
+      },
+      "compiled_identical_to_interpreter": true,
+      "crn_events": 1273863,
+      "median_seconds": {
+        "crn_compiled": 0.05151698400004534,
+        "crn_compiled_threads2": 0.027094089000001986,
+        "crn_default": 0.06948420200001237,
+        "crn_default_threads2": 0.03377483799999936,
+        "rebop_dynamic": 0.063540679000198
+      },
+      "model": "two_channel",
+      "ns_per_event": {
+        "crn_compiled": 40.44154198688975,
+        "crn_compiled_threads2": 21.269233033695134,
+        "crn_default": 54.54605558055487,
+        "crn_default_threads2": 26.513713013094318,
+        "rebop_dynamic": 49.77297608525548
+      },
+      "ratios_one_thread": {
+        "rebop_over_crn_compiled": 1.2333928360430042,
+        "rebop_over_crn_default": 0.9144622399230645
+      },
+      "reactions": 2,
+      "rebop_events": 1276610,
+      "seconds": {
+        "crn_compiled": [
+          0.03751033899993672,
+          0.05184810599985212,
+          0.05151698400004534
+        ],
+        "crn_compiled_threads2": [
+          0.021718848000091384,
+          0.027094089000001986,
+          0.029455365000103484
+        ],
+        "crn_default": [
+          0.05507059499996103,
+          0.0700967860000219,
+          0.06948420200001237
+        ],
+        "crn_default_threads2": [
+          0.02766804900011266,
+          0.03377483799999936,
+          0.036796516000094925
+        ],
+        "rebop_dynamic": [
+          0.06158227600008104,
+          0.063540679000198,
+          0.0871428630000537
+        ]
+      },
+      "species": 1
+    }
+  }
+}

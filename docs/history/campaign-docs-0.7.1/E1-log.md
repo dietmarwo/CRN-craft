@@ -205,3 +205,45 @@ met; 0.7.0: 186.7 and 3.60). E/A 3.6, E/F 2.6, F/A 1.4, G/A 0.97. A, B and E
 reproduce the 13 November event counts and mean digests; the CLI result
 documents of B and E, also with 200 kept paths, equal those of `3d80c6d`
 byte for byte.
+
+## 5. Gates
+
+Each under the CPU lock; outputs in `/home/claude/docs071/E1-work/gates/`
+(not committed). Engine of `cbfc861` (later commits change only documents,
+scripts and results).
+
+| Gate | Result |
+| --- | --- |
+| I1: stored requests (`stored_requests.rs`, `static_direct_defaults.rs`) | 9 + 2 pass, byte for byte |
+| `cargo test --release --workspace --locked` | 406 passed, 0 failed |
+| `cargo clippy --workspace --all-targets --locked -- -D warnings` | clean |
+| rustdoc `-D warnings` (`cargo doc --workspace --no-deps`; also `-p crn-craft --document-private-items`) | clean (the known lib/bin output-name collision note of cargo only) |
+| `cargo fmt --all -- --check`, `ruff check validation`, `ruff format --check validation` | clean (90 files) |
+| Full law gate (`check_laws.py`, release CLI, every model, `static_direct`) | every model entry equal to `laws/m8b-cli.json`; 4,814 comparisons, 0 failures |
+| I2b: `check_manual.py --manual validation/compat/manual-0.6.0.md --require-cargo`, normal and `-O` | 22 of 22 blocks; reports identical |
+| `check_rules_python.py`, normal and `-O` | 27 checks pass; reports identical |
+| `check_compiled_loop.py --require-cargo`, normal and `-O` | 59 rows pass; reports identical |
+| `check_rules.py`, normal and `-O` (CI) | 47 of 47; reports identical |
+| `check_mtdna.py`, normal and `-O` (CI) | 151 checks pass; reports identical |
+| E1 law check (builder form under `mtdna_direct`) | 120 comparisons, 0 failures |
+| `mutation_check.py --lock` (47 earlier mutants and 11 new ones for E1; run on the tree of `cbfc861`, resumed once after a server restart at 30 of 58) | **58 of 58 caught**, complete |
+| T2b: CLI result documents of the arm-B and arm-E requests, also with 200 kept paths, against `3d80c6d` | byte-identical |
+
+## 6. For the owner
+
+- The guide pages quote the 0.7.0 numbers; the coordinator updates them
+  (list in the report of E1). New numbers, 13 November 2026, two-CPU host:
+  builder under Static Direct 3.6 times as long as the model file under the
+  fast path (was 9.9), 1.4 times as long as the model file under Static
+  Direct (was 3.6); the compiled builder model 2.6 times as fast as the
+  interpreted one (was 7.1) and 1.4 times as long as the fast path
+  (unchanged); the builder model under `mtdna_direct` now runs the fast path
+  (0.97 times the file form's time, the same draws).
+- The sampler identity of the fast path is shared by both forms, because the
+  draws are equal. If the owner prefers a separate identity for the builder
+  form anyway, that is a one-line change, but it would give identical
+  numbers two names.
+- Limits: the exact-law check covers capacity 20; the guide's capacity of
+  1,000 rests on the bit-equal kernel and the cell-by-cell equality with
+  the file form. Candidates of `bind_parameters` were not timed, but the
+  shared subexpressions are built per prepared model, so sweeps gain too.

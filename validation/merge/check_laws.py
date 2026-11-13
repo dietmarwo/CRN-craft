@@ -336,7 +336,9 @@ def cli_model(binary, job, scratch):
         result = json.loads(done.stdout)
         if "termination" not in result:
             raise RuntimeError(f"{job['name']}: {result}")
-        values = checked_paths(result, job["chunk"], times, job["name"], job.get("stop"))
+        values = checked_paths(
+            result, job["chunk"], times, job["name"], job.get("stop")
+        )
         if k == 0:
             sampler = result["sampler"]
             observables = result["observables"]

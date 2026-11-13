@@ -96,7 +96,11 @@ def main():
                 dump(
                     {
                         "schema": "crn-craft.merge-fsp-moments/0.1",
-                        "model": {"name": name, "path": row["path"], "sha256": row["sha256"]},
+                        "model": {
+                            "name": name,
+                            "path": row["path"],
+                            "sha256": row["sha256"],
+                        },
                         "engine": identity,
                         "run": request,
                         "report_times": row["report_times"],
@@ -125,7 +129,11 @@ def main():
             dump(
                 {
                     "schema": "crn-craft.merge-reference-moments/0.1",
-                    "model": {"name": name, "path": row["path"], "sha256": row["sha256"]},
+                    "model": {
+                        "name": name,
+                        "path": row["path"],
+                        "sha256": row["sha256"],
+                    },
                     "engine": identity,
                     "method": METHOD,
                     "request_schema": answer["request_schema"],
@@ -137,7 +145,16 @@ def main():
                     "chunk": chunk,
                     "chunks": answer["chunks"],
                     "events": sum(c["events"] for c in answer["chunks"]),
-                    **{k: stats[k] for k in ["mean", "variance", "mean_se", "variance_se", "fourth_central_moment"]},
+                    **{
+                        k: stats[k]
+                        for k in [
+                            "mean",
+                            "variance",
+                            "mean_se",
+                            "variance_se",
+                            "fourth_central_moment",
+                        ]
+                    },
                     "power_sums": answer["power_sums"],
                 }
             )

@@ -1,7 +1,7 @@
 # M6b manual draft: "Saving a report"
 
 User-facing text for the user manual (`docs/mtdna-user-manual.md`), written
-in task M6b of [the plan](../../plan-0.7.0-engine-merge.md) for task M10b to
+in task M6b of [the plan](../../history/plan-0.7.0-engine-merge.md) for task M10b to
 merge. Invariant I2 freezes the manual until M10, so the text is kept here.
 Both blocks and their outputs were produced with the M6b implementation on
 the 0.6.0 wheel through `crn_craft.rules`; the first output equals

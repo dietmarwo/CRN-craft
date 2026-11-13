@@ -38,7 +38,7 @@ species. The template and earlier candidates stay intact.
 The [user manual](mtdna-user-manual.md#11-parameter-sweeps) runs a sweep over
 two parameters. The [optimization tutorials](../tutorials/optimization/README.md)
 use the call inside fitting loops, with the comparison in
-[the parameter optimization report](comparison-parameter-optimization.md).
+[the parameter optimization report](evidence/comparison-parameter-optimization.md).
 
 ## Limits
 

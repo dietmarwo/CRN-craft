@@ -1,7 +1,7 @@
 # Implementation log: one engine, one API (release 0.7.0)
 
 This log records how the plan in
-[`docs/plan-0.7.0-engine-merge.md`](../../plan-0.7.0-engine-merge.md) was
+[`docs/plan-0.7.0-engine-merge.md`](../../history/plan-0.7.0-engine-merge.md) was
 carried out. Each task has its own log in this directory; this page gives the
 order, the outcome of each task and every deviation from the plan.
 

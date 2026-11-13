@@ -5,7 +5,7 @@
 > releases 0.1.0 to 0.6.0 evaluated them. Since release 0.7.0 such a model is
 > read through the converter: mass action becomes a rule `rate`, and the Hill
 > and Michaelis–Menten laws become whole-rule `propensity` expressions in a
-> stable form ([architecture](../architecture.md#network-models-and-the-converter)).
+> stable form ([architecture](../../developer/architecture.md#network-models-and-the-converter)).
 > A negative or non-finite rate is `CRN-R030`; `CRN-E042` is retired.
 
 **Status:** argument validation and numerical evaluation implemented in M1a (`0.1.0-dev.2`). No stochastic time integration is implemented.

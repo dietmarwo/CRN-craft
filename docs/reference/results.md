@@ -9,7 +9,7 @@ input diagnostic of severity error, and nothing was simulated.
 
 The schemas are `crn-craft describe result-1.0`, `fsp-result-1.0` and
 `check-1.0`. The Python object `Result` (`crn_craft.rules.Result`) wraps the document: see the
-[user manual](mtdna-user-manual.md#18-reference).
+[user manual](../mtdna-user-manual.md#18-reference).
 
 ## What a result holds
 
@@ -69,11 +69,11 @@ labels), `states`, the `snapshots` per report time, the work and sparse edge
 counts, the uniformization rate and `numerical_error_certified`, which is
 `false`: the tolerance bounds the Poisson-series truncation, not
 floating-point error. See `Model.fsp` in the
-[user manual](mtdna-user-manual.md#18-reference).
+[user manual](../mtdna-user-manual.md#18-reference).
 
 ## Saved reports
 
 `Result.save("name.md")` writes a markdown report and `Result.save("name.json")`
 writes `crn-craft.report/1.0`, a JSON document with the model, the request and
 the results. `crn_craft.load_report(path)` reads the JSON form back. The
-user manual describes both ([saving results](mtdna-user-manual.md#saving-results)).
+user manual describes both ([saving results](../mtdna-user-manual.md#saving-results)).

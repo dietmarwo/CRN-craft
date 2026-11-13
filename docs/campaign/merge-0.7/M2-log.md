@@ -1,6 +1,6 @@
 # M2 log: converter from network models to rules models
 
-Task M2 of [the plan](../../plan-0.7.0-engine-merge.md): convert a
+Task M2 of [the plan](../../history/plan-0.7.0-engine-merge.md): convert a
 `crn-craft.model/0.1` network model into a rules model, expose the
 conversion, and pass the law gate of M0c on every convertible model.
 

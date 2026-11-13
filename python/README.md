@@ -137,11 +137,11 @@ the repository and are not part of the wheel.
 
 - [Repository and README](https://github.com/dietmarwo/CRN-craft)
 - [Tutorial](https://github.com/dietmarwo/CRN-craft/blob/main/docs/tutorial.md)
-- [Exact methods and selectors](https://github.com/dietmarwo/CRN-craft/blob/main/docs/direct-ssa.md)
-- [Model reference](https://github.com/dietmarwo/CRN-craft/blob/main/docs/rules-language.md) and [mtDNA user manual](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-user-manual.md)
+- [Exact methods and selectors](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/methods.md)
+- [Model reference](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/model-language.md) and [mtDNA user manual](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-user-manual.md)
 - [Using CRN-craft from R](https://github.com/dietmarwo/CRN-craft/blob/main/docs/using-from-r.md) through reticulate
 - [Optimization tutorials C1–C4](https://github.com/dietmarwo/CRN-craft/blob/main/tutorials/optimization/README.md)
-- [Agent context](https://github.com/dietmarwo/CRN-craft/blob/main/docs/ai-context.md)
+- [Agent context](https://github.com/dietmarwo/CRN-craft/blob/main/docs/developer/ai-context.md)
 - [Changelog](https://github.com/dietmarwo/CRN-craft/blob/main/CHANGELOG.md)
 
 A successful numerical run is not biological validation. MIT licensed; see

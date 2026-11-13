@@ -45,14 +45,14 @@ CRN/fastest-Julia gap is **1.441×**, versus
 | W6 | RSSACR/inverse | 0.06830 | RSSACR/inverse | 0.06263 | 1.091× | RSSACR | 0.03883 | 1.613× |
 | W7 | RSSACR/inverse | 0.02083 | RSSACR/inverse | 0.02112 | 0.986× | RSSACR | 0.01380 | 1.531× |
 
-![Same-host prepared comparison](images/julia-gap10.png)
+![Same-host prepared comparison](../images/julia-gap10.png)
 
 Ratios use unrounded medians. Final / Julia >1 means Julia was faster.
 Best methods are selected from twelve prepared CRN options and five Julia
 algorithms. These are five observations on one shared host; small differences
 are not a precise ranking. All methods, including slower variants, are retained
-in [the complete timing CSV](../validation/julia-gap10/all-method-timings.csv)
-and [raw report](../validation/julia-gap10/comparison.json).
+in [the complete timing CSV](../../validation/julia-gap10/all-method-timings.csv)
+and [raw report](../../validation/julia-gap10/comparison.json).
 The fastest W5 and W7 choices were respectively 1.7% and 1.4% slower than
 baseline in this run. Julia remained faster on every workload.
 
@@ -100,13 +100,13 @@ it explicitly; the original complete CSV includes every slower row.
 
 Diagnostic code (`validation/diagnose_gap10_regressions.py`, deleted in 0.7.0 with the
 other gap-10 drivers; see release 0.6.0) and
-[all diagnostic observations](../validation/julia-gap10/regression-diagnostics.json)
+[all diagnostic observations](../../validation/julia-gap10/regression-diagnostics.json)
 are included. They are follow-up evidence, not extra attempts to satisfy the
 fixed candidate acceptance rule.
 
 ## Ten measured iterations
 
-The [protocol](decisions/julia-gap10-2026-11-02.md) was committed before candidate
+The [protocol](../decisions/julia-gap10-2026-11-02.md) was committed before candidate
 measurements. Each candidate passed the Rust suite and 35 numerical-identity
 checks, then five paired rounds on eleven representative workload/method rows.
 Targets and thresholds were not changed after seeing timings. Rejected changes
@@ -136,7 +136,7 @@ SortingDirect and C10 Thin LTO did not satisfy the fixed rule on this host.
 
 ## Why Julia is faster
 
-[The source investigation](campaign/julia-gap10-source-investigation.md) cites
+[The source investigation](../campaign/julia-gap10-source-investigation.md) cites
 the locally inspected pinned sources and their recorded hashes. Julia uses
 compact mutable group sums, typed inlined mass-action loops, endpoint bounds for
 appropriate laws, Xoshiro/Ziggurat, and learned SortingDirect order retained
@@ -208,8 +208,8 @@ for all seven models/five aggregators, not a per-model charge. Compiler/package
 installation costs are outside warm timing. No multithread, GPU, other-host or
 memory-scaling claim is made.
 
-[Reproduction and raw evidence](../validation/julia-gap10/README.md),
-[implementation log](campaign/julia-gap10-implementation-log-2026-11-02.md), and
-[all final gate outputs](../validation/julia-gap10/final/summary.json) accompany
+[Reproduction and raw evidence](../../validation/julia-gap10/README.md),
+[implementation log](../campaign/julia-gap10-implementation-log-2026-11-02.md), and
+[all final gate outputs](../../validation/julia-gap10/final/summary.json) accompany
 the patch. At import, no remote had been pushed and no package published;
 the kept candidates were released in 0.2.0.

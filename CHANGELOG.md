@@ -529,7 +529,7 @@ with a different use of the random stream (see **Migration**).
 
 The answer to the first user feedback on the 0.2.0 Python interface, from a
 researcher simulating mtDNA mutant models: six findings, fixed in the
-increments I1–I7 of [the plan](docs/plan-0.3.0-feedback.md). Python results
+increments I1–I7 of [the plan](docs/history/plan-0.3.0-feedback.md). Python results
 become pandas DataFrames, which breaks code written for the NumPy results of
 0.2.0; see **Migration** below. Stored rules-model 0.1/0.2 files and
 rules-run 0.1–0.4 requests keep their meaning and replay byte-identically.
@@ -825,7 +825,7 @@ iterations that make up this release follow.
 - Static Direct, next reaction, ATP thinning and the leap methods cache rule rates and shared vacancy bases, recompute only the channels and observables an event affects, defer report-only observables, keep the live-instance count incrementally and evaluate the stop and predicates from compiled bytecode. Existing requests return byte-identical results.
 - `rules-run/0.4` adds two opt-ins on `static_direct`: `waiting_time: "ziggurat"` and `sparse_trackers: true`. Each has its own sampler identity; the result stays `rules-result/0.2`. If no tracker is eligible, `sparse_trackers` reports the default identity and `CRN-R051`.
 - `generate_rules_kernel` emits a Rust kernel for one closed model with constant or vacancy rates. `execute_with_rules_kernel` runs it under the Static Direct scheduler with byte-identical results. It refuses kernels generated for other model bytes or by another generator version, because the fingerprint covers the emitted source. Rust only; it is not available from Python.
-- [docs/specialized-kernels.md](docs/specialized-kernels.md): when a model-specific kernel is worth it, and the review checklist. Review log: [docs/campaign/fast-generic-rules-review-log-2026-11-03.md](docs/campaign/fast-generic-rules-review-log-2026-11-03.md).
+- [docs/developer/specialized-kernels.md](docs/developer/specialized-kernels.md): when a model-specific kernel is worth it, and the review checklist. Review log: [docs/campaign/fast-generic-rules-review-log-2026-11-03.md](docs/campaign/fast-generic-rules-review-log-2026-11-03.md).
 
 #### Added: mtDNA ensembles, event observation and alternative rules methods (A0–A6)
 

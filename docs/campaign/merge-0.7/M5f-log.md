@@ -1,6 +1,6 @@
 # M5f log: import and export
 
-Task M5f of [the plan](../../plan-0.7.0-engine-merge.md): the importers
+Task M5f of [the plan](../../history/plan-0.7.0-engine-merge.md): the importers
 return converted `crn-craft.model/1.0` documents, and the GillesPy2 export
 (`export.rs`) works on the `FlatView`: a constant rate exports as mass
 action, anything else as a custom propensity string.

@@ -1,6 +1,6 @@
 # M5b log: network analysis on the flat view
 
-Task M5b of [the plan](../../plan-0.7.0-engine-merge.md): `analysis.rs`,
+Task M5b of [the plan](../../history/plan-0.7.0-engine-merge.md): `analysis.rs`,
 `conservation.rs`, `cone.rs` and `linkage.rs` take a `FlatView`;
 `crn-craft analyze MODEL` reads `crn-craft.model/1.0`, the rules models and
 (through the converter) `crn-craft.model/0.1`; `analysis_v1.rs` and the

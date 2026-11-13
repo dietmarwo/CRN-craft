@@ -146,6 +146,6 @@ one <- result$event_frame(0L)                # one replicate's log as a data.fra
 The `crn-craft` command-line tool (`cargo install crn-craft-cli`, then
 `crn-craft run MODEL REQUEST`) reads and writes JSON, which R can handle
 with jsonlite. You then write the model in the
-[model language](rules-language.md) and the run request in JSON yourself;
+[model language](reference/model-language.md) and the run request in JSON yourself;
 the request must name the model file and its SHA-256 hash
 ([user manual, section 15](mtdna-user-manual.md#15-the-command-line-and-json-requests)).

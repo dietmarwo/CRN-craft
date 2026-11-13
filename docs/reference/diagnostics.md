@@ -82,7 +82,7 @@ numerical failure `CRN-R030` and `CRN-R031`, a budget stop `CRN-R040` to
 
 ## Models and run requests (`CRN-R…`)
 
-The engine for dynamic, attributed species ([model reference](rules-language.md))
+The engine for dynamic, attributed species ([model reference](model-language.md))
 shares `CRN-E001`–`CRN-E004` for JSON input and the read error `CRN-E030`, and
 has its own codes: `CRN-R010` names,
 `CRN-R011` unknown types, `CRN-R012` expressions and scopes, `CRN-R013` rule

@@ -8,7 +8,7 @@ Native Rust simulation of well-mixed chemical reaction networks, designed for re
 
 **Version 0.7.0.** Install the Python package with `pip install crn-craft` and the command line with `cargo install crn-craft-cli --locked`; the library is the crate `crn-craft` (`crn-craft-rules` remains as a deprecated re-export). One engine runs every model: fixed reaction networks and rule-based models whose species appear and disappear (mtDNA clones, clusters, polymers). Exact methods: Static Direct with four event selectors and `auto`, next reaction, the tree method, thinning for the ATP block and a certified mtDNA fast path. Approximate methods: tau and binomial leaping, and `hybrid` for continuous variables. Also included: finite state projection, conservation and structure analysis, ODE right-hand sides and Jacobians, quantile statistics, sealed result archives and compiled event loops. Optional integrations add Python and R workflows, diffsol BDF sensitivities, fcmaes job applications and SBML/BioNetGen import subsets. The default Rust engine has no Python, Julia or C/C++ dependency. A successful numerical run is not biological validation.
 
-Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/architecture.md) and `crn-craft describe`. Users of the mtDNA models start with the [mtDNA user manual](docs/mtdna-user-manual.md). Release 0.7.0 merged the former network and rules engines; the [changelog](CHANGELOG.md#migration) lists what changed and how to migrate.
+Start with the [tutorial](docs/tutorial.md), the [architecture overview](docs/developer/architecture.md) and `crn-craft describe`. Users of the mtDNA models start with the [mtDNA user manual](docs/mtdna-user-manual.md). Release 0.7.0 merged the former network and rules engines; the [changelog](CHANGELOG.md#migration) lists what changed and how to migrate.
 
 ## One engine
 
@@ -46,39 +46,39 @@ The [four CRN optimization lessons](tutorials/optimization/README.md) cover reus
 **Start here**
 
 - [Tutorial](docs/tutorial.md): from a first model to exact ensembles, FSP, tau leaping and the Python interface, with screenshots and figures
-- [Architecture overview](docs/architecture.md): the crates, the one engine, contracts, parallelism, budgets, archives and generated loops
-- [Technical report](docs/technical-report.md): numerical methods, validation evidence and measured performance
-- [Comparison with GillesPy2](docs/comparison-gillespy2.md): same models, timed against GillesPy2's C++ and NumPy solvers
+- [Architecture overview](docs/developer/architecture.md): the crates, the one engine, contracts, parallelism, budgets, archives and generated loops
+- [Technical report](docs/evidence/technical-report.md): numerical methods, validation evidence and measured performance
+- [Comparison with GillesPy2](docs/evidence/comparison-gillespy2.md): same models, timed against GillesPy2's C++ and NumPy solvers
 - [Event selectors](docs/alternative-ssa.md): the Static Direct selectors (`linear`, composition–rejection, sorting, RSSA-CR, `auto`) and how they were validated
 - [Reusable parameters](docs/reusable-parameters.md): binding new parameter values to a prepared run, for optimization loops
-- [Parameter-optimization comparison](docs/comparison-parameter-optimization.md): measured with 0.6.0 against rebop, with a pointer to the 0.7.0 worker rerun
-- [Comparison with Catalyst and JumpProcesses](docs/comparison-catalyst-jumpprocesses.md) (measured with 0.6.0): seven workloads and five Julia SSA algorithms, with pinned environments and distribution checks; the [earlier comparison](docs/comparison-catalyst-jumpprocesses-before-acceleration.md) is preserved
-- [Ten further Julia-gap iterations](docs/comparison-julia-gap10.md) (measured with 0.6.0): same-host rerun of all methods, exposed regressions and [inspected Julia mechanisms](docs/campaign/julia-gap10-source-investigation.md)
-- [CRN-craft versus Julia at one and eight threads](docs/comparison-julia-8-threads.md) (measured with 0.6.0's `fast` policy): five JumpProcesses methods, 2,240 timed observations, scaling and replay checks
-- [Agent context](docs/ai-context.md): what an AI agent needs to use and extend CRN-craft
-- [Model language](docs/rules-language.md): the `crn-craft.model/1.0` reference: types with attributes, patterns, rates and propensities, observables, continuous variables and higher-order rules, with [K1 law gates](validation/rules/RESULTS.md), [builder checks](validation/builder/RESULTS.md), [hybrid gates](validation/hybrid/RESULTS.md) and the [merge gates](validation/merge/RESULTS.md)
+- [Parameter-optimization comparison](docs/evidence/comparison-parameter-optimization.md): measured with 0.6.0 against rebop, with a pointer to the 0.7.0 worker rerun
+- [Comparison with Catalyst and JumpProcesses](docs/evidence/comparison-catalyst-jumpprocesses.md) (measured with 0.6.0): seven workloads and five Julia SSA algorithms, with pinned environments and distribution checks; the [earlier comparison](docs/evidence/comparison-catalyst-jumpprocesses-before-acceleration.md) is preserved
+- [Ten further Julia-gap iterations](docs/evidence/comparison-julia-gap10.md) (measured with 0.6.0): same-host rerun of all methods, exposed regressions and [inspected Julia mechanisms](docs/campaign/julia-gap10-source-investigation.md)
+- [CRN-craft versus Julia at one and eight threads](docs/evidence/comparison-julia-8-threads.md) (measured with 0.6.0's `fast` policy): five JumpProcesses methods, 2,240 timed observations, scaling and replay checks
+- [Agent context](docs/developer/ai-context.md): what an AI agent needs to use and extend CRN-craft
+- [Model language](docs/reference/model-language.md): the `crn-craft.model/1.0` reference: types with attributes, patterns, rates and propensities, observables, continuous variables and higher-order rules, with [K1 law gates](validation/rules/RESULTS.md), [builder checks](validation/builder/RESULTS.md), [hybrid gates](validation/hybrid/RESULTS.md) and the [merge gates](validation/merge/RESULTS.md)
 - [Using CRN-craft from R](docs/using-from-r.md): the Python package through reticulate, with a tested example in `examples/r/`
-- [mtDNA user manual](docs/mtdna-user-manual.md), [optimization tutorial](docs/mtdna-optimization-tutorial.md) and [performance analysis](docs/mtdna-performance-analysis.md): simulating mtDNA mutant accumulation from Python, the command line and Rust, with runnable examples in `examples/mtdna/`, fitting with fcmaes, and what each method and option costs
+- [mtDNA user manual](docs/mtdna-user-manual.md), [optimization tutorial](docs/mtdna-optimization-tutorial.md) and [performance analysis](docs/evidence/mtdna-performance-analysis.md): simulating mtDNA mutant accumulation from Python, the command line and Rust, with runnable examples in `examples/mtdna/`, fitting with fcmaes, and what each method and option costs
 - [Three-class mtDNA ensembles](docs/mtdna-rules.md): parallel Python ensembles, event trackers and callbacks, Static Direct, a specialized fixed-population sampler, next reaction, approximate tau and binomial steps, ATP-coupled thinning and the `hybrid` method for continuous variables ([review log](docs/campaign/mtdna-a0-a6-review-log-2026-11-03.md))
-- [Specialized kernels and generated loops](docs/specialized-kernels.md): when a model-specific kernel pays off, and compiled event loops
+- [Specialized kernels and generated loops](docs/developer/specialized-kernels.md): when a model-specific kernel pays off, and compiled event loops
 
 **Using CRN-craft**
 
-- [Exact simulation](docs/direct-ssa.md): Static Direct, termination states and budgets
-- [Archives](docs/archive-contract.md): sealed `archive/1.0` result directories and the verifier
-- [Contracts](docs/contracts.md): models, requests, results and analysis reports, with the versions still read
-- [Results and claims](docs/result-contract.md): what a result does and does not establish
-- [Diagnostics](docs/diagnostics.md): every error and warning code
-- [Rust API](docs/network-api.md): using the engine from Rust
-- [Conservation cones and reaction graphs](docs/m1b-analysis.md): exact analysis and its limits
-- [GillesPy2 reference export](docs/reference-export.md): exporting models for cross-checks
-- [Extending the project](docs/extending.md): how to add rate laws, methods and evidence
+- [Exact simulation](docs/reference/methods.md): Static Direct, termination states and budgets
+- [Archives](docs/reference/archives.md): sealed `archive/1.0` result directories and the verifier
+- [Contracts](docs/reference/contracts.md): models, requests, results and analysis reports, with the versions still read
+- [Results and claims](docs/reference/results.md): what a result does and does not establish
+- [Diagnostics](docs/reference/diagnostics.md): every error and warning code
+- [Rust API](docs/reference/analysis.md): using the engine from Rust
+- [Conservation cones and reaction graphs](docs/history/m1b-analysis.md): exact analysis and its limits
+- [GillesPy2 reference export](docs/reference/gillespy2-export.md): exporting models for cross-checks
+- [Extending the project](docs/developer/extending.md): how to add rate laws, methods and evidence
 
 **Model and algorithm cards**
 
-- [Card template](docs/model-cards/README.md)
-- [Direct SSA card](docs/model-cards/direct.md)
-- [Rate-law contracts](docs/model-cards/rate-laws.md)
+- [Card template](docs/evidence/model-cards/README.md)
+- [Direct SSA card](docs/evidence/model-cards/direct.md)
+- [Rate-law contracts](docs/evidence/model-cards/rate-laws.md)
 
 **Campaign M3–M10 and performance iterations**
 
@@ -103,14 +103,14 @@ The [four CRN optimization lessons](tutorials/optimization/README.md) cover reus
 
 **Plans and decisions**
 
-- [Implementation plan, revision 2](docs/implementation-plan-2026-11-01.md)
+- [Implementation plan, revision 2](docs/history/implementation-plan-2026-11-01.md)
 - [M0 design decisions](docs/decisions/plan.md) and [statistical verification policy](docs/decisions/statistics.md)
 - Acceptance declared before implementation: [iteration 2](docs/decisions/iteration-02-validation.md), [iteration 3](docs/decisions/iteration-03-validation.md), [iteration 4](docs/decisions/iteration-04-validation.md), [iteration 4 CME review check](docs/decisions/iteration-04-review-cme.md)
 - Julia comparison and SSA acceleration protocols: [first Julia comparison](docs/decisions/julia-comparison-2026-11-02.md), [exact-SSA acceleration](docs/decisions/ssa-acceleration-2026-11-02.md), [closing the Julia gap](docs/decisions/julia-gap-2026-11-02.md)
 
 **Implementation logs and validation results**
 
-- Implementation logs: [iteration 1](docs/iteration-01-implementation-log.md), [iteration 2](docs/iteration-02-implementation-log.md), [iteration 3](docs/iteration-03-implementation-log.md), [iteration 4](docs/iteration-04-implementation-log.md)
+- Implementation logs: [iteration 1](docs/history/iteration-01-implementation-log.md), [iteration 2](docs/history/iteration-02-implementation-log.md), [iteration 3](docs/history/iteration-03-implementation-log.md), [iteration 4](docs/history/iteration-04-implementation-log.md)
 - Validation results: [summary](validation/RESULTS.md), [iteration 2](validation/iteration-02/RESULTS.md), [iteration 3](validation/iteration-03/RESULTS.md), [iteration 4](validation/iteration-04/RESULTS.md)
 
 **Project**
@@ -199,7 +199,7 @@ Unknown fields and duplicate JSON keys are errors. Names are unique ASCII identi
 ## Release history
 
 Release 0.3.0 answers the first user feedback on the Python interface
-([plan](docs/plan-0.3.0-feedback.md)). rules-model/0.3 lets a rule give its
+([plan](docs/history/plan-0.3.0-feedback.md)). rules-model/0.3 lets a rule give its
 whole `propensity` instead of a per-tuple `rate`, and declares `continuous`
 variables: ODEs between events that rates read, simulated by the
 approximate `hybrid` method at declared tolerances (rules-run/0.5,
@@ -244,7 +244,7 @@ Release 0.6.0 orders kept paths like event logs, replicate first
 [using CRN-craft from R](docs/using-from-r.md) through reticulate.
 
 Release 0.7.0 merges the network engine and the rules engine into one
-engine in the crate `crn-craft` ([plan](docs/plan-0.7.0-engine-merge.md),
+engine in the crate `crn-craft` ([plan](docs/history/plan-0.7.0-engine-merge.md),
 [implementation log](docs/campaign/merge-0.7/README.md)). Every rules
 document of 0.6.0 replays byte for byte; network models convert to
 `crn-craft.model/1.0`; quantiles, `Result.save`, selectors, higher-order
@@ -297,4 +297,4 @@ are labelled synthetic; detector diagnostics do not establish universal sensitiv
 The ecosystem boundary remains: CRN-craft supplies numerical models; fcmaes searches
 parameters; optimization-jobs executes jobs; experiment-craft coordinates campaigns.
 
-Read [the agent context](docs/ai-context.md), [contract details](docs/contracts.md), [diagnostics](docs/diagnostics.md), [archive contract](docs/archive-contract.md) and [release instructions](RELEASING.md) before extending the project. License: MIT; dependencies retain their respective licenses.
+Read [the agent context](docs/developer/ai-context.md), [contract details](docs/reference/contracts.md), [diagnostics](docs/reference/diagnostics.md), [archive contract](docs/reference/archives.md) and [release instructions](RELEASING.md) before extending the project. License: MIT; dependencies retain their respective licenses.

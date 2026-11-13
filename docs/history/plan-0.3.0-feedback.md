@@ -131,7 +131,7 @@ I7 runs on the integration branch after both streams. No increment changes the r
 ## Status (2026-11-06)
 
 All seven increments are done on the branch `release/0.3.0`, each with its
-own tests; the [CHANGELOG](../CHANGELOG.md) entry for 0.3.0 lists the
+own tests; the [CHANGELOG](../../CHANGELOG.md) entry for 0.3.0 lists the
 changes and the migration notes.
 
 | Increment | Status |
@@ -158,4 +158,4 @@ Known limits:
 - The large ATP equivalence row (4,000 replicates per arm) has p = 0.036
   for ATP exhaustion (416 against 476 stopped) against the predeclared level
   0.0025. It passes, but it is the first place for a bigger independent run
-  ([results](../validation/hybrid/RESULTS.md)).
+  ([results](../../validation/hybrid/RESULTS.md)).

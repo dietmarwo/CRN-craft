@@ -1,6 +1,6 @@
 # M7 log: one command line
 
-Task M7 of [the plan](../../plan-0.7.0-engine-merge.md) (section 3,
+Task M7 of [the plan](../../history/plan-0.7.0-engine-merge.md) (section 3,
 "Unified command line"), done with M6a on the branch `merge/M6`; step 0
 (the check of the coordinator's merge) is in the [M6a log](M6a-log.md).
 

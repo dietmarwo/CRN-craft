@@ -1,6 +1,6 @@
 # M5g log: parameters and workers
 
-Task M5g of [the plan](../../plan-0.7.0-engine-merge.md): the network
+Task M5g of [the plan](../../history/plan-0.7.0-engine-merge.md): the network
 `ParameterTemplate` is replaced, for the downstream workers, by the rules
 engine's parameter binding (`rules::Prepared::bind_parameters`, Python
 `PreparedEnsemble.bind_parameters`); `integrations/jobs` and

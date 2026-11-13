@@ -4,11 +4,11 @@
 the network engine and the rules engine into one engine.
 **Scope:** design, numerical methods, validation evidence and measured
 performance of the one engine. Companion documents: the
-[architecture overview](architecture.md), the [contracts](contracts.md), the
-[exact methods](direct-ssa.md), the [model reference](rules-language.md) and
-the [merge implementation log](campaign/merge-0.7/README.md).
+[architecture overview](../developer/architecture.md), the [contracts](../reference/contracts.md), the
+[exact methods](../reference/methods.md), the [model reference](../reference/model-language.md) and
+the [merge implementation log](../campaign/merge-0.7/README.md).
 **Evidence:** every gate below was declared in
-[`validation/merge/RESULTS.md`](../validation/merge/RESULTS.md) before it
+[`validation/merge/RESULTS.md`](../../validation/merge/RESULTS.md) before it
 ran, and its report is committed under `validation/merge/`. Failed rows are
 kept there.
 **History:** the report of release 0.6.0 described the network engine of
@@ -72,7 +72,7 @@ strict importers and exporters.
 
 ## 3. Architecture
 
-The [architecture overview](architecture.md) describes the layers. In brief:
+The [architecture overview](../developer/architecture.md) describes the layers. In brief:
 versioned JSON documents are parsed strictly into Rust types that also
 generate the JSON Schemas; the model is compiled (patterns into classes,
 predicates into bytecode); a request is validated and admitted against its
@@ -85,7 +85,7 @@ binding are thin layers over the same crate, `crn-craft`. After the merge,
 files), 788 in the command-line crate and 92 in the facade, whose crate
 documentation the final review shortened. Before the network engine was
 deleted it held 37,157 (M8b log of the
-[implementation log](campaign/merge-0.7/README.md)).
+[implementation log](../campaign/merge-0.7/README.md)).
 
 ## 4. Numerical methods
 
@@ -125,7 +125,7 @@ method (Gillespie 1977) draws a waiting time and a channel with probability
   of a 64-bit word times 2⁻⁵³.
 - **Waiting time.** The inverse transform *τ = −ln(1 − u)/a₀*, with *u*
   redrawn when it is 0, or the Ziggurat exponential (tables adapted from the
-  Julia ecosystem, see [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)).
+  Julia ecosystem, see [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md)).
   Ziggurat waits are the default from `rules-run/0.6` and in `run/1.0`.
 - **Selection with the linear scan.** The total is the sequential sum of the
   rates in channel order. After an event only the affected channels change,
@@ -153,7 +153,7 @@ method (Gillespie 1977) draws a waiting time and a channel with probability
 
 Under `run/1.0` Static Direct takes a `selector`. Every selector samples the
 same law; each consumes the random stream differently and has its own
-sampler identity ([exact methods](direct-ssa.md)).
+sampler identity ([exact methods](../reference/methods.md)).
 
 - **Composition–rejection** (Slepoy, Thompson and Plimpton 2008): channels
   grouped by the binary exponent of their rate, a group drawn by its mass
@@ -274,7 +274,7 @@ and `--cancel-file`), `verify`, `analyze`, `convert` and `export`; all
 output is JSON with documented exit codes. The contracts are
 `crn-craft.model/1.0`, `run/1.0`, `result/1.0`, `fsp-result/1.0`,
 `check/1.0`, `analysis/1.0` and `archive/1.0`, with the `rules-*` versions
-still read ([contracts](contracts.md)). Contract types generate JSON
+still read ([contracts](../reference/contracts.md)). Contract types generate JSON
 Schemas (`crn-craft describe KIND`), and any shape change gets a new
 version.
 
@@ -502,8 +502,8 @@ measured on 0.7.0.
   its own request and result contracts, and sealed archives with
   provenance. The `ssa` command added DirectCR, SortingDirect, RSSA-CR and
   next reaction, and the `fast` policy with xoshiro256++.
-- Its performance campaign P01–P20 ([P01–P10](campaign/performance.md),
-  [P11–P20](campaign/performance-p11-p20.md)) brought `simulate-cached` to
+- Its performance campaign P01–P20 ([P01–P10](../campaign/performance.md),
+  [P11–P20](../campaign/performance-p11-p20.md)) brought `simulate-cached` to
   48, 152, 151 and 553 ns per event on the four frozen workloads (two
   channels, sparse 66 reactions, a 12-reaction circuit, dense 66 reactions),
   on the same kind of shared two-CPU host.

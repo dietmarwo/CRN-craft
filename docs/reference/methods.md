@@ -2,10 +2,10 @@
 
 This page describes the exact simulation methods of the one engine, the event
 selectors of Static Direct and the random stream they share. The model
-language is in the [model reference](rules-language.md), the other methods
+language is in the [model reference](model-language.md), the other methods
 (`tree`, `mtdna_direct`, `tau`, `binomial`, `thinning`, `hybrid`) are in
-[mtDNA ensembles](mtdna-rules.md), and the cost of each is in the
-[performance analysis](mtdna-performance-analysis.md). An exact method samples
+[mtDNA ensembles](../mtdna-rules.md), and the cost of each is in the
+[performance analysis](../evidence/mtdna-performance-analysis.md). An exact method samples
 the model's process with finite-precision arithmetic and Monte Carlo
 uncertainty. It is not a biological validation claim.
 
@@ -76,7 +76,7 @@ composition–rejection for the candidate draw).
 
 `waiting_time` is `ziggurat` or `inverse`. Ziggurat draws exponential waits
 from tables adapted from the Julia ecosystem (see
-[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)); the inverse transform is
+[THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md)); the inverse transform is
 `-ln(1 - u) / total`, with `u` a 53-bit uniform in [0, 1) that is drawn again
 when it is 0. From `rules-run/0.6` and in `run/1.0`, `static_direct`
 defaults to Ziggurat waits and to sparse integration of eligible count

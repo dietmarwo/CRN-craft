@@ -12,7 +12,7 @@ or `rules-run/0.1` to `0.6`, and the result `crn-craft.result/1.0` or
 `rules-result/0.1` to `0.3` ([contracts](contracts.md)). The crate is
 `crn-craft` (module `crn_craft::rules`), the command line `crn-craft check`
 and `crn-craft run`, and the Python package `crn_craft`. This page describes
-the language, starting from the `tree` method; [mtDNA ensembles](mtdna-rules.md)
+the language, starting from the `tree` method; [mtDNA ensembles](../mtdna-rules.md)
 covers the other methods, trackers and the older request versions. Protocol and
 gates: `docs/decisions/rules-k0-k1-2026-11-02.md`.
 
@@ -372,16 +372,16 @@ the request's `method`, tolerances included. Integration steps, accepted or
 rejected, count against `max_sampling_steps_per_replicate` like leap
 iterations (`CRN-R041`), and a step below four rounding units of the time
 fails the replicate (`CRN-R030`). Validation:
-[`validation/hybrid/RESULTS.md`](../validation/hybrid/RESULTS.md).
+[`validation/hybrid/RESULTS.md`](../../validation/hybrid/RESULTS.md).
 
 ## Run request and result
 
 `crn-craft.run/1.0` has the shape of `rules-run/0.6` and adds three things:
 `method.selector` for `static_direct` (`linear`, `composition_rejection`,
-`sorting`, `rssa_cr` or `auto`, the default; see [exact methods](direct-ssa.md)),
+`sorting`, `rssa_cr` or `auto`, the default; see [exact methods](methods.md)),
 `outputs.quantiles` (up to 16 probabilities in (0, 1); the result's
 `statistics.quantiles` holds the quantile of every report time and observable,
-and the median is the quantile at 0.5; see the [result contract](result-contract.md))
+and the median is the quantile at 0.5; see the [result contract](results.md))
 and the method `fsp` (finite state projection: `bounds`, `max_states` and
 `tolerance`; the result is `crn-craft.fsp-result/1.0`). Its result is
 `crn-craft.result/1.0`. A `rules-run` request refuses these fields (`CRN-R020`
@@ -506,7 +506,7 @@ larger limits, change only the `schema` string to `crn-craft.model/1.0`.
 
 - ODE coupling: rules-model/0.2 adds one fixed case, the ATP flow of
   the variable-population mtDNA model, solved with exact thinning
-  ([mtDNA ensembles](mtdna-rules.md)); rules-model/0.3 adds general
+  ([mtDNA ensembles](../mtdna-rules.md)); rules-model/0.3 adds general
   continuous variables, simulated approximately by `hybrid` (below), and
   rules-model/0.4 independent variables, which `hybrid` integrates once per
   run. An independent variable can carry explicit time dependence (a clock
@@ -515,7 +515,7 @@ larger limits, change only the `schema` string to `crn-craft.model/1.0`.
   types, and counts inside expressions (largest clone *size*) are not
   supported yet.
 - Models are JSON. `crn_craft` prepares and runs ensembles from Python
-  ([mtDNA ensembles](mtdna-rules.md)), and `crn_craft.Model` builds
+  ([mtDNA ensembles](../mtdna-rules.md)), and `crn_craft.Model` builds
   `model/1.0` documents over attribute-free species from
   `add_reaction(rate, reactants, products)` calls: a numeric rate is a
   mass-action constant with the counting above, a string the whole
@@ -531,7 +531,7 @@ Python prepares these runs through the top-level `crn_craft`, which writes
 the API of release 0.6.0 under its old name, which writes the `rules-*`
 versions unless a call needs a 1.0 feature. Both have event observation, Static Direct and next reaction,
 approximate leaps, and ATP thinning. See the
-[mtDNA rules guide](mtdna-rules.md) for rules-run/0.2–0.4, rules-result/0.2 and rules-model/0.2, examples,
+[mtDNA rules guide](../mtdna-rules.md) for rules-run/0.2–0.4, rules-result/0.2 and rules-model/0.2, examples,
 supported model shapes and validation commands. rules-run/0.5 adds `hybrid`
 and returns rules-result/0.3 (0.2 plus `method` and `continuous`); see
 [continuous variables](#continuous-variables-rules-model03). rules-run/0.6
@@ -539,4 +539,4 @@ adds no field: `static_direct` defaults to Ziggurat waits and sparse
 integration of eligible count trackers, `waiting_time: "inverse"` with
 `sparse_trackers: false` restores the 0.5 default, and the result is
 rules-result/0.3
-([Static Direct options](mtdna-rules.md#generic-static-direct-options)).
+([Static Direct options](../mtdna-rules.md#generic-static-direct-options)).

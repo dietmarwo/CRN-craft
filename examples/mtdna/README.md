@@ -2,7 +2,7 @@
 
 Runnable examples for the [user manual](../../docs/mtdna-user-manual.md), the
 [optimization tutorial](../../docs/mtdna-optimization-tutorial.md) and the
-[performance analysis](../../docs/mtdna-performance-analysis.md). Run them
+[performance analysis](../../docs/evidence/mtdna-performance-analysis.md). Run them
 from the repository root with the `crn-craft` Python package installed. The
 fitting scripts also need `fcmaes` and `scipy`.
 

@@ -19,6 +19,6 @@ release 0.7.0. The methods themselves live on in the one engine.
 | `crn-craft ssa MODEL REQUEST` | `crn-craft run MODEL REQUEST` with a `run/1.0` request |
 
 Results are not byte-identical to those of 0.6.0, because the random stream
-changed; they sample the same laws. See [exact methods](direct-ssa.md) for
+changed; they sample the same laws. See [exact methods](reference/methods.md) for
 the selectors, their sampler identities and the `auto` rule, and the
 [changelog](../CHANGELOG.md) for the full migration tables.

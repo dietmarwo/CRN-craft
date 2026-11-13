@@ -5,7 +5,7 @@ rules-run/0.6 uses Ziggurat waits and sparse count trackers, and inverse
 waits with per-event trackers where the earlier replay identity is needed.
 Under `crn-craft.run/1.0` also measure the selectors (`linear`,
 `composition_rejection`, `sorting`, `rssa_cr`) and the `auto` default
-([exact methods](direct-ssa.md#selectors)): on large networks a selector
+([exact methods](../reference/methods.md#selectors)): on large networks a selector
 often closes the gap that a kernel would. Compare the generic engine with
 the candidate on the same model, output contract, workload and hardware. Try
 the ahead-of-time generated event loop when its supported rate and
@@ -105,7 +105,7 @@ rate evaluation, selection, random words, projection maintenance and the
 stop predicate. `mtdna_direct` fuses all of them and refreshes no
 projections between reports. Closing the gap therefore needs generated
 code for the whole event, not only for the rates. The
-[decision record](decisions/generic-rules-structural-2026-11-03.md) has
+[decision record](../decisions/generic-rules-structural-2026-11-03.md) has
 the measurements, the profile and that next step. The generated event loop
 below implements it.
 
@@ -166,7 +166,7 @@ count. A 64-channel network with one shared vacancy base emits about
 the rates kernel or the interpreter. A table-driven compact layout was tried
 for them, but it gained only 1.15× over the interpreter on a 256-channel
 dense network
-([record](decisions/generated-loop-stops-and-compact-2026-11-04.md)).
+([record](../decisions/generated-loop-stops-and-compact-2026-11-04.md)).
 Observers are not supported on this path; trackers and event logs are.
 
 The loop refreshes every projection the fired channel changes. The
@@ -238,8 +238,8 @@ do that work in the same order. On the 96-channel sparse network the
 unrolled loop was no faster than the interpreter (0.85–1.03× across runs).
 On a 512-channel network it was clearly slower: 950 against 630 ns per
 event. See the
-[decision record](decisions/generated-rules-loop-2026-11-03.md),
-[the follow-ups](decisions/generated-loop-stops-and-compact-2026-11-04.md)
+[decision record](../decisions/generated-rules-loop-2026-11-03.md),
+[the follow-ups](../decisions/generated-loop-stops-and-compact-2026-11-04.md)
 and `validation/mtdna/generated-loop.json`.
 
 ### From Python: `compile_loop`
@@ -279,7 +279,7 @@ Direct with its rules-run/0.6 defaults, Ziggurat waits and sparse trackers
 (2.21×), and 3.8 s against 7.0 s with inverse waits and per-event trackers
 (1.86×; declared target 1.5×). The first build took 42 s on the two-CPU
 host, a second model 3 s and a cached call 0.06 s
-([record](decisions/compiled-rules-loop-python-2026-11-06.md),
+([record](../decisions/compiled-rules-loop-python-2026-11-06.md),
 `validation/mtdna/compiled-loop-python.json`).
 For string rates the declared target was the same 1.5×, on the SIR model
 as `rules.Model` writes it, scaled to N = 10,000 (2,000 replicates to time
@@ -294,4 +294,4 @@ the three-class model and on four string-rate models (the builder SIR,
 Michaelis–Menten, expression rates that read observables, and `max`, `min`
 and `if` over `distinct`, `max` and `min` observables), and the refusals;
 it runs in CI against the checkout. See the
-[user manual](mtdna-user-manual.md#optional-compiled-event-loop) for usage.
+[user manual](../mtdna-user-manual.md#optional-compiled-event-loop) for usage.

@@ -4,7 +4,7 @@
 > of 1 November 2026, when `analyze` wrote analysis 0.2 and `analyze-v1`
 > kept analysis 0.1. Release 0.7.0 replaced both with
 > `crn-craft.analysis/1.0`, computed on the flat view of any closed model
-> ([network analysis](network-api.md)); the analysis functions take a
+> ([network analysis](../reference/analysis.md)); the analysis functions take a
 > `crn_craft::rules::FlatView`. The cone algorithm, its limits and the
 > reaction graph below are unchanged, and the example below gives the same
 > bounds under 0.7.0. `CRN-E042` and the legacy warning policy are gone.

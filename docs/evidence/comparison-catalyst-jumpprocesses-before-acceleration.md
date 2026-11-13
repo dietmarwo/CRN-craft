@@ -24,11 +24,11 @@ This repeats the four frozen workloads of the
 [GillesPy2 comparison](https://github.com/dietmarwo/CRN-craft/blob/baed0e4590f93e4c1dcc77cd7f039a2604a1594c/docs/comparison-gillespy2.md),
 with fresh measurements of both engines on the same host.
 
-Harness: [`validation/compare_julia.py`](../validation/compare_julia.py).
+Harness: [`validation/compare_julia.py`](../../validation/compare_julia.py).
 Raw measurements and final samples:
-[`validation/campaign/julia-comparison.json`](../validation/campaign/julia-comparison.json).
+[`validation/campaign/julia-comparison.json`](../../validation/campaign/julia-comparison.json).
 Pinned Julia environment and reproduction notes:
-[`validation/julia/`](../validation/julia/README.md).
+[`validation/julia/`](../../validation/julia/README.md).
 
 ## Summary
 
@@ -54,7 +54,7 @@ JumpProcesses supplies the SSA algorithms and `SSAStepper`. This comparison
 uses that actual stack, including its mass-action specialization and generated
 dependency information. It does not substitute a hand-written Julia SSA.
 
-![Median and observed range of warm 64-path ensemble times for two CRN-craft solvers and five JumpProcesses algorithms](images/julia-comparison-warm.png)
+![Median and observed range of warm 64-path ensemble times for two CRN-craft solvers and five JumpProcesses algorithms](../images/julia-comparison-warm.png)
 
 ## What was measured
 
@@ -191,7 +191,7 @@ or mixed-dependency rate functions [3].
 
 ## Model equivalence and validation
 
-The [acceptance protocol](decisions/julia-comparison-2026-11-02.md) was committed
+The [acceptance protocol](../decisions/julia-comparison-2026-11-02.md) was committed
 before measurements. Validation precedes performance interpretation.
 
 **Model translation.** Native CRN-craft and Catalyst agree on all stoichiometric
@@ -284,7 +284,7 @@ cost or show that Julia cannot implement comparable policies.
 
 ## Reproducing and retained evidence
 
-The complete instructions are in [`validation/julia/README.md`](../validation/julia/README.md).
+The complete instructions are in [`validation/julia/README.md`](../../validation/julia/README.md).
 Build the tested CRN-craft source and Python wheel, install the pinned Python
 requirements, and instantiate the retained Julia `Project.toml`/`Manifest.toml`.
 Then, from the repository root:

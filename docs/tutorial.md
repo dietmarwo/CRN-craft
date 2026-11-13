@@ -123,7 +123,7 @@ crn-craft.model/1.0
 A string rate becomes a `propensity`, the whole expression. A number would
 become a `rate`, the constant that multiplies the count of each reactant. The
 same document can carry species with numeric attributes, which
-the [model reference](rules-language.md) describes. `model.to_json()` gives
+the [model reference](reference/model-language.md) describes. `model.to_json()` gives
 the text of the file, and `crn.Model.from_dict(document)` reads a document
 back.
 
@@ -236,7 +236,7 @@ crn-craft check immigration-death.model.json stale-hash.run.json || echo "exit s
 
 ![Diagnostics name the code, the JSON path and a hint](images/tutorial/03-diagnostics.png)
 
-[Diagnostics](diagnostics.md) lists every code. Commands exit 0 on success
+[Diagnostics](reference/diagnostics.md) lists every code. Commands exit 0 on success
 and 1 on invalid input. Warnings (codes `CRN-W...`) do not change the exit
 status.
 
@@ -887,11 +887,11 @@ the scan costs more than the bookkeeping of the others. It decides from the
 initial counts, so a model whose populations later grow or shrink far from
 them can end up with a slower selector. `describe()["selectors"]["auto"]`
 lists the thresholds. For a large network, time the selectors on a short run
-before a long one. [Exact methods](direct-ssa.md) describes them and their
+before a long one. [Exact methods](reference/methods.md) describes them and their
 sources.
 
 Performance notes, from the measurements in the
-[technical report](technical-report.md):
+[technical report](evidence/technical-report.md):
 
 - `threads` divides replicates among workers without changing results. Use it
   for large ensembles.
@@ -905,20 +905,20 @@ Performance notes, from the measurements in the
   limits `epsilon`.
 - `compile_loop` compiles a generated event loop for one model and gives
   byte-identical results, only faster. See
-  [specialized kernels](specialized-kernels.md).
+  [specialized kernels](developer/specialized-kernels.md).
 
 ## 16. Where to go next
 
-- [Model reference](rules-language.md): the full `model/1.0` language,
+- [Model reference](reference/model-language.md): the full `model/1.0` language,
   including attributes and higher-order rules.
-- [Architecture](architecture.md): how the pieces fit together.
-- [Technical report](technical-report.md): design, validation and measured
+- [Architecture](developer/architecture.md): how the pieces fit together.
+- [Technical report](evidence/technical-report.md): design, validation and measured
   performance.
-- [Comparison with GillesPy2](comparison-gillespy2.md): the same models timed
+- [Comparison with GillesPy2](evidence/comparison-gillespy2.md): the same models timed
   against GillesPy2's C++ and NumPy solvers.
-- [Exact methods and selectors](direct-ssa.md),
-  [archive contract](archive-contract.md), [result contract](result-contract.md),
-  [diagnostics](diagnostics.md) and [contracts](contracts.md).
+- [Exact methods and selectors](reference/methods.md),
+  [archive contract](reference/archives.md), [result contract](reference/results.md),
+  [diagnostics](reference/diagnostics.md) and [contracts](reference/contracts.md).
 - [Alternative exact SSA methods](alternative-ssa.md) and
   [mtDNA ensembles](mtdna-rules.md).
 - [mtDNA user manual](mtdna-user-manual.md): a complete study with attributes,

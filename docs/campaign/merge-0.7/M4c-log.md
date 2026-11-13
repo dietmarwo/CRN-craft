@@ -1,6 +1,6 @@
 # M4c log: Static Direct selectors
 
-Task M4c of [the plan](../../plan-0.7.0-engine-merge.md): event selectors
+Task M4c of [the plan](../../history/plan-0.7.0-engine-merge.md): event selectors
 for Static Direct in `crn-craft.run/1.0`, ported from the 0.6.0 network
 engine. The work was interrupted twice by server restarts; "Run history"
 says what that affected.

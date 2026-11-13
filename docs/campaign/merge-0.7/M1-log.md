@@ -1,6 +1,6 @@
 # M1 log: one crate, no behavior change
 
-Task M1 of [the plan](../../plan-0.7.0-engine-merge.md): move the rules
+Task M1 of [the plan](../../history/plan-0.7.0-engine-merge.md): move the rules
 engine from the crate `crn-craft-rules` into the module `crn_craft::rules`
 and turn `crn-craft-rules` into a facade, without changing behavior.
 

@@ -15,7 +15,7 @@ host.
 
 Read the [user manual](mtdna-user-manual.md) first for the model, the
 ensemble API and the result columns. The
-[performance analysis](mtdna-performance-analysis.md) helps size the
+[performance analysis](evidence/mtdna-performance-analysis.md) helps size the
 evaluations.
 
 ```sh
@@ -486,7 +486,7 @@ Practical sizes for this model:
   log-likelihood replaces the scaled squares. The same noise rules apply.
 - **Other models.** The same loop works for the ATP model
   (`method="thinning"`) and for the clone model (tree method), at the costs
-  given in the [performance analysis](mtdna-performance-analysis.md).
+  given in the [performance analysis](evidence/mtdna-performance-analysis.md).
 - **Rust.** For very large studies, an optimizer in Rust can call
   `crn_craft::rules::execute` directly, or a generated event loop
   ([user manual, section 16](mtdna-user-manual.md#16-rust)).

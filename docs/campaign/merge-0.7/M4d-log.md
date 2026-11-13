@@ -1,6 +1,6 @@
 # M4d log: speed gate
 
-Task M4d of [the plan](../../plan-0.7.0-engine-merge.md): the unified
+Task M4d of [the plan](../../history/plan-0.7.0-engine-merge.md): the unified
 engine's best exact interpreted method takes at most 1.25 × the 0.6.0 best on
 each of the twelve speed-gate models, timed in one session against a rerun of
 `baseline.py` with the kept 0.6.0 build. The per-event work that preceded it is

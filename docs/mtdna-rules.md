@@ -2,7 +2,7 @@
 
 For a task-oriented introduction, read the [user manual](mtdna-user-manual.md),
 the [optimization tutorial](mtdna-optimization-tutorial.md) and the
-[performance analysis](mtdna-performance-analysis.md). This page is the
+[performance analysis](evidence/mtdna-performance-analysis.md). This page is the
 reference behind them.
 
 CRN-craft represents wild type, neutral mutants and advantaged mutants
@@ -87,7 +87,7 @@ away.
 `crn-craft.model/1.0` and `crn-craft.run/1.0` mean what rules-model/0.4 and
 rules-run/0.6 mean, plus the features that arrived with them: Static Direct
 selectors, quantile statistics, the `fsp` method, higher-order rules and
-larger limits ([model reference](rules-language.md)). The history of the
+larger limits ([model reference](reference/model-language.md)). The history of the
 older versions follows. Rules model and run version 0.1 still select the
 tree method and the original sampler. Use rules-run/0.2 for a `method` object, `trackers`
 or `event_log`. It returns rules-result/0.2 with a sampler identity and
@@ -103,7 +103,7 @@ rules-model/0.3 whole-rule `propensity` and `continuous` variables; from
 adds `"independent": true` for continuous variables whose derivative reads
 only parameters and other independent variables; `hybrid` integrates them
 once per prepared run and shares the solution by every replicate
-([rules language](rules-language.md#independent-variables-rules-model04)).
+([rules language](reference/model-language.md#independent-variables-rules-model04)).
 A 0.4 document without the field means what it means as 0.3. Stored
 rules-model 0.1–0.3 files and rules-run 0.1–0.6 requests keep their
 meaning and replay byte-identically. Each backend has its own replay identity. Worker count
@@ -126,7 +126,7 @@ two patterns) run on `static_direct`, `next_reaction`, `tau` and `hybrid`;
 `/method`.
 
 Rules-model/0.3 adds whole-rule propensities
-([rules language](rules-language.md#whole-rule-propensities-rules-model03)),
+([rules language](reference/model-language.md#whole-rule-propensities-rules-model03)),
 which `crn_craft.rules.Model` writes for string rates. Every method above
 samples them. The static methods need each reactant type of such a rule to
 lower to one tuple, as for attribute-free species, and refuse other models
@@ -134,7 +134,7 @@ with `CRN-R020` at `/method`; `tree` has no such limit. `mtdna_direct` does
 not certify them and runs Static Direct with a `CRN-R051` warning, and the
 generated rates kernels refuse them. Generated event loops emit them, as
 they emit every rate expression and observable that Static Direct runs
-([checklist](specialized-kernels.md#generated-rules-event-loops)).
+([checklist](developer/specialized-kernels.md#generated-rules-event-loops)).
 
 Static lowering evaluates local predicates and factors once and compiles
 constant and vacancy-rate kernels. It accepts up to 256 tuples and 4,096
@@ -144,7 +144,7 @@ level, so every positive channel must be at least 2⁻⁵³ of the total
 (`CRN-R031`); the tree engine resolves rules and instances separately and can
 run such models. Random product attributes use the tree method. Identical pairs
 in the static path require a single matching tuple. Under `run/1.0` Static
-Direct also has the selectors of [exact methods](direct-ssa.md#selectors).
+Direct also has the selectors of [exact methods](reference/methods.md#selectors).
 
 ### Specialized fixed-population Direct
 
@@ -240,7 +240,7 @@ the expression `f * wild_type - v1 * ATP - v2 * N`, each coupled rate ends in
 `* c / (c + ATP)`, and `lower_bound: 0` with `on_bound: "stop"` keeps the
 depletion rule below. The `hybrid` method integrates it with Dormand–Prince
 5(4) at the request's tolerances
-([rules language](rules-language.md#continuous-variables-rules-model03));
+([rules language](reference/model-language.md#continuous-variables-rules-model03));
 `validation/hybrid/RESULTS.md` compares it with thinning on the legacy file.
 The legacy file and `thinning` are unchanged.
 
@@ -352,22 +352,22 @@ Measured on releases 0.5.0 and 0.6.0, on a two-CPU host, Ziggurat waits
 with sparse trackers took about 100–110 ns per event on the 128-cell probe,
 against about 35 ns for `mtdna_direct`; on the 1000-cell three-class case they were 1.17× faster
 than inverse waits with per-event trackers
-([performance analysis](mtdna-performance-analysis.md#2-methods)). Inline
+([performance analysis](evidence/mtdna-performance-analysis.md#2-methods)). Inline
 factors, a fused resolution check, exact incremental projections and a
 grouped evaluator did not change that by 5%, so none was adopted
 ([decision record](decisions/generic-rules-structural-2026-11-03.md)).
 From Rust, a generated event loop runs the same requests with
 byte-identical results at about 48 ns per event, whether the stop
 is written in the fused fraction form or not
-([generated event loops](specialized-kernels.md#generated-rules-event-loops)).
+([generated event loops](developer/specialized-kernels.md#generated-rules-event-loops)).
 From Python, `crn.compile_loop` builds that loop with a local Rust
 toolchain and runs it with `compiled=`, about 2.2× faster than interpreted
 Static Direct with its defaults, end to end, as measured on 0.6.0. Release
 0.7.0 made interpreted Static Direct faster (0.72 times the time on the
-[three-class workload](mtdna-performance-analysis.md#release-070)). `mtdna_direct` remains the fastest route for the
+[three-class workload](evidence/mtdna-performance-analysis.md#release-070)). `mtdna_direct` remains the fastest route for the
 fixed three-class topology and the only fast one from the CLI.
 
 Cached rates and dependency-aware projection refresh apply to the default
 path. Potentially overflowing report-only projections retain eager checks.
-See [the rules kernel review checklist](specialized-kernels.md) for the
+See [the rules kernel review checklist](developer/specialized-kernels.md) for the
 conditional Rust generator and its workload-specific adoption gate.

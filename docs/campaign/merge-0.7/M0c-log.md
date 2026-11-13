@@ -1,6 +1,6 @@
 # M0c log: baseline and references of the 0.6.0 engine
 
-Task M0c of [the merge plan](../../plan-0.7.0-engine-merge.md). The network
+Task M0c of [the merge plan](../../history/plan-0.7.0-engine-merge.md). The network
 engine of 0.6.0 is deleted in M8, so everything later tasks compare against
 was recorded now, from the old engine, and committed under
 `validation/merge/`.

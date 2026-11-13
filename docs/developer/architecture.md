@@ -8,14 +8,14 @@ request and result contract, one expression language, one random number
 generator (ChaCha8) and one set of diagnostics serve every method. A request
 is bound to the exact bytes of its model, and every result carries its
 termination, its sampler identity and the hashes of what it consumed. The
-[technical report](technical-report.md) covers the numerical methods and the
+[technical report](../evidence/technical-report.md) covers the numerical methods and the
 validation evidence.
 
 Up to release 0.6.0 there were two engines: a network engine with fixed
 species lists and a rules engine for attributed species. Release 0.7.0
 merged them into the one engine described here. The
-[merge plan](plan-0.7.0-engine-merge.md) and the
-[implementation log](campaign/merge-0.7/README.md) record how.
+[merge plan](../history/plan-0.7.0-engine-merge.md) and the
+[implementation log](../campaign/merge-0.7/README.md) record how.
 
 ## Package boundaries
 
@@ -53,18 +53,18 @@ it forbids unsafe code.
 
 Rust types define every JSON schema. `crn-craft describe KIND` prints one,
 and the files in `schemas/` are generated from the same types.
-[Contracts](contracts.md) lists them all; in short:
+[Contracts](../reference/contracts.md) lists them all; in short:
 
 | Contract | Role | Read by |
 | --- | --- | --- |
-| `crn-craft.model/1.0` | the model ([model reference](rules-language.md)) | every command |
+| `crn-craft.model/1.0` | the model ([model reference](../reference/model-language.md)) | every command |
 | `crn-craft.run/1.0` | the request: a simulation method, or `fsp` | `run`, `check` |
-| `crn-craft.result/1.0` | the result of a simulation request ([result contract](result-contract.md)) | written by `run` |
+| `crn-craft.result/1.0` | the result of a simulation request ([result contract](../reference/results.md)) | written by `run` |
 | `crn-craft.fsp-result/1.0` | the result of an `fsp` request | written by `run` |
 | `crn-craft.check/1.0` | whether `run` would accept the documents | written by `check` |
 | `crn-craft.analysis/1.0` | structure, conservation laws and bounds | written by `analyze` |
-| `crn-craft.archive/1.0`, `archive-check/1.0` | a sealed run and its verification ([archive contract](archive-contract.md)) | `run --archive`, `verify` |
-| `crn-craft.import/1.0`, `export/0.1`, `state/0.1`, `report/1.0`, `describe/1.0` | importer report, GillesPy2 export, a state for `analyze`, the file of `Result.save`, discovery | see [contracts](contracts.md) |
+| `crn-craft.archive/1.0`, `archive-check/1.0` | a sealed run and its verification ([archive contract](../reference/archives.md)) | `run --archive`, `verify` |
+| `crn-craft.import/1.0`, `export/0.1`, `state/0.1`, `report/1.0`, `describe/1.0` | importer report, GillesPy2 export, a state for `analyze`, the file of `Result.save`, discovery | see [contracts](../reference/contracts.md) |
 
 Still read, unchanged:
 
@@ -93,7 +93,7 @@ enum, so every version test gives a 1.0 document the meaning of the newest
 Strict parsing rejects duplicate keys, unknown fields, `null` for a present
 optional field, and documents over 16 MiB or 48 levels deep. Syntax and shape
 errors stop parsing; semantic validation reports every error it finds, each
-with a stable code and a JSON path ([diagnostics](diagnostics.md)). Hashes
+with a stable code and a JSON path ([diagnostics](../reference/diagnostics.md)). Hashes
 are SHA-256 of the exact bytes consumed.
 
 ## From documents to results
@@ -137,8 +137,8 @@ programs with the parameters folded in.
 | `tau`, `binomial`, `hybrid` | Approximate methods with their own sampler identities: adaptive Poisson leaps (Cao–Gillespie–Petzold) with exact fallback; binomial splitting for single-parent unit births and deaths on a fixed step; piecewise-deterministic simulation of continuous variables. |
 | `fsp` | Not a simulation: the finite state projection of a closed model, in a `run/1.0` request (below). |
 
-[Exact methods](direct-ssa.md) and [mtDNA ensembles](mtdna-rules.md) describe
-the methods; [the model reference](rules-language.md) the language.
+[Exact methods](../reference/methods.md) and [mtDNA ensembles](../mtdna-rules.md) describe
+the methods; [the model reference](../reference/model-language.md) the language.
 
 ### Static Direct and its selectors
 
@@ -197,7 +197,7 @@ flowchart LR
 - **Analysis** (`analysis.rs`, `conservation.rs`, `cone.rs`, `linkage.rs`):
   exact conservation laws, the nonnegative conservation cone, linkage
   classes and deficiency, and the propensities at a state
-  ([network analysis](network-api.md)).
+  ([network analysis](../reference/analysis.md)).
 - **Kinetics** (`kinetics.rs`): the right-hand side of the macroscopic ODE
   and its state and parameter Jacobians, from dual-number evaluation of the
   rule expressions. `crn-diffsol` integrates them. At most 64 species,
@@ -267,7 +267,7 @@ but keeps the replicate accounting; if that still does not fit, the call
 fails with a coded error.
 
 Errors are `Diagnostic { severity, code, path, message, hint }` values with
-stable codes ([diagnostics](diagnostics.md)). They stay structured through
+stable codes ([diagnostics](../reference/diagnostics.md)). They stay structured through
 Rust, the CLI and Python, where they surface as `CrnError`. Python runs
 native calls off the GIL and checks for signals every 50 ms, so Ctrl-C
 cancels through the same control. A callback that blocks also blocks Ctrl-C.
@@ -282,7 +282,7 @@ and digests, prepares the inputs again and checks the relations between
 request and result: identity, every record, the aggregates and the
 statistics, which are recomputed bit for bit when every path is kept. A
 complete archive can hold an incomplete simulation. Integrity checks are not
-signatures. [Archive contract](archive-contract.md)
+signatures. [Archive contract](../reference/archives.md)
 
 ## Command line and Python
 
@@ -311,13 +311,13 @@ linear scan. It writes a 1.0 document only when a call asks for a 1.0
 feature, and a Static Direct request written that way names
 `"selector": "linear"`, so 0.6.0 code keeps its documents, hashes and
 results. The
-[user manual](mtdna-user-manual.md#18-reference) lists the differences.
+[user manual](../mtdna-user-manual.md#18-reference) lists the differences.
 
 ## Prepared runs, parameter binding and generated code
 
 | Route | Reuse |
 | --- | --- |
-| `Prepared::bind_parameters` (Python `run.bind_parameters`) | A new prepared run with other parameter values and the same request and seed. It serializes and prepares the bound model again, because parameters can change attributes, projections and topology. Its hashes cover the bound documents. [Parameter sweeps](reusable-parameters.md) |
+| `Prepared::bind_parameters` (Python `run.bind_parameters`) | A new prepared run with other parameter values and the same request and seed. It serializes and prepares the bound model again, because parameters can change attributes, projections and topology. Its hashes cover the bound documents. [Parameter sweeps](../reusable-parameters.md) |
 | Generated rates kernel | Rust source for the rates and projections of one lowered Static Direct model (constant and vacancy rates, weighted sums), run by the engine's scheduler. Rust only. |
 | Generated event loop | Rust source for the whole Static Direct event of one model, up to 1 MiB of source: rates and their updates, the total, the resolution check, selection, count updates, projections and the stop predicate. `LoopHost` supplies waits, uniforms, reports, budgets, trackers and event logs, so one loop serves every Static Direct request for its model bytes. |
 

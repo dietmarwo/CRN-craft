@@ -1,6 +1,6 @@
 # M5a log: the flat view and finite state projection
 
-Task M5a of [the plan](../../plan-0.7.0-engine-merge.md): the common basis of
+Task M5a of [the plan](../../history/plan-0.7.0-engine-merge.md): the common basis of
 M5 (`FlatView`, a read-only view of a closed model lowered to a flat
 network) and the `fsp` method of `crn-craft.run/1.0` with its result
 `crn-craft.fsp-result/1.0`.

@@ -1,6 +1,6 @@
 # M4b log: higher-order reactions
 
-Task M4b of [the plan](../../plan-0.7.0-engine-merge.md): reactant
+Task M4b of [the plan](../../history/plan-0.7.0-engine-merge.md): reactant
 multiplicity (`count`) and any number of patterns in
 `crn-craft.model/1.0`, the `Multi` shape, the overflow-safe combination
 count, method support and refusals, and the converter for any

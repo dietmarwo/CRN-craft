@@ -1,6 +1,6 @@
 # M10c log: architecture and reports
 
-Task M10c of [the plan](../../plan-0.7.0-engine-merge.md): the architecture,
+Task M10c of [the plan](../../history/plan-0.7.0-engine-merge.md): the architecture,
 agent and report documents describe the one engine, and the comparison
 documents say what they measured. Branch `merge/M10c`, from `merge/M10b` at
 `d419347`. The documents are written for the state after M8b (network

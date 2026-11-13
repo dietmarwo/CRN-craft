@@ -19,9 +19,9 @@ Companion documents:
 
 - [Optimization tutorial](mtdna-optimization-tutorial.md): fitting model
   parameters to data with fcmaes.
-- [Performance analysis](mtdna-performance-analysis.md): what each method
+- [Performance analysis](evidence/mtdna-performance-analysis.md): what each method
   and option costs, and how to size a study.
-- [Model reference](rules-language.md) and [mtDNA ensembles](mtdna-rules.md):
+- [Model reference](reference/model-language.md) and [mtDNA ensembles](mtdna-rules.md):
   the reference pages behind this manual.
 
 Contents:
@@ -490,7 +490,7 @@ forms:
 A cell that ended on a budget has values only up to its last saved report
 time and NaN after it; `paths_frame()` has rows only up to that time. Kept
 paths count against `max_output_bytes`; the
-[performance analysis](mtdna-performance-analysis.md#8-sizing-a-study)
+[performance analysis](evidence/mtdna-performance-analysis.md#8-sizing-a-study)
 gives their size.
 
 Each method has its own sampler identity in `metadata["sampler"]`. The same
@@ -874,7 +874,7 @@ waits does: the same cells take over at nearly the same times, and its
 event times differ only by rounding, so paths drift apart over many
 events. It costs more per
 event, since it integrates between events. The
-[performance analysis](mtdna-performance-analysis.md) compares the methods
+[performance analysis](evidence/mtdna-performance-analysis.md) compares the methods
 at full scale.
 
 ### Selectors for Static Direct
@@ -1038,7 +1038,7 @@ that is about 2.8× less time per event than Static Direct with its
 default Ziggurat waits and sparse trackers, and 3.1× less than Static
 Direct with inverse waits and per-event trackers (medians of three runs on
 the two-CPU host, 12 November 2026, `validation/merge/manual-ratios/`; the
-[performance analysis](mtdna-performance-analysis.md#2-methods) has older
+[performance analysis](evidence/mtdna-performance-analysis.md#2-methods) has older
 measurements).
 
 The structure need not be called mtDNA. Below, three strains share `room`
@@ -1193,7 +1193,7 @@ byte-identical
 ```
 
 On the 1000-cell workload of the
-[performance analysis](mtdna-performance-analysis.md#2-methods), timed
+[performance analysis](evidence/mtdna-performance-analysis.md#2-methods), timed
 from Python including the subprocess, the compiled loop took 2.6 s
 against 5.8 s for interpreted Static Direct with its defaults (2.21×),
 and 3.8 s against 7.0 s with inverse waits and per-event trackers (1.86×),
@@ -1334,7 +1334,7 @@ their entries stay in the cache until you delete it.
   `KeyboardInterrupt`.
 - On networks with many constant-rate channels the loop can be slower than
   the interpreter
-  ([details](specialized-kernels.md#generated-rules-event-loops)).
+  ([details](developer/specialized-kernels.md#generated-rules-event-loops)).
 - Missing cargo, a failed build (`error.log` is the build log) and a
   result that differs raise `crn.CompiledLoopError`, whose `reason` is
   `"cargo_missing"`, `"build_failed"` or `"mismatch"`.
@@ -1907,7 +1907,7 @@ ceil if`. It applies while each reactant has enough molecules (two for
 when `S` is used up. A reaction may take any number of reactant molecules:
 `["A", "A", "A"]` is a third-order reaction, written as a pattern with
 `count: 3` (the model reference describes
-[higher-order rules](rules-language.md#higher-order-rules-model10)).
+[higher-order rules](reference/model-language.md#higher-order-rules-model10)).
 `crn.rules.Model` keeps the limit of two.
 `validation/check_builder.py` compares builder models with exact means and
 with rebop 0.10.0 ([results](../validation/builder/RESULTS.md)).
@@ -1958,7 +1958,7 @@ mean mutant fraction after three years: 0.0828
 `mtdna_direct` certifies only the JSON form of the model; for builder
 models it runs Static Direct and says so in a `CRN-R051` warning. Species
 with attributes (clone identities, drawn fitness) need the JSON language
-(section 2 and the [rules language](rules-language.md)).
+(section 2 and the [rules language](reference/model-language.md)).
 
 ### Larger models
 
@@ -2257,7 +2257,7 @@ crn-craft describe result-1.0    # and of the result
 them. `run --archive NEW_DIRECTORY` also writes the model, the request and the
 result with a manifest (`crn-craft.archive/1.0`), and `verify` checks such a
 directory later; from Python, `run.archive(directory)` and `crn.verify_archive`
-do the same. See the [archive contract](archive-contract.md).
+do the same. See the [archive contract](reference/archives.md).
 
 ```text
 model sha256: f9eaaa59e4e449a55bd991350c748fdd8118b7c79dd81d6bcb0fc57bf025c0c2
@@ -2326,7 +2326,7 @@ println!("{} cells stopped", result.stopped_replicates);
   2.1× faster than interpreted Static Direct (timed from Python with
   `compile_loop`, 12 November 2026). On networks with many
   constant-rate channels it can be slower, so measure first
-  ([details](specialized-kernels.md#generated-rules-event-loops)). From
+  ([details](developer/specialized-kernels.md#generated-rules-event-loops)). From
   Python, `crn.compile_loop` builds such a loop into a separate program
   and runs it (section 8).
 

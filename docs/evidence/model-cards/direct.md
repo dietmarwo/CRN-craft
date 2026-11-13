@@ -4,7 +4,7 @@
 > engine's Direct method of releases 0.1.0 to 0.6.0, which release 0.7.0
 > removed with its codes `CRN-E042`, `CRN-E061` and `CRN-E062`. The one
 > engine's Static Direct, its selectors and its numerical failures
-> (`CRN-R030`, `CRN-R031`) are described in [exact methods](../direct-ssa.md).
+> (`CRN-R030`, `CRN-R031`) are described in [exact methods](../../reference/methods.md).
 
 **Status:** implemented in M2 (`0.1.0-dev.4`).
 
@@ -26,6 +26,6 @@ non-explosion. Exact-method sampling still has Monte Carlo and floating-point
 limitations. Cross-platform numerical identity and comparative throughput
 are not established by this iteration.
 
-See [Direct SSA details](../direct-ssa.md), [archive contracts](../archive-contract.md)
-and [M2 acceptance targets](../decisions/iteration-04-validation.md).
+See [Direct SSA details](../../reference/methods.md), [archive contracts](../../reference/archives.md)
+and [M2 acceptance targets](../../decisions/iteration-04-validation.md).
 Reference: [Gillespie (1977)](https://doi.org/10.1021/j100540a008).

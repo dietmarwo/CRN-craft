@@ -6,8 +6,8 @@ implementation, executed evidence and limitations. Performance has ten separate
 experiments, including retained/rejected candidates, in performance.md.
 Ten more (P11–P20), with their declaration and results, are in
 performance-p11-p20.md. For an introduction read the [tutorial](../tutorial.md),
-the [architecture overview](../architecture.md) and the
-[technical report](../technical-report.md).
+the [architecture overview](../developer/architecture.md) and the
+[technical report](../evidence/technical-report.md).
 
 | Use | Command / interface |
 |---|---|

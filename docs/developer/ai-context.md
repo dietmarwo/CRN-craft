@@ -1,9 +1,9 @@
 # Agent context: CRN-craft
 
 Start with README.md, [architecture](architecture.md), `crn-craft describe`
-(`crn-craft.describe/1.0`) and the [contracts](contracts.md). Release 0.7.0
+(`crn-craft.describe/1.0`) and the [contracts](../reference/contracts.md). Release 0.7.0
 merged the former network engine and rules engine into one; its
-[implementation log](campaign/merge-0.7/README.md) records every step and
+[implementation log](../campaign/merge-0.7/README.md) records every step and
 deviation. Older campaign logs describe the engines as they were then.
 
 ## The one engine
@@ -20,7 +20,7 @@ deviation. Older campaign logs describe the engines as they were then.
   ordinary species; attributed types, patterns with `where` and `factor`,
   observables, whole-rule `propensity` expressions, continuous variables and
   a pattern `count` for higher-order reactions are in the
-  [model reference](rules-language.md). A network `crn-craft.model/0.1`
+  [model reference](../reference/model-language.md). A network `crn-craft.model/0.1`
   is read only through the converter (`crn-craft convert`,
   `crn_craft.convert`).
 - One request and result: `crn-craft.run/1.0` and `crn-craft.result/1.0`;
@@ -31,7 +31,7 @@ deviation. Older campaign logs describe the engines as they were then.
   `mtdna_direct`, `thinning`, `tau`, `binomial`, `hybrid`, and `fsp`.
   Static Direct has the selectors `linear`, `composition_rejection`,
   `sorting`, `rssa_cr` and `auto` (the `run/1.0` default)
-  ([exact methods](direct-ssa.md)). One random number generator: ChaCha8,
+  ([exact methods](../reference/methods.md)). One random number generator: ChaCha8,
   one stream per replicate.
 - Features on the flat view of a closed model (`crn_craft::rules::FlatView`):
   finite state projection, analysis (`analysis/1.0`), ODE kinetics for
@@ -42,7 +42,7 @@ deviation. Older campaign logs describe the engines as they were then.
   `crn_craft.rules` is the 0.6.0 API with its defaults (the `rules-*`
   versions, the linear scan, no quantiles). `Result.save` writes markdown or
   `crn-craft.report/1.0`. Parameter sweeps use `bind_parameters`
-  ([parameter sweeps](reusable-parameters.md)).
+  ([parameter sweeps](../reusable-parameters.md)).
 
 ## Where things are
 
@@ -62,7 +62,7 @@ deviation. Older campaign logs describe the engines as they were then.
 
 - Strict input everywhere: unknown fields and duplicate keys are errors;
   diagnostic codes are stable. A new code takes the next free number and goes
-  into [diagnostics](diagnostics.md).
+  into [diagnostics](../reference/diagnostics.md).
 - Schemas come from Rust types. A change to a delivered contract's shape
   needs a new version, and the older versions keep their meaning.
 - A new feature goes behind `model/1.0` or `run/1.0`; the stored `rules-run`
@@ -93,10 +93,10 @@ job worker build from the repository.
 
 ## Optimization lessons
 
-Use [C1–C4](../tutorials/optimization/README.md) for runnable calibration,
+Use [C1–C4](../../tutorials/optimization/README.md) for runnable calibration,
 optional BDF and SQP fitting, MODE and MAP-Elites oscillator searches, and
 bounded rules inference. They call the library and the command line. Their
 SSA runs use Static Direct with its default selector; C1's
 `--include-next-reaction` adds a second exact method with its own stream.
-[Validation](../tutorials/optimization/VALIDATION.md) separates completed
+[Validation](../../tutorials/optimization/VALIDATION.md) separates completed
 checks from fitted-model quality.

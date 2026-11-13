@@ -1,6 +1,6 @@
 # M5d log: archives of rules runs
 
-Task M5d of [the plan](../../plan-0.7.0-engine-merge.md): seal a rules run
+Task M5d of [the plan](../../history/plan-0.7.0-engine-merge.md): seal a rules run
 in a new directory as `crn-craft.archive/1.0` and verify it, reusing the
 manifest and path-safety code of `archive.rs`; `verify` keeps reading the
 network engine's 0.1 archives until M8.

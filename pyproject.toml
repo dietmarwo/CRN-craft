@@ -26,7 +26,7 @@ Documentation = "https://github.com/dietmarwo/CRN-craft/blob/main/docs/tutorial.
 Issues = "https://github.com/dietmarwo/CRN-craft/issues"
 Changelog = "https://github.com/dietmarwo/CRN-craft/blob/main/CHANGELOG.md"
 "Optimization ecosystem" = "https://dietmarwo.github.io/optimization-jobs/"
-"AI agent guide" = "https://github.com/dietmarwo/CRN-craft/blob/main/docs/ai-context.md"
+"AI agent guide" = "https://github.com/dietmarwo/CRN-craft/blob/main/docs/developer/ai-context.md"
 Repository = "https://github.com/dietmarwo/CRN-craft"
 [project.scripts]
 crn-craft = "crn_craft.__main__:main"

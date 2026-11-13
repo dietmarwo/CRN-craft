@@ -12,13 +12,13 @@ document.
 
 | Contract | Role | `describe` kind |
 | --- | --- | --- |
-| `crn-craft.model/1.0` | the model: [model reference](rules-language.md) | `model-1.0` |
+| `crn-craft.model/1.0` | the model: [model reference](model-language.md) | `model-1.0` |
 | `crn-craft.run/1.0` | the request: simulation methods, or `fsp` | `run-1.0` |
-| `crn-craft.result/1.0` | the result of a simulation request ([result contract](result-contract.md)) | `result-1.0` |
+| `crn-craft.result/1.0` | the result of a simulation request ([result contract](results.md)) | `result-1.0` |
 | `crn-craft.fsp-result/1.0` | the result of an `fsp` request | `fsp-result-1.0` |
 | `crn-craft.check/1.0` | the report of `check`: whether `run` would accept the documents | `check-1.0` |
 | `crn-craft.analysis/1.0` | structure, conservation laws and bounds of a model | `analysis-1.0` |
-| `crn-craft.archive/1.0`, `crn-craft.archive-check/1.0` | a sealed run and its verification ([archive contract](archive-contract.md)) | `archive-1.0`, `archive-check-1.0` |
+| `crn-craft.archive/1.0`, `crn-craft.archive-check/1.0` | a sealed run and its verification ([archive contract](archives.md)) | `archive-1.0`, `archive-check-1.0` |
 | `crn-craft.import/1.0` | the report of the SBML and BioNetGen importers; its `model` is a `model/1.0` document | none |
 | `crn-craft.export/0.1` | the report of `export MODEL gillespy2` | `export` |
 | `crn-craft.state/0.1` | an optional state for `analyze MODEL STATE`, by species label | `state` |
@@ -44,7 +44,7 @@ Documents of the removed network engine are not read any more: network
 `run/0.1`, `ssa-run/0.1` to `0.4`, `tau-request/0.1`, `result/0.1`,
 `ssa-result`, `tau-result`, `fsp-result/0.1`, `analysis/0.1` and `0.2`,
 `archive/0.1` and `archive-check/0.1`. Their schema files are gone. The
-[changelog](../CHANGELOG.md) has the migration tables.
+[changelog](../../CHANGELOG.md) has the migration tables.
 
 ## Strict input
 
@@ -75,7 +75,7 @@ Documents of the removed network engine are not read any more: network
 `model/1.0` accept 4,096 types, 16,384 parameters, 4,096 observables and
 65,536 rules; the static methods accept 4,096 instance tuples and 65,536
 channels. The `rules-model` versions keep 64, 1,024, 256, 1,024, 256 and
-4,096. See the [model reference](rules-language.md#limits).
+4,096. See the [model reference](model-language.md#limits).
 
 ## Changing a contract
 
@@ -91,7 +91,7 @@ unified engine replaced. Their successors are:
 
 | Earlier topic | Now |
 | --- | --- |
-| network `model/0.1`, `run/0.1` | [model reference](rules-language.md); `crn-craft convert` writes an old model as `model/1.0`. `state/0.1` stays current (above) |
-| `analysis/0.1`, `0.2` and `analyze-v1` | `crn-craft.analysis/1.0` ([network analysis](network-api.md)) |
-| `result/0.1` and `0.2`, `archive/0.1` | [result contract](result-contract.md), [archive contract](archive-contract.md) |
-| `ssa-run`, `tau-request` | `crn-craft.run/1.0` methods `static_direct`, `next_reaction` and `tau` ([methods](direct-ssa.md)) |
+| network `model/0.1`, `run/0.1` | [model reference](model-language.md); `crn-craft convert` writes an old model as `model/1.0`. `state/0.1` stays current (above) |
+| `analysis/0.1`, `0.2` and `analyze-v1` | `crn-craft.analysis/1.0` ([network analysis](analysis.md)) |
+| `result/0.1` and `0.2`, `archive/0.1` | [result contract](results.md), [archive contract](archives.md) |
+| `ssa-run`, `tau-request` | `crn-craft.run/1.0` methods `static_direct`, `next_reaction` and `tau` ([methods](methods.md)) |

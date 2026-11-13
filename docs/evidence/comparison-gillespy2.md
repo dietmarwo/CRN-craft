@@ -7,9 +7,9 @@ and g++ 13.3, on one shared two-CPU cloud host, every run under a CPU lock.
 The protocol and the agreement rule were declared before the first run
 (`validation/merge/RESULTS.md`, "M10c (GillesPy2 comparison on the unified
 engine): declaration"). Script:
-[`validation/compare_gillespy2.py`](../validation/compare_gillespy2.py);
+[`validation/compare_gillespy2.py`](../../validation/compare_gillespy2.py);
 raw report:
-[`validation/merge/gillespy2-comparison-0.7.json`](../validation/merge/gillespy2-comparison-0.7.json).
+[`validation/merge/gillespy2-comparison-0.7.json`](../../validation/merge/gillespy2-comparison-0.7.json).
 An earlier comparison measured the network engine of release 0.2.0; it is
 kept, separately, under [History](#history-the-network-engine-of-020).
 
@@ -32,7 +32,7 @@ long as CRN-craft's default. Its C++ solver compiles each model before the
 first run, which took 2.1 to 2.9 seconds. Both simulators sample the same
 process: all 28 agreement tests passed the declared rule.
 
-![Time per SSA event for CRN-craft's default, the linear scan with inverse waits, composition-rejection and GillesPy2's C++ solver on W1–W4](images/gillespy2-time-per-event-0.7.png)
+![Time per SSA event for CRN-craft's default, the linear scan with inverse waits, composition-rejection and GillesPy2's C++ solver on W1–W4](../images/gillespy2-time-per-event-0.7.png)
 
 ## What was measured
 
@@ -227,9 +227,9 @@ These numbers were measured on 2 November 2026 with CRN-craft
 0.2.0-dev.1, the network engine that release 0.7.0 replaced, and are not
 comparable with the tables above: another engine, another random stream,
 Python 3.13, and the `fast` policy, which dropped the per-event checks.
-Raw report: [`validation/fast/gillespy2-comparison-fast.json`](../validation/fast/gillespy2-comparison-fast.json);
+Raw report: [`validation/fast/gillespy2-comparison-fast.json`](../../validation/fast/gillespy2-comparison-fast.json);
 the first comparison (1 November, checked policy only) is in
-[`validation/campaign/gillespy2-comparison.json`](../validation/campaign/gillespy2-comparison.json).
+[`validation/campaign/gillespy2-comparison.json`](../../validation/campaign/gillespy2-comparison.json).
 
 Median seconds for 64 paths, 2 November 2026 (0.2.0-dev.1):
 
@@ -245,4 +245,4 @@ Median seconds for 64 paths, 2 November 2026 (0.2.0-dev.1):
 | GillesPy2 `NumPySSASolver` | 4.42 | 24.4 | 27.5 | 31.5 |
 | GillesPy2 C++ compile (once per model) | 4.7 | 1.7 | 1.6 | 1.8 |
 
-![Time per SSA event on 2 November 2026: CRN-craft 0.2.0-dev.1 with the fast policy and checked, and GillesPy2's C++ solver](images/gillespy2-time-per-event.png)
+![Time per SSA event on 2 November 2026: CRN-craft 0.2.0-dev.1 with the fast policy and checked, and GillesPy2's C++ solver](../images/gillespy2-time-per-event.png)

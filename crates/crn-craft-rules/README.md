@@ -32,9 +32,9 @@ and needs only `crn-craft`. The crate also holds the generator examples
 
 Further reading:
 
-- [Model reference](https://github.com/dietmarwo/CRN-craft/blob/main/docs/rules-language.md)
-- [Architecture](https://github.com/dietmarwo/CRN-craft/blob/main/docs/architecture.md)
+- [Model reference](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/model-language.md)
+- [Architecture](https://github.com/dietmarwo/CRN-craft/blob/main/docs/developer/architecture.md)
   and the [migration tables](https://github.com/dietmarwo/CRN-craft/blob/main/CHANGELOG.md)
-- [Generated rules kernels and event loops](https://github.com/dietmarwo/CRN-craft/blob/main/docs/specialized-kernels.md)
+- [Generated rules kernels and event loops](https://github.com/dietmarwo/CRN-craft/blob/main/docs/developer/specialized-kernels.md)
 
 MIT licensed.

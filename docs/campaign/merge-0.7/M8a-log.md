@@ -1,6 +1,6 @@
 # M8a log: validation scripts on the unified engine
 
-Task M8a of [the plan](../../plan-0.7.0-engine-merge.md) (M8, "validation
+Task M8a of [the plan](../../history/plan-0.7.0-engine-merge.md) (M8, "validation
 scripts"), on the integration checkout `/home/claude/fb2/engine`, branch
 `merge-0.7`, from `21f71b8`. Evidence, reports and logs of every run below:
 `/home/claude/m07/m8a/` (`final/` holds the cargo runs).

@@ -1,6 +1,6 @@
 # M9 log: downstream
 
-Task M9 of [the plan](../../plan-0.7.0-engine-merge.md), branch `merge/M9` (worktree
+Task M9 of [the plan](../../history/plan-0.7.0-engine-merge.md), branch `merge/M9` (worktree
 from `merge-0.7` at `ef899e5`). Nothing under `tutorials/`, `examples/` or
 `integrations/` uses `crn_craft._legacy`, a hidden old command or the network Rust
 types any more.

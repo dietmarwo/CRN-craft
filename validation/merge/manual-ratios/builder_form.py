@@ -36,16 +36,32 @@ LABELS = {
 }
 
 
-def three_class(K=1000, w0=1000, m0=0, mu=3e-5, sm=1.5, half_life_days=10, takeover=None):
+def three_class(
+    K=1000, w0=1000, m0=0, mu=3e-5, sm=1.5, half_life_days=10, takeover=None
+):
     """The three-class mtDNA model of guide chapter 12."""
     model = crn.Model("mtdna_three_class")
-    model.add_parameter({"K": K, "delta": math.log(2) / (24 * half_life_days),
-                         "sw": 1.0, "sm": sm, "mu": mu, "fracAdv": 0.2})
+    model.add_parameter(
+        {
+            "K": K,
+            "delta": math.log(2) / (24 * half_life_days),
+            "sw": 1.0,
+            "sm": sm,
+            "mu": mu,
+            "fracAdv": 0.2,
+        }
+    )
     model.add_species({"W": w0, "M": m0, "A": 0})
     free = "max(0, K - W - M - A) / (W + sm * (M + A))"
-    model.add_reaction(f"{free} * sw * (1 - mu) * W", ["W"], ["W", "W"], "replication_wt")
-    model.add_reaction(f"{free} * sw * mu * (1 - fracAdv) * W", ["W"], ["W", "M"], "mutation_mt")
-    model.add_reaction(f"{free} * sw * mu * fracAdv * W", ["W"], ["W", "A"], "mutation_mtAdv")
+    model.add_reaction(
+        f"{free} * sw * (1 - mu) * W", ["W"], ["W", "W"], "replication_wt"
+    )
+    model.add_reaction(
+        f"{free} * sw * mu * (1 - fracAdv) * W", ["W"], ["W", "M"], "mutation_mt"
+    )
+    model.add_reaction(
+        f"{free} * sw * mu * fracAdv * W", ["W"], ["W", "A"], "mutation_mtAdv"
+    )
     model.add_reaction(f"{free} * sw * M", ["M"], ["M", "M"], "replication_mt")
     model.add_reaction(f"{free} * sm * A", ["A"], ["A", "A"], "replication_mtAdv")
     for label, species in (("wt", "W"), ("mt", "M"), ("mtAdv", "A")):
@@ -122,7 +138,8 @@ def main():
             if r["arm"] == "A"
         ),
         "e_and_f_equal_events_and_means": all(
-            r["events"] == first_e["events"] and r["mean_sha256"] == first_e["mean_sha256"]
+            r["events"] == first_e["events"]
+            and r["mean_sha256"] == first_e["mean_sha256"]
             for r in rows + warmup
             if r["arm"] in "EF"
         ),

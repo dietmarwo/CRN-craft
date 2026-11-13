@@ -46,7 +46,7 @@ if __name__ == "__main__":
         parallel_objective,
         bounds=Bounds([-5.5, 1.0], [-3.5, 2.5]),
         popsize=8,
-        max_evaluations=32,
+        max_evaluations=3 if fit.SMOKE else 32,
         workers=2,
         rg=np.random.default_rng(5),
     )

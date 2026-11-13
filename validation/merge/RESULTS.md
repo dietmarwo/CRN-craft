@@ -2106,3 +2106,39 @@ lets `mtdna_direct` certify the builder form.
 - **Descriptive:** the ratios E/A, E/B, B/A, E/F, F/A, G/A and G/E.
 - If E1-T1 is missed, the row stays and the target stays; the report lists
   the options and their costs.
+
+### E1 (`mtdna_direct` on the builder form): law check declaration
+
+Committed before the first run of the check. `mtdna_direct` now certifies
+the builder form of the three-class model under `run/1.0`. Its kernel on
+the builder form of the guide's model equals the file form's to the bit
+(unit test `the_builder_form_is_certified_with_the_file_forms_kernel`), so
+it keeps the sampler identity `chacha8-u53-ziggurat/rules-mtdna-direct/1`.
+The certificate is new code, so the builder form gets its own exact-law
+check, with the rules of "Law gate" above.
+
+- **Models** (`validation/merge/builder/models.json`): the model files that
+  the Python builder writes with `three_class()` of guide chapter 12
+  (`validation/merge/builder/write_models.py`), made small enough for a
+  finite state projection: `mtdna-builder` with `K = 20`, 20 wild-type
+  molecules, `mu = 0.05` (so that both mutant classes appear), the guide's
+  other parameters, no stop; `mtdna-builder-stop`, the same with the
+  takeover stop at 50%. End 2,000 h, report times 0, 250, 500, 1,000 and
+  2,000 h; species `W`, `M`, `A`; 200,000 replicates in chunks of 10,000.
+- **References** (`validation/merge/builder_references.py`, written to
+  `validation/merge/builder/reference/`): the sample reference from the
+  release CLI of `3d80c6d` (0.7.0 engine) with `static_direct` under
+  `run/1.0`, reference seeds 1,000,000 + k; and the FSP law from the same
+  CLI (`fsp`, bounds 20 per species, tolerance 1e-12; the stop's states
+  are absorbing, as a stopped replicate holds its state), whose moments
+  are kept only if the leakage and mass defect are below 1e-9.
+- **Run:** `check_laws.py --binary <E1 release CLI> --method
+  '{"kind": "mtdna_direct"}' --manifest validation/merge/builder/models.json
+  --references validation/merge/builder/reference --expect-sampler
+  chacha8-u53-ziggurat/rules-mtdna-direct/1`, gate seeds 2,000,000 + k.
+  Stopped replicates count as complete for these rows (`"stop": true`),
+  with their held state at later report times.
+- **Size:** 2 models × 5 times × 3 species = 30 cells, 60 comparisons
+  against the sample reference and 60 against FSP; 24 of them at time 0.
+- **Target:** 0 failures, and every chunk reports the fast path's sampler.
+  A failure is reported, not rerun with another seed.

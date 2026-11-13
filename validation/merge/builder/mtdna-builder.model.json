@@ -1,0 +1,166 @@
+{
+  "schema": "crn-craft.model/1.0",
+  "name": "mtdna_three_class",
+  "parameters": {
+    "K": 20.0,
+    "delta": 0.0028881132523331052,
+    "sw": 1.0,
+    "sm": 1.5,
+    "mu": 0.05,
+    "fracAdv": 0.2
+  },
+  "types": [
+    {
+      "name": "W"
+    },
+    {
+      "name": "M"
+    },
+    {
+      "name": "A"
+    }
+  ],
+  "initial": [
+    {
+      "type": "W",
+      "count": 20
+    }
+  ],
+  "observables": {
+    "W": {
+      "type": "W"
+    },
+    "M": {
+      "type": "M"
+    },
+    "A": {
+      "type": "A"
+    }
+  },
+  "rules": [
+    {
+      "name": "replication_wt",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "W"
+        }
+      ],
+      "propensity": "max(0, K - W - M - A) / (W + sm * (M + A)) * sw * (1 - mu) * W",
+      "products": [
+        {
+          "type": "W"
+        },
+        {
+          "type": "W"
+        }
+      ]
+    },
+    {
+      "name": "mutation_mt",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "W"
+        }
+      ],
+      "propensity": "max(0, K - W - M - A) / (W + sm * (M + A)) * sw * mu * (1 - fracAdv) * W",
+      "products": [
+        {
+          "type": "W"
+        },
+        {
+          "type": "M"
+        }
+      ]
+    },
+    {
+      "name": "mutation_mtAdv",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "W"
+        }
+      ],
+      "propensity": "max(0, K - W - M - A) / (W + sm * (M + A)) * sw * mu * fracAdv * W",
+      "products": [
+        {
+          "type": "W"
+        },
+        {
+          "type": "A"
+        }
+      ]
+    },
+    {
+      "name": "replication_mt",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "M"
+        }
+      ],
+      "propensity": "max(0, K - W - M - A) / (W + sm * (M + A)) * sw * M",
+      "products": [
+        {
+          "type": "M"
+        },
+        {
+          "type": "M"
+        }
+      ]
+    },
+    {
+      "name": "replication_mtAdv",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A"
+        }
+      ],
+      "propensity": "max(0, K - W - M - A) / (W + sm * (M + A)) * sm * A",
+      "products": [
+        {
+          "type": "A"
+        },
+        {
+          "type": "A"
+        }
+      ]
+    },
+    {
+      "name": "degradation_wt",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "W"
+        }
+      ],
+      "propensity": "delta * W",
+      "products": []
+    },
+    {
+      "name": "degradation_mt",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "M"
+        }
+      ],
+      "propensity": "delta * M",
+      "products": []
+    },
+    {
+      "name": "degradation_mtAdv",
+      "reactants": [
+        {
+          "label": "x",
+          "type": "A"
+        }
+      ],
+      "propensity": "delta * A",
+      "products": []
+    }
+  ]
+}
+

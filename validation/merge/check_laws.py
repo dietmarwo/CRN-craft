@@ -30,6 +30,14 @@ methods and selectors reuse the script:
 
 `--replicates N` makes a smoke run with N replicates per model (chunks of at
 most the declared size); its report says so and does not count as a gate run.
+
+Rows of another manifest (`--manifest`) may name a rules model with `"form":
+"rules"`, which runs without conversion, and set `"stop": true` for a model
+with a stop, whose stopped replicates then count as complete. `--references
+DIR` reads their reference moments from DIR, and `--expect-sampler ID` fails
+the run unless every compared model reports that sampler (E1:
+`validation/merge/builder/models.json`, the builder form under
+`mtdna_direct`).
 The wall time of each model (conversion, simulation and decoding) is printed
 on stderr and kept out of the report.
 Exit status: 0 when every compared model passes and the refusals are as
@@ -103,13 +111,17 @@ def request_for(converted, row, *, chunk, seed, threads, method):
     }
 
 
-def checked_paths(result, chunk, times, name):
-    """The kept series of a complete chunk as [replicate][time][observable]."""
+def checked_paths(result, chunk, times, name, stop=False):
+    """The kept series of a complete chunk as [replicate][time][observable].
+
+    With `stop` (a manifest row whose model has a stop), stopped replicates
+    count as complete: they hold their state at later report times.
+    """
     paths = result["paths"]
     if (
         result["termination"] != "completed"
         or result["completed_replicates"] != chunk
-        or result["stopped_replicates"] != 0
+        or (result["stopped_replicates"] != 0 and not stop)
         or [p["id"] for p in paths] != list(range(chunk))
         or any(len(p["values"]) != len(times) for p in paths)
     ):
@@ -136,7 +148,8 @@ def worker_model(job):
 
     network = (ROOT / job["path"]).read_bytes()
     try:
-        converted = crn.convert(network)
+        # A row of form "rules" names a rules model, which runs as it is.
+        converted = network if job.get("form") == "rules" else crn.convert(network)
     except crn.CrnError as error:
         return {"refused": error.diagnostics}
     document = json.loads(converted)
@@ -192,7 +205,9 @@ def worker_model(job):
                 )
                 continue
         result = rules.prepare(converted, request).simulate().metadata
-        values = checked_paths(result, job["chunk"], job["report_times"], job["name"])
+        values = checked_paths(
+            result, job["chunk"], job["report_times"], job["name"], job.get("stop")
+        )
         if columns is None:
             sampler = sampler or result["sampler"]
             observables = result["observables"]
@@ -283,12 +298,16 @@ def cli_model(binary, job, scratch):
     """Convert and run one model through the native CLI; return power sums."""
     folder = Path(scratch) / job["name"]
     folder.mkdir()
-    done = subprocess.run(
-        [str(binary), "convert", str(ROOT / job["path"])], capture_output=True
-    )
-    if done.returncode != 0:
-        return {"refused": json.loads(done.stdout)["diagnostics"]}
-    converted = done.stdout
+    if job.get("form") == "rules":
+        # A rules model runs as it is.
+        converted = (ROOT / job["path"]).read_bytes()
+    else:
+        done = subprocess.run(
+            [str(binary), "convert", str(ROOT / job["path"])], capture_output=True
+        )
+        if done.returncode != 0:
+            return {"refused": json.loads(done.stdout)["diagnostics"]}
+        converted = done.stdout
     document = json.loads(converted)
     (folder / "model.json").write_bytes(converted)
     times = job["report_times"]
@@ -317,7 +336,7 @@ def cli_model(binary, job, scratch):
         result = json.loads(done.stdout)
         if "termination" not in result:
             raise RuntimeError(f"{job['name']}: {result}")
-        values = checked_paths(result, job["chunk"], times, job["name"])
+        values = checked_paths(result, job["chunk"], times, job["name"], job.get("stop"))
         if k == 0:
             sampler = result["sampler"]
             observables = result["observables"]
@@ -384,9 +403,9 @@ def cli_model(binary, job, scratch):
 # ----------------------------------------------------------------- outer side
 
 
-def compare(row, answer, n):
+def compare(row, answer, n, references=REFERENCE):
     """The law-gate rows of one model and their summaries."""
-    reference = json.loads((REFERENCE / f"{row['name']}.moments.json").read_text())
+    reference = json.loads((references / f"{row['name']}.moments.json").read_text())
     species = reference["species"]
     times = row["report_times"]
     if reference["report_times"] != times or reference["end"] != row["end"]:
@@ -394,7 +413,7 @@ def compare(row, answer, n):
     stats = statistics_from_power_sums(answer["power_sums"])
     rows = compare_to_reference(stats, reference, times, species)
     out = {"reference": summarize(rows)}
-    law_path = REFERENCE / f"{row['name']}.fsp-moments.json"
+    law_path = references / f"{row['name']}.fsp-moments.json"
     if law_path.exists():
         law = json.loads(law_path.read_text())
         if law["species"] != species or law["report_times"] != times:
@@ -466,6 +485,16 @@ def main():
     )
     parser.add_argument("--output", type=Path)
     parser.add_argument(
+        "--references",
+        type=Path,
+        default=REFERENCE,
+        help="directory of the reference moments (default: validation/merge/reference)",
+    )
+    parser.add_argument(
+        "--expect-sampler",
+        help="the sampler identity every compared model must report",
+    )
+    parser.add_argument(
         "--manifest", type=Path, default=MANIFEST, help=argparse.SUPPRESS
     )
     parser.add_argument("--worker", nargs=2, help=argparse.SUPPRESS)
@@ -510,7 +539,9 @@ def main():
             name = row["name"]
             replicates = args.replicates or row["replicates"]
             chunk, chunks = chunk_plan(row, replicates)
-            reference = json.loads((REFERENCE / f"{name}.moments.json").read_text())
+            reference = json.loads(
+                (args.references / f"{name}.moments.json").read_text()
+            )
             job = {
                 "kind": "model",
                 **row,
@@ -543,7 +574,9 @@ def main():
                 report["models"].append(entry)
                 continue
             converted = base64.b64decode(answer["converted"])
-            summaries, comparisons, stats = compare(row, answer, replicates)
+            summaries, comparisons, stats = compare(
+                row, answer, replicates, args.references
+            )
             entry.update(
                 {
                     "status": "compared",
@@ -567,6 +600,8 @@ def main():
                 }
             )
             passed &= entry["expected"] and summaries["all"]["failures"] == 0
+            if args.expect_sampler is not None:
+                passed &= answer["sampler"] == args.expect_sampler
             print(f"{name}: {summaries}", file=sys.stderr, flush=True)
             report["models"].append(entry)
     compared = [m for m in report["models"] if m["status"] == "compared"]

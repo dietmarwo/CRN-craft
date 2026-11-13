@@ -34,7 +34,7 @@ histories; CRN-craft's first release was in November 2026.
 | Continuous variables | ODEs between events that rates read; independent variables integrated once per run | rate rules and assignment rules (hybrid solver) | not documented |
 | Event-level output | stop conditions, trackers (first passage, extremes, integrals), bounded event logs, Python callbacks ([chapter 6](guide/06-stops-trackers-logs.md)) | SBML-style events with triggers, delays and assignments; live output during a run | every reaction with `nb_steps=0`; events are listed as "probably not to come" |
 | Results | pandas and xarray; mean, variance, standard error, quantiles; markdown and JSON reports ([chapter 4](guide/04-results.md)) | trajectories as NumPy arrays; matplotlib and Plotly plots; CSV | an xarray dataset per run |
-| Languages | Python, a command line, Rust; R through reticulate ([R](using-from-r.md)) | Python | Python and Rust |
+| Languages | Python, a command line, Rust; R through reticulate ([R](guide/15-from-r.md)) | Python | Python and Rust |
 | Numeric rate on `A + A` | k·n(n−1)/2 ([model reference](reference/model-language.md#counting-identical-reactants-and-rebop)); exports GillesPy2 source with the constant halved | k·n(n−1) at volume 1 | k·n(n−1) |
 | License | MIT | GPL-3.0 | MIT |
 | What it has that CRN-craft lacks | | SBML events and rules, ODE, hybrid and Langevin solvers, the StochSS web interface, spatial models through the sibling project SpatialPy | a Rust macro that compiles a model into your program |

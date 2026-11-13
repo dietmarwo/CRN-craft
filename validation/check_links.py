@@ -7,6 +7,12 @@ directory exists and, for a Markdown target, the fragment names a heading
 (GitHub's slug rules). Links inside fenced code blocks and absolute URLs are
 ignored. Exits 1 and lists every broken link otherwise.
 
+It also checks the stubs that old paths keep after a move (a heading and one
+sentence "This page moved to [title](path)."): every stub must point at an
+existing file that is not itself a stub, and no tracked Markdown file except
+the frozen `validation/compat/manual-0.6.0.md` may link to a stub. Links must
+go to the real page.
+
     python validation/check_links.py [--root PATH] [--include-campaign]
 """
 
@@ -20,6 +26,8 @@ from urllib.parse import unquote
 LINK = re.compile(r"(?<!\!)\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 IMAGE = re.compile(r"!\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
 FENCE = re.compile(r"^(`{3,}|~{3,})")
+STUB = re.compile(r"\A# [^\n]+\n\nThis page moved to \[[^\]]*\]\(([^)\s]+)\)\.\n?\Z")
+FROZEN = "validation/compat/manual-0.6.0.md"
 
 
 def tracked_markdown(root):
@@ -106,6 +114,46 @@ def check(root, include_campaign):
     return broken, count
 
 
+def stub_target(path):
+    """Return the link target of a stub page, or None if the page is no stub."""
+    match = STUB.match(path.read_text(encoding="utf-8"))
+    return match.group(1) if match else None
+
+
+def check_stubs(root):
+    """Check every stub's target and that no page links to a stub."""
+    paths = tracked_markdown(root)
+    stubs, broken = {}, []
+    for path in paths:
+        target = stub_target(path)
+        if target is not None:
+            stubs[path.resolve()] = target
+    for path, target in stubs.items():
+        name = target.partition("#")[0]
+        resolved = (path.parent / unquote(name)).resolve()
+        where = path.relative_to(root)
+        if not resolved.exists():
+            broken.append(f"{where}: stub target {target} does not exist")
+        elif resolved in stubs:
+            broken.append(f"{where}: stub target {target} is itself a stub")
+    for path in paths:
+        relative = path.relative_to(root).as_posix()
+        if relative == FROZEN or path.resolve() in stubs:
+            continue
+        lines = strip_fences(path.read_text(encoding="utf-8"))
+        for number, line in enumerate(lines, 1):
+            for target in LINK.findall(line) + IMAGE.findall(line):
+                name = target.partition("#")[0]
+                if not name or re.match(r"^[a-z][a-z0-9+.-]*:", target, re.I):
+                    continue
+                if (path.parent / unquote(name)).resolve() in stubs:
+                    broken.append(
+                        f"{relative}:{number}: {target}: links to a stub, "
+                        "link the real page"
+                    )
+    return broken, len(stubs)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -113,10 +161,15 @@ def main():
     )
     parser.add_argument("--include-campaign", action="store_true")
     args = parser.parse_args()
-    broken, count = check(args.root.resolve(), args.include_campaign)
+    root = args.root.resolve()
+    broken, count = check(root, args.include_campaign)
+    stub_broken, stubs = check_stubs(root)
+    broken += stub_broken
     for line in broken:
         print(line, file=sys.stderr)
-    print(f"{count} relative links checked, {len(broken)} broken")
+    print(
+        f"{count} relative links checked, {stubs} stubs checked, {len(broken)} broken"
+    )
     sys.exit(1 if broken else 0)
 
 

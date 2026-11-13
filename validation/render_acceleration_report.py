@@ -296,7 +296,7 @@ Julia was faster.
 **Update with `fast` (projected, not remeasured).** Comparisons now time
 CRN-craft with the opt-in `fast` switch, which emulates JumpProcesses' policy
 (Xoshiro256++, running totals without loss or resolution checks, batched stop
-polls; see the [README](../README.md#exact-ssa-methods-and-the-fast-switch)).
+polls; see the [README](../../README.md#exact-ssa-methods-and-the-fast-switch)).
 Julia's package hosts were again unreachable, so this table scales the CRN
 prepared medians of Astra's same-host rerun
 ([gap10 comparison](comparison-julia-gap10.md), `validation/julia-gap10/comparison.json`)
@@ -318,8 +318,8 @@ Projected geometric mean 1.02× (checked default, measured by Astra on the same
 host: 1.44×). A direct rerun with `fast` engines remains the authoritative check.
 
 **Update after the Julia-gap campaign (projected, not remeasured).** A
-follow-up campaign ([protocol](decisions/julia-gap-2026-11-02.md),
-[log](campaign/julia-gap-implementation-log-2026-11-02.md)) kept five of ten
+follow-up campaign ([protocol](../decisions/julia-gap-2026-11-02.md),
+[log](../campaign/julia-gap-implementation-log-2026-11-02.md)) kept five of ten
 iterations under predeclared rules: AVX2 ChaCha8 dispatch, an exact Hill-rate
 memo, a cached composition envelope, a sums-only lazily checked rate tree and a
 joint member/acceptance word. Julia's package hosts were unreachable from that
@@ -341,7 +341,7 @@ The projected geometric-mean gap is 1.46× (measured 2.02× before). A direct
 rerun of `validation/compare_julia_accelerated.py` remains the authoritative
 check.
 
-![Warm ensemble times after SSA acceleration](images/julia-comparison-accelerated.png)
+![Warm ensemble times after SSA acceleration](../images/julia-comparison-accelerated.png)
 
 The [earlier comparison](comparison-catalyst-jumpprocesses-before-acceleration.md)
 is preserved. Its absolute times are historical, not observations combined with
@@ -360,7 +360,7 @@ models but was not rerun here, so this is not a three-way timing comparison.
 
 This reimplements relevant algorithmic techniques in Rust; it does not recreate
 Julia's compiler, symbolic model generator or complete solver ecosystem.
-[Implementation details and API examples](alternative-ssa.md) explain the
+[Implementation details and API examples](../alternative-ssa.md) explain the
 published algorithm families, numerical policy and new contracts. The old
 Direct/cached interfaces, schemas and byte identities are preserved. New methods
 return `ssa-result/0.1` JSON, not a legacy sealed archive.
@@ -525,11 +525,11 @@ Algorithm choice and bracket tuning can change outcomes. Ziggurat changes paths
 and must keep its separate sampler identity. New exact-method JSON has no sealed
 archive wrapper yet. Other-platform wheels were not tested.
 
-Reproduce with [validation/ssa-acceleration/README.md](../validation/ssa-acceleration/README.md).
-The [raw timing report](../validation/ssa-acceleration/julia-comparison.json)
-contains **1,015 observations**; the [validation report](../validation/ssa-acceleration/julia-validation.json)
+Reproduce with [validation/ssa-acceleration/README.md](../../validation/ssa-acceleration/README.md).
+The [raw timing report](../../validation/ssa-acceleration/julia-comparison.json)
+contains **1,015 observations**; the [validation report](../../validation/ssa-acceleration/julia-validation.json)
 contains all 6,946 checks and hashes of the sample files, sources and pinned Julia
-environment. The [implementation log](campaign/ssa-acceleration-implementation-log-2026-11-02.md)
+environment. The [implementation log](../campaign/ssa-acceleration-implementation-log-2026-11-02.md)
 retains development failures and the absorption follow-up. The intentionally
 interrupted validation is kept separately and is not used for these conclusions.
 The figure and this document can be regenerated with
@@ -542,7 +542,7 @@ Sources checked 2 November 2026; timing and validation values are our measuremen
 3. [Catalyst model semantics](https://docs.sciml.ai/Catalyst/stable/introduction_to_catalyst/math_models_intro/) and [full-rate DSL arrows](https://docs.sciml.ai/Catalyst/stable/model_creation/dsl_advanced/).
 4. [Julia 1.13.3 exponential sampler source](https://github.com/JuliaLang/julia/blob/v1.13.3/stdlib/Random/src/normal.jl); adapted MIT notices accompany the patch.
 """
-    (ROOT / "docs/comparison-catalyst-jumpprocesses.md").write_text(text)
+    (ROOT / "docs/evidence/comparison-catalyst-jumpprocesses.md").write_text(text)
     print(summary)
     print(
         "maximum ratio",

@@ -1,7 +1,7 @@
 """Time compiled Static Direct event loops end to end from Python.
 
 Declared before measuring (docs/decisions/compiled-rules-loop-python-2026-11-06.md):
-on the 1000-cell three-class workload of docs/mtdna-performance-analysis.md
+on the 1000-cell three-class workload of docs/evidence/mtdna-performance-analysis.md
 (takeover stop, three years, monthly reports, seed 17, two threads, two
 count trackers), `run.simulate(compiled=loop)` must be at least 1.5x faster
 than interpreted `run.simulate()` under `method="static_direct"`, by the

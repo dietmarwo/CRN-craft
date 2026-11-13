@@ -2216,7 +2216,16 @@ events and the mean digests of `builder-form.json` in every run. (b) The
 release CLI of the branch (`d12b242`, SHA-256 `c77519fb…`) and the CLI of
 `3d80c6d` give byte-identical result documents for the arm-B and arm-E
 requests (51,932 and 48,988 bytes) and for both with all 200 paths kept
-(141,217 and 95,429 bytes). (c) Below, with the gates.
+(141,217 and 95,429 bytes). (c) The stored requests replay byte for
+byte (`stored_requests.rs` 9 tests, `static_direct_defaults.rs` 2, in
+`cargo test --release --workspace --locked`: 406 passed, 0 failed), and
+the law gate with the release CLI at `d12b242` (`check_laws.py`, every
+model, `static_direct`, one model per run under the CPU lock) reproduces
+every model entry of `laws/m8b-cli.json` exactly: converted model hashes,
+request schemas, samplers, chunks with their seeds and events, power sums,
+statistics, summaries and all 4,814 comparison rows (0 failures, max |z|
+3.88); only the header's engine identity differs. The pieces are not
+committed: they equal `m8b-cli.json`.
 
 G made the same draws as A: the builder form's kernel equals the file
 form's to the bit, so G has A's 28,536,814 events and 23 stopped cells, and

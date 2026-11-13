@@ -2004,3 +2004,30 @@ are Python calls.
 Not measured: rebop's Rust macro; W3 and W4 (non-mass-action laws);
 rebop with more than one thread or process; the CLI process; a path-identity
 claim between the simulators (none exists); more than 3 repeats.
+
+### Docs 0.7.1: the builder form of the mtDNA model: declaration
+
+Committed before the first timing, task D4 of the documentation restructure
+for release 0.7.1. The guide's case study (chapters 12 and 13) builds the
+three-class model with `crn.Model` and runs it with `static_direct`; the
+table of contents asked D4 to measure that form. A first look showed the
+builder form much slower than the file form; this measurement fixes the
+numbers the guide quotes.
+
+- **Workload:** as in "Review (speed ratios quoted in the mtDNA user
+  manual)" above: takeover stop at 90%, end 25,920 h, report times every 90
+  days, 200 cells, seed 1, two threads, through `crn.ensemble`.
+- **Arms:** A the model file under `mtdna_direct`; B the model file under
+  `static_direct` (defaults); E the builder model of guide chapter 12
+  (`three_class(takeover=0.9)`: three species, whole-rule propensities)
+  under `static_direct`; F E with the loop of `crn.compile_loop`.
+- **Runs:** `validation/merge/manual-ratios/builder_form.py`, one Python
+  process, the 0.7.0 wheel of the docs branch, the whole run under the CPU
+  lock. One untimed warm-up run per arm, then three rounds in the orders
+  A B E F, F E B A, A B E F; the median of three per arm.
+- **Checks** (a failed check voids the run, which is kept): every run of A
+  reports `chacha8-u53-ziggurat/rules-mtdna-direct/1`; E and F have equal
+  event counts and means in every run and `loop.verify` passes; every run
+  completes.
+- **Target:** none; the ratios E/A, E/B, B/A, E/F and F/A are descriptive.
+  The guide quotes them rounded to one decimal place, with the date.

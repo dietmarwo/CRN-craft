@@ -1849,3 +1849,84 @@ A had 28,536,814 events, as the manual's section 3 prints.
 
 The manual's sections 3, 8 and 16 now give 2.8, 3.1 and 2.1 with this
 date; the optimization tutorial and the performance analysis cite them.
+
+### rebop on 0.7.0, for the comparison page: declaration
+
+Committed before the first timing, task DR of the documentation restructure
+for release 0.7.1. It repeats the rebop rows of `validation/compare_references.py`
+(rebop over CRN 1.27 and 21.95 in M8a, measured with the CLI process and 5
+repeats) on the 0.7.0 engine, so that the comparison page can quote a
+committed measurement. **No speed target is declared.** The purpose is a
+published ratio, whichever way it falls; rows where rebop is faster are
+kept and reported like the others. Nothing below is changed after a result
+is seen.
+
+- **Script:** `validation/merge/compare_rebop.py`, new, committed after this
+  declaration and before the run (schema `crn-craft.rebop-comparison/0.1`).
+  `compare_references.py` is not changed. The script reuses its workloads and
+  its `reference()` converter: the first two models of
+  `benchmark_campaign.models()`, W1 `two_channel` (one species, birth rate
+  100, death rate 1) and W2 `sparse_66` (33 species, birth 3.0 and death 0.2
+  per species), 64 paths over t in [0, 100], reports at 0 and 100, root seed
+  4242. The other two workloads of the family (W3, W4) use Hill and
+  Michaelis-Menten laws, which the converter does not express as mass
+  action, and are not measured.
+- **Rebop's two routes.** Rebop has a Python API that builds the system
+  dynamically (`rebop.Gillespie`, `add_reaction`, `run`), and a macro
+  (`rebop::define_system!`) that compiles a system into Rust code at
+  build time, which is a separate Rust crate and a different thing: the
+  system is fixed when the program is compiled. **This measurement uses the
+  Python/dynamic route only**, as `compare_references.py` does. The macro is
+  not measured here (the 2 November 2026 parameter-optimization evidence
+  timed it inside an optimizer loop, with a different harness).
+- **Versions:** crn-craft 0.7.0 installed from PyPI (`crn-craft==0.7.0`,
+  Python wheel; the Rust sources of this checkout are the same crate version
+  and serve `compile_loop`); rebop 0.10.0 from PyPI, pinned; the package set
+  of `/home/claude/m07/venv-m10a` otherwise (Python 3.12.3, NumPy 2.3.5,
+  SciPy 1.18.1, xarray 2026.9.0); Rust 1.97.0 for the compiled loop. The
+  script records the versions it ran with.
+- **What is timed.** Rows are wall time of one complete 64-path ensemble:
+  - `crn_default`: `crn.ensemble(model, ...).simulate()` for the default
+    Static Direct request (selector `auto`, Ziggurat waits), preparation
+    included, `threads=1`, the converted model bytes prepared beforehand.
+  - `crn_compiled`: the same request with `compiled=loop`, where
+    `loop = crn.compile_loop(model_bytes)` accepts the model; preparation
+    included, compile time excluded and reported separately. The compiled
+    loop gives byte-identical results to the interpreter, which the script
+    checks on the timed request. If `compile_loop` refuses a model, the row
+    is recorded as not accepted with the error.
+  - `rebop_dynamic`: 64 calls `rebop.Gillespie.run(init, 100.0, 1,
+    rng=4242 + i)`, one replicate each, single thread (rebop's Python API
+    has no thread option), after one warm-up ensemble; the `Gillespie`
+    object is built before timing. Output includes the xarray conversion
+    that every call does.
+  - Informative: `crn_default_threads2` and `crn_compiled_threads2`, the
+    same CRN-craft requests with `threads=2`, the host's two CPUs. There is no
+    rebop counterpart, so no ratio is formed from them.
+  Seeds differ between the simulators (independent streams); no path
+  identity is claimed. Event counts: CRN-craft's from the result metadata;
+  rebop's are counted once outside the timing, with the same 64 seeds and
+  `nb_steps=0` (every reaction returned), for time per event.
+- **Replicates and repeats:** 64 paths per ensemble; **3 repeats** of every
+  row, **interleaved with alternating order** (repeat 1: CRN-craft rows
+  then rebop; repeat 2: rebop then CRN-craft rows; repeat 3 as 1); a row's
+  time is the median of its 3. The ratio is median rebop seconds over median
+  CRN-craft seconds on one thread (above 1: CRN-craft is faster). Each
+  workload runs once, under the CPU lock (`flock /home/claude/craft5/cpu.lock`,
+  not nested), with nothing else of this session running.
+- **Agreement check (before the timed rows count):** 512 paths from each
+  simulator on one thread with fixed seeds (CRN-craft root seed 778; rebop
+  seeds 9000 + i); final counts of up to three species per workload;
+  two-sample Kolmogorov-Smirnov p-values (and mean z-scores) between the
+  simulators, and for W1 and W2, whose law at t = 100 is Poisson, a pooled
+  chi-square p-value of each simulator against the exact law. That is 4 KS
+  tests (W1: 1 species, W2: 3) and 4 chi-square tests, 8 in all. With a
+  family-wise error rate of 0.01 (Bonferroni), a p-value below
+  0.01 / 8 = 1.25e-3 is a failed test. A failed test is kept and reported;
+  nothing is rerun with other seeds, and the timings of a workload that
+  fails agreement are reported with that flag instead of being used for a
+  ratio.
+- **Parts and failures:** one part per workload (`--only W1`, `--only W2`),
+  each rerun whole if interrupted, merged by workload into
+  `validation/merge/rebop-comparison-0.7.json`. A failed or interrupted
+  attempt is listed in the results section.

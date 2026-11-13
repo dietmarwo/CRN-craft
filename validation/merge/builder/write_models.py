@@ -23,7 +23,7 @@ MODELS = {
 
 def main():
     for name, options in MODELS.items():
-        model = three_class(K=20, w0=20, mu=0.05, **options)
+        model = three_class(K=20, w0=20, mu=0.05, half_life_days=1, **options)
         (HERE / f"{name}.model.json").write_text(model.to_json() + "\n")
         print(name)
 

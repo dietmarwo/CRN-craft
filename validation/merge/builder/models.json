@@ -6,7 +6,7 @@
   {
    "name": "mtdna-builder",
    "path": "validation/merge/builder/mtdna-builder.model.json",
-   "sha256": "a6948d08307716ac0802038a4edd82904bef3d22806b7c6d57d1298534fc4699",
+   "sha256": "789f456ce93c843de1f1b376c8b0d96bb22beb5ef8d810a0041d77699c45e755",
    "form": "rules",
    "stop": false,
    "species_names": [
@@ -14,13 +14,13 @@
     "M",
     "A"
    ],
-   "end": 2000.0,
+   "end": 200.0,
    "report_times": [
     0.0,
-    250.0,
-    500.0,
-    1000.0,
-    2000.0
+    25.0,
+    50.0,
+    100.0,
+    200.0
    ],
    "replicates": 200000,
    "chunk": 10000,
@@ -39,7 +39,7 @@
   {
    "name": "mtdna-builder-stop",
    "path": "validation/merge/builder/mtdna-builder-stop.model.json",
-   "sha256": "2646049a05828f5cec8e9a69289f6b909867aba478b9d6c255f3f1d2db8bd119",
+   "sha256": "abeaef672b3e5f261a17af5c949e345b8691d63ed776a9a2fc4dc9d045649cd3",
    "form": "rules",
    "stop": true,
    "species_names": [
@@ -47,13 +47,13 @@
     "M",
     "A"
    ],
-   "end": 2000.0,
+   "end": 200.0,
    "report_times": [
     0.0,
-    250.0,
-    500.0,
-    1000.0,
-    2000.0
+    25.0,
+    50.0,
+    100.0,
+    200.0
    ],
    "replicates": 200000,
    "chunk": 10000,

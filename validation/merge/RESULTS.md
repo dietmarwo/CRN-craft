@@ -2142,3 +2142,36 @@ check, with the rules of "Law gate" above.
   against the sample reference and 60 against FSP; 24 of them at time 0.
 - **Target:** 0 failures, and every chunk reports the fast path's sampler.
   A failure is reported, not rerun with another seed.
+
+**Amendment, before any comparison ran.** The first reference run stopped
+in the finite state projection: with the guide's half-life of 10 days and
+an end of 2,000 h the projection needs more than its work limit (2·10⁸;
+`CRN-E070`). The models now use a half-life of 1 day (`delta` ten times
+larger) and end at 200 h, report times 0, 25, 50, 100 and 200 h; the
+dynamics are the same up to the time scale, and about six mutations occur
+per cell. Everything else stands.
+
+### E1 (`mtdna_direct` on the builder form): law check results
+
+2026-11-13, this host, after the declaration and its amendment (`a79802a`).
+References from the CLI of `3d80c6d` (release profile with line tables,
+SHA-256 `04086920…`), `validation/merge/builder/reference/`: the finite
+state projections have 1,771 states (no stop) and 506 (stop), no leakage,
+mass defect at most 6.2e-13; the samples have 44,735,067 and 39,844,143
+events under `chacha8-u53-ziggurat/rules-static-direct/1`. Check run with
+the release CLI of the E1 branch at `a79802a` (SHA-256 `62f7fd6b…`)
+(`validation/merge/laws/e1-builder-mtdna_direct.json`): every chunk reports
+`chacha8-u53-ziggurat/rules-mtdna-direct/1` under `crn-craft.run/1.0`
+(44,760,319 and 39,879,255 events).
+
+| Model | Cells | Comparisons (reference) | Failures | max \|z\| | Comparisons (FSP) | Failures | max \|z\| |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| mtdna-builder | 15 | 30 | 0 | 1.94 | 30 | 0 | 2.09 |
+| mtdna-builder-stop | 15 | 30 | 0 | 1.79 | 30 | 0 | 1.90 |
+| **Total** | 30 | 120 comparisons (N), 24 at t = 0 | **0** | 2.09 | | | |
+
+**Target met:** 0 failures, the fast path's sampler throughout. Limits:
+one capacity (20) and one parameter set at the check's size; the guide's
+capacity of 1,000 is covered by the unit tests (the kernel equals the file
+form's to the bit, and the per-cell draws equal the file form's in
+`mtdna_direct_runs_the_builder_form_under_run_1_0`), not by an FSP law.

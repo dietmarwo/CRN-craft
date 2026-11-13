@@ -299,6 +299,74 @@ MUTATIONS = [
         "y * libm::pow(x, y - 1.0)",
         "libm::pow(x, y - 1.0)",
     ),
+    # E1: shared subexpressions, fused steps, products, sum-fraction stops.
+    (
+        "shared_values_not_reset",
+        "crates/crn-craft/src/rules/flat.rs",
+        "        self.subexpressions.fill(f64::NAN);\n",
+        "",
+    ),
+    (
+        "dominated_subexpression_shared",
+        "crates/crn-craft/src/rules/expr.rs",
+        "let dominated = inner[key].iter().any(|k| counts[k] > n);",
+        "let dominated = inner[key].is_empty() && counts[key] > n;",
+    ),
+    (
+        "fused_subtraction_reversed",
+        "crates/crn-craft/src/rules/expr.rs",
+        "Step::SubLoad(i) => acc = acc - observables[i],",
+        "Step::SubLoad(i) => acc = observables[i] - acc,",
+    ),
+    (
+        "fused_max_is_min",
+        "crates/crn-craft/src/rules/expr.rs",
+        "Step::ConstMax(c) => acc = min_max(true, c, acc),",
+        "Step::ConstMax(c) => acc = min_max(false, c, acc),",
+    ),
+    (
+        "product_adds_counts",
+        "crates/crn-craft/src/rules/expr.rs",
+        "        for &i in &self.loads {\n            acc *= observables[i];",
+        "        for &i in &self.loads {\n            acc += observables[i];",
+    ),
+    (
+        "sum_fraction_strict",
+        "crates/crn-craft/src/rules/expr.rs",
+        "flag(n > 0.0 && Self::add(&self.part, observables) >= self.fraction * n)",
+        "flag(n > 0.0 && Self::add(&self.part, observables) > self.fraction * n)",
+    ),
+    # E1: the certificate of the builder form.
+    (
+        "builder_vacancy_any_count",
+        "crates/crn-craft/src/rules/mtdna.rs",
+        "if free.counts != [-1.0; 3] {",
+        "if free.counts == [0.0; 3] {",
+    ),
+    (
+        "builder_parent_count_unchecked",
+        "crates/crn-craft/src/rules/mtdna.rs",
+        "} else if !counted && self.linear(node) == Some(parent_count) {",
+        "} else if !counted && self.linear(node).is_some() {",
+    ),
+    (
+        "builder_inexact_sum_accepted",
+        "crates/crn-craft/src/rules/mtdna.rs",
+        "(s.is_finite() && error == 0.0).then_some(s)",
+        "s.is_finite().then_some(s)",
+    ),
+    (
+        "builder_stop_part_unchecked",
+        "crates/crn-craft/src/rules/mtdna.rs",
+        "        integral(part, [0.0, 1.0, 1.0])?;\n",
+        "        let _ = part;\n",
+    ),
+    (
+        "builder_form_for_every_request",
+        "crates/crn-craft/src/rules/mod.rs",
+        "let builder = request.schema == RunVersion::V10;",
+        "let builder = true;",
+    ),
 ]
 
 # Integration tests of the unified engine and of the kept analysis, structure,

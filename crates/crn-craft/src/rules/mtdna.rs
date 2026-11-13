@@ -890,6 +890,20 @@ mod tests {
         model["rules"][4]["propensity"] =
             "max(0, 999 - W - M - A) / (W + sm * (M + A)) * sm * A".into();
         assert_eq!(refused(&model), Some(VACANCY));
+        // Weights whose sum is not exact: 0.1 + 0.2 rounds, so the
+        // expression's weight of M is not a number the fast path can use.
+        let model = builder_model(
+            ["W", "M", "A"],
+            "max(0, K - W - M - A) / (W + 0.1 * M + 0.2 * M + sm * A)",
+            None,
+        );
+        assert_eq!(refused(&model), Some(VACANCY));
+        let model = builder_model(
+            ["W", "M", "A"],
+            "max(0, K - W - M - A) / (W + 0.5 * M + M + sm * A)",
+            None,
+        );
+        assert!(kernel(&model, true).is_ok());
         // max(1, ...) is not the vacancy.
         let model = builder_model(
             ["W", "M", "A"],

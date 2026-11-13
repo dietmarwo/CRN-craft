@@ -148,7 +148,7 @@
 //! | --- | --- | --- |
 //! | `tree` (default) | yes | Every rules model without ATP or continuous variables; dynamic instances over sum trees |
 //! | `static_direct` | yes | Closed models; Ziggurat waits and sparse trackers, opt-in in rules-run/0.4 and 0.5 and the default from 0.6; in run/1.0 a [`Selector`]: the linear scan, composition–rejection, sorting direct or RSSA-CR |
-//! | `mtdna_direct` | yes | The fixed three-class vacancy model; falls back to Static Direct with `CRN-R051` |
+//! | `mtdna_direct` | yes | The fixed three-class vacancy model (under run/1.0 also its builder form); falls back to Static Direct with `CRN-R051` |
 //! | `next_reaction` | yes | Closed models, with indexed clocks ([DOI 10.1021/jp993732q](https://doi.org/10.1021/jp993732q)) |
 //! | `thinning` | yes | Required by, and only for, rules-model/0.2 models with ATP |
 //! | `tau` | no | Closed models; adaptive Poisson leaps ([DOI 10.1063/1.2159468](https://doi.org/10.1063/1.2159468)) |
@@ -1807,7 +1807,9 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
     }
     let (mtdna, mtdna_fallback) = match (request.method, flat.as_ref()) {
         (Some(Method::MtdnaDirect {}), Some(net)) => {
-            match mtdna::Kernel::compile(net, &compiled, &observations) {
+            // The builder form is certified for crn-craft.run/1.0 only.
+            let builder = request.schema == RunVersion::V10;
+            match mtdna::Kernel::compile(net, &compiled, &observations, builder) {
                 Ok(kernel) => (Some(kernel), None),
                 Err(reason) => (None, Some(reason)),
             }

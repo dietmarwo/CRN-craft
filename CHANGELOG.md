@@ -7,6 +7,23 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+### Changed
+
+- Faster whole-rule propensities and expression rates, with every result
+  unchanged byte for byte: a subexpression that several rate programs of
+  one model share (the vacancy term of a builder-built model) is computed
+  once per event, programs use fused steps, products of a value with
+  constants and counts run without the interpreter, and stops of the form
+  `T > 0 && P >= f * T` over sums of observables have their own form. The
+  builder form of the guide's three-class mtDNA model runs Static Direct
+  about 2.8 times faster (see `validation/merge/RESULTS.md`, "E1").
+- `mtdna_direct` certifies the builder form of the three-class model
+  (attribute-free species, whole-rule propensities, the takeover stop over
+  sums of counts) in `crn-craft.run/1.0` requests and runs the fast path
+  with the file form's sampler identity; the builder form's kernel equals
+  the file form's, so its draws do too. Requests of the `rules-run`
+  versions keep the fallback with `CRN-R051`.
+
 ## [0.7.0] - 2026-11-12
 
 One engine. The network engine and the rules engine are merged into a

@@ -563,3 +563,98 @@ fn sparse_trackers_without_an_eligible_tracker_keep_the_default_identity() {
         warning.message
     );
 }
+
+/// The three-class model as the Python builder of guide chapter 12 writes
+/// it: attribute-free species `W`, `M`, `A`, whole-rule propensities, the
+/// takeover stop over sums of counts (E1).
+fn builder_three_class(schema: &str) -> Value {
+    let free = "max(0, K - W - M - A) / (W + sm * (M + A))";
+    let rule = |name: &str, parent: &str, propensity: String, products: Value| {
+        json!({"name": name, "reactants": [{"label": "x", "type": parent}],
+               "propensity": propensity, "products": products})
+    };
+    json!({
+        "schema": schema,
+        "name": "mtdna_three_class",
+        "parameters": {"K": 1000.0, "delta": 0.0028881132523331052, "sw": 1.0,
+                       "sm": 1.5, "mu": 3e-05, "fracAdv": 0.2},
+        "types": [{"name": "W"}, {"name": "M"}, {"name": "A"}],
+        "initial": [{"type": "W", "count": 1000}],
+        "observables": {"W": {"type": "W"}, "M": {"type": "M"}, "A": {"type": "A"}},
+        "rules": [
+            rule("replication_wt", "W", format!("{free} * sw * (1 - mu) * W"),
+                 json!([{"type": "W"}, {"type": "W"}])),
+            rule("mutation_mt", "W", format!("{free} * sw * mu * (1 - fracAdv) * W"),
+                 json!([{"type": "W"}, {"type": "M"}])),
+            rule("mutation_mtAdv", "W", format!("{free} * sw * mu * fracAdv * W"),
+                 json!([{"type": "W"}, {"type": "A"}])),
+            rule("replication_mt", "M", format!("{free} * sw * M"),
+                 json!([{"type": "M"}, {"type": "M"}])),
+            rule("replication_mtAdv", "A", format!("{free} * sm * A"),
+                 json!([{"type": "A"}, {"type": "A"}])),
+            rule("degradation_wt", "W", "delta * W".into(), json!([])),
+            rule("degradation_mt", "M", "delta * M".into(), json!([])),
+            rule("degradation_mtAdv", "A", "delta * A".into(), json!([])),
+        ],
+        "stop": "W + M + A > 0 && M + A >= 0.9 * (W + M + A)",
+    })
+}
+
+/// E1: under `crn-craft.run/1.0`, `mtdna_direct` certifies the builder form
+/// and runs the fast path. Its kernel is the file form's to the bit, so
+/// every replicate makes the file form's draws: the same events, and `M + A`
+/// is the file form's `mutants` at every report time.
+#[test]
+fn mtdna_direct_runs_the_builder_form_under_run_1_0() {
+    let builder = builder_three_class("crn-craft.model/1.0");
+    let mut file = three_class();
+    file["schema"] = json!("crn-craft.model/1.0");
+    file["stop"] = json!("N > 0 && mutants >= 0.9 * N");
+    let times = [0.0, 2000.0, 8000.0, 20000.0];
+    let run = |model: &Value| {
+        let bytes = serde_json::to_vec(model).unwrap();
+        let mut req = request_v("crn-craft.run/1.0", &bytes, 24, 20000.0, &times);
+        req["method"] = json!({"kind": "mtdna_direct"});
+        solve_values(model, &req)
+    };
+    let mine = run(&builder);
+    let theirs = run(&file);
+    for result in [&mine, &theirs] {
+        assert_eq!(result.sampler, "chacha8-u53-ziggurat/rules-mtdna-direct/1");
+        assert!(result.diagnostics.iter().all(|d| d.code != "CRN-R051"));
+    }
+    assert_eq!(mine.events, theirs.events);
+    assert_eq!(mine.stopped_replicates, theirs.stopped_replicates);
+    let column =
+        |r: &RulesResult, name: &str| r.observables.iter().position(|o| o == name).unwrap();
+    let (m, a) = (column(&mine, "M"), column(&mine, "A"));
+    let mutants = column(&theirs, "mutants");
+    for (p, q) in mine.paths.iter().zip(&theirs.paths) {
+        assert_eq!(p.values.len(), q.values.len());
+        for (x, y) in p.values.iter().zip(&q.values) {
+            assert_eq!(x[m] + x[a], y[mutants]);
+        }
+    }
+}
+
+/// E1: requests of the `rules-run` versions keep the fallback for the
+/// builder form (a `rules-model/0.4` document of the same model).
+#[test]
+fn rules_run_requests_keep_the_builder_form_fallback() {
+    let model = builder_three_class("crn-craft.rules-model/0.4");
+    let bytes = serde_json::to_vec(&model).unwrap();
+    let mut req = request_v("crn-craft.rules-run/0.6", &bytes, 4, 100.0, &[0.0, 100.0]);
+    req["method"] = json!({"kind": "mtdna_direct"});
+    let result = solve_values(&model, &req);
+    assert_eq!(result.sampler, "chacha8-u53/rules-static-direct/1");
+    let warning = result
+        .diagnostics
+        .iter()
+        .find(|d| d.code == "CRN-R051")
+        .expect("fallback warning");
+    assert!(
+        warning.message.contains("whole-rule"),
+        "{}",
+        warning.message
+    );
+}

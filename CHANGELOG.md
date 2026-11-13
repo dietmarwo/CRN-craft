@@ -16,7 +16,8 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
   constants and counts run without the interpreter, and stops of the form
   `T > 0 && P >= f * T` over sums of observables have their own form. The
   builder form of the guide's three-class mtDNA model runs Static Direct
-  about 2.8 times faster (see `validation/merge/RESULTS.md`, "E1").
+  2.7 times faster, within 1.4 times the model file's time per event (see
+  `validation/merge/RESULTS.md`, "E1").
 - `mtdna_direct` certifies the builder form of the three-class model
   (attribute-free species, whole-rule propensities, the takeover stop over
   sums of counts) in `crn-craft.run/1.0` requests and runs the fast path

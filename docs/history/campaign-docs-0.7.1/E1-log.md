@@ -180,8 +180,8 @@ is `request.schema == RunVersion::V10`).
   file form's kernel; five variants (other names, inlined parameters,
   reordered sums and `max(K - ..., 0)`, other species order, factors
   reordered and reassociated, `W * delta`), each also checked hazard by
-  hazard against Static Direct's propensities at seven states; fourteen
-  near-misses with their reasons (changed weight in one rule, vacancy
+  hazard against Static Direct's propensities at seven states; thirteen
+  near-misses and six stops, each with its reason (changed weight in one rule, vacancy
   without a class, another capacity in one rule, `max(1, ...)`, missing or
   wrong count, a squared count, another death rate, a death without its
   count, an inexact weight sum, a fourth reaction, a capacity below the

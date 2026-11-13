@@ -14,7 +14,7 @@ document.
 | --- | --- | --- |
 | `crn-craft.model/1.0` | the model: [model reference](model-language.md) | `model-1.0` |
 | `crn-craft.run/1.0` | the request: simulation methods, or `fsp` | `run-1.0` |
-| `crn-craft.result/1.0` | the result of a simulation request ([result contract](results.md)) | `result-1.0` |
+| `crn-craft.result/1.0` | the result of a simulation request ([results](results.md)) | `result-1.0` |
 | `crn-craft.fsp-result/1.0` | the result of an `fsp` request | `fsp-result-1.0` |
 | `crn-craft.check/1.0` | the report of `check`: whether `run` would accept the documents | `check-1.0` |
 | `crn-craft.analysis/1.0` | structure, conservation laws and bounds of a model | `analysis-1.0` |
@@ -45,6 +45,87 @@ Documents of the removed network engine are not read any more: network
 `ssa-result`, `tau-result`, `fsp-result/0.1`, `analysis/0.1` and `0.2`,
 `archive/0.1` and `archive-check/0.1`. Their schema files are gone. The
 [changelog](../../CHANGELOG.md) has the migration tables.
+
+## Versions of the request and the model
+
+The request version decides which fields are allowed:
+
+| Version | Adds |
+| --- | --- |
+| `crn-craft.run/1.0` | `method.selector` for `static_direct`, `outputs.quantiles`, the method `fsp`; Static Direct defaults to the selector `auto`; the result is `crn-craft.result/1.0` |
+| `crn-craft.rules-run/0.1` | the tree method only |
+| `crn-craft.rules-run/0.2` | `method`, `trackers`, `event_log`; the result is rules-result/0.2, with a sampler identity and optional ordered `observations` |
+| `crn-craft.rules-run/0.3` | `mtdna_direct` |
+| `crn-craft.rules-run/0.4` | Static Direct `waiting_time` and `sparse_trackers` |
+| `crn-craft.rules-run/0.5` | `hybrid` with its `rtol` and `atol`; the result is rules-result/0.3, which adds `method` and `continuous` |
+| `crn-craft.rules-run/0.6` | no field; Static Direct defaults to Ziggurat waits and sparse trackers; the result is rules-result/0.3 |
+
+`crn-craft.run/1.0` has the shape of `rules-run/0.6` and means what it means,
+plus the features of 1.0. Python writes the versions as follows.
+`crn.ensemble` always writes `run/1.0`. `crn.rules.ensemble` picks the lowest
+`rules-run` version that fits its arguments, and rules-run/0.6 for
+`static_direct`; it writes `run/1.0` only when an argument needs it
+(`quantiles=`, `selector=`) or the model is `crn-craft.model/1.0`.
+`crn.prepare(model, request)` takes a request you wrote yourself.
+
+Model files carry their own version:
+
+| Version | Adds |
+| --- | --- |
+| `crn-craft.rules-model/0.1` | the base language |
+| `crn-craft.rules-model/0.2` | the legacy `atp` block |
+| `crn-craft.rules-model/0.3` | whole-rule `propensity` and `continuous` variables; from 0.3 a rule gives exactly one of `rate` and `propensity` |
+| `crn-craft.rules-model/0.4` | `"independent": true` for continuous variables whose derivative reads only parameters and other independent variables; `hybrid` integrates them once per prepared run and shares the solution among all replicates |
+| `crn-craft.model/1.0` | what 0.4 means, with larger limits and the pattern `count` |
+
+A 0.4 document without the field means what it means as 0.3. `crn.Model`
+writes `model/1.0`, and `crn.rules.Model` writes 0.3 (0.4 with an independent
+ODE). A `rules-model` file runs under either request family. Stored
+rules-model 0.1 to 0.3 files and rules-run 0.1 to 0.6 requests keep their
+meaning and replay byte for byte. Each backend has its own replay identity.
+The worker count preserves a completed numerical payload apart from its
+request hash.
+
+## The run request
+
+`crn-craft.run/1.0` has the shape of `rules-run/0.6` and adds three things:
+`method.selector` for `static_direct` (`linear`, `composition_rejection`,
+`sorting`, `rssa_cr` or `auto`, the default; see [exact methods](methods.md)),
+`outputs.quantiles` (up to 16 probabilities in (0, 1); the result's
+`statistics.quantiles` holds the quantile of every report time and observable,
+and the median is the quantile at 0.5; see the [result contract](results.md))
+and the method `fsp` (finite state projection: `bounds`, `max_states` and
+`tolerance`; the result is `crn-craft.fsp-result/1.0`). Its result is
+`crn-craft.result/1.0`. A `rules-run` request refuses these fields (`CRN-R020`
+at `/schema`) and keeps its meaning, its numbers and its hashes. The rest of
+this section describes the common core, starting with
+`crn-craft.rules-run/0.1`, which binds the model by relative path and SHA-256 and
+gives `time.end`, strictly increasing `time.report_times` in [0, end],
+`ensemble.replicates` and `root_seed`, `outputs` (`statistics` from mean and
+variance, `keep_paths`, `keep_instances`) and an explicit `budget`
+(`max_events_per_replicate`, `max_sampling_steps_per_replicate` counting every
+random word, `max_instances` alive at once, `threads` 1–64,
+`max_output_bytes`, optional `wall_time_s`). Before running, the request is
+admitted only if a conservative reservation for records, in-flight and kept
+series and kept final instances (`keep_instances × max_instances`) stays below
+2 GiB, and if `max_output_bytes` can hold at least 160 bytes per replicate
+record (`CRN-R020`).
+
+Trackers and event logs (rules-run/0.2 and later) reserve output per
+replicate: 256 bytes per tracker plus 64 per kept episode, and `max_entries`
+times a bound on one log entry. The entry bound counts every number at its
+longest compact JSON form (25 bytes with its comma) and uses the model's own
+sizes: 160 bytes for the keys, time and rule, 25 per observable column, and
+per participant of an exact step 62 bytes plus 25 per attribute, where the
+participants are the largest number of reactant patterns plus products of
+any rule. Leap entries (`tau`, `binomial`) list firings instead, 45 bytes per
+lowered channel. Up to 0.2.0 the bound assumed two reactants and 64 products
+for every rule; the smaller of the two bounds applies, so no request admitted
+before is refused now. For the three-class mtDNA model an entry reserves 721
+bytes, so 50 entries for 1,000 cells take 36 MB of the 64 MiB Python default.
+Replicates times this reservation must fit `max_output_bytes` (and 2 GiB). The
+`CRN-R020` message at `/budget` itemizes the reservation, and its hint names
+the smallest `max_output_bytes` that admits the request.
 
 ## Strict input
 

@@ -12,7 +12,7 @@ the [architecture overview](../developer/architecture.md) and the
 | Use | Command / interface |
 |---|---|
 | Exact SSA and archives | `crn-craft simulate MODEL RUN NEW_DIRECTORY` |
-| Alternative exact SSA | `crn-craft ssa MODEL REQUEST`; see [guide](../alternative-ssa.md) |
+| Alternative exact SSA | `crn-craft ssa MODEL REQUEST`; see [guide](../guide/migrating.md) |
 | Exact dependency-cached SSA | `crn-craft simulate-cached MODEL RUN NEW_DIRECTORY` |
 | Verify exact archive | `crn-craft verify DIRECTORY` |
 | Sparse FSP | `crn-craft fsp MODEL RUN` |

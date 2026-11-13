@@ -130,3 +130,23 @@ output limits, and the warnings `CRN-R050` for an incomplete ensemble and
 `CRN-R051` for a requested specialization that did not apply (an
 `mtdna_direct` fallback, or an explicit `sparse_trackers: true` without an
 eligible tracker; the rules-run/0.6 default does not warn).
+
+### The `CRN-R` codes at a glance
+
+| Code | Meaning |
+|---|---|
+| CRN-E001–E004 | malformed JSON, duplicate keys, unknown fields or wrong types (`E003`), size limits |
+| CRN-R010 | invalid, reserved or duplicate name; observable shadowing a parameter |
+| CRN-R011 | unknown type |
+| CRN-R012 | expression syntax, unknown name, out-of-scope name or random draw outside products; an independent variable's derivative that reads an observable or a dependent variable |
+| CRN-R013 | unsupported rule shape, missing or unknown attribute, bad `copy`; both or neither of `rate` and `propensity`, `where` or `factor` on a propensity rule's reactant; `lower_bound` without `on_bound` or the reverse |
+| CRN-R014 | invalid initial count or attribute; a continuous variable's initial value or bound that is not finite, or an initial value below its bound |
+| CRN-R013 and R020 | for `model/1.0`: a pattern `count` outside 1 to 2,147,483,647, or on an attributed type or with `where` or `factor` (`R013`); a higher-order rule under a method that refuses it (`R020` at `/method`) |
+| CRN-R015 | model size limit (the [limits](model-language.md#limits); also 64 continuous variables); a field used before its model version (`atp` in 0.1, `propensity` and `continuous` in 0.1 or 0.2, `independent` before 0.4); `atp` together with `continuous` |
+| CRN-R016, R017 | a network model the converter cannot write (`R016`); a model without a flat view, which finite state projection, analysis, ODE export and GillesPy2 export need (`R017`) |
+| CRN-R020 | invalid run request (hash, path, grid, ensemble, budget, method, selector, quantiles, tracker, log or version gate; generated-kernel fingerprint mismatch) |
+| CRN-R030 | negative or non-finite rate, factor, weight or product attribute; overflow; under `run/1.0`, 1,000,000 consecutive waits that do not advance the clock |
+| CRN-R031 | weight below 53-bit resolution (Static Direct: a channel below 2⁻⁵³ of the total) |
+| CRN-R040–R045 | event, sampling, instance (including a count above 2⁵³), wall-time, cancellation and output limits |
+| CRN-R050 | warning: incomplete ensemble, statistics withheld |
+| CRN-R051 | warning: a requested specialization did not apply (`mtdna_direct` could not certify the model and ran Static Direct, or an explicit `sparse_trackers: true` found no eligible tracker; the rules-run/0.6 default does not warn); the message gives the reason |

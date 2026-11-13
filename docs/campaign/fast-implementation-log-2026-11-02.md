@@ -42,7 +42,7 @@ request's shape, the request becomes `crn-craft.ssa-run/0.2`:
 - 0.1 requests keep byte-identical results.
 - Schemas are regenerated from the Rust types; discovery moves to
   `describe/0.7`.
-- Migration notes are in [alternative-ssa.md](../alternative-ssa.md).
+- Migration notes are in [alternative-ssa.md](../guide/migrating.md).
 - Python gains `ssa_spec(fast=...)`.
 - `bench_ssa` and `measure_julia_gap.py` accept a fast flag
   (`NAME=PATH@fast`).

@@ -42,7 +42,7 @@ deviation. Older campaign logs describe the engines as they were then.
   `crn_craft.rules` is the 0.6.0 API with its defaults (the `rules-*`
   versions, the linear scan, no quantiles). `Result.save` writes markdown or
   `crn-craft.report/1.0`. Parameter sweeps use `bind_parameters`
-  ([parameter sweeps](../reusable-parameters.md)).
+  ([parameter sweeps](../guide/05-speed.md#parameter-sweeps)).
 
 ## Where things are
 

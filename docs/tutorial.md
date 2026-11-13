@@ -843,7 +843,7 @@ selects it. `crn.describe()["methods"]` lists them.
 | Structure, conservation and bounds | `analyze` |
 | Deterministic dynamics and parameter sensitivities | the optional `crn-diffsol` integration |
 
-The [mtDNA ensembles](mtdna-rules.md) page describes `tree`, `mtdna_direct`,
+The [mtDNA ensembles](reference/methods.md) page describes `tree`, `mtdna_direct`,
 `binomial`, `thinning` and `hybrid`.
 
 **Selectors.** `static_direct` selects the next channel with one of five
@@ -919,8 +919,8 @@ Performance notes, from the measurements in the
 - [Exact methods and selectors](reference/methods.md),
   [archive contract](reference/archives.md), [result contract](reference/results.md),
   [diagnostics](reference/diagnostics.md) and [contracts](reference/contracts.md).
-- [Alternative exact SSA methods](alternative-ssa.md) and
-  [mtDNA ensembles](mtdna-rules.md).
+- [Alternative exact SSA methods](reference/methods.md#selectors) and
+  [mtDNA ensembles](reference/methods.md).
 - [mtDNA user manual](mtdna-user-manual.md): a complete study with attributes,
   trackers, event logs and parameter sweeps.
 - [Campaign guide](campaign/README.md) for the fcmaes worker, the ODE and

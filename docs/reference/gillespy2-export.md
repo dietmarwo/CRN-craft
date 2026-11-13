@@ -2,7 +2,7 @@
 
 M1b exports model source for **GillesPy2 1.8.3**, with a runtime version guard. It is an optional reference tool; the Rust core does not import, link or execute GillesPy2.
 
-```bash
+```text
 cargo build --release --workspace --locked
 ./target/release/crn-craft export models/examples/enzyme-mechanism.model.json gillespy2 > export.json
 python3 -c 'import json; from pathlib import Path; r=json.loads(Path("export.json").read_text()); Path("reference.py").write_text(r["artifact"]["source"])'

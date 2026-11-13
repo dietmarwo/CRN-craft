@@ -71,3 +71,62 @@ operation order (`acc op observable`, `f(c, acc)`); evaluate a stop that
 the rate compiler accepts with the accumulator program and its shared
 subexpressions instead of the register bytecode. No change of what is
 computed, only of how often and with how many dispatches.
+
+## 2. Byte-identical speedups
+
+What changed (all in `crates/crn-craft/src/rules/expr.rs` and `flat.rs`;
+no contract, request, result or sampler identity changes):
+
+- **Shared subexpressions** (`SharedPrograms`, `RateCache::expression`). At
+  lowering, every subexpression of the expression rates of one model is
+  keyed by its own compiled steps (constants by their bits). One that occurs
+  at least twice, has at least four steps and contains no subexpression that
+  occurs more often gets a slot; the outermost such subexpressions are
+  replaced by a `Shared` step. The rate cache computes a slot the first time
+  a rate needs it in a state (NaN until then, like the cache's other
+  entries) and resets it with them. A subexpression's steps set the
+  accumulator first and use the stack only above its top, so the slot's
+  value is the value the inline steps compute. On the builder model the
+  vacancy term `max(0, K - W - M - A) / (W + sm * (M + A))` becomes one slot,
+  computed once per event instead of five times. A first version shared the
+  largest repeated term, `free * sw` (four rules), and `free` again for the
+  fifth rule (`free * sm * A`), so the term was computed twice per event; the
+  rule "no slot for a term that contains a more frequent one" fixed that
+  (E 2.25 s to 1.87 s on the CLI).
+- **Fused steps** that keep the operation and its operand order: `acc op
+  observable` (`AddLoad`, `SubLoad`, `MulLoad`, `DivLoad`, `BinLoad`), `f(c,
+  acc)` and `f(acc, c)` with dedicated `max`/`min` steps, `PushLoad`, and
+  the four arithmetic `Bin` steps without the logic checks of `apply`. The
+  stack depth that decides between a program and the tree is still counted
+  for the unfused steps, so the set of expressions that keep the tree is
+  unchanged.
+- **Products**: a program that is a load or shared value times constants,
+  then times observables (`delta * W`, `free * sw * (1 - mu) * W`), is
+  evaluated by two loops without dispatch.
+- **Stop predicates** compile to the rate program when they can (the value
+  of the tree; only a NaN payload may differ, and a NaN stop is an error
+  whatever its payload), and `T > 0 && P >= f * T` with `T`, `P` sums of
+  observables has a fused form like the existing one for single
+  observables. `Predicate::fraction` is unchanged, so generated loops are
+  unchanged.
+- Tried and removed: compiling programs into nested closures instead of the
+  step interpreter. Five alternating runs: 1.896 s against 1.920 s median
+  (1.3%), not worth 200 lines.
+
+Byte identity, checked on the way: the CLI result documents of the arm-B
+and arm-E requests equal those of the 0.7.0 code byte for byte after every
+step. Tests added: fused steps are covered by the existing random-program
+test (3,000 expressions, 9,000 programs); `predicate_bytecode_matches_tree`
+also checks the stop's program form; new
+`sum_fraction_stops_have_the_value_of_the_tree` (10 forms, 5 refused, 512
+states each with NaN, infinities, fractions),
+`shared_subexpressions_keep_the_bits_of_every_program` (400 random model
+rate sets, 3 parameter sets, 5 states), `the_builder_vacancy_term_is_shared_once`,
+and in `flat.rs` `shared_subexpressions_leave_every_rate_unchanged` (every
+closed model of the repository and the builder model, 64 random states:
+the cache's value has the bits of the rule's own program).
+
+Informal CLI timings on this host during development (not the declared
+measurement): B 1.32–1.57 s; E 5.23 s (0.7.0), 4.0 s (sharing), 2.65 s
+(products, sum stop), 2.37 s (one dispatch level less), 2.25 s (closures,
+then removed), 1.87 s (no dominated slot).

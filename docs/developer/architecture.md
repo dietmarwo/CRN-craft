@@ -125,7 +125,10 @@ the request. A closed model, one whose set of attribute vectors cannot grow
 during a run, is lowered to a flat network: species, channels, the count
 change of each channel, the species each rate reads and the channels each
 firing affects. The rates of the lowered network are compiled into flat
-programs with the parameters folded in.
+programs with the parameters folded in. A subexpression that several rate
+programs of one model share (the vacancy term of a builder model's
+whole-rule propensities, for example) is computed once per state, by the
+same operations in the same order, so every rate keeps its bits.
 
 | Method | Execution and scope |
 | --- | --- |
@@ -144,7 +147,9 @@ the methods; [the model reference](../reference/model-language.md) the language.
 
 Each Static Direct event recomputes only the rates the last firing affects,
 draws a waiting time and selects a channel. Rates are compiled programs
-with dedicated forms for the converted Hill and Michaelis–Menten laws; count
+with dedicated forms for the converted Hill and Michaelis–Menten laws and
+for products of a value with constants and counts; a stop of the form
+`T > 0 && P >= f * T` over sums of observables has its own form too; count
 factors are precomputed per channel; count updates apply in one pass and undo
 themselves on an error. A positive channel below 2⁻⁵³ of the total fails the
 replicate (`CRN-R031`), and a negative or non-finite rate fails it

@@ -1418,7 +1418,7 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
     if out.is_empty() {
         let stop_program = stop
             .as_ref()
-            .map(|e| Predicate::compile(e, observables.len()));
+            .map(|e| Predicate::compile(e, observables.len()).with_program(e, &params));
         Ok(Compiled {
             version: model.schema,
             params,

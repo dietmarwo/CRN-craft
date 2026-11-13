@@ -20,7 +20,7 @@ prints a JSON Schema. `rules` and `rules-check` remain aliases of `run` and
 `check`.
 
 The library is [`crn-craft`](https://crates.io/crates/crn-craft); the Python
-package is [`crn-craft` on PyPI](https://pypi.org/project/crn-craft/). See the
-[repository](https://github.com/dietmarwo/CRN-craft) for the tutorial and
-contracts. A successful numerical run is not biological validation. MIT
+package is [`crn-craft` on PyPI](https://pypi.org/project/crn-craft/). The
+[documentation site](https://dietmarwo.github.io/CRN-craft/) has the [user guide](https://dietmarwo.github.io/CRN-craft/guide/01-install.html);
+its [chapter 10](https://dietmarwo.github.io/CRN-craft/guide/10-command-line.html) covers the command line. A successful numerical run is not biological validation. MIT
 licensed.

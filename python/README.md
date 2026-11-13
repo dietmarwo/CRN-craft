@@ -1,12 +1,14 @@
 # CRN-craft
 
+<!-- check: standalone -->
+
 ![CRN-craft: chemical reaction networks in native Rust with stochastic simulation](https://raw.githubusercontent.com/dietmarwo/CRN-craft/main/docs/images/crn-craft-banner.jpg)
 
-Reproducible simulation and analysis of well-mixed chemical reaction networks,
-with a native Rust core. Models, requests and results are versioned JSON
+CRN-craft simulates chemical reaction networks stochastically, from Python,
+with a native engine. Models, requests and results are versioned JSON
 documents with strict input checks, explicit budgets and replayable seeds.
 
-```bash
+```sh
 pip install crn-craft
 ```
 
@@ -100,9 +102,9 @@ crn-craft.analysis/1.0 exact
 
 ## What is included
 
-- One engine and one API. A model is a `crn-craft.model/1.0` document, a run
-  request is `crn-craft.run/1.0`, and the result is `crn-craft.result/1.0`;
-  the same contracts are used by the Rust crate and the `crn-craft` command.
+- A model is a `crn-craft.model/1.0` document, a run request is
+  `crn-craft.run/1.0`, and the result is `crn-craft.result/1.0`; the Rust
+  crate and the `crn-craft` command use the same contracts.
 - Exact stochastic simulation: `static_direct` with the event selectors
   `linear`, `composition_rejection`, `sorting`, `rssa_cr` and `auto`,
   `next_reaction`, and the exact `tree` method for models whose species carry
@@ -123,27 +125,24 @@ crn-craft.analysis/1.0 exact
 - `pip install "crn-craft[fit]"` adds the pinned SciPy, fcmaes-rust and
   SQP-craft versions used by the fitting examples.
 
-`crn_craft.rules` keeps the API of release 0.6.0 under its old name, with its
-defaults, so code written for 0.6.0 keeps running with the same results.
-Release 0.7.0 merged the earlier network engine into the one engine; the
-[changelog](https://github.com/dietmarwo/CRN-craft/blob/main/CHANGELOG.md)
-has the migration tables. ODE right-hand sides and Jacobians are in the Rust
-crate (`crn_craft::kinetics`). The optional diffsol BDF integrator with
-forward sensitivities and the job worker for
+ODE right-hand sides and Jacobians are in the Rust crate
+(`crn_craft::kinetics`). The optional diffsol BDF integrator with forward
+sensitivities and the job worker for
 [optimization-jobs](https://github.com/dietmarwo/optimization-jobs) build from
 the repository and are not part of the wheel.
 
 ## Documentation
 
-- [Repository and README](https://github.com/dietmarwo/CRN-craft)
-- [Tutorial](https://github.com/dietmarwo/CRN-craft/blob/main/docs/tutorial.md)
-- [Exact methods and selectors](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/methods.md)
-- [Model reference](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/model-language.md) and [mtDNA user manual](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-user-manual.md)
-- [Using CRN-craft from R](https://github.com/dietmarwo/CRN-craft/blob/main/docs/using-from-r.md) through reticulate
-- [Optimization tutorials C1–C4](https://github.com/dietmarwo/CRN-craft/blob/main/tutorials/optimization/README.md)
-- [Agent context](https://github.com/dietmarwo/CRN-craft/blob/main/docs/developer/ai-context.md)
+- [Documentation site](https://dietmarwo.github.io/CRN-craft/): the guide, reference and evidence, with search
+- [How CRN-craft compares](https://dietmarwo.github.io/CRN-craft/comparison.html) with GillesPy2 and rebop
+- [User guide](https://dietmarwo.github.io/CRN-craft/guide/01-install.html): read chapters 1 to 4 first
+- [How do I ...?](https://dietmarwo.github.io/CRN-craft/howto.html): fifty tasks, each with a link to the answer
+- [Case study: mtDNA mutants](https://dietmarwo.github.io/CRN-craft/guide/12-mtdna.html)
+- [Reference](https://dietmarwo.github.io/CRN-craft/reference/model-language.html): model language, methods, Python API, contracts, diagnostics
 - [Changelog](https://github.com/dietmarwo/CRN-craft/blob/main/CHANGELOG.md)
 
-A successful numerical run is not biological validation. MIT licensed; see
-[THIRD_PARTY_NOTICES.md](https://github.com/dietmarwo/CRN-craft/blob/main/THIRD_PARTY_NOTICES.md)
+Release 0.7.0 merged two earlier engines into one; `crn_craft.rules` keeps
+the API of release 0.6.0 with its defaults, and the changelog says how to
+migrate. A successful numerical run is not biological validation. MIT
+licensed; see [THIRD_PARTY_NOTICES.md](https://github.com/dietmarwo/CRN-craft/blob/main/THIRD_PARTY_NOTICES.md)
 for the Ziggurat tables adapted from Julia.

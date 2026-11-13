@@ -10,3 +10,51 @@
 For a new rate form, add exact small-count checks against hand-computed propensities and overflow and domain tests (`CRN-R030`). For a new exact method or Static Direct selector, give it a sampler identity, then add stream vectors, analytic marginal tests, report-time boundaries, absorbing states and budget and cancellation tests, and run the law gate (`validation/merge/check_laws.py`) and the exact-law checks (`validation/check_alternative_ssa.py`, `validation/check_cme.py`) before interpreting performance.
 
 The dependency policy is intentionally closed: a new transitive package fails `check_dependencies.py` until reviewed and listed. Check package sources and `links` metadata before updating the allowlist. This gate is a review aid, not a comprehensive supply-chain audit.
+
+## Checks
+
+CI (`.github/workflows/ci.yml`) is the complete list. The core of it:
+
+```sh
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo test --release --workspace --locked
+cargo build --release --locked -p crn-craft-cli
+python3 -m pip install -r validation/requirements.txt
+python3 -m ruff format --check validation python
+python3 -m ruff check validation python
+python3 validation/check_contracts.py
+python3 validation/check_ssa.py --output ssa.json
+python3 -O validation/check_ssa.py --output ssa-optimized.json
+diff ssa.json ssa-optimized.json
+python3 validation/check_cme.py --output cme.json
+python3 validation/check_rules.py --output rules.json
+python3 validation/check_mtdna.py --binary target/release/crn-craft --output mtdna.json
+python3 validation/check_links.py
+# After installing the wheel (maturin build --release --locked --out dist; pip install dist/*.whl):
+python3 validation/check_python.py --binary target/release/crn-craft --output python.json
+python3 validation/check_rules_python.py --output rules-python.json
+python3 validation/check_manual.py --binary target/release/crn-craft --output manual.json
+python3 validation/check_manual.py --binary target/release/crn-craft --manual validation/compat/manual-0.6.0.md --output manual-0.6.0.json
+python3 validation/check_tutorial.py --binary target/release/crn-craft --output tutorial.json
+(cd /tmp && python3 -I "$OLDPWD/validation/check_installed.py" --output installed.json)
+python3 validation/mutation_check.py
+```
+
+Each Python check also runs under `python -O`, and CI compares the two
+reports. The engine-merge gates (`validation/merge/check_laws.py`, the speed
+gate and the worker comparison) are run by hand and recorded in
+[validation/merge/RESULTS.md](../../validation/merge/RESULTS.md). GitHub
+Actions runs fmt, clippy and release tests on Rust 1.85.0, 1.88.0 and
+stable, and the installed-wheel acceptance on Linux, Windows and macOS. The
+default build has no C/C++ simulator, Julia or Python runtime dependency; it
+pins pure-Rust libm for rate evaluation.
+
+Optional integrations have their own lockfiles and minimum Rust versions.
+Release wheels pass the installed-package acceptance on Linux, Windows and
+macOS ([RELEASING.md](../../RELEASING.md)). A Julia reference run and broad
+biological validation remain open work for the owner's platforms. The
+circuit demonstrations are synthetic, and detector diagnostics do not
+establish universal sensitivity. The ecosystem boundary: CRN-craft supplies
+numerical models, fcmaes searches parameters, optimization-jobs executes
+jobs, and experiment-craft coordinates campaigns.

@@ -2175,3 +2175,54 @@ one capacity (20) and one parameter set at the check's size; the guide's
 capacity of 1,000 is covered by the unit tests (the kernel equals the file
 form's to the bit, and the per-cell draws equal the file form's in
 `mtdna_direct_runs_the_builder_form_under_run_1_0`), not by an FSP law.
+
+### E1 (builder-built models as fast as model files): results
+
+2026-11-13, this host, after the declaration (`6e32fd0`), with the wheel
+of the E1 branch at `d12b242` (engine code of `cbfc861`),
+`CRN_CRAFT_SOURCE` at the checkout, the whole run under the CPU lock
+(`validation/merge/manual-ratios/builder-speed.json`). The loop was built in
+the run (38.9 s; a fresh cache).
+
+**Checks: all passed.** Every run of A and G reported
+`chacha8-u53-ziggurat/rules-mtdna-direct/1`, and no run of G a `CRN-R051`;
+E and F had equal event counts and means in every run, and `loop.verify`
+passed; every run completed.
+
+| Arm | Runs (s, rounds 1–3) | Median s | Events | Wall ns per event |
+|---|---|---:|---:|---:|
+| A file, `mtdna_direct` | 0.544, 0.548, 0.514 | 0.544 | 28,536,814 | 19.1 |
+| B file, `static_direct` | 1.406, 1.447, 1.354 | 1.406 | 28,847,586 | 48.7 |
+| E builder, `static_direct` | 1.969, 2.097, 1.884 | 1.969 | 28,779,334 | 68.4 |
+| F E with the compiled loop | 0.753, 0.754, 0.760 | 0.754 | 28,779,334 | 26.2 |
+| G builder, `mtdna_direct` | 0.530, 0.522, 0.540 | 0.530 | 28,536,814 | 18.6 |
+
+| Ratio | Wall time | 13 November (0.7.0) |
+|---|---:|---:|
+| E / B per event | **1.40** | 3.60 |
+| E / A | 3.62 (3.59 per event) | 9.89 (9.81) |
+| E / B | 1.40 | 3.59 |
+| B / A | 2.58 | 2.76 |
+| E / F | 2.61 | 7.08 |
+| F / A | 1.39 | 1.40 |
+| G / A | 0.97 | – |
+| G / E | 0.27 | – |
+
+**E1-T1 met:** E takes 1.40 times B's time per event (target at most 1.5).
+Arm E went from 186.7 to 68.4 ns per event (2.7 times faster).
+
+**E1-T2 met.** (a) A, B and E had 28,536,814, 28,847,586 and 28,779,334
+events and the mean digests of `builder-form.json` in every run. (b) The
+release CLI of the branch (`d12b242`, SHA-256 `c77519fb…`) and the CLI of
+`3d80c6d` give byte-identical result documents for the arm-B and arm-E
+requests (51,932 and 48,988 bytes) and for both with all 200 paths kept
+(141,217 and 95,429 bytes). (c) Below, with the gates.
+
+G made the same draws as A: the builder form's kernel equals the file
+form's to the bit, so G has A's 28,536,814 events and 23 stopped cells, and
+its means of `W`, `M` and `A` equal A's means of `wild_type`,
+`neutral_mutants` and `advantaged_mutants` exactly (a separate run of the
+same two requests, `E1-log.md`).
+
+Not measured: other workloads, sweeps (candidates of `bind_parameters`),
+more than two threads, other hosts.

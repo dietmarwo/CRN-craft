@@ -128,5 +128,80 @@ the cache's value has the bits of the rule's own program).
 
 Informal CLI timings on this host during development (not the declared
 measurement): B 1.32–1.57 s; E 5.23 s (0.7.0), 4.0 s (sharing), 2.65 s
-(products, sum stop), 2.37 s (one dispatch level less), 2.25 s (closures,
-then removed), 1.87 s (no dominated slot).
+(products, sum stop), 2.37 s (one dispatch level less), 2.25 s (closures),
+1.87 s (no dominated slot, closures), 1.92 s (closures removed; median of
+five).
+
+What the profile says after the change: the vacancy slot is a chain of
+dependent operations ending in a division, so its cost is mostly latency;
+the closure experiment did not shorten it. The rest of the gap to the file
+form is the per-channel product and the stop.
+
+## 3. `mtdna_direct` for the builder form
+
+Code: `crates/crn-craft/src/rules/mtdna.rs`, gate in `mod.rs` (`builder`
+is `request.schema == RunVersion::V10`).
+
+- `Kernel::compile` runs the 0.7.0 recognition unchanged first (now
+  `file_form`); its results, reasons and their order are those of 0.7.0.
+  Only if it refuses and the request is `run/1.0` does `builder_form` read
+  the model again. A model without whole-rule propensities that both refuse
+  keeps the file form's reason, so existing `run/1.0` fallbacks report what
+  they reported.
+- `builder_form` reads each channel's law: a per-instance channel through
+  its rate kernel (as before), a whole-rule channel through `Reader::whole`,
+  which splits the propensity into factors over `*` and `/` in any
+  association and requires constants, exactly one factor equal to the
+  parent's count, and for a birth exactly one `max(0, L)` (or `max(L, 0)`)
+  in the numerator and one linear `D` in the denominator, with `L = K - W -
+  M - A` and `D` a positive weighted sum. Linear forms are computed with an
+  exactness check on every coefficient (TwoSum for sums, a fused residual
+  for products), so `0.1 * M + 0.2 * M` is refused rather than rounded. The
+  laws must agree (one `delta`, one `K`, one weight vector to the bit), and
+  the shared checks of 0.7.0 (capacity, projections, range, resolution)
+  then run unchanged (`certify`, the 0.7.0 tail).
+- The stop: the file form's `N > 0 && mutants >= f * N`, or `T > 0 && P >=
+  f * T` (also `T * f`) with `T`, `P` sums of integer-weighted observables
+  equal to the total and the mutant count. All partial sums are integers
+  below 2^53 (checked from `K` and the weights), so the stop is true in
+  exactly the states where the fast path's threshold test is.
+- Sampler identity: unchanged, `chacha8-u53-ziggurat/rules-mtdna-direct/1`.
+  The builder form of the guide's model gets the file form's kernel to the
+  bit (unit test), and a cell makes the same draws: same events, and `M + A`
+  equal to `mutants` at every report time
+  (`mtdna_direct_runs_the_builder_form_under_run_1_0`). On the guide's
+  workload G has A's 28,536,814 events and 23 stopped cells, and its means
+  of `W`, `M`, `A` equal A's `wild_type`, `neutral_mutants`,
+  `advantaged_mutants` exactly (the mean of `M + A` against `mutants`
+  differs by at most 4.3e-14, the rounding of a sum of means).
+- Tests (written to fail on the 0.7.0 certificate: with `builder_form`
+  stubbed to refuse, the three new certificate tests fail): the guide's
+  model accepted under `run/1.0` and refused (`WHOLE`) otherwise, with the
+  file form's kernel; five variants (other names, inlined parameters,
+  reordered sums and `max(K - ..., 0)`, other species order, factors
+  reordered and reassociated, `W * delta`), each also checked hazard by
+  hazard against Static Direct's propensities at seven states; fourteen
+  near-misses with their reasons (changed weight in one rule, vacancy
+  without a class, another capacity in one rule, `max(1, ...)`, missing or
+  wrong count, a squared count, another death rate, a death without its
+  count, an inexact weight sum, a fourth reaction, a capacity below the
+  initial population, six stops). At the request level: the builder form
+  runs the fast path under `run/1.0` with the file form's draws, and a
+  `rules-model/0.4` copy under `rules-run/0.6` keeps the fallback with
+  `CRN-R051` ("whole-rule").
+- Exact-law check (declared, then amended before any comparison because
+  the FSP of the first sizes exceeded its work limit): two builder models
+  of capacity 20 (with and without the takeover stop), 200,000 cells each,
+  against the 0.7.0 Static Direct sample and the FSP law: 120 comparisons,
+  0 failures, max |z| 2.09; every chunk on the fast path. `check_laws.py`
+  gained `--references`, `--expect-sampler` and manifest rows of form
+  `rules` with `stop`; existing runs are unaffected.
+
+## 4. Measurement
+
+`validation/merge/manual-ratios/builder_speed.py` (arms A, B, E, F, G), as
+declared: E 68.4 ns per event against B 48.7, ratio **1.40** (target 1.5,
+met; 0.7.0: 186.7 and 3.60). E/A 3.6, E/F 2.6, F/A 1.4, G/A 0.97. A, B and E
+reproduce the 13 November event counts and mean digests; the CLI result
+documents of B and E, also with 200 kept paths, equal those of `3d80c6d`
+byte for byte.

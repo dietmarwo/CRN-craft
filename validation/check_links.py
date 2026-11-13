@@ -13,7 +13,17 @@ existing file that is not itself a stub, and no tracked Markdown file except
 the frozen `validation/compat/manual-0.6.0.md` may link to a stub. Links must
 go to the real page.
 
+It checks `docs/SUMMARY.md`, the sidebar of the rendered site: every entry
+must exist, no page may be listed twice, and every Markdown file under
+`docs/guide`, `docs/reference`, `docs/developer` and `docs/evidence` must be
+listed.
+
+With `--site PATH` it also checks the built site (`mdbook build`): every
+relative `href` and `src` in the HTML pages must resolve to a file of the
+site, and a fragment must name an `id` of the target page.
+
     python validation/check_links.py [--root PATH] [--include-campaign]
+                                     [--site PATH]
 """
 
 import argparse
@@ -154,21 +164,102 @@ def check_stubs(root):
     return broken, len(stubs)
 
 
+SUMMARY_ENTRY = re.compile(r"^\s*(?:-\s+)?\[[^\]]*\]\(([^)\s]*)\)\s*$")
+SUMMARY_DIRS = ("guide", "reference", "developer", "evidence")
+
+
+def check_summary(root):
+    """Check docs/SUMMARY.md against the tracked pages. Returns (broken, entries)."""
+    summary = root / "docs" / "SUMMARY.md"
+    if not summary.exists():
+        return ["docs/SUMMARY.md: missing"], 0
+    entries, broken = [], []
+    for number, line in enumerate(strip_fences(summary.read_text("utf-8")), 1):
+        match = SUMMARY_ENTRY.match(line)
+        if match:
+            entries.append((number, unquote(match.group(1))))
+    seen = {}
+    for number, name in entries:
+        where = f"docs/SUMMARY.md:{number}: {name}"
+        if not name:
+            broken.append(f"{where}: draft entry without a file")
+        elif not (root / "docs" / name).is_file():
+            broken.append(f"{where}: no such file")
+        if name in seen:
+            broken.append(f"{where}: listed twice (first at line {seen[name]})")
+        seen.setdefault(name, number)
+    for path in tracked_markdown(root):
+        relative = (
+            path.relative_to(root / "docs").as_posix()
+            if path.is_relative_to(root / "docs")
+            else None
+        )
+        if relative and relative.startswith(tuple(d + "/" for d in SUMMARY_DIRS)):
+            if relative not in seen:
+                broken.append(f"docs/{relative}: not listed in docs/SUMMARY.md")
+    return broken, len(entries)
+
+
+HTML_REF = re.compile(r"""\b(?:href|src)=["']([^"'#][^"']*|#[^"']+)["']""")
+HTML_ID = re.compile(r"""\bid=["']([^"']+)["']""")
+
+
+def check_site(site):
+    """Check the relative references of the built HTML pages."""
+    site = site.resolve()
+    broken, count, ids = [], 0, {}
+    for page in sorted(site.rglob("*.html")):
+        text = page.read_text(encoding="utf-8")
+        for target in HTML_REF.findall(text):
+            if re.match(r"^([a-z][a-z0-9+.-]*:|//|/)", target, re.I):
+                continue
+            count += 1
+            name, _, fragment = target.partition("#")
+            resolved = page if not name else (page.parent / unquote(name)).resolve()
+            if resolved.is_dir():
+                resolved = resolved / "index.html"
+            where = f"{page.relative_to(site)}: {target}"
+            if not resolved.exists():
+                broken.append(f"{where}: no such file")
+            elif fragment and resolved.suffix == ".html":
+                if resolved not in ids:
+                    ids[resolved] = set(
+                        HTML_ID.findall(resolved.read_text(encoding="utf-8"))
+                    )
+                if unquote(fragment) not in ids[resolved]:
+                    broken.append(f"{where}: no such id")
+    return broken, count
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
         "--root", type=Path, default=Path(__file__).resolve().parents[1]
     )
     parser.add_argument("--include-campaign", action="store_true")
+    parser.add_argument(
+        "--site",
+        type=Path,
+        help="only check the built site in this directory, not the sources",
+    )
     args = parser.parse_args()
+    if args.site:
+        broken, count = check_site(args.site)
+        for line in broken:
+            print(line, file=sys.stderr)
+        print(f"{count} site references checked, {len(broken)} broken")
+        sys.exit(1 if broken else 0)
     root = args.root.resolve()
     broken, count = check(root, args.include_campaign)
     stub_broken, stubs = check_stubs(root)
     broken += stub_broken
+    summary_broken, entries = check_summary(root)
+    broken += summary_broken
     for line in broken:
         print(line, file=sys.stderr)
     print(
-        f"{count} relative links checked, {stubs} stubs checked, {len(broken)} broken"
+        f"{count} relative links checked, {stubs} stubs checked, "
+        f"{entries} SUMMARY.md entries checked, {len(broken)} broken"
     )
     sys.exit(1 if broken else 0)
 

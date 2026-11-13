@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Regenerate the tutorial's terminal transcripts and figures.
+"""Regenerate the guide's terminal transcripts and figures.
 
-Every terminal screenshot in docs/tutorial.md is a real command run against
-the repository's examples with the native CLI, and every figure is computed
-with the installed `crn_craft` package. Run from the repository root after
+Every terminal screenshot in docs/guide/ is a real run of the commands that
+chapters 10 and 11 show, with the native CLI, in a directory that holds the
+files those chapters write (`workdir.prepare_guide_workdir`). Every figure
+is computed with the installed `crn_craft` package, from the models that the
+chapters build. Run from the repository root after
 `cargo build --release --workspace --locked` and installing the wheel:
 
     python examples/tutorial/make_assets.py --binary target/release/crn-craft \
@@ -33,7 +35,7 @@ import numpy as np  # noqa: E402
 
 import crn_craft as crn  # noqa: E402
 from crn_craft.observables import oscillation, sampled_first_passage  # noqa: E402
-from workdir import prepare_workdir  # noqa: E402
+from workdir import immigration_death, prepare_guide_workdir, repressilator  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 # Categorical slots in fixed order (dataviz reference palette, light mode).
@@ -221,9 +223,9 @@ def sessions(terminal, output):
         "06-replay",
         "The same request gives the same bytes",
         [
-            "crn-craft run repressilator.model.json repressilator.run.json"
+            "crn-craft run immigration-death.model.json immigration-death.run.json"
             " --archive runs/replay-a > /dev/null",
-            "crn-craft run repressilator.model.json repressilator.run.json"
+            "crn-craft run immigration-death.model.json immigration-death.run.json"
             " --archive runs/replay-b > /dev/null",
             "sha256sum runs/replay-a/result.json runs/replay-b/result.json",
         ],
@@ -244,7 +246,7 @@ def sessions(terminal, output):
     t.session(
         output,
         "08-tau",
-        "Approximate tau leaping is labelled as such",
+        "Approximate tau leaping is labeled as such",
         [
             "crn-craft run immigration-death.model.json tau.run.json > tau-result.json",
             "python3 -c \"import json; r = json.load(open('tau-result.json'));"
@@ -284,8 +286,9 @@ def sessions(terminal, output):
         "12-convert",
         "Converting a network model",
         [
-            ("crn-craft convert immigration-death.network.json", 24, 0),
-            "crn-craft convert immigration-death.network.json > converted.model.json"
+            ("crn-craft convert models/legacy/immigration-death.model.json", 24, 0),
+            "crn-craft convert models/legacy/immigration-death.model.json"
+            " > converted.model.json"
             " && crn-craft check converted.model.json | grep valid",
         ],
     )
@@ -324,8 +327,8 @@ def final_counts(result, species):
     return result.paths.sel(variable=species).to_numpy()[:, -1]
 
 
-def immigration_death(output):
-    model = crn.load_example("immigration-death")
+def immigration_death_paths(output):
+    model = immigration_death()
     grid = np.linspace(0, 30, 301).round(10).tolist()
     result = ensemble(
         model, 30.0, 400, grid, keep_paths=8, seed=42, max_events=10_000_000
@@ -368,7 +371,7 @@ def poisson_quantile(mean, p):
 
 def quantile_band(output):
     """The median and the 95% band of the ensemble against the exact law."""
-    model = crn.load_example("immigration-death")
+    model = immigration_death()
     grid = np.linspace(0, 30, 31).round(10).tolist()
     result = crn.ensemble(
         model,
@@ -417,7 +420,7 @@ def quantile_band(output):
 
 
 def fsp_vs_ssa(output):
-    model = crn.load_example("immigration-death")
+    model = immigration_death()
     saves = [0.0, 2.0, 5.0, 20.0]
     projection = model.fsp(
         end=20.0,
@@ -470,8 +473,8 @@ def fsp_vs_ssa(output):
     }
 
 
-def repressilator(output):
-    model = crn.load_example("repressilator")
+def repressilator_path(output):
+    model = repressilator()
     grid = np.linspace(0, 200, 1001).round(10).tolist()
     result = ensemble(
         model, 200.0, 1, grid, keep_paths=1, seed=42, max_events=10_000_000
@@ -577,7 +580,7 @@ def tau_accuracy(output):
 
 
 def first_passage(output):
-    model = crn.load_example("immigration-death")
+    model = immigration_death()
     fine = np.linspace(0, 10, 201).round(10).tolist()
     result = ensemble(
         model, 10.0, 500, fine, keep_paths=500, seed=42, max_events=10_000_000
@@ -606,7 +609,7 @@ def first_passage(output):
 
 
 def threads_identity():
-    model = crn.load_example("repressilator")
+    model = immigration_death()
     digests = {}
     for threads in [1, 2, 8]:
         result = ensemble(
@@ -629,17 +632,17 @@ def main():
     style()
     with tempfile.TemporaryDirectory(prefix="crn-tutorial-") as temp:
         workdir = Path(temp)
-        prepare_workdir(workdir)
+        prepare_guide_workdir(workdir)
         terminal = Terminal(workdir, args.binary.resolve())
         importer = shutil.which("crn-craft-import")
         if importer is None:
             raise RuntimeError("install the crn-craft wheel first")
         sessions(terminal, args.output)
     numbers = {
-        "immigration_death": immigration_death(args.output),
+        "immigration_death": immigration_death_paths(args.output),
         "quantiles": quantile_band(args.output),
         "fsp": fsp_vs_ssa(args.output),
-        "repressilator": repressilator(args.output),
+        "repressilator": repressilator_path(args.output),
         "tau": tau_accuracy(args.output),
         "first_passage": first_passage(args.output),
         "threads": threads_identity(),

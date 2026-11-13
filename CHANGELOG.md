@@ -7,6 +7,39 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+The documentation is rebuilt around one user guide, and builder-built
+models run faster (see **Changed**).
+
+### Documentation
+
+- **One user guide** (`docs/guide/`) replaces `docs/tutorial.md` and
+  `docs/mtdna-user-manual.md`: install, a first model, ensembles, results,
+  speed, stop conditions and event logs, methods, reproducing published
+  results, continuous variables, the command line, analysis and
+  import/export, the mtDNA case study, fitting, model files and attributes,
+  R, troubleshooting and migrating. Every model is built with
+  `crn.Model`/`add_species`/`add_reaction`; model files are one late
+  chapter. Every runnable block is checked in CI by
+  `validation/check_guide.py`, normally and under `python -O`.
+- **New pages:** a task index (`docs/howto.md`), a landing page
+  (`docs/index.md`) and a comparison with GillesPy2 and rebop
+  (`docs/comparison.md`), whose speed figures come from committed
+  measurements, including a new one of rebop 0.10.0 on this engine
+  (`validation/merge/rebop-comparison-0.7.json`).
+- **Sorted by reader:** `docs/reference/`, `docs/developer/`,
+  `docs/evidence/`, `docs/history/`. Every old path keeps a page that
+  points to the new one.
+- **Python API reference** generated from the docstrings
+  (`validation/make_python_reference.py`; CI fails when it is stale).
+- **A documentation site** built with mdBook (`book.toml`,
+  `docs/SUMMARY.md`, `.github/workflows/docs.yml`), deployed from `main`
+  to GitHub Pages.
+- The README starts with a working example.
+- The frozen 0.6.0 manual (`validation/compat/manual-0.6.0.md`) still runs
+  in CI.
+
+ENGINE_CHANGES_PLACEHOLDER
+
 ## [0.7.0] - 2026-11-12
 
 One engine. The network engine and the rules engine are merged into a

@@ -6,7 +6,7 @@
 > releases 0.2.0 to 0.6.0, which release 0.7.0 replaced with one engine. The
 > full optimization run was not repeated, and the tables below are left as
 > measured. In 0.7.0 a parameter search binds values on a prepared run
-> (`bind_parameters`, see [parameter sweeps](../reusable-parameters.md)), and
+> (`bind_parameters`, see [parameter sweeps](../guide/05-speed.md#parameter-sweeps)), and
 > the benchmark worker has the routes `fresh` and `reuse`. Their worker
 > calls were timed against the 0.6.0 workers in one session
 > (`validation/merge/parameter-workers-m4d.json`, declared and reported in
@@ -220,7 +220,7 @@ The final gate logs record `check_parameter_interface.py` with SHA-256
 `parameter-validation.json` was refreshed with it. The evidence describes the
 import commit `85a085b`; later commits change hashed sources.
 
-[API guide](../reusable-parameters.md),
+[API guide](../guide/05-speed.md#parameter-sweeps),
 [fixed protocol](../decisions/reusable-parameters-2026-11-02.md),
 [reproduction instructions](../../validation/parameter-optimization/README.md) and
 [implementation log](../campaign/reusable-parameters-implementation-log-2026-11-02.md)

@@ -9,7 +9,7 @@ input diagnostic of severity error, and nothing was simulated.
 
 The schemas are `crn-craft describe result-1.0`, `fsp-result-1.0` and
 `check-1.0`. The Python object `Result` (`crn_craft.rules.Result`) wraps the document: see the
-[user manual](../mtdna-user-manual.md#18-reference).
+[Python API](python-api.md#result).
 
 ## What a result holds
 
@@ -69,11 +69,82 @@ labels), `states`, the `snapshots` per report time, the work and sparse edge
 counts, the uniformization rate and `numerical_error_certified`, which is
 `false`: the tolerance bounds the Poisson-series truncation, not
 floating-point error. See `Model.fsp` in the
-[user manual](../mtdna-user-manual.md#18-reference).
+[Python API](python-api.md#modelfsp).
 
 ## Saved reports
 
 `Result.save("name.md")` writes a markdown report and `Result.save("name.json")`
 writes `crn-craft.report/1.0`, a JSON document with the model, the request and
 the results. `crn_craft.load_report(path)` reads the JSON form back. The
-user manual describes both ([saving results](../mtdna-user-manual.md#saving-results)).
+guide teaches both ([chapter 4](../guide/04-results.md#save-a-run-in-one-file)),
+and the [Python API](python-api.md#resultsave) lists the arguments.
+
+## The metadata of the Python result
+
+`result.metadata` is the result document. Its keys:
+
+| Key | Content |
+| --- | --- |
+| `sampler`, `termination`, `diagnostics` | what ran, how the ensemble ended, warnings and errors |
+| `events`, `completed_replicates`, `stopped_replicates` | totals |
+| `rules`, `observables`, `types`, `report_times` | names and grid, in result order; rule names also as `run.rule_names` and `result.rule_names` |
+| `statistics` | `mean`, `sample_variance`, `mean_standard_error`, `samples` and, when asked, `quantiles` as a list of `{p, values}` (in `result.statistics`, `quantiles` is a dictionary from probability to DataFrame) |
+| `paths`, `final_instances`, `observations` | kept series, kept instances, and (with trackers or a log) trackers and logs |
+| `model_sha256`, `run_sha256`, `root_seed` | provenance |
+| `method`, `continuous` | the request's method, with the tolerances of `hybrid`, and the names of the continuous columns (`rules-result/0.3` and later) |
+
+In the raw matrices of `result.metadata`, observables are sorted by name; use
+`metadata["observables"].index(name)`. Select the columns of a DataFrame by
+observable name instead. The attributes and methods of the Python object are
+in the [Python API](python-api.md#results).
+
+## Accumulation and report values
+
+Report values are right-continuous: an event at a report time is included.
+`crn-craft.rules-result/0.1` holds the type, rule and observable names, one
+record per replicate (termination, events, stop time, events per rule, random
+words, peak instances (including the one that exceeded `max_instances`) and
+created instances, diagnostic), the
+observable series of the kept paths, final instances of the kept replicates
+(sorted by type and attributes) and, when every replicate completed or
+stopped, the mean, sample variance and standard error per report time and
+observable. Statistics are accumulated in replicate order (Welford) while the
+ensemble runs; only kept series stay in memory. A path's random words include
+product draws, so the event that hits the sampling budget can take
+`rng_words` slightly past it. Terminations: `completed`, `stopped`, `event_limit`,
+`sampling_limit`, `instance_limit`, `wall_time_limit`, `cancelled`, `failed`,
+`output_limit`; the ensemble reports `completed` when every replicate completed
+or stopped.
+
+## Event logs and tracker columns
+
+`result.event_columns(replicate)` returns the bounded log of one replicate as
+an xarray DataArray with dimensions (`entry`, `variable`): the observables
+after each event, and the coordinates `time`, `rule` (the index, -1 for a
+leap) and `rule_name`. Without an argument it returns every log with
+dimensions (`replicate`, `entry`, `variable`), padded with NaN (and `rule` -2)
+past each replicate's `length`. `result.event_frame()` returns the DataFrames
+of earlier releases: one row per logged event, indexed by `entry` or by
+(`replicate`, `entry`). `result.tracker_columns(index)` returns the scalar
+tracker summaries as a DataFrame indexed by replicate id, with NaN for
+missing times or peaks. Ragged participant identities, leap multiplicities
+and episodes remain in `result.observations`.
+
+Semantics of observation. Trackers capture zero crossings, last crossing
+times, extrema, time integrals and first passage. A tracked interval runs
+until the replicate's stop or horizon. A predicate that evaluates to NaN does
+not count as a hit. Episodes keep the configured prefix and summarize omitted
+duration and peak. An event log retains up to `max_entries` selected events
+per path and counts omissions; its entries include the rule index,
+participant type and attributes, and the post-event observables. Retention
+counts enter the admission checks, so use small cohorts for long logs.
+
+A live callback receives `fn(replicate_id, event)` on native workers.
+Returning `False` stops that replicate. Each path preserves event order.
+Callbacks acquire the interpreter lock, and the interleaving across
+replicates depends on the scheduler. An exception cancels the run and
+propagates. A `batch_callback` receives chunks of the retained log after the
+simulation. The Rust `execute_with_observer` entry point exposes the same
+committed events and supports a per-path stop; the default observer is
+compiled away. Ctrl-C and cancel files use cooperative cancellation, and an
+interrupted ensemble withholds its statistics.

@@ -511,4 +511,38 @@ python validation/check_generated_loop.py target/release/crn-craft target/releas
 ```
 
 The Java comparison needs the supplied Java sources, which are not part
-of the repository. See [mtDNA ensembles](../mtdna-rules.md#reproduction).
+of the repository. The notes follow.
+
+### The Java comparison
+
+Commands to rerun the checks, with the release binary and the wheel built
+and installed first:
+
+```sh
+cargo build --release --workspace --locked
+python validation/check_mtdna.py --binary target/release/crn-craft --output mtdna-gates.json
+python validation/check_rules_python.py --output mtdna-python.json
+python validation/benchmark_mtdna.py --binary target/release/crn-craft --output mtdna-timing.json
+```
+
+The optional Java comparison accepts `--java`, `--java-classpath` and
+`--java-source`. Use JDK 25 and Apache Commons RNG 1.6, compile the supplied
+source locally, and supply a classpath containing its compiled classes and
+the four Commons RNG jars. The benchmark writes only summaries to the
+patch. The original Java material and per-trajectory output stay local.
+
+For the eight-worker comparison, build the optional phase-timing example with
+`cargo build --release --locked -p crn-craft-rules --example benchmark_rules`.
+The baseline,
+candidate and Java inputs are named in `validation/benchmark_mtdna_gap.py`. The saved evidence is
+`validation/mtdna/java-gap.json`. The Java phase probe was built locally by
+timing from before pool creation to after all futures were collected. The
+end-to-end comparison used the original Java classes.
+
+How the engine differs from the Java model. Java's hourly implementation
+groups simultaneous new mutants differently and keeps clone identities. The
+supplied Java SSA uses the same ATP flow as the thinning method but freezes
+rates over its sampled waiting interval. On 10,000 cells `mtdna_direct` agreed
+with the Java implementation of the fixed-population model: the takeover-time
+distributions were within the declared bound and the mutation counts within
+1%.

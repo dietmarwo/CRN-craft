@@ -49,8 +49,8 @@ The [four CRN optimization lessons](tutorials/optimization/README.md) cover reus
 - [Architecture overview](docs/developer/architecture.md): the crates, the one engine, contracts, parallelism, budgets, archives and generated loops
 - [Technical report](docs/evidence/technical-report.md): numerical methods, validation evidence and measured performance
 - [Comparison with GillesPy2](docs/evidence/comparison-gillespy2.md): same models, timed against GillesPy2's C++ and NumPy solvers
-- [Event selectors](docs/alternative-ssa.md): the Static Direct selectors (`linear`, composition–rejection, sorting, RSSA-CR, `auto`) and how they were validated
-- [Reusable parameters](docs/reusable-parameters.md): binding new parameter values to a prepared run, for optimization loops
+- [Event selectors](docs/reference/methods.md#selectors): the Static Direct selectors (`linear`, composition–rejection, sorting, RSSA-CR, `auto`) and how they were validated
+- [Reusable parameters](docs/guide/05-speed.md#parameter-sweeps): binding new parameter values to a prepared run, for optimization loops
 - [Parameter-optimization comparison](docs/evidence/comparison-parameter-optimization.md): measured with 0.6.0 against rebop, with a pointer to the 0.7.0 worker rerun
 - [Comparison with Catalyst and JumpProcesses](docs/evidence/comparison-catalyst-jumpprocesses.md) (measured with 0.6.0): seven workloads and five Julia SSA algorithms, with pinned environments and distribution checks; the [earlier comparison](docs/evidence/comparison-catalyst-jumpprocesses-before-acceleration.md) is preserved
 - [Ten further Julia-gap iterations](docs/evidence/comparison-julia-gap10.md) (measured with 0.6.0): same-host rerun of all methods, exposed regressions and [inspected Julia mechanisms](docs/campaign/julia-gap10-source-investigation.md)
@@ -59,7 +59,7 @@ The [four CRN optimization lessons](tutorials/optimization/README.md) cover reus
 - [Model language](docs/reference/model-language.md): the `crn-craft.model/1.0` reference: types with attributes, patterns, rates and propensities, observables, continuous variables and higher-order rules, with [K1 law gates](validation/rules/RESULTS.md), [builder checks](validation/builder/RESULTS.md), [hybrid gates](validation/hybrid/RESULTS.md) and the [merge gates](validation/merge/RESULTS.md)
 - [Using CRN-craft from R](docs/using-from-r.md): the Python package through reticulate, with a tested example in `examples/r/`
 - [mtDNA user manual](docs/mtdna-user-manual.md), [optimization tutorial](docs/mtdna-optimization-tutorial.md) and [performance analysis](docs/evidence/mtdna-performance-analysis.md): simulating mtDNA mutant accumulation from Python, the command line and Rust, with runnable examples in `examples/mtdna/`, fitting with fcmaes, and what each method and option costs
-- [Three-class mtDNA ensembles](docs/mtdna-rules.md): parallel Python ensembles, event trackers and callbacks, Static Direct, a specialized fixed-population sampler, next reaction, approximate tau and binomial steps, ATP-coupled thinning and the `hybrid` method for continuous variables ([review log](docs/campaign/mtdna-a0-a6-review-log-2026-11-03.md))
+- [Three-class mtDNA ensembles](docs/reference/methods.md): parallel Python ensembles, event trackers and callbacks, Static Direct, a specialized fixed-population sampler, next reaction, approximate tau and binomial steps, ATP-coupled thinning and the `hybrid` method for continuous variables ([review log](docs/campaign/mtdna-a0-a6-review-log-2026-11-03.md))
 - [Specialized kernels and generated loops](docs/developer/specialized-kernels.md): when a model-specific kernel pays off, and compiled event loops
 
 **Using CRN-craft**
@@ -220,7 +220,7 @@ three-class model, and Python's `method="static_direct"` selects it. The
 new default uses the random stream differently;
 `{"kind": "static_direct", "waiting_time": "inverse", "sparse_trackers": False}`
 reproduces the numbers of 0.3.0, and stored requests replay unchanged
-([Static Direct options](docs/mtdna-rules.md#generic-static-direct-options)).
+([Static Direct options](docs/reference/methods.md#waiting-times-and-the-options-of-static-direct)).
 Opt-in, `rules.compile_loop` compiles a model's Static Direct event loop
 with a local Rust toolchain into a cached program whose results are
 byte-identical to the interpreter's, about 2.2× faster on that model

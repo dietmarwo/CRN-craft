@@ -137,7 +137,7 @@ programs with the parameters folded in.
 | `tau`, `binomial`, `hybrid` | Approximate methods with their own sampler identities: adaptive Poisson leaps (Cao–Gillespie–Petzold) with exact fallback; binomial splitting for single-parent unit births and deaths on a fixed step; piecewise-deterministic simulation of continuous variables. |
 | `fsp` | Not a simulation: the finite state projection of a closed model, in a `run/1.0` request (below). |
 
-[Exact methods](../reference/methods.md) and [mtDNA ensembles](../mtdna-rules.md) describe
+[Exact methods](../reference/methods.md) describe
 the methods; [the model reference](../reference/model-language.md) the language.
 
 ### Static Direct and its selectors
@@ -317,7 +317,7 @@ results. The
 
 | Route | Reuse |
 | --- | --- |
-| `Prepared::bind_parameters` (Python `run.bind_parameters`) | A new prepared run with other parameter values and the same request and seed. It serializes and prepares the bound model again, because parameters can change attributes, projections and topology. Its hashes cover the bound documents. [Parameter sweeps](../reusable-parameters.md) |
+| `Prepared::bind_parameters` (Python `run.bind_parameters`) | A new prepared run with other parameter values and the same request and seed. It serializes and prepares the bound model again, because parameters can change attributes, projections and topology. Its hashes cover the bound documents. [Parameter sweeps](../guide/05-speed.md#parameter-sweeps) |
 | Generated rates kernel | Rust source for the rates and projections of one lowered Static Direct model (constant and vacancy rates, weighted sums), run by the engine's scheduler. Rust only. |
 | Generated event loop | Rust source for the whole Static Direct event of one model, up to 1 MiB of source: rates and their updates, the total, the resolution check, selection, count updates, projections and the stop predicate. `LoopHost` supplies waits, uniforms, reports, budgets, trackers and event logs, so one loop serves every Static Direct request for its model bytes. |
 

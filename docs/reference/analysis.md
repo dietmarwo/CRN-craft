@@ -99,5 +99,5 @@ Exhausting a limit is `CRN-W012` to `CRN-W014`, and a failed internal check
 | --- | --- |
 | `CompiledNetwork::compile`, `analyze_bytes` on a network model | `crn_craft::analyze_bytes` and `analyze_files` read every model version; the analysis functions take a `&crn_craft::rules::FlatView` |
 | `crn-craft analyze-v1`, `analysis/0.1` and `0.2` | `crn-craft analyze`, `analysis/1.0` |
-| `topology_sha256`, `mass_action_coefficient`, `propensity_in_scheduler_state`, generated kernels | [parameter sweeps](../reusable-parameters.md); `crn_craft.compile_loop` |
+| `topology_sha256`, `mass_action_coefficient`, `propensity_in_scheduler_state`, generated kernels | [parameter sweeps](../guide/05-speed.md#parameter-sweeps); `crn_craft.compile_loop` |
 | the validation of the conservation analysis | `validation/check_structure.py` and `validation/merge/check_analysis_references.py` |

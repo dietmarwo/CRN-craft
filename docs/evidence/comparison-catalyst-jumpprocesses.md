@@ -125,7 +125,7 @@ models but was not rerun here, so this is not a three-way timing comparison.
 
 This reimplements relevant algorithmic techniques in Rust; it does not recreate
 Julia's compiler, symbolic model generator or complete solver ecosystem.
-[Implementation details and API examples](../alternative-ssa.md) explain the
+[Implementation details and API examples](../reference/methods.md#selectors) explain the
 published algorithm families, numerical policy and new contracts. The old
 Direct/cached interfaces, schemas and byte identities are preserved. New methods
 return `ssa-result/0.1` JSON, not a legacy sealed archive.

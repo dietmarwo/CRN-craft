@@ -829,7 +829,7 @@ iterations that make up this release follow.
 
 #### Added: mtDNA ensembles, event observation and alternative rules methods (A0–A6)
 
-- Three-class mtDNA fixtures (`models/rules/mtdna-three-class*.rules.json`) with independent CME gates, and a usage guide in [docs/mtdna-rules.md](docs/mtdna-rules.md).
+- Three-class mtDNA fixtures (`models/rules/mtdna-three-class*.rules.json`) with independent CME gates, and a usage guide in [docs/mtdna-rules.md](docs/reference/methods.md).
 - `crn_craft.rules`: prepared parallel rules ensembles from Python with read-only NumPy record columns, cooperative cancellation, budgets, `bind_parameters` candidates, live and batch event callbacks, trackers (crossings, episodes, extrema, integrals, first passage) and a bounded event log. The Rust `EventObserver` interface exposes the same committed events.
 - Rules methods: `static_direct`, `mtdna_direct` (exact grouped Direct for the fixed three-class model, with an explained Static Direct fallback, `CRN-R051`), `next_reaction` (Gibson–Bruck), approximate `tau` and `binomial`, and `thinning` for the ATP-coupled model (`rules-model/0.2` `atp` block).
 - Contracts: `rules-run/0.2` (method, trackers, event log) and `0.3` (adds `mtdna_direct`) answer with `rules-result/0.2`; `rules-model/0.2` adds `atp`. `rules-run/0.1`, `rules-model/0.1` and the tree method keep their meaning and result bytes, and reject the new fields even when empty or null. Network `ssa-run/0.4` is 0.3 plus the `next_reaction` aggregator (checked policy and inverse waits only) and answers with `ssa-result/0.4`.

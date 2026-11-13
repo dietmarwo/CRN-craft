@@ -21,7 +21,7 @@ Companion documents:
   parameters to data with fcmaes.
 - [Performance analysis](evidence/mtdna-performance-analysis.md): what each method
   and option costs, and how to size a study.
-- [Model reference](reference/model-language.md) and [mtDNA ensembles](mtdna-rules.md):
+- [Model reference](reference/model-language.md) and [mtDNA ensembles](reference/methods.md):
   the reference pages behind this manual.
 
 Contents:

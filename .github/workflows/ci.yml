@@ -142,6 +142,8 @@ jobs:
       - run: diff readme.json readme-optimized.json
       # Every relative link of docs/ and the READMEs resolves.
       - run: python validation/check_links.py
+      # docs/reference/python-api.md is generated from the installed package.
+      - run: python validation/make_python_reference.py --check
       # The rules.Model builder against exact means and rebop 0.10.0
       # (validation/builder/RESULTS.md).
       - run: python validation/check_builder.py --output builder.json

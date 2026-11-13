@@ -2031,3 +2031,38 @@ numbers the guide quotes.
   completes.
 - **Target:** none; the ratios E/A, E/B, B/A, E/F and F/A are descriptive.
   The guide quotes them rounded to one decimal place, with the date.
+
+### Docs 0.7.1: the builder form of the mtDNA model: results
+
+2026-11-13, this host, after the declaration above (`7310c60`), with the
+0.7.0 wheel of the docs branch, `CRN_CRAFT_SOURCE` at the checkout, the
+whole run under the CPU lock (`validation/merge/manual-ratios/builder-form.json`).
+The loop was built in the run (4.9 s; the cache held the dependencies).
+
+**Checks: all passed.** Every run of A reported
+`chacha8-u53-ziggurat/rules-mtdna-direct/1`; E and F had 28,779,334 events
+and equal means in every run, and `loop.verify` passed; every run completed.
+A and B had 28,536,814 and 28,847,586 events, as on 12 November.
+
+| Arm | Runs (s, rounds 1–3) | Median s | Events | Wall ns per event |
+|---|---|---:|---:|---:|
+| A file, `mtdna_direct` | 0.569, 0.543, 0.524 | 0.543 | 28,536,814 | 19.0 |
+| B file, `static_direct` | 1.404, 1.497, 1.671 | 1.497 | 28,847,586 | 51.9 |
+| E builder, `static_direct` | 5.373, 5.484, 5.271 | 5.373 | 28,779,334 | 186.7 |
+| F E with the compiled loop | 0.854, 0.754, 0.759 | 0.759 | 28,779,334 | 26.4 |
+
+| Ratio | Wall time |
+|---|---:|
+| E / A | 9.89 (9.81 per event) |
+| E / B | 3.59 |
+| B / A | 2.76 |
+| E / F | 7.08 |
+| F / A | 1.40 |
+
+The host was slower than on 12 November (A 0.543 s against 0.376 s); B / A
+(2.76 against 2.84) agrees. The builder form writes whole-rule propensities
+that the interpreter evaluates as expressions at every event; the file form
+uses per-instance rates. Its compiled loop removes most of that cost. The
+guide (chapters 12, 12d, 13 and page 14a) quotes 9.9, 3.6, 7.1 and 1.4 with
+this date. Not measured: other workloads, sweeps (candidates of
+`bind_parameters` run interpreted), more than two threads.

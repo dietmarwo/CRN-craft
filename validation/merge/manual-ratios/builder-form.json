@@ -1,0 +1,189 @@
+{
+  "schema": "crn-craft.manual-ratios/0.1",
+  "workload": "guide chapter 12a, A first ensemble: three-class model, takeover stop at 90%, 25,920 h, reports every 90 days, 200 cells, seed 1, two threads",
+  "labels": {
+    "A": "model file, mtdna_direct",
+    "B": "model file, static_direct",
+    "E": "builder model, static_direct",
+    "F": "builder model, static_direct, compiled loop"
+  },
+  "python": "3.12.3",
+  "crn_craft": "0.7.0",
+  "loop_build_seconds": 4.860915269999623,
+  "warmup": [
+    {
+      "arm": "A",
+      "seconds": 0.5228714110003239,
+      "events": 28536814,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "termination": "completed",
+      "mean_sha256": "53e7f362a014d48c534b32df01b245e545f56ca43a14301df2d73d611706e236"
+    },
+    {
+      "arm": "B",
+      "seconds": 1.418274379000195,
+      "events": 28847586,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "96d90628805ef8c29a9b8be0641a5b9a37f13a45650caeadf4ab778dc601448f"
+    },
+    {
+      "arm": "E",
+      "seconds": 5.284185655999863,
+      "events": 28779334,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "7dcade9c6c7179ba160a558452d1de073e9dce347065f1022cf4c08abc6a3fce"
+    },
+    {
+      "arm": "F",
+      "seconds": 0.7491152749998946,
+      "events": 28779334,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "7dcade9c6c7179ba160a558452d1de073e9dce347065f1022cf4c08abc6a3fce"
+    }
+  ],
+  "rows": [
+    {
+      "arm": "A",
+      "seconds": 0.5689666739999666,
+      "events": 28536814,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "termination": "completed",
+      "mean_sha256": "53e7f362a014d48c534b32df01b245e545f56ca43a14301df2d73d611706e236",
+      "round": 1
+    },
+    {
+      "arm": "B",
+      "seconds": 1.4042123790000005,
+      "events": 28847586,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "96d90628805ef8c29a9b8be0641a5b9a37f13a45650caeadf4ab778dc601448f",
+      "round": 1
+    },
+    {
+      "arm": "E",
+      "seconds": 5.373440028999994,
+      "events": 28779334,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "7dcade9c6c7179ba160a558452d1de073e9dce347065f1022cf4c08abc6a3fce",
+      "round": 1
+    },
+    {
+      "arm": "F",
+      "seconds": 0.853913864000333,
+      "events": 28779334,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "7dcade9c6c7179ba160a558452d1de073e9dce347065f1022cf4c08abc6a3fce",
+      "round": 1
+    },
+    {
+      "arm": "F",
+      "seconds": 0.7538534959999197,
+      "events": 28779334,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "7dcade9c6c7179ba160a558452d1de073e9dce347065f1022cf4c08abc6a3fce",
+      "round": 2
+    },
+    {
+      "arm": "E",
+      "seconds": 5.4839653710000675,
+      "events": 28779334,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "7dcade9c6c7179ba160a558452d1de073e9dce347065f1022cf4c08abc6a3fce",
+      "round": 2
+    },
+    {
+      "arm": "B",
+      "seconds": 1.4969108320001396,
+      "events": 28847586,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "96d90628805ef8c29a9b8be0641a5b9a37f13a45650caeadf4ab778dc601448f",
+      "round": 2
+    },
+    {
+      "arm": "A",
+      "seconds": 0.5431263499999659,
+      "events": 28536814,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "termination": "completed",
+      "mean_sha256": "53e7f362a014d48c534b32df01b245e545f56ca43a14301df2d73d611706e236",
+      "round": 2
+    },
+    {
+      "arm": "A",
+      "seconds": 0.5244936379999672,
+      "events": 28536814,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "termination": "completed",
+      "mean_sha256": "53e7f362a014d48c534b32df01b245e545f56ca43a14301df2d73d611706e236",
+      "round": 3
+    },
+    {
+      "arm": "B",
+      "seconds": 1.6709252309997282,
+      "events": 28847586,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "96d90628805ef8c29a9b8be0641a5b9a37f13a45650caeadf4ab778dc601448f",
+      "round": 3
+    },
+    {
+      "arm": "E",
+      "seconds": 5.270665129000008,
+      "events": 28779334,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "7dcade9c6c7179ba160a558452d1de073e9dce347065f1022cf4c08abc6a3fce",
+      "round": 3
+    },
+    {
+      "arm": "F",
+      "seconds": 0.7588473230002819,
+      "events": 28779334,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "mean_sha256": "7dcade9c6c7179ba160a558452d1de073e9dce347065f1022cf4c08abc6a3fce",
+      "round": 3
+    }
+  ],
+  "median_seconds": {
+    "A": 0.5431263499999659,
+    "B": 1.4969108320001396,
+    "E": 5.373440028999994,
+    "F": 0.7588473230002819
+  },
+  "events": {
+    "A": 28536814,
+    "B": 28847586,
+    "E": 28779334,
+    "F": 28779334
+  },
+  "median_seconds_per_event": {
+    "A": 1.903248029019518e-08,
+    "B": 5.1890332591439005e-08,
+    "E": 1.8671175743677717e-07,
+    "F": 2.6367786099576935e-08
+  },
+  "ratios": {
+    "E/A wall": 9.893535876136982,
+    "E/A per event": 9.81016423450411,
+    "E/B wall": 3.5896861149839636,
+    "B/A wall": 2.756100550084218,
+    "E/F wall": 7.081055524785712,
+    "F/A wall": 1.3971837731686734
+  },
+  "checks": {
+    "a_sampler_is_mtdna_direct": true,
+    "e_and_f_equal_events_and_means": true,
+    "loop_verify_passed": true,
+    "every_run_completed": true
+  }
+}

@@ -128,7 +128,7 @@ replicate, with one of nine names:
 | `failed` | a rate or a stop could not be evaluated; `result.record_diagnostics` says why |
 
 Always check the termination before using statistics. If any replicate ended
-on a budget, was cancelled or failed, `result.statistics` is `None`: a
+on a budget, was canceled or failed, `result.statistics` is `None`: a
 partial ensemble is never averaged as if it were complete.
 
 ## Budgets

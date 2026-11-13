@@ -4,7 +4,7 @@ Symptoms, causes and where the guide explains them.
 
 ## Runs that end early
 
-- **`statistics` is `None`.** A replicate ended on a budget, was cancelled
+- **`statistics` is `None`.** A replicate ended on a budget, was canceled
   or failed, so the statistics are withheld (`CRN-R050`). Look at
   `result.records["termination"]` ([chapter 3](03-running.md#check-the-termination)).
 - **`event_limit` or `sampling_limit` in every replicate.** Raise

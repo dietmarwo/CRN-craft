@@ -311,7 +311,7 @@ linear scan. It writes a 1.0 document only when a call asks for a 1.0
 feature, and a Static Direct request written that way names
 `"selector": "linear"`, so 0.6.0 code keeps its documents, hashes and
 results. The
-[user manual](../mtdna-user-manual.md#18-reference) lists the differences.
+[Migrating](../guide/migrating.md#from-the-060-module-to-the-top-level) lists the differences.
 
 ## Prepared runs, parameter binding and generated code
 

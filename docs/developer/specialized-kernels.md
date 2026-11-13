@@ -294,4 +294,4 @@ the three-class model and on four string-rate models (the builder SIR,
 Michaelis–Menten, expression rates that read observables, and `max`, `min`
 and `if` over `distinct`, `max` and `min` observables), and the refusals;
 it runs in CI against the checkout. See the
-[user manual](../mtdna-user-manual.md#optional-compiled-event-loop) for usage.
+[guide, chapter 5](../guide/05-speed.md#compiled-models) and the [method reference](../reference/methods.md#compiled-event-loops) for usage.

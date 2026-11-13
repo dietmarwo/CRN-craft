@@ -13,6 +13,7 @@ results. New code depends on `crn-craft` and uses `crn_craft::rules`:
 crn-craft = "0.7"
 ```
 
+<!-- check: fragment -->
 ```rust
 use crn_craft::rules::{Control, execute, prepare};
 

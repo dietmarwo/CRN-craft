@@ -10,7 +10,7 @@ accumulation with CRN-craft:
 
 It combines measurements on a two-CPU host with the earlier recorded
 measurements in `validation/mtdna/`. Read the
-[user manual](../mtdna-user-manual.md) for the models and methods.
+[case study of the user guide](../guide/12-mtdna.md) for the models and methods.
 
 Sections 1 to 8 were measured on release 0.2.0 and later releases up to
 0.6.0, as each section says. Release 0.7.0 merged the network engine into
@@ -114,7 +114,7 @@ otherwise):
   methods.
 - **Fast path.** Most tables time the opt-in `mtdna_direct`, which applies
   only to the three-class structure
-  ([user manual, section 8](../mtdna-user-manual.md#8-choosing-a-method)).
+  ([guide, page 14a](../guide/14a-mtdna-model-files.md#the-fast-path)).
   Their headers say so. Section 2 gives the factor for every other method.
 - **Metrics.** *Wall ns per event* divides wall time by all events of the
   ensemble. With two busy threads, the CPU time per event is twice that.
@@ -237,7 +237,7 @@ For a model with the three-class structure, opt in with `mtdna_direct` and
 check that `metadata["sampler"]` names it. Preparation certifies the model
 and each parameter set; if a check fails, the run is Static Direct and a
 `CRN-R051` warning says why. The
-[user manual](../mtdna-user-manual.md#the-opt-in-fast-path-mtdna_direct) lists
+[method reference](../reference/methods.md#the-fast-path-mtdna_direct) lists
 the checks. Every other closed model runs on the generic methods above.
 
 ## 3. Threads

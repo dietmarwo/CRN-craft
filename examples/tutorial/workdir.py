@@ -6,11 +6,8 @@ models are built with the same builder lines as the chapters and written
 with `Model.to_json()`, so the hashes in the screenshots are those a reader
 gets. The requests are `crn-craft.run/1.0` documents, each naming its model
 by file name and SHA-256. `examples/tutorial/make_assets.py` runs its
-terminal sessions there.
-
-`prepare_workdir` is the directory of the old `docs/tutorial.md`, which
-`validation/check_tutorial.py` checks until the guide's checker replaces it.
-Its models are the packaged `crn-craft.model/1.0` examples.
+terminal sessions there. `validation/check_guide.py` runs the chapters
+themselves, each in an empty directory that its own blocks fill.
 """
 
 import hashlib
@@ -106,53 +103,6 @@ def request(workdir, name, **changes):
 
 def write(path, document):
     path.write_text(json.dumps(document, indent=2) + "\n")
-
-
-def prepare_workdir(workdir):
-    for path in (ROOT / "python/crn_craft/models").glob("*.model.json"):
-        shutil.copy2(path, workdir / path.name)
-    models = sorted(p.name.removesuffix(".model.json") for p in workdir.glob("*.json"))
-    for name in models:
-        write(workdir / f"{name}.run.json", request(workdir, name))
-    # A model whose first rule names a parameter that does not exist.
-    broken = json.loads((workdir / "immigration-death.model.json").read_text())
-    broken["rules"][0]["rate"] = "missing"
-    write(workdir / "missing-parameter.model.json", broken)
-    run = request(workdir, "immigration-death")
-    stale = dict(run, model=dict(run["model"], sha256="0" * 64))
-    write(workdir / "stale-hash.run.json", stale)
-    long = request(
-        workdir,
-        "immigration-death",
-        time={"end": 1e6, "report_times": [0.0, 1e6]},
-    )
-    long["budget"] = dict(BUDGET, max_events_per_replicate=10**12)
-    long["budget"].pop("wall_time_s")
-    write(workdir / "long.run.json", long)
-    fsp = request(
-        workdir,
-        "immigration-death",
-        method={
-            "kind": "fsp",
-            "bounds": {"A": 100},
-            "max_states": 102,
-            "tolerance": 1e-10,
-        },
-    )
-    fsp.pop("ensemble")
-    fsp.pop("outputs")
-    fsp["budget"] = {"wall_time_s": 60.0, "max_output_bytes": 1_048_576}
-    write(workdir / "immigration-death.fsp.run.json", fsp)
-    tau = request(workdir, "immigration-death", method={"kind": "tau", "epsilon": 0.03})
-    write(workdir / "tau.run.json", tau)
-    (workdir / "dimer.net").write_text(BNG_DIMER)
-    shutil.copy2(SBML_DIMER, workdir / "dimer.xml")
-    # The same model in the network format that release 0.6.0 wrote.
-    shutil.copy2(
-        ROOT / "models/legacy/immigration-death.model.json",
-        workdir / "immigration-death.network.json",
-    )
-    (workdir / "runs").mkdir()
 
 
 def prepare_guide_workdir(workdir):

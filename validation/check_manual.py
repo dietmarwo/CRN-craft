@@ -1,4 +1,10 @@
-"""Run every Python block of the mtDNA user manual on its own.
+"""Run every Python block of a manual on its own.
+
+Since release 0.7.1 its one use is the frozen user manual of release 0.6.0,
+`validation/compat/manual-0.6.0.md` (the default): code written for 0.6.0
+against `crn_craft.rules` must keep running with the printed output. The
+user guide, the READMEs and the landing page are checked by
+`validation/check_guide.py`.
 
 Each ```python block runs in a fresh interpreter, in manual order, from the
 repository root, with a timeout. A block passes when it exits with status 0
@@ -37,7 +43,7 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-MANUAL = ROOT / "docs" / "mtdna-user-manual.md"
+MANUAL = ROOT / "validation" / "compat" / "manual-0.6.0.md"
 FENCE = re.compile(r"^(`{3,})(\w*)\s*$")
 SECONDS = re.compile(r"\b\d+(?:\.\d+)? s\b")
 

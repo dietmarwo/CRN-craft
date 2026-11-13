@@ -31,18 +31,28 @@ python3 validation/check_cme.py --output cme.json
 python3 validation/check_rules.py --output rules.json
 python3 validation/check_mtdna.py --binary target/release/crn-craft --output mtdna.json
 python3 validation/check_links.py
+python3 validation/check_rust_docs.py
 # After installing the wheel (maturin build --release --locked --out dist; pip install dist/*.whl):
 python3 validation/check_python.py --binary target/release/crn-craft --output python.json
 python3 validation/check_rules_python.py --output rules-python.json
-python3 validation/check_manual.py --binary target/release/crn-craft --output manual.json
+python3 validation/check_guide.py --binary target/release/crn-craft --require-cargo --output guide.json
 python3 validation/check_manual.py --binary target/release/crn-craft --manual validation/compat/manual-0.6.0.md --output manual-0.6.0.json
-python3 validation/check_tutorial.py --binary target/release/crn-craft --output tutorial.json
 (cd /tmp && python3 -I "$OLDPWD/validation/check_installed.py" --output installed.json)
 python3 validation/mutation_check.py
 ```
 
 Each Python check also runs under `python -O`, and CI compares the two
-reports. The engine-merge gates (`validation/merge/check_laws.py`, the speed
+reports.
+
+`check_guide.py` runs every page of `docs/guide/`, the two READMEs and
+`docs/index.md`; its docstring gives the rules for blocks. A new page needs
+an entry in `validation/guide-blocks.json`, the least number of runnable
+blocks it has. After a change, `--write` replaces each shown output by the
+real one; never type an output by hand. The fitting page runs in smoke mode
+in CI; `--long` runs it in full (over two hours) before a release. The Rust
+blocks of `developer/rust-api.md` and the crate READMEs are checked by
+`check_rust_docs.py`; a block that is not a complete program is marked
+`<!-- check: fragment -->`. The engine-merge gates (`validation/merge/check_laws.py`, the speed
 gate and the worker comparison) are run by hand and recorded in
 [validation/merge/RESULTS.md](../../validation/merge/RESULTS.md). GitHub
 Actions runs fmt, clippy and release tests on Rust 1.85.0, 1.88.0 and

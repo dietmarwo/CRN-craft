@@ -2066,3 +2066,43 @@ uses per-instance rates. Its compiled loop removes most of that cost. The
 guide (chapters 12, 12d, 13 and page 14a) quotes 9.9, 3.6, 7.1 and 1.4 with
 this date. Not measured: other workloads, sweeps (candidates of
 `bind_parameters` run interpreted), more than two threads.
+
+### E1 (builder-built models as fast as model files): declaration
+
+Committed before the first timing of task E1 (engine work for 0.7.1). The
+measurement above found the builder form of the three-class model (arm E)
+3.6 times slower per event than the model file under the same method (arm
+B). E1 makes the engine evaluate whole-rule propensities more cheaply and
+lets `mtdna_direct` certify the builder form.
+
+- **Workload:** as in "Docs 0.7.1: the builder form of the mtDNA model"
+  above: takeover stop at 90%, end 25,920 h, report times every 90 days,
+  200 cells, seed 1, two threads, through `crn.ensemble`.
+- **Arms:** A, B, E and F as above; new arm G: the builder model of arm E
+  under `mtdna_direct`.
+- **Runs:** `validation/merge/manual-ratios/builder_speed.py`, one Python
+  process, the wheel of the E1 branch, `CRN_CRAFT_SOURCE` at the
+  checkout, the whole run under the CPU lock. One untimed warm-up run per
+  arm, then three rounds in the orders A B E F G, G F E B A, A B E F G;
+  the median of three per arm. Times are the wall time of `simulate()`.
+- **Target (E1-T1):** the median wall time per event of E is at most 1.5
+  times the median wall time per event of B in the same run.
+- **Target (E1-T2), byte identity:** every result is unchanged against
+  0.7.0. (a) In the timed run, A, B and E report the event counts and
+  the SHA-256 of their means that the 13 November run recorded
+  (`builder-form.json`: 28,536,814, 28,847,586 and 28,779,334 events). (b)
+  The release CLI of the branch and of `3d80c6d` (0.7.0 engine) give
+  byte-identical result documents for the arm-E and arm-B requests, and
+  for the same two requests with all 200 paths kept. (c) The stored
+  requests replay byte for byte (`stored_requests.rs`,
+  `static_direct_defaults.rs`, gate I1), and the law gate
+  (`check_laws.py`, every model, the release CLI) reproduces
+  `laws/m8b-cli.json` byte for byte apart from the engine identity.
+- **Checks** (a failed check voids the run, which is kept): every run of A
+  reports `chacha8-u53-ziggurat/rules-mtdna-direct/1`; every run of G
+  reports the sampler of the fast path and no `CRN-R051`; E and F have
+  equal event counts and means in every run and `loop.verify` passes;
+  every run completes.
+- **Descriptive:** the ratios E/A, E/B, B/A, E/F, F/A, G/A and G/E.
+- If E1-T1 is missed, the row stays and the target stays; the report lists
+  the options and their costs.

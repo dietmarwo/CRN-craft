@@ -1930,20 +1930,77 @@ is seen.
   each rerun whole if interrupted, merged by workload into
   `validation/merge/rebop-comparison-0.7.json`. A failed or interrupted
   attempt is listed in the results section.
-- **Amendment, before the run that counts (same day).** The first W1 run
-  (kept at `validation/merge/rebop-comparison-0.7-attempt1-w1.json`; it
-  used the script before this amendment, whose only difference was a
-  lint fix) timed the declared rows: rebop over `crn_default` 1.14 and
-  over `crn_compiled` 1.63 on the repeat shown there. The W2 attempt then
-  failed at the compiled row: a generated loop runs the linear selector,
-  and the default request selects `rssa_cr` on W2, so `compile_loop`
-  output is refused for it (CRN-R020 at `/method/selector`). No threshold,
+- **Amendment, before the run that counts (same day).** Two earlier W1
+  runs and one failed W2 attempt preceded the run that counts. The first W1
+  run used the script before it was committed (a lint error in a chained
+  command let the run start); its report is kept as
+  `validation/merge/rebop-comparison-0.7-attempt1-w1.json` (rebop over
+  `crn_default` 0.91, over `crn_compiled` 1.23). The second W1 run used the
+  committed script (rebop over `crn_default` 1.15, over `crn_compiled`
+  1.63); its report was overwritten by the rerun and is not kept. The W2
+  attempt that followed failed at the compiled row: a generated loop runs the
+  linear selector, and the default request selects `rssa_cr` on W2, so the
+  loop is refused for it (CRN-R020 at `/method/selector`). No threshold,
   repeat count or rule changes. The script now (a) records a refusal of the
   compiled loop as a result (`compiled_refusals`), and (b) also times the
   request with `selector="linear"`, interpreted (`crn_linear`) and
   compiled (`crn_compiled_linear`) with threads 1 and 2, because that is
-  the like-for-like pair for a loop where the default selector is refused.
-  Ratios over rebop are formed for `crn_default`, `crn_compiled` (where
-  accepted), `crn_linear` and `crn_compiled_linear`. Both workloads are run
-  again from scratch with the amended script, and the first W1 run is kept
-  as a separate file, not merged.
+  the like-for-like pair where the default selector is refused. Ratios over
+  rebop are formed for `crn_default`, `crn_compiled` (where accepted),
+  `crn_linear` and `crn_compiled_linear`. Both workloads are run again from
+  scratch with the amended script; the first W1 run is not merged.
+
+### rebop on 0.7.0, for the comparison page: results
+
+2026-11-13, this host (Intel Xeon 2.10 GHz, 2 CPUs, Linux 6.18.44, Python
+3.12.3, crn-craft 0.7.0 from PyPI, rebop 0.10.0, Rust 1.97.0), two parts (W1,
+then W2) under the CPU lock with `python -I`, each completed on its first run
+after the amendment above. Report: `validation/merge/rebop-comparison-0.7.json`
+(parts merged by `--merge`; the other fields were equal). **No speed target
+was declared.** Route measured: rebop's Python/dynamic API, not its macro.
+
+**Agreement: passed.** All 8 tests above the declared threshold 1.25e-3: the
+Kolmogorov-Smirnov p-values are 0.575 (W1) and 0.628, 0.9998, 0.997 (W2), the
+chi-square p-values against the exact Poisson laws are 0.422 (CRN-craft) and
+0.554 (rebop) on W1, 0.586 and 0.080 on W2. Compiled and interpreted results
+were byte-identical (paths and event counts) on every accepted request.
+
+Median seconds of 3 interleaved repeats (64 paths, t in [0, 100]); ratio is
+rebop seconds over CRN-craft seconds, one thread (above 1: CRN-craft is
+faster). Events: W1 1.27 million (CRN-craft; rebop 1.28 million), W2 1.24
+million (both).
+
+| Row | W1 s | W1 ratio | W2 s | W2 ratio |
+|---|---:|---:|---:|---:|
+| `rebop_dynamic` (64 `run` calls) | 0.0670 | | 2.8941 | |
+| `crn_default` (`auto`, Ziggurat, interpreted) | 0.0554 | 1.21 | 0.1159 | 24.97 |
+| `crn_compiled` (default request, compiled loop) | 0.0447 | 1.50 | refused | |
+| `crn_linear` (linear selector, interpreted) | 0.0560 | 1.20 | 0.2160 | 13.40 |
+| `crn_compiled_linear` (linear selector, compiled) | 0.0385 | 1.74 | 0.2282 | 12.68 |
+| `crn_default_threads2` | 0.0470 | | 0.0682 | |
+| `crn_compiled_threads2` | 0.0438 | | refused | |
+| `crn_linear_threads2` | 0.0494 | | 0.1273 | |
+| `crn_compiled_linear_threads2` | 0.0290 | | 0.1163 | |
+
+Nanoseconds per event (median): W1 rebop 52.5, `crn_default` 43.5,
+`crn_compiled` 35.1, `crn_compiled_linear` 30.2; W2 rebop 2340.5,
+`crn_default` 93.7, `crn_linear` 174.8, `crn_compiled_linear` 184.7.
+
+Notes. On W2 the default request selects `rssa_cr`, which a generated loop
+does not run (CRN-R020 at `/method/selector`); the compiled row for the
+default request is therefore not accepted, and the compiled loop with the
+linear selector was **not faster** than the interpreter there (0.2282 against
+0.2160 s, ratio 0.95). On W1 the loop gave 1.24 times (default request) and
+1.45 times (linear selector) over the interpreter. The repeats of the
+two-thread rows and of W1 vary by up to 1.6 times between repeats (see the
+`seconds` lists in the report), so W1 ratios between 1.2 and 1.7 are not
+resolved against each other beyond the order of magnitude; the W2 ratio (13
+to 25) is. The compile step was cached from the earlier attempts, so
+`compile_seconds` in the report (0.06 and 0.08 s) is a cache lookup; the
+first build of the loop project took 54 s with cargo (dependencies included).
+The CLI process row of `compare_references.py` is not repeated; these rows
+are Python calls.
+
+Not measured: rebop's Rust macro; W3 and W4 (non-mass-action laws);
+rebop with more than one thread or process; the CLI process; a path-identity
+claim between the simulators (none exists); more than 3 repeats.

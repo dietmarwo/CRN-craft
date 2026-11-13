@@ -297,13 +297,11 @@ def main():
     args = parser.parse_args()
     if args.merge:
         parts = [json.loads(p.read_text()) for p in args.merge]
-        merged = {k: v for k, v in parts[0].items() if k != "workloads"}
-        merged["workloads"] = {}
+        base = {k: v for k, v in parts[0].items() if k not in ("workloads", "part")}
+        merged = {**base, "workloads": {}}
         for part in parts:
-            other = {k: v for k, v in part.items() if k != "workloads"}
-            if other != merged and {k: v for k, v in other.items() if k != "part"} != {
-                k: v for k, v in merged.items() if k != "part"
-            }:
+            other = {k: v for k, v in part.items() if k not in ("workloads", "part")}
+            if other != base:
                 raise SystemExit("parts differ in fields other than workloads")
             merged["workloads"].update(part["workloads"])
         merged.pop("part", None)

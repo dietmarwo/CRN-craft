@@ -1,0 +1,315 @@
+{
+  "agreement_threshold": 0.00125,
+  "host": {
+    "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cpu_count": 2,
+    "kernel": "6.18.44-fc-v445",
+    "python": "3.12.3"
+  },
+  "no_speed_target": true,
+  "repeats": 3,
+  "route": "rebop Python/dynamic API (rebop.Gillespie); not the Rust macro",
+  "schema": "crn-craft.rebop-comparison/0.1",
+  "versions": {
+    "crn_craft_python": "0.7.0",
+    "numpy": "2.3.5",
+    "python": "3.12.3",
+    "rebop": "0.10.0",
+    "rustc": "rustc 1.97.0 (2d8144b78 2026-07-07)"
+  },
+  "work": "64 paths, t in [0, 100.0], output at 0 and 100.0",
+  "workloads": {
+    "W1": {
+      "agreement": {
+        "exact_poisson": {
+          "crn_craft": {
+            "mean": 100.0,
+            "pooled_chi2_pvalue": 0.4218724477305135,
+            "rms_mean_z_over_species": 0.6894291116568838,
+            "variance_over_mean": 0.9771128913894325
+          },
+          "rebop": {
+            "mean": 100.0,
+            "pooled_chi2_pvalue": 0.5542401820838623,
+            "rms_mean_z_over_species": 0.848528137423857,
+            "variance_over_mean": 1.0385909980430528
+          }
+        },
+        "passed": true,
+        "paths_each": 512,
+        "tests": [
+          {
+            "failed": false,
+            "pvalue": 0.5753897140513412,
+            "test": "ks X"
+          },
+          {
+            "failed": false,
+            "pvalue": 0.4218724477305135,
+            "test": "chi2 crn_craft"
+          },
+          {
+            "failed": false,
+            "pvalue": 0.5542401820838623,
+            "test": "chi2 rebop"
+          }
+        ],
+        "threshold": 0.00125,
+        "two_sample": [
+          {
+            "crn_mean": 100.3046875,
+            "ks_pvalue": 0.5753897140513412,
+            "mean_z": 1.0832554845445144,
+            "rebop_mean": 99.625,
+            "species": "X"
+          }
+        ]
+      },
+      "compile_loop": {
+        "accepted": true,
+        "cached": true,
+        "cargo_build_seconds": null,
+        "compile_seconds": 0.06454320199986796
+      },
+      "compiled_identical_to_interpreter": {
+        "_default": true,
+        "_linear": true
+      },
+      "compiled_refusals": {},
+      "crn_events": {
+        "_default": 1273863,
+        "_linear": 1273863
+      },
+      "median_seconds": {
+        "crn_compiled": 0.04468247399995562,
+        "crn_compiled_linear": 0.03846638400000302,
+        "crn_compiled_linear_threads2": 0.02903270199999497,
+        "crn_compiled_threads2": 0.04376670699980423,
+        "crn_default": 0.0554402980001214,
+        "crn_default_threads2": 0.047047072000168555,
+        "crn_linear": 0.055985046000159855,
+        "crn_linear_threads2": 0.049376554999980726,
+        "rebop_dynamic": 0.06699259500010157
+      },
+      "model": "two_channel",
+      "ns_per_event": {
+        "crn_compiled": 35.07635750465758,
+        "crn_compiled_linear": 30.196641240072925,
+        "crn_compiled_linear_threads2": 22.791070939335683,
+        "crn_compiled_threads2": 34.35746779661881,
+        "crn_default": 43.52139751301466,
+        "crn_default_threads2": 36.93259950259059,
+        "crn_linear": 43.94903219589536,
+        "crn_linear_threads2": 38.76127574156776,
+        "rebop_dynamic": 52.47694675750744
+      },
+      "ratios_one_thread": {
+        "rebop_over_crn_compiled": 1.4993036195840033,
+        "rebop_over_crn_compiled_linear": 1.741588057772634,
+        "rebop_over_crn_default": 1.2083736454655218,
+        "rebop_over_crn_linear": 1.1966158784599426
+      },
+      "reactions": 2,
+      "rebop_events": 1276610,
+      "seconds": {
+        "crn_compiled": [
+          0.03744434499981253,
+          0.04498909099993398,
+          0.04468247399995562
+        ],
+        "crn_compiled_linear": [
+          0.03955072300004758,
+          0.03846638400000302,
+          0.03726785200001359
+        ],
+        "crn_compiled_linear_threads2": [
+          0.028072357999917585,
+          0.02903270199999497,
+          0.029211842999984583
+        ],
+        "crn_compiled_threads2": [
+          0.02796149300002071,
+          0.04376670699980423,
+          0.04419249299985495
+        ],
+        "crn_default": [
+          0.052801642000076754,
+          0.0554402980001214,
+          0.06413705699992533
+        ],
+        "crn_default_threads2": [
+          0.033621245999938765,
+          0.054843893999986904,
+          0.047047072000168555
+        ],
+        "crn_linear": [
+          0.06804866199991011,
+          0.05382218800014016,
+          0.055985046000159855
+        ],
+        "crn_linear_threads2": [
+          0.049376554999980726,
+          0.05832110400001511,
+          0.02983031700000538
+        ],
+        "rebop_dynamic": [
+          0.06699259500010157,
+          0.06331464400000186,
+          0.08313377499985108
+        ]
+      },
+      "species": 1
+    },
+    "W2": {
+      "agreement": {
+        "exact_poisson": {
+          "crn_craft": {
+            "mean": 14.999999969082696,
+            "pooled_chi2_pvalue": 0.5861887061025313,
+            "rms_mean_z_over_species": 0.980789272090219,
+            "variance_over_mean": 0.991566690207206
+          },
+          "rebop": {
+            "mean": 14.999999969082696,
+            "pooled_chi2_pvalue": 0.07953707264993408,
+            "rms_mean_z_over_species": 0.8693109098353805,
+            "variance_over_mean": 0.9864236424861347
+          }
+        },
+        "passed": true,
+        "paths_each": 512,
+        "tests": [
+          {
+            "failed": false,
+            "pvalue": 0.6276601651882908,
+            "test": "ks X0"
+          },
+          {
+            "failed": false,
+            "pvalue": 0.9997943279577781,
+            "test": "ks X1"
+          },
+          {
+            "failed": false,
+            "pvalue": 0.9965641636967105,
+            "test": "ks X2"
+          },
+          {
+            "failed": false,
+            "pvalue": 0.5861887061025313,
+            "test": "chi2 crn_craft"
+          },
+          {
+            "failed": false,
+            "pvalue": 0.07953707264993408,
+            "test": "chi2 rebop"
+          }
+        ],
+        "threshold": 0.00125,
+        "two_sample": [
+          {
+            "crn_mean": 14.88671875,
+            "ks_pvalue": 0.6276601651882908,
+            "mean_z": -0.7134639270132979,
+            "rebop_mean": 15.060546875,
+            "species": "X0"
+          },
+          {
+            "crn_mean": 15.046875,
+            "ks_pvalue": 0.9997943279577781,
+            "mean_z": -0.08860144909694012,
+            "rebop_mean": 15.068359375,
+            "species": "X1"
+          },
+          {
+            "crn_mean": 14.978515625,
+            "ks_pvalue": 0.9965641636967105,
+            "mean_z": 0.4224208154665858,
+            "rebop_mean": 14.876953125,
+            "species": "X2"
+          }
+        ]
+      },
+      "compile_loop": {
+        "accepted": true,
+        "cached": true,
+        "cargo_build_seconds": null,
+        "compile_seconds": 0.08454436700003498
+      },
+      "compiled_identical_to_interpreter": {
+        "_linear": true
+      },
+      "compiled_refusals": {
+        "_default": "CrnError: CRN-R020: generated rules loops run the linear selector; auto selects rssa_cr at /method/selector"
+      },
+      "crn_events": {
+        "_default": 1236422,
+        "_linear": 1235599
+      },
+      "median_seconds": {
+        "crn_compiled_linear": 0.22824379699977726,
+        "crn_compiled_linear_threads2": 0.11628815499989287,
+        "crn_default": 0.11591053699976328,
+        "crn_default_threads2": 0.06823323200023879,
+        "crn_linear": 0.21601248800016037,
+        "crn_linear_threads2": 0.1273298999999497,
+        "rebop_dynamic": 2.8940969800000858
+      },
+      "model": "sparse_66",
+      "ns_per_event": {
+        "crn_compiled_linear": 184.7231966032485,
+        "crn_compiled_linear_threads2": 94.1148018085907,
+        "crn_default": 93.74674423438218,
+        "crn_default_threads2": 55.18603842396754,
+        "crn_linear": 174.82410393676295,
+        "crn_linear_threads2": 103.0511517085638,
+        "rebop_dynamic": 2340.495013473235
+      },
+      "ratios_one_thread": {
+        "rebop_over_crn_compiled_linear": 12.67984943311695,
+        "rebop_over_crn_default": 24.968368320181245,
+        "rebop_over_crn_linear": 13.397822536991182
+      },
+      "reactions": 66,
+      "rebop_events": 1236532,
+      "seconds": {
+        "crn_compiled_linear": [
+          0.22824379699977726,
+          0.22604015200022332,
+          0.25400842599992757
+        ],
+        "crn_compiled_linear_threads2": [
+          0.11193073399999776,
+          0.11628815499989287,
+          0.12569400400025188
+        ],
+        "crn_default": [
+          0.16819044600015332,
+          0.11244608000015432,
+          0.11591053699976328
+        ],
+        "crn_default_threads2": [
+          0.08346394799991685,
+          0.06127012700017076,
+          0.06823323200023879
+        ],
+        "crn_linear": [
+          0.2554270949999591,
+          0.21483940100006294,
+          0.21601248800016037
+        ],
+        "crn_linear_threads2": [
+          0.132519400000092,
+          0.11968434399977923,
+          0.1273298999999497
+        ],
+        "rebop_dynamic": [
+          2.9848517969999193,
+          2.7909788120000485,
+          2.8940969800000858
+        ]
+      },
+      "species": 33
+    }
+  }
+}

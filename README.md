@@ -57,8 +57,8 @@ The [four CRN optimization lessons](tutorials/optimization/README.md) cover reus
 - [CRN-craft versus Julia at one and eight threads](docs/evidence/comparison-julia-8-threads.md) (measured with 0.6.0's `fast` policy): five JumpProcesses methods, 2,240 timed observations, scaling and replay checks
 - [Agent context](docs/developer/ai-context.md): what an AI agent needs to use and extend CRN-craft
 - [Model language](docs/reference/model-language.md): the `crn-craft.model/1.0` reference: types with attributes, patterns, rates and propensities, observables, continuous variables and higher-order rules, with [K1 law gates](validation/rules/RESULTS.md), [builder checks](validation/builder/RESULTS.md), [hybrid gates](validation/hybrid/RESULTS.md) and the [merge gates](validation/merge/RESULTS.md)
-- [Using CRN-craft from R](docs/using-from-r.md): the Python package through reticulate, with a tested example in `examples/r/`
-- [mtDNA user manual](docs/mtdna-user-manual.md), [optimization tutorial](docs/mtdna-optimization-tutorial.md) and [performance analysis](docs/evidence/mtdna-performance-analysis.md): simulating mtDNA mutant accumulation from Python, the command line and Rust, with runnable examples in `examples/mtdna/`, fitting with fcmaes, and what each method and option costs
+- [Using CRN-craft from R](docs/guide/15-from-r.md): the Python package through reticulate, with a tested example in `examples/r/`
+- [mtDNA user manual](docs/mtdna-user-manual.md), [optimization tutorial](docs/guide/13-fitting.md) and [performance analysis](docs/evidence/mtdna-performance-analysis.md): simulating mtDNA mutant accumulation from Python, the command line and Rust, with runnable examples in `examples/mtdna/`, fitting with fcmaes, and what each method and option costs
 - [Three-class mtDNA ensembles](docs/mtdna-rules.md): parallel Python ensembles, event trackers and callbacks, Static Direct, a specialized fixed-population sampler, next reaction, approximate tau and binomial steps, ATP-coupled thinning and the `hybrid` method for continuous variables ([review log](docs/campaign/mtdna-a0-a6-review-log-2026-11-03.md))
 - [Specialized kernels and generated loops](docs/developer/specialized-kernels.md): when a model-specific kernel pays off, and compiled event loops
 
@@ -241,7 +241,7 @@ old DataFrames); see the [changelog](CHANGELOG.md) for migration.
 Release 0.6.0 orders kept paths like event logs, replicate first
 (`result.paths` has the dimensions replicate × time × variable), adds
 `Model.set_stop` for stop conditions in builder models, and documents
-[using CRN-craft from R](docs/using-from-r.md) through reticulate.
+[using CRN-craft from R](docs/guide/15-from-r.md) through reticulate.
 
 Release 0.7.0 merges the network engine and the rules engine into one
 engine in the crate `crn-craft` ([plan](docs/history/plan-0.7.0-engine-merge.md),

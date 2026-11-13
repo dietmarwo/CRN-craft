@@ -1,7 +1,7 @@
 # Three-class mtDNA ensembles
 
 For a task-oriented introduction, read the [user manual](mtdna-user-manual.md),
-the [optimization tutorial](mtdna-optimization-tutorial.md) and the
+the [optimization tutorial](guide/13-fitting.md) and the
 [performance analysis](evidence/mtdna-performance-analysis.md). This page is the
 reference behind them.
 

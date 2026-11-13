@@ -1,10 +1,12 @@
 # mtDNA examples
 
 Runnable examples for the [user manual](../../docs/mtdna-user-manual.md), the
-[optimization tutorial](../../docs/mtdna-optimization-tutorial.md) and the
+[fitting chapter of the guide](../../docs/guide/13-fitting.md) and the
 [performance analysis](../../docs/evidence/mtdna-performance-analysis.md). Run them
 from the repository root with the `crn-craft` Python package installed. The
-fitting scripts also need `fcmaes` and `scipy`.
+fitting scripts also need `fcmaes` and `scipy`. They build the model in
+Python and use the top-level module `crn_craft`, as the guide does; with
+`CRN_CRAFT_SMOKE=1` they run with few cells and three evaluations.
 
 Every Python block of the manual runs on its own, and
 `python validation/check_manual.py --binary target/release/crn-craft` runs
@@ -28,7 +30,7 @@ them all in fresh interpreters and compares their output with the manual.
 | `09_variants.py` | 13, model variants |
 | `10_budgets.py` | 14, budgets |
 | `11_cli_request.py [DIR [CRN_CRAFT]]` | 15, the command line |
-| `fit_takeover.py [EVALUATIONS]` | tutorial, section 2 |
-| `fit_heteroplasmy.py [EVALUATIONS]` | tutorial, section 3 |
-| `noise_and_parallel.py` | tutorial, sections 4 and 5 |
+| `fit_takeover.py [EVALUATIONS]` | guide, chapter 13 |
+| `fit_heteroplasmy.py [EVALUATIONS]` | guide, chapter 13 |
+| `noise_and_parallel.py` | guide, chapter 13 |
 | `performance.py SECTION [CRN_CRAFT]` | performance analysis |

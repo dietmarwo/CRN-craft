@@ -26,8 +26,9 @@ reticulate::virtualenv_create("crn-craft", packages = "crn-craft")
 Use a current reticulate from CRAN with NumPy 2 and pandas 3. reticulate
 1.35, the version of Ubuntu's `r-cran-reticulate` package, failed on this
 host with NumPy 2.3 and pandas 3.1 ("C stack usage is too close to the
-limit") and worked with NumPy 1.26 and pandas 2.3; an earlier test found
-that reticulate 1.47 converts results from NumPy 2 and pandas 3 correctly.
+limit") and worked with NumPy 1.26 and pandas 2.3. The test of release
+0.6.0 found that reticulate 1.47 converts results from NumPy 2 and pandas 3
+to data frames and arrays.
 
 ## Example: SIR model
 

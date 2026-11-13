@@ -497,7 +497,7 @@ Output and memory grow with what is kept, not with the events:
 5. **Optimize with `bind_parameters` on a prepared run.** Use evaluations
    of a few hundred to a few thousand cells, with `mtdna_direct` where the
    model has its structure
-   ([optimization tutorial](../mtdna-optimization-tutorial.md)).
+   ([optimization tutorial](../guide/13-fitting.md)).
 6. **For the largest studies, use Rust.** Call the engine directly, or use
    the opt-in generated loop for closed models that `mtdna_direct` does
    not certify.

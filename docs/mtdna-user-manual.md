@@ -17,7 +17,7 @@ contracts; section 18 lists the differences.
 
 Companion documents:
 
-- [Optimization tutorial](mtdna-optimization-tutorial.md): fitting model
+- [Optimization tutorial](guide/13-fitting.md): fitting model
   parameters to data with fcmaes.
 - [Performance analysis](evidence/mtdna-performance-analysis.md): what each method
   and option costs, and how to size a study.
@@ -59,7 +59,7 @@ kept paths and event logs are xarray DataArrays (xarray is required since
 0.5.0). The extra `crn-craft[xarray]` of earlier releases still installs.
 
 From R, the Python package works through reticulate; see
-[Using CRN-craft from R](using-from-r.md).
+[Using CRN-craft from R](guide/15-from-r.md).
 
 The Python package contains the native engine, so the CLI is optional. Every
 feature in this manual is in release 0.7.0; features that exist only in
@@ -1775,7 +1775,7 @@ takeover fraction after three years
 With equal weights (`sm = 1`), no cell reached 90% mutants within three
 years at K = 1000: drift alone is too slow. The takeover fraction grows
 roughly in proportion to `mu` and steeply with `sm`. The
-[optimization tutorial](mtdna-optimization-tutorial.md) turns this into a
+[optimization tutorial](guide/13-fitting.md) turns this into a
 fit. A candidate's `model_sha256` and `run_sha256` hash the bound model and
 request, so every result names its parameters.
 

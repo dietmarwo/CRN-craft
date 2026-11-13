@@ -160,7 +160,9 @@ pair of distinct molecules, whatever their attributes. The `tree` method
 samples this for any type. The static methods lower each pattern to its
 tuples, so they accept a propensity rule only when each reactant type has a
 single tuple, as for attribute-free species (`CRN-R020` at `/method`
-otherwise); `mtdna_direct` falls back to Static Direct with `CRN-R051`, and
+otherwise); `mtdna_direct` falls back to Static Direct with `CRN-R051`
+(except for the builder form of the three-class model under `run/1.0`,
+which it certifies: [methods](methods.md#the-fast-path-mtdna_direct)), and
 generated rates kernels refuse such models (`CRN-R020`), while generated
 event loops emit them with the interpreter's arithmetic. For one
 reactant, `propensity: "k * A"` and `rate: "k"` give the same floating-point

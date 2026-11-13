@@ -2066,3 +2066,172 @@ uses per-instance rates. Its compiled loop removes most of that cost. The
 guide (chapters 12, 12d, 13 and page 14a) quotes 9.9, 3.6, 7.1 and 1.4 with
 this date. Not measured: other workloads, sweeps (candidates of
 `bind_parameters` run interpreted), more than two threads.
+
+### E1 (builder-built models as fast as model files): declaration
+
+Committed before the first timing of task E1 (engine work for 0.7.1). The
+measurement above found the builder form of the three-class model (arm E)
+3.6 times slower per event than the model file under the same method (arm
+B). E1 makes the engine evaluate whole-rule propensities more cheaply and
+lets `mtdna_direct` certify the builder form.
+
+- **Workload:** as in "Docs 0.7.1: the builder form of the mtDNA model"
+  above: takeover stop at 90%, end 25,920 h, report times every 90 days,
+  200 cells, seed 1, two threads, through `crn.ensemble`.
+- **Arms:** A, B, E and F as above; new arm G: the builder model of arm E
+  under `mtdna_direct`.
+- **Runs:** `validation/merge/manual-ratios/builder_speed.py`, one Python
+  process, the wheel of the E1 branch, `CRN_CRAFT_SOURCE` at the
+  checkout, the whole run under the CPU lock. One untimed warm-up run per
+  arm, then three rounds in the orders A B E F G, G F E B A, A B E F G;
+  the median of three per arm. Times are the wall time of `simulate()`.
+- **Target (E1-T1):** the median wall time per event of E is at most 1.5
+  times the median wall time per event of B in the same run.
+- **Target (E1-T2), byte identity:** every result is unchanged against
+  0.7.0. (a) In the timed run, A, B and E report the event counts and
+  the SHA-256 of their means that the 13 November run recorded
+  (`builder-form.json`: 28,536,814, 28,847,586 and 28,779,334 events). (b)
+  The release CLI of the branch and of `3d80c6d` (0.7.0 engine) give
+  byte-identical result documents for the arm-E and arm-B requests, and
+  for the same two requests with all 200 paths kept. (c) The stored
+  requests replay byte for byte (`stored_requests.rs`,
+  `static_direct_defaults.rs`, gate I1), and the law gate
+  (`check_laws.py`, every model, the release CLI) reproduces
+  `laws/m8b-cli.json` byte for byte apart from the engine identity.
+- **Checks** (a failed check voids the run, which is kept): every run of A
+  reports `chacha8-u53-ziggurat/rules-mtdna-direct/1`; every run of G
+  reports the sampler of the fast path and no `CRN-R051`; E and F have
+  equal event counts and means in every run and `loop.verify` passes;
+  every run completes.
+- **Descriptive:** the ratios E/A, E/B, B/A, E/F, F/A, G/A and G/E.
+- If E1-T1 is missed, the row stays and the target stays; the report lists
+  the options and their costs.
+
+### E1 (`mtdna_direct` on the builder form): law check declaration
+
+Committed before the first run of the check. `mtdna_direct` now certifies
+the builder form of the three-class model under `run/1.0`. Its kernel on
+the builder form of the guide's model equals the file form's to the bit
+(unit test `the_builder_form_is_certified_with_the_file_forms_kernel`), so
+it keeps the sampler identity `chacha8-u53-ziggurat/rules-mtdna-direct/1`.
+The certificate is new code, so the builder form gets its own exact-law
+check, with the rules of "Law gate" above.
+
+- **Models** (`validation/merge/builder/models.json`): the model files that
+  the Python builder writes with `three_class()` of guide chapter 12
+  (`validation/merge/builder/write_models.py`), made small enough for a
+  finite state projection: `mtdna-builder` with `K = 20`, 20 wild-type
+  molecules, `mu = 0.05` (so that both mutant classes appear), the guide's
+  other parameters, no stop; `mtdna-builder-stop`, the same with the
+  takeover stop at 50%. End 2,000 h, report times 0, 250, 500, 1,000 and
+  2,000 h; species `W`, `M`, `A`; 200,000 replicates in chunks of 10,000.
+- **References** (`validation/merge/builder_references.py`, written to
+  `validation/merge/builder/reference/`): the sample reference from the
+  release CLI of `3d80c6d` (0.7.0 engine) with `static_direct` under
+  `run/1.0`, reference seeds 1,000,000 + k; and the FSP law from the same
+  CLI (`fsp`, bounds 20 per species, tolerance 1e-12; the stop's states
+  are absorbing, as a stopped replicate holds its state), whose moments
+  are kept only if the leakage and mass defect are below 1e-9.
+- **Run:** `check_laws.py --binary <E1 release CLI> --method
+  '{"kind": "mtdna_direct"}' --manifest validation/merge/builder/models.json
+  --references validation/merge/builder/reference --expect-sampler
+  chacha8-u53-ziggurat/rules-mtdna-direct/1`, gate seeds 2,000,000 + k.
+  Stopped replicates count as complete for these rows (`"stop": true`),
+  with their held state at later report times.
+- **Size:** 2 models × 5 times × 3 species = 30 cells, 60 comparisons
+  against the sample reference and 60 against FSP; 24 of them at time 0.
+- **Target:** 0 failures, and every chunk reports the fast path's sampler.
+  A failure is reported, not rerun with another seed.
+
+**Amendment, before any comparison ran.** The first reference run stopped
+in the finite state projection: with the guide's half-life of 10 days and
+an end of 2,000 h the projection needs more than its work limit (2·10⁸;
+`CRN-E070`). The models now use a half-life of 1 day (`delta` ten times
+larger) and end at 200 h, report times 0, 25, 50, 100 and 200 h; the
+dynamics are the same up to the time scale, and about six mutations occur
+per cell. Everything else stands.
+
+### E1 (`mtdna_direct` on the builder form): law check results
+
+2026-11-13, this host, after the declaration and its amendment (`a79802a`).
+References from the CLI of `3d80c6d` (release profile with line tables,
+SHA-256 `04086920…`), `validation/merge/builder/reference/`: the finite
+state projections have 1,771 states (no stop) and 506 (stop), no leakage,
+mass defect at most 6.2e-13; the samples have 44,735,067 and 39,844,143
+events under `chacha8-u53-ziggurat/rules-static-direct/1`. Check run with
+the release CLI of the E1 branch at `a79802a` (SHA-256 `62f7fd6b…`)
+(`validation/merge/laws/e1-builder-mtdna_direct.json`): every chunk reports
+`chacha8-u53-ziggurat/rules-mtdna-direct/1` under `crn-craft.run/1.0`
+(44,760,319 and 39,879,255 events).
+
+| Model | Cells | Comparisons (reference) | Failures | max \|z\| | Comparisons (FSP) | Failures | max \|z\| |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| mtdna-builder | 15 | 30 | 0 | 1.94 | 30 | 0 | 2.09 |
+| mtdna-builder-stop | 15 | 30 | 0 | 1.79 | 30 | 0 | 1.90 |
+| **Total** | 30 | 120 comparisons (N), 24 at t = 0 | **0** | 2.09 | | | |
+
+**Target met:** 0 failures, the fast path's sampler throughout. Limits:
+one capacity (20) and one parameter set at the check's size; the guide's
+capacity of 1,000 is covered by the unit tests (the kernel equals the file
+form's to the bit, and the per-cell draws equal the file form's in
+`mtdna_direct_runs_the_builder_form_under_run_1_0`), not by an FSP law.
+
+### E1 (builder-built models as fast as model files): results
+
+2026-11-13, this host, after the declaration (`6e32fd0`), with the wheel
+of the E1 branch at `d12b242` (engine code of `cbfc861`),
+`CRN_CRAFT_SOURCE` at the checkout, the whole run under the CPU lock
+(`validation/merge/manual-ratios/builder-speed.json`). The loop was built in
+the run (38.9 s; a fresh cache).
+
+**Checks: all passed.** Every run of A and G reported
+`chacha8-u53-ziggurat/rules-mtdna-direct/1`, and no run of G a `CRN-R051`;
+E and F had equal event counts and means in every run, and `loop.verify`
+passed; every run completed.
+
+| Arm | Runs (s, rounds 1–3) | Median s | Events | Wall ns per event |
+|---|---|---:|---:|---:|
+| A file, `mtdna_direct` | 0.544, 0.548, 0.514 | 0.544 | 28,536,814 | 19.1 |
+| B file, `static_direct` | 1.406, 1.447, 1.354 | 1.406 | 28,847,586 | 48.7 |
+| E builder, `static_direct` | 1.969, 2.097, 1.884 | 1.969 | 28,779,334 | 68.4 |
+| F E with the compiled loop | 0.753, 0.754, 0.760 | 0.754 | 28,779,334 | 26.2 |
+| G builder, `mtdna_direct` | 0.530, 0.522, 0.540 | 0.530 | 28,536,814 | 18.6 |
+
+| Ratio | Wall time | 13 November (0.7.0) |
+|---|---:|---:|
+| E / B per event | **1.40** | 3.60 |
+| E / A | 3.62 (3.59 per event) | 9.89 (9.81) |
+| E / B | 1.40 | 3.59 |
+| B / A | 2.58 | 2.76 |
+| E / F | 2.61 | 7.08 |
+| F / A | 1.39 | 1.40 |
+| G / A | 0.97 | – |
+| G / E | 0.27 | – |
+
+**E1-T1 met:** E takes 1.40 times B's time per event (target at most 1.5).
+Arm E went from 186.7 to 68.4 ns per event (2.7 times faster).
+
+**E1-T2 met.** (a) A, B and E had 28,536,814, 28,847,586 and 28,779,334
+events and the mean digests of `builder-form.json` in every run. (b) The
+release CLI of the branch (`d12b242`, SHA-256 `c77519fb…`) and the CLI of
+`3d80c6d` give byte-identical result documents for the arm-B and arm-E
+requests (51,932 and 48,988 bytes) and for both with all 200 paths kept
+(141,217 and 95,429 bytes). (c) The stored requests replay byte for
+byte (`stored_requests.rs` 9 tests, `static_direct_defaults.rs` 2, in
+`cargo test --release --workspace --locked`: 406 passed, 0 failed), and
+the law gate with the release CLI at `d12b242` (`check_laws.py`, every
+model, `static_direct`, one model per run under the CPU lock) reproduces
+every model entry of `laws/m8b-cli.json` exactly: converted model hashes,
+request schemas, samplers, chunks with their seeds and events, power sums,
+statistics, summaries and all 4,814 comparison rows (0 failures, max |z|
+3.88); only the header's engine identity differs. The pieces are not
+committed: they equal `m8b-cli.json`.
+
+G made the same draws as A: the builder form's kernel equals the file
+form's to the bit, so G has A's 28,536,814 events and 23 stopped cells, and
+its means of `W`, `M` and `A` equal A's means of `wild_type`,
+`neutral_mutants` and `advantaged_mutants` exactly (a separate run of the
+same two requests, `E1-log.md`).
+
+Not measured: other workloads, sweeps (candidates of `bind_parameters`),
+more than two threads, other hosts.

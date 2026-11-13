@@ -1,7 +1,7 @@
 //! Fixed-instance lowering and direct SSA over the resulting channels.
 use crate::rules::InstanceRecord;
 use crate::rules::engine::{Clock, Halt, Limits, Words, numerical};
-use crate::rules::expr::{Env, RateKernel};
+use crate::rules::expr::{Env, Program, RateKernel, SharedPrograms};
 use crate::rules::model::{Compiled, MAX_COUNT, ModelVersion, Reduce, Shape, Source};
 use rand_core::RngCore;
 use std::collections::HashMap;
@@ -52,6 +52,13 @@ pub(crate) struct Network {
     pub(crate) rule_reads: Vec<Vec<usize>>,
     /// The projections (indices into `observables`) each rule's rate reads.
     pub(crate) rule_projections: Vec<Vec<usize>>,
+    /// Per rule with an expression rate: the program the rate cache runs,
+    /// which reads the subexpressions it shares with other rates, and the
+    /// slots it reads (`None`: the rule's own program, a tree). Its values
+    /// have the bits of `rates`.
+    cse_rates: Vec<Option<(Program, Vec<usize>)>>,
+    /// The programs of the shared subexpressions.
+    cse_slots: Vec<Program>,
 }
 
 enum Factor {
@@ -555,6 +562,20 @@ impl Network {
         for c in &channels {
             uses[c.rule] += 1;
         }
+        // Rate expressions evaluated by the general path share their common
+        // subexpressions (`Factor::Expression` and `Factor::General`
+        // without a vacancy slot).
+        let shared = {
+            let exprs: Vec<Option<&crate::rules::expr::Expr>> = rates
+                .iter()
+                .zip(&uses)
+                .map(|(rate, &uses)| match rate {
+                    RateKernel::Expression { expr, .. } if uses > 0 => Some(expr),
+                    _ => None,
+                })
+                .collect();
+            SharedPrograms::new(&exprs, &model.params)
+        };
         let mut shared_rates = 0;
         let rate_slots: Vec<_> = uses
             .iter()
@@ -649,6 +670,21 @@ impl Network {
                 _ => None,
             })
             .collect();
+        // Every other flat program runs through the same path, with no
+        // shared values to compute.
+        let cse_rates = shared
+            .programs
+            .into_iter()
+            .zip(&rates)
+            .map(|(fast, rate)| {
+                fast.or_else(|| match rate {
+                    RateKernel::Expression { program, .. } if program.shares() => {
+                        Some((program.clone(), Vec::new()))
+                    }
+                    _ => None,
+                })
+            })
+            .collect();
         Ok(Self {
             species,
             channels,
@@ -667,6 +703,8 @@ impl Network {
             readers,
             rule_reads,
             rule_projections,
+            cse_rates,
+            cse_slots: shared.slots,
         })
     }
 
@@ -956,6 +994,7 @@ impl Network {
         RateCache {
             rules: vec![f64::NAN; self.shared_rates],
             vacancies: vec![f64::NAN; self.shared_vacancies],
+            subexpressions: vec![f64::NAN; self.cse_slots.len()],
         }
     }
 
@@ -1023,12 +1062,31 @@ impl Network {
 pub(crate) struct RateCache {
     rules: Vec<f64>,
     vacancies: Vec<f64>,
+    /// The values of the shared subexpressions of the rate programs, NaN
+    /// until computed (a NaN value is computed again, with the same result).
+    subexpressions: Vec<f64>,
 }
 
 impl RateCache {
     pub fn reset(&mut self) {
         self.rules.fill(f64::NAN);
         self.vacancies.fill(f64::NAN);
+        self.subexpressions.fill(f64::NAN);
+    }
+
+    /// The value of rule `rule`'s expression rate: its program, with the
+    /// shared subexpressions it reads computed once per state.
+    #[inline(always)]
+    fn expression(&mut self, net: &Network, rule: usize, env: &Env<'_>) -> f64 {
+        let Some((program, needs)) = &net.cse_rates[rule] else {
+            return net.rates[rule].eval(env);
+        };
+        for &slot in needs {
+            if self.subexpressions[slot].is_nan() {
+                self.subexpressions[slot] = net.cse_slots[slot].eval(env);
+            }
+        }
+        program.eval_shared(env.observables, &self.subexpressions)
     }
 
     fn rule(&mut self, net: &Network, rule: usize, slot: Option<usize>, env: &Env<'_>) -> f64 {
@@ -1054,7 +1112,7 @@ impl RateCache {
             }
             factors.iter().fold(*base, |x, f| x * f)
         } else {
-            kernel.eval(env)
+            self.expression(net, rule, env)
         };
         if let Some(i) = slot {
             self.rules[i] = value;
@@ -1099,7 +1157,7 @@ impl RateCache {
         }
         let global = match c.factor {
             Factor::Constant(k) => k,
-            Factor::Expression => net.rates[c.rule].eval(env),
+            Factor::Expression => self.expression(net, c.rule, env),
             _ => self.global(net, c, env),
         };
         global * (weight * c.weight)
@@ -1127,7 +1185,7 @@ impl RateCache {
                 factors.iter().fold(*base, |x, f| x * f)
             }
             Factor::General(slot) => self.rule(net, c.rule, slot, env),
-            Factor::Expression => net.rates[c.rule].eval(env),
+            Factor::Expression => self.expression(net, c.rule, env),
         }
     }
 
@@ -1525,5 +1583,76 @@ mod tests {
         }
         // Every workload, example and closed rules model of the repository.
         assert!(lowered >= 30, "{lowered} models lowered");
+    }
+
+    /// The rate cache with shared subexpressions (E1) gives every channel
+    /// the bits of the rule's own program, on every closed model of the
+    /// repository and the builder form of the three-class model, at random
+    /// states.
+    #[test]
+    fn shared_subexpressions_leave_every_rate_unchanged() {
+        use rand_core::{RngCore, SeedableRng};
+        let builder = br#"{"schema": "crn-craft.model/1.0", "name": "b",
+            "parameters": {"K": 1000, "sm": 1.5, "sw": 1.0, "mu": 3e-5, "f": 0.2, "delta": 0.003},
+            "types": [{"name": "W"}, {"name": "M"}, {"name": "A"}],
+            "initial": [{"type": "W", "count": 1000}],
+            "observables": {"W": {"type": "W"}, "M": {"type": "M"}, "A": {"type": "A"}},
+            "rules": [
+              {"name": "r", "reactants": [{"label": "x", "type": "W"}], "propensity": "max(0, K - W - M - A) / (W + sm * (M + A)) * sw * (1 - mu) * W", "products": [{"type": "W"}, {"type": "W"}]},
+              {"name": "m", "reactants": [{"label": "x", "type": "W"}], "propensity": "max(0, K - W - M - A) / (W + sm * (M + A)) * sw * mu * (1 - f) * W", "products": [{"type": "W"}, {"type": "M"}]},
+              {"name": "a", "reactants": [{"label": "x", "type": "W"}], "propensity": "max(0, K - W - M - A) / (W + sm * (M + A)) * sw * mu * f * W", "products": [{"type": "W"}, {"type": "A"}]},
+              {"name": "rm", "reactants": [{"label": "x", "type": "M"}], "propensity": "max(0, K - W - M - A) / (W + sm * (M + A)) * sw * M", "products": [{"type": "M"}, {"type": "M"}]},
+              {"name": "ra", "reactants": [{"label": "x", "type": "A"}], "propensity": "max(0, K - W - M - A) / (W + sm * (M + A)) * sm * A", "products": [{"type": "A"}, {"type": "A"}]},
+              {"name": "dw", "reactants": [{"label": "x", "type": "W"}], "propensity": "delta * W", "products": []},
+              {"name": "dm", "reactants": [{"label": "x", "type": "M"}], "propensity": "delta * M", "products": []},
+              {"name": "da", "reactants": [{"label": "x", "type": "A"}], "propensity": "delta * A", "products": []}
+            ]}"#;
+        let mut models = corpus();
+        models.push(("builder three-class".into(), builder.to_vec()));
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(0xe1);
+        let (mut checked, mut sharing) = (0, 0);
+        for (name, bytes) in models {
+            let source: model::Model = serde_json::from_slice(&bytes).unwrap();
+            let Ok(compiled) = model::compile(&source) else {
+                continue;
+            };
+            let Ok(net) = Network::compile(&compiled) else {
+                continue;
+            };
+            sharing += usize::from(!net.cse_slots.is_empty());
+            let mut cache = net.rate_cache();
+            let mut values = vec![0.0; compiled.observables.len()];
+            for round in 0..64 {
+                let counts: Vec<u64> = net
+                    .initial()
+                    .iter()
+                    .map(|&n| match round % 4 {
+                        0 => n,
+                        1 => rng.next_u64() % 4,
+                        2 => rng.next_u64() % 1000,
+                        _ => n + rng.next_u64() % 50,
+                    })
+                    .collect();
+                if net.refresh(&counts, &mut values).is_err() {
+                    continue;
+                }
+                let env = Env {
+                    params: &compiled.params,
+                    observables: &values,
+                    attributes: [&[], &[]],
+                };
+                cache.reset();
+                for i in 0..net.channels.len() {
+                    let cached = cache.value(&net, i, &counts, &env);
+                    let fresh = net.value_with(i, net.global_fresh(i, &env), &counts);
+                    assert!(
+                        cached.to_bits() == fresh.to_bits() || (cached.is_nan() && fresh.is_nan()),
+                        "{name}: channel {i} at {counts:?}: {cached:?} != {fresh:?}"
+                    );
+                    checked += 1;
+                }
+            }
+        }
+        assert!(sharing >= 1 && checked > 10_000, "{sharing} {checked}");
     }
 }

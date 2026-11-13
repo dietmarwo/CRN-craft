@@ -1,0 +1,256 @@
+{
+  "schema": "crn-craft.manual-ratios/0.1",
+  "workload": "guide chapter 12a, A first ensemble: three-class model, takeover stop at 90%, 25,920 h, reports every 90 days, 200 cells, seed 1, two threads",
+  "labels": {
+    "A": "model file, mtdna_direct",
+    "B": "model file, static_direct",
+    "E": "builder model, static_direct",
+    "F": "builder model, static_direct, compiled loop",
+    "G": "builder model, mtdna_direct"
+  },
+  "python": "3.12.3",
+  "crn_craft": "0.7.0",
+  "loop_build_seconds": 38.92444236800111,
+  "warmup": [
+    {
+      "arm": "A",
+      "seconds": 0.5380626709993521,
+      "events": 28536814,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "53e7f362a014d48c534b32df01b245e545f56ca43a14301df2d73d611706e236"
+    },
+    {
+      "arm": "B",
+      "seconds": 1.4673986490015523,
+      "events": 28847586,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "96d90628805ef8c29a9b8be0641a5b9a37f13a45650caeadf4ab778dc601448f"
+    },
+    {
+      "arm": "E",
+      "seconds": 2.005807104998894,
+      "events": 28779334,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "7dcade9c6c7179ba160a558452d1de073e9dce347065f1022cf4c08abc6a3fce"
+    },
+    {
+      "arm": "F",
+      "seconds": 0.8002578340001492,
+      "events": 28779334,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "7dcade9c6c7179ba160a558452d1de073e9dce347065f1022cf4c08abc6a3fce"
+    },
+    {
+      "arm": "G",
+      "seconds": 0.5132523529991886,
+      "events": 28536814,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "096af8ab169ab149987bca1ed974bb9e6e212046dc2ccd064976cd54724c7db2"
+    }
+  ],
+  "rows": [
+    {
+      "arm": "A",
+      "seconds": 0.5440952910012129,
+      "events": 28536814,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "53e7f362a014d48c534b32df01b245e545f56ca43a14301df2d73d611706e236",
+      "round": 1
+    },
+    {
+      "arm": "B",
+      "seconds": 1.4060540459995536,
+      "events": 28847586,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "96d90628805ef8c29a9b8be0641a5b9a37f13a45650caeadf4ab778dc601448f",
+      "round": 1
+    },
+    {
+      "arm": "E",
+      "seconds": 1.9690275930006464,
+      "events": 28779334,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "7dcade9c6c7179ba160a558452d1de073e9dce347065f1022cf4c08abc6a3fce",
+      "round": 1
+    },
+    {
+      "arm": "F",
+      "seconds": 0.7531698869988759,
+      "events": 28779334,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "7dcade9c6c7179ba160a558452d1de073e9dce347065f1022cf4c08abc6a3fce",
+      "round": 1
+    },
+    {
+      "arm": "G",
+      "seconds": 0.5304295189998811,
+      "events": 28536814,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "096af8ab169ab149987bca1ed974bb9e6e212046dc2ccd064976cd54724c7db2",
+      "round": 1
+    },
+    {
+      "arm": "G",
+      "seconds": 0.5220093570005702,
+      "events": 28536814,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "096af8ab169ab149987bca1ed974bb9e6e212046dc2ccd064976cd54724c7db2",
+      "round": 2
+    },
+    {
+      "arm": "F",
+      "seconds": 0.7539777149995643,
+      "events": 28779334,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "7dcade9c6c7179ba160a558452d1de073e9dce347065f1022cf4c08abc6a3fce",
+      "round": 2
+    },
+    {
+      "arm": "E",
+      "seconds": 2.097488212999451,
+      "events": 28779334,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "7dcade9c6c7179ba160a558452d1de073e9dce347065f1022cf4c08abc6a3fce",
+      "round": 2
+    },
+    {
+      "arm": "B",
+      "seconds": 1.4472601639990899,
+      "events": 28847586,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "96d90628805ef8c29a9b8be0641a5b9a37f13a45650caeadf4ab778dc601448f",
+      "round": 2
+    },
+    {
+      "arm": "A",
+      "seconds": 0.5482304180004576,
+      "events": 28536814,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "53e7f362a014d48c534b32df01b245e545f56ca43a14301df2d73d611706e236",
+      "round": 2
+    },
+    {
+      "arm": "A",
+      "seconds": 0.5143986069997482,
+      "events": 28536814,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "53e7f362a014d48c534b32df01b245e545f56ca43a14301df2d73d611706e236",
+      "round": 3
+    },
+    {
+      "arm": "B",
+      "seconds": 1.3538516019998497,
+      "events": 28847586,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "96d90628805ef8c29a9b8be0641a5b9a37f13a45650caeadf4ab778dc601448f",
+      "round": 3
+    },
+    {
+      "arm": "E",
+      "seconds": 1.8842989020013192,
+      "events": 28779334,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "7dcade9c6c7179ba160a558452d1de073e9dce347065f1022cf4c08abc6a3fce",
+      "round": 3
+    },
+    {
+      "arm": "F",
+      "seconds": 0.7600067139992461,
+      "events": 28779334,
+      "sampler": "chacha8-u53-ziggurat/rules-static-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "7dcade9c6c7179ba160a558452d1de073e9dce347065f1022cf4c08abc6a3fce",
+      "round": 3
+    },
+    {
+      "arm": "G",
+      "seconds": 0.540344544000618,
+      "events": 28536814,
+      "sampler": "chacha8-u53-ziggurat/rules-mtdna-direct/1",
+      "termination": "completed",
+      "warnings": [],
+      "mean_sha256": "096af8ab169ab149987bca1ed974bb9e6e212046dc2ccd064976cd54724c7db2",
+      "round": 3
+    }
+  ],
+  "median_seconds": {
+    "A": 0.5440952910012129,
+    "B": 1.4060540459995536,
+    "E": 1.9690275930006464,
+    "F": 0.7539777149995643,
+    "G": 0.5304295189998811
+  },
+  "events": {
+    "A": 28536814,
+    "B": 28847586,
+    "E": 28779334,
+    "F": 28779334,
+    "G": 28536814
+  },
+  "median_seconds_per_event": {
+    "A": 1.906643436093507e-08,
+    "B": 4.8740787045389294e-08,
+    "E": 6.841810838988305e-08,
+    "F": 2.6198581072083335e-08,
+    "G": 1.858755217032571e-08
+  },
+  "ratios": {
+    "E/B per event": 1.4037136562068535,
+    "E/A wall": 3.6189021033013447,
+    "E/A per event": 3.58840604880291,
+    "E/B wall": 1.4003925372590347,
+    "B/A wall": 2.5842055045398644,
+    "E/F wall": 2.6115196163347933,
+    "F/A wall": 1.3857457093814172,
+    "G/A wall": 0.9748834951756615,
+    "G/E wall": 0.2693865341884556
+  },
+  "target_e1_t1_met": true,
+  "checks": {
+    "a_sampler_is_mtdna_direct": true,
+    "g_sampler_is_mtdna_direct_without_r051": true,
+    "e_and_f_equal_events_and_means": true,
+    "loop_verify_passed": true,
+    "every_run_completed": true
+  },
+  "identity": {
+    "abe_events_and_means_as_on_13_november": true
+  }
+}

@@ -282,9 +282,36 @@ then `chacha8-u53/rules-static-direct/1`, the numbers equal those of
 `{"kind": "static_direct", "waiting_time": "inverse", "sparse_trackers":
 false}`, and a `CRN-R051` warning in `metadata["diagnostics"]` names the
 failed check. A model that cannot be lowered at all, such as the clone model,
-is rejected with `CRN-R020`, as by every method except the tree. A model
-written with the builder is not certified: its rules carry whole-rule
-propensities, so the run falls back with `CRN-R051`.
+is rejected with `CRN-R020`, as by every method except the tree.
+
+**The builder form** (`run/1.0` requests only, from 0.7.1). A model written
+with the builder, such as `three_class()` of guide chapter 12, has three
+attribute-free species and whole-rule propensities instead. Under a
+`run/1.0` request the certificate reads each propensity as a law and
+accepts the model when the laws are the ones above:
+
+- a degradation is one constant times the count of its species, the same
+  constant for all three;
+- a replication or mutation is `max(0, L)` divided by `D`, times constants,
+  times the count of its parent species, in any order and association,
+  where `L` is `K` minus the three counts and `D` is a weighted sum of the
+  three counts with finite positive weights, the same `K` and `D` in all
+  five rules (parameters may be named or written as numbers, and
+  observables may be counts or weighted sums of the species);
+- the stop is absent, the form of point 5, or `T > 0 && P >= f * T` (or
+  `T * f`), where `T` and `P` are sums of observables with integer weights
+  that equal the total count and the count of the two mutant species.
+
+Every sum and coefficient in these forms is checked to be exact, and the
+stop's sums are integers below 2⁵³, so the propensities equal the fast
+path's hazards as functions of the counts, and the stop holds in the same
+states. Points 1, 4 and 6 are checked as above. The kernel of the builder
+form of the guide's model equals the file form's to the bit, so a cell makes
+the same draws under both forms: same events, and `M + A` equals the file
+form's `mutants` at every report time. The sampler identity is therefore the
+same, `chacha8-u53-ziggurat/rules-mtdna-direct/1`. Requests of the
+`rules-run` versions keep the fallback with `CRN-R051` ("the model has
+whole-rule propensities").
 
 `mtdna_direct` samples the same process as Static Direct with a different
 random stream: each cell's ChaCha8 words go to Ziggurat waiting times and to

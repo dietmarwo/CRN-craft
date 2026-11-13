@@ -1,0 +1,73 @@
+{
+ "schema": "crn-craft.merge-models/0.1",
+ "declared_in": "validation/merge/RESULTS.md (E1 (`mtdna_direct` on the builder form): law check declaration)",
+ "seeds": "chunk k (0-based) of a model uses root seed reference_seed + k (0.7.0 static_direct reference) or gate_seed + k (engine under test); chunks hold `chunk` replicates",
+ "rows": [
+  {
+   "name": "mtdna-builder",
+   "path": "validation/merge/builder/mtdna-builder.model.json",
+   "sha256": "789f456ce93c843de1f1b376c8b0d96bb22beb5ef8d810a0041d77699c45e755",
+   "form": "rules",
+   "stop": false,
+   "species_names": [
+    "W",
+    "M",
+    "A"
+   ],
+   "end": 200.0,
+   "report_times": [
+    0.0,
+    25.0,
+    50.0,
+    100.0,
+    200.0
+   ],
+   "replicates": 200000,
+   "chunk": 10000,
+   "reference_seed": 1000000,
+   "gate_seed": 2000000,
+   "fsp": {
+    "bounds": {
+     "W": 20,
+     "M": 20,
+     "A": 20
+    },
+    "max_states": 10000,
+    "tolerance": 1e-12
+   }
+  },
+  {
+   "name": "mtdna-builder-stop",
+   "path": "validation/merge/builder/mtdna-builder-stop.model.json",
+   "sha256": "abeaef672b3e5f261a17af5c949e345b8691d63ed776a9a2fc4dc9d045649cd3",
+   "form": "rules",
+   "stop": true,
+   "species_names": [
+    "W",
+    "M",
+    "A"
+   ],
+   "end": 200.0,
+   "report_times": [
+    0.0,
+    25.0,
+    50.0,
+    100.0,
+    200.0
+   ],
+   "replicates": 200000,
+   "chunk": 10000,
+   "reference_seed": 1000000,
+   "gate_seed": 2000000,
+   "fsp": {
+    "bounds": {
+     "W": 20,
+     "M": 20,
+     "A": 20
+    },
+    "max_states": 10000,
+    "tolerance": 1e-12
+   }
+  }
+ ]
+}

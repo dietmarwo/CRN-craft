@@ -1,0 +1,37 @@
+[book]
+title = "CRN-craft"
+description = "Stochastic simulation of chemical reaction networks and rule-based models, in Rust with Python bindings"
+language = "en"
+src = "docs"
+
+[build]
+# Outside docs/, ignored by git. CI and local builds can override it with
+# MDBOOK_BUILD__BUILD_DIR.
+build-dir = "site"
+# Every SUMMARY.md entry must have a file. Never create pages implicitly.
+create-missing = false
+
+# Links from rendered pages to files that are not in SUMMARY.md (campaign
+# logs, decisions, stubs, CHANGELOG, source files) become GitHub links.
+[preprocessor.github-links]
+command = "python3 validation/mdbook_github_links.py"
+
+# Renders the ```mermaid blocks of developer/architecture.md. Needs
+# site-assets/mermaid.min.js and mermaid-init.js: run
+# `mdbook-mermaid install site-assets` once (CI does it; the files are not
+# tracked).
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+after = ["github-links"]
+
+[output.html]
+no-section-label = true
+git-repository-url = "https://github.com/dietmarwo/CRN-craft"
+git-repository-icon = "fab-github"
+edit-url-template = "https://github.com/dietmarwo/CRN-craft/edit/main/docs/{path}"
+site-url = "/CRN-craft/"
+additional-js = ["site-assets/mermaid.min.js", "site-assets/mermaid-init.js"]
+
+[output.html.search]
+enable = true
+limit-results = 20

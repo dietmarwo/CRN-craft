@@ -134,9 +134,11 @@ The steps, for any paper:
    deviation σ, `Z = sqrt(n) (mean - μ) / σ` is close to a standard normal
    number if the simulation samples the published law. `Y = sqrt(n/2)
    (s² / σ² - 1)` does the same for the variance, less sharply, because
-   counts are not normally distributed. The test suite defines these two
-   statistics. Above, every `Z` and `Y` lies well within ±3. A value beyond
-   ±3 at one of many report times happens by chance now and then; a row of
+   counts are not normally distributed. The test suite's user guide defines
+   these two statistics. It treats `Z` beyond ±3 as evidence of an error,
+   and, because `Y` rests on a normal approximation, only `Y` beyond ±5.
+   Above, every `Z` and `Y` lies well within ±3. A value beyond the range
+   at one of many report times happens by chance now and then; a row of
    them is a discrepancy.
 4. **Choose the number of replicates.** The standard error of the mean is
    `σ / sqrt(n)`. To see a difference `d` at three standard errors you need

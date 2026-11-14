@@ -47,7 +47,7 @@ over the three species, without stopping the cell:
 sixty = "W + M + A > 0 && M + A >= 0.6 * (W + M + A)"
 result = crn.ensemble(
     three_class(takeover=0.9), end=END, report_times=[0.0, END], replicates=500,
-    seed=3, threads=2, method="static_direct",
+    seed=3, threads=2, method="mtdna_direct",
     trackers=[
         {"observable": "M", "keep_episodes": 3},
         {"observable": "A", "keep_episodes": 3},
@@ -72,18 +72,18 @@ for episode in first["trackers"][1]["episodes"]:
 ```
 
 ```text
-           appearances  extinctions  maximum    integral
-replicate                                               
-0                    0            0      0.0    0.000000
-1                    1            1      2.0  820.475905
-2                    0            0      0.0    0.000000
-neutral classes arising per cell: 1.57
-neutral classes lost per cell:    1.488
-advantaged arising/lost:          0.406 0.272
+           appearances  extinctions  maximum   integral
+replicate                                              
+0                    0            0      0.0   0.000000
+1                    1            1      1.0  64.109016
+2                    0            0      0.0   0.000000
+neutral classes arising per cell: 1.566
+neutral classes lost per cell:    1.472
+advantaged arising/lost:          0.404 0.266
 largest advantaged class seen:    900.0
-time-averaged advantaged count, mean over cells: 14.045
-cells reaching 60% mutants: 49; median day 572
-cell 1 advantaged episode: {'duration': 605.2665386989465, 'end': 14716.618602019145, 'peak': 2.0, 'start': 14111.352063320199}
+time-averaged advantaged count, mean over cells: 17.69
+cells reaching 60% mutants: 52; median day 494
+cell 1 advantaged episode: {'duration': 64.10901603704042, 'end': 5246.85151399302, 'peak': 1.0, 'start': 5182.742497955979}
 ```
 
 An appearance of a class is the birth of a mutant lineage *while its class
@@ -104,7 +104,7 @@ reactions are the ones to keep:
 ```python
 result = crn.ensemble(
     three_class(), end=END, report_times=[0.0, END], replicates=100, seed=4,
-    threads=2, method="static_direct",
+    threads=2, method="mtdna_direct",
     event_log={"max_entries": 50, "rules": ["mutation_mt", "mutation_mtAdv"]},
 ).simulate()
 log = result.event_columns()  # cells x entries x species, NaN-padded
@@ -117,12 +117,15 @@ print("cell 0 mutation days:", days.round(1).values.tolist())
 ```
 
 ```text
-logged mutation events: {'mutation_mt': 173, 'mutation_mtAdv': 34}
+logged mutation events: {'mutation_mt': 158, 'mutation_mtAdv': 39}
 omitted (log full): 0
-             time       rule_name      W    M    A
-entry                                             
-0      913.823829  mutation_mtAdv  997.0  0.0  1.0
-cell 0 mutation days: [38.1]
+               time       rule_name      W    M      A
+entry                                                 
+0       1442.924093     mutation_mt  994.0  1.0    0.0
+1       7746.367689     mutation_mt  996.0  1.0    0.0
+2      17740.279613  mutation_mtAdv  997.0  0.0    1.0
+3      21692.680185     mutation_mt  744.0  1.0  252.0
+cell 0 mutation days: [60.1, 322.8, 739.2, 903.9]
 ```
 
 No log was full: 50 entries per cell are more than three years of mutations
@@ -142,7 +145,7 @@ cells:
 from collections import Counter
 
 run = crn.ensemble(three_class(), end=END, report_times=[0.0, END], replicates=20,
-                   seed=4, threads=1, method="static_direct")
+                   seed=4, threads=1, method="mtdna_direct")
 seen = Counter()
 
 
@@ -162,14 +165,14 @@ print("their stop days:", days.round(1).to_numpy())
 ```
 
 ```text
-events seen by the callback: 2315907
-cells stopped at their first advantaged mutation: 8
-their stop days: [  38.1  480.3  369.3  347.7  298.9  593.6  586.8 1075.9]
+events seen by the callback: 2675817
+cells stopped at their first advantaged mutation: 5
+their stop days: [739.2 672.8 574.3 938.7 230.9]
 ```
 
-Both this run and the log above use Static Direct with seed 4, so their
+Both this run and the log above use the fast path with seed 4, so their
 first 20 cells are the same cells. The advantaged mutation of cell 0 on day
-38.1 in the log reappears here as the first stop day: an observer reads the
+739.2 in the log reappears here as the first stop day: an observer reads the
 events, it does not change them.
 
 ## Single lineages

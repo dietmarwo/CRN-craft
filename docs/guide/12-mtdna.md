@@ -131,8 +131,9 @@ Applies: [chapter 7, Which method for which model](07-methods.md#which-method-fo
   when the request is `crn-craft.run/1.0`, which `crn.ensemble` writes
   ([page 12d](12d-mtdna-methods.md#the-fast-path)). On 13 November 2026, on
   a two-CPU host, the builder model under the fast path took the time of
-  the model file under it (0.97 times), and under Static Direct 3.6 times
-  as long, and 1.4 times as long as the model file under Static Direct
+  the model file under it (0.97 times). Under Static Direct it took 3.6
+  times as long as the fast path, and 1.4 times as long as the model file
+  under Static Direct
   ([measurement](https://github.com/dietmarwo/CRN-craft/blob/main/validation/merge/RESULTS.md)).
   For long runs of the plain three-class model, use the fast path.
 

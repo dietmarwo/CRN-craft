@@ -71,7 +71,7 @@ A hundred cells for three years:
 model = three_class()
 print(model)
 result = crn.ensemble(model, end=END, report_times=[0.0, END], replicates=100,
-                      seed=1, threads=2, method="static_direct").simulate()
+                      seed=1, threads=2, method="mtdna_direct").simulate()
 final = result.statistics["mean"].loc[END]
 print(result.metadata["sampler"], result.metadata["termination"])
 print(f"mean mutant fraction after three years: {(final['M'] + final['A']) / final.sum():.4f}")
@@ -79,8 +79,8 @@ print(f"mean mutant fraction after three years: {(final['M'] + final['A']) / fin
 
 ```text
 Model('mtdna_three_class': 3 species, 8 reactions)
-chacha8-u53-ziggurat/rules-static-direct/1 completed
-mean mutant fraction after three years: 0.1108
+chacha8-u53-ziggurat/rules-mtdna-direct/1 completed
+mean mutant fraction after three years: 0.1111
 ```
 
 ## Parameters and rates
@@ -125,17 +125,21 @@ Applies: [chapter 7, Which method for which model](07-methods.md#which-method-fo
   Report times are written as `24.0 * days`.
 - One replicate is one cell. A cell at `K = 1000` has about 150,000 events
   in three years.
-- The method is `static_direct`, which runs every variant on these pages.
-  The three-class model also has a fast path, `mtdna_direct`, and since
-  release 0.7.1 it certifies the builder model as well as the model file
-  when the request is `crn-craft.run/1.0`, which `crn.ensemble` writes
-  ([page 12d](12d-mtdna-methods.md#the-fast-path)). On 13 November 2026, on
-  a two-CPU host, the builder model under the fast path took the time of
-  the model file under it (0.97 times). Under Static Direct it took 3.6
-  times as long as the fast path, and 1.4 times as long as the model file
-  under Static Direct
+- The case study runs the fast path, `method="mtdna_direct"`, an exact
+  method for the three-class model. Since release 0.7.1 it certifies the
+  builder model when the request is `crn-craft.run/1.0`, which
+  `crn.ensemble` writes ([page 12d](12d-mtdna-methods.md#the-fast-path)).
+  It runs with trackers, event logs, callbacks, kept paths, quantiles,
+  `bind_parameters` and the takeover stop at any threshold. A page that
+  runs another method says so and why: the ATP model is not the
+  three-class structure, compiled loops run Static Direct, and
+  [page 12d](12d-mtdna-methods.md) compares the methods. On 13 November
+  2026, on a two-CPU host, the builder model under the fast path took the
+  time of the model file under it (0.97 times). Under Static Direct it
+  took 3.6 times as long as under the fast path
   ([measurement](https://github.com/dietmarwo/CRN-craft/blob/main/validation/merge/RESULTS.md)).
-  For long runs of the plain three-class model, use the fast path.
+  Given a variant outside that structure, `mtdna_direct` runs Static
+  Direct and reports `CRN-R051` in `metadata["diagnostics"]`.
 
 ## The model as a file
 

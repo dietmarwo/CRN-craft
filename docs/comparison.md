@@ -55,9 +55,10 @@ On the mtDNA model it ran 2.14 times as fast as the interpreter (12 November
 
 ## Speed
 
-All runs: a shared two-CPU cloud host, under a CPU lock. Timings vary (most
-GillesPy2 runs within 10% of their median, single runs up to 34%; rebop
-repeats up to 1.6 times), so this page quotes ratios: other tool over CRN-craft.
+All runs: a shared two-CPU cloud host, under a CPU lock. Timings vary (with
+GillesPy2: most runs within 10% of their median, single CRN-craft runs up to
+34%; with rebop: repeats of one row differ by up to 2.0 times), so this page
+quotes ratios of medians: other tool over CRN-craft.
 
 **GillesPy2, current engine** (12 November 2026; unified engine of 0.7.0 at
 `cec91ed`, whose build reports 0.6.0; GillesPy2 1.8.3, Python 3.12.3, g++ 13.3;
@@ -93,8 +94,9 @@ Twelve networks, linear scan: compiled over interpreted time 0.61 to 0.90 on
 eight, 1.15 on W7; W4 to W6 refused (source over 1 MiB). First build 49.3 s,
 later 0.1 to 6.4 s ([`RESULTS.md`](../validation/merge/RESULTS.md), "Compiled event loops").
 
-**Threads** (release 0.2.0, `mtdna_direct`, 2,000 cells): two threads 2.1 times as fast as
-one; 20 threads on eight CPUs 5.8 to 6.1 times ([analysis](evidence/mtdna-performance-analysis.md#3-threads)).
+**Threads** (release 0.2.0): `mtdna_direct`, 2,000 cells, two threads 2.1 times as fast as one;
+Static Direct, next reaction and the tree method, 20 threads on eight CPUs, 5.8 to 6.1 times
+([analysis](evidence/mtdna-performance-analysis.md#3-threads)).
 **Julia** (Catalyst.jl, JumpProcesses.jl): compared only with the 0.6.0 engine; Julia was not on the
 0.7.0 host ([comparison](evidence/comparison-catalyst-jumpprocesses.md), [ten iterations](evidence/comparison-julia-gap10.md), [eight threads](evidence/comparison-julia-8-threads.md)).
 

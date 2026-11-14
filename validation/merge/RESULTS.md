@@ -1993,7 +1993,9 @@ linear selector was **not faster** than the interpreter there (0.2282 against
 0.2160 s, ratio 0.95). On W1 the loop gave 1.24 times (default request) and
 1.45 times (linear selector) over the interpreter. The repeats of the
 two-thread rows and of W1 vary by up to 1.6 times between repeats (see the
-`seconds` lists in the report), so W1 ratios between 1.2 and 1.7 are not
+`seconds` lists in the report; correction of the review, 13 November: one
+row, `crn_linear_threads2` on W1, varies by 1.96 times, slowest over fastest
+repeat, and no other row by more than 1.63), so W1 ratios between 1.2 and 1.7 are not
 resolved against each other beyond the order of magnitude; the W2 ratio (13
 to 25) is. The compile step was cached from the earlier attempts, so
 `compile_seconds` in the report (0.06 and 0.08 s) is a cache lookup; the

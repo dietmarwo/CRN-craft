@@ -7,6 +7,8 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-14
+
 The documentation is rebuilt around one user guide, and builder-built
 models run faster and can use the fast path `mtdna_direct` (see
 **Changed**).
@@ -1096,7 +1098,8 @@ iterations that make up this release follow.
 - Experimental non-negative Poisson leaping with explicit approximate request/result schemas.
 - Ten performance experiments and same-host reference/quality evidence; no package publishing.
 
-[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/dietmarwo/CRN-craft/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.4.0...v0.5.0

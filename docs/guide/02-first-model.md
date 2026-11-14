@@ -36,7 +36,10 @@ of this chapter continue from this one.
 
 `crn.ensemble` prepares a run and `simulate()` executes it. Here 400
 independent trajectories run to time 30, and the result holds their mean at
-three report times:
+three report times. `method="static_direct"` names the exact method for a
+reaction network, Gillespie's direct method. Pass it in every call, as this
+guide does; [chapter 3](03-running.md#many-trajectories-in-one-call) says
+why:
 
 ```python
 result = crn.ensemble(

@@ -129,7 +129,9 @@ NumPy. Kept paths cost memory ([chapter 5](05-speed.md#what-output-costs)).
 ## Export and plot
 
 Every statistic is a data frame, so pandas writes it. This block writes the
-mean with its band and the kept paths to CSV files and plots them:
+mean with its band and the kept paths to CSV files and plots them. The plot
+needs matplotlib (`python -m pip install matplotlib`); the two CSV files do
+not:
 
 ```python
 import matplotlib
@@ -138,7 +140,7 @@ matplotlib.use("Agg")  # draw into files, without a window
 import matplotlib.pyplot as plt
 
 band = result.statistics["quantiles"]
-table = result.statistics["mean"].join(band[0.025], rsuffix="_low").join(band[0.975], rsuffix="_high")
+table = result.statistics["mean"].join(band[0.025].add_suffix("_low")).join(band[0.975].add_suffix("_high"))
 table.to_csv("mean.csv")
 result.paths_frame().to_csv("paths.csv")
 print(pathlib.Path("mean.csv").read_text().splitlines()[:3])

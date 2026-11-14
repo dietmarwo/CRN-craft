@@ -142,7 +142,9 @@ auto                    0.10 s    312,169 events  molecules  270.5  chacha8-u53-
 The molecule counts agree within sampling error, and each selector names
 itself in the sampler. Every rate here reads all strains, so `auto` runs the
 linear scan on these 59 reactions, and RSSA-CR draws the same events as
-composition–rejection. With 59 reactions none is faster than the scan.
+composition–rejection. With 59 reactions no selector beats the scan by more
+than the timing noise of such a short run: `auto` and `linear` are the same
+computation, so any difference between their two times is noise.
 
 ### Larger models
 

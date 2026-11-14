@@ -18,16 +18,32 @@ def cells(count):
     return max(count // 100, 16) if SMOKE else count
 
 
-def three_class(K=1000, w0=1000, m0=0, mu=3e-5, sm=1.5, half_life_days=10, takeover=None):
+def three_class(
+    K=1000, w0=1000, m0=0, mu=3e-5, sm=1.5, half_life_days=10, takeover=None
+):
     """The three-class mtDNA model: wild type W, neutral M, advantaged A."""
     model = crn.Model("mtdna_three_class")
-    model.add_parameter({"K": K, "delta": math.log(2) / (24 * half_life_days),
-                         "sw": 1.0, "sm": sm, "mu": mu, "fracAdv": 0.2})
+    model.add_parameter(
+        {
+            "K": K,
+            "delta": math.log(2) / (24 * half_life_days),
+            "sw": 1.0,
+            "sm": sm,
+            "mu": mu,
+            "fracAdv": 0.2,
+        }
+    )
     model.add_species({"W": w0, "M": m0, "A": 0})
     free = "max(0, K - W - M - A) / (W + sm * (M + A))"
-    model.add_reaction(f"{free} * sw * (1 - mu) * W", ["W"], ["W", "W"], "replication_wt")
-    model.add_reaction(f"{free} * sw * mu * (1 - fracAdv) * W", ["W"], ["W", "M"], "mutation_mt")
-    model.add_reaction(f"{free} * sw * mu * fracAdv * W", ["W"], ["W", "A"], "mutation_mtAdv")
+    model.add_reaction(
+        f"{free} * sw * (1 - mu) * W", ["W"], ["W", "W"], "replication_wt"
+    )
+    model.add_reaction(
+        f"{free} * sw * mu * (1 - fracAdv) * W", ["W"], ["W", "M"], "mutation_mt"
+    )
+    model.add_reaction(
+        f"{free} * sw * mu * fracAdv * W", ["W"], ["W", "A"], "mutation_mtAdv"
+    )
     model.add_reaction(f"{free} * sw * M", ["M"], ["M", "M"], "replication_mt")
     model.add_reaction(f"{free} * sm * A", ["A"], ["A", "A"], "replication_mtAdv")
     for label, species in (("wt", "W"), ("mt", "M"), ("mtAdv", "A")):
@@ -51,7 +67,7 @@ def template(count, seed, threads=2):
         replicates=cells(count),
         seed=seed,
         threads=threads,
-        method="static_direct",
+        method="mtdna_direct",  # the fast path (guide page 12d)
         keep_paths="all",
         max_output_bytes=256 << 20,
     )
@@ -119,7 +135,10 @@ if __name__ == "__main__":
         f"loss {refined.fun:.1f}, mu {mu:.2e}, sm {sm:.3f}"
     )
     check = template(4000, seed=99)
-    for label, values in (("stage 1", first), ("stage 2", {"mu": mu, "sm": sm}),
-                          ("true", TRUE)):
+    for label, values in (
+        ("stage 1", first),
+        ("stage 2", {"mu": mu, "sm": sm}),
+        ("true", TRUE),
+    ):
         held = heteroplasmy(check.bind_parameters(values).simulate())
         print(f"{label:7s} held-out loss {loss(held, OBSERVED, cells(4000)):7.1f}")

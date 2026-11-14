@@ -21,7 +21,8 @@ Each block of this chapter is a complete script, the file named above it in
 Run it from that folder or from the repository root. The outputs are from
 one full run on 13 November 2026 on a two-CPU host. The guide's checker runs the
 scripts in a short form, with few cells and three evaluations, when
-`CRN_CRAFT_SMOKE=1` is set; the full run takes about two hours and twelve minutes (40, 75 and 18 minutes for the three scripts).
+`CRN_CRAFT_SMOKE=1` is set; the full run takes about thirteen minutes (4, 7
+and 2 minutes for the three scripts).
 
 ## The problem
 
@@ -35,12 +36,13 @@ predicted distributions match the observed ones.
 
 Each prediction is an ensemble of simulated cells. A three-year cell at
 `K = 1000` has about 150,000 events. Each script builds the model with the
-`three_class` function of chapter 12 and runs Static Direct. One objective
-evaluation with 800 cells then takes about 21 s on two cores, so a hundred
-evaluations take about 35 minutes. That is the cost of the builder form
-([chapter 12, Conventions](12-mtdna.md#conventions)): the model file under
-its fast path would take about a tenth of it
-([page 14a](14a-mtdna-model-files.md#the-fast-path)).
+`three_class` function of chapter 12 and runs it on the fast path,
+`method="mtdna_direct"`, which certifies the builder model
+([page 12d](12d-mtdna-methods.md#the-fast-path)). One objective evaluation
+with 800 cells then takes about 2 s on two cores, so a hundred evaluations
+take between three and four minutes. Under Static Direct, the same
+evaluation takes about 3.6 times as long
+([chapter 12, Conventions](12-mtdna.md#conventions)).
 
 To be able to check the answer, the chapter makes its own data from known
 parameters (`mu = 3·10⁻⁵`, `sm = 1.5`), with a seed that the fit never sees.
@@ -190,18 +192,18 @@ if __name__ == "__main__":
 ```
 
 ```text
-observed takeover: [0.0107 0.0555 0.1013]
-observed mutant fraction: [0.0222 0.061  0.1056]
-data: 106.4 s
-BiteOpt: 100 evaluations in 2062 s, loss 1.00, mu 2.02e-05, sm 1.583
-fitted held-out takeover [0.0112 0.0525 0.087 ] load [0.0197 0.0556 0.0876]
-true   held-out takeover [0.0118 0.0642 0.112 ] load [0.0221 0.0715 0.1157]
+observed takeover: [0.0125 0.062  0.1078]
+observed mutant fraction: [0.0254 0.0675 0.1119]
+data: 10.2 s
+BiteOpt: 100 evaluations in 202 s, loss 0.90, mu 1.87e-05, sm 2.269
+fitted held-out takeover [0.0335 0.083  0.133 ] load [0.0374 0.0823 0.1264]
+true   held-out takeover [0.0112 0.0605 0.1078] load [0.0226 0.0682 0.1097]
 ```
 
-The fit reaches a low loss on its own 800 cells, with `mu` a third too
-small (2.0·10⁻⁵) and `sm` too large (1.58). On 4000 fresh cells its
-parameters predict 8.7% of cells taken over by day 1080, where the data
-have 10.1% and the true parameters 11.2%. Two things went wrong:
+The fit reaches a low loss on its own 800 cells, with `mu` more than a
+third too small (1.9·10⁻⁵) and `sm` far too large (2.27). On 4000 fresh
+cells its parameters predict 13.3% of cells taken over by day 1080, where
+the data and the true parameters have 10.8%. Two things went wrong:
 
 - **Confounding.** Takeover fractions mainly measure how many lineages
   succeed per unit time. Fewer mutations with a larger advantage give
@@ -376,15 +378,15 @@ if __name__ == "__main__":
 ```
 
 ```text
-observed (102 s), rows are days [ 360  720 1080]:
-[[0.0585 0.0322 0.0232 0.0107]
- [0.115  0.077  0.0652 0.0555]
- [0.1752 0.13   0.1132 0.1013]]
-stage 1: 100 evaluations in 2011 s, loss 8.6, mu 2.15e-05, sm 1.531
-stage 2: 33 evaluations in 2052 s, loss 10.8, mu 2.95e-05, sm 1.485
-stage 1 held-out loss   143.2
-stage 2 held-out loss    30.1
-true    held-out loss    41.2
+observed (10 s), rows are days [ 360  720 1080]:
+[[0.0648 0.036  0.025  0.0125]
+ [0.122  0.0828 0.0712 0.062 ]
+ [0.1798 0.1352 0.1212 0.1078]]
+stage 1: 100 evaluations in 200 s, loss 1.5, mu 2.99e-05, sm 1.601
+stage 2: 33 evaluations in 201 s, loss 5.7, mu 3.06e-05, sm 1.475
+stage 1 held-out loss    68.6
+stage 2 held-out loss     9.8
+true    held-out loss     6.8
 ```
 
 How the script is built:
@@ -405,12 +407,12 @@ How the script is built:
 - **A held-out check.** 4000 fresh cells with a third seed score stage 1,
   stage 2 and the true parameters. Only this number says how good a fit is.
 
-Stage 2 recovers `mu = 2.95·10⁻⁵` and `sm = 1.485`, against the true
-3·10⁻⁵ and 1.5. Its held-out loss (30.1) is close to that of the true
-parameters (41.2), while stage 1's estimate scores 143.2. That stage 2
-scores lower than the truth is no contradiction: the data are themselves a
-sample of 4000 cells, and the held-out cells are another, so even the true
-parameters do not reach a loss of zero.
+Stage 2 recovers `mu = 3.06·10⁻⁵` and `sm = 1.475`, against the true
+3·10⁻⁵ and 1.5. Stage 1 found `mu` already, but `sm` too large (1.60). Its
+held-out loss (68.6) shows it, while stage 2 scores 9.8, close to the true
+parameters' 6.8. Even the true parameters do not reach a loss of zero: the
+data are themselves a sample of 4000 cells, and the held-out cells are
+another.
 
 ## Noise and the shape of the objective
 
@@ -479,21 +481,21 @@ if __name__ == "__main__":
 ```
 
 ```text
-loss at the true parameters, five seeds: [88.8  3.6  5.8  5.9  7.8]
-sm 1.30: loss   69.8
-sm 1.35: loss   23.1
-sm 1.40: loss   14.4
-sm 1.45: loss   37.9
-sm 1.50: loss   59.3
-sm 1.55: loss   93.4
-sm 1.60: loss   90.5
-sm 1.65: loss  115.1
-sm 1.70: loss  150.6
-DE, 2 workers x 1 thread: 32 evaluations in 682 s, best loss 207.8
+loss at the true parameters, five seeds: [24.1  3.5  6.2 10.6 15.5]
+sm 1.30: loss  166.5
+sm 1.35: loss  101.1
+sm 1.40: loss   68.1
+sm 1.45: loss   32.3
+sm 1.50: loss   20.9
+sm 1.55: loss    4.9
+sm 1.60: loss    1.7
+sm 1.65: loss   10.5
+sm 1.70: loss   16.3
+DE, 2 workers x 1 thread: 32 evaluations in 65 s, best loss 263.0
 ```
 
 The first line shows the Monte Carlo noise. At the true parameters, five
-sets of 800 cells give losses between 3.6 and 88.8. A difference of that
+sets of 800 cells give losses between 3.5 and 24.1. A difference of that
 size between two candidates means nothing unless both used the same cells.
 
 With one fixed seed the loss is a deterministic function of the parameters.
@@ -509,7 +511,8 @@ Two consequences:
   a seed the optimizer never saw.
 - With few cells, the minimum sits near the truth but where that seed's
   cells happen to fit best: with `mu` at its true value, this seed's scan is
-  lowest at `sm = 1.40`, not 1.50.
+  lowest at `sm = 1.60`, not 1.50. Stage 1 of the second script, with the
+  same seed, landed there too.
 
 ## Using all cores
 
@@ -524,11 +527,11 @@ An evaluation can use cores in two ways:
   worker processes: `de.minimize(..., workers=k)`, or parallel restarts with
   `retry.minimize`. Each worker runs its simulations with `threads=1`.
 
-On this two-CPU host both gave the same throughput: about 21 s per
+On this two-CPU host both gave about the same throughput: about 2 s per
 evaluation with 2 threads in sequence (stage 1 above), and 32 evaluations
-in 682 s with 2 workers × 1 thread. The DE run only measures throughput:
+in 65 s with 2 workers × 1 thread. The DE run only measures throughput:
 32 evaluations are far too few for DE to converge, hence its best loss of
-207.8. A real DE fit needs a few thousand evaluations. On a larger machine the choice depends on the cells per
+263.0. A real DE fit needs a few thousand evaluations. On a larger machine the choice depends on the cells per
 evaluation:
 
 - With thousands of cells, threads inside the simulation scale well.
@@ -581,11 +584,12 @@ Applies: [chapter 5, What output costs](05-speed.md#what-output-costs).
 - **A compiled model does not help here.** A loop is compiled for one
   parameter set, and every candidate has new parameters
   ([chapter 5, Limits](05-speed.md#limits)).
-- **The fast path does.** The model file under `mtdna_direct` runs the same
-  model about ten times as fast as the builder model under Static Direct
-  ([page 14a](14a-mtdna-model-files.md#the-fast-path)). For a large fit,
-  load the file, set its stop to `N > 0 && mutants >= 0.9 * N`, and read
-  the columns `N` and `mutants`.
+- **The fast path does.** The scripts pass `method="mtdna_direct"` with the
+  builder model; it ran about 3.6 times as fast as Static Direct on the
+  same model in the measurement of 13 November 2026
+  ([page 12d](12d-mtdna-methods.md#the-fast-path)). It serves only the
+  three-class structure: for another model, or a stop that the fast path
+  does not certify, use Static Direct and check `metadata["sampler"]`.
 
 ## Beyond this example
 

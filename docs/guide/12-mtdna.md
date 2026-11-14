@@ -138,8 +138,10 @@ Applies: [chapter 7, Which method for which model](07-methods.md#which-method-fo
   time of the model file under it (0.97 times). Under Static Direct it
   took 3.6 times as long as under the fast path
   ([measurement](https://github.com/dietmarwo/CRN-craft/blob/main/validation/merge/RESULTS.md)).
-  Given a variant outside that structure, `mtdna_direct` runs Static
-  Direct and reports `CRN-R051` in `metadata["diagnostics"]`.
+  Given a variant outside that structure that Static Direct can run, such
+  as another stop, `mtdna_direct` runs Static Direct and reports `CRN-R051`
+  in `metadata["diagnostics"]`. A model with a continuous variable is
+  refused with `CRN-R020`.
 
 ## The model as a file
 

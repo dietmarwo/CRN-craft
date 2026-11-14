@@ -128,8 +128,8 @@ field and a duplicate key are errors, never warnings, and nothing is guessed.
 
 The SIR model of an epidemic has what immigration–death lacks: a reaction of
 two molecules. A susceptible `S` meets an infected `I` and becomes infected,
-and an infected recovers to `R`. The model is the second example of this
-guide:
+and an infected recovers to `R`. Time is in days. The model is the second
+example of this guide:
 
 ```python
 sir = crn.Model("sir")

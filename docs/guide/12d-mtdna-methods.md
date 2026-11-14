@@ -133,7 +133,11 @@ The sampler name confirms that the fast path ran; a model that it cannot
 certify runs Static Direct with a `CRN-R051` warning in
 `metadata["diagnostics"]` ([page 14a](14a-mtdna-model-files.md#the-fast-path)).
 The two methods sample the same process from other random numbers, so they
-agree in distribution, not cell by cell. In the measurement of 13 November
+agree in distribution, not cell by cell. The two takeover counts, 26 and 13,
+are within sampling error of each other: at a takeover probability of 10.8%
+(4,000 cells in [chapter 13](13-fitting.md#a-first-attempt-with-takeover-fractions)),
+200 cells give 21.6 takeovers on average, with a standard deviation of 4.4.
+In the measurement of 13 November
 2026 on a two-CPU host, the builder model took 3.6 times as long under
 Static Direct as under the fast path, and the fast path took the time of
 the model file under it (0.97 times)

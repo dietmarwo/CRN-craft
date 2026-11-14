@@ -139,7 +139,7 @@ Every run has explicit limits. A replicate that reaches one stops there.
 | --- | --- | --- | --- | --- |
 | events per replicate | `max_events` | 1,000,000 | `event_limit` | `CRN-R040` |
 | random numbers per replicate | `max_sampling_steps` | 8,000,000 | `sampling_limit` | `CRN-R041` |
-| live species instances per replicate | `max_instances` | 100,000 | `instance_limit` | `CRN-R042` |
+| live instances per replicate, for species with attributes ([chapter 14](14-model-files.md#when-species-are-not-a-fixed-list)) | `max_instances` | 100,000 | `instance_limit` | `CRN-R042` |
 | wall time of the whole run | `wall_time_s` | none | `wall_time_limit` | `CRN-R043` |
 | size of the result | `max_output_bytes` | 64 MiB | `output_limit` | `CRN-R045` |
 

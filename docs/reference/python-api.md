@@ -106,9 +106,10 @@ Add a reaction `reactants -> products`.
 | `products` | required | Species names, repeated for multiplicity. |
 | `name` | `None` | The rule's name. Default `r<index>`. |
 
-`rate` is a number (a mass-action constant, see the module
-documentation for the counting of identical reactants) or a string
-(the whole propensity). Species are lists of names, repeated for
+`rate` is a number (a mass-action constant k: the reaction fires
+at k times the number of distinct combinations of reactant
+molecules, so `["A", "A"]` fires at k·A(A−1)/2) or a string (the
+whole propensity). Species are lists of names, repeated for
 multiplicity, for example `["A", "A"]`. Three or more reactant
 molecules, such as `["A", "A", "A"]` or `["A", "A", "B"]`, are
 written with the pattern field `count` of `crn-craft.model/1.0`
@@ -474,7 +475,11 @@ class PreparedEnsemble
 
 Created by the functions of this page, not by calling it.
 
-A prepared request, returned by `ensemble` and `prepare`. `simulate()` runs it, `bind_parameters` makes a candidate with other parameter values, and `archive` seals a run. It can be simulated again with independent execution state.
+A prepared request, returned by `ensemble` and `prepare`.
+
+`simulate()` runs it, `bind_parameters` makes a candidate with other
+parameter values, and `archive` seals a run. It can be simulated again
+with independent execution state.
 
 ### `PreparedEnsemble.simulate`
 
@@ -655,7 +660,8 @@ Created by the functions of this page, not by calling it.
 The result of a rules ensemble.
 
 - `records`: one row per replicate, indexed by replicate id. Columns
-  `started`, `termination` (categorical over `TERMINATIONS`),
+  `started`, `termination` (categorical over the values of `crn_craft.rules.TERMINATIONS`:
+  `completed`, `stopped` and the reasons a replicate ended early),
   `stop_time`, `events`, `rng_words`, `peak_instances`,
   `created_instances` and `saved_points`.
 - `rule_events`: events per replicate (rows) and rule (columns, in
@@ -848,7 +854,8 @@ Created by the functions of this page, not by calling it.
 
 A finite state projection as pandas and xarray objects.
 
-[`Model.fsp`](#modelfsp) returns it; `fsp` returns the document it wraps.
+[`Model.fsp`](#modelfsp) returns it; `crn_craft.rules.fsp` returns the document
+it wraps.
 
 - `states`: the projected states, a DataFrame indexed by `state`
   (0 is the initial state) with one int64 column per species label.
@@ -1145,6 +1152,10 @@ L3V2 Core, one fixed unit compartment, integer item amounts, polynomial jumps.
 
 convention must be explicitly 'stochastic_count_propensity'. Parameters are
 folded into reaction coefficients; the report names that import-time choice.
+Returns a `crn-craft.import/1.0` report as a dictionary:
+`report["model"]` is the converted `crn-craft.model/1.0` model, beside
+the source format and its SHA-256. Unsupported input raises
+[`crn_craft.importers.ImportFailure`](#importersimportfailure).
 
 ### `importers.import_bng_net`
 
@@ -1159,13 +1170,20 @@ Expanded numeric .net only; explicit binomial or falling_factorial convention.
 | `raw` | required | The `.net` file's bytes. |
 | `rate_convention` (keyword only) | required | `"binomial"` or `"falling_factorial"`. |
 
+Returns a `crn-craft.import/1.0` report as a dictionary:
+`report["model"]` is the converted `crn-craft.model/1.0` model, beside
+the source format and its SHA-256. Unsupported input raises
+[`crn_craft.importers.ImportFailure`](#importersimportfailure).
+
 ### `importers.ImportFailure`
 
 ```text
 class importers.ImportFailure
 ```
 
-Raised by an importer for input it does not support. A `ValueError` with the attribute `code` `"CRN-E090"`.
+Raised by an importer for input it does not support.
+
+A `ValueError` with the attribute `code` `"CRN-E090"`.
 
 ## Compiled loops
 

@@ -272,18 +272,7 @@ ARGUMENTS = {
 ALIASES = {"Model.add_ODE": "Model.add_ode", "Model.add_continuous": "Model.add_ode"}
 
 # First paragraphs for names whose class or function has no docstring of its own.
-MISSING_DOC = {
-    "PreparedEnsemble": (
-        "A prepared request, returned by `ensemble` and `prepare`. `simulate()` "
-        "runs it, `bind_parameters` makes a candidate with other parameter "
-        "values, and `archive` seals a run. It can be simulated again with "
-        "independent execution state."
-    ),
-    "importers.ImportFailure": (
-        "Raised by an importer for input it does not support. A `ValueError` "
-        'with the attribute `code` `"CRN-E090"`.'
-    ),
-}
+MISSING_DOC = {}
 
 KINDS = {
     "class": "class",

@@ -19,6 +19,11 @@ import xml.etree.ElementTree as ET
 
 
 class ImportFailure(ValueError):
+    """Raised by an importer for input it does not support.
+
+    A ``ValueError`` with the attribute ``code`` ``"CRN-E090"``.
+    """
+
     code = "CRN-E090"
 
 
@@ -121,6 +126,10 @@ def import_sbml(raw, *, convention):
 
     convention must be explicitly 'stochastic_count_propensity'. Parameters are
     folded into reaction coefficients; the report names that import-time choice.
+    Returns a ``crn-craft.import/1.0`` report as a dictionary:
+    ``report["model"]`` is the converted ``crn-craft.model/1.0`` model, beside
+    the source format and its SHA-256. Unsupported input raises
+    :class:`crn_craft.importers.ImportFailure`.
     """
     if convention != "stochastic_count_propensity":
         fail("explicit stochastic_count_propensity convention required")
@@ -485,7 +494,13 @@ def _expression(text, parameters):
 
 
 def import_bng_net(raw, *, rate_convention):
-    """Expanded numeric .net only; explicit binomial or falling_factorial convention."""
+    """Expanded numeric .net only; explicit binomial or falling_factorial convention.
+
+    Returns a ``crn-craft.import/1.0`` report as a dictionary:
+    ``report["model"]`` is the converted ``crn-craft.model/1.0`` model, beside
+    the source format and its SHA-256. Unsupported input raises
+    :class:`crn_craft.importers.ImportFailure`.
+    """
     if rate_convention not in ["binomial", "falling_factorial"]:
         fail("explicit rate convention required")
     if len(raw) > 16 * 1024 * 1024:

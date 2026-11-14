@@ -8,7 +8,8 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 ## [Unreleased]
 
 The documentation is rebuilt around one user guide, and builder-built
-models run faster (see **Changed**).
+models run faster and can use the fast path `mtdna_direct` (see
+**Changed**).
 
 ### Documentation
 
@@ -37,6 +38,11 @@ models run faster (see **Changed**).
 - The README starts with a working example.
 - The frozen 0.6.0 manual (`validation/compat/manual-0.6.0.md`) still runs
   in CI.
+- The fitting chapter's scripts (`examples/mtdna/fit_*.py`) run the builder
+  model on `mtdna_direct`. Docstrings that were missing or stale are
+  completed (`PreparedEnsemble`, `ImportFailure`, the importers' return
+  value, the speed of `mtdna_direct`), and the crates' doc comments link the
+  new documentation paths.
 
 ### Changed
 
@@ -47,14 +53,17 @@ models run faster (see **Changed**).
   constants and counts run without the interpreter, and stops of the form
   `T > 0 && P >= f * T` over sums of observables have their own form. The
   builder form of the guide's three-class mtDNA model runs Static Direct
-  2.7 times faster, within 1.4 times the model file's time per event (see
+  2.7 times faster (68.4 against 186.7 ns per event), within 1.4 times the
+  model file's time per event under Static Direct (see
   `validation/merge/RESULTS.md`, "E1").
 - `mtdna_direct` certifies the builder form of the three-class model
   (attribute-free species, whole-rule propensities, the takeover stop over
   sums of counts) in `crn-craft.run/1.0` requests and runs the fast path
   with the file form's sampler identity; the builder form's kernel equals
-  the file form's, so its draws do too. Requests of the `rules-run`
-  versions keep the fallback with `CRN-R051`.
+  the file form's, so its draws do too, and it takes the file form's time
+  (0.97 times). Requests of the `rules-run` versions keep the fallback with
+  `CRN-R051`. An exact-law check of the builder form under `mtdna_direct`
+  passed (120 comparisons, 0 failures).
 
 ## [0.7.0] - 2026-11-12
 

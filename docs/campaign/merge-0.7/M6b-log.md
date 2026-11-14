@@ -1,6 +1,6 @@
 # M6b log: `Result.save(path)` (FR1b)
 
-Task M6b of [the plan](../../plan-0.7.0-engine-merge.md), the second part of
+Task M6b of [the plan](../../history/plan-0.7.0-engine-merge.md), the second part of
 the feature request FR1: `result.save(file_name)` writes the model details
 and the simulation results to one file, markdown or JSON by extension. Done
 early, on the branch `merge/M6b` from `merge-0.7` after M1, in parallel with

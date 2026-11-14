@@ -5,7 +5,7 @@
 //! compiled loop with a [`LoopHost`] per replicate. Benchmark it before
 //! adopting it: on networks with many constant-rate channels it can be
 //! slower than the interpreter. See the
-//! [rules kernel checklist](https://github.com/dietmarwo/CRN-craft/blob/main/docs/specialized-kernels.md#generated-rules-event-loops).
+//! [rules kernel checklist](https://github.com/dietmarwo/CRN-craft/blob/main/docs/developer/specialized-kernels.md#generated-rules-event-loops).
 use crate::rules::expr::RateKernel;
 use crate::rules::flat::Network;
 use crate::rules::model::{MAX_COUNT, Reduce};

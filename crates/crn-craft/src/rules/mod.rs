@@ -148,7 +148,7 @@
 //! | --- | --- | --- |
 //! | `tree` (default) | yes | Every rules model without ATP or continuous variables; dynamic instances over sum trees |
 //! | `static_direct` | yes | Closed models; Ziggurat waits and sparse trackers, opt-in in rules-run/0.4 and 0.5 and the default from 0.6; in run/1.0 a [`Selector`]: the linear scan, composition–rejection, sorting direct or RSSA-CR |
-//! | `mtdna_direct` | yes | The fixed three-class vacancy model; falls back to Static Direct with `CRN-R051` |
+//! | `mtdna_direct` | yes | The fixed three-class vacancy model (under run/1.0 also its builder form); falls back to Static Direct with `CRN-R051` |
 //! | `next_reaction` | yes | Closed models, with indexed clocks ([DOI 10.1021/jp993732q](https://doi.org/10.1021/jp993732q)) |
 //! | `thinning` | yes | Required by, and only for, rules-model/0.2 models with ATP |
 //! | `tau` | no | Closed models; adaptive Poisson leaps ([DOI 10.1063/1.2159468](https://doi.org/10.1063/1.2159468)) |
@@ -192,15 +192,15 @@
 //!   `crn-craft describe run-1.0` (`rules-check` and `rules` remain aliases).
 //! - [`crn-craft` on PyPI](https://pypi.org/project/crn-craft/): Python
 //!   ensembles through `crn_craft` (and `crn_craft.rules`, the 0.6.0 API).
-//! - [Rules language](https://github.com/dietmarwo/CRN-craft/blob/main/docs/rules-language.md):
+//! - [Rules language](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/model-language.md):
 //!   the model language, propensities, expressions and numerical policy.
-//! - [mtDNA ensembles](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-rules.md)
-//!   and the [mtDNA user manual](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-user-manual.md):
-//!   methods, trackers, event logs, callbacks and later contract versions.
-//! - [Rules kernel checklist](https://github.com/dietmarwo/CRN-craft/blob/main/docs/specialized-kernels.md):
+//! - [Methods](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/methods.md)
+//!   and the [mtDNA case study](https://github.com/dietmarwo/CRN-craft/blob/main/docs/guide/12-mtdna.md)
+//!   of the user guide: methods, trackers, event logs and callbacks.
+//! - [Rules kernel checklist](https://github.com/dietmarwo/CRN-craft/blob/main/docs/developer/specialized-kernels.md):
 //!   generated rules kernels and event loops.
-//! - [Architecture](https://github.com/dietmarwo/CRN-craft/blob/main/docs/architecture.md)
-//!   and [diagnostic codes](https://github.com/dietmarwo/CRN-craft/blob/main/docs/diagnostics.md).
+//! - [Architecture](https://github.com/dietmarwo/CRN-craft/blob/main/docs/developer/architecture.md)
+//!   and [diagnostic codes](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/diagnostics.md).
 
 #![warn(missing_docs)]
 
@@ -1807,7 +1807,9 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
     }
     let (mtdna, mtdna_fallback) = match (request.method, flat.as_ref()) {
         (Some(Method::MtdnaDirect {}), Some(net)) => {
-            match mtdna::Kernel::compile(net, &compiled, &observations) {
+            // The builder form is certified for crn-craft.run/1.0 only.
+            let builder = request.schema == RunVersion::V10;
+            match mtdna::Kernel::compile(net, &compiled, &observations, builder) {
                 Ok(kernel) => (Some(kernel), None),
                 Err(reason) => (None, Some(reason)),
             }

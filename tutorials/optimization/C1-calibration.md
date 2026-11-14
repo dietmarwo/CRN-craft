@@ -97,5 +97,5 @@ improve before rate recovery? Then run the [X1 CPU layouts](https://github.com/d
 compare complete fits at a fixed total CPU allowance. Do not infer full-fit
 speedup from one SSA timing or from one smoke measurement.
 
-Background: [reusable parameters](../../docs/reusable-parameters.md) and
-[the existing parameter comparison](../../docs/comparison-parameter-optimization.md).
+Background: [reusable parameters](../../docs/guide/05-speed.md#parameter-sweeps) and
+[the existing parameter comparison](../../docs/evidence/comparison-parameter-optimization.md).

@@ -1849,3 +1849,391 @@ A had 28,536,814 events, as the manual's section 3 prints.
 
 The manual's sections 3, 8 and 16 now give 2.8, 3.1 and 2.1 with this
 date; the optimization tutorial and the performance analysis cite them.
+
+### rebop on 0.7.0, for the comparison page: declaration
+
+Committed before the first timing, task DR of the documentation restructure
+for release 0.7.1. It repeats the rebop rows of `validation/compare_references.py`
+(rebop over CRN 1.27 and 21.95 in M8a, measured with the CLI process and 5
+repeats) on the 0.7.0 engine, so that the comparison page can quote a
+committed measurement. **No speed target is declared.** The purpose is a
+published ratio, whichever way it falls; rows where rebop is faster are
+kept and reported like the others. Nothing below is changed after a result
+is seen.
+
+- **Script:** `validation/merge/compare_rebop.py`, new, committed after this
+  declaration and before the run (schema `crn-craft.rebop-comparison/0.1`).
+  `compare_references.py` is not changed. The script reuses its workloads and
+  its `reference()` converter: the first two models of
+  `benchmark_campaign.models()`, W1 `two_channel` (one species, birth rate
+  100, death rate 1) and W2 `sparse_66` (33 species, birth 3.0 and death 0.2
+  per species), 64 paths over t in [0, 100], reports at 0 and 100, root seed
+  4242. The other two workloads of the family (W3, W4) use Hill and
+  Michaelis-Menten laws, which the converter does not express as mass
+  action, and are not measured.
+- **Rebop's two routes.** Rebop has a Python API that builds the system
+  dynamically (`rebop.Gillespie`, `add_reaction`, `run`), and a macro
+  (`rebop::define_system!`) that compiles a system into Rust code at
+  build time, which is a separate Rust crate and a different thing: the
+  system is fixed when the program is compiled. **This measurement uses the
+  Python/dynamic route only**, as `compare_references.py` does. The macro is
+  not measured here (the 2 November 2026 parameter-optimization evidence
+  timed it inside an optimizer loop, with a different harness).
+- **Versions:** crn-craft 0.7.0 installed from PyPI (`crn-craft==0.7.0`,
+  Python wheel; the Rust sources of this checkout are the same crate version
+  and serve `compile_loop`); rebop 0.10.0 from PyPI, pinned; the package set
+  of `/home/claude/m07/venv-m10a` otherwise (Python 3.12.3, NumPy 2.3.5,
+  SciPy 1.18.1, xarray 2026.9.0); Rust 1.97.0 for the compiled loop. The
+  script records the versions it ran with.
+- **What is timed.** Rows are wall time of one complete 64-path ensemble:
+  - `crn_default`: `crn.ensemble(model, ...).simulate()` for the default
+    Static Direct request (selector `auto`, Ziggurat waits), preparation
+    included, `threads=1`, the converted model bytes prepared beforehand.
+  - `crn_compiled`: the same request with `compiled=loop`, where
+    `loop = crn.compile_loop(model_bytes)` accepts the model; preparation
+    included, compile time excluded and reported separately. The compiled
+    loop gives byte-identical results to the interpreter, which the script
+    checks on the timed request. If `compile_loop` refuses a model, the row
+    is recorded as not accepted with the error.
+  - `rebop_dynamic`: 64 calls `rebop.Gillespie.run(init, 100.0, 1,
+    rng=4242 + i)`, one replicate each, single thread (rebop's Python API
+    has no thread option), after one warm-up ensemble; the `Gillespie`
+    object is built before timing. Output includes the xarray conversion
+    that every call does.
+  - Informative: `crn_default_threads2` and `crn_compiled_threads2`, the
+    same CRN-craft requests with `threads=2`, the host's two CPUs. There is no
+    rebop counterpart, so no ratio is formed from them.
+  Seeds differ between the simulators (independent streams); no path
+  identity is claimed. Event counts: CRN-craft's from the result metadata;
+  rebop's are counted once outside the timing, with the same 64 seeds and
+  `nb_steps=0` (every reaction returned), for time per event.
+- **Replicates and repeats:** 64 paths per ensemble; **3 repeats** of every
+  row, **interleaved with alternating order** (repeat 1: CRN-craft rows
+  then rebop; repeat 2: rebop then CRN-craft rows; repeat 3 as 1); a row's
+  time is the median of its 3. The ratio is median rebop seconds over median
+  CRN-craft seconds on one thread (above 1: CRN-craft is faster). Each
+  workload runs once, under the CPU lock (`flock /home/claude/craft5/cpu.lock`,
+  not nested), with nothing else of this session running.
+- **Agreement check (before the timed rows count):** 512 paths from each
+  simulator on one thread with fixed seeds (CRN-craft root seed 778; rebop
+  seeds 9000 + i); final counts of up to three species per workload;
+  two-sample Kolmogorov-Smirnov p-values (and mean z-scores) between the
+  simulators, and for W1 and W2, whose law at t = 100 is Poisson, a pooled
+  chi-square p-value of each simulator against the exact law. That is 4 KS
+  tests (W1: 1 species, W2: 3) and 4 chi-square tests, 8 in all. With a
+  family-wise error rate of 0.01 (Bonferroni), a p-value below
+  0.01 / 8 = 1.25e-3 is a failed test. A failed test is kept and reported;
+  nothing is rerun with other seeds, and the timings of a workload that
+  fails agreement are reported with that flag instead of being used for a
+  ratio.
+- **Parts and failures:** one part per workload (`--only W1`, `--only W2`),
+  each rerun whole if interrupted, merged by workload into
+  `validation/merge/rebop-comparison-0.7.json`. A failed or interrupted
+  attempt is listed in the results section.
+- **Amendment, before the run that counts (same day).** Two earlier W1
+  runs and one failed W2 attempt preceded the run that counts. The first W1
+  run used the script before it was committed (a lint error in a chained
+  command let the run start); its report is kept as
+  `validation/merge/rebop-comparison-0.7-attempt1-w1.json` (rebop over
+  `crn_default` 0.91, over `crn_compiled` 1.23). The second W1 run used the
+  committed script (rebop over `crn_default` 1.15, over `crn_compiled`
+  1.63); its report was overwritten by the rerun and is not kept. The W2
+  attempt that followed failed at the compiled row: a generated loop runs the
+  linear selector, and the default request selects `rssa_cr` on W2, so the
+  loop is refused for it (CRN-R020 at `/method/selector`). No threshold,
+  repeat count or rule changes. The script now (a) records a refusal of the
+  compiled loop as a result (`compiled_refusals`), and (b) also times the
+  request with `selector="linear"`, interpreted (`crn_linear`) and
+  compiled (`crn_compiled_linear`) with threads 1 and 2, because that is
+  the like-for-like pair where the default selector is refused. Ratios over
+  rebop are formed for `crn_default`, `crn_compiled` (where accepted),
+  `crn_linear` and `crn_compiled_linear`. Both workloads are run again from
+  scratch with the amended script; the first W1 run is not merged.
+
+### rebop on 0.7.0, for the comparison page: results
+
+2026-11-13, this host (Intel Xeon 2.10 GHz, 2 CPUs, Linux 6.18.44, Python
+3.12.3, crn-craft 0.7.0 from PyPI, rebop 0.10.0, Rust 1.97.0), two parts (W1,
+then W2) under the CPU lock with `python -I`, each completed on its first run
+after the amendment above. Report: `validation/merge/rebop-comparison-0.7.json`
+(parts merged by `--merge`; the other fields were equal). **No speed target
+was declared.** Route measured: rebop's Python/dynamic API, not its macro.
+
+**Agreement: passed.** All 8 tests above the declared threshold 1.25e-3: the
+Kolmogorov-Smirnov p-values are 0.575 (W1) and 0.628, 0.9998, 0.997 (W2), the
+chi-square p-values against the exact Poisson laws are 0.422 (CRN-craft) and
+0.554 (rebop) on W1, 0.586 and 0.080 on W2. Compiled and interpreted results
+were byte-identical (paths and event counts) on every accepted request.
+
+Median seconds of 3 interleaved repeats (64 paths, t in [0, 100]); ratio is
+rebop seconds over CRN-craft seconds, one thread (above 1: CRN-craft is
+faster). Events: W1 1.27 million (CRN-craft; rebop 1.28 million), W2 1.24
+million (both).
+
+| Row | W1 s | W1 ratio | W2 s | W2 ratio |
+|---|---:|---:|---:|---:|
+| `rebop_dynamic` (64 `run` calls) | 0.0670 | | 2.8941 | |
+| `crn_default` (`auto`, Ziggurat, interpreted) | 0.0554 | 1.21 | 0.1159 | 24.97 |
+| `crn_compiled` (default request, compiled loop) | 0.0447 | 1.50 | refused | |
+| `crn_linear` (linear selector, interpreted) | 0.0560 | 1.20 | 0.2160 | 13.40 |
+| `crn_compiled_linear` (linear selector, compiled) | 0.0385 | 1.74 | 0.2282 | 12.68 |
+| `crn_default_threads2` | 0.0470 | | 0.0682 | |
+| `crn_compiled_threads2` | 0.0438 | | refused | |
+| `crn_linear_threads2` | 0.0494 | | 0.1273 | |
+| `crn_compiled_linear_threads2` | 0.0290 | | 0.1163 | |
+
+Nanoseconds per event (median): W1 rebop 52.5, `crn_default` 43.5,
+`crn_compiled` 35.1, `crn_compiled_linear` 30.2; W2 rebop 2340.5,
+`crn_default` 93.7, `crn_linear` 174.8, `crn_compiled_linear` 184.7.
+
+Notes. On W2 the default request selects `rssa_cr`, which a generated loop
+does not run (CRN-R020 at `/method/selector`); the compiled row for the
+default request is therefore not accepted, and the compiled loop with the
+linear selector was **not faster** than the interpreter there (0.2282 against
+0.2160 s, ratio 0.95). On W1 the loop gave 1.24 times (default request) and
+1.45 times (linear selector) over the interpreter. The repeats of the
+two-thread rows and of W1 vary by up to 1.6 times between repeats (see the
+`seconds` lists in the report; correction of the review, 13 November: one
+row, `crn_linear_threads2` on W1, varies by 1.96 times, slowest over fastest
+repeat, and no other row by more than 1.63), so W1 ratios between 1.2 and 1.7 are not
+resolved against each other beyond the order of magnitude; the W2 ratio (13
+to 25) is. The compile step was cached from the earlier attempts, so
+`compile_seconds` in the report (0.06 and 0.08 s) is a cache lookup; the
+first build of the loop project took 54 s with cargo (dependencies included).
+The CLI process row of `compare_references.py` is not repeated; these rows
+are Python calls.
+
+Not measured: rebop's Rust macro; W3 and W4 (non-mass-action laws);
+rebop with more than one thread or process; the CLI process; a path-identity
+claim between the simulators (none exists); more than 3 repeats.
+
+### Docs 0.7.1: the builder form of the mtDNA model: declaration
+
+Committed before the first timing, task D4 of the documentation restructure
+for release 0.7.1. The guide's case study (chapters 12 and 13) builds the
+three-class model with `crn.Model` and runs it with `static_direct`; the
+table of contents asked D4 to measure that form. A first look showed the
+builder form much slower than the file form; this measurement fixes the
+numbers the guide quotes.
+
+- **Workload:** as in "Review (speed ratios quoted in the mtDNA user
+  manual)" above: takeover stop at 90%, end 25,920 h, report times every 90
+  days, 200 cells, seed 1, two threads, through `crn.ensemble`.
+- **Arms:** A the model file under `mtdna_direct`; B the model file under
+  `static_direct` (defaults); E the builder model of guide chapter 12
+  (`three_class(takeover=0.9)`: three species, whole-rule propensities)
+  under `static_direct`; F E with the loop of `crn.compile_loop`.
+- **Runs:** `validation/merge/manual-ratios/builder_form.py`, one Python
+  process, the 0.7.0 wheel of the docs branch, the whole run under the CPU
+  lock. One untimed warm-up run per arm, then three rounds in the orders
+  A B E F, F E B A, A B E F; the median of three per arm.
+- **Checks** (a failed check voids the run, which is kept): every run of A
+  reports `chacha8-u53-ziggurat/rules-mtdna-direct/1`; E and F have equal
+  event counts and means in every run and `loop.verify` passes; every run
+  completes.
+- **Target:** none; the ratios E/A, E/B, B/A, E/F and F/A are descriptive.
+  The guide quotes them rounded to one decimal place, with the date.
+
+### Docs 0.7.1: the builder form of the mtDNA model: results
+
+2026-11-13, this host, after the declaration above (`7310c60`), with the
+0.7.0 wheel of the docs branch, `CRN_CRAFT_SOURCE` at the checkout, the
+whole run under the CPU lock (`validation/merge/manual-ratios/builder-form.json`).
+The loop was built in the run (4.9 s; the cache held the dependencies).
+
+**Checks: all passed.** Every run of A reported
+`chacha8-u53-ziggurat/rules-mtdna-direct/1`; E and F had 28,779,334 events
+and equal means in every run, and `loop.verify` passed; every run completed.
+A and B had 28,536,814 and 28,847,586 events, as on 12 November.
+
+| Arm | Runs (s, rounds 1–3) | Median s | Events | Wall ns per event |
+|---|---|---:|---:|---:|
+| A file, `mtdna_direct` | 0.569, 0.543, 0.524 | 0.543 | 28,536,814 | 19.0 |
+| B file, `static_direct` | 1.404, 1.497, 1.671 | 1.497 | 28,847,586 | 51.9 |
+| E builder, `static_direct` | 5.373, 5.484, 5.271 | 5.373 | 28,779,334 | 186.7 |
+| F E with the compiled loop | 0.854, 0.754, 0.759 | 0.759 | 28,779,334 | 26.4 |
+
+| Ratio | Wall time |
+|---|---:|
+| E / A | 9.89 (9.81 per event) |
+| E / B | 3.59 |
+| B / A | 2.76 |
+| E / F | 7.08 |
+| F / A | 1.40 |
+
+The host was slower than on 12 November (A 0.543 s against 0.376 s); B / A
+(2.76 against 2.84) agrees. The builder form writes whole-rule propensities
+that the interpreter evaluates as expressions at every event; the file form
+uses per-instance rates. Its compiled loop removes most of that cost. The
+guide (chapters 12, 12d, 13 and page 14a) quotes 9.9, 3.6, 7.1 and 1.4 with
+this date. Not measured: other workloads, sweeps (candidates of
+`bind_parameters` run interpreted), more than two threads.
+
+### E1 (builder-built models as fast as model files): declaration
+
+Committed before the first timing of task E1 (engine work for 0.7.1). The
+measurement above found the builder form of the three-class model (arm E)
+3.6 times slower per event than the model file under the same method (arm
+B). E1 makes the engine evaluate whole-rule propensities more cheaply and
+lets `mtdna_direct` certify the builder form.
+
+- **Workload:** as in "Docs 0.7.1: the builder form of the mtDNA model"
+  above: takeover stop at 90%, end 25,920 h, report times every 90 days,
+  200 cells, seed 1, two threads, through `crn.ensemble`.
+- **Arms:** A, B, E and F as above; new arm G: the builder model of arm E
+  under `mtdna_direct`.
+- **Runs:** `validation/merge/manual-ratios/builder_speed.py`, one Python
+  process, the wheel of the E1 branch, `CRN_CRAFT_SOURCE` at the
+  checkout, the whole run under the CPU lock. One untimed warm-up run per
+  arm, then three rounds in the orders A B E F G, G F E B A, A B E F G;
+  the median of three per arm. Times are the wall time of `simulate()`.
+- **Target (E1-T1):** the median wall time per event of E is at most 1.5
+  times the median wall time per event of B in the same run.
+- **Target (E1-T2), byte identity:** every result is unchanged against
+  0.7.0. (a) In the timed run, A, B and E report the event counts and
+  the SHA-256 of their means that the 13 November run recorded
+  (`builder-form.json`: 28,536,814, 28,847,586 and 28,779,334 events). (b)
+  The release CLI of the branch and of `3d80c6d` (0.7.0 engine) give
+  byte-identical result documents for the arm-E and arm-B requests, and
+  for the same two requests with all 200 paths kept. (c) The stored
+  requests replay byte for byte (`stored_requests.rs`,
+  `static_direct_defaults.rs`, gate I1), and the law gate
+  (`check_laws.py`, every model, the release CLI) reproduces
+  `laws/m8b-cli.json` byte for byte apart from the engine identity.
+- **Checks** (a failed check voids the run, which is kept): every run of A
+  reports `chacha8-u53-ziggurat/rules-mtdna-direct/1`; every run of G
+  reports the sampler of the fast path and no `CRN-R051`; E and F have
+  equal event counts and means in every run and `loop.verify` passes;
+  every run completes.
+- **Descriptive:** the ratios E/A, E/B, B/A, E/F, F/A, G/A and G/E.
+- If E1-T1 is missed, the row stays and the target stays; the report lists
+  the options and their costs.
+
+### E1 (`mtdna_direct` on the builder form): law check declaration
+
+Committed before the first run of the check. `mtdna_direct` now certifies
+the builder form of the three-class model under `run/1.0`. Its kernel on
+the builder form of the guide's model equals the file form's to the bit
+(unit test `the_builder_form_is_certified_with_the_file_forms_kernel`), so
+it keeps the sampler identity `chacha8-u53-ziggurat/rules-mtdna-direct/1`.
+The certificate is new code, so the builder form gets its own exact-law
+check, with the rules of "Law gate" above.
+
+- **Models** (`validation/merge/builder/models.json`): the model files that
+  the Python builder writes with `three_class()` of guide chapter 12
+  (`validation/merge/builder/write_models.py`), made small enough for a
+  finite state projection: `mtdna-builder` with `K = 20`, 20 wild-type
+  molecules, `mu = 0.05` (so that both mutant classes appear), the guide's
+  other parameters, no stop; `mtdna-builder-stop`, the same with the
+  takeover stop at 50%. End 2,000 h, report times 0, 250, 500, 1,000 and
+  2,000 h; species `W`, `M`, `A`; 200,000 replicates in chunks of 10,000.
+- **References** (`validation/merge/builder_references.py`, written to
+  `validation/merge/builder/reference/`): the sample reference from the
+  release CLI of `3d80c6d` (0.7.0 engine) with `static_direct` under
+  `run/1.0`, reference seeds 1,000,000 + k; and the FSP law from the same
+  CLI (`fsp`, bounds 20 per species, tolerance 1e-12; the stop's states
+  are absorbing, as a stopped replicate holds its state), whose moments
+  are kept only if the leakage and mass defect are below 1e-9.
+- **Run:** `check_laws.py --binary <E1 release CLI> --method
+  '{"kind": "mtdna_direct"}' --manifest validation/merge/builder/models.json
+  --references validation/merge/builder/reference --expect-sampler
+  chacha8-u53-ziggurat/rules-mtdna-direct/1`, gate seeds 2,000,000 + k.
+  Stopped replicates count as complete for these rows (`"stop": true`),
+  with their held state at later report times.
+- **Size:** 2 models × 5 times × 3 species = 30 cells, 60 comparisons
+  against the sample reference and 60 against FSP; 24 of them at time 0.
+- **Target:** 0 failures, and every chunk reports the fast path's sampler.
+  A failure is reported, not rerun with another seed.
+
+**Amendment, before any comparison ran.** The first reference run stopped
+in the finite state projection: with the guide's half-life of 10 days and
+an end of 2,000 h the projection needs more than its work limit (2·10⁸;
+`CRN-E070`). The models now use a half-life of 1 day (`delta` ten times
+larger) and end at 200 h, report times 0, 25, 50, 100 and 200 h; the
+dynamics are the same up to the time scale, and about six mutations occur
+per cell. Everything else stands.
+
+### E1 (`mtdna_direct` on the builder form): law check results
+
+2026-11-13, this host, after the declaration and its amendment (`a79802a`).
+References from the CLI of `3d80c6d` (release profile with line tables,
+SHA-256 `04086920…`), `validation/merge/builder/reference/`: the finite
+state projections have 1,771 states (no stop) and 506 (stop), no leakage,
+mass defect at most 6.2e-13; the samples have 44,735,067 and 39,844,143
+events under `chacha8-u53-ziggurat/rules-static-direct/1`. Check run with
+the release CLI of the E1 branch at `a79802a` (SHA-256 `62f7fd6b…`)
+(`validation/merge/laws/e1-builder-mtdna_direct.json`): every chunk reports
+`chacha8-u53-ziggurat/rules-mtdna-direct/1` under `crn-craft.run/1.0`
+(44,760,319 and 39,879,255 events).
+
+| Model | Cells | Comparisons (reference) | Failures | max \|z\| | Comparisons (FSP) | Failures | max \|z\| |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| mtdna-builder | 15 | 30 | 0 | 1.94 | 30 | 0 | 2.09 |
+| mtdna-builder-stop | 15 | 30 | 0 | 1.79 | 30 | 0 | 1.90 |
+| **Total** | 30 | 120 comparisons (N), 24 at t = 0 | **0** | 2.09 | | | |
+
+**Target met:** 0 failures, the fast path's sampler throughout. Limits:
+one capacity (20) and one parameter set at the check's size; the guide's
+capacity of 1,000 is covered by the unit tests (the kernel equals the file
+form's to the bit, and the per-cell draws equal the file form's in
+`mtdna_direct_runs_the_builder_form_under_run_1_0`), not by an FSP law.
+
+### E1 (builder-built models as fast as model files): results
+
+2026-11-13, this host, after the declaration (`6e32fd0`), with the wheel
+of the E1 branch at `d12b242` (engine code of `cbfc861`),
+`CRN_CRAFT_SOURCE` at the checkout, the whole run under the CPU lock
+(`validation/merge/manual-ratios/builder-speed.json`). The loop was built in
+the run (38.9 s; a fresh cache).
+
+**Checks: all passed.** Every run of A and G reported
+`chacha8-u53-ziggurat/rules-mtdna-direct/1`, and no run of G a `CRN-R051`;
+E and F had equal event counts and means in every run, and `loop.verify`
+passed; every run completed.
+
+| Arm | Runs (s, rounds 1–3) | Median s | Events | Wall ns per event |
+|---|---|---:|---:|---:|
+| A file, `mtdna_direct` | 0.544, 0.548, 0.514 | 0.544 | 28,536,814 | 19.1 |
+| B file, `static_direct` | 1.406, 1.447, 1.354 | 1.406 | 28,847,586 | 48.7 |
+| E builder, `static_direct` | 1.969, 2.097, 1.884 | 1.969 | 28,779,334 | 68.4 |
+| F E with the compiled loop | 0.753, 0.754, 0.760 | 0.754 | 28,779,334 | 26.2 |
+| G builder, `mtdna_direct` | 0.530, 0.522, 0.540 | 0.530 | 28,536,814 | 18.6 |
+
+| Ratio | Wall time | 13 November (0.7.0) |
+|---|---:|---:|
+| E / B per event | **1.40** | 3.60 |
+| E / A | 3.62 (3.59 per event) | 9.89 (9.81) |
+| E / B | 1.40 | 3.59 |
+| B / A | 2.58 | 2.76 |
+| E / F | 2.61 | 7.08 |
+| F / A | 1.39 | 1.40 |
+| G / A | 0.97 | – |
+| G / E | 0.27 | – |
+
+**E1-T1 met:** E takes 1.40 times B's time per event (target at most 1.5).
+Arm E went from 186.7 to 68.4 ns per event (2.7 times faster).
+
+**E1-T2 met.** (a) A, B and E had 28,536,814, 28,847,586 and 28,779,334
+events and the mean digests of `builder-form.json` in every run. (b) The
+release CLI of the branch (`d12b242`, SHA-256 `c77519fb…`) and the CLI of
+`3d80c6d` give byte-identical result documents for the arm-B and arm-E
+requests (51,932 and 48,988 bytes) and for both with all 200 paths kept
+(141,217 and 95,429 bytes). (c) The stored requests replay byte for
+byte (`stored_requests.rs` 9 tests, `static_direct_defaults.rs` 2, in
+`cargo test --release --workspace --locked`: 406 passed, 0 failed), and
+the law gate with the release CLI at `d12b242` (`check_laws.py`, every
+model, `static_direct`, one model per run under the CPU lock) reproduces
+every model entry of `laws/m8b-cli.json` exactly: converted model hashes,
+request schemas, samplers, chunks with their seeds and events, power sums,
+statistics, summaries and all 4,814 comparison rows (0 failures, max |z|
+3.88); only the header's engine identity differs. The pieces are not
+committed: they equal `m8b-cli.json`.
+
+G made the same draws as A: the builder form's kernel equals the file
+form's to the bit, so G has A's 28,536,814 events and 23 stopped cells, and
+its means of `W`, `M` and `A` equal A's means of `wild_type`,
+`neutral_mutants` and `advantaged_mutants` exactly (a separate run of the
+same two requests, `E1-log.md`).
+
+Not measured: other workloads, sweeps (candidates of `bind_parameters`),
+more than two threads, other hosts.

@@ -279,7 +279,8 @@ class Result:
     """The result of a rules ensemble.
 
     - ``records``: one row per replicate, indexed by replicate id. Columns
-      ``started``, ``termination`` (categorical over :data:`TERMINATIONS`),
+      ``started``, ``termination`` (categorical over the values of ``crn_craft.rules.TERMINATIONS``:
+      ``completed``, ``stopped`` and the reasons a replicate ended early),
       ``stop_time``, ``events``, ``rng_words``, ``peak_instances``,
       ``created_instances`` and ``saved_points``.
     - ``rule_events``: events per replicate (rows) and rule (columns, in
@@ -679,6 +680,13 @@ class Result:
 
 
 class PreparedEnsemble:
+    """A prepared request, returned by ``ensemble`` and ``prepare``.
+
+    ``simulate()`` runs it, ``bind_parameters`` makes a candidate with other
+    parameter values, and ``archive`` seals a run. It can be simulated again
+    with independent execution state.
+    """
+
     def __init__(
         self,
         native,
@@ -1074,12 +1082,17 @@ def ensemble(
     ``N > 0 && mutants >= f * N``. It is certified per model and parameter
     set at preparation, samples the same process with a different use of
     the random stream (sampler ``chacha8-u53-ziggurat/rules-mtdna-direct/1``)
-    and is about 3.3x faster than the Static Direct default on that
-    structure (3.9x faster than Static Direct with inverse waits). A model
-    it cannot certify runs Static Direct with inverse waits and per-event
-    trackers, with the numbers of ``{"kind": "static_direct",
-    "waiting_time": "inverse", "sparse_trackers": False}`` and a
-    ``CRN-R051`` warning naming the reason.
+    and took about 2.8 times less time per event than the Static Direct
+    default on the model file of that structure (3.1 times less than Static
+    Direct with inverse waits; measured on 12 November 2026). Under
+    ``crn-craft.run/1.0``, which :func:`crn_craft.ensemble` writes, it also
+    certifies the whole-rule propensities that :class:`crn_craft.Model`
+    writes for this structure, and the builder form makes the same draws as
+    the model file. A model it cannot certify runs Static Direct with
+    inverse waits and per-event trackers, with the numbers of
+    ``{"kind": "static_direct", "waiting_time": "inverse",
+    "sparse_trackers": False}`` and a ``CRN-R051`` warning naming the
+    reason; the builder form under a rules-run request is such a model.
 
     ``compiled`` is an optional :class:`CompiledLoop` from
     :func:`compile_loop` for this model. It attaches the loop to the
@@ -1364,7 +1377,8 @@ _FSP_ERRORS = (
 class FspResult:
     """A finite state projection as pandas and xarray objects.
 
-    :meth:`Model.fsp` returns it; :func:`fsp` returns the document it wraps.
+    :meth:`Model.fsp` returns it; ``crn_craft.rules.fsp`` returns the document
+    it wraps.
 
     - ``states``: the projected states, a DataFrame indexed by ``state``
       (0 is the initial state) with one int64 column per species label.

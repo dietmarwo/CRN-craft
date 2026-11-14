@@ -1,0 +1,70 @@
+name: docs
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - "book.toml"
+      - "validation/check_links.py"
+      - "validation/mdbook_github_links.py"
+      - ".github/workflows/docs.yml"
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  # Not MDBOOK_*: mdBook reads environment variables with that prefix as
+  # configuration keys and rejects unknown ones.
+  PIN_MDBOOK: "0.5.0"
+  PIN_MDBOOK_MERMAID: "0.17.1"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install mdBook and mdbook-mermaid
+        run: |
+          cargo install mdbook --locked --version "$PIN_MDBOOK" --root "$RUNNER_TEMP/tools"
+          cargo install mdbook-mermaid --locked --version "$PIN_MDBOOK_MERMAID" --root "$RUNNER_TEMP/tools"
+          echo "$RUNNER_TEMP/tools/bin" >> "$GITHUB_PATH"
+      - name: Check SUMMARY.md and relative links
+        run: python validation/check_links.py
+      - name: Install the mermaid assets
+        run: |
+          mkdir "$RUNNER_TEMP/mermaid" site-assets
+          cp book.toml "$RUNNER_TEMP/mermaid/"
+          mdbook-mermaid install "$RUNNER_TEMP/mermaid"
+          mv "$RUNNER_TEMP/mermaid"/mermaid*.js site-assets/
+      - name: Build the site (warnings fail the build)
+        run: |
+          mdbook build 2>&1 | tee build.log
+          if grep -E '(^|[^A-Za-z])(WARN|WARNING|Warning|ERROR)' build.log; then
+            echo "mdBook reported warnings or errors" >&2
+            exit 1
+          fi
+      - name: Check internal links of the built site
+        run: python validation/check_links.py --site site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

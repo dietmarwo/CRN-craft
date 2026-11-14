@@ -257,14 +257,14 @@ CRN/fastest-Julia gap is **{geometric(gaps):.3f}×**, versus
 1.25× target was **{"met" if geometric(gaps) <= 1.25 else "missed"}**.
 
 {summary}
-![Same-host prepared comparison](images/julia-gap10.png)
+![Same-host prepared comparison](../images/julia-gap10.png)
 
 Ratios use unrounded medians. Final / Julia >1 means Julia was faster.
 Best methods are selected from twelve prepared CRN options and five Julia
 algorithms. These are five observations on one shared host; small differences
 are not a precise ranking. All methods, including slower variants, are retained
-in [the complete timing CSV](../validation/julia-gap10/all-method-timings.csv)
-and [raw report](../validation/julia-gap10/comparison.json).
+in [the complete timing CSV](../../validation/julia-gap10/all-method-timings.csv)
+and [raw report](../../validation/julia-gap10/comparison.json).
 The fastest W5 and W7 choices were respectively 1.7% and 1.4% slower than
 baseline in this run. Julia remained faster on every workload.
 
@@ -296,14 +296,14 @@ are possible explanations, not measured causes. Without a profiler, the
 persistent Python-boundary regression remains unattributed. The patch retains
 it explicitly; the original complete CSV includes every slower row.
 
-[Diagnostic code](../validation/diagnose_gap10_regressions.py) and
-[all diagnostic observations](../validation/julia-gap10/regression-diagnostics.json)
+[Diagnostic code](../../validation/diagnose_gap10_regressions.py) and
+[all diagnostic observations](../../validation/julia-gap10/regression-diagnostics.json)
 are included. They are follow-up evidence, not extra attempts to satisfy the
 fixed candidate acceptance rule.
 
 ## Ten measured iterations
 
-The [protocol](decisions/julia-gap10-2026-11-02.md) was committed before candidate
+The [protocol](../decisions/julia-gap10-2026-11-02.md) was committed before candidate
 measurements. Each candidate passed the Rust suite and 35 numerical-identity
 checks, then five paired rounds on eleven representative workload/method rows.
 Targets and thresholds were not changed after seeing timings. Rejected changes
@@ -321,7 +321,7 @@ SortingDirect and C10 Thin LTO did not satisfy the fixed rule on this host.
 
 ## Why Julia is faster
 
-[The source investigation](campaign/julia-gap10-source-investigation.md) cites
+[The source investigation](../campaign/julia-gap10-source-investigation.md) cites
 the locally inspected pinned sources and their recorded hashes. Julia uses
 compact mutable group sums, typed inlined mass-action loops, endpoint bounds for
 appropriate laws, Xoshiro/Ziggurat, and learned SortingDirect order retained
@@ -384,12 +384,12 @@ for all seven models/five aggregators, not a per-model charge. Compiler/package
 installation costs are outside warm timing. No multithread, GPU, other-host or
 memory-scaling claim is made.
 
-[Reproduction and raw evidence](../validation/julia-gap10/README.md),
-[implementation log](campaign/julia-gap10-implementation-log-2026-11-02.md), and
-[all final gate outputs](../validation/julia-gap10/final/summary.json) accompany
+[Reproduction and raw evidence](../../validation/julia-gap10/README.md),
+[implementation log](../campaign/julia-gap10-implementation-log-2026-11-02.md), and
+[all final gate outputs](../../validation/julia-gap10/final/summary.json) accompany
 the patch. No remote was pushed and no package was published.
 """
-    (ROOT / "docs/comparison-julia-gap10.md").write_text(text)
+    (ROOT / "docs/evidence/comparison-julia-gap10.md").write_text(text)
     summary_json = dict(
         kept=kept,
         geometric_gap=geometric(gaps),

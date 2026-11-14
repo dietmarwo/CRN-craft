@@ -1,6 +1,6 @@
 # M8c log: generated loops on the single crate
 
-Task M8c of [the plan](../../plan-0.7.0-engine-merge.md): generated code
+Task M8c of [the plan](../../history/plan-0.7.0-engine-merge.md): generated code
 names `crn_craft::rules::`, the Python loop driver builds against the
 `crn-craft` crate, and the rules tests move into `crates/crn-craft/tests/`.
 Branch `merge/M8c`, from `merge-0.7` at `21f71b8`.

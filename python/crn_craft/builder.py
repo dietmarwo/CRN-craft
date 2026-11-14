@@ -428,9 +428,10 @@ class Model:
     def add_reaction(self, rate, reactants, products, name=None):
         """Add a reaction ``reactants -> products``.
 
-        ``rate`` is a number (a mass-action constant, see the module
-        documentation for the counting of identical reactants) or a string
-        (the whole propensity). Species are lists of names, repeated for
+        ``rate`` is a number (a mass-action constant k: the reaction fires
+        at k times the number of distinct combinations of reactant
+        molecules, so ``["A", "A"]`` fires at k·A(A−1)/2) or a string (the
+        whole propensity). Species are lists of names, repeated for
         multiplicity, for example ``["A", "A"]``. Three or more reactant
         molecules, such as ``["A", "A", "A"]`` or ``["A", "A", "B"]``, are
         written with the pattern field ``count`` of ``crn-craft.model/1.0``

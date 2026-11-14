@@ -8,7 +8,7 @@
 //! draws `bernoulli(p) choice(p, a, b) uniform(a, b) normal(m, s) new_id()`.
 
 use rand_core::RngCore;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) enum Op {
@@ -420,6 +420,18 @@ pub(super) fn eval_binary(op: Op, x: f64, y: f64) -> f64 {
         Op::And | Op::Or => flag(truth(y)),
     }
 }
+/// `max(x, y)` or `min(x, y)` as [`deterministic_call`] computes them.
+#[inline(always)]
+fn min_max(max: bool, x: f64, y: f64) -> f64 {
+    if x.is_nan() || y.is_nan() {
+        f64::NAN
+    } else if max {
+        x.max(y)
+    } else {
+        x.min(y)
+    }
+}
+
 pub(super) fn deterministic_call(f: Func, x: f64, y: f64) -> f64 {
     match f {
         Func::Min | Func::Max if x.is_nan() || y.is_nan() => f64::NAN,
@@ -443,6 +455,87 @@ pub(crate) struct Predicate {
     registers: usize,
     reads: Vec<usize>,
     fraction: Option<(usize, usize, f64)>,
+    /// The expression as a rate [`Program`] with the parameters folded in,
+    /// when it compiles to a flat or stacked one: the same value (a NaN may
+    /// carry another payload) with fewer dispatches.
+    program: Option<Program>,
+    /// `T > 0 && P >= f * T` with `T` and `P` sums of observables, added
+    /// left to right, and `f` a constant: the guarded fraction over sums,
+    /// which a model without a sum observable writes.
+    sums: Option<SumFraction>,
+}
+
+#[derive(Debug)]
+struct SumFraction {
+    total: Vec<usize>,
+    part: Vec<usize>,
+    fraction: f64,
+}
+
+impl SumFraction {
+    /// The observables of `a + b + ...`, added left to right.
+    fn sum(node: &Node) -> Option<Vec<usize>> {
+        match node {
+            Node::Var(Slot::Observable(i)) => Some(vec![*i]),
+            Node::Bin(Op::Add, a, b) => {
+                let Node::Var(Slot::Observable(j)) = b.as_ref() else {
+                    return None;
+                };
+                let mut terms = Self::sum(a)?;
+                terms.push(*j);
+                Some(terms)
+            }
+            _ => None,
+        }
+    }
+
+    fn of(expr: &Expr, params: &[f64]) -> Option<Self> {
+        let Node::Bin(Op::And, guard, test) = &expr.root else {
+            return None;
+        };
+        let Node::Bin(Op::Gt, total, zero) = guard.as_ref() else {
+            return None;
+        };
+        if constant(zero, params).map(f64::to_bits) != Some(0f64.to_bits()) {
+            return None;
+        }
+        let total = Self::sum(total)?;
+        let Node::Bin(Op::Ge, part, product) = test.as_ref() else {
+            return None;
+        };
+        let part = Self::sum(part)?;
+        let Node::Bin(Op::Mul, a, b) = product.as_ref() else {
+            return None;
+        };
+        // `f * T` or `T * f`: the same product.
+        let (fraction, again) = match (constant(a, params), constant(b, params)) {
+            (Some(f), None) => (f, Self::sum(b)?),
+            (None, Some(f)) => (f, Self::sum(a)?),
+            _ => return None,
+        };
+        (again == total).then_some(Self {
+            total,
+            part,
+            fraction,
+        })
+    }
+
+    #[inline]
+    fn add(terms: &[usize], observables: &[f64]) -> f64 {
+        let mut sum = observables[terms[0]];
+        for &i in &terms[1..] {
+            sum += observables[i];
+        }
+        sum
+    }
+
+    /// The tree's value: comparisons give 0 or 1 (0 for a NaN operand), so
+    /// `&&` gives 1 exactly when both hold.
+    #[inline]
+    fn eval(&self, observables: &[f64]) -> f64 {
+        let n = Self::add(&self.total, observables);
+        flag(n > 0.0 && Self::add(&self.part, observables) >= self.fraction * n)
+    }
 }
 
 #[derive(Debug)]
@@ -534,7 +627,26 @@ impl Predicate {
             registers: slots,
             reads,
             fraction,
+            program: None,
+            sums: None,
         }
+    }
+
+    /// This predicate evaluated by the rate [`Program`] of `expr` with the
+    /// parameter values `params`, when it compiles to a flat or stacked one.
+    /// Both give the tree's value; only a NaN payload may differ, and a NaN
+    /// predicate is an error whatever its payload. The parameter values must
+    /// be the ones every evaluation passes.
+    pub(crate) fn with_program(mut self, expr: &Expr, params: &[f64]) -> Self {
+        self.sums = SumFraction::of(expr, params);
+        let program = Program::compile(expr, params);
+        if matches!(
+            program,
+            Program::Product(_) | Program::Flat(_) | Program::Stacked(..)
+        ) {
+            self.program = Some(program);
+        }
+        self
     }
 
     pub(crate) fn reads(&self, flags: &mut [bool]) {
@@ -553,6 +665,12 @@ impl Predicate {
         if let Some((total, part, fraction)) = self.fraction {
             let n = env.observables[total];
             return flag(n > 0.0 && env.observables[part] >= fraction * n);
+        }
+        if let Some(sums) = &self.sums {
+            return sums.eval(env.observables);
+        }
+        if let Some(program) = &self.program {
+            return program.eval(env);
         }
         let mut inline = [0.0; 32];
         if self.registers <= inline.len() {
@@ -1152,6 +1270,34 @@ enum Step {
     Call2(Func),
     /// `if(c, a, acc)` with `c` and `a` popped.
     Select,
+    /// `acc = acc op observable`: the steps `Push`, `Load`, `Bin(op)` in
+    /// one, with dedicated steps for arithmetic.
+    AddLoad(usize),
+    SubLoad(usize),
+    MulLoad(usize),
+    DivLoad(usize),
+    BinLoad(Op, usize),
+    /// `acc = f(c, acc)`: the steps `Const`, `Push`, (the argument),
+    /// `Call2` with the constant moved behind the argument.
+    ConstCall2(Func, f64),
+    /// `acc = f(acc, c)`.
+    Call2Const(Func, f64),
+    /// `Bin(op)` for the four arithmetic operations: `acc = pop op acc`.
+    PopAdd,
+    PopSub,
+    PopMul,
+    PopDiv,
+    /// `Push`, then `Load`: the stack takes `acc`, `acc` the observable.
+    PushLoad(usize),
+    /// `max(c, acc)`, `min(c, acc)`, `max(acc, c)`, `min(acc, c)`: the
+    /// function steps of [`deterministic_call`] without the call.
+    ConstMax(f64),
+    ConstMin(f64),
+    MaxConst(f64),
+    MinConst(f64),
+    /// `acc` = the value of a subexpression shared by several programs of
+    /// one model ([`SharedPrograms`]), computed by its own program.
+    Shared(usize),
 }
 
 impl Step {
@@ -1177,6 +1323,17 @@ impl Step {
             Op::Div => Self::ConstDiv(c),
             Op::Pow => Self::ConstPow(c),
             _ => Self::ConstBin(op, c),
+        }
+    }
+
+    /// `acc op observable`, with a dedicated step for arithmetic.
+    fn with_load(op: Op, i: usize) -> Self {
+        match op {
+            Op::Add => Self::AddLoad(i),
+            Op::Sub => Self::SubLoad(i),
+            Op::Mul => Self::MulLoad(i),
+            Op::Div => Self::DivLoad(i),
+            _ => Self::BinLoad(op, i),
         }
     }
 }
@@ -1209,6 +1366,11 @@ pub(crate) enum Program {
         k: f64,
         v: f64,
     },
+    /// A value multiplied, in order, by constants and then observables: the
+    /// steps `Load` or `Shared`, then `MulConst` or `ConstMul` (`c * acc`
+    /// and `acc * c` have the same bits), then `MulLoad`, evaluated without
+    /// dispatch.
+    Product(Product),
     /// No operand is saved: one accumulator.
     Flat(Code),
     /// Operands are saved on a stack of the given depth.
@@ -1219,6 +1381,107 @@ pub(crate) enum Program {
 /// The steps of a flat [`Program`].
 #[derive(Debug, Clone)]
 pub(crate) struct Code(Vec<Step>);
+
+/// A [`Program::Product`].
+#[derive(Debug, Clone)]
+pub(crate) struct Product {
+    /// The steps, for [`Program::key`].
+    code: Code,
+    /// The first value: an observable or a shared subexpression.
+    head: Operand,
+    /// The constant factors, multiplied first and in order.
+    constants: Vec<f64>,
+    /// The observables multiplied after them, in order.
+    loads: Vec<usize>,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Operand {
+    Load(usize),
+    Shared(usize),
+}
+
+impl Product {
+    /// The product program of `code`, if it has that shape: a head, then
+    /// constant factors, then observable factors.
+    fn of(code: &[Step]) -> Option<Self> {
+        let (first, rest) = code.split_first()?;
+        let head = match *first {
+            Step::Load(i) => Operand::Load(i),
+            Step::Shared(i) => Operand::Shared(i),
+            _ => return None,
+        };
+        let split = rest
+            .iter()
+            .position(|step| !matches!(step, Step::MulConst(_) | Step::ConstMul(_)))
+            .unwrap_or(rest.len());
+        let constants = rest[..split]
+            .iter()
+            .map(|step| match *step {
+                Step::MulConst(c) | Step::ConstMul(c) => c,
+                _ => unreachable!("constant factors"),
+            })
+            .collect();
+        let loads = rest[split..]
+            .iter()
+            .map(|step| match *step {
+                Step::MulLoad(i) => Some(i),
+                _ => None,
+            })
+            .collect::<Option<Vec<_>>>()?;
+        Some(Self {
+            code: Code(code.to_vec()),
+            head,
+            constants,
+            loads,
+        })
+    }
+
+    /// The steps' multiplications in their order.
+    #[inline]
+    fn eval(&self, observables: &[f64], shared: &[f64]) -> f64 {
+        let mut acc = match self.head {
+            Operand::Load(i) => observables[i],
+            Operand::Shared(i) => shared[i],
+        };
+        for &c in &self.constants {
+            acc *= c;
+        }
+        for &i in &self.loads {
+            acc *= observables[i];
+        }
+        acc
+    }
+}
+
+/// The program of compiled `code`: a product, or flat or stacked steps with
+/// the stack depth they reach.
+fn finish(code: Vec<Step>) -> Program {
+    let depth = stack_depth(&code);
+    if depth == 0 {
+        if let Some(product) = Product::of(&code) {
+            return Program::Product(product);
+        }
+        Program::Flat(Code(code))
+    } else {
+        // `Push`, `Load(i)` in one step, and arithmetic without the
+        // logic checks of `apply`.
+        let mut fused: Vec<Step> = Vec::with_capacity(code.len());
+        for step in code {
+            match (fused.last(), step) {
+                (Some(Step::Push), Step::Load(i)) => {
+                    *fused.last_mut().expect("a last step") = Step::PushLoad(i);
+                }
+                (_, Step::Bin(Op::Add)) => fused.push(Step::PopAdd),
+                (_, Step::Bin(Op::Sub)) => fused.push(Step::PopSub),
+                (_, Step::Bin(Op::Mul)) => fused.push(Step::PopMul),
+                (_, Step::Bin(Op::Div)) => fused.push(Step::PopDiv),
+                _ => fused.push(step),
+            }
+        }
+        Program::Stacked(Code(fused), depth)
+    }
+}
 
 /// The constants of a [`Program::Hill`].
 #[derive(Debug, Clone)]
@@ -1294,84 +1557,173 @@ fn apply(op: Op, x: f64, y: f64) -> f64 {
     }
 }
 
+/// The value of a parameter-only subtree, evaluated by the tree evaluator.
+fn constant(node: &Node, params: &[f64]) -> Option<f64> {
+    let tree = Expr { root: node.clone() };
+    tree.parameter_only().then(|| {
+        tree.eval(&Env {
+            params,
+            observables: &[],
+            attributes: [&[], &[]],
+        })
+    })
+}
+
+/// The subexpressions [`emit`] replaces by [`Step::Shared`]: slots by the
+/// key of the subexpression's own code, and the slots used so far.
+struct Sharing<'a> {
+    slots: &'a HashMap<Vec<u64>, usize>,
+    used: Vec<usize>,
+}
+
+/// The code of `node` alone, without shared steps, if it has one.
+fn standalone(node: &Node, params: &[f64]) -> Option<Vec<Step>> {
+    let mut code = Vec::new();
+    let mut deepest = 0;
+    emit(node, params, &mut code, 0, &mut deepest, None)?;
+    Some(code)
+}
+
+/// Appends the steps of `node` to `code`. The steps of every subexpression
+/// begin by setting `acc` without reading it and use the stack only above
+/// its current top, so a subexpression's value does not depend on where its
+/// steps run. `deepest` counts the stack depth of the unfused steps
+/// (`Push`, `Load`, `Bin`), so fusing does not change which expressions
+/// keep the tree.
+fn emit(
+    node: &Node,
+    params: &[f64],
+    code: &mut Vec<Step>,
+    depth: usize,
+    deepest: &mut usize,
+    mut sharing: Option<&mut Sharing<'_>>,
+) -> Option<()> {
+    *deepest = (*deepest).max(depth);
+    if let Some(c) = constant(node, params) {
+        code.push(Step::Const(c));
+        return Some(());
+    }
+    if let Some(share) = sharing.as_deref_mut() {
+        if !matches!(node, Node::Var(_)) {
+            let mut inner = 0;
+            let mut own = Vec::new();
+            if emit(node, params, &mut own, depth, &mut inner, None).is_some() {
+                if let Some(&slot) = share.slots.get(&code_key(&own)) {
+                    // The unfused depth of the subexpression, as inline.
+                    *deepest = (*deepest).max(inner);
+                    share.used.push(slot);
+                    code.push(Step::Shared(slot));
+                    return Some(());
+                }
+            }
+        }
+    }
+    match node {
+        Node::Num(_) | Node::Var(Slot::Param(_)) => unreachable!("folded"),
+        Node::Var(Slot::Observable(i)) => code.push(Step::Load(*i)),
+        Node::Var(Slot::Attribute { .. }) => return None,
+        Node::Neg(a) => {
+            emit(a, params, code, depth, deepest, sharing)?;
+            code.push(Step::Neg);
+        }
+        Node::Not(a) => {
+            emit(a, params, code, depth, deepest, sharing)?;
+            code.push(Step::Not);
+        }
+        Node::Bin(op, a, b) => {
+            if let Some(c) = constant(b, params) {
+                emit(a, params, code, depth, deepest, sharing)?;
+                code.push(Step::with_right(*op, c));
+            } else if let Some(c) = constant(a, params) {
+                emit(b, params, code, depth, deepest, sharing)?;
+                code.push(Step::with_left(*op, c));
+            } else if let Node::Var(Slot::Observable(i)) = b.as_ref() {
+                // `Push`, `Load(i)`, `Bin(op)` in one step: the same
+                // operation on the same operands.
+                emit(a, params, code, depth, deepest, sharing)?;
+                *deepest = (*deepest).max(depth + 1);
+                code.push(Step::with_load(*op, *i));
+            } else {
+                emit(a, params, code, depth, deepest, sharing.as_deref_mut())?;
+                code.push(Step::Push);
+                emit(b, params, code, depth + 1, deepest, sharing)?;
+                code.push(Step::Bin(*op));
+            }
+        }
+        Node::Call(Func::If, args) => {
+            emit(
+                &args[0],
+                params,
+                code,
+                depth,
+                deepest,
+                sharing.as_deref_mut(),
+            )?;
+            code.push(Step::Push);
+            emit(
+                &args[1],
+                params,
+                code,
+                depth + 1,
+                deepest,
+                sharing.as_deref_mut(),
+            )?;
+            code.push(Step::Push);
+            emit(&args[2], params, code, depth + 2, deepest, sharing)?;
+            code.push(Step::Select);
+        }
+        Node::Call(
+            Func::Bernoulli | Func::Choice | Func::Uniform | Func::Normal | Func::NewId,
+            _,
+        ) => return None,
+        Node::Call(f, args) if args.len() == 1 => {
+            emit(&args[0], params, code, depth, deepest, sharing)?;
+            code.push(Step::Call1(*f));
+        }
+        Node::Call(f, args) => {
+            if let Some(c) = constant(&args[0], params) {
+                // `Const(c)`, `Push`, the argument, `Call2(f)` in one step
+                // after the argument: f(c, argument).
+                *deepest = (*deepest).max(depth + 1);
+                emit(&args[1], params, code, depth + 1, deepest, sharing)?;
+                code.push(match f {
+                    Func::Max => Step::ConstMax(c),
+                    Func::Min => Step::ConstMin(c),
+                    _ => Step::ConstCall2(*f, c),
+                });
+            } else if let Some(c) = constant(&args[1], params) {
+                emit(&args[0], params, code, depth, deepest, sharing)?;
+                *deepest = (*deepest).max(depth + 1);
+                code.push(match f {
+                    Func::Max => Step::MaxConst(c),
+                    Func::Min => Step::MinConst(c),
+                    _ => Step::Call2Const(*f, c),
+                });
+            } else {
+                emit(
+                    &args[0],
+                    params,
+                    code,
+                    depth,
+                    deepest,
+                    sharing.as_deref_mut(),
+                )?;
+                code.push(Step::Push);
+                emit(&args[1], params, code, depth + 1, deepest, sharing)?;
+                code.push(Step::Call2(*f));
+            }
+        }
+    }
+    Some(())
+}
+
 impl Program {
     pub(crate) fn compile(expr: &Expr, params: &[f64]) -> Self {
-        fn constant(node: &Node, params: &[f64]) -> Option<f64> {
-            let tree = Expr { root: node.clone() };
-            tree.parameter_only().then(|| {
-                tree.eval(&Env {
-                    params,
-                    observables: &[],
-                    attributes: [&[], &[]],
-                })
-            })
-        }
-        fn emit(
-            node: &Node,
-            params: &[f64],
-            code: &mut Vec<Step>,
-            depth: usize,
-            deepest: &mut usize,
-        ) -> Option<()> {
-            *deepest = (*deepest).max(depth);
-            if let Some(c) = constant(node, params) {
-                code.push(Step::Const(c));
-                return Some(());
-            }
-            match node {
-                Node::Num(_) | Node::Var(Slot::Param(_)) => unreachable!("folded"),
-                Node::Var(Slot::Observable(i)) => code.push(Step::Load(*i)),
-                Node::Var(Slot::Attribute { .. }) => return None,
-                Node::Neg(a) => {
-                    emit(a, params, code, depth, deepest)?;
-                    code.push(Step::Neg);
-                }
-                Node::Not(a) => {
-                    emit(a, params, code, depth, deepest)?;
-                    code.push(Step::Not);
-                }
-                Node::Bin(op, a, b) => {
-                    if let Some(c) = constant(b, params) {
-                        emit(a, params, code, depth, deepest)?;
-                        code.push(Step::with_right(*op, c));
-                    } else if let Some(c) = constant(a, params) {
-                        emit(b, params, code, depth, deepest)?;
-                        code.push(Step::with_left(*op, c));
-                    } else {
-                        emit(a, params, code, depth, deepest)?;
-                        code.push(Step::Push);
-                        emit(b, params, code, depth + 1, deepest)?;
-                        code.push(Step::Bin(*op));
-                    }
-                }
-                Node::Call(Func::If, args) => {
-                    emit(&args[0], params, code, depth, deepest)?;
-                    code.push(Step::Push);
-                    emit(&args[1], params, code, depth + 1, deepest)?;
-                    code.push(Step::Push);
-                    emit(&args[2], params, code, depth + 2, deepest)?;
-                    code.push(Step::Select);
-                }
-                Node::Call(
-                    Func::Bernoulli | Func::Choice | Func::Uniform | Func::Normal | Func::NewId,
-                    _,
-                ) => return None,
-                Node::Call(f, args) if args.len() == 1 => {
-                    emit(&args[0], params, code, depth, deepest)?;
-                    code.push(Step::Call1(*f));
-                }
-                Node::Call(f, args) => {
-                    emit(&args[0], params, code, depth, deepest)?;
-                    code.push(Step::Push);
-                    emit(&args[1], params, code, depth + 1, deepest)?;
-                    code.push(Step::Call2(*f));
-                }
-            }
-            Some(())
-        }
         let mut code = Vec::new();
         let mut deepest = 0;
-        if emit(&expr.root, params, &mut code, 0, &mut deepest).is_none() || deepest + 2 > STACK {
+        if emit(&expr.root, params, &mut code, 0, &mut deepest, None).is_none()
+            || deepest + 2 > STACK
+        {
             return Self::Tree(expr.clone());
         }
         if let Some(hill) = Hill::of(&code) {
@@ -1390,11 +1742,7 @@ impl Program {
                 return Self::Saturation { index, k, v };
             }
         }
-        if deepest == 0 {
-            Self::Flat(Code(code))
-        } else {
-            Self::Stacked(Code(code), deepest)
-        }
+        finish(code)
     }
 
     /// A key that is equal for two programs exactly when their steps are
@@ -1403,6 +1751,7 @@ impl Program {
     pub(crate) fn key(&self) -> Option<Vec<u64>> {
         let code = match self {
             Self::Flat(Code(code)) | Self::Stacked(Code(code), _) => code.clone(),
+            Self::Product(p) => p.code.0.clone(),
             Self::Hill(h) => vec![
                 Step::Load(h.index),
                 if h.over_k {
@@ -1425,37 +1774,7 @@ impl Program {
             ],
             Self::Tree(_) => return None,
         };
-        let mut key = Vec::with_capacity(2 * code.len());
-        for step in &code {
-            // The tag, then the operation, function and number bits.
-            let (tag, payload) = match *step {
-                Step::Const(c) => (0, c.to_bits()),
-                Step::Load(i) => (1, i as u64),
-                Step::Push => (2, 0),
-                Step::Neg => (3, 0),
-                Step::Not => (4, 0),
-                Step::Bin(op) => (5, op as u64),
-                Step::BinConst(op, c) => (6 + 256 * op as u64, c.to_bits()),
-                Step::ConstBin(op, c) => (7 + 256 * op as u64, c.to_bits()),
-                Step::AddConst(c) => (8, c.to_bits()),
-                Step::SubConst(c) => (9, c.to_bits()),
-                Step::MulConst(c) => (10, c.to_bits()),
-                Step::DivConst(c) => (11, c.to_bits()),
-                Step::PowConst(c) => (12, c.to_bits()),
-                Step::Square => (13, 0),
-                Step::ConstAdd(c) => (14, c.to_bits()),
-                Step::ConstSub(c) => (15, c.to_bits()),
-                Step::ConstMul(c) => (16, c.to_bits()),
-                Step::ConstDiv(c) => (17, c.to_bits()),
-                Step::ConstPow(c) => (18, c.to_bits()),
-                Step::Call1(f) => (19, f as u64),
-                Step::Call2(f) => (20, f as u64),
-                Step::Select => (21, 0),
-            };
-            key.push(tag);
-            key.push(payload);
-        }
-        Some(key)
+        Some(code_key(&code))
     }
 
     #[inline]
@@ -1466,21 +1785,273 @@ impl Program {
                 let x = env.observables[index];
                 v * (x / (k + x))
             }
-            Self::Flat(Code(code)) => run(code, env.observables, &mut []),
+            Self::Product(p) => p.eval(env.observables, &[]),
+            Self::Flat(Code(code)) => run(code, env.observables, &[], &mut []),
             Self::Stacked(Code(code), depth) if *depth < 8 => {
-                run(code, env.observables, &mut [0.0; 8])
+                run(code, env.observables, &[], &mut [0.0; 8])
             }
-            Self::Stacked(Code(code), _) => run(code, env.observables, &mut [0.0; STACK]),
+            Self::Stacked(Code(code), _) => run(code, env.observables, &[], &mut [0.0; STACK]),
             Self::Tree(expr) => expr.eval(env),
         }
     }
+
+    /// Whether [`Self::eval_shared`] evaluates this program: a product, flat
+    /// or stacked one.
+    pub(crate) fn shares(&self) -> bool {
+        matches!(self, Self::Product(_) | Self::Flat(_) | Self::Stacked(..))
+    }
+
+    /// The value of a program with [`Step::Shared`] steps, given the values
+    /// of the shared subexpressions it reads.
+    #[inline(always)]
+    pub(crate) fn eval_shared(&self, observables: &[f64], shared: &[f64]) -> f64 {
+        match self {
+            Self::Product(p) => p.eval(observables, shared),
+            Self::Flat(Code(code)) => run(code, observables, shared, &mut []),
+            Self::Stacked(Code(code), depth) if *depth < 8 => {
+                run(code, observables, shared, &mut [0.0; 8])
+            }
+            Self::Stacked(Code(code), _) => run(code, observables, shared, &mut [0.0; STACK]),
+            _ => unreachable!("shared programs are flat or stacked"),
+        }
+    }
+}
+
+/// The key of a step sequence: equal for two sequences exactly when their
+/// steps are equal, constants compared by their bits.
+fn code_key(code: &[Step]) -> Vec<u64> {
+    let mut key = Vec::with_capacity(2 * code.len());
+    for step in code {
+        // The tag, then the operation, function and number bits.
+        let (tag, payload) = match *step {
+            Step::Const(c) => (0, c.to_bits()),
+            Step::Load(i) => (1, i as u64),
+            Step::Push => (2, 0),
+            Step::Neg => (3, 0),
+            Step::Not => (4, 0),
+            Step::Bin(op) => (5, op as u64),
+            Step::BinConst(op, c) => (6 + 256 * op as u64, c.to_bits()),
+            Step::ConstBin(op, c) => (7 + 256 * op as u64, c.to_bits()),
+            Step::AddConst(c) => (8, c.to_bits()),
+            Step::SubConst(c) => (9, c.to_bits()),
+            Step::MulConst(c) => (10, c.to_bits()),
+            Step::DivConst(c) => (11, c.to_bits()),
+            Step::PowConst(c) => (12, c.to_bits()),
+            Step::Square => (13, 0),
+            Step::ConstAdd(c) => (14, c.to_bits()),
+            Step::ConstSub(c) => (15, c.to_bits()),
+            Step::ConstMul(c) => (16, c.to_bits()),
+            Step::ConstDiv(c) => (17, c.to_bits()),
+            Step::ConstPow(c) => (18, c.to_bits()),
+            Step::Call1(f) => (19, f as u64),
+            Step::Call2(f) => (20, f as u64),
+            Step::Select => (21, 0),
+            Step::AddLoad(i) => (22, i as u64),
+            Step::SubLoad(i) => (23, i as u64),
+            Step::MulLoad(i) => (24, i as u64),
+            Step::DivLoad(i) => (25, i as u64),
+            Step::BinLoad(op, i) => (26 + 256 * op as u64, i as u64),
+            Step::ConstCall2(f, c) => (27 + 256 * f as u64, c.to_bits()),
+            Step::Call2Const(f, c) => (28 + 256 * f as u64, c.to_bits()),
+            Step::Shared(slot) => (29, slot as u64),
+            Step::PushLoad(i) => (30, i as u64),
+            Step::ConstMax(c) => (31, c.to_bits()),
+            Step::ConstMin(c) => (32, c.to_bits()),
+            Step::MaxConst(c) => (33, c.to_bits()),
+            Step::MinConst(c) => (34, c.to_bits()),
+            Step::PopAdd => (35, 0),
+            Step::PopSub => (36, 0),
+            Step::PopMul => (37, 0),
+            Step::PopDiv => (38, 0),
+        };
+        key.push(tag);
+        key.push(payload);
+    }
+    key
+}
+
+/// The rate programs of one model with their common subexpressions
+/// computed once per state.
+///
+/// A subexpression that occurs at least twice among the programs (the same
+/// steps, constants compared by their bits) and has at least
+/// [`SHARED_STEPS`] steps gets a slot; the outermost such subexpressions are
+/// replaced by [`Step::Shared`]. A slot's program is the subexpression's own
+/// steps, which compute the value the inline steps would (each
+/// subexpression's steps set `acc` first and use the stack only above its
+/// top), so every program keeps its bits.
+pub(crate) struct SharedPrograms {
+    /// Per expression: the program with shared steps and the slots it
+    /// reads, or `None` if it shares nothing.
+    pub(crate) programs: Vec<Option<(Program, Vec<usize>)>>,
+    /// The program of each slot, without shared steps.
+    pub(crate) slots: Vec<Program>,
+}
+
+/// The fewest steps of a subexpression worth a slot.
+const SHARED_STEPS: usize = 4;
+
+impl SharedPrograms {
+    /// Shares the subexpressions of `exprs` (`None` entries take no part).
+    /// Only expressions whose own program is flat or stacked take part.
+    pub(crate) fn new(exprs: &[Option<&Expr>], params: &[f64]) -> Self {
+        /// Counts the candidate subexpressions of `node`; returns the key of
+        /// `node` if it is a candidate, and records for each key the largest
+        /// count among the candidates strictly inside it.
+        fn count(
+            node: &Node,
+            params: &[f64],
+            counts: &mut HashMap<Vec<u64>, usize>,
+            inner: &mut HashMap<Vec<u64>, Vec<Vec<u64>>>,
+        ) -> Vec<Vec<u64>> {
+            if constant(node, params).is_some() {
+                return Vec::new();
+            }
+            let mut below = Vec::new();
+            match node {
+                Node::Neg(a) | Node::Not(a) => below.extend(count(a, params, counts, inner)),
+                Node::Bin(_, a, b) => {
+                    below.extend(count(a, params, counts, inner));
+                    below.extend(count(b, params, counts, inner));
+                }
+                Node::Call(_, args) => {
+                    for a in args {
+                        below.extend(count(a, params, counts, inner));
+                    }
+                }
+                Node::Num(_) | Node::Var(_) => {}
+            }
+            match standalone(node, params) {
+                Some(code) if code.len() >= SHARED_STEPS => {
+                    let key = code_key(&code);
+                    *counts.entry(key.clone()).or_insert(0) += 1;
+                    inner.entry(key.clone()).or_insert_with(|| below.clone());
+                    // The candidates inside this one, and this one.
+                    below.push(key);
+                    below
+                }
+                _ => below,
+            }
+        }
+        let eligible: Vec<Option<&Expr>> = exprs
+            .iter()
+            .map(|e| {
+                e.filter(|e| {
+                    matches!(
+                        Program::compile(e, params),
+                        Program::Product(_) | Program::Flat(_) | Program::Stacked(..)
+                    )
+                })
+            })
+            .collect();
+        let mut counts = HashMap::new();
+        let mut inner = HashMap::new();
+        for e in eligible.iter().flatten() {
+            count(&e.root, params, &mut counts, &mut inner);
+        }
+        // A subexpression that occurs at least twice gets a slot, unless a
+        // subexpression inside it occurs more often: then that one is
+        // shared, and the larger one would compute it again.
+        let mut candidates: HashMap<Vec<u64>, usize> = HashMap::new();
+        for (key, &n) in &counts {
+            let dominated = inner[key].iter().any(|k| counts[k] > n);
+            if n >= 2 && !dominated {
+                let next = candidates.len();
+                candidates.insert(key.clone(), next);
+            }
+        }
+        let mut renumber: HashMap<usize, usize> = HashMap::new();
+        let mut slots = Vec::new();
+        let mut keys_by_candidate: HashMap<usize, Vec<u64>> = HashMap::new();
+        for (key, &c) in &candidates {
+            keys_by_candidate.insert(c, key.clone());
+        }
+        let mut programs = Vec::with_capacity(eligible.len());
+        for e in &eligible {
+            let Some(e) = e else {
+                programs.push(None);
+                continue;
+            };
+            let mut share = Sharing {
+                slots: &candidates,
+                used: Vec::new(),
+            };
+            let mut code = Vec::new();
+            let mut deepest = 0;
+            let emitted = emit(
+                &e.root,
+                params,
+                &mut code,
+                0,
+                &mut deepest,
+                Some(&mut share),
+            );
+            if emitted.is_none() || share.used.is_empty() || deepest + 2 > STACK {
+                programs.push(None);
+                continue;
+            }
+            let mut needs = Vec::new();
+            for step in &mut code {
+                if let Step::Shared(c) = step {
+                    let slot = *renumber.entry(*c).or_insert_with(|| {
+                        let own = standalone(
+                            &find(&e.root, params, &keys_by_candidate[c]).expect("shared node"),
+                            params,
+                        )
+                        .expect("shared code");
+                        slots.push(finish(own));
+                        slots.len() - 1
+                    });
+                    *c = slot;
+                    if !needs.contains(&slot) {
+                        needs.push(slot);
+                    }
+                }
+            }
+            programs.push(Some((finish(code), needs)));
+        }
+        Self { programs, slots }
+    }
+}
+
+/// The first subtree of `node` whose own code has `key`.
+fn find(node: &Node, params: &[f64], key: &[u64]) -> Option<Node> {
+    if constant(node, params).is_none()
+        && standalone(node, params).is_some_and(|code| code_key(&code) == key)
+    {
+        return Some(node.clone());
+    }
+    match node {
+        Node::Neg(a) | Node::Not(a) => find(a, params, key),
+        Node::Bin(_, a, b) => find(a, params, key).or_else(|| find(b, params, key)),
+        Node::Call(_, args) => args.iter().find_map(|a| find(a, params, key)),
+        Node::Num(_) | Node::Var(_) => None,
+    }
+}
+
+/// The largest stack depth `code` reaches.
+fn stack_depth(code: &[Step]) -> usize {
+    let mut top = 0usize;
+    let mut deepest = 0;
+    for step in code {
+        match step {
+            Step::Push | Step::PushLoad(_) => {
+                top += 1;
+                deepest = deepest.max(top);
+            }
+            Step::Bin(_) | Step::Call2(_) => top -= 1,
+            Step::Select => top -= 2,
+            _ => {}
+        }
+    }
+    deepest
 }
 
 /// Runs `code` with `stack` (at least as deep as the program needs).
 // `c + acc` keeps the tree's operand order (`acc += c` has the same value).
 #[allow(clippy::assign_op_pattern)]
 #[inline]
-fn run(code: &[Step], observables: &[f64], stack: &mut [f64]) -> f64 {
+fn run(code: &[Step], observables: &[f64], shared: &[f64], stack: &mut [f64]) -> f64 {
     let mut top = 0usize;
     let mut acc = 0.0;
     for step in code {
@@ -1528,6 +2099,39 @@ fn run(code: &[Step], observables: &[f64], stack: &mut [f64]) -> f64 {
                     acc = stack[top + 1];
                 }
             }
+            Step::AddLoad(i) => acc = acc + observables[i],
+            Step::SubLoad(i) => acc = acc - observables[i],
+            Step::MulLoad(i) => acc = acc * observables[i],
+            Step::DivLoad(i) => acc = acc / observables[i],
+            Step::BinLoad(op, i) => acc = apply(op, acc, observables[i]),
+            Step::ConstCall2(f, c) => acc = deterministic_call(f, c, acc),
+            Step::Call2Const(f, c) => acc = deterministic_call(f, acc, c),
+            Step::Shared(slot) => acc = shared[slot],
+            Step::PopAdd => {
+                top -= 1;
+                acc = stack[top] + acc;
+            }
+            Step::PopSub => {
+                top -= 1;
+                acc = stack[top] - acc;
+            }
+            Step::PopMul => {
+                top -= 1;
+                acc = stack[top] * acc;
+            }
+            Step::PopDiv => {
+                top -= 1;
+                acc = stack[top] / acc;
+            }
+            Step::PushLoad(i) => {
+                stack[top] = acc;
+                top += 1;
+                acc = observables[i];
+            }
+            Step::ConstMax(c) => acc = min_max(true, c, acc),
+            Step::ConstMin(c) => acc = min_max(false, c, acc),
+            Step::MaxConst(c) => acc = min_max(true, acc, c),
+            Step::MinConst(c) => acc = min_max(false, acc, c),
         }
     }
     acc
@@ -1572,6 +2176,8 @@ mod tests {
             let source = expression(&mut rng, 4);
             let expr = Expr::parse(&source, &scope).unwrap();
             let code = Predicate::compile(&expr, 2);
+            // The stop's form: the rate program (E1).
+            let program = Predicate::compile(&expr, 2).with_program(&expr, &[]);
             for values in [
                 [0.0, -0.0],
                 [-2.0, 2.0],
@@ -1583,10 +2189,14 @@ mod tests {
                     observables: &values,
                     attributes: [&[], &[]],
                 };
-                let (a, b) = (expr.eval(&env), code.eval(&env));
+                let (a, b, c) = (expr.eval(&env), code.eval(&env), program.eval(&env));
                 assert!(
                     a.to_bits() == b.to_bits() || (a.is_nan() && b.is_nan()),
                     "{source}: {a:?} != {b:?}"
+                );
+                assert!(
+                    a.to_bits() == c.to_bits() || (a.is_nan() && c.is_nan()),
+                    "{source}: {a:?} != {c:?} (program)"
                 );
             }
         }
@@ -1861,5 +2471,197 @@ mod tests {
             .count();
         assert!((800..1200).contains(&tens), "{tens}");
         assert_eq!(words, 4000);
+    }
+
+    /// The guarded fraction over sums of observables (E1): recognized in the
+    /// forms a builder model writes, refused otherwise, and equal to the
+    /// tree in every state, including NaN, infinite and fractional values.
+    #[test]
+    fn sum_fraction_stops_have_the_value_of_the_tree() {
+        let params = BTreeMap::from([("f".into(), 0)]);
+        let names = BTreeMap::from([("W".into(), 0), ("M".into(), 1), ("A".into(), 2)]);
+        let scope = Scope {
+            params: &params,
+            observables: Some(&names),
+            reactants: &[],
+            random: false,
+        };
+        let p = [0.9];
+        for (source, fused) in [
+            ("W + M + A > 0 && M + A >= 0.9 * (W + M + A)", true),
+            ("W + M + A > 0 && M + A >= f * (W + M + A)", true),
+            ("W + M + A > 0 && M + A >= (W + M + A) * 0.9", true),
+            ("W > 0 && M >= 0.5 * W", true),
+            ("W + M + A > 0 && M + A >= 0.9 * (W + A + M)", false),
+            ("W + M + A > 0 && M + A > 0.9 * (W + M + A)", false),
+            ("W + M + A >= 0 && M + A >= 0.9 * (W + M + A)", false),
+            ("W + M + A > 1 && M + A >= 0.9 * (W + M + A)", false),
+            ("W + (M + A) > 0 && M + A >= 0.9 * (W + (M + A))", false),
+            ("W + M + A > 0 || M + A >= 0.9 * (W + M + A)", false),
+        ] {
+            let expr = Expr::parse(source, &scope).unwrap();
+            let predicate = Predicate::compile(&expr, 3).with_program(&expr, &p);
+            assert_eq!(predicate.sums.is_some(), fused, "{source}");
+            assert!(predicate.program.is_some(), "{source}");
+            let special = [0.0, -0.0, 1.0, 9.0, 0.5, f64::INFINITY, f64::NAN, 1e308];
+            for &w in &special {
+                for &m in &special {
+                    for &a in &special {
+                        let values = [w, m, a];
+                        let env = Env {
+                            params: &p,
+                            observables: &values,
+                            attributes: [&[], &[]],
+                        };
+                        let (x, y) = (expr.eval(&env), predicate.eval(&env));
+                        assert!(
+                            x.to_bits() == y.to_bits() || (x.is_nan() && y.is_nan()),
+                            "{source} at {values:?}: {x:?} != {y:?}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// Rate programs that share subexpressions (E1): random expressions
+    /// built from a few random subexpressions, so that many occur more than
+    /// once, have the bits of their own programs and of the tree when the
+    /// shared values are computed by the slots' programs.
+    #[test]
+    fn shared_subexpressions_keep_the_bits_of_every_program() {
+        use rand_core::SeedableRng;
+        let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(0xe1);
+        fn expression(rng: &mut impl RngCore, depth: u8, parts: &[String]) -> String {
+            let draw = rng.next_u32();
+            if depth == 0 {
+                return if draw % 3 == 0 {
+                    parts[(draw / 3) as usize % parts.len()].clone()
+                } else {
+                    ["x", "y", "z", "k", "0", "2", "0.1"][(draw % 7) as usize].into()
+                };
+            }
+            let a = expression(rng, depth - 1, parts);
+            let b = expression(rng, depth - 1, parts);
+            match draw % 12 {
+                0 => format!("max(0, {a})"),
+                1 => format!("min(({a}), ({b}))"),
+                2 => format!("if(({a}), ({b}), -({a}))"),
+                3 => format!("({a}) * x"),
+                4 => format!("({a}) * k * ({b})"),
+                k => {
+                    let op = ["+", "-", "*", "/", "^", "<", ">="][(k - 5) as usize];
+                    format!("({a}){op}({b})")
+                }
+            }
+        }
+        let params = BTreeMap::from([("k".into(), 0)]);
+        let names = BTreeMap::from([("x".into(), 0), ("y".into(), 1), ("z".into(), 2)]);
+        let scope = Scope {
+            params: &params,
+            observables: Some(&names),
+            reactants: &[],
+            random: false,
+        };
+        let mut shared_programs = 0;
+        let mut slots = 0;
+        for round in 0..400 {
+            let parts: Vec<String> = (0..3)
+                .map(|_| expression(&mut rng, 2, &["x".into()]))
+                .collect();
+            let sources: Vec<String> = (0..6)
+                .map(|_| expression(&mut rng, 1 + u8::try_from(round % 3).unwrap(), &parts))
+                .collect();
+            let exprs: Vec<Expr> = sources
+                .iter()
+                .map(|s| Expr::parse(s, &scope).unwrap())
+                .collect();
+            for p in [[3.0], [-0.5], [f64::NAN]] {
+                let refs: Vec<Option<&Expr>> = exprs.iter().map(Some).collect();
+                let shared = SharedPrograms::new(&refs, &p);
+                slots += shared.slots.len();
+                for values in [
+                    [0.0, -0.0, 1.0],
+                    [-2.0, 2.0, 0.5],
+                    [f64::INFINITY, f64::NAN, -f64::INFINITY],
+                    [1e308, -1e-310, 3.0],
+                    [0.1, -3.7, 1.5e154],
+                ] {
+                    let env = Env {
+                        params: &p,
+                        observables: &values,
+                        attributes: [&[], &[]],
+                    };
+                    let computed: Vec<f64> = shared.slots.iter().map(|s| s.eval(&env)).collect();
+                    for (k, expr) in exprs.iter().enumerate() {
+                        let Some((program, needs)) = &shared.programs[k] else {
+                            continue;
+                        };
+                        shared_programs += 1;
+                        assert!(!needs.is_empty());
+                        let a = expr.eval(&env);
+                        let b = program.eval_shared(&values, &computed);
+                        assert!(
+                            a.to_bits() == b.to_bits() || (a.is_nan() && b.is_nan()),
+                            "{} at {p:?}, {values:?}: {a:?} != {b:?}",
+                            sources[k]
+                        );
+                    }
+                }
+            }
+        }
+        assert!(
+            shared_programs > 2000 && slots > 300,
+            "{shared_programs} {slots}"
+        );
+    }
+
+    /// The builder form of the three-class model (E1): the vacancy term is
+    /// one slot, the five replication rates are products of it, and no
+    /// larger term that would compute it again gets a slot.
+    #[test]
+    fn the_builder_vacancy_term_is_shared_once() {
+        let params = BTreeMap::from([
+            ("K".into(), 0),
+            ("sm".into(), 1),
+            ("sw".into(), 2),
+            ("mu".into(), 3),
+            ("fracAdv".into(), 4),
+            ("delta".into(), 5),
+        ]);
+        let names = BTreeMap::from([("W".into(), 0), ("M".into(), 1), ("A".into(), 2)]);
+        let scope = Scope {
+            params: &params,
+            observables: Some(&names),
+            reactants: &[],
+            random: false,
+        };
+        let p = [1000.0, 1.5, 1.0, 3e-5, 0.2, 0.003];
+        let free = "max(0, K - W - M - A) / (W + sm * (M + A))";
+        let sources = [
+            format!("{free} * sw * (1 - mu) * W"),
+            format!("{free} * sw * mu * (1 - fracAdv) * W"),
+            format!("{free} * sw * mu * fracAdv * W"),
+            format!("{free} * sw * M"),
+            format!("{free} * sm * A"),
+            "delta * W".into(),
+        ];
+        let exprs: Vec<Expr> = sources
+            .iter()
+            .map(|s| Expr::parse(s, &scope).unwrap())
+            .collect();
+        let refs: Vec<Option<&Expr>> = exprs.iter().map(Some).collect();
+        let shared = SharedPrograms::new(&refs, &p);
+        assert_eq!(shared.slots.len(), 1);
+        for program in &shared.programs[..5] {
+            let (program, needs) = program.as_ref().unwrap();
+            assert!(matches!(program, Program::Product(_)), "{program:?}");
+            assert_eq!(needs, &[0]);
+        }
+        assert!(shared.programs[5].is_none());
+        assert!(matches!(
+            Program::compile(&exprs[5], &p),
+            Program::Product(_)
+        ));
     }
 }

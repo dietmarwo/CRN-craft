@@ -13,6 +13,7 @@ results. New code depends on `crn-craft` and uses `crn_craft::rules`:
 crn-craft = "0.7"
 ```
 
+<!-- check: fragment -->
 ```rust
 use crn_craft::rules::{Control, execute, prepare};
 
@@ -32,9 +33,9 @@ and needs only `crn-craft`. The crate also holds the generator examples
 
 Further reading:
 
-- [Model reference](https://github.com/dietmarwo/CRN-craft/blob/main/docs/rules-language.md)
-- [Architecture](https://github.com/dietmarwo/CRN-craft/blob/main/docs/architecture.md)
-  and the [migration tables](https://github.com/dietmarwo/CRN-craft/blob/main/CHANGELOG.md)
-- [Generated rules kernels and event loops](https://github.com/dietmarwo/CRN-craft/blob/main/docs/specialized-kernels.md)
+- [Documentation site](https://dietmarwo.github.io/CRN-craft/) and [user guide](https://dietmarwo.github.io/CRN-craft/guide/01-install.html)
+- [Rust API](https://dietmarwo.github.io/CRN-craft/developer/rust-api.html), with a section on migrating from 0.6.0
+- [Model reference](https://dietmarwo.github.io/CRN-craft/reference/model-language.html)
+- [Generated rules kernels and event loops](https://dietmarwo.github.io/CRN-craft/developer/specialized-kernels.html)
 
 MIT licensed.

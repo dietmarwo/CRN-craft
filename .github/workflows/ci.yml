@@ -55,6 +55,9 @@ jobs:
       - run: python -O validation/check_cme.py --output cme-optimized.json
       - run: diff cme.json cme-optimized.json
       - run: python validation/mutation_check.py --output mutations.json
+      # The rust programs of the Rust API page and the crate READMEs compile
+      # and run against this checkout; their toml blocks name this version.
+      - run: python validation/check_rust_docs.py
   reference-export:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -79,7 +82,7 @@ jobs:
       - run: python -O validation/check_tau.py --binary target/release/crn-craft --output tau-optimized.json
       - run: diff tau.json tau-optimized.json
   rules:
-    # K1 exact-law gates for dynamic, attributed species (docs/rules-language.md).
+    # K1 exact-law gates for dynamic, attributed species (docs/reference/model-language.md).
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -98,14 +101,16 @@ jobs:
   python:
     # The wheel, its console scripts and the Python-level checks.
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       # rebop is a reference for check_builder.py only, not a dependency.
-      - run: python -m pip install maturin==1.9.6 numpy==2.3.5 pandas==3.1.1 xarray==2026.9.0 jsonschema==4.26.0 rebop==0.10.0
+      # matplotlib draws the plot of guide chapter 4; fcmaes, scipy and loguru
+      # run the fitting scripts of chapter 13 (smoke mode).
+      - run: python -m pip install maturin==1.9.6 numpy==2.3.5 pandas==3.1.1 xarray==2026.9.0 jsonschema==4.26.0 rebop==0.10.0 matplotlib==3.11.2 fcmaes==2.1.0 scipy==1.18.1 loguru==0.8.0
       - run: cargo build --release --workspace --locked
       - run: maturin build --release --locked --out dist
       - run: python -m pip install dist/*.whl
@@ -126,22 +131,28 @@ jobs:
           python validation/check_compiled_loop.py --require-cargo --output compiled-loop.json
           python -O validation/check_compiled_loop.py --require-cargo --output compiled-loop-optimized.json
           diff compiled-loop.json compiled-loop-optimized.json
-      # Every Python block of the mtDNA manual runs on its own and prints the
-      # output shown in the manual; compile_loop blocks build with this checkout.
-      - run: python validation/check_manual.py --binary target/release/crn-craft --require-cargo --output manual.json
-      - run: python -O validation/check_manual.py --binary target/release/crn-craft --require-cargo --output manual-optimized.json
-      - run: diff manual.json manual-optimized.json
+      # Every block of the user guide, README.md, python/README.md and
+      # docs/index.md runs and prints the output shown (one session per page;
+      # validation/guide-blocks.json holds the least block count per page).
+      # The fitting page runs in smoke mode (CRN_CRAFT_SMOKE=1); its full run
+      # takes over two hours and is done by hand before a release.
+      - name: User guide and READMEs
+        env:
+          CRN_CRAFT_SOURCE: ${{ github.workspace }}
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
+        run: |
+          python validation/check_guide.py --binary target/release/crn-craft --require-cargo --output guide.json
+          python -O validation/check_guide.py --binary target/release/crn-craft --require-cargo --output guide-optimized.json
+          diff guide.json guide-optimized.json
       # The frozen manual of release 0.6.0 (never edited): code written for
       # `crn_craft.rules` in 0.6.0 keeps running with the printed output.
       - run: python validation/check_manual.py --manual validation/compat/manual-0.6.0.md --binary target/release/crn-craft --require-cargo --output manual-0-6-0.json
       - run: python -O validation/check_manual.py --manual validation/compat/manual-0.6.0.md --binary target/release/crn-craft --require-cargo --output manual-0-6-0-optimized.json
       - run: diff manual-0-6-0.json manual-0-6-0-optimized.json
-      # The README of the Python package runs as printed.
-      - run: python validation/check_manual.py --manual python/README.md --require-cargo --output readme.json
-      - run: python -O validation/check_manual.py --manual python/README.md --require-cargo --output readme-optimized.json
-      - run: diff readme.json readme-optimized.json
       # Every relative link of docs/ and the READMEs resolves.
       - run: python validation/check_links.py
+      # docs/reference/python-api.md is generated from the installed package.
+      - run: python validation/make_python_reference.py --check
       # The rules.Model builder against exact means and rebop 0.10.0
       # (validation/builder/RESULTS.md).
       - run: python validation/check_builder.py --output builder.json
@@ -161,9 +172,6 @@ jobs:
       - run: python validation/check_importers.py --output importers.json
       - run: python -O validation/check_importers.py --output importers-optimized.json
       - run: diff importers.json importers-optimized.json
-      - run: python validation/check_tutorial.py --binary target/release/crn-craft --output tutorial.json
-      - run: python -O validation/check_tutorial.py --binary target/release/crn-craft --output tutorial-optimized.json
-      - run: diff tutorial.json tutorial-optimized.json
       - name: Installed-package acceptance outside the source tree
         working-directory: ${{ runner.temp }}
         run: |

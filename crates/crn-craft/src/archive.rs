@@ -11,7 +11,7 @@
 //! A complete archive can hold an incomplete simulation, so read
 //! `archive_complete` and `simulation_complete` together. Integrity checks
 //! are not signatures and do not establish biological validity. See
-//! [docs/archive-contract.md](https://github.com/dietmarwo/CRN-craft/blob/main/docs/archive-contract.md).
+//! [docs/reference/archives.md](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/archives.md).
 use crate::diagnostic::Diagnostic;
 use serde::Serialize;
 use std::{

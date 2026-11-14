@@ -52,7 +52,7 @@ are byte-identical to the interpreter's.
   sampling, instance, output and wall-time budgets and a cancel file. It
   runs in the `python` CI job, normally and under `-O`.
 - **Speed.** Declared target: on the 1000-cell three-class workload of the
-  [performance analysis](../mtdna-performance-analysis.md#2-methods)
+  [performance analysis](../evidence/mtdna-performance-analysis.md#2-methods)
   (takeover stop, three years, monthly reports, seed 17, two threads, two
   count trackers), `run.simulate(compiled=loop)` is at least **1.5×**
   faster than interpreted `run.simulate()` under `method="static_direct"`.
@@ -142,4 +142,4 @@ The shared target directory took about 150 MB; each cached program about
   was met with Cargo's defaults, which keep the target directory shareable.
 - Measured on one host and one model; other models, in particular networks
   with many constant-rate channels, can gain less or lose
-  ([checklist](../specialized-kernels.md#generated-rules-event-loops)).
+  ([checklist](../developer/specialized-kernels.md#generated-rules-event-loops)).

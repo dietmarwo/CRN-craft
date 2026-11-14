@@ -1,6 +1,6 @@
 # M4a log: limits of `crn-craft.model/1.0`
 
-Task M4a of [the plan](../../plan-0.7.0-engine-merge.md).
+Task M4a of [the plan](../../history/plan-0.7.0-engine-merge.md).
 
 ## Declared before measuring
 

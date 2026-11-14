@@ -1,6 +1,6 @@
 # M3 log: unified contract names
 
-Task M3 of [the plan](../../plan-0.7.0-engine-merge.md): add
+Task M3 of [the plan](../../history/plan-0.7.0-engine-merge.md): add
 `crn-craft.model/1.0`, `crn-craft.run/1.0`, `crn-craft.result/1.0` and
 `crn-craft.check/1.0` as new versions of the rules contracts, without new
 features, and dispatch by schema string.

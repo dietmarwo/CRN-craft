@@ -1,6 +1,6 @@
 # M5e log: ODE right-hand side and Jacobians on the flat view
 
-Task M5e of [the plan](../../plan-0.7.0-engine-merge.md): `kinetics.rs`
+Task M5e of [the plan](../../history/plan-0.7.0-engine-merge.md): `kinetics.rs`
 takes a `FlatView`; a new `rules/dual.rs` evaluates rule expressions with
 dual numbers; the right-hand side and both Jacobians come from them;
 `integrations/diffsol` and `validation/check_ode.py` keep working.

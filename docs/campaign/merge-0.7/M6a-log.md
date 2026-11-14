@@ -1,6 +1,6 @@
 # M6a log: one Python API
 
-Task M6a of [the plan](../../plan-0.7.0-engine-merge.md) (section 3,
+Task M6a of [the plan](../../history/plan-0.7.0-engine-merge.md) (section 3,
 "Unified Python API", and M6 items 1 to 5), done together with M7 on the
 branch `merge/M6` (worktree `/home/claude/m07/wt-m6`) from `merge-0.7` at
 `c98dcfe` with `merge/M5cdg` merged in at `f3fcb6b`.

@@ -1,6 +1,6 @@
 # M8b log: delete the network engine
 
-Task M8b of [the plan](../../plan-0.7.0-engine-merge.md) (M8, "Delete"), on
+Task M8b of [the plan](../../history/plan-0.7.0-engine-merge.md) (M8, "Delete"), on
 the integration checkout `/home/claude/fb2/engine`, branch `merge-0.7`, from
 `342c322` (the merge of M8a, M8c and M9). Evidence, reports and logs of every
 run below: `/home/claude/m07/m8b/` (`step0/`, `dev/`, `final/`, `gate/`,

@@ -4,7 +4,7 @@
 //! warnings), an RFC 6901 JSON Pointer into the offending document, a message
 //! and a repair hint. Codes and pointers are the machine contract; messages
 //! may be reworded. The full code table is in
-//! [docs/diagnostics.md](https://github.com/dietmarwo/CRN-craft/blob/main/docs/diagnostics.md).
+//! [docs/reference/diagnostics.md](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/diagnostics.md).
 //!
 //! ```
 //! use crn_craft::diagnostic::{Diagnostic, Severity, pointer};

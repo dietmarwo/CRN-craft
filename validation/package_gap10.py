@@ -121,7 +121,7 @@ every other packaged file and the ZIP passed its CRC check.
 ## Read and reproduce
 
 - `{logname}`: complete iteration decisions, tests, measured results and limits.
-- `repo/docs/comparison-julia-gap10.md`: direct same-host baseline/final/Julia comparison.
+- `repo/docs/evidence/comparison-julia-gap10.md`: direct same-host baseline/final/Julia comparison.
 - `repo/docs/campaign/julia-gap10-source-investigation.md`: inspected Julia mechanisms.
 - `repo/validation/julia-gap10/README.md`: build and reproduction instructions.
 - `repo/validation/julia-gap10/`: every observation, final gates, compressed samples and rejected experiment diffs.

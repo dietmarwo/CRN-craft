@@ -7,6 +7,14 @@ appear and disappear during a run. Models, requests and results are
 versioned JSON documents with strict input checks, explicit budgets and
 replayable seeds.
 
+```toml
+[dependencies]
+crn-craft = "0.7"
+```
+
+The [documentation site](https://dietmarwo.github.io/CRN-craft/) has the [user guide](https://dietmarwo.github.io/CRN-craft/guide/01-install.html)
+and the [Rust API](https://dietmarwo.github.io/CRN-craft/developer/rust-api.html). The library provides:
+
 - One model format, `crn-craft.model/1.0`: species types with optional
   numeric attributes, rules with rate or whole-rule propensity expressions,
   observables, continuous variables and higher-order patterns. Network
@@ -29,18 +37,13 @@ replayable seeds.
 - Opt-in generated Static Direct event loops (Rust source), byte-identical
   to the interpreter.
 
-```toml
-[dependencies]
-crn-craft = "0.7"
-```
-
 The command-line interface is the
 [`crn-craft-cli`](https://crates.io/crates/crn-craft-cli) crate
 (`cargo install crn-craft-cli --locked`), and the Python package is
 [`crn-craft` on PyPI](https://pypi.org/project/crn-craft/). The crate
 [`crn-craft-rules`](https://crates.io/crates/crn-craft-rules) is the
 deprecated 0.6.0 name of `crn_craft::rules`, kept as a re-export.
-Documentation, contracts, example models and the fixture-based test suite are
-in the [repository](https://github.com/dietmarwo/CRN-craft). A successful
+Contracts, example models and the fixture-based test suite are in the
+[repository](https://github.com/dietmarwo/CRN-craft). A successful
 numerical run is not biological validation. MIT licensed; see
 THIRD_PARTY_NOTICES.md for the Ziggurat tables adapted from Julia.

@@ -1,6 +1,6 @@
 # M5c log: tau leaping on converted models
 
-Task M5c of [the plan](../../plan-0.7.0-engine-merge.md): run the gates of
+Task M5c of [the plan](../../history/plan-0.7.0-engine-merge.md): run the gates of
 `validation/check_tau.py` against the rules `tau` method on converted
 models, move the Poisson sampler that the rules engine calls to
 `sampling.rs`, and measure the cost of `tau`'s channels² leap condition.

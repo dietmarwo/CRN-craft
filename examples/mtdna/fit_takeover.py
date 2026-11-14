@@ -1,28 +1,70 @@
 """Fit the mutation probability and the replication advantage to takeover data."""
 
-import json
+import math
+import os
 import sys
 import time
 
 import numpy as np
-from crn_craft import rules
+import crn_craft as crn
 from fcmaes import bitecpp
 from scipy.optimize import Bounds
 
+SMOKE = os.environ.get("CRN_CRAFT_SMOKE") == "1"  # CI: few cells, 3 evaluations
+
+
+def cells(count):
+    return max(count // 100, 16) if SMOKE else count
+
+
+def three_class(
+    K=1000, w0=1000, m0=0, mu=3e-5, sm=1.5, half_life_days=10, takeover=None
+):
+    """The three-class mtDNA model: wild type W, neutral M, advantaged A."""
+    model = crn.Model("mtdna_three_class")
+    model.add_parameter(
+        {
+            "K": K,
+            "delta": math.log(2) / (24 * half_life_days),
+            "sw": 1.0,
+            "sm": sm,
+            "mu": mu,
+            "fracAdv": 0.2,
+        }
+    )
+    model.add_species({"W": w0, "M": m0, "A": 0})
+    free = "max(0, K - W - M - A) / (W + sm * (M + A))"
+    model.add_reaction(
+        f"{free} * sw * (1 - mu) * W", ["W"], ["W", "W"], "replication_wt"
+    )
+    model.add_reaction(
+        f"{free} * sw * mu * (1 - fracAdv) * W", ["W"], ["W", "M"], "mutation_mt"
+    )
+    model.add_reaction(
+        f"{free} * sw * mu * fracAdv * W", ["W"], ["W", "A"], "mutation_mtAdv"
+    )
+    model.add_reaction(f"{free} * sw * M", ["M"], ["M", "M"], "replication_mt")
+    model.add_reaction(f"{free} * sm * A", ["A"], ["A", "A"], "replication_mtAdv")
+    for label, species in (("wt", "W"), ("mt", "M"), ("mtAdv", "A")):
+        model.add_reaction(f"delta * {species}", [species], [], f"degradation_{label}")
+    if takeover is not None:
+        model.set_stop(f"W + M + A > 0 && M + A >= {takeover} * (W + M + A)")
+    return model
+
+
 DAYS = np.array([360, 720, 1080])
-MODEL = json.loads(rules.load("models/rules/mtdna-three-class.rules.json"))
-MODEL["stop"] = "N > 0 && mutants >= 0.9 * N"
+MODEL = three_class(takeover=0.9)
 
 
-def template(cells, seed, threads=2):
-    return rules.ensemble(
+def template(count, seed, threads=2):
+    return crn.ensemble(
         MODEL,
         end=25_920.0,
         report_times=24.0 * np.concatenate(([0], DAYS)),
-        replicates=cells,
+        replicates=cells(count),
         seed=seed,
         threads=threads,
-        method="mtdna_direct",
+        method="mtdna_direct",  # the fast path (guide page 12d)
     )
 
 
@@ -32,7 +74,7 @@ def summaries(result):
     stopped = result.records["termination"] == "stopped"
     taken = np.array([(stopped & (stop <= 24.0 * d)).mean() for d in DAYS])
     mean = result.statistics["mean"].iloc[1:]  # the report times after day 0
-    load = (mean["mutants"] / mean["N"]).to_numpy()
+    load = ((mean["M"] + mean["A"]) / mean.sum(axis=1)).to_numpy()
     return taken, load
 
 
@@ -64,6 +106,7 @@ def objective(x, prepared=SEARCH, observed_data=None):
 if __name__ == "__main__":
     OBSERVED = observed
     evaluations = int(sys.argv[1]) if len(sys.argv) > 1 else 100
+    evaluations = 3 if SMOKE else evaluations
     bounds = Bounds([-5.5, 1.0], [-3.5, 2.5])
     start = time.perf_counter()
     found = bitecpp.minimize(

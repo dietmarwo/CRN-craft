@@ -23,7 +23,7 @@ def standalone(text):
     text = re.sub(
         r"!\[[^\]]*\]\(([^)]+)\)",
         lambda m: (
-            f"*Chart: `repo/{posixpath.normpath(posixpath.join('docs', m[1]))}` in the patch ZIP; all values also appear in the tables.*"
+            f"*Chart: `repo/{posixpath.normpath(posixpath.join('docs/evidence', m[1]))}` in the patch ZIP; all values also appear in the tables.*"
         ),
         text,
     )
@@ -32,7 +32,7 @@ def standalone(text):
         name, target = match.groups()
         if "://" in target or target.startswith("#"):
             return match[0]
-        return f"{name} (`repo/{posixpath.normpath(posixpath.join('docs', target))}` in the patch ZIP)"
+        return f"{name} (`repo/{posixpath.normpath(posixpath.join('docs/evidence', target))}` in the patch ZIP)"
 
     return re.sub(r"(?<!!)\[([^\]]+)\]\(([^)]+)\)", link, text)
 
@@ -94,7 +94,7 @@ resulting Git tree with the head tree. `patch-verification.json` records this.
 
 ## Contents and validation
 
-- `repo/docs/comparison-catalyst-jumpprocesses.md`: the new seven-workload comparison.
+- `repo/docs/evidence/comparison-catalyst-jumpprocesses.md`: the new seven-workload comparison.
 - `repo/docs/campaign/ssa-acceleration-implementation-log-2026-11-02.md`: implementation loops, tests, failures and limitations.
 - `repo/docs/alternative-ssa.md`: new request/result contracts, Python and CLI usage, numerical policy.
 - `repo/validation/ssa-acceleration/`: raw measurements, compressed samples, final/failed check logs and pinned environments.
@@ -196,7 +196,9 @@ new methods use standalone `ssa-result/0.1` JSON and separate sampler identities
     )
     comparison = out / "comparison-catalyst-jumpprocesses.md"
     comparison.write_text(
-        standalone((ROOT / "docs/comparison-catalyst-jumpprocesses.md").read_text())
+        standalone(
+            (ROOT / "docs/evidence/comparison-catalyst-jumpprocesses.md").read_text()
+        )
     )
     print(
         json.dumps(

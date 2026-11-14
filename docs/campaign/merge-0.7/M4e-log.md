@@ -1,6 +1,6 @@
 # M4e log: quantile statistics (FR1a)
 
-Task M4e of [the plan](../../plan-0.7.0-engine-merge.md), the first part of
+Task M4e of [the plan](../../history/plan-0.7.0-engine-merge.md), the first part of
 the feature request FR1: the median and other percentiles of every
 observable at every report time, computed in the engine. Done on the branch
 `merge/M4e` (worktree `/home/claude/m07/wt-m4e`) from `merge-0.7` after M0c,

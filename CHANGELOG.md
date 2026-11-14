@@ -7,6 +7,73 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+The documentation is rebuilt around one user guide, and builder-built
+models run faster and can use the fast path `mtdna_direct` (see
+**Changed**).
+
+### Documentation
+
+- **One user guide** (`docs/guide/`) replaces `docs/tutorial.md` and
+  `docs/mtdna-user-manual.md`: install, a first model, ensembles, results,
+  speed, stop conditions and event logs, methods, reproducing published
+  results, continuous variables, the command line, analysis and
+  import/export, the mtDNA case study, fitting, model files and attributes,
+  R, troubleshooting and migrating. Every model is built with
+  `crn.Model`/`add_species`/`add_reaction`; model files are one late
+  chapter. Every runnable block is checked in CI by
+  `validation/check_guide.py`, normally and under `python -O`.
+- **New pages:** a task index (`docs/howto.md`), a landing page
+  (`docs/index.md`) and a comparison with GillesPy2 and rebop
+  (`docs/comparison.md`), whose speed figures come from committed
+  measurements, including a new one of rebop 0.10.0 on this engine
+  (`validation/merge/rebop-comparison-0.7.json`).
+- **Sorted by reader:** `docs/reference/`, `docs/developer/`,
+  `docs/evidence/`, `docs/history/`. Every old path keeps a page that
+  points to the new one.
+- **Python API reference** generated from the docstrings
+  (`validation/make_python_reference.py`; CI fails when it is stale).
+- **A documentation site** built with mdBook (`book.toml`,
+  `docs/SUMMARY.md`, `.github/workflows/docs.yml`), deployed from `main`
+  to GitHub Pages.
+- The README starts with a working example.
+- The frozen 0.6.0 manual (`validation/compat/manual-0.6.0.md`) still runs
+  in CI.
+- The mtDNA case study (pages 12 to 12e) and the fitting chapter's scripts
+  (`examples/mtdna/fit_*.py`) run the builder model on `mtdna_direct`; the
+  ATP model and the compiled loop keep their own methods. Docstrings that
+  were missing or stale are completed (`PreparedEnsemble`, `ImportFailure`,
+  the importers' return value, the speed of `mtdna_direct`), and the crates'
+  doc comments link the new documentation paths.
+
+### Changed
+
+- Faster whole-rule propensities and expression rates, with every result
+  unchanged byte for byte: a subexpression that several rate programs of
+  one model share (the vacancy term of a builder-built model) is computed
+  once per event, programs use fused steps, products of a value with
+  constants and counts run without the interpreter, and stops of the form
+  `T > 0 && P >= f * T` over sums of observables have their own form. The
+  builder form of the guide's three-class mtDNA model runs Static Direct
+  2.7 times faster (68.4 against 186.7 ns per event), within 1.4 times the
+  model file's time per event under Static Direct (see
+  `validation/merge/RESULTS.md`, "E1").
+- `mtdna_direct` certifies the builder form of the three-class model
+  (attribute-free species, whole-rule propensities, the takeover stop over
+  sums of counts) in `crn-craft.run/1.0` requests and runs the fast path
+  with the file form's sampler identity; the builder form's kernel equals
+  the file form's, so its draws do too, and it takes the file form's time
+  (0.97 times). Requests of the `rules-run` versions keep the fallback with
+  `CRN-R051`. An exact-law check of the builder form under `mtdna_direct`
+  passed (120 comparisons, 0 failures).
+  **This is the one case in which a 0.7.0 result does not replay byte for
+  byte:** a `run/1.0` request that names `mtdna_direct` for a builder-built
+  three-class model ran the Static Direct fallback in 0.7.0 (sampler
+  `chacha8-u53/rules-static-direct/1`, with the warning `CRN-R051`) and
+  runs the fast path now (`chacha8-u53-ziggurat/rules-mtdna-direct/1`).
+  The request hash is the same; the paths are other samples of the same
+  law, and the sampler in the result says which one ran. Every other
+  stored request gives the bytes of 0.7.0.
+
 ## [0.7.0] - 2026-11-12
 
 One engine. The network engine and the rules engine are merged into a
@@ -529,7 +596,7 @@ with a different use of the random stream (see **Migration**).
 
 The answer to the first user feedback on the 0.2.0 Python interface, from a
 researcher simulating mtDNA mutant models: six findings, fixed in the
-increments I1–I7 of [the plan](docs/plan-0.3.0-feedback.md). Python results
+increments I1–I7 of [the plan](docs/history/plan-0.3.0-feedback.md). Python results
 become pandas DataFrames, which breaks code written for the NumPy results of
 0.2.0; see **Migration** below. Stored rules-model 0.1/0.2 files and
 rules-run 0.1–0.4 requests keep their meaning and replay byte-identically.
@@ -825,11 +892,11 @@ iterations that make up this release follow.
 - Static Direct, next reaction, ATP thinning and the leap methods cache rule rates and shared vacancy bases, recompute only the channels and observables an event affects, defer report-only observables, keep the live-instance count incrementally and evaluate the stop and predicates from compiled bytecode. Existing requests return byte-identical results.
 - `rules-run/0.4` adds two opt-ins on `static_direct`: `waiting_time: "ziggurat"` and `sparse_trackers: true`. Each has its own sampler identity; the result stays `rules-result/0.2`. If no tracker is eligible, `sparse_trackers` reports the default identity and `CRN-R051`.
 - `generate_rules_kernel` emits a Rust kernel for one closed model with constant or vacancy rates. `execute_with_rules_kernel` runs it under the Static Direct scheduler with byte-identical results. It refuses kernels generated for other model bytes or by another generator version, because the fingerprint covers the emitted source. Rust only; it is not available from Python.
-- [docs/specialized-kernels.md](docs/specialized-kernels.md): when a model-specific kernel is worth it, and the review checklist. Review log: [docs/campaign/fast-generic-rules-review-log-2026-11-03.md](docs/campaign/fast-generic-rules-review-log-2026-11-03.md).
+- [docs/developer/specialized-kernels.md](docs/developer/specialized-kernels.md): when a model-specific kernel is worth it, and the review checklist. Review log: [docs/campaign/fast-generic-rules-review-log-2026-11-03.md](docs/campaign/fast-generic-rules-review-log-2026-11-03.md).
 
 #### Added: mtDNA ensembles, event observation and alternative rules methods (A0–A6)
 
-- Three-class mtDNA fixtures (`models/rules/mtdna-three-class*.rules.json`) with independent CME gates, and a usage guide in [docs/mtdna-rules.md](docs/mtdna-rules.md).
+- Three-class mtDNA fixtures (`models/rules/mtdna-three-class*.rules.json`) with independent CME gates, and a usage guide in [docs/mtdna-rules.md](docs/reference/methods.md).
 - `crn_craft.rules`: prepared parallel rules ensembles from Python with read-only NumPy record columns, cooperative cancellation, budgets, `bind_parameters` candidates, live and batch event callbacks, trackers (crossings, episodes, extrema, integrals, first passage) and a bounded event log. The Rust `EventObserver` interface exposes the same committed events.
 - Rules methods: `static_direct`, `mtdna_direct` (exact grouped Direct for the fixed three-class model, with an explained Static Direct fallback, `CRN-R051`), `next_reaction` (Gibson–Bruck), approximate `tau` and `binomial`, and `thinning` for the ATP-coupled model (`rules-model/0.2` `atp` block).
 - Contracts: `rules-run/0.2` (method, trackers, event log) and `0.3` (adds `mtdna_direct`) answer with `rules-result/0.2`; `rules-model/0.2` adds `atp`. `rules-run/0.1`, `rules-model/0.1` and the tree method keep their meaning and result bytes, and reject the new fields even when empty or null. Network `ssa-run/0.4` is 0.3 plus the `next_reaction` aggregator (checked policy and inverse waits only) and answers with `ssa-result/0.4`.

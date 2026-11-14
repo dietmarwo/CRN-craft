@@ -74,5 +74,5 @@ Try fewer observation times or noisier empirical targets. A clone-dynamics
 extension should start from the existing fixed-population fixture with its own
 law and biological assumptions; it is not included in this aggregation lesson.
 Time-dependent rates, ODE coupling and counts inside rule expressions remain
-outside the current K1 feature set. Read [rules semantics](../../docs/rules-language.md)
+outside the current K1 feature set. Read [rules semantics](../../docs/reference/model-language.md)
 and the existing [exact-law evidence](../../validation/rules/RESULTS.md).

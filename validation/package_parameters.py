@@ -121,7 +121,7 @@ reconstruction was verified: `{tree}`. Every other file is in `SHA256SUMS`.
 
 - `{LOG}`: implementation, checks, complete optimization results and limits.
 - `repo/docs/reusable-parameters.md`: Rust/Python API and generated kernels.
-- `repo/docs/comparison-parameter-optimization.md`: compilation, optimizer and
+- `repo/docs/evidence/comparison-parameter-optimization.md`: compilation, optimizer and
   held-out quality comparison, including rebop dynamic and macro routes.
 - `repo/validation/parameter-optimization/README.md`: reproducible commands.
 - `repo/validation/parameter-optimization/evidence/`: raw traces, build costs,

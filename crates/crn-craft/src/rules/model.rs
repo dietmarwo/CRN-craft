@@ -7,7 +7,7 @@
 //! continuous variables ([`crate::rules::continuous::ContinuousSpec::independent`]). A model is parsed strictly and validated by
 //! [`crate::rules::check_model`] or [`crate::rules::prepare`], which compile every
 //! expression. The [rules language
-//! reference](https://github.com/dietmarwo/CRN-craft/blob/main/docs/rules-language.md)
+//! reference](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/model-language.md)
 //! defines the propensities, the expression syntax and which names each
 //! field may use. In brief:
 //!
@@ -1418,7 +1418,7 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
     if out.is_empty() {
         let stop_program = stop
             .as_ref()
-            .map(|e| Predicate::compile(e, observables.len()));
+            .map(|e| Predicate::compile(e, observables.len()).with_program(e, &params));
         Ok(Compiled {
             version: model.schema,
             params,

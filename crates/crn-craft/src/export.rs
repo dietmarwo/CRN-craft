@@ -24,7 +24,7 @@
 //! more than 64 molecules of one species in a custom propensity, a
 //! negative constant rate, and a `stop` condition. The source is for
 //! reference cross-checks; it carries no budgets, seeds or time grid. See
-//! [docs/reference-export.md](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference-export.md).
+//! [docs/reference/gillespy2-export.md](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/gillespy2-export.md).
 use crate::{
     diagnostic::{Diagnostic, Severity, pointer},
     rules::FlatView,

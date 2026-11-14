@@ -213,7 +213,7 @@ optimizer overhead. “First-run total” includes process setup/teardown, sourc
 generation, the entire relevant bundle's dependency-cache-warm compilation,
 optimizer time, exact-oracle assessment and 4096-path held-out validation.
 It excludes dependency installation/compilation. Every seed and timing
-observation remains in [the raw report](../validation/parameter-optimization/evidence/optimization.json).
+observation remains in [the raw report](../../validation/parameter-optimization/evidence/optimization.json).
 
 ## Repeated-use cost
 
@@ -318,15 +318,15 @@ The final gate logs record `check_parameter_interface.py` with SHA-256
 `parameter-validation.json` was refreshed with it. The evidence describes the
 import commit `85a085b`; later commits change hashed sources.
 
-[API guide](reusable-parameters.md),
-[fixed protocol](decisions/reusable-parameters-2026-11-02.md),
-[reproduction instructions](../validation/parameter-optimization/README.md) and
-[implementation log](campaign/reusable-parameters-implementation-log-2026-11-02.md)
+[API guide](../reusable-parameters.md),
+[fixed protocol](../decisions/reusable-parameters-2026-11-02.md),
+[reproduction instructions](../../validation/parameter-optimization/README.md) and
+[implementation log](../campaign/reusable-parameters-implementation-log-2026-11-02.md)
 accompany the patch. Failed development outputs remain separate. The checked
 mode remains the default. No remote was pushed or package published.
 """
     )
-    (ROOT / "docs/comparison-parameter-optimization.md").write_text(text)
+    (ROOT / "docs/evidence/comparison-parameter-optimization.md").write_text(text)
     save_path = FOLDER / "evidence/summary.json"
     save_path.write_text(
         json.dumps(

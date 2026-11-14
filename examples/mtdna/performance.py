@@ -1,4 +1,4 @@
-"""Timings behind docs/mtdna-performance-analysis.md.
+"""Timings behind docs/evidence/mtdna-performance-analysis.md.
 
 Usage: python examples/mtdna/performance.py SECTION [CRN_CRAFT_BINARY]
 

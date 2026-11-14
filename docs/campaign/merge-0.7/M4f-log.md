@@ -1,7 +1,7 @@
 # M4f log: per-event cost, the RSSA-CR clock and `auto`
 
 Task M4f, added by the coordinator before the speed gate M4d of
-[the plan](../../plan-0.7.0-engine-merge.md): bring the unified engine's
+[the plan](../../history/plan-0.7.0-engine-merge.md): bring the unified engine's
 per-event cost within the 1.25 × gate of M4d, fix the clock failure that the
 M4c RSSA-CR law gate met on vilar-noise, and revisit `auto`. The gate itself
 is in the [M4d log](M4d-log.md).

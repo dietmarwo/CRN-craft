@@ -75,8 +75,8 @@
 //!   `crn-craft describe run-1.0` (`rules-check` and `rules` remain aliases).
 //! - [`crn-craft` on PyPI](https://pypi.org/project/crn-craft/): Python
 //!   ensembles through `crn_craft` (and `crn_craft.rules`, the 0.6.0 API).
-//! - [Model reference](https://github.com/dietmarwo/CRN-craft/blob/main/docs/rules-language.md),
-//!   [architecture](https://github.com/dietmarwo/CRN-craft/blob/main/docs/architecture.md)
+//! - [Model reference](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/model-language.md),
+//!   [architecture](https://github.com/dietmarwo/CRN-craft/blob/main/docs/developer/architecture.md)
 //!   and the [migration tables](https://github.com/dietmarwo/CRN-craft/blob/main/CHANGELOG.md).
 
 #![warn(missing_docs)]

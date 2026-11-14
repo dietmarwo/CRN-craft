@@ -45,7 +45,9 @@ dATP/dt = f · W − v1 · ATP − v2 · (W + M + A),
 
 and every replication rate is multiplied by c / (c + ATP) instead of the
 free places below `K`. `add_ode` declares the variable with a lower bound of
-0, and the string rates read it. Only the method `hybrid` runs such a model:
+0, and the string rates read it. Only the method `hybrid` runs such a model.
+The fast path of the other pages does not apply, because this model is not
+the three-class structure:
 
 ```python
 def atp_cell(f=0.1, v1=0.2, v2=0.01, c=1.3034153747670567, atp0=450.0):

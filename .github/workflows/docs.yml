@@ -16,8 +16,10 @@ concurrency:
   group: pages-${{ github.ref }}
   cancel-in-progress: true
 env:
-  MDBOOK_VERSION: "0.5.0"
-  MDBOOK_MERMAID_VERSION: "0.17.1"
+  # Not MDBOOK_*: mdBook reads environment variables with that prefix as
+  # configuration keys and rejects unknown ones.
+  PIN_MDBOOK: "0.5.0"
+  PIN_MDBOOK_MERMAID: "0.17.1"
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -29,8 +31,8 @@ jobs:
           python-version: "3.12"
       - name: Install mdBook and mdbook-mermaid
         run: |
-          cargo install mdbook --locked --version "$MDBOOK_VERSION" --root "$RUNNER_TEMP/tools"
-          cargo install mdbook-mermaid --locked --version "$MDBOOK_MERMAID_VERSION" --root "$RUNNER_TEMP/tools"
+          cargo install mdbook --locked --version "$PIN_MDBOOK" --root "$RUNNER_TEMP/tools"
+          cargo install mdbook-mermaid --locked --version "$PIN_MDBOOK_MERMAID" --root "$RUNNER_TEMP/tools"
           echo "$RUNNER_TEMP/tools/bin" >> "$GITHUB_PATH"
       - name: Check SUMMARY.md and relative links
         run: python validation/check_links.py

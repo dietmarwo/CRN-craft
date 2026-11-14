@@ -3,7 +3,7 @@
 //! [`generate_rules_kernel`] emits the rate and projection arithmetic of one
 //! prepared model as Rust source; [`execute_with_rules_kernel`] runs a
 //! compiled kernel under the Static Direct scheduler. See the
-//! [rules kernel checklist](https://github.com/dietmarwo/CRN-craft/blob/main/docs/specialized-kernels.md#ahead-of-time-generated-rules-kernels).
+//! [rules kernel checklist](https://github.com/dietmarwo/CRN-craft/blob/main/docs/developer/specialized-kernels.md#ahead-of-time-generated-rules-kernels).
 use crate::rules::expr::RateKernel;
 use crate::rules::flat::Network;
 use crate::rules::model::Reduce;

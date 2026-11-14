@@ -192,15 +192,15 @@
 //!   `crn-craft describe run-1.0` (`rules-check` and `rules` remain aliases).
 //! - [`crn-craft` on PyPI](https://pypi.org/project/crn-craft/): Python
 //!   ensembles through `crn_craft` (and `crn_craft.rules`, the 0.6.0 API).
-//! - [Rules language](https://github.com/dietmarwo/CRN-craft/blob/main/docs/rules-language.md):
+//! - [Rules language](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/model-language.md):
 //!   the model language, propensities, expressions and numerical policy.
-//! - [mtDNA ensembles](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-rules.md)
-//!   and the [mtDNA user manual](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-user-manual.md):
-//!   methods, trackers, event logs, callbacks and later contract versions.
-//! - [Rules kernel checklist](https://github.com/dietmarwo/CRN-craft/blob/main/docs/specialized-kernels.md):
+//! - [Methods](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/methods.md)
+//!   and the [mtDNA case study](https://github.com/dietmarwo/CRN-craft/blob/main/docs/guide/12-mtdna.md)
+//!   of the user guide: methods, trackers, event logs and callbacks.
+//! - [Rules kernel checklist](https://github.com/dietmarwo/CRN-craft/blob/main/docs/developer/specialized-kernels.md):
 //!   generated rules kernels and event loops.
-//! - [Architecture](https://github.com/dietmarwo/CRN-craft/blob/main/docs/architecture.md)
-//!   and [diagnostic codes](https://github.com/dietmarwo/CRN-craft/blob/main/docs/diagnostics.md).
+//! - [Architecture](https://github.com/dietmarwo/CRN-craft/blob/main/docs/developer/architecture.md)
+//!   and [diagnostic codes](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/diagnostics.md).
 
 #![warn(missing_docs)]
 

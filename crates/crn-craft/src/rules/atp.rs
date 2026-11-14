@@ -16,7 +16,7 @@
 //! model's observables, and report it as zero after an ATP stop. Trackers
 //! cannot read it.
 //!
-//! The [mtDNA guide](https://github.com/dietmarwo/CRN-craft/blob/main/docs/mtdna-rules.md)
+//! The [method reference](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/methods.md#the-atp-block-and-thinning)
 //! describes the fixture `models/rules/mtdna-three-class-atp.rules.json`.
 //! rules-model/0.3 can write the same flow as an ordinary
 //! [`crate::rules::continuous`] variable

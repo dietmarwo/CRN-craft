@@ -99,7 +99,7 @@
 //! Errors are [`diagnostic::Diagnostic`] values with a stable code (`CRN-E…`,
 //! `CRN-R…`, warnings `CRN-W…`) and a JSON Pointer to the offending input,
 //! listed in
-//! [docs/diagnostics.md](https://github.com/dietmarwo/CRN-craft/blob/main/docs/diagnostics.md).
+//! [docs/reference/diagnostics.md](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/diagnostics.md).
 //! Report-style functions ([`check_any`], [`analyze_bytes`],
 //! [`export::export_gillespy2`], [`archive::v1::run_files`],
 //! [`archive::v1::verify`]) never fail; they return a report with a `valid`
@@ -119,12 +119,12 @@
 //! - [`crn-craft` on PyPI](https://pypi.org/project/crn-craft/): Python
 //!   bindings with prepared runs, importers and trajectory analysis.
 //! - Repository documentation: the
-//!   [tutorial](https://github.com/dietmarwo/CRN-craft/blob/main/docs/tutorial.md),
-//!   [architecture](https://github.com/dietmarwo/CRN-craft/blob/main/docs/architecture.md),
-//!   [model language](https://github.com/dietmarwo/CRN-craft/blob/main/docs/rules-language.md),
-//!   [input contracts](https://github.com/dietmarwo/CRN-craft/blob/main/docs/contracts.md),
-//!   [result and archive contract](https://github.com/dietmarwo/CRN-craft/blob/main/docs/archive-contract.md)
-//!   and the [technical report](https://github.com/dietmarwo/CRN-craft/blob/main/docs/technical-report.md)
+//!   [user guide](https://github.com/dietmarwo/CRN-craft/blob/main/docs/guide/01-install.md),
+//!   [architecture](https://github.com/dietmarwo/CRN-craft/blob/main/docs/developer/architecture.md),
+//!   [model language](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/model-language.md),
+//!   [input contracts](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/contracts.md),
+//!   [result and archive contract](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/archives.md)
+//!   and the [technical report](https://github.com/dietmarwo/CRN-craft/blob/main/docs/evidence/technical-report.md)
 //!   on numerical methods and validation.
 
 // Contributor note: doc comments on types that derive `JsonSchema` become

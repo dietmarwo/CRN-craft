@@ -52,7 +52,9 @@ command reads and writes JSON and exits 0 on success:
 
 A *request* says what to compute: the method, the report times, the
 replicates, the seed and the budgets. `crn.ensemble` writes one from its
-arguments; here you write it yourself. It names its model by path **and by
+arguments; here you write it yourself. (To repeat from the shell a run that
+`crn.ensemble` prepared, archive it in Python and replay the archive:
+[Replay](#replay).) It names its model by path **and by
 the SHA-256 of the file's exact bytes**, so a result can never be attributed
 to a model that was edited afterwards:
 
@@ -179,9 +181,28 @@ sha256sum runs/replay-a/result.json runs/replay-b/result.json
 
 ![The same request gives the same bytes](../images/tutorial/06-replay.png)
 
-To replay an archive, run its `model.json` with its `request.json` and
-compare the hash of the new `result.json` with the old one. Nothing in a
-result depends on timing, on the number of threads or on the host.
+An archive can be replayed later, on any host. It stores the model as
+`model.json`, and its `request.json` still names the model by the original
+path. So copy the model next to the request under the name that the request
+gives in `model.path`, run the two, and compare the new `result.json` with
+the old one:
+
+```bash
+mkdir replay
+cp runs/first/request.json replay/request.json
+cp runs/first/model.json replay/immigration-death.model.json
+crn-craft run replay/immigration-death.model.json replay/request.json --archive runs/replayed > /dev/null
+cmp runs/first/result.json runs/replayed/result.json && echo "same bytes"
+```
+
+```text
+same bytes
+```
+
+Nothing in a result depends on timing, on the number of threads or on the
+host. An archive that Python wrote replays in the same way, also one of a
+run that `crn.ensemble` prepared: `crn.ensemble(model, ...).archive(directory)`
+writes the model and the request that the call made.
 
 ## Python and the command line give the same result
 

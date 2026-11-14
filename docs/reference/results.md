@@ -68,7 +68,13 @@ over the states the projection enumerated: `species` (the flat species
 labels), `states`, the `snapshots` per report time, the work and sparse edge
 counts, the uniformization rate and `numerical_error_certified`, which is
 `false`: the tolerance bounds the Poisson-series truncation, not
-floating-point error. See `Model.fsp` in the
+floating-point error. A snapshot has its `time`, the `probabilities` of the
+states, the error terms `mass_defect`, `physical_leakage_estimate`,
+`series_tail_upper_bound`, `discarded_weight_estimate` and
+`roundoff_mass_residual`
+([chapter 7](../guide/07-methods.md#exact-distributions-with-finite-state-projection)),
+and `projected_first_moment` and `projected_second_raw_moment`, the moments
+of each species over the projected states only. See `Model.fsp` in the
 [Python API](python-api.md#modelfsp).
 
 ## Saved reports

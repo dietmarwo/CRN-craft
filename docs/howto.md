@@ -78,7 +78,7 @@ Fifty common tasks, one per line, each with links to the sections of the guide t
 - How do I change copy number, half-life, initial heteroplasmy or the threshold? [12a, Variants](guide/12a-mtdna-takeover.md#variants)
 - How do I follow mutant classes, and single lineages? [12b, Mutant classes](guide/12b-mtdna-events.md); [14a, Every lineage with the clone model](guide/14a-mtdna-model-files.md#every-lineage-with-the-clone-model)
 - How do I let the population size vary with ATP? [12c, Variable population: ATP](guide/12c-mtdna-atp.md)
-- How do I use the fast path `mtdna_direct`, and why is it not faster on my model? [14a, The fast path](guide/14a-mtdna-model-files.md#the-fast-path); [Troubleshooting, Methods and models](guide/troubleshooting.md#methods-and-models)
+- How do I use the fast path `mtdna_direct`, and why is it not faster on my model? [12d, The fast path](guide/12d-mtdna-methods.md#the-fast-path); [14a, The fast path](guide/14a-mtdna-model-files.md#the-fast-path); [Troubleshooting, Methods and models](guide/troubleshooting.md#methods-and-models)
 
 ## Other languages and older code
 

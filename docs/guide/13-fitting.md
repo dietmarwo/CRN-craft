@@ -222,7 +222,7 @@ Applies: [chapter 4, Single trajectories](04-results.md#single-trajectories).
 The distribution of mutant fractions separates the two parameters:
 
 - `mu` sets how many cells carry any mutants at all;
-- `sm` sets how fast they move towards high mutant fractions.
+- `sm` sets how fast they move toward high mutant fractions.
 
 The objective compares, at each age, the fraction of cells whose mutant
 fraction reaches 1%, 10%, 50% and 90%. The mutant fraction of a cell is

@@ -27,7 +27,7 @@ unknown fields or versions, mismatched lengths or digests, an invalid
 completion marker and oversized content. Input documents keep the 16 MiB
 limit of every contract.
 
-The marker certifies that the write finished. A cancelled or budget-limited
+The marker certifies that the write finished. A canceled or budget-limited
 simulation can have a complete archive. If a process is killed before the
 marker, the directory is not an archive. There is no resume. Integrity
 checks are not signatures; they do not prove authenticity or protect

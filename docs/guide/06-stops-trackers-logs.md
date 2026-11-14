@@ -77,7 +77,9 @@ per replicate:
 - `integral`: the time integral of the count up to the stop or the end;
 - `first_passage`: the first time an optional condition was true;
 - with `keep_episodes`, the first excursions above zero, each with start,
-  end, peak and duration.
+  end, peak and duration. Later excursions are summarized: their number in
+  `omitted_episodes`, their total duration in `omitted_duration` and their
+  highest peak in `omitted_peak`.
 
 ```python
 run = crn.ensemble(

@@ -19,6 +19,20 @@ Plans and logs of finished work, kept for the record. They describe the state of
 - [Merge campaign for 0.7.0](../campaign/merge-0.7/README.md)
 - [Decisions](../decisions/): predeclared protocols and acceptance targets
 
+## Documentation restructure and release 0.7.1
+
+Task logs of the campaign that merged the two guides into one, sorted
+`docs/` by reader and made builder-built models faster:
+[the merged guide](campaign-docs-0.7.1/D3-log.md),
+[case study, fitting, R and Migrating](campaign-docs-0.7.1/D4-log.md),
+[how-to page, landing page and README](campaign-docs-0.7.1/D5-log.md),
+[reference pages](campaign-docs-0.7.1/D6-log.md),
+[one checker for the guide](campaign-docs-0.7.1/D8-log.md),
+[the engine change E1](campaign-docs-0.7.1/E1-log.md),
+[the documentation after E1](campaign-docs-0.7.1/D10-log.md),
+[the case study on the fast path](campaign-docs-0.7.1/FP-log.md) and
+[the review](campaign-docs-0.7.1/review-log.md).
+
 ## Lists by campaign
 
 The functional M3–M10 work and ten performance iterations, with predeclared gates and retained failures under `validation/campaign/`. Up to release 0.7.0 this list was part of the README.

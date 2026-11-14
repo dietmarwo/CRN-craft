@@ -89,8 +89,8 @@ without a continuous variable, so it costs more per event. At `K = 1000` the
 free places below `K` are few, so `tau` finds no safe leap and runs exact
 events, at a higher cost per event; leaping pays off when every rate changes
 slowly. `mtdna_direct`, the fast path, is the fastest exact method for this
-model; Static Direct is the method for every other variant
-([the next section](#the-fast-path)).
+model, and the other pages of the case study run it; Static Direct is the
+method for every other variant ([the next section](#the-fast-path)).
 
 ## The fast path
 
@@ -148,8 +148,8 @@ expression, run Static Direct.
 Applies: [chapter 7, Approximate leaping](07-methods.md#approximate-leaping), and [chapter 8, Reproducing a published simulation](08-reproducibility.md#reproducing-a-published-simulation).
 
 Many published mtDNA simulations advance the cell in fixed steps of one
-hour. To compare with such a result, run the model exactly first, under
-Static Direct, and compare the distributions, not single cells. The method
+hour. To compare with such a result, run the model exactly first, on the
+fast path, and compare the distributions, not single cells. The method
 `{"kind": "binomial", "step": 1.0}` then imitates the hourly scheme: in
 each step it removes degraded molecules, freezes the replication rates, and
 splits every parent's outcomes by their competing-risk probabilities. Its
@@ -165,7 +165,9 @@ grouped.
 Applies: [chapter 5, Compiled models](05-speed.md#compiled-models).
 
 `crn.compile_loop(model)` compiles the event loop of the builder model. The
-results stay byte-identical, and the run takes a fraction of the time. The
+results stay byte-identical, and the run takes a fraction of the time.
+Compiled loops run Static Direct, so this block does not use the fast path.
+The
 first build takes about a minute and needs a Rust toolchain; later calls
 read the cache:
 

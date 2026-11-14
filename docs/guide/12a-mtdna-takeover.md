@@ -46,7 +46,7 @@ import time
 model = three_class(takeover=0.9)
 days = np.arange(0, 1081, 90)
 run = crn.ensemble(model, end=END, report_times=24.0 * days, replicates=200,
-                   seed=1, threads=2, method="static_direct")
+                   seed=1, threads=2, method="mtdna_direct")
 start = time.perf_counter()
 result = run.simulate()
 seconds = time.perf_counter() - start
@@ -67,28 +67,28 @@ for hours, value in fraction.items():
 ```
 
 ```text
-chacha8-u53-ziggurat/rules-static-direct/1 completed
-28,779,334 events in 5.56 s
-taken over: 15 of 200 cells
+chacha8-u53-ziggurat/rules-mtdna-direct/1 completed
+28,536,814 events in 0.50 s
+taken over: 23 of 200 cells
           termination  stop_time  events
 replicate                               
-0           completed    25920.0  149409
-1           completed    25920.0  148842
-2           completed    25920.0  149925
-takeover days (first five): [284.7 322.2 408.9 424.4 443.3]
+0           completed    25920.0  148726
+1           completed    25920.0  149476
+2           completed    25920.0  150111
+takeover days (first five): [272.7 300.8 304.3 358.8 426. ]
 day     0: mean mutant fraction 0.0000
-day    90: mean mutant fraction 0.0003
-day   180: mean mutant fraction 0.0030
-day   270: mean mutant fraction 0.0102
-day   360: mean mutant fraction 0.0229
-day   450: mean mutant fraction 0.0369
-day   540: mean mutant fraction 0.0506
-day   630: mean mutant fraction 0.0566
-day   720: mean mutant fraction 0.0592
-day   810: mean mutant fraction 0.0621
-day   900: mean mutant fraction 0.0660
-day   990: mean mutant fraction 0.0733
-day  1080: mean mutant fraction 0.0830
+day    90: mean mutant fraction 0.0004
+day   180: mean mutant fraction 0.0055
+day   270: mean mutant fraction 0.0156
+day   360: mean mutant fraction 0.0242
+day   450: mean mutant fraction 0.0384
+day   540: mean mutant fraction 0.0460
+day   630: mean mutant fraction 0.0516
+day   720: mean mutant fraction 0.0620
+day   810: mean mutant fraction 0.0838
+day   900: mean mutant fraction 0.1011
+day   990: mean mutant fraction 0.1065
+day  1080: mean mutant fraction 0.1097
 ```
 
 A cell has about 150,000 events in three years. The cells that were taken
@@ -109,7 +109,7 @@ so they come from the kept paths:
 days = np.arange(0, 1081, 360)
 result = crn.ensemble(
     three_class(), end=END, report_times=24.0 * days, replicates=200, seed=1,
-    threads=2, method="static_direct",
+    threads=2, method="mtdna_direct",
     quantiles=[0.025, 0.25, 0.5, 0.75, 0.975], keep_paths="all",
 ).simulate()
 statistics = result.statistics
@@ -127,10 +127,10 @@ print("equal to numpy:", np.quantile(last, 0.975) == statistics["quantiles"][0.9
 
 ```text
 quantile levels: [0.025, 0.25, 0.5, 0.75, 0.975]
-mean mutants:      [0.0, 23.5, 64.9, 90.1]
+mean mutants:      [0.0, 25.2, 67.0, 120.7]
 median advantaged: [0.0, 0.0, 0.0, 0.0]
 median mutants:    [0.0, 0.0, 0.0, 0.0]
-97.5% of mutants:  [0.0, 512.8, 997.0, 998.0]
+97.5% of mutants:  [0.0, 336.4, 995.0, 998.0]
 equal to numpy: True
 ```
 
@@ -150,7 +150,7 @@ stop times:
 
 ```python
 result = crn.ensemble(three_class(takeover=0.9), end=END, report_times=[0.0, END],
-                      replicates=200, seed=1, threads=2, method="static_direct").simulate()
+                      replicates=200, seed=1, threads=2, method="mtdna_direct").simulate()
 stopped = result.records["termination"] == "stopped"
 for age in (360, 720, 1080):
     taken = (stopped & (result.records["stop_time"] <= 24.0 * age)).mean()
@@ -160,10 +160,10 @@ print(f"days to 90% mutants: first {days.min():.0f}, median {days.median():.0f}"
 ```
 
 ```text
-taken over by day  360: 0.010
-taken over by day  720: 0.060
-taken over by day 1080: 0.075
-days to 90% mutants: first 285, median 538
+taken over by day  360: 0.020
+taken over by day  720: 0.055
+taken over by day 1080: 0.115
+days to 90% mutants: first 273, median 726
 ```
 
 These are the 200 cells of the first ensemble: the same seed gives the same
@@ -185,7 +185,7 @@ over at 60%:
 ```python
 model = three_class(K=500, w0=400, m0=100, half_life_days=20, takeover=0.6)
 result = crn.ensemble(model, end=END, report_times=[0.0, 8640.0, 17_280.0, END],
-                      replicates=300, seed=9, threads=2, method="static_direct").simulate()
+                      replicates=300, seed=9, threads=2, method="mtdna_direct").simulate()
 stopped = result.records["termination"] == "stopped"
 print(f"cells past 60% within three years: {stopped.mean():.2%}")
 
@@ -199,7 +199,7 @@ except crn.CrnError as error:
 ```
 
 ```text
-cells past 60% within three years: 3.00%
+cells past 60% within three years: 4.33%
 rejected: CRN-R012: unknown name `WW`; expected a parameter or observable in `delta * WW` at /rules/8/propensity
 ```
 

@@ -125,16 +125,16 @@ Applies: [chapter 7, Which method for which model](07-methods.md#which-method-fo
   Report times are written as `24.0 * days`.
 - One replicate is one cell. A cell at `K = 1000` has about 150,000 events
   in three years.
-- The method is `static_direct`. The engine also has a fast path for this
-  model, `mtdna_direct`, but it certifies only the file form of the model
-  ([page 14a](14a-mtdna-model-files.md#the-fast-path)). It is the price of
-  building the model in Python: on 13 November 2026, on a two-CPU host, the
-  builder model under Static Direct took 9.9 times as long as the model file
-  under the fast path, and 3.6 times as long as the model file under Static
-  Direct
+- The method is `static_direct`, which runs every variant on these pages.
+  The three-class model also has a fast path, `mtdna_direct`, and since
+  release 0.7.1 it certifies the builder model as well as the model file
+  when the request is `crn-craft.run/1.0`, which `crn.ensemble` writes
+  ([page 12d](12d-mtdna-methods.md#the-fast-path)). On 13 November 2026, on
+  a two-CPU host, the builder model under the fast path took the time of
+  the model file under it (0.97 times), and under Static Direct 3.6 times
+  as long, and 1.4 times as long as the model file under Static Direct
   ([measurement](https://github.com/dietmarwo/CRN-craft/blob/main/validation/merge/RESULTS.md)).
-  A compiled model wins back most of it for runs with fixed parameters
-  ([page 12d](12d-mtdna-methods.md#a-compiled-model)).
+  For long runs of the plain three-class model, use the fast path.
 
 ## The model as a file
 
@@ -142,7 +142,7 @@ Applies: [chapter 14, Save and load a model file](14-model-files.md#save-and-loa
 
 The repository also has this model as JSON files, in which every molecule
 carries attributes. Those files add a model that follows every mutant
-lineage, the fast path and a stored form of the ATP model;
+lineage and a stored form of the ATP model;
 [page 14a](14a-mtdna-model-files.md), after the chapter on model files,
 shows them.
 

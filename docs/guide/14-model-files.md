@@ -212,7 +212,11 @@ the structure from the rules, whatever the names, and certifies each model
 before it runs. The first two runs agree within sampling error (with 4,000
 replicates each, the standard error of their difference is about 0.011). A
 model that does not fit runs Static Direct instead, and a `CRN-R051` warning
-names the failed check: read `metadata["sampler"]` to see what ran.
+names the failed check: read `metadata["sampler"]` to see what ran. The
+certificate also reads whole-rule propensities, as the builder writes them,
+when the request is `crn-craft.run/1.0`, which `crn.ensemble` writes; so
+the builder form of the three-class mtDNA model runs the fast path too
+([page 12d](12d-mtdna-methods.md#the-fast-path)).
 [Page 14a](14a-mtdna-model-files.md#the-fast-path) uses the fast path on the
 mtDNA model files.
 

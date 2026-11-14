@@ -1,8 +1,8 @@
 # Methods and speed
 
 Which method should run the mtDNA model, and how fast can it run? This page
-runs the same cells under every method that takes the builder model, and
-then compiles the model. The setup block is the model of the
+runs the same cells under every method that takes the builder model, runs
+the fast path, and then compiles the model. The setup block is the model of the
 [index page](12-mtdna.md#the-model). The blocks of this page continue from
 it:
 
@@ -38,7 +38,7 @@ def three_class(K=1000, w0=1000, m0=0, mu=3e-5, sm=1.5, half_life_days=10, takeo
 
 Applies: [chapter 7, Which method for which model](07-methods.md#which-method-for-which-model).
 
-Sixty-four cells with the takeover stop, under seven methods. The tree
+Sixty-four cells with the takeover stop, under eight methods. The tree
 method runs when `method` is `None`:
 
 ```python
@@ -50,6 +50,7 @@ methods = {
     "static_direct": "static_direct",
     "static_direct, inverse": {"kind": "static_direct", "waiting_time": "inverse",
                                "sparse_trackers": False},
+    "mtdna_direct": "mtdna_direct",
     "next_reaction": "next_reaction",
     "tau (epsilon 0.03)": {"kind": "tau", "epsilon": 0.03},
     "binomial (1 h steps)": {"kind": "binomial", "step": 1.0},
@@ -70,13 +71,14 @@ for label, method in methods.items():
 ```
 
 ```text
-tree                     3.59 s   9,234,548 events  taken over  7  mutant fraction 0.130  chacha8-u53/rules-direct/2
-static_direct            1.69 s   9,231,158 events  taken over  7  mutant fraction 0.113  chacha8-u53-ziggurat/rules-static-direct/1
-static_direct, inverse   1.92 s   9,120,187 events  taken over  6  mutant fraction 0.092  chacha8-u53/rules-static-direct/1
-next_reaction            1.98 s   9,329,541 events  taken over  4  mutant fraction 0.059  chacha8-u53/rules-next-reaction/1
-tau (epsilon 0.03)       9.72 s   9,080,008 events  taken over  8  mutant fraction 0.155  chacha8-u53/rules-approximate-cgp-poisson/2
-binomial (1 h steps)     0.93 s   9,158,734 events  taken over  6  mutant fraction 0.088  chacha8-u53/rules-approximate-binomial-split/2
-hybrid                   3.74 s   9,123,754 events  taken over  6  mutant fraction 0.092  chacha8-u53/rules-approximate-hybrid-dopri54/1
+tree                     3.04 s   9,234,548 events  taken over  7  mutant fraction 0.130  chacha8-u53/rules-direct/2
+static_direct            0.55 s   9,231,158 events  taken over  7  mutant fraction 0.113  chacha8-u53-ziggurat/rules-static-direct/1
+static_direct, inverse   0.62 s   9,120,187 events  taken over  6  mutant fraction 0.092  chacha8-u53/rules-static-direct/1
+mtdna_direct             0.16 s   8,969,870 events  taken over  8  mutant fraction 0.122  chacha8-u53-ziggurat/rules-mtdna-direct/1
+next_reaction            0.83 s   9,329,541 events  taken over  4  mutant fraction 0.059  chacha8-u53/rules-next-reaction/1
+tau (epsilon 0.03)       3.95 s   9,080,008 events  taken over  8  mutant fraction 0.155  chacha8-u53/rules-approximate-cgp-poisson/2
+binomial (1 h steps)     0.61 s   9,158,734 events  taken over  6  mutant fraction 0.088  chacha8-u53/rules-approximate-binomial-split/2
+hybrid                   2.58 s   9,123,754 events  taken over  6  mutant fraction 0.092  chacha8-u53/rules-approximate-hybrid-dopri54/1
 ```
 
 The takeover counts differ because each method uses the random numbers in
@@ -86,8 +88,60 @@ approximate in their sampler names. `hybrid` integrates between events even
 without a continuous variable, so it costs more per event. At `K = 1000` the
 free places below `K` are few, so `tau` finds no safe leap and runs exact
 events, at a higher cost per event; leaping pays off when every rate changes
-slowly. Static Direct is the method to use. The fast path `mtdna_direct`
-needs the model file ([page 14a](14a-mtdna-model-files.md#the-fast-path)).
+slowly. `mtdna_direct`, the fast path, is the fastest exact method for this
+model; Static Direct is the method for every other variant
+([the next section](#the-fast-path)).
+
+## The fast path
+
+Applies: [chapter 7, Which method for which model](07-methods.md#which-method-for-which-model), and [page 14a, The fast path](14a-mtdna-model-files.md#the-fast-path).
+
+`mtdna_direct` is an exact method fused for this one structure: three
+classes in a fixed population, eight reactions, one degradation rate, the
+vacancy law of the [index page](12-mtdna.md#parameters-and-rates), and no
+stop or the takeover stop. At preparation it certifies that the model has
+this form. Since release 0.7.1 it reads the propensities that the builder
+writes, when the request is `crn-craft.run/1.0`; `crn.ensemble` writes
+that version, and its result says `crn-craft.result/1.0`. The builder
+model then makes the same draws as the model file
+([page 14a](14a-mtdna-model-files.md#the-fast-path)). The same 200 cells
+under Static Direct and the fast path:
+
+```python
+import time
+
+model = three_class(takeover=0.9)
+for method in ("static_direct", "mtdna_direct"):
+    run = crn.ensemble(model, end=END, report_times=[0.0, 12_960.0, END], replicates=200,
+                       seed=5, threads=2, method=method)
+    start = time.perf_counter()
+    result = run.simulate()
+    seconds = time.perf_counter() - start
+    stopped = (result.records["termination"] == "stopped").sum()
+    print(f"{method:14s} {seconds:5.2f} s  {result.metadata['events']:>11,} events  "
+          f"taken over {stopped:2d}  {result.metadata['sampler']}")
+print(result.metadata["schema"], "warnings:", result.metadata["diagnostics"])
+```
+
+```text
+static_direct   1.80 s   28,452,894 events  taken over 26  chacha8-u53-ziggurat/rules-static-direct/1
+mtdna_direct    0.51 s   28,979,424 events  taken over 13  chacha8-u53-ziggurat/rules-mtdna-direct/1
+crn-craft.result/1.0 warnings: []
+```
+
+The sampler name confirms that the fast path ran; a model that it cannot
+certify runs Static Direct with a `CRN-R051` warning in
+`metadata["diagnostics"]` ([page 14a](14a-mtdna-model-files.md#the-fast-path)).
+The two methods sample the same process from other random numbers, so they
+agree in distribution, not cell by cell. In the measurement of 13 November
+2026 on a two-CPU host, the builder model took 3.6 times as long under
+Static Direct as under the fast path, and the fast path took the time of
+the model file under it (0.97 times)
+([measurement](https://github.com/dietmarwo/CRN-craft/blob/main/validation/merge/RESULTS.md)).
+The fast path also serves sweeps and fits, where every candidate has new
+parameters ([chapter 13](13-fitting.md)). Variants outside the structure,
+such as the ATP model of [page 12c](12c-mtdna-atp.md) or a stop at another
+expression, run Static Direct.
 
 ## Matching an hourly scheme
 
@@ -135,20 +189,20 @@ print("byte-identical")
 ```
 
 ```text
-interpreted   5.46 s   28,452,894 events  taken over 26  chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1
-compiled      0.76 s   28,452,894 events  taken over 26  chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1
+interpreted   1.71 s   28,452,894 events  taken over 26  chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1
+compiled      0.75 s   28,452,894 events  taken over 26  chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1
 byte-identical
 ```
 
 For this model the compiled loop pays off more than for most: the builder
-writes every rate as an expression, which the interpreter evaluates at
-every event, and the compiled loop computes it natively. In the measurement
-of 13 November 2026 on a two-CPU host, the compiled builder model ran 7.1
-times as fast as the interpreted one, and took 1.4 times as long as the
-model file under the fast path
+writes every rate as an expression, which the interpreter runs as a small
+program after every event that changes its species, and the compiled loop
+computes it natively. In the measurement of 13 November 2026 on a two-CPU
+host, the compiled builder model ran 2.6 times as fast as the interpreted
+one, and took 1.4 times as long as the model file under the fast path
 ([measurement](https://github.com/dietmarwo/CRN-craft/blob/main/validation/merge/RESULTS.md)).
 A loop is compiled for one parameter set, so it does not speed up a sweep
-or a fit ([chapter 5, Limits](05-speed.md#limits)).
+or a fit ([chapter 5, Limits](05-speed.md#limits)); the fast path does.
 
 See also: [Choosing a method](07-methods.md),
 [The fast path](14a-mtdna-model-files.md#the-fast-path),

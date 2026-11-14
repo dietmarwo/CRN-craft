@@ -75,9 +75,11 @@ candidate the same random streams
 differences between the cells of the table come from the parameters, not
 from different seeds. With 200 cells, a fraction has a standard error of up
 to 0.035; use more cells for a table to publish. Every candidate runs
-interpreted, so this is where the builder form costs most
-([index page](12-mtdna.md#conventions)). [Chapter 13](13-fitting.md) turns
-the sweep into a fit.
+interpreted, since a compiled loop serves one parameter set. For a large
+sweep of the plain three-class model, `method="mtdna_direct"` runs every
+candidate on the fast path, about 3.6 times as fast
+([page 12d](12d-mtdna-methods.md#the-fast-path)). [Chapter 13](13-fitting.md)
+turns the sweep into a fit.
 
 ## Budgets for long cells
 

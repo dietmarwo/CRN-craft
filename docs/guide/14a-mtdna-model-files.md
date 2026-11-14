@@ -4,12 +4,13 @@
 
 The case study built its model in Python. The repository also has the mtDNA
 models as JSON files, in which every molecule is an instance of the type
-`mtDNA` with attributes ([chapter 14](14-model-files.md)). Three things need
-those files: following every mutant lineage, the fast path `mtdna_direct`,
-and the stored form of the ATP model. To run this page, copy the folder
-`models/rules/` of the repository into your working folder. The setup block
-is the model of the [index page](12-mtdna.md#the-model), for comparison with
-the files. The blocks of this page continue from it:
+`mtDNA` with attributes ([chapter 14](14-model-files.md)). Two things need
+those files: following every mutant lineage, and the stored form of the ATP
+model. The fast path `mtdna_direct` runs the file and the builder model. To
+run this page, copy the folder `models/rules/` of the repository into your
+working folder. The setup block is the model of the
+[index page](12-mtdna.md#the-model), for comparison with the files. The
+blocks of this page continue from it:
 
 ```python
 import math
@@ -78,9 +79,15 @@ a fixed population. At preparation it certifies the model:
 6. every positive hazard stays finite and resolvable in every reachable
    state.
 
-The builder model writes whole-rule propensities, which the certificate
-does not read, so the fast path needs the file. The same 64 cells under the
-fast path and under Static Direct, and the builder model beside them:
+The builder model writes whole-rule propensities. Since release 0.7.1 the
+certificate reads them too when the request is `crn-craft.run/1.0`, which
+`crn.ensemble` writes: each propensity must be the vacancy law times
+constants and the parent's count, with the same `K`, degradation rate and
+weights in every reaction, and the stop must be the takeover fraction
+written over the three species
+([methods](../reference/methods.md#the-fast-path-mtdna_direct)). The same
+64 cells under the fast path and under Static Direct, for the file and the
+builder model:
 
 ```python
 import json
@@ -89,6 +96,7 @@ import time
 document = json.loads(crn.load("models/rules/mtdna-three-class.rules.json"))
 document["stop"] = "N > 0 && mutants >= 0.9 * N"
 arms = (("file", document, "mtdna_direct"), ("file", document, "static_direct"),
+        ("builder", three_class(takeover=0.9), "mtdna_direct"),
         ("builder", three_class(takeover=0.9), "static_direct"))
 for label, model, method in arms:
     run = crn.ensemble(model, end=END, report_times=[0.0, 12_960.0, END], replicates=64,
@@ -102,21 +110,26 @@ for label, model, method in arms:
 ```
 
 ```text
-file     mtdna_direct    0.17 s   8,969,870 events  taken over  8  chacha8-u53-ziggurat/rules-mtdna-direct/1
-file     static_direct   0.55 s   8,861,769 events  taken over 10  chacha8-u53-ziggurat/rules-static-direct/1
-builder  static_direct   1.66 s   9,231,158 events  taken over  7  chacha8-u53-ziggurat/rules-static-direct/1
+file     mtdna_direct    0.16 s   8,969,870 events  taken over  8  chacha8-u53-ziggurat/rules-mtdna-direct/1
+file     static_direct   0.63 s   8,861,769 events  taken over 10  chacha8-u53-ziggurat/rules-static-direct/1
+builder  mtdna_direct    0.16 s   8,969,870 events  taken over  8  chacha8-u53-ziggurat/rules-mtdna-direct/1
+builder  static_direct   0.56 s   9,231,158 events  taken over  7  chacha8-u53-ziggurat/rules-static-direct/1
 ```
 
 The fast path samples the same process as Static Direct from other random
-numbers, so the results agree in distribution, not cell by cell. On 12
-November 2026, on a two-CPU host, it took 2.8 times less time than Static
-Direct on the file. The builder model under Static Direct took 9.9 times as
-long as the fast path, and its compiled loop 1.4 times as long
+numbers, so the results agree in distribution, not cell by cell. The builder
+model under the fast path makes the same draws as the file: the same events
+and takeovers. On 12 November 2026, on a two-CPU host, the fast path took
+2.8 times less time than Static Direct on the file. On 13 November 2026,
+the builder model under the fast path took 0.97 times the file's time,
+under Static Direct 3.6 times as long as the fast path, and its compiled
+loop 1.4 times as long
 ([measurements](https://github.com/dietmarwo/CRN-craft/blob/main/validation/merge/RESULTS.md)).
 
 A model the certificate does not accept still runs: as Static Direct with
 inverse waits, with a `CRN-R051` warning that names the failed check. Read
-`metadata["sampler"]` to see what ran:
+`metadata["sampler"]` to see what ran. The file with another stop falls
+back; the builder model is certified:
 
 ```python
 odd = dict(document, stop="mutants > 250")  # not the guarded fraction
@@ -130,8 +143,8 @@ for model in (odd, three_class(takeover=0.9)):
 ```text
 chacha8-u53/rules-static-direct/1
 ['mtdna_direct ran Static Direct: stop is neither absent nor the guarded mutant fraction']
-chacha8-u53/rules-static-direct/1
-['mtdna_direct ran Static Direct: the model has whole-rule propensities']
+chacha8-u53-ziggurat/rules-mtdna-direct/1
+[]
 ```
 
 To record another threshold at the full speed of the fast path, keep the

@@ -198,8 +198,10 @@ string rates; see the [model reference](model-language.md#whole-rule-propensitie
 are sampled by every method. The static methods need each reactant type of
 such a rule to lower to one tuple, as for attribute-free species, and refuse
 other models with `CRN-R020` at `/method`; `tree` has no such limit.
-`mtdna_direct` does not certify them and runs Static Direct with a `CRN-R051`
-warning, and the generated rates kernels refuse them. Generated event loops
+`mtdna_direct` certifies them only in the builder form of the three-class
+model under `crn-craft.run/1.0` ([the fast path](#the-fast-path-mtdna_direct));
+otherwise it runs Static Direct with a `CRN-R051` warning. The generated
+rates kernels refuse them. Generated event loops
 emit them, as they emit every rate expression and observable that Static
 Direct runs ([checklist](../developer/specialized-kernels.md#generated-rules-event-loops)).
 

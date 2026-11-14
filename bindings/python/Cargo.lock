@@ -28,7 +28,7 @@ dependencies = [
 
 [[package]]
 name = "crn-craft"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "libm",
  "rand_chacha",
@@ -42,7 +42,7 @@ dependencies = [
 
 [[package]]
 name = "crn-craft-python"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "crn-craft",
  "pyo3",

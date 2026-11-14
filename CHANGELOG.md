@@ -38,11 +38,12 @@ models run faster and can use the fast path `mtdna_direct` (see
 - The README starts with a working example.
 - The frozen 0.6.0 manual (`validation/compat/manual-0.6.0.md`) still runs
   in CI.
-- The fitting chapter's scripts (`examples/mtdna/fit_*.py`) run the builder
-  model on `mtdna_direct`. Docstrings that were missing or stale are
-  completed (`PreparedEnsemble`, `ImportFailure`, the importers' return
-  value, the speed of `mtdna_direct`), and the crates' doc comments link the
-  new documentation paths.
+- The mtDNA case study (pages 12 to 12e) and the fitting chapter's scripts
+  (`examples/mtdna/fit_*.py`) run the builder model on `mtdna_direct`; the
+  ATP model and the compiled loop keep their own methods. Docstrings that
+  were missing or stale are completed (`PreparedEnsemble`, `ImportFailure`,
+  the importers' return value, the speed of `mtdna_direct`), and the crates'
+  doc comments link the new documentation paths.
 
 ### Changed
 

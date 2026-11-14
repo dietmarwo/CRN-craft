@@ -45,7 +45,7 @@ the advantage `sm`? One prepared run serves as the template, and
 import time
 
 template = crn.ensemble(three_class(takeover=0.9), end=END, report_times=[0.0, END],
-                        replicates=200, seed=8, threads=2, method="static_direct")
+                        replicates=200, seed=8, threads=2, method="mtdna_direct")
 start = time.perf_counter()
 print("takeover fraction after three years")
 print("   mu \\ sm " + "".join(f"{sm:8.2f}" for sm in (1.0, 1.25, 1.5, 2.0)))
@@ -61,10 +61,10 @@ print(f"12 candidates in {time.perf_counter() - start:.1f} s")
 ```text
 takeover fraction after three years
    mu \ sm     1.00    1.25    1.50    2.00
-    1e-05     0.000   0.010   0.035   0.070
-    3e-05     0.000   0.030   0.110   0.150
-    1e-04     0.000   0.110   0.300   0.425
-12 candidates in 63.1 s
+    1e-05     0.000   0.025   0.040   0.075
+    3e-05     0.000   0.040   0.110   0.190
+    1e-04     0.000   0.155   0.325   0.510
+12 candidates in 6.1 s
 ```
 
 With equal weights (`sm = 1`), drift alone is too slow for a takeover
@@ -74,12 +74,11 @@ candidate the same random streams
 ([common random numbers](05-speed.md#common-random-numbers)), so the
 differences between the cells of the table come from the parameters, not
 from different seeds. With 200 cells, a fraction has a standard error of up
-to 0.035; use more cells for a table to publish. Every candidate runs
-interpreted, since a compiled loop serves one parameter set. For a large
-sweep of the plain three-class model, `method="mtdna_direct"` runs every
-candidate on the fast path, about 3.6 times as fast
-([page 12d](12d-mtdna-methods.md#the-fast-path)). [Chapter 13](13-fitting.md)
-turns the sweep into a fit.
+to 0.035; use more cells for a table to publish. Every candidate runs on
+the fast path. Under Static Direct the sweep takes about 3.6 times as long
+([page 12d](12d-mtdna-methods.md#the-fast-path)). A compiled loop does not
+help here: it serves one parameter set. [Chapter 13](13-fitting.md) turns
+the sweep into a fit.
 
 ## Budgets for long cells
 
@@ -111,7 +110,7 @@ pathlib.Path("takeover.model.json").write_bytes(data)
 request = {
     "schema": "crn-craft.run/1.0",
     "model": {"path": "takeover.model.json", "sha256": hashlib.sha256(data).hexdigest()},
-    "method": {"kind": "static_direct"},
+    "method": {"kind": "mtdna_direct"},
     "time": {"end": END, "report_times": [0.0, 8640.0, 17_280.0, END]},
     "ensemble": {"replicates": 200, "root_seed": 11},
     "outputs": {"statistics": ["mean", "variance"], "quantiles": [0.5],
@@ -157,9 +156,9 @@ print("events:", result["events"])
 
 ```text
 check: True  archive: True  verify: True
-completed chacha8-u53-ziggurat/rules-static-direct-sparse-trackers/1
-cells: 200 stopped: 16
-events: 29121652
+completed chacha8-u53-ziggurat/rules-mtdna-direct/1
+cells: 200 stopped: 20
+events: 28757292
 ```
 
 A result names its model and request by hash, and the archive holds the

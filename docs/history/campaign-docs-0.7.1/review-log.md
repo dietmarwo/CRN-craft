@@ -171,8 +171,9 @@ mutants caught.
 
 ## Checks on the final tree
 
-Run on `8fd6f6f` (every fix but this log and the history index, which
-change no checked block), with the wheel of this checkout in the campaign
+Run on `8fd6f6f` (every fix but the changelog line of finding 15, this log
+and the history index, which change no checked block; links and the site
+were checked again after them), with the wheel of this checkout in the campaign
 venv and the release CLI, each heavy step under the CPU lock (runner and
 logs: `/home/claude/docs071/d9/checks/`):
 

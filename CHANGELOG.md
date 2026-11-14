@@ -64,6 +64,14 @@ models run faster and can use the fast path `mtdna_direct` (see
   (0.97 times). Requests of the `rules-run` versions keep the fallback with
   `CRN-R051`. An exact-law check of the builder form under `mtdna_direct`
   passed (120 comparisons, 0 failures).
+  **This is the one case in which a 0.7.0 result does not replay byte for
+  byte:** a `run/1.0` request that names `mtdna_direct` for a builder-built
+  three-class model ran the Static Direct fallback in 0.7.0 (sampler
+  `chacha8-u53/rules-static-direct/1`, with the warning `CRN-R051`) and
+  runs the fast path now (`chacha8-u53-ziggurat/rules-mtdna-direct/1`).
+  The request hash is the same; the paths are other samples of the same
+  law, and the sampler in the result says which one ran. Every other
+  stored request gives the bytes of 0.7.0.
 
 ## [0.7.0] - 2026-11-12
 

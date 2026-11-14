@@ -136,6 +136,15 @@ shows `crn-craft convert` and `crn.convert`.
   `auto` picks a selector other than the linear scan, and every result of
   the top level has new hashes, because its request and result documents
   are new versions.
+- **Results of 0.7.0 replay byte for byte in 0.7.1, with one exception.**
+  In 0.7.0, `crn.ensemble(model, method="mtdna_direct")` on a three-class
+  model built with `crn.Model` ran Static Direct and said so: the sampler
+  was `chacha8-u53/rules-static-direct/1`, with the warning `CRN-R051`.
+  From 0.7.1 the same request runs the fast path
+  (`chacha8-u53-ziggurat/rules-mtdna-direct/1`): other paths of the same
+  law. To get the 0.7.0 numbers again, name `method={"kind":
+  "static_direct", "waiting_time": "inverse", "sparse_trackers": False}`
+  ([the fast path](../reference/methods.md#the-fast-path-mtdna_direct)).
 
 ## Contracts
 

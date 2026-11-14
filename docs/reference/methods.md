@@ -1,6 +1,6 @@
 # Methods and their options
 
-This page describes every simulation method of the one engine: the exact
+This page describes every simulation method: the exact
 methods and their event selectors, the approximate methods, the fast path
 `mtdna_direct`, the ATP block, the hybrid method and the compiled event
 loops. It also has the options of Static Direct, the random stream and the
@@ -313,7 +313,10 @@ the same draws under both forms: same events, and `M + A` equals the file
 form's `mutants` at every report time. The sampler identity is therefore the
 same, `chacha8-u53-ziggurat/rules-mtdna-direct/1`. Requests of the
 `rules-run` versions keep the fallback with `CRN-R051` ("the model has
-whole-rule propensities").
+whole-rule propensities"). Release 0.7.0 ran that fallback for `run/1.0`
+requests too. Such a request therefore gives another result from 0.7.1 on:
+the same law under the fast path's sampler, where 0.7.0 reported
+`chacha8-u53/rules-static-direct/1` and the warning.
 
 `mtdna_direct` samples the same process as Static Direct with a different
 random stream: each cell's ChaCha8 words go to Ziggurat waiting times and to

@@ -164,8 +164,9 @@ match such a scheme.
   random numbers differently. The law is the same, the paths are not.
 - **Another release with a new sampler name.** A release that changes how
   random numbers are used changes the sampler name, so old seeds are never
-  silently reused for other paths. Results of the network engine of releases
-  before 0.7.0 do not replay bit for bit
+  silently reused for other paths. Two cases exist: results that releases
+  before 0.7.0 computed for plain reaction networks, and requests of 0.7.0
+  that named `mtdna_direct` for a model built with `crn.Model`
   ([Migrating](migrating.md#what-replays-and-what-does-not)).
 - **Another request.** Report times and kept paths do not change the
   trajectories, but they change the request hash.

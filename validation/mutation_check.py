@@ -367,6 +367,62 @@ MUTATIONS = [
         "let builder = request.schema == RunVersion::V10;",
         "let builder = true;",
     ),
+    # Review of E1: the checks of the builder certificate that no mutant
+    # above reaches.
+    (
+        "builder_vacancy_floor_not_zero",
+        "crates/crn-craft/src/rules/mtdna.rs",
+        "(None, Some(z)) if z.to_bits() == 0f64.to_bits() => &args[0],",
+        "(None, Some(_)) => &args[0],",
+    ),
+    (
+        "builder_denominator_constant_accepted",
+        "crates/crn-craft/src/rules/mtdna.rs",
+        "(d.constant.to_bits() == 0f64.to_bits()).then_some(Law::Birth {",
+        "(d.constant.is_finite()).then_some(Law::Birth {",
+    ),
+    (
+        "builder_second_vacancy_replaces_first",
+        "crates/crn-craft/src/rules/mtdna.rs",
+        "            } else if vacancy.is_none() {\n",
+        "            } else if vacancy.is_none() || matches!(node, Node::Call(Func::Max, _)) {\n",
+    ),
+    (
+        "builder_stop_guard_any_constant",
+        "crates/crn-craft/src/rules/mtdna.rs",
+        "if self.constant(zero).map(f64::to_bits) != Some(0f64.to_bits()) {",
+        "if self.constant(zero).is_none() {",
+    ),
+    (
+        "builder_stop_total_unchecked",
+        "crates/crn-craft/src/rules/mtdna.rs",
+        "        integral(total, [1.0; 3])?;\n",
+        "        let _ = total;\n",
+    ),
+    (
+        "builder_stop_second_total_unchecked",
+        "crates/crn-craft/src/rules/mtdna.rs",
+        "        integral(again, [1.0; 3])?;\n",
+        "        let _ = again;\n",
+    ),
+    (
+        "builder_weights_any_sign",
+        "crates/crn-craft/src/rules/mtdna.rs",
+        "            return Err(CAPACITY);\n        }\n        if weights.iter().any(|w| !w.is_finite() || *w <= 0.0) {",
+        "            return Err(CAPACITY);\n        }\n        if weights.iter().any(|w| !w.is_finite()) {",
+    ),
+    (
+        "builder_inexact_product_accepted",
+        "crates/crn-craft/src/rules/mtdna.rs",
+        "(p.is_finite() && a.mul_add(b, -p) == 0.0).then_some(p)",
+        "p.is_finite().then_some(p)",
+    ),
+    (
+        "builder_multi_reactant_channels_accepted",
+        "crates/crn-craft/src/rules/mtdna.rs",
+        "if channels.iter().any(|&c| net.channels[c].multi.is_some()) {",
+        "if channels.iter().any(|&c| net.channels[c].multi.is_some() && c > 99) {",
+    ),
 ]
 
 # Integration tests of the unified engine and of the kept analysis, structure,

@@ -961,4 +961,61 @@ mod tests {
             assert_eq!(refused(&model), Some(STOP), "{stop}");
         }
     }
+
+    /// Review of E1: one near-miss for each check of the builder form that
+    /// the test above does not reach (found with mutants that survived).
+    #[test]
+    fn builder_near_misses_of_each_remaining_check_are_refused() {
+        let refused = |model: &serde_json::Value| kernel(model, true).err();
+        // Vacancy terms that are not max(0, K - N) / D with a linear D.
+        for free in [
+            // A floor other than zero, written second.
+            "max(K - W - M - A, 1) / (W + sm * (M + A))",
+            "max(K - W - M - A, -1) / (W + sm * (M + A))",
+            // A constant in the denominator.
+            "max(0, K - W - M - A) / (1 + W + sm * (M + A))",
+            // The vacancy twice.
+            "max(0, K - W - M - A) * max(0, K - W - M - A) / (W + sm * (M + A))",
+            "max(0, 1) * max(0, K - W - M - A) / (W + sm * (M + A)) * max(0, 2 * K - W - M - A)",
+            // A weight that is zero or negative.
+            "max(0, K - W - M - A) / (W + sm * M - A)",
+            "max(0, K - W - M - A) / (W + 0 * M + sm * A)",
+            // A weight whose product is not exact: 3 * 0.1 rounds.
+            "max(0, K - W - M - A) / (W + 3 * (0.1 * M) + sm * A)",
+        ] {
+            let model = builder_model(["W", "M", "A"], free, None);
+            assert_eq!(refused(&model), Some(VACANCY), "{free}");
+        }
+        // The exact counterpart of the last one is the same law.
+        let exact = "max(0, K - W - M - A) / (W + 3 * (0.5 * M) + sm * A)";
+        assert!(kernel(&builder_model(["W", "M", "A"], exact, None), true).is_ok());
+        // Stops whose guard or whose totals are not the total count.
+        for stop in [
+            "W + M + A > 1 && M + A >= 0.9 * (W + M + A)",
+            "W + M > 0 && M + A >= 0.9 * (W + M + A)",
+            "W + M + A > 0 && M + A >= 0.9 * (W + M)",
+            "W + M + A > 0 && M + A >= 0.9 * (W + M + A + A)",
+            "W + M + A > 0 && M + A >= -0.1 * (W + M + A)",
+        ] {
+            let model = builder_model(["W", "M", "A"], FREE, Some(stop));
+            assert_eq!(refused(&model), Some(STOP), "{stop}");
+        }
+        // A replication that needs two molecules of the parent has the
+        // same net change, and its propensity is zero at a count of one.
+        let mut model = builder_model(["W", "M", "A"], FREE, None);
+        model["rules"][0]["reactants"] = serde_json::json!([
+            {"label": "x", "type": "W"}, {"label": "y", "type": "W"}
+        ]);
+        model["rules"][0]["products"] =
+            serde_json::json!([{"type": "W"}, {"type": "W"}, {"type": "W"}]);
+        assert_eq!(refused(&model), Some(TOPOLOGY));
+        // One pattern with a count of three lowers to one reactant species
+        // and the net change of a replication; only the check of
+        // higher-order channels refuses it.
+        model["rules"][0]["reactants"] =
+            serde_json::json!([{"label": "x", "type": "W", "count": 3}]);
+        model["rules"][0]["products"] =
+            serde_json::json!([{"type": "W"}, {"type": "W"}, {"type": "W"}, {"type": "W"}]);
+        assert_eq!(refused(&model), Some(TOPOLOGY));
+    }
 }

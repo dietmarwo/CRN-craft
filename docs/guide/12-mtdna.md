@@ -65,7 +65,9 @@ def three_class(K=1000, w0=1000, m0=0, mu=3e-5, sm=1.5, half_life_days=10, takeo
     return model
 ```
 
-A hundred cells for three years:
+A hundred cells for three years. The method is `mtdna_direct`, an exact
+fast path for this model, where the chapters before name `static_direct`
+([Conventions](#conventions) says why):
 
 ```python
 model = three_class()

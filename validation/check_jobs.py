@@ -118,9 +118,9 @@ def main():
         "rows": [],
         "jobs": [],
         "protocol_pins": {
-            "fcmaes": "f764a7516f41bf2d88009b156daa70bf0a5445c1",
-            "worker_SDK": "12f9d573ade24f57c282dcf9eb7ad7025cfe51bf",
-            "runner": "12f9d573ade24f57c282dcf9eb7ad7025cfe51bf",
+            "fcmaes": "64e11b3d853c36833859eb51232dde6890059bc7",
+            "worker_SDK": "78970a290f63f90a3f3d6ecbfe23f5e1ef24a235",
+            "runner": "78970a290f63f90a3f3d6ecbfe23f5e1ef24a235",
         },
     }
     raw = {"schema": "crn-craft.jobs-validation-raw/0.1", "jobs": [], "other": []}

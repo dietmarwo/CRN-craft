@@ -14,13 +14,14 @@ results; :func:`loop_source` shows whether a model is supported.
 """
 
 from collections.abc import Iterable, Mapping
-import copy
+from copy import deepcopy as _deepcopy
 import hashlib
 import json
 import numbers
 import operator
 from functools import cached_property
 from pathlib import Path
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -29,6 +30,8 @@ import xarray
 from . import _native
 from . import report as _report
 from ._common import CrnError, _crn_error, _path, convert, model_bytes
+from ._common import IncompleteEnsembleError as IncompleteEnsembleError
+from ._common import IncompleteEnsembleWarning as IncompleteEnsembleWarning
 from ._rules_loop import CompiledLoop, fingerprint_of
 
 # The compiled-loop API is part of this module.
@@ -36,6 +39,12 @@ from ._rules_loop import CompiledLoopError as CompiledLoopError
 from ._rules_loop import compile_loop as compile_loop
 from ._rules_loop import loop_source as loop_source
 from .builder import Model
+
+# The builder's reactant, product and rate helpers, as in `crn_craft`.
+from .builder import copy as copy
+from .builder import mass_action as mass_action
+from .builder import new as new
+from .builder import pattern as pattern
 from .report import load_report as load_report
 
 # Tolerances `ensemble` writes for method="hybrid" unless the method
@@ -98,6 +107,24 @@ SELECTORS = ("linear", "composition_rejection", "sorting", "rssa_cr", "auto")
 # `quantiles=` of the top-level prepare: the default quantiles unless the
 # request states its own.
 _DEFAULT = object()
+# The default event budget per replicate of `ensemble` (10**6 before 0.8.0).
+MAX_EVENTS = 10**8
+# `max_sampling_steps=None` (the default) gives this many random words per
+# allowed event; the tree method draws about three per event.
+SAMPLING_STEPS_PER_EVENT = 16
+# The largest budget a request can state (u64): `max_events=None` writes it,
+# which no run reaches.
+UNLIMITED = 2**64 - 1
+# The keyword that raises the budget behind each early termination, for the
+# message of IncompleteEnsembleWarning.
+_REMEDIES = {
+    "event_limit": "raise max_events",
+    "sampling_limit": "raise max_sampling_steps",
+    "instance_limit": "raise max_instances",
+    "wall_time_limit": "raise wall_time_s",
+    "output_limit": "raise max_output_bytes",
+    "failed": "see result.record_diagnostics",
+}
 # Request versions whose Static Direct defaults differ from run/1.0's: inverse
 # waits and per-event trackers unless the method says otherwise.
 _BEFORE_ZIGGURAT_DEFAULTS = (
@@ -191,6 +218,100 @@ def _selector(selector):
     return selector
 
 
+def _budget(value, keyword):
+    """A per-replicate budget as an integer in [0, 2**64 - 1] (a u64)."""
+    try:
+        value = operator.index(value)
+    except TypeError:
+        raise TypeError(
+            f"{keyword} must be an integer or None, not {type(value).__name__}"
+        ) from None
+    if not 0 <= value <= UNLIMITED:
+        raise ValueError(
+            f"{keyword} must be in [0, 2**64 - 1], or None for no limit: {value}"
+        )
+    return value
+
+
+def _event_budgets(max_events, max_sampling_steps):
+    """The request's (max_events, max_sampling_steps) from the keywords.
+
+    ``max_events=None`` is no event limit and writes :data:`UNLIMITED`.
+    ``max_sampling_steps=None`` follows ``max_events``:
+    :data:`SAMPLING_STEPS_PER_EVENT` words per event, capped at
+    :data:`UNLIMITED` (so :data:`UNLIMITED` with ``max_events=None``). An
+    explicit value wins.
+    """
+    events = UNLIMITED if max_events is None else _budget(max_events, "max_events")
+    if max_sampling_steps is None:
+        steps = min(SAMPLING_STEPS_PER_EVENT * events, UNLIMITED)
+    else:
+        steps = _budget(max_sampling_steps, "max_sampling_steps")
+    return events, steps
+
+
+def _strict(strict):
+    if not isinstance(strict, bool | np.bool_):
+        raise TypeError(f"strict must be True or False, not {type(strict).__name__}")
+    return bool(strict)
+
+
+def _incomplete(result):
+    """The message and counts of a result with replicates that ended early.
+
+    Counts every termination other than ``completed``, ``stopped`` and
+    ``cancelled`` (the user cancels on purpose), and a result that exceeded
+    ``max_output_bytes``. Returns ``None`` when there is nothing to report.
+    """
+    codes = np.asarray(result.records["termination"].cat.codes, dtype=np.int64)
+    tally = np.bincount(codes, minlength=len(TERMINATIONS))
+    counts = {
+        name: int(tally[i])
+        for i, name in enumerate(TERMINATIONS)
+        if name in _REMEDIES and tally[i]
+    }
+    dropped = result.metadata.get("termination") == "output_limit"
+    if not counts and not dropped:
+        return None
+    pieces = []
+    if counts:
+        parts = [f"{n} {name} ({_REMEDIES[name]})" for name, n in counts.items()]
+        early = sum(counts.values())
+        pieces.append(
+            f"{early} of {len(codes)} replicates ended early: {', '.join(parts)}"
+        )
+    if dropped:
+        pieces.append(
+            "the result exceeded max_output_bytes, so its statistics, paths, "
+            "observations and final instances were dropped (raise "
+            "max_output_bytes or keep fewer paths)"
+        )
+    elif result.statistics is None:
+        pieces.append("result.statistics is None")
+    text = "; ".join(pieces)
+    text = text[0].upper() + text[1:]
+    text += '. result.records["termination"] gives the termination of every replicate.'
+    return text, counts
+
+
+def _check_complete(result, strict, stacklevel):
+    """Warn about, or with ``strict`` raise for, replicates that ended early."""
+    found = _incomplete(result)
+    if found is None:
+        return result
+    text, counts = found
+    if strict:
+        raise IncompleteEnsembleError(text, counts, result)
+    warnings.warn(
+        IncompleteEnsembleWarning(
+            text + " Pass strict=True to raise IncompleteEnsembleError instead.",
+            counts,
+        ),
+        stacklevel=stacklevel + 1,
+    )
+    return result
+
+
 def _with_selector(method, selector):
     """A Static Direct method dictionary with ``selector`` added."""
     if not (isinstance(method, Mapping) and method.get("kind") == "static_direct"):
@@ -220,7 +341,7 @@ def _request_1_0(request, probabilities, selector, old_sha256, new_sha256):
     if isinstance(request, bytes | str):
         request = json.loads(request, object_pairs_hook=_unique_keys)
     else:
-        request = copy.deepcopy(request)
+        request = _deepcopy(request)
     if not isinstance(request, dict):
         raise TypeError("the request must be a JSON object")
     outputs = request.get("outputs")
@@ -684,7 +805,10 @@ class PreparedEnsemble:
 
     ``simulate()`` runs it, ``bind_parameters`` makes a candidate with other
     parameter values, and ``archive`` seals a run. It can be simulated again
-    with independent execution state.
+    with independent execution state. ``strict`` (from ``ensemble`` or
+    ``prepare``) decides whether a run with replicates that ended early
+    warns (``IncompleteEnsembleWarning``) or raises
+    (``IncompleteEnsembleError``); candidates keep it.
     """
 
     def __init__(
@@ -697,9 +821,12 @@ class PreparedEnsemble:
         ran=None,
         unified_from=None,
         unified=False,
+        strict=False,
     ):
         self._native = native
         self._rule_names = tuple(rule_names)
+        # True: replicates that ended early raise instead of warning.
+        self._strict = strict
         # The one flag of the unified API: prepared through the top-level
         # names (crn_craft.ensemble, crn_craft.prepare), which write the 1.0
         # documents. Candidates of bind_parameters keep it.
@@ -835,7 +962,11 @@ class PreparedEnsemble:
             model["parameters"] = {k: float(v) for k, v in sorted(parameters.items())}
             ran = (model_bytes(model), self._ran[1], True)
         return PreparedEnsemble(
-            native, self._rule_names, ran=ran, unified=self._unified
+            native,
+            self._rule_names,
+            ran=ran,
+            unified=self._unified,
+            strict=self._strict,
         )
 
     def simulate(
@@ -884,7 +1015,7 @@ class PreparedEnsemble:
                 )
             request = self._compiled_request(compiled)
             metadata, columns = compiled.execute(request, cancel_file=cancel_file)
-            return self._result(metadata, columns)
+            return _check_complete(self._result(metadata, columns), self._strict, 2)
 
         def dispatch(replicate, event):
             return callback(replicate, json.loads(event))
@@ -901,10 +1032,12 @@ class PreparedEnsemble:
                 log = observation["log"]
                 for start in range(0, len(log), batch_size):
                     batch_callback(observation["id"], log[start : start + batch_size])
-        return result
+        return _check_complete(result, self._strict, 2)
 
 
-def prepare(model, request, *, compiled=None, quantiles=None, selector=None):
+def prepare(
+    model, request, *, compiled=None, quantiles=None, selector=None, strict=False
+):
     """Prepare a rules-run contract, preserving the supplied model bytes.
 
     ``model`` is bytes, text, a dictionary or a ``Model``. ``compiled`` is
@@ -929,11 +1062,18 @@ def prepare(model, request, *, compiled=None, quantiles=None, selector=None):
     default, leaves both documents as supplied; a ``crn-craft.run/1.0``
     request may also carry ``outputs.quantiles`` and ``method.selector``
     itself.
+
+    ``strict`` is that of :func:`ensemble`: ``simulate()`` warns with
+    ``IncompleteEnsembleWarning`` when replicates end early, or with
+    ``strict=True`` raises ``IncompleteEnsembleError``. The request's
+    budgets are used as written.
     """
-    return _prepare(model, request, compiled, quantiles, _selector(selector), False)
+    return _prepare(
+        model, request, compiled, quantiles, _selector(selector), False, strict
+    )
 
 
-def _prepare(model, request, compiled, quantiles, selector, unified):
+def _prepare(model, request, compiled, quantiles, selector, unified, strict=False):
     """``prepare``; with ``unified`` (the top-level name) every request is
     written as run/1.0 and every model as model/1.0, ``quantiles`` may be
     :data:`_DEFAULT` (the default quantiles unless the request states its
@@ -966,7 +1106,7 @@ def _prepare(model, request, compiled, quantiles, selector, unified):
         unified_from = old if old != new else None
     else:
         data = original
-    return _prepared(data, request, compiled, unified_from, unified)
+    return _prepared(data, request, compiled, unified_from, unified, strict)
 
 
 # `_request_schema` of a request that is no JSON object.
@@ -995,8 +1135,9 @@ def _has_quantiles(request):
     return isinstance(outputs, Mapping) and "quantiles" in outputs
 
 
-def _prepared(data, request, compiled, unified_from, unified):
+def _prepared(data, request, compiled, unified_from, unified, strict=False):
     """Prepare exact model bytes with a request (bytes or a dictionary)."""
+    strict = _strict(strict)
     request = model_bytes(request)
     try:
         native = _native.prepare_rules(data, request)
@@ -1011,6 +1152,7 @@ def _prepared(data, request, compiled, unified_from, unified):
         compiled,
         unified_from=unified_from,
         unified=unified,
+        strict=strict,
     )
 
 
@@ -1024,8 +1166,8 @@ def ensemble(
     threads=1,
     keep_paths=0,
     keep_instances=0,
-    max_events=1_000_000,
-    max_sampling_steps=8_000_000,
+    max_events=MAX_EVENTS,
+    max_sampling_steps=None,
     max_instances=100_000,
     max_output_bytes=64 << 20,
     wall_time_s=None,
@@ -1035,6 +1177,7 @@ def ensemble(
     compiled=None,
     quantiles=None,
     selector=None,
+    strict=False,
 ):
     """Build and prepare a rules request with explicit work/output budgets.
 
@@ -1046,7 +1189,27 @@ def ensemble(
     way (a count). The budgets ``max_events``, ``max_sampling_steps`` and
     ``max_instances`` are per replicate; ``wall_time_s`` covers the run and
     ``max_output_bytes`` the result. ``trackers`` and ``event_log`` select
-    the observation. The lowest request version that fits the arguments is
+    the observation.
+
+    ``max_events`` defaults to 10**8 events per replicate (10**6 before
+    0.8.0). ``max_sampling_steps=None``, the default, follows it: 16 random
+    words per allowed event (the tree method draws about three per event),
+    so raising ``max_events`` alone is enough for a long run; an explicit
+    value wins. ``max_events=None`` sets no event limit: the request
+    records 2**64 - 1, the largest value, which no run reaches, and the
+    sampling budget is then 2**64 - 1 too unless it is given. The request
+    always states both numbers, so it replays exactly. Without a finite
+    budget a runaway model (a rate that explodes) runs until memory runs
+    out, so combine ``max_events=None`` with ``wall_time_s``, which ends
+    the run cooperatively (where it ends then depends on the machine).
+
+    When replicates end early (a budget, or ``failed``), ``simulate()``
+    warns with :class:`IncompleteEnsembleWarning`: the message gives the
+    count per termination and the keyword to raise for each, and
+    ``result.statistics`` is None. ``strict=True`` raises
+    :class:`IncompleteEnsembleError` instead (its ``result`` holds the
+    result). A run cancelled on purpose (a cancel file, Ctrl-C) is not
+    reported. The lowest request version that fits the arguments is
     used; ``"static_direct"`` selects rules-run/0.6 for its defaults, and a
     ``crn-craft.model/1.0`` model (from :func:`crn_craft.convert`) always
     selects ``crn-craft.run/1.0``, which has the fields and defaults of
@@ -1174,6 +1337,7 @@ def ensemble(
         quantiles=quantiles,
         selector=_selector(selector),
         unified=False,
+        strict=strict,
     )
 
 
@@ -1199,9 +1363,12 @@ def _ensemble(
     quantiles,
     selector,
     unified,
+    strict=False,
 ):
     """``ensemble``; with ``unified`` (the top-level name) the documents are
     always model/1.0 and run/1.0 and network models are converted."""
+    strict = _strict(strict)
+    events, steps = _event_budgets(max_events, max_sampling_steps)
     probabilities = _probabilities(quantiles)
     if isinstance(model, Model):
         model = model.to_dict()
@@ -1238,8 +1405,8 @@ def _ensemble(
         },
         "budget": {
             "threads": count(threads),
-            "max_events_per_replicate": count(max_events),
-            "max_sampling_steps_per_replicate": count(max_sampling_steps),
+            "max_events_per_replicate": events,
+            "max_sampling_steps_per_replicate": steps,
             "max_instances": count(max_instances),
             "max_output_bytes": count(max_output_bytes),
             "wall_time_s": None if wall_time_s is None else float(wall_time_s),
@@ -1296,7 +1463,7 @@ def _ensemble(
         request["method"].setdefault("selector", "linear")
     if probabilities:
         request["outputs"]["quantiles"] = probabilities
-    return _prepared(data, request, compiled, unified_from, unified)
+    return _prepared(data, request, compiled, unified_from, unified, strict)
 
 
 def fsp(model, end, report_times, bounds, max_states=None, tolerance=None):

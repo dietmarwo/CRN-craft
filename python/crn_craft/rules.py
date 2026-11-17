@@ -218,19 +218,34 @@ def _selector(selector):
     return selector
 
 
-def _budget(value, keyword):
-    """A per-replicate budget as an integer in [0, 2**64 - 1] (a u64)."""
+def _budget(value, keyword, *, unlimited=False):
+    """A budget as an integer in [0, 2**64 - 1] (a u64); not a bool.
+
+    ``unlimited`` says that the keyword also takes None (no limit), for the
+    messages; None itself is handled by the caller.
+    """
+    expected = "an integer or None" if unlimited else "an integer"
+    if isinstance(value, bool | np.bool_):
+        raise TypeError(f"{keyword} must be {expected}, not bool")
     try:
         value = operator.index(value)
     except TypeError:
         raise TypeError(
-            f"{keyword} must be an integer or None, not {type(value).__name__}"
+            f"{keyword} must be {expected}, not {type(value).__name__}"
         ) from None
     if not 0 <= value <= UNLIMITED:
-        raise ValueError(
-            f"{keyword} must be in [0, 2**64 - 1], or None for no limit: {value}"
-        )
+        bound = ", or None for no limit" if unlimited else ""
+        raise ValueError(f"{keyword} must be in [0, 2**64 - 1]{bound}: {value}")
     return value
+
+
+def _seconds(wall_time_s):
+    """``wall_time_s`` as a float or None; not a bool."""
+    if wall_time_s is None:
+        return None
+    if isinstance(wall_time_s, bool | np.bool_):
+        raise TypeError("wall_time_s must be a number of seconds or None, not bool")
+    return float(wall_time_s)
 
 
 def _event_budgets(max_events, max_sampling_steps):
@@ -242,11 +257,15 @@ def _event_budgets(max_events, max_sampling_steps):
     :data:`UNLIMITED` (so :data:`UNLIMITED` with ``max_events=None``). An
     explicit value wins.
     """
-    events = UNLIMITED if max_events is None else _budget(max_events, "max_events")
+    events = (
+        UNLIMITED
+        if max_events is None
+        else _budget(max_events, "max_events", unlimited=True)
+    )
     if max_sampling_steps is None:
         steps = min(SAMPLING_STEPS_PER_EVENT * events, UNLIMITED)
     else:
-        steps = _budget(max_sampling_steps, "max_sampling_steps")
+        steps = _budget(max_sampling_steps, "max_sampling_steps", unlimited=True)
     return events, steps
 
 
@@ -1404,12 +1423,12 @@ def _ensemble(
             "keep_instances": count(keep_instances),
         },
         "budget": {
-            "threads": count(threads),
+            "threads": _budget(threads, "threads"),
             "max_events_per_replicate": events,
             "max_sampling_steps_per_replicate": steps,
-            "max_instances": count(max_instances),
-            "max_output_bytes": count(max_output_bytes),
-            "wall_time_s": None if wall_time_s is None else float(wall_time_s),
+            "max_instances": _budget(max_instances, "max_instances"),
+            "max_output_bytes": _budget(max_output_bytes, "max_output_bytes"),
+            "wall_time_s": _seconds(wall_time_s),
         },
     }
     if trackers or event_log is not None or method is not None:

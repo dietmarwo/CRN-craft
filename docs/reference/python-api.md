@@ -62,9 +62,11 @@ molecules carry numeric attributes, for example
 `add_species("mtDNA", attributes=["clone"])`: each attribute
 vector is an instance with its own count, and the run creates and
 removes instances. Its molecules at time 0 come from
-[`add_initial`](#modeladd_initial), so `initial` must stay 0. Declare it before
-the reactions that use it. Every species, with attributes or not,
-has an observable under its own name: its total count of molecules.
+[`add_initial`](#modeladd_initial), so `initial` must stay 0, and each such
+species is declared in its own call (a mapping with `attributes`
+raises `TypeError`). Declare it before the reactions that use it.
+Every species, with attributes or not, has an observable under its
+own name: its total count of molecules.
 
 ### `Model.add_initial`
 
@@ -312,8 +314,10 @@ expression over the same names, default 1), `reduce` gives:
 - `"max_count"`: the largest copy number among the matching
   instances, times the weight, 0 when none matches (for example the
   size of the largest clone); it exists only in
-  `crn-craft.model/1.0`, so `crn_craft.rules.Model` then writes
-  that version.
+  `crn-craft.model/1.0`.
+
+A model with an observable of this call is written as
+`crn-craft.model/1.0`, also by `crn_craft.rules.Model`.
 
 `label` names the instance in `where` and `weight` (default
 `x`). Rates (strings and [`mass_action`](#mass_action)), the stop condition
@@ -511,8 +515,11 @@ Return the document as a new dictionary.
 
 It is rules-model/0.3, or rules-model/0.4 if a continuous variable
 is independent (see [`add_ode`](#modeladd_ode)), or `crn-craft.model/1.0` if
-a reaction takes three or more molecules or an observable reduces
-with `max_count`; `crn_craft.Model` writes
+a reaction takes three or more molecules or a call of release 0.8.0
+(a species with attributes, [`add_observable`](#modeladd_observable), [`pattern`](#pattern),
+[`copy`](#copy), [`new`](#new)) changed the model; a rules-model document
+of [`from_dict`](#modelfrom_dict) keeps its version unless such a call edits it.
+`crn_craft.Model` writes
 `crn-craft.model/1.0` always. A model from [`from_dict`](#modelfrom_dict)
 returns its document until it is edited.
 
@@ -899,7 +906,11 @@ Some replicates of a run ended early, on a budget or by failing.
 was stopped on purpose). The message gives the count per termination and
 the keyword that raises each budget. `counts` maps each such
 termination to its number of replicates. `strict=True` raises
-[`IncompleteEnsembleError`](#incompleteensembleerror) instead.
+[`IncompleteEnsembleError`](#incompleteensembleerror) instead. The package registers the
+filter `"always"` for this category at import, after any other
+filter, so every run that ends early is reported, also in a loop;
+`warnings.simplefilter("ignore", IncompleteEnsembleWarning)` silences
+it.
 
 ### `IncompleteEnsembleError`
 

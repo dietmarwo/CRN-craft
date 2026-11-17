@@ -724,6 +724,16 @@ def check_limits(rows, binary):
                 raises(ValueError, call, model, **{keyword: bad}, **short)
             raises(TypeError, call, model, **{keyword: 1.5}, **short)
         raises(TypeError, call, model, strict="yes", **short)
+        for keyword in (
+            "max_events",
+            "max_sampling_steps",
+            "max_instances",
+            "max_output_bytes",
+            "threads",
+            "wall_time_s",
+        ):
+            for flag in (True, np.bool_(False)):
+                raises(TypeError, call, model, **{keyword: flag}, **short)
     # The command line runs the u64 request too.
     with tempfile.TemporaryDirectory() as folder:
         folder = Path(folder)
@@ -851,6 +861,18 @@ def check_incomplete(rows):
         .simulate
     )
     require(len(caught) == 1, "a bound candidate warns too")
+    batches = crn.ensemble(model, max_events=50, **short)
+    with warnings.catch_warnings(record=True) as caught:
+        for _ in range(2):
+            batches.simulate()  # one call site, as in a loop over batches
+    require(
+        sum(w.category is crn.IncompleteEnsembleWarning for w in caught) == 2,
+        "two batches from one call site warn twice under the default filters",
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("ignore", crn.IncompleteEnsembleWarning)
+        batches.simulate()
+    require(not caught, "a filter of the user wins over the package's filter")
     for name, call in (("crn", crn.prepare), ("rules", rules.prepare)):
         documents = rules.ensemble(model, max_events=50, **short)._documents
         raises(crn.IncompleteEnsembleError, call(*documents, strict=True).simulate)
@@ -880,18 +902,50 @@ def check_attributed_builder(rows):
         "a numeric rate on a species with attributes is its rate per molecule",
     )
     old = clone_model(rules.Model, 1e-3, crn.mass_action("delta"))
-    require(
-        old.to_dict()["schema"] == "crn-craft.rules-model/0.3"
-        and crn.check(old)["valid"],
-        "rules.Model writes an attributed model as rules-model/0.3",
-    )
     old.add_observable("largest", "mtDNA", where="x.clone > 0", reduce="max_count")
     require(
-        old.to_dict()["schema"] == "crn-craft.model/1.0"
+        old.to_dict()
+        == {**built.to_dict(), "observables": old.to_dict()["observables"]}
         and old.to_dict()["observables"]["largest"]
         == {"type": "mtDNA", "where": "x.clone > 0", "reduce": "max_count"}
         and crn.check(old)["valid"],
-        "max_count makes rules.Model write model/1.0",
+        "rules.Model writes an attributed model as model/1.0",
+    )
+    # Each call of release 0.8.0 makes rules.Model write model/1.0; plain
+    # calls keep rules-model/0.3.
+    for call in (
+        lambda m: m.add_species("B", attributes=["a"]),
+        lambda m: m.add_observable("twice", "A", weight=2),
+        lambda m: m.add_reaction(0.1, [crn.pattern("A")], []),
+        lambda m: m.add_reaction(0.1, ["A"], [crn.copy("x")]),
+        lambda m: m.add_reaction(0.1, ["A"], [crn.new("A")]),
+        lambda m: m.add_reaction(0.1, [{"label": "x", "type": "A"}], []),
+    ):
+        plain = rules.Model("plain").add_species("A", 3)
+        plain.add_reaction(0.1, ["A"], [], name="decay")
+        require(
+            plain.to_dict()["schema"] == "crn-craft.rules-model/0.3",
+            "plain rules.Model calls write rules-model/0.3",
+        )
+        call(plain)
+        require(
+            plain.to_dict()["schema"] == "crn-craft.model/1.0"
+            and crn.check(plain)["valid"],
+            "a call of 0.8.0 makes rules.Model write model/1.0",
+        )
+    # A legacy document of from_dict keeps its version until such a call.
+    legacy = dict(clone_document(1e-3), schema="crn-craft.rules-model/0.3")
+    loaded = rules.Model.from_dict(legacy).add_parameter("unused", 1.0)
+    require(
+        loaded.to_dict()["schema"] == "crn-craft.rules-model/0.3"
+        and crn.check(loaded)["valid"],
+        "a loaded rules-model/0.3 document keeps its version",
+    )
+    loaded.add_observable("largest", "mtDNA", reduce="max_count")
+    require(
+        loaded.to_dict()["schema"] == "crn-craft.model/1.0"
+        and crn.check(loaded)["valid"],
+        "add_observable on a loaded legacy document writes model/1.0",
     )
     # add_initial: every attribute, counts add up per attribute vector.
     m = rules.Model("init").add_parameter("n0", 4.0)
@@ -977,7 +1031,21 @@ def check_attributed_builder(rows):
         (KeyError, lambda: a.add_initial("D", 3)),
         (ValueError, lambda: a.set_initial({"C": 3})),
         (ValueError, lambda: a.add_species("D", 5, ["x1"])),
+        (TypeError, lambda: a.add_species({"D": 0, "E": 0}, attributes=["x1"])),
+        (TypeError, lambda: a.add_species({"D": 3}, attributes=["x1"])),
         (TypeError, lambda: a.add_species("D", 0, "x1")),
+        (
+            ValueError,
+            lambda: a.add_reaction(0.1, [crn.pattern("C", where="x.s > 0"), "C"], []),
+        ),
+        (
+            ValueError,
+            lambda: a.add_reaction(
+                0.1,
+                [crn.pattern("C", factor="x.s"), crn.pattern("C", factor="y.w")],
+                [],
+            ),
+        ),
         (ValueError, lambda: a.add_species("D", 0, ["a", "a"])),
         (ValueError, lambda: a.add_observable("C", "C")),
         (ValueError, lambda: a.add_observable("heavy", "C")),
@@ -986,6 +1054,42 @@ def check_attributed_builder(rows):
     ):
         raises(error, call)
     require(a.to_dict() == before, "failed calls leave the model unchanged")
+    message = str(raises(ValueError, a.add_species, "D", 5, ["x1"]))
+    require(
+        "add_species takes no initial count" in message
+        and "initial=" not in message
+        and "add_initial('D', count, x1=...)" in message,
+        "the message for an initial count of a species with attributes",
+    )
+    message = str(raises(TypeError, a.add_species, {"D": 0}, attributes=["x1"]))
+    require(
+        "in its own call" in message,
+        "a mapping with attributes asks for one call per species",
+    )
+    message = str(
+        raises(
+            ValueError,
+            a.add_reaction,
+            0.1,
+            [crn.pattern("C", where="x.s > 0"), "C"],
+            [],
+        )
+    )
+    require(
+        "two different patterns over the same species 'C'" in message
+        and "identical" in message,
+        "two different patterns over one species are refused",
+    )
+    # Identical patterns, whatever their labels and spacing, form a pair.
+    pairs = crn.Model("pairs").add_species("C", attributes=["s"])
+    pairs.add_initial("C", 9, s=1)
+    pairs.add_reaction(
+        0.1,
+        [crn.pattern("C", where="x.s > 0"), crn.pattern("C", where="(y.s>0)")],
+        [crn.copy("x")],
+        name="pair",
+    )
+    require(crn.check(pairs)["valid"], "identical patterns with other labels pair")
     message = str(raises(ValueError, a.add_reaction, 0.1, ["C"], ["C"]))
     require(
         "crn_craft.copy" in message and "crn_craft.new" in message,
@@ -1156,6 +1260,43 @@ def check_clone_model(rows):
         .metadata["termination"]
         == "completed",
         "static methods take mass_action, not a whole propensity, over two clones",
+    )
+    # A one-rule Moran step "x replaces y" through crn.rules: written as
+    # model/1.0 and run/1.0, so the pair's labels are random (rules-direct/3)
+    # and clone 1 keeps its mean of 20 (neutral drift).
+    moran = rules.Model("moran").add_parameter("k", 0.01)
+    moran.add_species("M", attributes=["clone"])
+    moran.add_initial("M", 20, clone=0).add_initial("M", 20, clone=1)
+    moran.add_reaction(
+        crn.mass_action("k"),
+        ["M", "M"],
+        [crn.copy("x"), crn.copy("x")],
+        name="x_replaces_y",
+    )
+    run = rules.ensemble(
+        moran,
+        end=200.0,
+        report_times=[0.0, 200.0],
+        replicates=400,
+        seed=1,
+        threads=2,
+        keep_instances=400,
+    )
+    result = run.simulate()
+    clone_1 = np.array(
+        [
+            sum(i["count"] for i in cell["instances"] if i["attributes"][0] == 1)
+            for cell in result.metadata["final_instances"]
+        ],
+        dtype=float,
+    )
+    require(
+        json.loads(run._documents[0])["schema"] == "crn-craft.model/1.0"
+        and json.loads(run._documents[1])["schema"] == "crn-craft.run/1.0"
+        and result.metadata["sampler"] == "chacha8-u53/rules-direct/3"
+        and abs(clone_1.mean() - 20) <= 4 * clone_1.std(ddof=1) / np.sqrt(400),
+        "crn.rules runs an attributed pair rule with random labels "
+        f"({result.metadata['sampler']}, clone 1 mean {clone_1.mean()})",
     )
     rows.append({"check": "clone_model_builder", "passed": True})
 

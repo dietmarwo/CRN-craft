@@ -44,7 +44,7 @@ the same names, defaults, documents, hashes and numbers. Code that moves to
 
 | `crn.rules` (0.6.0) | `crn` (0.7.0) |
 | --- | --- |
-| `rules.Model` writes `rules-model/0.3` | `crn.Model` writes `crn-craft.model/1.0`: larger limits, three or more reactant molecules |
+| `rules.Model` writes `rules-model/0.3` (since 0.8.0 `crn-craft.model/1.0` for the calls new in 0.8.0: species with attributes, `add_observable`, `crn.pattern`, `crn.copy`, `crn.new`) | `crn.Model` writes `crn-craft.model/1.0`: larger limits, three or more reactant molecules |
 | `rules.ensemble` writes the lowest `rules-run` version, and Static Direct scans | `crn.ensemble` writes `crn-craft.run/1.0`; Static Direct uses the selector `auto`, so its paths can differ for models with many reactions (`selector="linear"` keeps them) |
 | `statistics` has `mean`, `sample_variance` and `mean_standard_error` | also `median` and `quantiles` by default |
 | `result.metadata["schema"]` is `crn-craft.rules-result/0.x` | `crn-craft.result/1.0`, with new hashes |

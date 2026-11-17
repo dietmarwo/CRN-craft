@@ -119,7 +119,7 @@ def loop_source(model):
     Needs no Rust toolchain. ``model`` is bytes, text, a dictionary or a
     ``rules.Model``. The generator emits every model that Static Direct
     runs: constant, vacancy and expression rates, ``propensity`` rules
-    (the builder's string rates) and sum, distinct, max and min
+    (the builder's string rates) and sum, distinct, max, min and max_count
     observables, up to 1 MiB of source. It refuses, with ``CrnError``
     ``CRN-R020`` at ``/method``, models that only another method runs
     (continuous variables, ATP blocks, instances that change identity) and

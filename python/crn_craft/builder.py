@@ -1,10 +1,13 @@
 """Build models from Python, in the style of rebop's ``Gillespie``.
 
 ``Model`` writes a ``crn-craft.rules-model/0.3`` document (0.4 with
-independent ODEs, see ``add_ode``; ``crn-craft.model/1.0`` when the model
-uses a feature of that version) with one species type per species, one
-observable per species (its count, under the species name), the
-observables of ``add_observable`` and one rule per reaction::
+independent ODEs, see ``add_ode``) with one species type per species, one
+observable per species (its count, under the species name) and one rule per
+reaction. A model that uses a call of release 0.8.0 (a species with
+attributes, ``add_observable``, :func:`pattern`, :func:`copy`, :func:`new`)
+or a feature of ``crn-craft.model/1.0`` (three or more reactant molecules)
+is written as ``crn-craft.model/1.0`` instead, so it runs under
+``crn-craft.run/1.0`` with the engine's current sampling of pairs::
 
     from crn_craft import rules
 
@@ -429,6 +432,42 @@ def _pattern_of(item):
     return species, label, where, factor, count
 
 
+# Tokens of an expression, for comparing two patterns as the engine does.
+_TOKEN = re.compile(
+    r"(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?"
+    r"|[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)?"
+    r"|&&|\|\||==|!=|<=|>=|\S"
+)
+
+
+def _tokens(expression, label):
+    """An expression's tokens with its label resolved, numbers as floats and
+    parentheses left out: equal for patterns that the engine compares as
+    identical, up to redundant parentheses."""
+    if expression is None:
+        return None
+    tokens = []
+    for token in _TOKEN.findall(expression):
+        if token in "()":
+            continue
+        if token[0].isdigit() or token[0] == ".":
+            token = repr(float(token))
+        elif token.startswith(label + "."):
+            token = "." + token[len(label) + 1 :]
+        tokens.append(token)
+    return tokens
+
+
+def _same_pattern(first, second):
+    """Whether two patterns over one type are identical once their labels
+    are resolved (the engine pairs identical patterns, CRN-R013 otherwise)."""
+    return all(
+        _tokens(first.get(key), first["label"])
+        == _tokens(second.get(key), second["label"])
+        for key in ("where", "factor")
+    )
+
+
 def _needs_1_0(rule):
     """Whether a rule uses a feature of crn-craft.model/1.0 only."""
     reactants = rule.get("reactants")
@@ -456,10 +495,11 @@ class Model:
 
     ``add_*`` methods return the model, so calls can be chained. ``to_dict``
     returns a fresh document: rules-model/0.3 (0.4 if an ODE is
-    independent, ``crn-craft.model/1.0`` if a reaction takes three or more
-    molecules or an observable reduces with ``max_count``), which
-    ``rules.ensemble`` and ``rules.prepare`` also accept as the ``Model``
-    itself. ``crn_craft.Model``, the top-level name, writes
+    independent), or ``crn-craft.model/1.0`` if a reaction takes three or
+    more molecules or the model uses a call of release 0.8.0 (a species with
+    attributes, ``add_observable``, :func:`pattern`, :func:`copy`,
+    :func:`new`); ``rules.ensemble`` and ``rules.prepare`` also accept the
+    ``Model`` itself. ``crn_craft.Model``, the top-level name, writes
     ``crn-craft.model/1.0`` always.
 
     Species are plain counts by default. A species with attributes
@@ -495,6 +535,10 @@ class Model:
         # Species without the count observable under their name; only a
         # document of `from_dict` can leave it out.
         self._uncounted = set()
+        # True once a call of release 0.8.0 (attributes, add_observable,
+        # pattern/copy/new) changed the model: it is then written as
+        # model/1.0, so it runs with run/1.0 and its random pair labels.
+        self._calls_0_8 = False
         # Declared by a reaction before add_species; add_species may set them.
         self._implicit = set()
         self._reactions = []
@@ -736,13 +780,22 @@ class Model:
         ``add_species("mtDNA", attributes=["clone"])``: each attribute
         vector is an instance with its own count, and the run creates and
         removes instances. Its molecules at time 0 come from
-        :meth:`add_initial`, so ``initial`` must stay 0. Declare it before
-        the reactions that use it. Every species, with attributes or not,
-        has an observable under its own name: its total count of molecules.
+        :meth:`add_initial`, so ``initial`` must stay 0, and each such
+        species is declared in its own call (a mapping with ``attributes``
+        raises ``TypeError``). Declare it before the reactions that use it.
+        Every species, with attributes or not, has an observable under its
+        own name: its total count of molecules.
         """
         self._editable()
-        entries = _entries(name, initial, "add_species", "initial")
         names = _attribute_names(attributes)
+        if names and isinstance(name, Mapping):
+            raise TypeError(
+                "add_species() takes a mapping of initial counts or attributes, "
+                "not both: declare each species with attributes in its own call, "
+                "add_species(name, attributes=[...]), and give its molecules "
+                "with add_initial"
+            )
+        entries = _entries(name, initial, "add_species", "initial")
         checked = {}
         for key, count in entries:
             _check_name("species", key)
@@ -759,10 +812,10 @@ class Model:
                 )
             if isinstance(count, bool | str) or count != 0:
                 raise ValueError(
-                    f"species {key!r} has attributes, so its molecules at time 0 "
-                    f"come from add_initial({key!r}, count, {names[0]}=...), one "
-                    "call per attribute vector; initial= is for species without "
-                    "attributes"
+                    f"species {key!r} has attributes, so add_species takes no "
+                    f"initial count for it: its molecules at time 0 come from "
+                    f"add_initial({key!r}, count, {names[0]}=...), one call per "
+                    "attribute vector"
                 )
             checked[key] = 0
         for key, count in checked.items():
@@ -771,6 +824,7 @@ class Model:
             if names:
                 self._attributes[key] = names
                 self._initial[key] = []
+                self._calls_0_8 = True
         self._edited()
         return self
 
@@ -841,6 +895,7 @@ class Model:
                 break
         else:
             self._initial[name].append([values, count])
+        self._calls_0_8 = True
         self._edited()
         return self
 
@@ -887,8 +942,10 @@ class Model:
         - ``"max_count"``: the largest copy number among the matching
           instances, times the weight, 0 when none matches (for example the
           size of the largest clone); it exists only in
-          ``crn-craft.model/1.0``, so ``crn_craft.rules.Model`` then writes
-          that version.
+          ``crn-craft.model/1.0``.
+
+        A model with an observable of this call is written as
+        ``crn-craft.model/1.0``, also by ``crn_craft.rules.Model``.
 
         ``label`` names the instance in ``where`` and ``weight`` (default
         ``x``). Rates (strings and :func:`mass_action`), the stop condition
@@ -924,6 +981,7 @@ class Model:
         if reduce != "sum":
             spec["reduce"] = reduce
         self._observables[name] = spec
+        self._calls_0_8 = True
         self._edited()
         return self
 
@@ -966,6 +1024,7 @@ class Model:
                 "reactants and products are lists of species names (or patterns "
                 "and products)"
             )
+        reactants = list(reactants)
         entries, explicit = self._reactants(reactants)
         products = list(products)
         if isinstance(rate, _MassAction):
@@ -1001,6 +1060,12 @@ class Model:
         for species in introduced:
             self._species[species] = 0
             self._implicit.add(species)
+        if (
+            any(not isinstance(item, str) for item in reactants)
+            or any(not isinstance(item, str) for item in products)
+            or any(e[0] in self._attributes for e in entries)
+        ):
+            self._calls_0_8 = True
         rule = {"name": name, "reactants": patterns}
         rule.update(law)
         rule["products"] = written
@@ -1063,6 +1128,17 @@ class Model:
             if count is not None:
                 pattern["count"] = count
             patterns.append(pattern)
+        if (
+            len(patterns) == 2
+            and patterns[0]["type"] == patterns[1]["type"]
+            and not _same_pattern(*patterns)
+        ):
+            raise ValueError(
+                "two different patterns over the same species "
+                f"{patterns[0]['type']!r} are not supported: use identical "
+                "patterns (the same where and factor), which form pairs of "
+                "distinct molecules, or patterns over different species"
+            )
         if "propensity" in law and any("where" in p or "factor" in p for p in patterns):
             raise ValueError(
                 "a string rate is the reaction's whole propensity, which does not "
@@ -1260,6 +1336,7 @@ class Model:
         observables |= json.loads(json.dumps(self._observables))
         if (
             self._unified
+            or self._calls_0_8
             or any(_needs_1_0(r) for r in self._reactions)
             or any(o.get("reduce") in _REDUCTIONS_1_0 for o in observables.values())
         ):
@@ -1305,8 +1382,11 @@ class Model:
 
         It is rules-model/0.3, or rules-model/0.4 if a continuous variable
         is independent (see :meth:`add_ode`), or ``crn-craft.model/1.0`` if
-        a reaction takes three or more molecules or an observable reduces
-        with ``max_count``; ``crn_craft.Model`` writes
+        a reaction takes three or more molecules or a call of release 0.8.0
+        (a species with attributes, :meth:`add_observable`, :func:`pattern`,
+        :func:`copy`, :func:`new`) changed the model; a rules-model document
+        of :meth:`from_dict` keeps its version unless such a call edits it.
+        ``crn_craft.Model`` writes
         ``crn-craft.model/1.0`` always. A model from :meth:`from_dict`
         returns its document until it is edited.
         """

@@ -166,8 +166,9 @@ event_limit None
 ```
 
 A replicate that ends early is not an error, but `simulate()` warns with
-`crn.IncompleteEnsembleWarning`, which Python prints on stderr. Here the
-warning is caught to show its message:
+`crn.IncompleteEnsembleWarning`, which Python prints on stderr, every time,
+also for each batch of a loop. Here the warning is caught to show its
+message:
 
 ```python
 import warnings

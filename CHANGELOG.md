@@ -42,16 +42,23 @@ study with 0.7.1.
   and `crn.new(species, **attributes)` as products. Pattern and product
   dictionaries of the model document are accepted too. Unknown labels,
   unknown or missing attributes, a bare product name of a species with
-  attributes and a whole-propensity string with `where` or `factor` are
-  refused when the reaction is added, with a message that names the fix.
+  attributes, a whole-propensity string with `where` or `factor` and two
+  different patterns over one species are refused when the reaction is
+  added, with a message that names the fix. A mapping of species with
+  `attributes` is refused (one call per species with attributes).
 - **`crn.mass_action(expression)`**, a rate per combination of reactant
   molecules given as an expression (the rule's `rate`); a plain string
   stays the whole propensity.
 - **`add_observable(name, species, where=None, weight=None, reduce="sum",
   label=None)`** with the reductions `sum`, `distinct`, `max`, `min` and
   `max_count` (the largest copy number among the matching instances).
-  `crn.rules.Model` writes `crn-craft.model/1.0` when `max_count` is used
-  and the 0.6.0 versions otherwise.
+- `crn.rules.Model` writes `crn-craft.model/1.0` as soon as a model uses a
+  call new in this release (a species with attributes, `add_initial` with
+  attributes, `add_observable`, `crn.pattern`, `crn.copy`, `crn.new`), so
+  `crn.rules.ensemble` runs it under `crn-craft.run/1.0` with the engine's
+  random pair labels; models built with the calls of 0.7.1 keep the 0.6.0
+  versions, and a rules-model document of `from_dict` keeps its version
+  until such a call edits it.
 - `Model.from_dict` keeps documents with attributes and filtered
   observables editable (also documents without a count observable per
   type, which stay without it); `crn.Model.from_dict` also edits
@@ -60,9 +67,12 @@ study with 0.7.1.
   `CompiledLoop.verify` warn when replicates end on a budget or fail, with
   the count per termination and the argument to raise for each (and when a
   result exceeded `max_output_bytes`). Canceled runs and stopped replicates
-  are not reported. `strict=True` on `ensemble` and `prepare` (both
-  namespaces) raises **`crn.IncompleteEnsembleError`** (a `RuntimeError`)
-  instead, with `counts` and the `result`; `bind_parameters` keeps it.
+  are not reported. The package registers the filter `"always"` for it at
+  import, after any other filter, so a loop over batches reports every
+  batch and a filter of the user still wins. `strict=True` on `ensemble`
+  and `prepare` (both namespaces) raises **`crn.IncompleteEnsembleError`**
+  (a `RuntimeError`) instead, with `counts` and the `result`;
+  `bind_parameters` keeps it.
 
 ### Changed (Python package)
 
@@ -75,7 +85,9 @@ study with 0.7.1.
   the defaults change, so their `run_sha256` changes; runs that completed
   before give the same numbers. `max_events=1_000_000,
   max_sampling_steps=8_000_000` writes the 0.7.1 request. Budgets outside
-  [0, 2⁶⁴ − 1] raise `ValueError` before the engine sees them. The command
+  [0, 2⁶⁴ − 1] raise `ValueError`, and a `bool` for a budget (`max_events`,
+  `max_sampling_steps`, `max_instances`, `max_output_bytes`, `threads`,
+  `wall_time_s`) raises `TypeError`, before the engine sees them. The command
   line and `prepare` use the budgets of the request as written.
 
 ### Documentation (Python package and guide)

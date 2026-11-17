@@ -62,11 +62,21 @@ def mutation():
             "M": {"type": "m", "where": "x.clone > 0"},
         },
         "rules": [
-            {"name": "x_replaces_y", "reactants": PAIR, "rate": "g * (1 - p)",
-             "products": KEEP_X},
-            {"name": "x_mutant_replaces_y", "reactants": PAIR, "rate": "g * p",
-             "products": [{"type": "m", "copy": "x"},
-                          {"type": "m", "attributes": {"clone": "new_id()"}}]},
+            {
+                "name": "x_replaces_y",
+                "reactants": PAIR,
+                "rate": "g * (1 - p)",
+                "products": KEEP_X,
+            },
+            {
+                "name": "x_mutant_replaces_y",
+                "reactants": PAIR,
+                "rate": "g * p",
+                "products": [
+                    {"type": "m", "copy": "x"},
+                    {"type": "m", "attributes": {"clone": "new_id()"}},
+                ],
+            },
         ],
     }
 
@@ -80,11 +90,15 @@ def network(name, species, initial, rules, parameters):
         "initial": [{"type": s, "count": initial[s]} for s in species],
         "observables": {s: {"type": s} for s in species},
         "rules": [
-            {"name": rule,
-             "reactants": [{"label": label, "type": t}
-                           for label, t in zip(["x", "y"], reactants)],
-             "rate": rate,
-             "products": [{"type": t} for t in products]}
+            {
+                "name": rule,
+                "reactants": [
+                    {"label": label, "type": t}
+                    for label, t in zip(["x", "y"], reactants, strict=True)
+                ],
+                "rate": rate,
+                "products": [{"type": t} for t in products],
+            }
             for rule, reactants, rate, products in rules
         ],
     }
@@ -92,19 +106,27 @@ def network(name, species, initial, rules, parameters):
 
 def neutral_network():
     return network(
-        "pair_neutral_counts", ["C0", "C1"], {"C0": 10, "C1": 10},
-        [("c1_replaces_c0", ["C0", "C1"], "g / 2", ["C1", "C1"]),
-         ("c0_replaces_c1", ["C0", "C1"], "g / 2", ["C0", "C0"])],
+        "pair_neutral_counts",
+        ["C0", "C1"],
+        {"C0": 10, "C1": 10},
+        [
+            ("c1_replaces_c0", ["C0", "C1"], "g / 2", ["C1", "C1"]),
+            ("c0_replaces_c1", ["C0", "C1"], "g / 2", ["C0", "C0"]),
+        ],
         {"g": G},
     )
 
 
 def mutation_network():
     return network(
-        "pair_mutation_counts", ["W", "M"], {"W": 20, "M": 0},
-        [("m_replaces_w", ["W", "M"], "g / 2", ["M", "M"]),
-         ("w_replaces_m", ["W", "M"], "g * (1 - p) / 2", ["W", "W"]),
-         ("w_mutates", ["W", "W"], "g * p", ["W", "M"])],
+        "pair_mutation_counts",
+        ["W", "M"],
+        {"W": 20, "M": 0},
+        [
+            ("m_replaces_w", ["W", "M"], "g / 2", ["M", "M"]),
+            ("w_replaces_m", ["W", "M"], "g * (1 - p) / 2", ["W", "W"]),
+            ("w_mutates", ["W", "W"], "g * p", ["W", "M"]),
+        ],
         {"g": G, "p": P},
     )
 
@@ -123,31 +145,36 @@ def main():
     ]:
         path = HERE / f"{name}.model.json"
         reference = HERE / f"{name}.counts.model.json"
-        rows.append({
-            "name": name,
-            "path": str(path.relative_to(ROOT)),
-            "sha256": write(path, model),
-            "reference_path": str(reference.relative_to(ROOT)),
-            "reference_sha256": write(reference, counts),
-            "form": "rules",
-            "stop": False,
-            "species_names": species,
-            "end": TIMES[-1],
-            "report_times": TIMES,
-            "replicates": 200000,
-            "chunk": 10000,
-            "reference_seed": 1000000,
-            "gate_seed": 2000000,
-            "max_instances": 1000,
-            "fsp": {"bounds": {s: 20 for s in species}, "max_states": 10000,
-                    "tolerance": 1e-12},
-        })
+        rows.append(
+            {
+                "name": name,
+                "path": str(path.relative_to(ROOT)),
+                "sha256": write(path, model),
+                "reference_path": str(reference.relative_to(ROOT)),
+                "reference_sha256": write(reference, counts),
+                "form": "rules",
+                "stop": False,
+                "species_names": species,
+                "end": TIMES[-1],
+                "report_times": TIMES,
+                "replicates": 200000,
+                "chunk": 10000,
+                "reference_seed": 1000000,
+                "gate_seed": 2000000,
+                "max_instances": 1000,
+                "fsp": {
+                    "bounds": {s: 20 for s in species},
+                    "max_states": 10000,
+                    "tolerance": 1e-12,
+                },
+            }
+        )
     manifest = {
         "schema": "crn-craft.merge-models/0.1",
         "declared_in": "validation/merge/RESULTS.md (0.8 pair labels: law check declaration)",
         "seeds": "chunk k (0-based) of a model uses root seed reference_seed + k "
-                 "(counts network, static_direct reference) or gate_seed + k "
-                 "(engine under test, tree method)",
+        "(counts network, static_direct reference) or gate_seed + k "
+        "(engine under test, tree method)",
         "rows": rows,
     }
     (HERE / "models.json").write_text(json.dumps(manifest, indent=1) + "\n")

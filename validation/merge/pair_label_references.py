@@ -37,7 +37,9 @@ def counts_rows(path):
         data = (ROOT / row["reference_path"]).read_bytes()
         if sha256(data) != row["reference_sha256"]:
             raise SystemExit(f"{row['reference_path']}: bytes differ from models.json")
-        rows.append({**row, "path": row["reference_path"], "sha256": row["reference_sha256"]})
+        rows.append(
+            {**row, "path": row["reference_path"], "sha256": row["reference_sha256"]}
+        )
     return rows
 
 
@@ -48,7 +50,13 @@ def main():
     args = parser.parse_args()
     rows = counts_rows(builder_references.MANIFEST)
     builder_references.load_manifest = lambda names, path: rows
-    sys.argv = [sys.argv[0], "--binary", str(args.binary), "--threads", str(args.threads)]
+    sys.argv = [
+        sys.argv[0],
+        "--binary",
+        str(args.binary),
+        "--threads",
+        str(args.threads),
+    ]
     with tempfile.TemporaryDirectory():
         builder_references.main()
 

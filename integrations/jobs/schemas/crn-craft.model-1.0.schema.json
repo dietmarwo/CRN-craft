@@ -148,7 +148,7 @@
             }
           ],
           "default": "sum",
-          "description": "`sum` (default), `distinct`, `max` or `min`."
+          "description": "`sum` (default), `distinct`, `max` or `min`; `crn-craft.model/1.0` adds `max_count`."
         },
         "type": {
           "description": "Name of a declared type.",
@@ -279,6 +279,13 @@
           "description": "Smallest weight over present matching instances; 0 when none.",
           "enum": [
             "min"
+          ],
+          "type": "string"
+        },
+        {
+          "description": "Largest count times weight over present matching instances, for example the size of the largest clone; 0 when none. Only in `crn-craft.model/1.0`.",
+          "enum": [
+            "max_count"
           ],
           "type": "string"
         }

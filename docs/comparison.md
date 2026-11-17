@@ -30,7 +30,7 @@ histories; CRN-craft's first release was in November 2026.
 | Ensembles and parallelism | one call for any number of replicates on native threads; statistics and quantiles as pandas data frames ([chapter 3](guide/03-running.md#many-trajectories-in-one-call)) | `number_of_trajectories` in one `run`; the C++ SSA runs them one after another in one process; ensemble mean and standard deviation | one trajectory per `run` call; parallelization is planned |
 | Reproducibility | one ChaCha8 stream per replicate, results independent of the thread count, model and request named by SHA-256, sealed archives with a verifier ([chapters 8](guide/08-reproducibility.md), [10](guide/10-command-line.md)) | a `seed` argument | a seed or NumPy generator per call |
 | Compilation from Python | `crn.compile_loop(model)`, opt-in; needs a Rust toolchain; cached; byte-identical results ([chapter 5](guide/05-speed.md#compiled-models)) | the C++ solvers compile each model with g++ and SCons; NumPy solvers otherwise | the Python API compiles nothing; the Rust macro `define_system!` compiles a mass-action model into a Rust program |
-| Species with attributes | in model files, with new identities at run time; the builder cannot write them yet ([chapter 14](guide/14-model-files.md)) | not documented | not documented; rule modeling is listed as "probably not to come" |
+| Species with attributes | in model files and, since 0.8.0, in the builder, with new identities at run time ([chapter 14](guide/14-model-files.md)) | not documented | not documented; rule modeling is listed as "probably not to come" |
 | Continuous variables | ODEs between events that rates read; independent variables integrated once per run | rate rules and assignment rules (hybrid solver) | not documented |
 | Event-level output | stop conditions, trackers (first passage, extremes, integrals), bounded event logs, Python callbacks ([chapter 6](guide/06-stops-trackers-logs.md)) | SBML-style events with triggers, delays and assignments; live output during a run | every reaction with `nb_steps=0`; events are listed as "probably not to come" |
 | Results | pandas and xarray; mean, variance, standard error, quantiles; markdown and JSON reports ([chapter 4](guide/04-results.md)) | trajectories as NumPy arrays; matplotlib and Plotly plots; CSV | an xarray dataset per run |
@@ -122,8 +122,9 @@ SDEs. There is no measurement against StochPy or NFsim.
   sources over 1 MiB, and can be slower than interpreted `rssa_cr`.
 - Tau leaping is far slower than Static Direct on networks with about a
   thousand reactions; `bind_parameters` prepares the model again per candidate.
-- The builder cannot write species with attributes yet. In the one measured
-  optimization, rebop's macro was faster. First release: November 2026.
+- In the one measured optimization, rebop's macro was faster. First
+  release: November 2026. (Up to 0.7.1 the builder could not write species
+  with attributes; 0.8.0 adds them.)
 
 ## Sources
 

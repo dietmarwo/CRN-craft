@@ -1,0 +1,75 @@
+{
+ "schema": "crn-craft.merge-models/0.1",
+ "declared_in": "validation/merge/RESULTS.md (0.8 pair labels: law check declaration)",
+ "seeds": "chunk k (0-based) of a model uses root seed reference_seed + k (counts network, static_direct reference) or gate_seed + k (engine under test, tree method)",
+ "rows": [
+  {
+   "name": "pair-neutral",
+   "path": "validation/merge/pair-labels/pair-neutral.model.json",
+   "sha256": "8cbb6cfb31d3d84239287f622f4204b1068d6151b238f59cd291d231c3e2d3f9",
+   "reference_path": "validation/merge/pair-labels/pair-neutral.counts.model.json",
+   "reference_sha256": "8d4ba2ab67f7d4f1647dc1b1c5e06402b2ec12593f10e484d541aaf13e017378",
+   "form": "rules",
+   "stop": false,
+   "species_names": [
+    "C0",
+    "C1"
+   ],
+   "end": 2.0,
+   "report_times": [
+    0.0,
+    0.25,
+    0.5,
+    1.0,
+    2.0
+   ],
+   "replicates": 200000,
+   "chunk": 10000,
+   "reference_seed": 1000000,
+   "gate_seed": 2000000,
+   "max_instances": 1000,
+   "fsp": {
+    "bounds": {
+     "C0": 20,
+     "C1": 20
+    },
+    "max_states": 10000,
+    "tolerance": 1e-12
+   }
+  },
+  {
+   "name": "pair-mutation",
+   "path": "validation/merge/pair-labels/pair-mutation.model.json",
+   "sha256": "b543e4fe9ff86e93a719f858ca471f4f90873fb3549fa060ce6ebfd6d4c7d07a",
+   "reference_path": "validation/merge/pair-labels/pair-mutation.counts.model.json",
+   "reference_sha256": "05bd8ce50575c9afc7f76e99998fba3f3070dbd5d089577abd282adee07823e9",
+   "form": "rules",
+   "stop": false,
+   "species_names": [
+    "W",
+    "M"
+   ],
+   "end": 2.0,
+   "report_times": [
+    0.0,
+    0.25,
+    0.5,
+    1.0,
+    2.0
+   ],
+   "replicates": 200000,
+   "chunk": 10000,
+   "reference_seed": 1000000,
+   "gate_seed": 2000000,
+   "max_instances": 1000,
+   "fsp": {
+    "bounds": {
+     "W": 20,
+     "M": 20
+    },
+    "max_states": 10000,
+    "tolerance": 1e-12
+   }
+  }
+ ]
+}

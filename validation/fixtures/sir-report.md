@@ -41,7 +41,7 @@ method = static_direct
 sampler = chacha8-u53-ziggurat/rules-static-direct/1
 crn-craft = 0.6.0
 model_sha256 = 1a183091c7ff3e3050456ef6f6f8b3d0c306153f64e23ec597ac19faaa61ae32
-run_sha256 = 71e61b7bd4e2aec403598b5087943937216f11775ad94ea128eedb4d98539c98
+run_sha256 = a74bd453a1c02b6bdadba3bb264294e93fcccfeacffc8cc7867c134b14b19d74
 ```
 
 # Results

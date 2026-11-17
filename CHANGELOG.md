@@ -7,10 +7,97 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+Answers to feedback from a researcher who reproduced a published mtDNA drift
+study with 0.7.1.
+
+### Engine: added
+
+- Observables of `crn-craft.model/1.0` have a new reduction, `max_count`: the largest count times weight over the matching instances, for example the size of the largest clone, at every report time. It runs on every method (tree, static methods, the generated event loop, ODE kinetics with its gradient). Older model versions refuse it with `CRN-E003`; the `rules-model` schema is unchanged.
+
+### Engine: fixed
+
+- Pair rules (two identical patterns) whose products depend on which molecule is `x`, such as "x replaces y", now assign `x` and `y` at random when the two molecules come from different instances, under `crn-craft.run/1.0` (sampler `chacha8-u53/rules-direct/3`). Before, `x` was always the molecule whose instance came earlier in the engine's internal order, so such a rule favored older instances: in a neutral two-clone test one clone took over in every replicate. Rules with label-independent products (`x.size + y.size`, both molecules kept), pairs over species without attributes (one instance) and requests before `run/1.0` keep sampler version 2 and their streams byte for byte; the classification is part of version 3. A `crn-craft.model/1.0` document is needed (the Python builder writes one whenever it uses species with attributes). Exact-law check: 80 comparisons against the FSP law and a sample reference of an equivalent counts network, 0 failures; the 0.7.1 CLI fails 64 of them ([RESULTS.md](validation/merge/RESULTS.md), "0.8 pair labels").
+
+### Engine: changed
+
+- Under `crn-craft.run/1.0`, kept final instances (`keep_instances`) are no longer reserved before the run as `keep_instances × max_instances × (8 × attributes + 48)` bytes, which refused, for example, 3,000 kept cells with the default `max_instances` (16.8 GB) although each cell held about 40 instances. The run estimates them as replicates finish and drops them early (`output_limit`, `CRN-R045`) only once they cannot fit `max_output_bytes` (estimate above twice the budget; the estimate is under twice their JSON); otherwise the exact size check at the end decides, as before. `max_instances` then bounds only the instances alive in one replicate. Requests before `run/1.0` keep the reservation.
+- The reservation error (`CRN-R020` at `/budget`) itemizes the replicate records, the in-flight paths (worker threads), the kept paths, the kept instances (before `run/1.0`) and the trackers and logs, and its hint names the largest part.
+
 ### Changed
 
 - The optional jobs integration (`integrations/jobs`) pins optimization-jobs `41d5f00` (main after 0.4.1: command jobs may declare a progress file; the job crates are still 0.4.1) and fcmaes-rust `e996062` (main after 0.3.0, the merge that moves its own optimization-jobs pin there; the fcmaes crates are still 0.3.0), so both name one job API. `validation/check_jobs.py` records the new revisions. Through `optimization-run` at 41d5f00 it passes all 15 rows, 17 jobs and 18 manifests ([jobs-pin-41d5f00.json](validation/campaign/jobs-pin-41d5f00.json)); the report equals the 78970a2 report except for the three recorded pins.
 - The optional jobs integration (`integrations/jobs`) pins fcmaes-rust `64e11b3` (release 0.3.0: a cancel or deadline now stops running retries instead of letting them spend their budget) and optimization-jobs `78970a2` (tag `v0.4.1`). `validation/check_jobs.py` records the new revisions. Through `optimization-run` 0.4.1 it passes all 15 rows, 17 jobs and 18 manifests ([jobs-pin-78970a2.json](validation/campaign/jobs-pin-78970a2.json)). The report equals a rerun with the old pins and `optimization-run` 0.4.0 on the same tree ([jobs-pin-12f9d57-at-0.7.1.json](validation/campaign/jobs-pin-12f9d57-at-0.7.1.json)) except for the three recorded pins. Its objectives differ from the older `jobs-pin-12f9d57.json`, which predates the 0.7.0 engine changes.
+
+### Added (Python package)
+
+- **Species with attributes in the builder** (`crn.Model` and
+  `crn.rules.Model`): `add_species(name, attributes=[...])` declares a
+  species whose molecules carry attributes, and `add_initial(name, count,
+  **attributes)` gives its molecules at time 0 (repeated calls with the
+  same values add up; counts may be parameter expressions). Every species,
+  with attributes or not, keeps an observable of its count under its name.
+- **Reactants and products for such species:** `crn.pattern(species,
+  where=None, factor=None, label=None)` as a reactant (a plain name is any
+  molecule, labeled `x` and `y` as before); `crn.copy(label, **overrides)`
+  and `crn.new(species, **attributes)` as products. Pattern and product
+  dictionaries of the model document are accepted too. Unknown labels,
+  unknown or missing attributes, a bare product name of a species with
+  attributes, a whole-propensity string with `where` or `factor` and two
+  different patterns over one species are refused when the reaction is
+  added, with a message that names the fix. A mapping of species with
+  `attributes` is refused (one call per species with attributes).
+- **`crn.mass_action(expression)`**, a rate per combination of reactant
+  molecules given as an expression (the rule's `rate`); a plain string
+  stays the whole propensity.
+- **`add_observable(name, species, where=None, weight=None, reduce="sum",
+  label=None)`** with the reductions `sum`, `distinct`, `max`, `min` and
+  `max_count` (the largest copy number among the matching instances).
+- `crn.rules.Model` writes `crn-craft.model/1.0` as soon as a model uses a
+  call new in this release (a species with attributes, `add_initial` with
+  attributes, `add_observable`, `crn.pattern`, `crn.copy`, `crn.new`), so
+  `crn.rules.ensemble` runs it under `crn-craft.run/1.0` with the engine's
+  random pair labels; models built with the calls of 0.7.1 keep the 0.6.0
+  versions, and a rules-model document of `from_dict` keeps its version
+  until such a call edits it.
+- `Model.from_dict` keeps documents with attributes and filtered
+  observables editable (also documents without a count observable per
+  type, which stay without it); `crn.Model.from_dict` also edits
+  `rules-model/0.1` and `0.2` documents without an ATP block.
+- **`crn.IncompleteEnsembleWarning`** (a `UserWarning`): `simulate()` and
+  `CompiledLoop.verify` warn when replicates end on a budget or fail, with
+  the count per termination and the argument to raise for each (and when a
+  result exceeded `max_output_bytes`). Canceled runs and stopped replicates
+  are not reported. The package registers the filter `"always"` for it at
+  import, after any other filter, so a loop over batches reports every
+  batch and a filter of the user still wins. `strict=True` on `ensemble`
+  and `prepare` (both namespaces) raises **`crn.IncompleteEnsembleError`**
+  (a `RuntimeError`) instead, with `counts` and the `result`;
+  `bind_parameters` keeps it.
+
+### Changed (Python package)
+
+- **Budgets of `crn.ensemble` and `crn.rules.ensemble`:** `max_events`
+  defaults to 10⁸ (was 10⁶), and `max_sampling_steps` defaults to `None`,
+  16 random words per allowed event (was 8 × 10⁶), so raising `max_events`
+  alone is enough for a long run; an explicit value wins. `max_events=None`
+  removes the event and sampling limits: the request records 2⁶⁴ − 1, so it
+  still replays exactly; pair it with `wall_time_s`. Requests written with
+  the defaults change, so their `run_sha256` changes; runs that completed
+  before give the same numbers. `max_events=1_000_000,
+  max_sampling_steps=8_000_000` writes the 0.7.1 request. Budgets outside
+  [0, 2⁶⁴ − 1] raise `ValueError`, and a `bool` for a budget (`max_events`,
+  `max_sampling_steps`, `max_instances`, `max_output_bytes`, `threads`,
+  `wall_time_s`) raises `TypeError`, before the engine sees them. The command
+  line and `prepare` use the budgets of the request as written.
+
+### Documentation (Python package and guide)
+
+- Chapter 14 builds a model with attributed species (an mtDNA clone model
+  with `new_id()`, `distinct` and `max_count` observables) entirely with the
+  builder; hand-written documents follow as the special case. Chapter 3
+  explains the new budgets, `max_events=None` and the warning; chapters 2,
+  12e and 13, troubleshooting, migrating and the Python API reference are
+  updated.
 
 ## [0.7.1] - 2026-11-14
 

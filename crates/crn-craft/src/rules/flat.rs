@@ -893,6 +893,12 @@ impl Network {
                 .map(|&(_, w)| w)
                 .reduce(f64::min)
                 .unwrap_or(0.0),
+            Reduce::MaxCount => terms
+                .iter()
+                .filter(|&&(s, _)| counts[s] > 0)
+                .map(|&(s, w)| counts[s] as f64 * w)
+                .reduce(f64::max)
+                .unwrap_or(0.0),
         }
     }
 

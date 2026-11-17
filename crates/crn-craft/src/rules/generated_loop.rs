@@ -417,6 +417,13 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
             for &(species, weight) in terms {
                 if *reduce == Reduce::Sum {
                     write!(code, "counts[{species}] as f64 * {},", bits(weight)).unwrap();
+                } else if *reduce == Reduce::MaxCount {
+                    write!(
+                        code,
+                        "(counts[{species}] > 0).then(|| counts[{species}] as f64 * {}),",
+                        bits(weight)
+                    )
+                    .unwrap();
                 } else {
                     write!(code, "(counts[{species}] > 0).then_some({}),", bits(weight)).unwrap();
                 }
@@ -424,7 +431,9 @@ fn template(prepared: &Prepared, net: &Network) -> Result<String, Diagnostic> {
             let fold = match reduce {
                 Reduce::Sum => "].into_iter().sum()",
                 Reduce::Distinct => "].into_iter().flatten().sum()",
-                Reduce::Max => "].into_iter().flatten().reduce(f64::max).unwrap_or(0.0)",
+                Reduce::Max | Reduce::MaxCount => {
+                    "].into_iter().flatten().reduce(f64::max).unwrap_or(0.0)"
+                }
                 Reduce::Min => "].into_iter().flatten().reduce(f64::min).unwrap_or(0.0)",
             };
             writeln!(

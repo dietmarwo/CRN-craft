@@ -107,7 +107,7 @@
       "oneOf": [
         {
           "additionalProperties": false,
-          "description": "Exact direct method over dynamic instances: rules are selected by their propensities, then instances from sum trees. Supports random product attributes and `new_id()`. Sampler `chacha8-u53/rules-direct/2`.",
+          "description": "Exact direct method over dynamic instances: rules are selected by their propensities, then instances from sum trees. Supports random product attributes and `new_id()`. Sampler `chacha8-u53/rules-direct/2`, or `chacha8-u53/rules-direct/3` for a model with a pair rule whose products depend on the labels.",
           "properties": {
             "kind": {
               "enum": [
@@ -296,7 +296,7 @@
       "description": "What a result keeps besides the per-replicate records.",
       "properties": {
         "keep_instances": {
-          "description": "Final instances of replicates 0..keep_instances, at most `replicates`.",
+          "description": "Final instances of replicates 0..keep_instances, at most `replicates`. Requests before `crn-craft.run/1.0` reserve `keep_instances × max_instances` instances before the run; under `run/1.0` the kept instances are counted as replicates finish and are dropped early, ending the result as `output_limit`, only once they cannot fit `max_output_bytes`.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"

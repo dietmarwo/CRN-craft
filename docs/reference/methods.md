@@ -19,7 +19,7 @@ not a biological validation claim.
 | --- | --- | --- | --- |
 | `static_direct` | yes | closed models: a fixed set of attribute vectors, any number of reactant molecules in `model/1.0` | `rules-static-direct`, with a suffix for the selector and the trackers |
 | `next_reaction` | yes | the same models | `rules-next-reaction/1` |
-| `tree` (the default) | yes | every model without an ATP block or continuous variables; instances may change identity | `rules-direct/2` |
+| `tree` (the default) | yes | every model without an ATP block or continuous variables; instances may change identity | `rules-direct/2`, or `rules-direct/3` with random pair labels |
 | `mtdna_direct` | yes | the fixed three-class vacancy model, with a fallback to Static Direct | `rules-mtdna-direct/1` ([the fast path](#the-fast-path-mtdna_direct)) |
 | `thinning` | yes | models with an ATP block, and only those | its own identity ([ATP and thinning](#the-atp-block-and-thinning)) |
 | `tau` with `epsilon` | no | closed models: adaptive Poisson leaps with competing critical events and exact fallback | its own identity ([leaping](#approximate-methods-tau-and-binomial)) |
@@ -232,6 +232,20 @@ requires `thinning`, and continuous variables require `hybrid`.
   stops at the cross term, then picks one molecule on each side by S; no
   rejection (sampler `chacha8-u53/rules-direct/2`; version 1, used only for the
   first K1 gate run, drew two molecules and rejected the same one).
+- Under `crn-craft.run/1.0`, a pair rule whose products can depend on which
+  molecule is `x` draws one more uniform when the two molecules come from
+  different instances and swaps the labels with probability 1/2 (sampler
+  `chacha8-u53/rules-direct/3`). Version 2 gave `x` to the instance on the
+  left of the tree, so "x replaces y" favored older instances. The products
+  count as label-independent only when every product attribute is
+  deterministic and swapping `x` and `y` maps the product list onto itself
+  (for example `x.size + y.size`, or keeping both molecules); such rules,
+  pairs over a type without attributes (which has one instance), and
+  requests before `run/1.0` keep version 2 and its streams. This
+  classification, with `+`, `*`, `==`, `!=` and two-argument `min` and
+  `max` as the commutative operations, is part of version 3; a change to it
+  needs a new identity. Exact-law check: `validation/merge/RESULTS.md`,
+  "0.8 pair labels".
 - A positive rule propensity or instance weight below 2⁻⁵³ of its total cannot
   be selected exactly by a 53-bit uniform and fails with `CRN-R031`. For pair
   rules the check is conservative: the smallest factor squared must reach

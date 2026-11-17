@@ -1,0 +1,87 @@
+{
+ "schema": "crn-craft.model/1.0",
+ "name": "pair_mutation",
+ "parameters": {
+  "g": 0.1,
+  "p": 0.2
+ },
+ "types": [
+  {
+   "name": "m",
+   "attributes": [
+    "clone"
+   ]
+  }
+ ],
+ "initial": [
+  {
+   "type": "m",
+   "attributes": {
+    "clone": 0
+   },
+   "count": 20
+  }
+ ],
+ "observables": {
+  "W": {
+   "type": "m",
+   "where": "x.clone == 0"
+  },
+  "M": {
+   "type": "m",
+   "where": "x.clone > 0"
+  }
+ },
+ "rules": [
+  {
+   "name": "x_replaces_y",
+   "reactants": [
+    {
+     "label": "x",
+     "type": "m"
+    },
+    {
+     "label": "y",
+     "type": "m"
+    }
+   ],
+   "rate": "g * (1 - p)",
+   "products": [
+    {
+     "type": "m",
+     "copy": "x"
+    },
+    {
+     "type": "m",
+     "copy": "x"
+    }
+   ]
+  },
+  {
+   "name": "x_mutant_replaces_y",
+   "reactants": [
+    {
+     "label": "x",
+     "type": "m"
+    },
+    {
+     "label": "y",
+     "type": "m"
+    }
+   ],
+   "rate": "g * p",
+   "products": [
+    {
+     "type": "m",
+     "copy": "x"
+    },
+    {
+     "type": "m",
+     "attributes": {
+      "clone": "new_id()"
+     }
+    }
+   ]
+  }
+ ]
+}

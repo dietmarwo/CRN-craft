@@ -2237,3 +2237,88 @@ same two requests, `E1-log.md`).
 
 Not measured: other workloads, sweeps (candidates of `bind_parameters`),
 more than two threads, other hosts.
+
+### 0.8 pair labels: law check declaration
+
+Committed before the first run of the check. Under `crn-craft.run/1.0`, the
+tree method now assigns the labels `x` and `y` at random when a pair rule
+(two identical patterns) draws two molecules from different instances and
+its products can depend on the labels; such models report the sampler
+`chacha8-u53/rules-direct/3`. Version 2 gave `x` to the instance earlier in
+the engine's internal order, so a rule "x replaces y" was not neutral. A new
+sampling policy gets its own identity and an exact-law check, with the
+rules of "Law gate" above.
+
+- **Models** (`validation/merge/pair-labels/models.json`, written by
+  `validation/merge/pair-labels/write_models.py`): `pair-neutral`, 10 + 10
+  molecules of two clones and one rule "x replaces y" at rate 0.1 per
+  unordered pair; `pair-mutation`, 20 wild-type molecules, "x replaces y" at
+  0.1 × 0.8 and "x replaces y with a new mutant" (`new_id()`) at 0.1 × 0.2.
+  The observed counts are `C0`, `C1` and `W` (clone 0), `M` (clone > 0).
+  End 2, report times 0, 0.25, 0.5, 1 and 2; 200,000 replicates in chunks
+  of 10,000.
+- **References** (`validation/merge/pair_label_references.py`, written to
+  `validation/merge/pair-labels/reference/`): each row's attribute-free
+  counts network, which has the same law for the observed counts when the
+  labels are random (derivation in `write_models.py`). The sample reference
+  is `static_direct` under `run/1.0` with reference seeds 1,000,000 + k; the
+  exact law is the finite state projection (`fsp`, bounds 20 per species,
+  tolerance 1e-12), kept only if the leakage and mass defect are below
+  1e-9. Both come from the release CLI of the branch under test; neither
+  path draws pair labels (the networks' only pair rule is over one
+  attribute-free instance).
+- **Run:** `check_laws.py --binary <release CLI of the branch> --method
+  '{"kind": "tree"}' --manifest validation/merge/pair-labels/models.json
+  --references validation/merge/pair-labels/reference --expect-sampler
+  chacha8-u53/rules-direct/3`, gate seeds 2,000,000 + k.
+- **Size:** 2 models × 5 times × 2 species = 20 cells, 40 comparisons
+  against the sample reference and 40 against FSP; 8 cells at time 0.
+- **Target:** 0 failures, and every chunk reports sampler version 3. A
+  failure is reported, not rerun with another seed.
+- **Power check:** the same run with the 0.7.1 release CLI (sampler version
+  2, without `--expect-sampler`) must fail at least one comparison per
+  model. If it does not, the check has no power against the old bias, and
+  that is reported.
+
+**Amendment, before any comparison ran.** The first gate run stopped in its
+first chunk: the gate's chunk requests set `max_instances` to the number of
+types, which suits the closed models of the earlier checks but ends a
+replicate of these models as `instance_limit` as soon as a second clone
+exists. A manifest row may now declare `max_instances`; both rows declare
+1,000 (at most 20 instances are alive). Everything else stands.
+
+### 0.8 pair labels: law check results
+
+Run once, as declared, with the release CLI of `engine-0.8` (report
+`validation/merge/laws/pair-labels-tree.json`). Every chunk reported
+`chacha8-u53/rules-direct/3`.
+
+| Model | Cells | Comparisons with the sample reference | Failures | Largest z | Comparisons with FSP | Failures | Largest z |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| pair-neutral | 10 | 20 | 0 | 1.42 | 20 | 0 | 0.54 |
+| pair-mutation | 10 | 20 | 0 | 1.36 | 20 | 0 | 2.39 |
+
+80 comparisons (16 at time 0), **0 failures**, largest z 2.39: the target
+is met.
+
+**Power check** (0.7.1 release CLI from crates.io, sampler version 2;
+report `validation/merge/laws/pair-labels-tree-0.7.1-power.json`): 64 of
+the 80 comparisons fail, every one after time 0, with z up to 1,082 for
+`pair-neutral` and 589 for `pair-mutation`. Under version 2 the clone that
+holds the earlier instance slot always plays `x`, so in `pair-neutral`
+clone 0 takes over and in `pair-mutation` the wild type is replaced only
+through its own mutations. The check detects the old bias in both models.
+
+**Limitations.** The check covers two small models (20 molecules) at one
+parameter set, the tree method only (the static methods refuse pair rules
+over several instances), and the observed counts, not the identities of
+individual instances.
+
+**After the independent review.** Three engine changes followed: pairs
+over types without attributes no longer report version 3 (they have one
+instance, so they never draw labels); kept final instances are dropped
+early only when their estimate passes twice `max_output_bytes`; and both
+that and the removed kept-instance reservation apply only under `run/1.0`.
+None of them touches the two models here (types with attributes, no kept
+instances): a rerun with the rebuilt CLI gave the same report apart from
+the engine identity, so the results above stand.

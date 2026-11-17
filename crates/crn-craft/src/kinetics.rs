@@ -312,6 +312,10 @@ impl Kinetics {
                 Reduce::Distinct => present.map(|&(_, w)| w).sum(),
                 Reduce::Max => present.map(|&(_, w)| w).reduce(f64::max).unwrap_or(0.0),
                 Reduce::Min => present.map(|&(_, w)| w).reduce(f64::min).unwrap_or(0.0),
+                Reduce::MaxCount => present
+                    .map(|&(s, w)| y[s] * w)
+                    .reduce(f64::max)
+                    .unwrap_or(0.0),
             };
             if !value.is_finite() {
                 return Err(error(format!("observable `{}` overflows", observable.name)));
@@ -361,6 +365,18 @@ impl Kinetics {
                         let observable = &self.observables[o];
                         if observable.reduce == Reduce::Sum {
                             for &(s, w) in &observable.terms {
+                                dy[s] += g * scale * w;
+                            }
+                        } else if observable.reduce == Reduce::MaxCount {
+                            // The derivative of the largest y·w is the weight
+                            // of the first term that attains it.
+                            let mut best: Option<(usize, f64, f64)> = None;
+                            for &(s, w) in &observable.terms {
+                                if y[s] > 0.0 && best.is_none_or(|(_, v, _)| y[s] * w > v) {
+                                    best = Some((s, y[s] * w, w));
+                                }
+                            }
+                            if let Some((s, _, w)) = best {
                                 dy[s] += g * scale * w;
                             }
                         }

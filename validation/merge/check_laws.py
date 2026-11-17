@@ -103,7 +103,9 @@ def request_for(converted, row, *, chunk, seed, threads, method):
         "budget": {
             "max_events_per_replicate": MAX_EVENTS,
             "max_sampling_steps_per_replicate": MAX_SAMPLING_STEPS,
-            "max_instances": max(1, len(converted["types"])),
+            # A closed model has at most one instance per type; a row may
+            # declare more for instances created during the run.
+            "max_instances": row.get("max_instances", max(1, len(converted["types"]))),
             "threads": threads,
             "max_output_bytes": MAX_OUTPUT_BYTES,
         },

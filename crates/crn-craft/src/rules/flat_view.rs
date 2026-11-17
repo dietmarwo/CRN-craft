@@ -108,7 +108,7 @@ fn halt(error: Halt) -> Diagnostic {
 pub(crate) fn parse(model_bytes: &[u8]) -> Result<Model, Diagnostic> {
     let model: Model = crate::strict_json::parse(model_bytes)
         .map_err(|error| super::network_model_error(error, model_bytes))?;
-    match model::legacy_count(&model) {
+    match model::legacy_fields(&model) {
         Some(diagnostic) => Err(diagnostic),
         None => Ok(model),
     }

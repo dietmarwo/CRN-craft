@@ -119,7 +119,7 @@ def loop_source(model):
     Needs no Rust toolchain. ``model`` is bytes, text, a dictionary or a
     ``rules.Model``. The generator emits every model that Static Direct
     runs: constant, vacancy and expression rates, ``propensity`` rules
-    (the builder's string rates) and sum, distinct, max and min
+    (the builder's string rates) and sum, distinct, max, min and max_count
     observables, up to 1 MiB of source. It refuses, with ``CrnError``
     ``CRN-R020`` at ``/method``, models that only another method runs
     (continuous variables, ATP blocks, instances that change identity) and
@@ -371,13 +371,16 @@ class CompiledLoop:
 
         Raises ``CompiledLoopError`` (reason ``"mismatch"``) unless the
         metadata and every record column are byte-identical. Returns the
-        result.
+        result; replicates that ended early warn or raise as in
+        ``run.simulate()``.
         """
+        from .rules import _check_complete
+
         request = run._compiled_request(self)
         interpreted = run._native.simulate(None, None)
         compiled = self.execute(request)
         _compare(interpreted, compiled, self.directory / "mismatch")
-        return run._result(*compiled)
+        return _check_complete(run._result(*compiled), run._strict, 2)
 
 
 def _frames(data):
@@ -424,7 +427,15 @@ def _self_check(handle, data):
     from .rules import ensemble
 
     def run(**settings):
-        return ensemble(data, replicates=8, seed=1, threads=2, **settings)
+        # The sampling budget of release 0.7.1, so the check does not change.
+        return ensemble(
+            data,
+            replicates=8,
+            seed=1,
+            threads=2,
+            max_sampling_steps=8_000_000,
+            **settings,
+        )
 
     # A horizon most replicates reach in about 2000 events. The probe runs on
     # the default method (tree), except for crn-craft.model/1.0 models,

@@ -1,0 +1,79 @@
+{
+ "schema": "crn-craft.model/1.0",
+ "name": "pair_neutral_counts",
+ "parameters": {
+  "g": 0.1
+ },
+ "types": [
+  {
+   "name": "C0"
+  },
+  {
+   "name": "C1"
+  }
+ ],
+ "initial": [
+  {
+   "type": "C0",
+   "count": 10
+  },
+  {
+   "type": "C1",
+   "count": 10
+  }
+ ],
+ "observables": {
+  "C0": {
+   "type": "C0"
+  },
+  "C1": {
+   "type": "C1"
+  }
+ },
+ "rules": [
+  {
+   "name": "c1_replaces_c0",
+   "reactants": [
+    {
+     "label": "x",
+     "type": "C0"
+    },
+    {
+     "label": "y",
+     "type": "C1"
+    }
+   ],
+   "rate": "g / 2",
+   "products": [
+    {
+     "type": "C1"
+    },
+    {
+     "type": "C1"
+    }
+   ]
+  },
+  {
+   "name": "c0_replaces_c1",
+   "reactants": [
+    {
+     "label": "x",
+     "type": "C0"
+    },
+    {
+     "label": "y",
+     "type": "C1"
+    }
+   ],
+   "rate": "g / 2",
+   "products": [
+    {
+     "type": "C0"
+    },
+    {
+     "type": "C0"
+    }
+   ]
+  }
+ ]
+}

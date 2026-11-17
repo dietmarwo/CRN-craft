@@ -1,14 +1,17 @@
 # 14. Model files and species with attributes
 
-Every model so far was built in Python. This chapter is for the two cases
-that need a model as a JSON document: a model that exists as a file, and
-species that carry attributes, which the builder cannot write. The setup
-block builds the immigration–death model of [chapter 2](02-first-model.md).
-The blocks of this chapter continue from it:
+Every model so far had species that are plain counts. Some models need
+more: each molecule carries attributes, such as the clone a mutant belongs
+to, and new kinds of molecules appear during the run. This chapter builds
+such a model with `crn.Model`, then turns to the model as a JSON document:
+what the builder writes, model files, and documents written by hand, which
+are the special case. The setup block builds the immigration–death model of
+[chapter 2](02-first-model.md). The blocks of this chapter continue from it:
 
 ```python
 import copy
 import json
+import math
 import pathlib
 import time
 
@@ -21,10 +24,142 @@ model.add_reaction("birth", [], ["A"], name="birth")
 model.add_reaction("death * A", ["A"], [], name="death")
 ```
 
+## When species are not a fixed list
+
+Some models cannot list their species in advance: every new mutant is its
+own clone, a polymer has a length, a cell carries a lineage. For such
+systems a species *type* carries numeric *attributes*. An *instance* is a
+type with one value per attribute and a count. Instances appear when a rule
+produces a new combination of values and disappear when their count reaches
+zero. A reaction is then a pattern: it stands for the reactions of every
+instance that matches. The builder declares such a species with
+`add_species(name, attributes=[...])`; the
+[model language](../reference/model-language.md) describes the document it
+writes.
+
+## Species with attributes in the builder
+
+A cell holds 1000 mtDNA molecules. Each molecule degrades with a half-life
+of ten days, free places are refilled by copies of a random survivor, and a
+copy is a new mutant with probability `pmut`. Every mutation founds its own
+clone, so the number of clones is not known in advance. The molecules carry
+the attribute `clone`, with 0 for the wild type, and time is in hours:
+
+```python
+clones = crn.Model("mtdna_clones")
+clones.add_parameter({"K": 1000, "delta": math.log(2) / 240, "pmut": 1e-3, "r": 10.0})
+clones.add_species("mtDNA", attributes=["clone"])  # molecules carry a clone id
+clones.add_initial("mtDNA", 1000, clone=0)  # 1000 molecules of clone 0, the wild type
+clones.add_observable("mutants", "mtDNA", where="x.clone > 0")
+clones.add_observable("types", "mtDNA", reduce="distinct")
+clones.add_observable("mutant_types", "mtDNA", where="x.clone > 0", reduce="distinct")
+clones.add_observable("largest", "mtDNA", where="x.clone > 0", reduce="max_count")
+refill = "r * max(0, K - mtDNA) / mtDNA"  # per survivor; mtDNA is the total count
+clones.add_reaction(crn.mass_action("delta"), ["mtDNA"], [], name="degradation")
+clones.add_reaction(crn.mass_action(f"{refill} * (1 - pmut)"), ["mtDNA"],
+                    [crn.copy("x"), crn.copy("x")], name="replication")
+clones.add_reaction(crn.mass_action(f"{refill} * pmut"), ["mtDNA"],
+                    [crn.copy("x"), crn.new("mtDNA", clone="new_id()")], name="mutation")
+print(clones, crn.check(clones)["valid"])
+
+year = 24 * 360.0
+result = crn.ensemble(clones, end=year, report_times=[0.0, year / 2, year],
+                      replicates=100, seed=1, threads=2).simulate()
+print(result.metadata["sampler"])
+print(result.statistics["mean"].round(2))
+```
+
+```text
+Model('mtdna_clones': 1 species, 3 reactions) True
+chacha8-u53/rules-direct/2
+        largest    mtDNA  mutant_types  mutants  types
+time                                                  
+0.0        0.00  1000.00          0.00     0.00   1.00
+4320.0     7.47   999.54          2.35    11.25   3.35
+8640.0    12.82   999.67          3.15    20.26   4.15
+```
+
+After a year a cell holds about 20 mutant molecules in three clones, and
+its largest clone has about 13 molecules. The calls:
+
+- **`add_species("mtDNA", attributes=["clone"])`** declares the species and
+  its attribute. Its molecules at time 0 come from
+  **`add_initial("mtDNA", 1000, clone=0)`**, one call per combination of
+  attribute values.
+- **A reactant** given as a species name is any molecule of it, labeled `x`
+  (the second reactant is `y`). A replication consumes `x` and gives two
+  copies of it, **`crn.copy("x")`**, so the clone keeps its identity. A
+  mutation gives one copy and a molecule with every attribute set,
+  **`crn.new("mtDNA", clone="new_id()")`**; `new_id()` is an identity no
+  molecule has had in this run.
+- **`crn.mass_action(expression)`** is a rate per reactant molecule, as a
+  number is: the degradation fires at `delta` times the number of molecules,
+  and each molecule is equally likely to be the one degraded. The refill
+  divides by the count of survivors, so all replications together fill the
+  free places at rate `r * (K - mtDNA)`.
+
+The exact tree method runs the model, which happens when `method` is left
+out, because the set of clones changes during the run. Each cell had about
+50,000 events in the year.
+
+### Observables
+
+Every species has an observable under its own name, its count: here
+`mtDNA`. `add_observable(name, species, where=None, weight=None,
+reduce="sum")` adds others. `where` selects instances by their attributes,
+`weight` gives each instance a number (both read the instance as `x`), and
+`reduce` says how the matching instances become one number:
+
+| `reduce` | Value |
+| --- | --- |
+| `"sum"` (default) | the sum of weight × count: with no weight, the number of matching molecules (`mutants`) |
+| `"distinct"` | the sum of the weights, each instance once: with no weight, the number of matching instances (`types`, `mutant_types`) |
+| `"max"`, `"min"` | the largest or smallest weight; 0 when no instance matches |
+| `"max_count"` | the largest count among the matching instances, times the weight; 0 when none matches (`largest`, the size of the largest mutant clone) |
+
+Observables are columns of the results, and rates, the stop condition and
+trackers read them by name, as the refill rate reads `mtDNA`.
+
+### Reactants, products and rates
+
+| In `add_reaction` | Meaning |
+| --- | --- |
+| `"mtDNA"` as a reactant | any molecule of the species; labeled `x`, the second `y` |
+| `crn.pattern("mtDNA", where="x.clone > 0", factor="x.size")` | the molecules that satisfy `where`, each counted `factor` times |
+| `crn.copy("x")`, `crn.copy("x", size="x.size + 1")` | a product with the attributes of reactant `x`, some of them overridden |
+| `crn.new("mtDNA", clone="new_id()")` | a product with every attribute given |
+| a number, or `crn.mass_action("expression")` | a rate per combination of reactant molecules |
+| a plain string | the reaction's whole propensity |
+
+Attribute values are numbers or expressions over parameters, the reactants'
+attributes (`x.clone`) and random draws such as `new_id()` or
+`choice(p, a, b)`. A product of a species with attributes must say where
+its attributes come from, so a bare species name is refused:
+
+```python
+try:
+    clones.add_reaction(0.01, ["mtDNA"], ["mtDNA", "mtDNA"])
+except ValueError as error:
+    print(error)
+```
+
+```text
+species 'mtDNA' has attributes, so a product of it says where they come from: crn_craft.copy(label) copies a reactant, crn_craft.new('mtDNA', clone=...) gives every attribute
+```
+
+A plain string rate keeps its meaning from [chapter 2](02-first-model.md):
+the whole propensity. On a species with attributes the reaction then fires
+at that rate and takes a molecule uniformly, whatever its clone, so
+`"delta * mtDNA"` and `crn.mass_action("delta")` give the same degradation.
+Only `mass_action` (or a number) combines with a pattern's `where` or
+`factor`, and the static methods accept a whole propensity only over a
+species with a single instance. Use `mass_action` for rates per molecule.
+
 ## What the builder writes
 
 The builder writes a `crn-craft.model/1.0` document. Every species is a
-*type* without attributes, and every reaction is a *rule* over the types:
+*type*, here one without attributes, and every reaction is a *rule* over
+the types:
 
 ```python
 document = model.to_dict()
@@ -37,8 +172,12 @@ crn-craft.model/1.0
 {"name": "death", "reactants": [{"label": "x", "type": "A"}], "propensity": "death * A", "products": []}
 ```
 
-A string rate becomes a `propensity`, the whole expression. A number would
-become a `rate`, the constant that multiplies the count of each reactant.
+A string rate becomes a `propensity`, the whole expression. A number or
+`crn.mass_action` becomes a `rate`, the factor that multiplies the count of
+each reactant. A species with attributes becomes a type with `attributes`,
+`add_initial` an entry of `initial`, `add_observable` an entry of
+`observables`, `crn.copy("x")` the product `{"type": "mtDNA", "copy": "x"}`
+and `crn.new` a product with `attributes`.
 
 ## Save and load a model file
 
@@ -74,8 +213,10 @@ same hash: False
 
 The file and the built model give the same numbers. Their hashes differ,
 because a hash names exact bytes and the file is indented. `Model.from_dict`
-wraps a document as a `Model`, with `fsp`, `analyze` and `to_gillespy2`; the
-`add_*` calls work on it only if the builder could have written it.
+wraps a document as a `Model`, with `fsp`, `analyze` and `to_gillespy2`. The
+`add_*` calls work on it when the builder could have written it, which
+includes documents with attributes, filtered observables and the rules of
+any of these sections.
 
 ## Packaged examples
 
@@ -99,24 +240,14 @@ for candidate in (model, example):
 88037 20.092500000000012
 ```
 
-## When species are not a fixed list
-
-Some models cannot list their species in advance: every new mutant is its
-own clone, a polymer has a length, a cell carries a lineage. For such
-systems a species *type* carries numeric *attributes*. An *instance* is a
-type with one value per attribute and a count. Instances appear when a rule
-produces a new combination of values and disappear when their count reaches
-zero. A rule is then a pattern: it stands for the reactions of every
-instance that matches. The builder has no call for attributes, so such a
-model is written as a document, in Python as a dictionary
-([Model language](../reference/model-language.md)).
-
 ## A model document for three strains
 
-Three strains of cells share `room` places. The resident strain 0 gives rise
-to two variants, every strain dies at one rate, and strain 2 grows twice as
-fast into the free room. Each cell is an instance of the type `Cell` with
-the attribute `strain`:
+A model can also be written as a document by hand, in Python as a
+dictionary; model files from other tools and earlier releases look like
+this. Three strains of cells share `room` places. The resident strain 0
+gives rise to two variants, every strain dies at one rate, and strain 2
+grows twice as fast into the free room. Each cell is an instance of the type
+`Cell` with the attribute `strain`:
 
 ```python
 grow = "max(0, room - total) / crowding"
@@ -155,18 +286,22 @@ pathlib.Path("three-strains.model.json").write_text(json.dumps(strains, indent=2
 True 8 rules
 ```
 
-The parts of the document:
+The parts of the document, and the builder calls that write them:
 
-- **`initial`** lists instances: 200 cells with `strain` 0.
-- **`observables`** are sums over the instances of one type. `where` selects
-  instances (`variants`), and `weight` weighs them (`crowding` counts a cell
-  of strain 2 twice). Results have one column per observable, and rates and
-  the `stop` read observables by name.
+- **`initial`** lists instances: 200 cells with `strain` 0
+  (`add_initial("Cell", 200, strain=0)`).
+- **`observables`** reduce the instances of one type to a number. `where`
+  selects instances (`variants`), and `weight` weighs them (`crowding`
+  counts a cell of strain 2 twice); `add_observable` takes the same fields.
+  Results have one column per observable, and rates and the `stop` read
+  observables by name. This document has no count observable named after
+  the type, which the builder would add.
 - **A reactant** is a pattern: a `label`, a `type` and an optional `where`
-  over the attributes. The `rate` is per matching cell, as a mass-action
-  constant is.
-- **A product** copies a reactant (`copy`), gives all attributes
-  (`attributes`), or copies and overrides some.
+  over the attributes (`crn.pattern("Cell", where="c.strain == 0",
+  label="c")`). The `rate` is per matching cell, as a mass-action constant
+  is (`crn.mass_action`).
+- **A product** copies a reactant (`copy`, `crn.copy("c")`), gives all
+  attributes (`attributes`, `crn.new`), or copies and overrides some.
 
 ## Run it
 
@@ -278,7 +413,9 @@ CRN-R020: random product attributes require the dynamic engine at /method
 
 One `grow` rule now serves every strain. The set of instances changes
 during the run, so the static methods refuse the model, and the exact tree
-method, which runs when `method` is absent, takes it.
+method, which runs when `method` is absent, takes it. With the builder the
+weighted reactant is `crn.pattern("Cell", factor="c.w", label="c")` and the
+founder `crn.new("Cell", strain="new_id()", w="choice(0.2, 2, 1)")`.
 [Page 14a](14a-mtdna-model-files.md#every-lineage-with-the-clone-model)
 follows every mutant lineage of the mtDNA model in this way.
 

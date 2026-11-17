@@ -99,8 +99,10 @@ weight to 1. Over the present instances of `type` that satisfy `where`:
 | `sum` (default) | Σ weight × count |
 | `distinct` | Σ weight, each instance once (weight 1 counts distinct instances, e.g. clones) |
 | `max`, `min` | largest or smallest weight; 0 when no instance matches |
+| `max_count` (`crn-craft.model/1.0`) | largest weight × count, for example the size of the largest clone; 0 when no instance matches |
 
-Weights must be finite; they may be negative.
+Weights must be finite; they may be negative. Older model versions refuse
+`max_count` with `CRN-E003`.
 
 ### Rules and propensities
 
@@ -120,6 +122,19 @@ For one instance this is the stochastic mass-action convention n(n−1)/2 (a
 `2A` channel with coefficient c). Two *different* patterns over the same type
 are rejected in 0.1. Patterns are compared after their
 labels are resolved, so `a.size` and `b.size` are identical factors.
+
+**Which molecule of a pair is `x`.** Under `crn-craft.run/1.0` the two
+molecules of an unordered pair get the labels `x` and `y` at random, each
+assignment with probability 1/2. So a rule "x replaces y" (products
+`[{"copy": "x"}, {"copy": "x"}]`) is neutral: either molecule of the pair
+can be the one replaced. Requests before `run/1.0` keep the order of 0.7:
+for two molecules from different instances, `x` is the one whose instance
+came earlier in the engine's internal order, which makes such a rule favor
+older instances. Rules whose products do not depend on the labels, such as
+`x.size + y.size`, are unaffected either way; for them the engine keeps the
+fixed order, which then shows only in event logs and observers (the first
+reactant listed is not random). See
+[methods](methods.md#the-tree-method-and-its-numerical-policy) for the sampler identities.
 
 #### Counting identical reactants, and rebop
 
@@ -362,14 +377,20 @@ larger limits, change only the `schema` string to `crn-craft.model/1.0`.
   run. An independent variable can carry explicit time dependence (a clock
   `t' = 1`, or a forcing such as a seasonal oscillator). No compartments.
 - Two different patterns over one type, higher-order rules over attributed
-  types, and counts inside expressions (largest clone *size*) are not
-  supported yet.
+  types, and counts inside expressions are not supported yet. The size of
+  the largest clone is an observable: `reduce: "max_count"`
+  (`crn-craft.model/1.0`).
 - Models are JSON. `crn_craft` prepares and runs ensembles from Python
   ([Python API](python-api.md)), and `crn_craft.Model` builds
-  `model/1.0` documents over attribute-free species from
-  `add_reaction(rate, reactants, products)` calls: a numeric rate is a
-  mass-action constant with the counting above, a string the whole
-  propensity.
+  `model/1.0` documents: `add_species` (with `attributes` for an
+  attributed type) and `add_initial` write `types` and `initial`,
+  `add_observable` an observable, and `add_reaction(rate, reactants,
+  products)` a rule. A numeric rate or `crn_craft.mass_action(expression)`
+  is the rule's `rate`, with the counting above, and a plain string its
+  whole `propensity`; reactants are type names or `crn_craft.pattern(...)`,
+  products type names, `crn_craft.copy(label, ...)` or
+  `crn_craft.new(type, ...)`
+  ([chapter 14](../guide/14-model-files.md#species-with-attributes-in-the-builder)).
 - The tree method recomputes the propensities of all rules after every
   event, which suits models with few rules. Closed models can use the
   static methods; benchmarks are in `validation/mtdna/`.

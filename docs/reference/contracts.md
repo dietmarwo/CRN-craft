@@ -107,9 +107,17 @@ variance, `keep_paths`, `keep_instances`) and an explicit `budget`
 random word, `max_instances` alive at once, `threads` 1–64,
 `max_output_bytes`, optional `wall_time_s`). Before running, the request is
 admitted only if a conservative reservation for records, in-flight and kept
-series and kept final instances (`keep_instances × max_instances`) stays below
-2 GiB, and if `max_output_bytes` can hold at least 160 bytes per replicate
-record (`CRN-R020`).
+series and observations stays below 2 GiB, and if `max_output_bytes` can hold
+at least 160 bytes per replicate record (`CRN-R020`); the error itemizes the
+reservation and its hint names the largest part. Requests before
+`crn-craft.run/1.0` also reserve kept final instances as `keep_instances ×
+max_instances` instances. Under `run/1.0` they are not reserved in advance:
+the run estimates them (8 bytes per attribute plus 48 per instance, less than
+twice their JSON) as replicates finish and drops them early, ending the
+result as `output_limit` (`CRN-R045`), only once the estimate passes twice
+`max_output_bytes`, when they cannot fit; otherwise the exact size check at
+the end decides, as for every result. `max_instances` then bounds only the
+instances alive in one replicate.
 
 Trackers and event logs (rules-run/0.2 and later) reserve output per
 replicate: 256 bytes per tracker plus 64 per kept episode, and `max_entries`

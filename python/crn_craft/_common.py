@@ -2,11 +2,13 @@
 native calls and the converter.
 
 ``crn_craft`` and ``crn_craft.rules`` both use these objects, so
-``crn_craft.CrnError is crn_craft.rules.CrnError``.
+``crn_craft.CrnError is crn_craft.rules.CrnError``; the same holds for
+``IncompleteEnsembleWarning`` and ``IncompleteEnsembleError``.
 """
 
 import importlib.metadata
 import json
+import warnings
 
 from . import _native
 
@@ -33,6 +35,47 @@ class CrnError(ValueError):
         if len(diagnostics) > 1:
             message += f" (and {len(diagnostics) - 1} more)"
         super().__init__(message)
+
+
+class IncompleteEnsembleWarning(UserWarning):
+    """Some replicates of a run ended early, on a budget or by failing.
+
+    ``simulate()`` warns with it when a replicate's termination is neither
+    ``completed`` nor ``stopped`` (a ``cancelled`` run is not reported: it
+    was stopped on purpose). The message gives the count per termination and
+    the keyword that raises each budget. ``counts`` maps each such
+    termination to its number of replicates. ``strict=True`` raises
+    :class:`IncompleteEnsembleError` instead. The package registers the
+    filter ``"always"`` for this category at import, after any other
+    filter, so every run that ends early is reported, also in a loop;
+    ``warnings.simplefilter("ignore", IncompleteEnsembleWarning)`` silences
+    it.
+    """
+
+    def __init__(self, message, counts=None):
+        super().__init__(message)
+        self.counts = dict(counts or {})
+
+
+# Every incomplete ensemble is shown, also a repeat from one call site (a
+# loop over batches), which Python's default filter would show only once.
+# Appended, so a filter of the user (warnings.simplefilter, -W) wins.
+warnings.filterwarnings("always", category=IncompleteEnsembleWarning, append=True)
+
+
+class IncompleteEnsembleError(RuntimeError):
+    """The error of ``strict=True`` for an ensemble that did not complete.
+
+    It carries the message and ``counts`` of
+    :class:`IncompleteEnsembleWarning`, and ``result``, the
+    :class:`~crn_craft.rules.Result` of the run, so the records can still be
+    read.
+    """
+
+    def __init__(self, message, counts=None, result=None):
+        super().__init__(message)
+        self.counts = dict(counts or {})
+        self.result = result
 
 
 def _crn_error(error):

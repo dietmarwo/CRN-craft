@@ -29,6 +29,11 @@ The schemas are `crn-craft describe result-1.0`, `fsp-result-1.0` and
 The terminations, in the order of `crn_craft.rules.TERMINATIONS`, are `completed`,
 `stopped`, `event_limit`, `sampling_limit`, `instance_limit`,
 `wall_time_limit`, `cancelled`, `failed` and `output_limit`.
+In Python, `simulate()` warns with `crn_craft.IncompleteEnsembleWarning`
+when a replicate's termination is neither `completed`, `stopped` nor
+`cancelled`, or when the result ended as `output_limit`; with
+`strict=True` it raises `crn_craft.IncompleteEnsembleError` instead
+([Python API](python-api.md#incompleteensemblewarning)).
 
 ## Quantiles
 

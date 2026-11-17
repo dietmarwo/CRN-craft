@@ -1,0 +1,102 @@
+{
+ "schema": "crn-craft.model/1.0",
+ "name": "pair_mutation_counts",
+ "parameters": {
+  "g": 0.1,
+  "p": 0.2
+ },
+ "types": [
+  {
+   "name": "W"
+  },
+  {
+   "name": "M"
+  }
+ ],
+ "initial": [
+  {
+   "type": "W",
+   "count": 20
+  },
+  {
+   "type": "M",
+   "count": 0
+  }
+ ],
+ "observables": {
+  "W": {
+   "type": "W"
+  },
+  "M": {
+   "type": "M"
+  }
+ },
+ "rules": [
+  {
+   "name": "m_replaces_w",
+   "reactants": [
+    {
+     "label": "x",
+     "type": "W"
+    },
+    {
+     "label": "y",
+     "type": "M"
+    }
+   ],
+   "rate": "g / 2",
+   "products": [
+    {
+     "type": "M"
+    },
+    {
+     "type": "M"
+    }
+   ]
+  },
+  {
+   "name": "w_replaces_m",
+   "reactants": [
+    {
+     "label": "x",
+     "type": "W"
+    },
+    {
+     "label": "y",
+     "type": "M"
+    }
+   ],
+   "rate": "g * (1 - p) / 2",
+   "products": [
+    {
+     "type": "W"
+    },
+    {
+     "type": "W"
+    }
+   ]
+  },
+  {
+   "name": "w_mutates",
+   "reactants": [
+    {
+     "label": "x",
+     "type": "W"
+    },
+    {
+     "label": "y",
+     "type": "W"
+    }
+   ],
+   "rate": "g * p",
+   "products": [
+    {
+     "type": "W"
+    },
+    {
+     "type": "M"
+    }
+   ]
+  }
+ ]
+}

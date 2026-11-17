@@ -7,12 +7,13 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
-### Documentation
-
-- Guide chapter 16, a contributed tutorial by Axel Kowald (draft for the author's review): re-creating Figure 1 of Kowald & Kirkwood (2013), *Aging Cell* 12:728–731, with a lumped two-reaction model (`static_direct`, `compile_loop`), a sweep with logistic regression, and the clone model built with the builder (`max_count`). The script `examples/kk13/kowald_kirkwood_2013.py` runs it in three sizes and stores its results; `validation/check_kk13.py` checks the quick size and the tables.
+## [0.8.0] - 2026-11-17
 
 Answers to feedback from a researcher who reproduced a published mtDNA drift
-study with 0.7.1.
+study with 0.7.1: the Python builder writes species with attributes and
+observables, the largest clone is an observable (`max_count`), long runs need
+no raised limits, an incomplete ensemble warns, and pair rules such as "x
+replaces y" are neutral.
 
 ### Engine: added
 
@@ -96,6 +97,7 @@ study with 0.7.1.
 
 ### Documentation (Python package and guide)
 
+- Guide chapter 16, a contributed tutorial by Axel Kowald (draft for the author's review): re-creating Figure 1 of Kowald & Kirkwood (2013), *Aging Cell* 12:728–731, with a lumped two-reaction model (`static_direct`, `compile_loop`), a sweep with logistic regression, and the clone model built with the builder (`max_count`). The script `examples/kk13/kowald_kirkwood_2013.py` runs it in three sizes and stores its results; `validation/check_kk13.py` checks the quick size and the tables.
 - Chapter 14 builds a model with attributed species (an mtDNA clone model
   with `new_id()`, `distinct` and `max_count` observables) entirely with the
   builder; hand-written documents follow as the special case. Chapter 3
@@ -1194,7 +1196,8 @@ iterations that make up this release follow.
 - Experimental non-negative Poisson leaping with explicit approximate request/result schemas.
 - Ten performance experiments and same-host reference/quality evidence; no package publishing.
 
-[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/dietmarwo/CRN-craft/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.5.0...v0.6.0

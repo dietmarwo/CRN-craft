@@ -2237,3 +2237,45 @@ same two requests, `E1-log.md`).
 
 Not measured: other workloads, sweeps (candidates of `bind_parameters`),
 more than two threads, other hosts.
+
+### 0.8 pair labels: law check declaration
+
+Committed before the first run of the check. Under `crn-craft.run/1.0`, the
+tree method now assigns the labels `x` and `y` at random when a pair rule
+(two identical patterns) draws two molecules from different instances and
+its products can depend on the labels; such models report the sampler
+`chacha8-u53/rules-direct/3`. Version 2 gave `x` to the instance earlier in
+the engine's internal order, so a rule "x replaces y" was not neutral. A new
+sampling policy gets its own identity and an exact-law check, with the
+rules of "Law gate" above.
+
+- **Models** (`validation/merge/pair-labels/models.json`, written by
+  `validation/merge/pair-labels/write_models.py`): `pair-neutral`, 10 + 10
+  molecules of two clones and one rule "x replaces y" at rate 0.1 per
+  unordered pair; `pair-mutation`, 20 wild-type molecules, "x replaces y" at
+  0.1 × 0.8 and "x replaces y with a new mutant" (`new_id()`) at 0.1 × 0.2.
+  The observed counts are `C0`, `C1` and `W` (clone 0), `M` (clone > 0).
+  End 2, report times 0, 0.25, 0.5, 1 and 2; 200,000 replicates in chunks
+  of 10,000.
+- **References** (`validation/merge/pair_label_references.py`, written to
+  `validation/merge/pair-labels/reference/`): each row's attribute-free
+  counts network, which has the same law for the observed counts when the
+  labels are random (derivation in `write_models.py`). The sample reference
+  is `static_direct` under `run/1.0` with reference seeds 1,000,000 + k; the
+  exact law is the finite state projection (`fsp`, bounds 20 per species,
+  tolerance 1e-12), kept only if the leakage and mass defect are below
+  1e-9. Both come from the release CLI of the branch under test; neither
+  path draws pair labels (the networks' only pair rule is over one
+  attribute-free instance).
+- **Run:** `check_laws.py --binary <release CLI of the branch> --method
+  '{"kind": "tree"}' --manifest validation/merge/pair-labels/models.json
+  --references validation/merge/pair-labels/reference --expect-sampler
+  chacha8-u53/rules-direct/3`, gate seeds 2,000,000 + k.
+- **Size:** 2 models × 5 times × 2 species = 20 cells, 40 comparisons
+  against the sample reference and 40 against FSP; 8 cells at time 0.
+- **Target:** 0 failures, and every chunk reports sampler version 3. A
+  failure is reported, not rerun with another seed.
+- **Power check:** the same run with the 0.7.1 release CLI (sampler version
+  2, without `--expect-sampler`) must fail at least one comparison per
+  model. If it does not, the check has no power against the old bias, and
+  that is reported.

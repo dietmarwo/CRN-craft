@@ -1,0 +1,67 @@
+{
+ "schema": "crn-craft.model/1.0",
+ "name": "pair_neutral",
+ "parameters": {
+  "g": 0.1
+ },
+ "types": [
+  {
+   "name": "m",
+   "attributes": [
+    "clone"
+   ]
+  }
+ ],
+ "initial": [
+  {
+   "type": "m",
+   "attributes": {
+    "clone": 0
+   },
+   "count": 10
+  },
+  {
+   "type": "m",
+   "attributes": {
+    "clone": 1
+   },
+   "count": 10
+  }
+ ],
+ "observables": {
+  "C0": {
+   "type": "m",
+   "where": "x.clone == 0"
+  },
+  "C1": {
+   "type": "m",
+   "where": "x.clone == 1"
+  }
+ },
+ "rules": [
+  {
+   "name": "x_replaces_y",
+   "reactants": [
+    {
+     "label": "x",
+     "type": "m"
+    },
+    {
+     "label": "y",
+     "type": "m"
+    }
+   ],
+   "rate": "g",
+   "products": [
+    {
+     "type": "m",
+     "copy": "x"
+    },
+    {
+     "type": "m",
+     "copy": "x"
+    }
+   ]
+  }
+ ]
+}

@@ -13,7 +13,8 @@ Answers to feedback from a researcher who reproduced a published mtDNA drift
 study with 0.7.1: the Python builder writes species with attributes and
 observables, the largest clone is an observable (`max_count`), long runs need
 no raised limits, an incomplete ensemble warns, and pair rules such as "x
-replaces y" are neutral.
+replaces y" are neutral. The guide has a new chapter 16, the researcher's
+tutorial re-creating Figure 1 of the study (a draft for the author's review).
 
 ### Engine: added
 

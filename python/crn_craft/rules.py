@@ -260,7 +260,7 @@ def _incomplete(result):
     """The message and counts of a result with replicates that ended early.
 
     Counts every termination other than ``completed``, ``stopped`` and
-    ``cancelled`` (the user cancels on purpose), and a result that exceeded
+    ``cancelled`` (a run canceled on purpose), and a result that exceeded
     ``max_output_bytes``. Returns ``None`` when there is nothing to report.
     """
     codes = np.asarray(result.records["termination"].cat.codes, dtype=np.int64)
@@ -1189,7 +1189,11 @@ def ensemble(
     way (a count). The budgets ``max_events``, ``max_sampling_steps`` and
     ``max_instances`` are per replicate; ``wall_time_s`` covers the run and
     ``max_output_bytes`` the result. ``trackers`` and ``event_log`` select
-    the observation.
+    the observation. The lowest request version that fits the arguments is
+    used; ``"static_direct"`` selects rules-run/0.6 for its defaults, and a
+    ``crn-craft.model/1.0`` model (from :func:`crn_craft.convert`) always
+    selects ``crn-craft.run/1.0``, which has the fields and defaults of
+    rules-run/0.6.
 
     ``max_events`` defaults to 10**8 events per replicate (10**6 before
     0.8.0). ``max_sampling_steps=None``, the default, follows it: 16 random
@@ -1208,12 +1212,8 @@ def ensemble(
     count per termination and the keyword to raise for each, and
     ``result.statistics`` is None. ``strict=True`` raises
     :class:`IncompleteEnsembleError` instead (its ``result`` holds the
-    result). A run cancelled on purpose (a cancel file, Ctrl-C) is not
-    reported. The lowest request version that fits the arguments is
-    used; ``"static_direct"`` selects rules-run/0.6 for its defaults, and a
-    ``crn-craft.model/1.0`` model (from :func:`crn_craft.convert`) always
-    selects ``crn-craft.run/1.0``, which has the fields and defaults of
-    rules-run/0.6.
+    result). A run canceled on purpose (a cancel file, Ctrl-C) is not
+    reported.
 
     ``method`` is a name or a dictionary such as ``{"kind": "tau",
     "epsilon": 0.03}``. The generic methods run every model in their scope:

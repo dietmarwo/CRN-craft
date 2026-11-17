@@ -137,11 +137,19 @@ Every run has explicit limits. A replicate that reaches one stops there.
 
 | Limit | Argument | Default | Termination | Code |
 | --- | --- | --- | --- | --- |
-| events per replicate | `max_events` | 1,000,000 | `event_limit` | `CRN-R040` |
-| random numbers per replicate | `max_sampling_steps` | 8,000,000 | `sampling_limit` | `CRN-R041` |
+| events per replicate | `max_events` | 100,000,000 | `event_limit` | `CRN-R040` |
+| random numbers per replicate | `max_sampling_steps` | 16 × `max_events` | `sampling_limit` | `CRN-R041` |
 | live instances per replicate, for species with attributes ([chapter 14](14-model-files.md#when-species-are-not-a-fixed-list)) | `max_instances` | 100,000 | `instance_limit` | `CRN-R042` |
 | wall time of the whole run | `wall_time_s` | none | `wall_time_limit` | `CRN-R043` |
 | size of the result | `max_output_bytes` | 64 MiB | `output_limit` | `CRN-R045` |
+
+The event and sampling limits are a safety net against a model that runs
+away, for example a rate with a sign error that makes the population
+explode. They count work, not seconds, so a run stops at the same event on
+every machine. The default lets a replicate run 10⁸ events, about ten
+seconds of work at ten million events per second. `max_sampling_steps` follows `max_events` unless you give
+it: an event draws one to about three random numbers, so 16 per event leaves
+room, and a long run needs only `max_events` raised.
 
 Here 50 events are too few for a run to time 30:
 
@@ -157,14 +165,55 @@ event_limit None
 8 replicates hit the limit
 ```
 
-The remedy is a larger limit, not an average over cut-off replicates. A long
-run needs both `max_events` and `max_sampling_steps` raised. A wall-time
-limit ends a run that takes longer than planned:
+A replicate that ends early is not an error, but `simulate()` warns with
+`crn.IncompleteEnsembleWarning`, which Python prints on stderr. Here the
+warning is caught to show its message:
+
+```python
+import warnings
+
+with warnings.catch_warnings(record=True) as caught:
+    warnings.simplefilter("always")
+    crn.ensemble(model, end=30.0, report_times=[0.0, 30.0], replicates=8, seed=1,
+                 max_events=50, method="static_direct").simulate()
+print(caught[0].category.__name__)
+print(caught[0].message)
+```
+
+```text
+IncompleteEnsembleWarning
+8 of 8 replicates ended early: 8 event_limit (raise max_events); result.statistics is None. result.records["termination"] gives the termination of every replicate. Pass strict=True to raise IncompleteEnsembleError instead.
+```
+
+The message counts the replicates per termination and names the argument
+to raise for each. `strict=True` turns the warning into an error,
+`crn.IncompleteEnsembleError`, whose `result` still holds the records:
+
+```python
+try:
+    crn.ensemble(model, end=30.0, report_times=[0.0, 30.0], replicates=8, seed=1,
+                 max_events=50, method="static_direct", strict=True).simulate()
+except crn.IncompleteEnsembleError as error:
+    print(error)
+    print(error.counts, len(error.result.records))
+```
+
+```text
+8 of 8 replicates ended early: 8 event_limit (raise max_events); result.statistics is None. result.records["termination"] gives the termination of every replicate.
+{'event_limit': 8} 8
+```
+
+The remedy is a larger limit, not an average over cut-off replicates.
+`max_events=None` removes the event and sampling limits: the request then
+records the largest possible value, 2⁶⁴ − 1, so it still replays exactly.
+Without a limit, a runaway model runs until it exhausts memory, so give such
+a run a wall-time limit. It ends a run that takes longer than planned, at a
+point that depends on the machine:
 
 ```python
 slow = crn.ensemble(model, end=1e7, report_times=[0.0, 1e7], replicates=4,
-                    seed=1, threads=2, max_events=10**9, max_sampling_steps=10**10,
-                    wall_time_s=0.2, method="static_direct").simulate()
+                    seed=1, threads=2, max_events=None, wall_time_s=0.2,
+                    method="static_direct").simulate()
 print(slow.metadata["termination"], slow.statistics)
 print([d["code"] for d in slow.metadata["diagnostics"]])
 print(sorted(set(slow.records["termination"])))
@@ -176,8 +225,13 @@ wall_time_limit None
 ['wall_time_limit']
 ```
 
-The warning `CRN-R050` says that the ensemble is incomplete and its
-statistics are withheld. The records still account for every replicate.
+The warning `CRN-R050` in the result says that the ensemble is incomplete
+and its statistics are withheld. The records still account for every
+replicate. A study that expects early ends, such as a parameter search that
+gives up on extreme candidates, can silence the Python warning with
+`warnings.simplefilter("ignore", crn.IncompleteEnsembleWarning)`. A
+canceled run ([next section](#stopping-a-run)) and a replicate that a stop
+condition ended are not reported.
 
 ## Stopping a run
 
@@ -189,7 +243,7 @@ import pathlib
 
 pathlib.Path("stop").touch()
 long_run = crn.ensemble(model, end=1e6, report_times=[0.0, 1e6], replicates=8,
-                        max_events=10**9, method="static_direct")
+                        max_events=None, method="static_direct")
 stopped = long_run.simulate(cancel_file="stop")
 print(stopped.metadata["termination"], stopped.statistics)
 ```

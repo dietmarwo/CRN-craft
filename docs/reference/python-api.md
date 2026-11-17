@@ -12,7 +12,7 @@ Contents: [Models](#models), [Running](#running), [Results](#results), [Files an
 
 ## Models
 
-Build a model in Python, or take a packaged one. `Model` writes `crn-craft.model/1.0`. The language of the document is in the [model reference](model-language.md); chapter 2 of the guide teaches the builder.
+Build a model in Python, or take a packaged one. `Model` writes `crn-craft.model/1.0`. The language of the document is in the [model reference](model-language.md); chapter 2 of the guide teaches the builder, and chapter 14 species with attributes.
 
 ### `Model`
 
@@ -20,38 +20,73 @@ Build a model in Python, or take a packaged one. `Model` writes `crn-craft.model
 class Model(name='model')
 ```
 
-A reaction network over attribute-free species, written as
-`crn-craft.model/1.0`.
+A model built call by call, written as `crn-craft.model/1.0`.
 
 | Argument | Default | Meaning |
 | --- | --- | --- |
 | `name` | `'model'` | The model's name. |
 
 The builder of `crn_craft.rules.Model` (the same methods: `add_species`,
-`add_parameter`, `add_reaction`, `set_initial`, `set_stop`,
-`add_ode`, `to_dict`, `to_json`, `from_dict`, `fsp`,
-`analyze`, `to_gillespy2`), whose documents are always
-`crn-craft.model/1.0`. `add_reaction` accepts any number of
-reactant molecules; `["A", "A", "A"]` is a third-order reaction.
+`add_initial`, `add_parameter`, `add_reaction`, `add_observable`,
+`set_initial`, `set_stop`, `add_ode`, `to_dict`, `to_json`,
+`from_dict`, `fsp`, `analyze`, `to_gillespy2`), whose documents
+are always `crn-craft.model/1.0`. Species are plain counts, or carry
+attributes (`add_species(name, attributes=[...])`), whose molecules
+reactions match with [`pattern`](#pattern) and create with [`copy`](#copy) and
+[`new`](#new). `add_reaction` accepts any number of reactant molecules
+of attribute-free species; `["A", "A", "A"]` is a third-order
+reaction.
 
 ### `Model.add_species`
 
 ```text
-Model.add_species(name, initial=0)
+Model.add_species(name, initial=0, attributes=None)
 ```
 
-Declare species with initial counts (default 0).
+Declare species with initial counts (default 0), or with attributes.
 
 | Argument | Default | Meaning |
 | --- | --- | --- |
 | `name` | required | A species name, or a mapping from names to initial counts. |
-| `initial` | `0` | Initial count. Not allowed with a mapping. |
+| `initial` | `0` | Initial count. Not allowed with a mapping; 0 for a species with attributes. |
+| `attributes` | `None` | Attribute names, for example `["clone"]`, or `None` for a plain count. |
 
 `add_species("S", 999)` declares one; `add_species({"S": 999,
 "I": 1})` declares every entry of a mapping, in its order, as one
 call each would. A mapping takes no other argument (`TypeError`).
 If an entry is invalid, nothing is declared. A species that a
 reaction already introduced keeps its position and takes the count.
+
+`attributes`, a list of attribute names, declares a species whose
+molecules carry numeric attributes, for example
+`add_species("mtDNA", attributes=["clone"])`: each attribute
+vector is an instance with its own count, and the run creates and
+removes instances. Its molecules at time 0 come from
+[`add_initial`](#modeladd_initial), so `initial` must stay 0. Declare it before
+the reactions that use it. Every species, with attributes or not,
+has an observable under its own name: its total count of molecules.
+
+### `Model.add_initial`
+
+```text
+Model.add_initial(name, count, /, **attributes)
+```
+
+Add `count` molecules of species `name` at time 0.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `name` | required | A declared species. |
+| `count` | required | A nonnegative integer, or a parameter expression for a species with attributes. |
+| `**attributes` | none | Every attribute of the species, as a number or a parameter expression. |
+
+For a species with attributes every attribute is a keyword, for
+example `add_initial("mtDNA", 1000, clone=0)`: the molecules of one
+instance. Values are numbers or parameter expressions, and `count`
+is a nonnegative integer or a parameter expression such as `"K"`.
+Call it once per attribute vector; a second call with the same
+values adds to the count. For a species without attributes it adds
+`count`, an integer, to the initial count.
 
 ### `Model.add_parameter`
 
@@ -101,22 +136,191 @@ Add a reaction `reactants -> products`.
 
 | Argument | Default | Meaning |
 | --- | --- | --- |
-| `rate` | required | A number (a mass-action constant) or a string (the whole propensity). |
-| `reactants` | required | Species names, repeated for multiplicity: `["A", "A"]`. |
-| `products` | required | Species names, repeated for multiplicity. |
+| `rate` | required | A number (a mass-action constant), `mass_action(expression)` (the same, as an expression) or a string (the whole propensity). |
+| `reactants` | required | Species names, repeated for multiplicity: `["A", "A"]`; `pattern(...)` or pattern dictionaries. |
+| `products` | required | Species names, repeated for multiplicity; `copy(...)`, `new(...)` or product dictionaries. |
 | `name` | `None` | The rule's name. Default `r<index>`. |
 
 `rate` is a number (a mass-action constant k: the reaction fires
 at k times the number of distinct combinations of reactant
-molecules, so `["A", "A"]` fires at k·A(A−1)/2) or a string (the
-whole propensity). Species are lists of names, repeated for
-multiplicity, for example `["A", "A"]`. Three or more reactant
-molecules, such as `["A", "A", "A"]` or `["A", "A", "B"]`, are
-written with the pattern field `count` of `crn-craft.model/1.0`
-(a numeric k fires at k·C(A, 2)·B for `["A", "A", "B"]`; a string
-propensity applies while each species has its count). Species not
-yet declared are declared with count 0, as in rebop. `name`
-defaults to `r<index>`.
+molecules, so `["A", "A"]` fires at k·A(A−1)/2), a string (the
+whole propensity) or [`mass_action`](#mass_action) (an expression that a
+reaction multiplies by the number of combinations, like a number).
+Species are lists of names, repeated for multiplicity, for example
+`["A", "A"]`. Three or more reactant molecules, such as
+`["A", "A", "A"]` or `["A", "A", "B"]`, are written with the
+pattern field `count` of `crn-craft.model/1.0` (a numeric k
+fires at k·C(A, 2)·B for `["A", "A", "B"]`; a string propensity
+applies while each species has its count). Species not yet declared
+are declared with count 0, as in rebop. `name` defaults to
+`r<index>`.
+
+For species with attributes, a reactant is a species name (any
+molecule; the first is labeled `x`, the second `y`) or a
+[`pattern`](#pattern) with a `where` condition or `factor`; a product
+is [`copy`](#copy) (`copy("x")` keeps the attributes of reactant
+`x`) or [`new`](#new) (every attribute given), never a bare name.
+The pattern and product dictionaries of the model document are
+accepted too. A reaction with `where` or `factor` takes a number
+or [`mass_action`](#mass_action) as its rate. A plain string stays the whole
+propensity: for a species with attributes the reaction fires at that
+rate and takes a molecule uniformly, whatever its attributes, and
+only the `tree` method (`method=None`) runs it unless the species
+has a single instance. Reactions over species with attributes take
+at most two reactant molecules.
+
+### `pattern`
+
+```text
+pattern(species, where=None, factor=None, label=None)
+```
+
+A reactant of `add_reaction`: the molecules of `species` that match.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `species` | required | A species name. |
+| `where` | `None` | A condition over parameters and the molecule's attributes, or `None`. |
+| `factor` | `None` | A weight per molecule (a number or an expression), or `None` for 1. |
+| `label` | `None` | The molecule's label; `None` means `x` for the first reactant and `y` for the second. |
+
+`where` is a condition over parameters and the molecule's attributes,
+for example `"x.clone > 0"`; `factor` is a weight h ≥ 0 per
+molecule over the same names (a number or an expression), so the
+reaction fires at its rate times the sum of h over the matching
+molecules. `label` names the molecule in `where`, `factor`,
+product attributes and [`copy`](#copy); it defaults to `x` for the first
+reactant and `y` for the second, so a condition on the second
+reactant reads `y.clone` (or give `label`). A plain species name is
+the pattern without `where` and `factor`. A reaction with a
+`where` or `factor` takes a rate per combination of molecules, a
+number or [`mass_action`](#mass_action), not a whole-propensity string. The
+model document writes it as `{"label", "type", "where", "factor"}`;
+such a dictionary is accepted as a reactant too.
+
+### `copy`
+
+```text
+copy(label, /, **attributes)
+```
+
+A product of `add_reaction`: a copy of the reactant labeled `label`.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `label` | required | The label of the reactant to copy. |
+| `**attributes` | none | Attributes to override, as numbers or expressions. |
+
+The product has the reactant's species and attribute values, except the
+attributes given as keywords, which it overrides: for example
+`copy("x", size="x.size + 1")`. Values are numbers or expressions over
+parameters, the reactants' attributes (`x.clone`) and random draws
+(`new_id()`, `bernoulli(p)`, `choice(p, a, b)`, `uniform(a, b)`,
+`normal(m, s)`). Reactants are consumed, so `["mtDNA"] ->
+[copy("x"), copy("x")]` is a replication that keeps the clone (one
+molecule more), and `[copy("x")]` alone gives the molecule back. The
+model document writes `{"type": ..., "copy": label, "attributes":
+{...}}`; such a dictionary is accepted as a product too.
+
+### `new`
+
+```text
+new(species, /, **attributes)
+```
+
+A product of `add_reaction`: a molecule of `species` with the given
+attributes.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `species` | required | A species name. |
+| `**attributes` | none | Every attribute of the species, as numbers or expressions. |
+
+Every attribute of the species is given as a keyword; values are numbers
+or expressions over parameters, the reactants' attributes and random
+draws, for example `new("mtDNA", clone="new_id()")`, which founds a
+new clone, or `new("Cluster", size="x.size + y.size")`. A species
+without attributes takes none: `new("A")` is the same as `"A"`. The
+model document writes `{"type": species, "attributes": {...}}`; such a
+dictionary is accepted as a product too.
+
+### `mass_action`
+
+```text
+mass_action(expression)
+```
+
+A rate for `add_reaction`: `expression` per combination of molecules.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `expression` | required | An expression over parameters and observables, or a number. |
+
+The reaction fires at the expression's value g times the number of
+distinct combinations of reactant molecules, as a numeric rate does: one
+reactant `x` of a species with N molecules fires at g·N, and with a
+[`pattern`](#pattern) at g times the sum of `factor` over the matching
+molecules. The expression reads parameters and observables, for example
+`mass_action("r * max(0, K - N) / N")`, and is written as the rule's
+`rate`. A plain string rate is different: it is the reaction's whole
+propensity (the rule's `propensity`), and a firing then takes
+reactant molecules uniformly. For one reactant without `where` or
+`factor` the two describe the same process: `mass_action("delta")`
+and `"delta * N"` (with `N` the count) on `["mtDNA"]` both fire at
+δN and take a molecule uniformly. A whole propensity cannot be combined
+with `where` or `factor`, and the static methods run it only over a
+species with a single instance, so a per-molecule rate on a species
+with attributes is [`mass_action`](#mass_action). A number is accepted too and
+means what it means as a rate.
+
+### `Model.add_observable`
+
+```text
+Model.add_observable(
+    name,
+    species,
+    where=None,
+    weight=None,
+    reduce='sum',
+    label=None,
+)
+```
+
+Declare an observable: a number reduced from the molecules of `species`.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `name` | required | The observable's name; it shares a namespace with parameters and species. |
+| `species` | required | A declared species. |
+| `where` | `None` | A condition over parameters and the instance's attributes, or `None` for every instance. |
+| `weight` | `None` | A number or an expression per instance; `None` means 1. |
+| `reduce` | `'sum'` | `"sum"`, `"distinct"`, `"max"`, `"min"` or `"max_count"`. |
+| `label` | `None` | The instance's name in `where` and `weight`; `None` means `x`. |
+
+Over the present instances of `species` that satisfy `where` (a
+condition over parameters and the instance's attributes, for example
+`"x.clone > 0"`), with `weight` per instance (a number or an
+expression over the same names, default 1), `reduce` gives:
+
+- `"sum"` (default): the sum of weight × count, so without
+  `weight` the number of matching molecules;
+- `"distinct"`: the sum of the weights, each instance once, so
+  without `weight` the number of distinct matching instances (for
+  example clones);
+- `"max"`, `"min"`: the largest or smallest weight, 0 when no
+  instance matches;
+- `"max_count"`: the largest copy number among the matching
+  instances, times the weight, 0 when none matches (for example the
+  size of the largest clone); it exists only in
+  `crn-craft.model/1.0`, so `crn_craft.rules.Model` then writes
+  that version.
+
+`label` names the instance in `where` and `weight` (default
+`x`). Rates (strings and [`mass_action`](#mass_action)), the stop condition
+and trackers read observables by name, and results have a column for
+each. The name shares one namespace with parameters, species and
+continuous variables; every species already has an observable under
+its own name, its count.
 
 ### `Model.set_initial`
 
@@ -132,7 +336,8 @@ Set initial counts of declared species, from a mapping or keywords.
 | `**kwargs` | none | The same, as keywords: `set_initial(S=990, I=10)`. |
 
 `model.set_initial({"S": 990, "I": 10})` and
-`model.set_initial(S=990, I=10)` are equivalent.
+`model.set_initial(S=990, I=10)` are equivalent. A species with
+attributes takes its molecules from [`add_initial`](#modeladd_initial) instead.
 
 ### `Model.set_stop`
 
@@ -277,18 +482,24 @@ so its hash is that of the document; `crn_craft.Model.from_dict`
 writes it as `crn-craft.model/1.0`, changing only the schema
 string of a rules-model.
 
-A document the builder could have written (attribute-free types,
-one count observable per type named after it, one numeric initial
-count per type; rules-model/0.3, 0.4 or model/1.0), which includes
-every converted network model and the packaged examples, stays
-editable: the `add_*` and `set_*` methods work, and after the
-first edit `to_dict` writes the builder's document (explicit
-default values such as `"attributes": []` and `"reduce": "sum"`
-are then left out, which changes the bytes but not the meaning).
-Any other document (attributes, filtered or weighted observables, an
-ATP block, ...) is kept whole and cannot be edited: those methods
-raise `ValueError`; edit the dictionary and call `from_dict`
-again.
+A document the builder could have written stays editable: the
+`add_*` and `set_*` methods work, and after the first edit
+`to_dict` writes the builder's document (explicit default values
+such as `"attributes": []` are then left out, and the entries of
+`initial` and `observables` are grouped by species, which changes
+the bytes but not the meaning). That is a rules-model/0.3, 0.4 or
+model/1.0 document (for `crn_craft.Model` also rules-model/0.1 and
+0.2 without an ATP block) whose types, initial entries and
+observables have the fields of [`add_species`](#modeladd_species),
+[`add_initial`](#modeladd_initial) and [`add_observable`](#modeladd_observable), with one numeric
+initial count per species without attributes; every converted
+network model, the packaged examples and documents that
+[`to_dict`](#modelto_dict) wrote are such documents. A species whose count
+observable (an observable named after it, over all its molecules) is
+missing in the document keeps it missing. Any other document (an
+ATP block, two initial entries of one species without attributes,
+...) is kept whole and cannot be edited: those methods raise
+`ValueError`; edit the dictionary and call `from_dict` again.
 
 ### `Model.to_dict`
 
@@ -300,7 +511,8 @@ Return the document as a new dictionary.
 
 It is rules-model/0.3, or rules-model/0.4 if a continuous variable
 is independent (see [`add_ode`](#modeladd_ode)), or `crn-craft.model/1.0` if
-a reaction takes three or more molecules; `crn_craft.Model` writes
+a reaction takes three or more molecules or an observable reduces
+with `max_count`; `crn_craft.Model` writes
 `crn-craft.model/1.0` always. A model from [`from_dict`](#modelfrom_dict)
 returns its document until it is edited.
 
@@ -391,8 +603,8 @@ ensemble(
     threads=1,
     keep_paths=0,
     keep_instances=0,
-    max_events=1000000,
-    max_sampling_steps=8000000,
+    max_events=100000000,
+    max_sampling_steps=None,
     max_instances=100000,
     max_output_bytes=67108864,
     wall_time_s=None,
@@ -402,6 +614,7 @@ ensemble(
     compiled=None,
     quantiles=(0.025, 0.5, 0.975),
     selector=None,
+    strict=False,
 )
 ```
 
@@ -417,8 +630,8 @@ Build and prepare a `crn-craft.run/1.0` request; `simulate()` runs it.
 | `threads` (keyword only) | `1` | Native worker threads, 1 to 64. |
 | `keep_paths` (keyword only) | `0` | How many replicates, from replicate 0, keep their full observable series (`result.paths`). `"all"` or `True` keeps every replicate. |
 | `keep_instances` (keyword only) | `0` | How many replicates keep their final instances (`metadata["final_instances"]`). |
-| `max_events` (keyword only) | `1000000` | Event budget per replicate. |
-| `max_sampling_steps` (keyword only) | `8000000` | Budget per replicate for random words and leap iterations. |
+| `max_events` (keyword only) | `100000000` | Event budget per replicate. `None` means no limit (the request records 2**64 - 1). |
+| `max_sampling_steps` (keyword only) | `None` | Budget per replicate for random words and leap iterations. `None` means 16 × `max_events` (2**64 - 1 when `max_events` is `None`). |
 | `max_instances` (keyword only) | `100000` | Most instances alive at once, per replicate. |
 | `max_output_bytes` (keyword only) | `67108864` | Budget for the size of the result. Event logs reserve space for every replicate before the run. |
 | `wall_time_s` (keyword only) | `None` | Wall-clock limit of the whole run in seconds, or `None`. |
@@ -428,6 +641,7 @@ Build and prepare a `crn-craft.run/1.0` request; `simulate()` runs it.
 | `compiled` (keyword only) | `None` | A loop from `compile_loop` for this model. Checked at preparation and used by every `simulate()`. |
 | `quantiles` (keyword only) | `(0.025, 0.5, 0.975)` | Probabilities for `statistics["quantiles"]` and `statistics["median"]`. `()` or `None` asks for none. |
 | `selector` (keyword only) | `None` | The event selector of `static_direct`: `"linear"`, `"composition_rejection"`, `"sorting"`, `"rssa_cr"` or `"auto"`. See [methods](methods.md#selectors). |
+| `strict` (keyword only) | `False` | `True`: replicates that end early raise `IncompleteEnsembleError` in `simulate()` instead of warning with `IncompleteEnsembleWarning`. |
 
 The arguments are those of [`crn_craft.rules.ensemble`](#ensemble), with two
 differences: the documents are always `crn-craft.model/1.0` (a
@@ -440,10 +654,27 @@ is converted) and `crn-craft.run/1.0`, and `quantiles` defaults to
 higher-order reactions (`count`) need `"static_direct"`,
 `"next_reaction"`, `"tau"` or `"hybrid"`.
 
+Budgets: `max_events` defaults to 10**8 events per replicate, and
+`max_sampling_steps=None` follows it (16 random words per event), so
+a long run needs only `max_events` raised. `max_events=None` means
+no event and sampling limit (the request records 2**64 - 1); guard
+such a run with `wall_time_s`. If replicates end early (a budget, or
+`failed`), `simulate()` warns with
+[`IncompleteEnsembleWarning`](#incompleteensemblewarning), naming the count per termination
+and the keyword to raise; `strict=True` raises
+[`IncompleteEnsembleError`](#incompleteensembleerror) instead.
+
 ### `prepare`
 
 ```text
-prepare(model, request, *, compiled=None, quantiles=<unset>, selector=None)
+prepare(
+    model,
+    request,
+    compiled=None,
+    quantiles=<unset>,
+    selector=None,
+    strict=False,
+)
 ```
 
 Prepare a request you wrote, as `crn-craft.run/1.0`.
@@ -455,6 +686,7 @@ Prepare a request you wrote, as `crn-craft.run/1.0`.
 | `compiled` (keyword only) | `None` | A loop from `compile_loop` for this model. Checked at preparation and used by every `simulate()`. |
 | `quantiles` (keyword only) | unset | Unset: `(0.025, 0.5, 0.975)` unless the request states `outputs.quantiles` itself. `()` asks for none. |
 | `selector` (keyword only) | `None` | The event selector of `static_direct`: `"linear"`, `"composition_rejection"`, `"sorting"`, `"rssa_cr"` or `"auto"`. See [methods](methods.md#selectors). |
+| `strict` (keyword only) | `False` | `True`: replicates that end early raise `IncompleteEnsembleError` in `simulate()` instead of warning with `IncompleteEnsembleWarning`. |
 
 As [`crn_craft.rules.prepare`](#prepare), but the documents are always the
 1.0 contracts: a rules-run request is rewritten as `crn-craft.run/1.0`
@@ -465,7 +697,8 @@ follows when it was the hash of the supplied model. `quantiles`
 defaults to `(0.025, 0.5, 0.975)` unless the request states
 `outputs.quantiles` itself; `quantiles=()` asks for none. A
 `crn-craft.run/1.0` request for `crn-craft.model/1.0` bytes that
-needs no change keeps its exact bytes.
+needs no change keeps its exact bytes. `strict` is that of
+[`ensemble`](#ensemble); the request's budgets are used as written.
 
 ### `PreparedEnsemble`
 
@@ -479,7 +712,10 @@ A prepared request, returned by `ensemble` and `prepare`.
 
 `simulate()` runs it, `bind_parameters` makes a candidate with other
 parameter values, and `archive` seals a run. It can be simulated again
-with independent execution state.
+with independent execution state. `strict` (from `ensemble` or
+`prepare`) decides whether a run with replicates that ended early
+warns (`IncompleteEnsembleWarning`) or raises
+(`IncompleteEnsembleError`); candidates keep it.
 
 ### `PreparedEnsemble.simulate`
 
@@ -644,6 +880,45 @@ A request the native core rejected.
 `diagnostics` is the list of CRN-craft diagnostics (dictionaries with
 `code`, `path`, `message` and `hint`). It is a `ValueError`, so
 existing `except ValueError` handlers keep working.
+
+### `IncompleteEnsembleWarning`
+
+```text
+class IncompleteEnsembleWarning(message, counts=None)
+```
+
+Some replicates of a run ended early, on a budget or by failing.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `message` | required | The message. |
+| `counts` | `None` | Replicates per termination. |
+
+`simulate()` warns with it when a replicate's termination is neither
+`completed` nor `stopped` (a `cancelled` run is not reported: it
+was stopped on purpose). The message gives the count per termination and
+the keyword that raises each budget. `counts` maps each such
+termination to its number of replicates. `strict=True` raises
+[`IncompleteEnsembleError`](#incompleteensembleerror) instead.
+
+### `IncompleteEnsembleError`
+
+```text
+class IncompleteEnsembleError(message, counts=None, result=None)
+```
+
+The error of `strict=True` for an ensemble that did not complete.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `message` | required | The message. |
+| `counts` | `None` | Replicates per termination. |
+| `result` | `None` | The result of the run. |
+
+It carries the message and `counts` of
+[`IncompleteEnsembleWarning`](#incompleteensemblewarning), and `result`, the
+[`crn_craft.rules.Result`](#result) of the run, so the records can still be
+read.
 
 ## Results
 
@@ -1289,7 +1564,8 @@ Run a prepared ensemble interpreted and compiled, and compare.
 
 Raises `CompiledLoopError` (reason `"mismatch"`) unless the
 metadata and every record column are byte-identical. Returns the
-result.
+result; replicates that ended early warn or raise as in
+`run.simulate()`.
 
 ### `CompiledLoopError`
 

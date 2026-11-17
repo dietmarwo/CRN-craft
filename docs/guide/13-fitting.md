@@ -568,7 +568,10 @@ Practical sizes for this model:
 - Put an event budget on candidates (`max_events` in `crn.ensemble`) and a
   `wall_time_s` on the whole run. Extreme parameters, such as a very large
   `K` or `mu`, can otherwise make one evaluation very long. Treat a
-  candidate that hits a budget as a high loss.
+  candidate that hits a budget as a high loss. `simulate()` warns with
+  `crn.IncompleteEnsembleWarning` for such a candidate; silence it with
+  `warnings.simplefilter("ignore", crn.IncompleteEnsembleWarning)`, or pass
+  `strict=True` and catch `crn.IncompleteEnsembleError`.
 
 ## Making each evaluation cheap
 

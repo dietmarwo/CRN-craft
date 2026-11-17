@@ -84,11 +84,14 @@ the sweep into a fit.
 
 Applies: [chapter 3, Budgets](03-running.md#budgets).
 
-The default event budget is 1,000,000 events per cell. A cell at
-`K = 1000` has about 150,000 events in three years, and two to three times
-more with a doubled `K` or horizon. Raise `max_events` before a large study
-rather than average over truncated cells: an ensemble in which a cell ended
-on a budget withholds its statistics. The
+The default event budget is 100,000,000 events per cell, and the budget of
+random numbers follows it. A cell at `K = 1000` has about 150,000 events in
+three years, and two to three times more with a doubled `K` or horizon, so
+the defaults cover long horizons. A study that sets `max_events` lower, to
+stop runaway candidates early, should check that ordinary cells stay below
+it: an ensemble in which a cell ended on a budget withholds its statistics,
+and `simulate()` warns with `IncompleteEnsembleWarning` (an error with
+`strict=True`). The
 [performance analysis](../evidence/mtdna-performance-analysis.md#8-sizing-a-study)
 sizes studies by events, cells and threads.
 

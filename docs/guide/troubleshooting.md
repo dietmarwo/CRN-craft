@@ -7,8 +7,14 @@ Symptoms, causes and where the guide explains them.
 - **`statistics` is `None`.** A replicate ended on a budget, was canceled
   or failed, so the statistics are withheld (`CRN-R050`). Look at
   `result.records["termination"]` ([chapter 3](03-running.md#check-the-termination)).
+- **`IncompleteEnsembleWarning` after `simulate()`.** Some replicates ended
+  early; the message counts them per termination and names the argument to
+  raise. `strict=True` makes it an `IncompleteEnsembleError`
+  ([chapter 3](03-running.md#budgets)).
 - **`event_limit` or `sampling_limit` in every replicate.** Raise
-  `max_events` and `max_sampling_steps` ([chapter 3](03-running.md#budgets)).
+  `max_events`; `max_sampling_steps` follows it unless you set it yourself,
+  in which case raise it too. `max_events=None` removes both limits; pair it
+  with `wall_time_s` ([chapter 3](03-running.md#budgets)).
 - **`observation reservation exceeds budget`.** An event log reserves space
   for every replicate before the run. The hint of the error names the
   smallest `max_output_bytes` that admits the request; or use fewer

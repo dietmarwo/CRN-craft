@@ -126,7 +126,17 @@ shows `crn-craft convert` and `crn.convert`.
 ## What replays and what does not
 
 - **Rules documents and `crn_craft.rules` code of 0.6.0** run unchanged
-  with the same results, byte for byte.
+  with the same results, byte for byte, apart from the budgets of the next
+  item.
+- **Default budgets since 0.8.0.** `crn.ensemble` and `crn.rules.ensemble`
+  write `max_events` 10⁸ (it was 10⁶) and a `max_sampling_steps` of 16 ×
+  `max_events` (it was 8 × 10⁶) unless you give them. A run that completed
+  before gives the same numbers, with a new `run_sha256`, because the
+  request states other budgets; a run that ended on a budget now goes
+  further. `max_events=1_000_000, max_sampling_steps=8_000_000` writes the
+  request of 0.7.1 again. `simulate()` now warns with
+  `crn.IncompleteEnsembleWarning` when replicates end early
+  ([chapter 3](03-running.md#budgets)).
 - **Network-engine results of 0.6.0 do not replay byte for byte.** The
   network loops and their random stream (xoshiro256++) are gone. The one
   engine samples the same laws: a law gate checked it over 4,814

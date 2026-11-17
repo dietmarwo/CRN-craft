@@ -186,6 +186,7 @@ fn root_items_resolve_to_the_engine() {
         MAX_WORKERS,
         MAX_WORKSPACE_BYTES,
         SAMPLER,
+        SAMPLER_RANDOM_LABELS,
     });
 }
 

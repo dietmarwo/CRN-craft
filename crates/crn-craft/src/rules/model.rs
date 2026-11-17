@@ -267,6 +267,10 @@ pub enum Reduce {
     Max,
     /// Smallest weight over present matching instances; 0 when none.
     Min,
+    /// Largest count times weight over present matching instances, for
+    /// example the size of the largest clone; 0 when none. Only in
+    /// `crn-craft.model/1.0`.
+    MaxCount,
 }
 
 /// A named reduction over the present instances of one type that satisfy
@@ -288,7 +292,8 @@ pub struct Observable {
     /// finite and may be negative.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub weight: Option<String>,
-    /// `sum` (default), `distinct`, `max` or `min`.
+    /// `sum` (default), `distinct`, `max` or `min`; `crn-craft.model/1.0`
+    /// adds `max_count`.
     #[serde(default)]
     pub reduce: Reduce,
 }
@@ -467,6 +472,59 @@ pub(crate) struct RuleInfo {
     /// pattern in `Multi` rules.
     pub reactant_types: Vec<usize>,
     pub products: Vec<ProductInfo>,
+    /// A pair rule whose products can depend on which molecule is labeled
+    /// `x`: for a pair of molecules from two instances the engine assigns
+    /// the labels at random. `false` for products shown symmetric.
+    pub random_labels: bool,
+}
+
+/// Whether the products of a pair rule can depend on which of the two
+/// molecules has which label. `false` only when every product attribute is
+/// deterministic and swapping the labels maps the product list onto itself
+/// (up to order), as in `x.size + y.size`; otherwise `true`, which is always
+/// safe.
+fn label_dependent(products: &[ProductInfo]) -> bool {
+    let swap = |source: &Source| match source {
+        Source::Copy { reactant, index } => Source::Copy {
+            reactant: 1 - *reactant,
+            index: *index,
+        },
+        Source::Expression(e) => Source::Expression(e.swapped()),
+    };
+    let same = |a: &Source, b: &Source| match (a, b) {
+        (
+            Source::Copy { reactant, index },
+            Source::Copy {
+                reactant: r,
+                index: i,
+            },
+        ) => reactant == r && index == i,
+        (Source::Expression(x), Source::Expression(y)) => x.equivalent(y),
+        _ => false,
+    };
+    if products.iter().any(|p| {
+        p.attributes
+            .iter()
+            .any(|a| matches!(a, Source::Expression(e) if !e.deterministic()))
+    }) {
+        return true;
+    }
+    // Greedy matching of each swapped product to an unused original one.
+    let mut used = vec![false; products.len()];
+    for p in products {
+        let swapped: Vec<Source> = p.attributes.iter().map(swap).collect();
+        let found = products.iter().enumerate().position(|(j, q)| {
+            !used[j]
+                && q.type_id == p.type_id
+                && q.attributes.len() == swapped.len()
+                && q.attributes.iter().zip(&swapped).all(|(a, b)| same(a, b))
+        });
+        match found {
+            Some(j) => used[j] = true,
+            None => return true,
+        }
+    }
+    false
 }
 
 impl RuleInfo {
@@ -616,13 +674,32 @@ fn normalize(x: f64) -> f64 {
     if x == 0.0 { 0.0 } else { x }
 }
 
-/// Before `crn-craft.model/1.0` a pattern has no `count` field: the error
-/// the strict parser gave in 0.6.0 for the first pattern that has one, in
-/// document order.
-pub(crate) fn legacy_count(model: &Model) -> Option<Diagnostic> {
+/// Before `crn-craft.model/1.0` a pattern has no `count` field and an
+/// observable no `max_count` reduction: the errors the strict parser gave in
+/// 0.6.0 for the first pattern with a count, in document order, or else for
+/// the first such observable.
+pub(crate) fn legacy_fields(model: &Model) -> Option<Diagnostic> {
     if model.schema == ModelVersion::V10 {
         return None;
     }
+    legacy_count(model).or_else(|| {
+        model.observables.iter().find_map(|(name, o)| {
+            (o.reduce == Reduce::MaxCount).then(|| {
+                invalid(
+                    "CRN-E003",
+                    &crate::diagnostic::pointer(
+                        &crate::diagnostic::pointer("/observables", name),
+                        "reduce",
+                    ),
+                    "unknown variant `max_count`, expected one of `sum`, `distinct`, `max`, `min`",
+                    "Write the model as crn-craft.model/1.0 to use max_count.",
+                )
+            })
+        })
+    })
+}
+
+fn legacy_count(model: &Model) -> Option<Diagnostic> {
     model.rules.iter().enumerate().find_map(|(r, rule)| {
         rule.reactants
             .iter()
@@ -1339,6 +1416,7 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
             });
         }
         if let Some(rate) = rate {
+            let random_labels = matches!(shape, Shape::Pair(_)) && label_dependent(&products);
             rules.push(RuleInfo {
                 name: rule.name.clone(),
                 rate,
@@ -1346,6 +1424,7 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
                 shape,
                 reactant_types: pattern_types,
                 products,
+                random_labels,
             });
         }
     }

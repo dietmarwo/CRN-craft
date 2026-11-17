@@ -248,7 +248,8 @@ impl<'m> State<'m> {
                     w: Vec::new(),
                     sum: matches!(o.reduce, Reduce::Sum | Reduce::Distinct)
                         .then(|| SumTree::new(false)),
-                    extreme: matches!(o.reduce, Reduce::Max | Reduce::Min).then(MaxTree::new),
+                    extreme: matches!(o.reduce, Reduce::Max | Reduce::Min | Reduce::MaxCount)
+                        .then(MaxTree::new),
                 })
                 .collect(),
             values: vec![0.0; model.observables.len()],
@@ -364,11 +365,18 @@ impl<'m> State<'m> {
                 sum.set(slot, leaf);
             }
             if let Some(extreme) = state.extreme.as_mut() {
-                let signed = if model.observables[o].reduce == Reduce::Min {
-                    -w
-                } else {
-                    w
+                let signed = match model.observables[o].reduce {
+                    Reduce::Min => -w,
+                    Reduce::MaxCount => w * n,
+                    _ => w,
                 };
+                if matched && !signed.is_finite() {
+                    return Err(numerical(
+                        &crate::diagnostic::pointer("/observables", &model.observables[o].name),
+                        "observable weight overflows",
+                        "Reduce the weight or the population.",
+                    ));
+                }
                 extreme.set(slot, matched.then_some(signed));
             }
         }
@@ -931,6 +939,11 @@ impl Path<'_> {
                         PairChoice::Across(l, r) => {
                             slots[0] = tree.descend(l, words.uniform()? * tree.node_weight(l));
                             slots[1] = tree.descend(r, words.uniform()? * tree.node_weight(r));
+                            // The tree orders the two instances by slot; the
+                            // labels x and y go to them at random.
+                            if rule.random_labels && words.uniform()? < 0.5 {
+                                slots.swap(0, 1);
+                            }
                         }
                     }
                 }

@@ -303,7 +303,18 @@ pub enum Statistic {
 /// Version 2 selects identical-pattern pairs exactly from pair trees.
 /// Version 1, used only for the first exact-law gate run, drew two molecules
 /// and rejected a draw of the same one; it is no longer produced.
+/// Under `crn-craft.run/1.0`, models with a pair rule whose products depend
+/// on the labels report [`SAMPLER_RANDOM_LABELS`] instead.
 pub const SAMPLER: &str = "chacha8-u53/rules-direct/2";
+/// Sampler identity of the `tree` method under `crn-craft.run/1.0` for
+/// models with a pair rule (two identical patterns, or `count: 2`) whose
+/// products can depend on which molecule is labeled `x`. For a pair of
+/// molecules from two different instances it draws one more uniform and
+/// swaps the labels with probability 1/2; version 2 gave `x` to the
+/// instance earlier in its internal order, which biased such rules. Other
+/// models, and requests before `crn-craft.run/1.0`, keep [`SAMPLER`] and
+/// their streams.
+pub const SAMPLER_RANDOM_LABELS: &str = "chacha8-u53/rules-direct/3";
 /// Largest `ensemble.replicates` a request may ask for; more is `CRN-R020`.
 pub const MAX_REPLICATES: u64 = 1_000_000;
 /// Largest number of entries in `time.report_times`; more is `CRN-R020`.
@@ -315,7 +326,8 @@ pub const MAX_WORKERS: u32 = 64;
 /// `budget.max_output_bytes`.
 pub const MAX_RESULT_BYTES: u64 = 1 << 30;
 /// Upper bound of 2 GiB on the reservation [`prepare`] computes for records,
-/// in-flight and kept series, kept final instances and observations. It is a
+/// in-flight and kept series and observations (kept final instances are
+/// counted during the run against `max_output_bytes` instead). It is a
 /// conservative admission estimate (`CRN-R020` at `/budget` when exceeded),
 /// not a cap on allocator or OS memory.
 pub const MAX_WORKSPACE_BYTES: u64 = 2 << 30;
@@ -508,7 +520,9 @@ pub struct Outputs {
     /// Observable series of replicates 0..keep_paths, at most `replicates`.
     pub keep_paths: u64,
     /// Final instances of replicates 0..keep_instances, at most
-    /// `replicates`.
+    /// `replicates`. They count against `max_output_bytes` as replicates
+    /// finish (8 bytes per attribute plus 48 per instance); past it they are
+    /// dropped and the result ends as `output_limit`.
     pub keep_instances: u64,
     /// `crn-craft.run/1.0` only (earlier versions refuse the field with
     /// `CRN-R020` at `/schema`): probabilities of quantile statistics, at
@@ -656,7 +670,8 @@ pub enum Method {
     /// Exact direct method over dynamic instances: rules are selected by
     /// their propensities, then instances from sum trees. Supports random
     /// product attributes and `new_id()`. Sampler
-    /// `chacha8-u53/rules-direct/2`.
+    /// `chacha8-u53/rules-direct/2`, or `chacha8-u53/rules-direct/3` for a
+    /// model with a pair rule whose products depend on the labels.
     Tree {},
     /// Exact direct method over the lowered network of fixed instance tuples
     /// and channels. Every positive channel must be at least 2^-53 of the
@@ -1683,7 +1698,14 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
     if !diagnostics.is_empty() {
         return Err(diagnostics);
     }
-    let compiled = compiled.expect("compiled when valid");
+    let mut compiled = compiled.expect("compiled when valid");
+    if request.schema != RunVersion::V10 {
+        // Random pair labels are a policy of crn-craft.run/1.0 (sampler
+        // version 3); older requests replay the streams of version 2.
+        for rule in &mut compiled.rules {
+            rule.random_labels = false;
+        }
+    }
     let mut observations = observe::Spec::compile(
         &model,
         &compiled,
@@ -1890,7 +1912,7 @@ fn linear_selector(prepared: &Prepared, what: &str) -> Result<(), Diagnostic> {
 fn parse_model(model_bytes: &[u8]) -> Result<Model, Diagnostic> {
     let model: Model = crate::strict_json::parse(model_bytes)
         .map_err(|error| network_model_error(error, model_bytes))?;
-    match model::legacy_count(&model) {
+    match model::legacy_fields(&model) {
         Some(diagnostic) => Err(diagnostic),
         None => Ok(model),
     }
@@ -2058,28 +2080,43 @@ fn admission(
     let n = u128::from(request.ensemble.replicates);
     let series = request.time.report_times.len() as u128 * model.observables.len() as u128 * 8;
     let record = 256 + 8 * model.rules.len() as u128;
-    let attributes = model
-        .types
-        .iter()
-        .map(|t| t.attributes.len())
-        .max()
-        .unwrap_or(0) as u128;
-    let instances = u128::from(request.outputs.keep_instances)
-        * u128::from(request.budget.max_instances)
-        * (8 * attributes + 48);
+    // Kept final instances are not reserved here: the run counts them as
+    // replicates finish and drops them past the output budget
+    // (`output_limit`), so max_instances bounds only the live state.
     let in_flight = u128::from(workers(request)) * u128::from(1 + WINDOW_PER_WORKER);
-    let workspace = n * record
-        + (in_flight + u128::from(request.outputs.keep_paths)) * series
-        + instances
-        + observation_bytes;
+    let kept = u128::from(request.outputs.keep_paths);
+    let workspace = n * record + (in_flight + kept) * series + observation_bytes;
     // Lower bound of the compact result: a record is at least 160 bytes.
     let evidence = n * 160;
     let mut out = Vec::new();
     if workspace > u128::from(MAX_WORKSPACE_BYTES) {
+        let mut parts = vec![
+            format!("{n} replicate records x {record} bytes"),
+            format!(
+                "({in_flight} in-flight + {kept} kept paths) x {series} bytes per path ({} report times x {} observables x 8)",
+                request.time.report_times.len(),
+                model.observables.len()
+            ),
+        ];
+        if observation_bytes > 0 {
+            parts.push(format!(
+                "{observation_bytes} bytes of trackers and event logs"
+            ));
+        }
+        let hint = if kept * series >= n * record && kept * series >= observation_bytes {
+            "Keep fewer paths (keep_paths) or report times, or split the ensemble into batches."
+        } else if n * record >= observation_bytes {
+            "Use fewer replicates per run, or split the ensemble into batches."
+        } else {
+            "Reduce event_log.max_entries, keep_episodes or the trackers."
+        };
         out.push(request_error(
             "/budget",
-            format!("execution reservation of {workspace} bytes exceeds {MAX_WORKSPACE_BYTES}"),
-            "Use fewer replicates, report times, kept paths or kept instance sets, or a smaller max_instances.",
+            format!(
+                "execution reservation of {workspace} bytes exceeds {MAX_WORKSPACE_BYTES}: {}",
+                parts.join(" + ")
+            ),
+            hint,
         ));
     } else if !request.outputs.quantiles().is_empty() {
         // Quantiles keep every replicate's series, plus one column to sort.
@@ -2166,6 +2203,12 @@ struct Reducer {
     /// request asks for none.
     quantiles: Vec<f64>,
     halted: bool,
+    /// Bytes of the kept final instances so far (8 per attribute plus 48
+    /// per instance), and the output budget they must stay within. Past it
+    /// the kept instances are dropped and the result ends as `output_limit`.
+    kept_bytes: u128,
+    kept_limit: u128,
+    kept_overflow: bool,
 }
 
 impl Reducer {
@@ -2203,7 +2246,19 @@ impl Reducer {
             });
         }
         if let Some(instances) = path.instances {
-            self.finals.push(FinalInstances { id, instances });
+            if !self.kept_overflow {
+                self.kept_bytes += instances
+                    .iter()
+                    .map(|i| 8 * i.attributes.len() as u128 + 48)
+                    .sum::<u128>();
+                if self.kept_bytes > self.kept_limit {
+                    // The result could not hold them; free the memory now.
+                    self.kept_overflow = true;
+                    self.finals = Vec::new();
+                } else {
+                    self.finals.push(FinalInstances { id, instances });
+                }
+            }
         }
     }
 }
@@ -2393,6 +2448,9 @@ fn execute_inner<O: EventObserver>(
         observations: Vec::new(),
         paths: Vec::new(),
         finals: Vec::new(),
+        kept_bytes: 0,
+        kept_limit: u128::from(request.budget.max_output_bytes.min(MAX_RESULT_BYTES)),
+        kept_overflow: false,
         samples: 0,
         mean: vec![0.0; rows * columns],
         m2: vec![0.0; rows * columns],
@@ -2527,6 +2585,7 @@ fn execute_inner<O: EventObserver>(
     });
     let paths = std::mem::take(&mut reducer.paths);
     let final_instances = std::mem::take(&mut reducer.finals);
+    let kept_overflow = reducer.kept_overflow;
     let mut diagnostics = Vec::new();
     if !complete {
         diagnostics.push(Diagnostic::warning(
@@ -2572,6 +2631,9 @@ fn execute_inner<O: EventObserver>(
         model_sha256: prepared.model_sha256.clone(),
         run_sha256: prepared.run_sha256.clone(),
         sampler: match prepared.method {
+            Method::Tree {} if prepared.compiled.rules.iter().any(|r| r.random_labels) => {
+                SAMPLER_RANDOM_LABELS.into()
+            }
             Method::Tree {} => SAMPLER.into(),
             Method::MtdnaDirect {} if prepared.mtdna.is_some() => {
                 "chacha8-u53-ziggurat/rules-mtdna-direct/1".into()
@@ -2637,7 +2699,7 @@ fn execute_inner<O: EventObserver>(
         },
     };
     let limit = request.budget.max_output_bytes.min(MAX_RESULT_BYTES);
-    if !fits_json(&result, limit) {
+    if kept_overflow || !fits_json(&result, limit) {
         result.termination = Termination::OutputLimit;
         result.statistics = None;
         result.paths.clear();
@@ -2959,6 +3021,20 @@ pub fn schema(kind: &str) -> Option<Value> {
         for name in ONLY_1_0_DEFINITIONS {
             definitions.remove(*name);
         }
+        // `max_count` is a reduction of `crn-craft.model/1.0` only.
+        if let Some(variants) = definitions
+            .get_mut("Reduce")
+            .and_then(|d| d.get_mut("oneOf"))
+            .and_then(Value::as_array_mut)
+        {
+            variants.retain(|v| v["enum"][0] != "max_count");
+        }
+        if let Some(text) = definitions
+            .get_mut("Observable")
+            .and_then(|d| d.pointer_mut("/properties/reduce/description"))
+        {
+            *text = "`sum` (default), `distinct`, `max` or `min`.".into();
+        }
     }
     let version = definitions.get_mut(definition)?;
     version
@@ -3074,6 +3150,8 @@ const RESULT_1_0: Descriptions = (
 mod law_oracle;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_drift;
 #[cfg(test)]
 mod tests_feedback;
 #[cfg(test)]

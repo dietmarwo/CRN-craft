@@ -107,9 +107,13 @@ variance, `keep_paths`, `keep_instances`) and an explicit `budget`
 random word, `max_instances` alive at once, `threads` 1–64,
 `max_output_bytes`, optional `wall_time_s`). Before running, the request is
 admitted only if a conservative reservation for records, in-flight and kept
-series and kept final instances (`keep_instances × max_instances`) stays below
-2 GiB, and if `max_output_bytes` can hold at least 160 bytes per replicate
-record (`CRN-R020`).
+series and observations stays below 2 GiB, and if `max_output_bytes` can hold
+at least 160 bytes per replicate record (`CRN-R020`); the error itemizes the
+reservation. Kept final instances are not reserved in advance: the run counts
+them (8 bytes per attribute plus 48 per instance) as replicates finish, and
+once they pass `max_output_bytes` it drops them and the result ends as
+`output_limit` (`CRN-R045`). `max_instances` therefore bounds only the
+instances alive in one replicate.
 
 Trackers and event logs (rules-run/0.2 and later) reserve output per
 replicate: 256 bytes per tracker plus 64 per kept episode, and `max_entries`

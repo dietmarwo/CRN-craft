@@ -1056,6 +1056,58 @@ impl Expr {
         check(&self.root)
     }
 
+    /// The expression with the attributes of reactants 0 and 1 exchanged
+    /// (the labels of a pair rule swapped).
+    pub(crate) fn swapped(&self) -> Self {
+        fn swap(node: &Node) -> Node {
+            match node {
+                Node::Var(Slot::Attribute { reactant, index }) if *reactant < 2 => {
+                    Node::Var(Slot::Attribute {
+                        reactant: 1 - *reactant,
+                        index: *index,
+                    })
+                }
+                Node::Num(_) | Node::Var(_) => node.clone(),
+                Node::Neg(a) => Node::Neg(Box::new(swap(a))),
+                Node::Not(a) => Node::Not(Box::new(swap(a))),
+                Node::Bin(op, a, b) => Node::Bin(*op, Box::new(swap(a)), Box::new(swap(b))),
+                Node::Call(f, args) => Node::Call(*f, args.iter().map(swap).collect()),
+            }
+        }
+        Self {
+            root: swap(&self.root),
+        }
+    }
+
+    /// Whether two deterministic expressions have equal values everywhere
+    /// because they are equal up to the order of the operands of `+`, `*`,
+    /// `==`, `!=` and two-argument `min` and `max`. `false` means "not shown
+    /// equal", not "different".
+    pub(crate) fn equivalent(&self, other: &Self) -> bool {
+        fn same(a: &Node, b: &Node) -> bool {
+            match (a, b) {
+                (Node::Bin(op, a1, a2), Node::Bin(op2, b1, b2)) if op == op2 => {
+                    (same(a1, b1) && same(a2, b2))
+                        || (matches!(op, Op::Add | Op::Mul | Op::Eq | Op::Ne)
+                            && same(a1, b2)
+                            && same(a2, b1))
+                }
+                (Node::Call(f, xs), Node::Call(g, ys)) if f == g && xs.len() == ys.len() => {
+                    xs.iter().zip(ys).all(|(x, y)| same(x, y))
+                        || (matches!(f, Func::Min | Func::Max)
+                            && xs.len() == 2
+                            && same(&xs[0], &ys[1])
+                            && same(&xs[1], &ys[0]))
+                }
+                (Node::Neg(x), Node::Neg(y)) | (Node::Not(x), Node::Not(y)) => same(x, y),
+                (Node::Num(x), Node::Num(y)) => x.to_bits() == y.to_bits(),
+                (Node::Var(x), Node::Var(y)) => x == y,
+                _ => false,
+            }
+        }
+        same(&self.root, &other.root)
+    }
+
     pub(crate) fn deterministic(&self) -> bool {
         fn check(node: &Node) -> bool {
             match node {

@@ -202,7 +202,7 @@
       "oneOf": [
         {
           "additionalProperties": false,
-          "description": "Exact direct method over dynamic instances: rules are selected by their propensities, then instances from sum trees. Supports random product attributes and `new_id()`. Sampler `chacha8-u53/rules-direct/2`.",
+          "description": "Exact direct method over dynamic instances: rules are selected by their propensities, then instances from sum trees. Supports random product attributes and `new_id()`. Sampler `chacha8-u53/rules-direct/2`, or `chacha8-u53/rules-direct/3` for a model with a pair rule whose products depend on the labels.",
           "properties": {
             "kind": {
               "enum": [

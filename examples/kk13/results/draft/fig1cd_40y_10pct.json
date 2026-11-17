@@ -1,0 +1,16 @@
+{
+ "cells": 200,
+ "seeds": [
+  31000
+ ],
+ "events": 399149113,
+ "wall_seconds": 52.1,
+ "threads": 2,
+ "cpu": "x86_64",
+ "crn_craft": "0.7.1",
+ "years": 40,
+ "target_pct": 10,
+ "pmut": 0.000165413,
+ "cox_negative": 19,
+ "mean_total_mtdna": 999.785
+}

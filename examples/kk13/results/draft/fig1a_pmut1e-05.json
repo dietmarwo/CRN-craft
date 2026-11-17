@@ -1,0 +1,15 @@
+{
+ "cells": 3000,
+ "seeds": [
+  2000,
+  2001,
+  2002
+ ],
+ "events": 64611913,
+ "wall_seconds": 4.8,
+ "threads": 2,
+ "cpu": "x86_64",
+ "crn_craft": "0.7.1",
+ "pmut": 1e-05,
+ "compiled": true
+}

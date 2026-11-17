@@ -427,4 +427,5 @@ files of earlier releases (`crn-craft.rules-model/0.x`) are still read
 ([Contracts and versions](../reference/contracts.md)).
 
 See also: [Model language](../reference/model-language.md),
+[Fig 1C/1D of a published study, built with the builder](16c-fig1cd.md),
 [The mtDNA model files](14a-mtdna-model-files.md).

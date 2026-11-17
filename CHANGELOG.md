@@ -7,6 +7,10 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+### Documentation
+
+- Guide chapter 16, a contributed tutorial by Axel Kowald (draft for the author's review): re-creating Figure 1 of Kowald & Kirkwood (2013), *Aging Cell* 12:728–731, with a lumped two-reaction model (`static_direct`, `compile_loop`), a sweep with logistic regression, and the clone model built with the builder (`max_count`). The script `examples/kk13/kowald_kirkwood_2013.py` runs it in three sizes and stores its results; `validation/check_kk13.py` checks the quick size and the tables.
+
 Answers to feedback from a researcher who reproduced a published mtDNA drift
 study with 0.7.1.
 

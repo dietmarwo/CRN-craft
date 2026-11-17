@@ -11,7 +11,8 @@ stochastic simulation study with the Python interface of CRN-craft (0.8):
 > [doi:10.1111/acel.12098](https://doi.org/10.1111/acel.12098) (open access)
 
 The tutorial was written for CRN-craft 0.7.1. The maintainers adapted the
-text and the code to CRN-craft 0.8;
+text and the code to CRN-craft 0.8 (this version is a draft for the
+author's review);
 [the last page](16d-limits-lessons.md#what-changed-since-071) lists what
 that changed.
 
@@ -80,26 +81,32 @@ functions of the pages, `buildModel(pmut)` and `buildCloneModel(pmut)`, are
 those of the script. Run it from the repository root:
 
 ```sh
-python examples/kk13/kowald_kirkwood_2013.py --quick             # all parts, small cell counts
-python examples/kk13/kowald_kirkwood_2013.py --full              # the cell counts of the tables
-python examples/kk13/kowald_kirkwood_2013.py --full --part 1A    # one part: 1A, 1B or 1CD
-python examples/kk13/kowald_kirkwood_2013.py --figures           # plots from the stored results
+python examples/kk13/kowald_kirkwood_2013.py --size quick                # all parts, small cell counts
+python examples/kk13/kowald_kirkwood_2013.py --size draft                # the 0.8 tables of these pages
+python examples/kk13/kowald_kirkwood_2013.py --size full                 # the author's cell counts
+python examples/kk13/kowald_kirkwood_2013.py --size full --part 1A       # one part: 1A, 1B or 1CD
+python examples/kk13/kowald_kirkwood_2013.py --size draft --figures      # plots from the stored results
 ```
 
-| Call | What it runs | Run time |
-| --- | --- | --- |
-| `--quick` | every part with small cell counts, as a check | TODO(kk13: runtime_quick) |
-| `--full --part 1A` | Fig 1A: 3,000 cells for P_mut = 10⁻⁴ and 10⁻⁵, 15,000 for 10⁻⁶ | TODO(kk13: runtime_full_1a) |
-| `--full --part 1B` | Fig 1B: pilot and fine sweeps for five lifespans | TODO(kk13: runtime_full_1b) |
-| `--full --part 1CD` | Fig 1C/1D: 15 combinations of lifespan and target, 3,000 cells each | TODO(kk13: runtime_full_1cd) |
-| `--figures` | the four figures from the result files, no simulation | TODO(kk13: runtime_figures) |
+| Size | Fig 1A cells | Fig 1B fine sweep | Fig 1C/1D cells per combination |
+| --- | --- | --- | --- |
+| `quick` | 200 per P_mut, 10 years | 200 per point, lifespans 3 and 10 y | 100, 3 years only |
+| `draft` | 3,000 / 3,000 / 15,000 | 1,000 per point | 200 |
+| `full` | 3,000 / 3,000 / 15,000 | 3,000 per point | 3,000 |
 
-The run times were measured on TODO(kk13: full_run_hardware). The script
-writes its result files to
-[`examples/kk13/results/`](https://github.com/dietmarwo/CRN-craft/tree/main/examples/kk13/results)
-and the figures to `docs/guide/img/kk13/`. The tables of the following
-pages are filled from these result files, which also record the seeds, the
-CRN-craft version and the hardware of the run.
+The result files of a run go to `examples/kk13/results/<size>/`, one file
+per P_mut, lifespan or combination, together with a JSON file that records
+the cell counts, seeds, events, run time and CRN-craft version. A unit that
+already has its file is skipped, so a long run can be stopped and
+continued. `--figures` writes the figures to `docs/guide/img/kk13/`, and
+`examples/kk13/make_tables.py` fills the 0.8 tables of these pages from
+the result files.
+
+Each result page shows two runs: the author's run with CRN-craft 0.7.1 and
+the full cell counts, and a draft run with CRN-craft 0.8 and the `draft`
+sizes (about 25 minutes on two cores). The draft run has larger
+statistical errors for Fig 1C/1D; its purpose is to show that 0.8 gives the
+same results.
 
 The code blocks of the pages are reduced versions of the script's code: a
 few hundred cells and short horizons, so that each runs in seconds. Each

@@ -78,6 +78,9 @@ Fifty common tasks, one per line, each with links to the sections of the guide t
 - How do I simulate mutant takeover in single cells? [12, The model](guide/12-mtdna.md#the-model); [12a, A first ensemble](guide/12a-mtdna-takeover.md#a-first-ensemble); [Takeover fraction and time to threshold](guide/12a-mtdna-takeover.md#takeover-fraction-and-time-to-threshold)
 - How do I change copy number, half-life, initial heteroplasmy or the threshold? [12a, Variants](guide/12a-mtdna-takeover.md#variants)
 - How do I follow mutant classes, and single lineages? [12b, Mutant classes](guide/12b-mtdna-events.md); [14a, Every lineage with the clone model](guide/14a-mtdna-model-files.md#every-lineage-with-the-clone-model)
+- How do I re-create the figures of a published simulation study? [16, Case study: re-creating a published study](guide/16-published-study.md)
+- How do I count the clones of a cell and the size of the largest one? [16c, Reading the results](guide/16c-fig1cd.md#reading-the-results)
+- How do I find the parameter that gives a target fraction of cells (sweep and logistic regression)? [16b, A sweep and a logistic regression](guide/16b-fig1b.md#a-sweep-and-a-logistic-regression)
 - How do I let the population size vary with ATP? [12c, Variable population: ATP](guide/12c-mtdna-atp.md)
 - How do I use the fast path `mtdna_direct`, and why is it not faster on my model? [12d, The fast path](guide/12d-mtdna-methods.md#the-fast-path); [14a, The fast path](guide/14a-mtdna-model-files.md#the-fast-path); [Troubleshooting, Methods and models](guide/troubleshooting.md#methods-and-models)
 

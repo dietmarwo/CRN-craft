@@ -7,6 +7,22 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+Answers to feedback from a researcher who reproduced a published mtDNA drift
+study with 0.7.1.
+
+### Engine: added
+
+- Observables of `crn-craft.model/1.0` have a new reduction, `max_count`: the largest count times weight over the matching instances, for example the size of the largest clone, at every report time. It runs on every method (tree, static methods, the generated event loop, ODE kinetics with its gradient). Older model versions refuse it with `CRN-E003`; the `rules-model` schema is unchanged.
+
+### Engine: fixed
+
+- Pair rules (two identical patterns) whose products depend on which molecule is `x`, such as "x replaces y", now assign `x` and `y` at random when the two molecules come from different instances, under `crn-craft.run/1.0` (sampler `chacha8-u53/rules-direct/3`). Before, `x` was always the molecule whose instance came earlier in the engine's internal order, so such a rule favored older instances: in a neutral two-clone test one clone took over in every replicate. Rules with label-independent products (`x.size + y.size`, both molecules kept) and requests before `run/1.0` keep sampler version 2 and their streams byte for byte. Exact-law check: 80 comparisons against the FSP law and a sample reference of an equivalent counts network, 0 failures; the 0.7.1 CLI fails 64 of them ([RESULTS.md](validation/merge/RESULTS.md), "0.8 pair labels").
+
+### Engine: changed
+
+- Kept final instances (`keep_instances`) are no longer reserved before the run as `keep_instances × max_instances × (8 × attributes + 48)` bytes, which refused, for example, 3,000 kept cells with the default `max_instances` (16.8 GB) although each cell held about 40 instances. They now count against `max_output_bytes` as replicates finish; past it they are dropped and the result ends as `output_limit` (`CRN-R045`), as an oversized result did before. `max_instances` again bounds only the instances alive in one replicate.
+- The remaining reservation error (`CRN-R020` at `/budget`) itemizes the replicate records, the in-flight and kept paths (report times × observables) and the trackers and logs, and its hint names the largest part.
+
 ### Changed
 
 - The optional jobs integration (`integrations/jobs`) pins optimization-jobs `41d5f00` (main after 0.4.1: command jobs may declare a progress file; the job crates are still 0.4.1) and fcmaes-rust `e996062` (main after 0.3.0, the merge that moves its own optimization-jobs pin there; the fcmaes crates are still 0.3.0), so both name one job API. `validation/check_jobs.py` records the new revisions. Through `optimization-run` at 41d5f00 it passes all 15 rows, 17 jobs and 18 manifests ([jobs-pin-41d5f00.json](validation/campaign/jobs-pin-41d5f00.json)); the report equals the 78970a2 report except for the three recorded pins.

@@ -2279,3 +2279,37 @@ rules of "Law gate" above.
   2, without `--expect-sampler`) must fail at least one comparison per
   model. If it does not, the check has no power against the old bias, and
   that is reported.
+
+**Amendment, before any comparison ran.** The first gate run stopped in its
+first chunk: the gate's chunk requests set `max_instances` to the number of
+types, which suits the closed models of the earlier checks but ends a
+replicate of these models as `instance_limit` as soon as a second clone
+exists. A manifest row may now declare `max_instances`; both rows declare
+1,000 (at most 20 instances are alive). Everything else stands.
+
+### 0.8 pair labels: law check results
+
+Run once, as declared, with the release CLI of `engine-0.8` (report
+`validation/merge/laws/pair-labels-tree.json`). Every chunk reported
+`chacha8-u53/rules-direct/3`.
+
+| Model | Cells | Comparisons with the sample reference | Failures | Largest z | Comparisons with FSP | Failures | Largest z |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| pair-neutral | 10 | 20 | 0 | 1.42 | 20 | 0 | 0.54 |
+| pair-mutation | 10 | 20 | 0 | 1.36 | 20 | 0 | 2.39 |
+
+80 comparisons (16 at time 0), **0 failures**, largest z 2.39: the target
+is met.
+
+**Power check** (0.7.1 release CLI from crates.io, sampler version 2;
+report `validation/merge/laws/pair-labels-tree-0.7.1-power.json`): 64 of
+the 80 comparisons fail, every one after time 0, with z up to 1,082 for
+`pair-neutral` and 589 for `pair-mutation`. Under version 2 the clone that
+holds the earlier instance slot always plays `x`, so in `pair-neutral`
+clone 0 takes over and in `pair-mutation` the wild type is replaced only
+through its own mutations. The check detects the old bias in both models.
+
+**Limitations.** The check covers two small models (20 molecules) at one
+parameter set, the tree method only (the static methods refuse pair rules
+over several instances), and the observed counts, not the identities of
+individual instances.

@@ -99,8 +99,10 @@ weight to 1. Over the present instances of `type` that satisfy `where`:
 | `sum` (default) | Σ weight × count |
 | `distinct` | Σ weight, each instance once (weight 1 counts distinct instances, e.g. clones) |
 | `max`, `min` | largest or smallest weight; 0 when no instance matches |
+| `max_count` (`crn-craft.model/1.0`) | largest weight × count, for example the size of the largest clone; 0 when no instance matches |
 
-Weights must be finite; they may be negative.
+Weights must be finite; they may be negative. Older model versions refuse
+`max_count` with `CRN-E003`.
 
 ### Rules and propensities
 
@@ -120,6 +122,17 @@ For one instance this is the stochastic mass-action convention n(n−1)/2 (a
 `2A` channel with coefficient c). Two *different* patterns over the same type
 are rejected in 0.1. Patterns are compared after their
 labels are resolved, so `a.size` and `b.size` are identical factors.
+
+**Which molecule of a pair is `x`.** Under `crn-craft.run/1.0` the two
+molecules of an unordered pair get the labels `x` and `y` at random, each
+assignment with probability 1/2. So a rule "x replaces y" (products
+`[{"copy": "x"}, {"copy": "x"}]`) is neutral: either molecule of the pair
+can be the one replaced. Requests before `run/1.0` keep the order of 0.7:
+for two molecules from different instances, `x` is the one whose instance
+came earlier in the engine's internal order, which makes such a rule favor
+older instances. Rules whose products do not depend on the labels, such as
+`x.size + y.size`, are unaffected either way. See
+[methods](methods.md#the-tree-method-and-its-numerical-policy) for the sampler identities.
 
 #### Counting identical reactants, and rebop
 

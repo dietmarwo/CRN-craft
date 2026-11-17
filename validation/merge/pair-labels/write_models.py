@@ -138,6 +138,7 @@ def main():
             "chunk": 10000,
             "reference_seed": 1000000,
             "gate_seed": 2000000,
+            "max_instances": 1000,
             "fsp": {"bounds": {s: 20 for s in species}, "max_states": 10000,
                     "tolerance": 1e-12},
         })

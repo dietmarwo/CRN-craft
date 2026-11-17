@@ -33,10 +33,12 @@ from pathlib import Path as _Path
 from . import _native
 from . import rules
 from ._common import CrnError, convert, model_bytes as _model_bytes
+from ._common import IncompleteEnsembleError, IncompleteEnsembleWarning
 from ._common import __version__ as __version__
 from . import _rules_loop
 from ._rules_loop import CompiledLoopError
 from .builder import Model as _RulesModel
+from .builder import copy, mass_action, new, pattern
 from .report import load_report
 from .rules import DEFAULT_QUANTILES as _DEFAULT_QUANTILES
 from .rules import archive, verify_archive
@@ -44,17 +46,23 @@ from .rules import archive, verify_archive
 __all__ = [
     "CompiledLoopError",
     "CrnError",
+    "IncompleteEnsembleError",
+    "IncompleteEnsembleWarning",
     "Model",
     "archive",
     "check",
     "compile_loop",
     "convert",
+    "copy",
     "describe",
     "ensemble",
     "load",
     "load_example",
     "load_report",
     "loop_source",
+    "mass_action",
+    "new",
+    "pattern",
     "prepare",
     "read_bngl",
     "read_sbml",
@@ -72,15 +80,18 @@ _EXAMPLES = (
 
 
 class Model(_RulesModel):
-    """A reaction network over attribute-free species, written as
-    ``crn-craft.model/1.0``.
+    """A model built call by call, written as ``crn-craft.model/1.0``.
 
     The builder of ``crn_craft.rules.Model`` (the same methods: ``add_species``,
-    ``add_parameter``, ``add_reaction``, ``set_initial``, ``set_stop``,
-    ``add_ode``, ``to_dict``, ``to_json``, ``from_dict``, ``fsp``,
-    ``analyze``, ``to_gillespy2``), whose documents are always
-    ``crn-craft.model/1.0``. ``add_reaction`` accepts any number of
-    reactant molecules; ``["A", "A", "A"]`` is a third-order reaction.
+    ``add_initial``, ``add_parameter``, ``add_reaction``, ``add_observable``,
+    ``set_initial``, ``set_stop``, ``add_ode``, ``to_dict``, ``to_json``,
+    ``from_dict``, ``fsp``, ``analyze``, ``to_gillespy2``), whose documents
+    are always ``crn-craft.model/1.0``. Species are plain counts, or carry
+    attributes (``add_species(name, attributes=[...])``), whose molecules
+    reactions match with :func:`pattern` and create with :func:`copy` and
+    :func:`new`. ``add_reaction`` accepts any number of reactant molecules
+    of attribute-free species; ``["A", "A", "A"]`` is a third-order
+    reaction.
     """
 
     _unified = True
@@ -96,8 +107,8 @@ def ensemble(
     threads=1,
     keep_paths=0,
     keep_instances=0,
-    max_events=1_000_000,
-    max_sampling_steps=8_000_000,
+    max_events=rules.MAX_EVENTS,
+    max_sampling_steps=None,
     max_instances=100_000,
     max_output_bytes=64 << 20,
     wall_time_s=None,
@@ -107,6 +118,7 @@ def ensemble(
     compiled=None,
     quantiles=_DEFAULT_QUANTILES,
     selector=None,
+    strict=False,
 ):
     """Build and prepare a ``crn-craft.run/1.0`` request; ``simulate()`` runs it.
 
@@ -120,6 +132,16 @@ def ensemble(
     (absent means ``"auto"``). ``method=None`` runs the exact tree method;
     higher-order reactions (``count``) need ``"static_direct"``,
     ``"next_reaction"``, ``"tau"`` or ``"hybrid"``.
+
+    Budgets: ``max_events`` defaults to 10**8 events per replicate, and
+    ``max_sampling_steps=None`` follows it (16 random words per event), so
+    a long run needs only ``max_events`` raised. ``max_events=None`` means
+    no event and sampling limit (the request records 2**64 - 1); guard
+    such a run with ``wall_time_s``. If replicates end early (a budget, or
+    ``failed``), ``simulate()`` warns with
+    :class:`IncompleteEnsembleWarning`, naming the count per termination
+    and the keyword to raise; ``strict=True`` raises
+    :class:`IncompleteEnsembleError` instead.
     """
     return rules._ensemble(
         model,
@@ -142,6 +164,7 @@ def ensemble(
         quantiles=quantiles,
         selector=rules._selector(selector),
         unified=True,
+        strict=strict,
     )
 
 
@@ -176,7 +199,15 @@ def compile_loop(model, *, cache_dir=None, cargo="cargo", source=None, progress=
     )
 
 
-def prepare(model, request, *, compiled=None, quantiles=rules._DEFAULT, selector=None):
+def prepare(
+    model,
+    request,
+    *,
+    compiled=None,
+    quantiles=rules._DEFAULT,
+    selector=None,
+    strict=False,
+):
     """Prepare a request you wrote, as ``crn-craft.run/1.0``.
 
     As :func:`crn_craft.rules.prepare`, but the documents are always the
@@ -188,10 +219,11 @@ def prepare(model, request, *, compiled=None, quantiles=rules._DEFAULT, selector
     defaults to ``(0.025, 0.5, 0.975)`` unless the request states
     ``outputs.quantiles`` itself; ``quantiles=()`` asks for none. A
     ``crn-craft.run/1.0`` request for ``crn-craft.model/1.0`` bytes that
-    needs no change keeps its exact bytes.
+    needs no change keeps its exact bytes. ``strict`` is that of
+    :func:`ensemble`; the request's budgets are used as written.
     """
     return rules._prepare(
-        model, request, compiled, quantiles, rules._selector(selector), True
+        model, request, compiled, quantiles, rules._selector(selector), True, strict
     )
 
 

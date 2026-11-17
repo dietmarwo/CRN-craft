@@ -375,14 +375,20 @@ larger limits, change only the `schema` string to `crn-craft.model/1.0`.
   run. An independent variable can carry explicit time dependence (a clock
   `t' = 1`, or a forcing such as a seasonal oscillator). No compartments.
 - Two different patterns over one type, higher-order rules over attributed
-  types, and counts inside expressions (largest clone *size*) are not
-  supported yet.
+  types, and counts inside expressions are not supported yet. The size of
+  the largest clone is an observable: `reduce: "max_count"`
+  (`crn-craft.model/1.0`).
 - Models are JSON. `crn_craft` prepares and runs ensembles from Python
   ([Python API](python-api.md)), and `crn_craft.Model` builds
-  `model/1.0` documents over attribute-free species from
-  `add_reaction(rate, reactants, products)` calls: a numeric rate is a
-  mass-action constant with the counting above, a string the whole
-  propensity.
+  `model/1.0` documents: `add_species` (with `attributes` for an
+  attributed type) and `add_initial` write `types` and `initial`,
+  `add_observable` an observable, and `add_reaction(rate, reactants,
+  products)` a rule. A numeric rate or `crn_craft.mass_action(expression)`
+  is the rule's `rate`, with the counting above, and a plain string its
+  whole `propensity`; reactants are type names or `crn_craft.pattern(...)`,
+  products type names, `crn_craft.copy(label, ...)` or
+  `crn_craft.new(type, ...)`
+  ([chapter 14](../guide/14-model-files.md#species-with-attributes-in-the-builder)).
 - The tree method recomputes the propensities of all rules after every
   event, which suits models with few rules. Closed models can use the
   static methods; benchmarks are in `validation/mtdna/`.

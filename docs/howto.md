@@ -69,8 +69,9 @@ Fifty common tasks, one per line, each with links to the sections of the guide t
 - How do I find the conservation laws of a network? [11, Conservation laws and structure](guide/11-analysis-import-export.md#conservation-laws-and-structure)
 - How do I check a model against another simulator? [11, Export to GillesPy2](guide/11-analysis-import-export.md#export-to-gillespy2); [8, Reproducing a published simulation](guide/08-reproducibility.md#reproducing-a-published-simulation)
 - How do I load a model from a JSON file, or save one? [14, Save and load a model file](guide/14-model-files.md#save-and-load-a-model-file)
-- How do I model molecules that carry a property, such as a clone, a size or an age? [14, A model document for three strains](guide/14-model-files.md#a-model-document-for-three-strains)
-- How do I give every new mutant its own identity? [14, New identities and random attributes](guide/14-model-files.md#new-identities-and-random-attributes); [14a, Every lineage with the clone model](guide/14a-mtdna-model-files.md#every-lineage-with-the-clone-model)
+- How do I model molecules that carry a property, such as a clone, a size or an age? [14, Species with attributes in the builder](guide/14-model-files.md#species-with-attributes-in-the-builder); [as a document](guide/14-model-files.md#a-model-document-for-three-strains)
+- How do I give every new mutant its own identity? [14, Species with attributes in the builder](guide/14-model-files.md#species-with-attributes-in-the-builder); [New identities and random attributes](guide/14-model-files.md#new-identities-and-random-attributes); [14a, Every lineage with the clone model](guide/14a-mtdna-model-files.md#every-lineage-with-the-clone-model)
+- How do I count clones, or follow the size of the largest one? [14, Observables](guide/14-model-files.md#observables)
 
 ## mtDNA models
 

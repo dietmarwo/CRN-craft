@@ -67,7 +67,7 @@ print(sorted(crn.load_report(saved)))
 sampler       chacha8-u53-ziggurat/rules-static-direct/1
 root_seed     42
 model_sha256  9977266823169a5efba1fd1937ade26f112c0f46ae6eb39f751e1bb2c8fa4168
-run_sha256    26fa8850983792c48980481e5b20b929918d916e2bb4e7faca005e22e0de2668
+run_sha256    03716d632059085bc23c578c4bc4146183120b1ef2f5c935f3ed0e7f234ced88
 ['crn_craft_version', 'model', 'request', 'result', 'schema']
 ```
 

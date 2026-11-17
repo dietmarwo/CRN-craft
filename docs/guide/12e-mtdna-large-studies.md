@@ -187,4 +187,5 @@ A numerical check confirms that the simulator solves the model. It does not
 validate the model against biology.
 
 See also: [Fitting parameters to data](13-fitting.md),
+[Re-creating a published study](16-published-study.md),
 [The command line, request files and archives](10-command-line.md).

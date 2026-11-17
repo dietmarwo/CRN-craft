@@ -27,6 +27,11 @@
 - [14. Model files and species with attributes](guide/14-model-files.md)
   - [The mtDNA model files: clones, the fast path and stored models](guide/14a-mtdna-model-files.md)
 - [15. Using CRN-craft from R](guide/15-from-r.md)
+- [16. Case study: re-creating a published study](guide/16-published-study.md)
+  - [Fig 1A: COX-negative cells over time](guide/16a-fig1a.md)
+  - [Fig 1B: mutation rates for 5, 10 and 15 %](guide/16b-fig1b.md)
+  - [Fig 1C/1D: clones in COX-negative cells](guide/16c-fig1cd.md)
+  - [Limits and lessons](guide/16d-limits-lessons.md)
 - [Troubleshooting](guide/troubleshooting.md)
 - [Migrating from earlier releases](guide/migrating.md)
 

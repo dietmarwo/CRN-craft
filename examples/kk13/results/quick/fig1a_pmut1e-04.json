@@ -1,0 +1,13 @@
+{
+ "cells": 200,
+ "seeds": [
+  1000
+ ],
+ "events": 790435,
+ "wall_seconds": 0.1,
+ "threads": 2,
+ "cpu": "x86_64",
+ "crn_craft": "0.7.1",
+ "pmut": 0.0001,
+ "compiled": false
+}

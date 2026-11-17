@@ -149,6 +149,11 @@ jobs:
       - run: python validation/check_manual.py --manual validation/compat/manual-0.6.0.md --binary target/release/crn-craft --require-cargo --output manual-0-6-0.json
       - run: python -O validation/check_manual.py --manual validation/compat/manual-0.6.0.md --binary target/release/crn-craft --require-cargo --output manual-0-6-0-optimized.json
       - run: diff manual-0-6-0.json manual-0-6-0-optimized.json
+      # Guide chapter 16: the script's quick size against its stored results,
+      # and the chapter's tables against the stored draft run.
+      - run: python validation/check_kk13.py --output kk13.json
+      - run: python -O validation/check_kk13.py --output kk13-optimized.json
+      - run: diff kk13.json kk13-optimized.json
       # Every relative link of docs/ and the READMEs resolves.
       - run: python validation/check_links.py
       # docs/reference/python-api.md is generated from the installed package.

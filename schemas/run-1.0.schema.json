@@ -400,7 +400,7 @@
       "description": "What a result keeps besides the per-replicate records.",
       "properties": {
         "keep_instances": {
-          "description": "Final instances of replicates 0..keep_instances, at most `replicates`. They count against `max_output_bytes` as replicates finish (8 bytes per attribute plus 48 per instance); past it they are dropped and the result ends as `output_limit`.",
+          "description": "Final instances of replicates 0..keep_instances, at most `replicates`. Requests before `crn-craft.run/1.0` reserve `keep_instances × max_instances` instances before the run; under `run/1.0` the kept instances are counted as replicates finish and are dropped early, ending the result as `output_limit`, only once they cannot fit `max_output_bytes`.",
           "format": "uint64",
           "minimum": 0.0,
           "type": "integer"

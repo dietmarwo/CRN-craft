@@ -674,27 +674,31 @@ fn normalize(x: f64) -> f64 {
     if x == 0.0 { 0.0 } else { x }
 }
 
-/// Before `crn-craft.model/1.0` a pattern has no `count` field and an
-/// observable no `max_count` reduction: the errors the strict parser gave in
-/// 0.6.0 for the first pattern with a count, in document order, or else for
-/// the first such observable.
+/// Before `crn-craft.model/1.0` an observable has no `max_count` reduction
+/// and a pattern no `count` field: the error 0.7.1 gave for the first such
+/// observable (it failed to parse the reduction), or else the strict
+/// parser's error of 0.6.0 for the first pattern with a count, in document
+/// order.
 pub(crate) fn legacy_fields(model: &Model) -> Option<Diagnostic> {
     if model.schema == ModelVersion::V10 {
         return None;
     }
-    legacy_count(model).or_else(|| {
-        model.observables.iter().find_map(|(name, o)| {
-            (o.reduce == Reduce::MaxCount).then(|| {
-                invalid(
-                    "CRN-E003",
-                    &crate::diagnostic::pointer(
-                        &crate::diagnostic::pointer("/observables", name),
-                        "reduce",
-                    ),
-                    "unknown variant `max_count`, expected one of `sum`, `distinct`, `max`, `min`",
-                    "Write the model as crn-craft.model/1.0 to use max_count.",
-                )
-            })
+    // 0.7 failed to parse `max_count` before it could look at counts.
+    legacy_max_count(model).or_else(|| legacy_count(model))
+}
+
+fn legacy_max_count(model: &Model) -> Option<Diagnostic> {
+    model.observables.iter().find_map(|(name, o)| {
+        (o.reduce == Reduce::MaxCount).then(|| {
+            invalid(
+                "CRN-E003",
+                &crate::diagnostic::pointer(
+                    &crate::diagnostic::pointer("/observables", name),
+                    "reduce",
+                ),
+                "unknown variant `max_count`, expected one of `sum`, `distinct`, `max`, `min`",
+                "Write the model as crn-craft.model/1.0 to use max_count.",
+            )
         })
     })
 }
@@ -1416,7 +1420,11 @@ pub(crate) fn compile(model: &Model) -> Result<Compiled, Vec<Diagnostic>> {
             });
         }
         if let Some(rate) = rate {
-            let random_labels = matches!(shape, Shape::Pair(_)) && label_dependent(&products);
+            // A type without attributes has at most one instance, so its
+            // pairs never span two instances.
+            let random_labels = matches!(shape, Shape::Pair(_))
+                && !types[pattern_types[0]].attributes.is_empty()
+                && label_dependent(&products);
             rules.push(RuleInfo {
                 name: rule.name.clone(),
                 rate,

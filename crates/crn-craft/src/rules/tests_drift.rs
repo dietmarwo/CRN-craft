@@ -349,3 +349,111 @@ fn reservation_error_is_itemized() {
     assert!(message.contains("kept paths"), "{message}");
     assert!(message.contains("400 report times"), "{message}");
 }
+
+/// Review finding: a result whose instance estimate exceeds the budget but
+/// whose JSON fits is returned complete (the estimate only guards memory).
+#[test]
+fn kept_instances_that_fit_are_kept() {
+    let model = founders();
+    let bytes = serde_json::to_vec(&model).unwrap();
+    // About 20,000 instances in one kept set: estimate ~1.1 MB, JSON ~0.93 MB.
+    let mut req = request(&bytes, "tree", 20_000.0, 1, 1);
+    req["outputs"]["keep_paths"] = json!(0);
+    req["budget"]["max_output_bytes"] = json!(1_000_000u64);
+    let result = run(&model, &req);
+    assert_eq!(result.termination, Termination::Completed);
+    let instances = result.final_instances[0].instances.len();
+    assert!(
+        instances > 1_000_000 / 56,
+        "the estimate exceeds the budget: {instances}"
+    );
+}
+
+/// Requests before crn-craft.run/1.0 keep the 0.7 reservation of kept
+/// instances, so they are admitted and refused as before.
+#[test]
+fn legacy_requests_keep_the_instance_reservation() {
+    let mut model = founders();
+    model["schema"] = json!("crn-craft.rules-model/0.3");
+    let bytes = serde_json::to_vec(&model).unwrap();
+    let mut legacy = request(&bytes, "tree", 1.0, 1_000, 1_000);
+    legacy["schema"] = json!("crn-craft.rules-run/0.2");
+    legacy["outputs"] = json!({"statistics": ["mean"], "keep_paths": 0, "keep_instances": 1_000});
+    legacy["budget"]["max_output_bytes"] = json!(1u64 << 30);
+    let Err(errors) = prepare(&bytes, &serde_json::to_vec(&legacy).unwrap()) else {
+        panic!("the 0.7 reservation was not applied");
+    };
+    let error = errors.iter().find(|d| d.path == "/budget").unwrap();
+    assert_eq!(error.code, "CRN-R020");
+    assert!(
+        error.message.contains("kept instance sets"),
+        "{}",
+        error.message
+    );
+    assert!(error.hint.contains("max_instances"), "{}", error.hint);
+}
+
+/// The hint names the largest part of the reservation.
+#[test]
+fn reservation_hint_names_the_largest_part() {
+    let mut model = founders();
+    for i in 0..100 {
+        model["observables"][format!("n{i}")] = json!({"type": "m"});
+    }
+    let bytes = serde_json::to_vec(&model).unwrap();
+    let mut req = request(&bytes, "tree", 1.0, 64, 0);
+    req["budget"]["threads"] = json!(64);
+    req["time"]["report_times"] = json!(
+        (0..100_000)
+            .map(|i| f64::from(i) * 1e-5)
+            .collect::<Vec<_>>()
+    );
+    let Err(errors) = prepare(&bytes, &serde_json::to_vec(&req).unwrap()) else {
+        panic!("the reservation was admitted");
+    };
+    let error = errors.iter().find(|d| d.path == "/budget").unwrap();
+    assert!(
+        error.message.contains("in-flight paths"),
+        "{}",
+        error.message
+    );
+    assert!(error.hint.contains("fewer threads"), "{}", error.hint);
+}
+
+/// A pair over a type without attributes never spans two instances, so it
+/// keeps sampler version 2 even with random product attributes.
+#[test]
+fn attribute_free_pairs_never_draw_labels() {
+    let model = json!({
+        "schema": "crn-craft.model/1.0",
+        "name": "dimers",
+        "parameters": {"k": 1.0},
+        "types": [{"name": "A"}, {"name": "D", "attributes": ["u"]}],
+        "initial": [{"type": "A", "count": 10}],
+        "observables": {"A": {"type": "A"}, "D": {"type": "D"}},
+        "rules": [{"name": "dimerize", "reactants": [{"label": "x", "type": "A", "count": 2}],
+                   "rate": "k", "products": [{"type": "D", "attributes": {"u": "uniform(0, 1)"}}]}]
+    });
+    assert!(!compiled(&model).rules[0].random_labels);
+    let result = run(
+        &model,
+        &request(&serde_json::to_vec(&model).unwrap(), "tree", 1.0, 2, 0),
+    );
+    assert_eq!(result.sampler, SAMPLER);
+}
+
+/// With both a pattern `count` and a `max_count` observable, an old model
+/// gets the error 0.7.1 gave: the reduction it could not parse.
+#[test]
+fn legacy_errors_keep_the_0_7_order() {
+    let mut model = clones("crn-craft.rules-model/0.3");
+    model["rules"][0]["reactants"][0]["count"] = json!(1);
+    let bytes = serde_json::to_vec(&model).unwrap();
+    let mut legacy = request(&bytes, "tree", 1.0, 1, 0);
+    legacy["schema"] = json!("crn-craft.rules-run/0.2");
+    legacy["outputs"] = json!({"statistics": ["mean"], "keep_paths": 0, "keep_instances": 0});
+    let Err(errors) = prepare(&bytes, &serde_json::to_vec(&legacy).unwrap()) else {
+        panic!("accepted");
+    };
+    assert_eq!(errors[0].path, "/observables/largest/reduce");
+}

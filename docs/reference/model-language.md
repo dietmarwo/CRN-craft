@@ -131,7 +131,9 @@ can be the one replaced. Requests before `run/1.0` keep the order of 0.7:
 for two molecules from different instances, `x` is the one whose instance
 came earlier in the engine's internal order, which makes such a rule favor
 older instances. Rules whose products do not depend on the labels, such as
-`x.size + y.size`, are unaffected either way. See
+`x.size + y.size`, are unaffected either way; for them the engine keeps the
+fixed order, which then shows only in event logs and observers (the first
+reactant listed is not random). See
 [methods](methods.md#the-tree-method-and-its-numerical-policy) for the sampler identities.
 
 #### Counting identical reactants, and rebop

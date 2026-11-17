@@ -240,8 +240,12 @@ requires `thinning`, and continuous variables require `hybrid`.
   count as label-independent only when every product attribute is
   deterministic and swapping `x` and `y` maps the product list onto itself
   (for example `x.size + y.size`, or keeping both molecules); such rules,
-  and requests before `run/1.0`, keep version 2 and its streams. Exact-law
-  check: `validation/merge/RESULTS.md`, "0.8 pair labels".
+  pairs over a type without attributes (which has one instance), and
+  requests before `run/1.0` keep version 2 and its streams. This
+  classification, with `+`, `*`, `==`, `!=` and two-argument `min` and
+  `max` as the commutative operations, is part of version 3; a change to it
+  needs a new identity. Exact-law check: `validation/merge/RESULTS.md`,
+  "0.8 pair labels".
 - A positive rule propensity or instance weight below 2⁻⁵³ of its total cannot
   be selected exactly by a 53-bit uniform and fails with `CRN-R031`. For pair
   rules the check is conservative: the smallest factor squared must reach

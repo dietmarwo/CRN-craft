@@ -2313,3 +2313,12 @@ through its own mutations. The check detects the old bias in both models.
 parameter set, the tree method only (the static methods refuse pair rules
 over several instances), and the observed counts, not the identities of
 individual instances.
+
+**After the independent review.** Three engine changes followed: pairs
+over types without attributes no longer report version 3 (they have one
+instance, so they never draw labels); kept final instances are dropped
+early only when their estimate passes twice `max_output_bytes`; and both
+that and the removed kept-instance reservation apply only under `run/1.0`.
+None of them touches the two models here (types with attributes, no kept
+instances): a rerun with the rebuilt CLI gave the same report apart from
+the engine identity, so the results above stand.

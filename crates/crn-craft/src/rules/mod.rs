@@ -326,8 +326,8 @@ pub const MAX_WORKERS: u32 = 64;
 /// `budget.max_output_bytes`.
 pub const MAX_RESULT_BYTES: u64 = 1 << 30;
 /// Upper bound of 2 GiB on the reservation [`prepare`] computes for records,
-/// in-flight and kept series and observations (kept final instances are
-/// counted during the run against `max_output_bytes` instead). It is a
+/// in-flight and kept series, observations and, before `crn-craft.run/1.0`,
+/// kept final instances. It is a
 /// conservative admission estimate (`CRN-R020` at `/budget` when exceeded),
 /// not a cap on allocator or OS memory.
 pub const MAX_WORKSPACE_BYTES: u64 = 2 << 30;
@@ -520,9 +520,11 @@ pub struct Outputs {
     /// Observable series of replicates 0..keep_paths, at most `replicates`.
     pub keep_paths: u64,
     /// Final instances of replicates 0..keep_instances, at most
-    /// `replicates`. They count against `max_output_bytes` as replicates
-    /// finish (8 bytes per attribute plus 48 per instance); past it they are
-    /// dropped and the result ends as `output_limit`.
+    /// `replicates`. Requests before `crn-craft.run/1.0` reserve
+    /// `keep_instances × max_instances` instances before the run; under
+    /// `run/1.0` the kept instances are counted as replicates finish and are
+    /// dropped early, ending the result as `output_limit`, only once they
+    /// cannot fit `max_output_bytes`.
     pub keep_instances: u64,
     /// `crn-craft.run/1.0` only (earlier versions refuse the field with
     /// `CRN-R020` at `/schema`): probabilities of quantile statistics, at
@@ -2080,36 +2082,75 @@ fn admission(
     let n = u128::from(request.ensemble.replicates);
     let series = request.time.report_times.len() as u128 * model.observables.len() as u128 * 8;
     let record = 256 + 8 * model.rules.len() as u128;
-    // Kept final instances are not reserved here: the run counts them as
-    // replicates finish and drops them past the output budget
-    // (`output_limit`), so max_instances bounds only the live state.
+    // Under crn-craft.run/1.0 kept final instances are not reserved here:
+    // the run counts them as replicates finish (`kept_limit`), so
+    // max_instances bounds only the live state. Older requests keep the
+    // worst-case reservation of 0.7.
+    let instances = if request.schema == RunVersion::V10 {
+        0
+    } else {
+        let attributes = model
+            .types
+            .iter()
+            .map(|t| t.attributes.len())
+            .max()
+            .unwrap_or(0) as u128;
+        u128::from(request.outputs.keep_instances)
+            * u128::from(request.budget.max_instances)
+            * (8 * attributes + 48)
+    };
     let in_flight = u128::from(workers(request)) * u128::from(1 + WINDOW_PER_WORKER);
     let kept = u128::from(request.outputs.keep_paths);
-    let workspace = n * record + (in_flight + kept) * series + observation_bytes;
+    let workspace = n * record + (in_flight + kept) * series + instances + observation_bytes;
     // Lower bound of the compact result: a record is at least 160 bytes.
     let evidence = n * 160;
     let mut out = Vec::new();
     if workspace > u128::from(MAX_WORKSPACE_BYTES) {
+        let times = request.time.report_times.len();
+        let observables = model.observables.len();
+        // (bytes, description, hint) of each part; the hint of the largest.
         let mut parts = vec![
-            format!("{n} replicate records x {record} bytes"),
-            format!(
-                "({in_flight} in-flight + {kept} kept paths) x {series} bytes per path ({} report times x {} observables x 8)",
-                request.time.report_times.len(),
-                model.observables.len()
+            (
+                n * record,
+                format!("{n} replicate records x {record} bytes"),
+                "Use fewer replicates per run, or split the ensemble into batches.",
+            ),
+            (
+                in_flight * series,
+                format!(
+                    "{in_flight} in-flight paths of {} worker threads x {series} bytes ({times} report times x {observables} observables x 8)",
+                    workers(request)
+                ),
+                "Use fewer threads, report times or observables.",
+            ),
+            (
+                kept * series,
+                format!("{kept} kept paths x {series} bytes"),
+                "Keep fewer paths (keep_paths) or report times, or split the ensemble into batches.",
+            ),
+            (
+                instances,
+                format!(
+                    "{} kept instance sets x max_instances {} (worst case)",
+                    request.outputs.keep_instances, request.budget.max_instances
+                ),
+                "Use a smaller max_instances or fewer kept instance sets; crn-craft.run/1.0 does not reserve kept instances in advance.",
+            ),
+            (
+                observation_bytes,
+                format!("{observation_bytes} bytes of trackers and event logs"),
+                "Reduce event_log.max_entries, keep_episodes or the trackers.",
             ),
         ];
-        if observation_bytes > 0 {
-            parts.push(format!(
-                "{observation_bytes} bytes of trackers and event logs"
-            ));
-        }
-        let hint = if kept * series >= n * record && kept * series >= observation_bytes {
-            "Keep fewer paths (keep_paths) or report times, or split the ensemble into batches."
-        } else if n * record >= observation_bytes {
-            "Use fewer replicates per run, or split the ensemble into batches."
-        } else {
-            "Reduce event_log.max_entries, keep_episodes or the trackers."
-        };
+        parts.retain(|(bytes, _, _)| *bytes > 0);
+        let hint = parts
+            .iter()
+            .max_by_key(|(bytes, _, _)| *bytes)
+            .map_or("Use fewer replicates.", |(_, _, hint)| *hint);
+        let parts: Vec<String> = parts
+            .iter()
+            .map(|(bytes, text, _)| format!("{text} = {bytes}"))
+            .collect();
         out.push(request_error(
             "/budget",
             format!(
@@ -2203,9 +2244,10 @@ struct Reducer {
     /// request asks for none.
     quantiles: Vec<f64>,
     halted: bool,
-    /// Bytes of the kept final instances so far (8 per attribute plus 48
-    /// per instance), and the output budget they must stay within. Past it
-    /// the kept instances are dropped and the result ends as `output_limit`.
+    /// Estimated bytes of the kept final instances so far (8 per attribute
+    /// plus 48 per instance) and the bound past which they cannot fit the
+    /// output budget; past it they are dropped and the result ends as
+    /// `output_limit`.
     kept_bytes: u128,
     kept_limit: u128,
     kept_overflow: bool,
@@ -2449,7 +2491,15 @@ fn execute_inner<O: EventObserver>(
         paths: Vec::new(),
         finals: Vec::new(),
         kept_bytes: 0,
-        kept_limit: u128::from(request.budget.max_output_bytes.min(MAX_RESULT_BYTES)),
+        // The estimate is under twice the exact JSON of an instance (at
+        // least 41 + 4 per attribute bytes), so lists past twice the budget
+        // cannot fit; anything less is left to the exact check at the end.
+        // Older requests keep 0.7's admission reservation instead.
+        kept_limit: if request.schema == RunVersion::V10 {
+            2 * u128::from(request.budget.max_output_bytes.min(MAX_RESULT_BYTES))
+        } else {
+            u128::MAX
+        },
         kept_overflow: false,
         samples: 0,
         mean: vec![0.0; rows * columns],

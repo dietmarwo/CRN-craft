@@ -9,6 +9,7 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ### Changed
 
+- The optional jobs integration (`integrations/jobs`) pins optimization-jobs `41d5f00` (main after 0.4.1: command jobs may declare a progress file; the job crates are still 0.4.1) and fcmaes-rust `e996062` (main after 0.3.0, the merge that moves its own optimization-jobs pin there; the fcmaes crates are still 0.3.0), so both name one job API. `validation/check_jobs.py` records the new revisions. Through `optimization-run` at 41d5f00 it passes all 15 rows, 17 jobs and 18 manifests ([jobs-pin-41d5f00.json](validation/campaign/jobs-pin-41d5f00.json)); the report equals the 78970a2 report except for the three recorded pins.
 - The optional jobs integration (`integrations/jobs`) pins fcmaes-rust `64e11b3` (release 0.3.0: a cancel or deadline now stops running retries instead of letting them spend their budget) and optimization-jobs `78970a2` (tag `v0.4.1`). `validation/check_jobs.py` records the new revisions. Through `optimization-run` 0.4.1 it passes all 15 rows, 17 jobs and 18 manifests ([jobs-pin-78970a2.json](validation/campaign/jobs-pin-78970a2.json)). The report equals a rerun with the old pins and `optimization-run` 0.4.0 on the same tree ([jobs-pin-12f9d57-at-0.7.1.json](validation/campaign/jobs-pin-12f9d57-at-0.7.1.json)) except for the three recorded pins. Its objectives differ from the older `jobs-pin-12f9d57.json`, which predates the 0.7.0 engine changes.
 
 ## [0.7.1] - 2026-11-14

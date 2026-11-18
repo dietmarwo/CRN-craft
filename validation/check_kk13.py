@@ -27,7 +27,19 @@ SCRIPT = ROOT / "examples" / "kk13" / "kowald_kirkwood_2013.py"
 TABLES = ROOT / "examples" / "kk13" / "make_tables.py"
 STORED = ROOT / "examples" / "kk13" / "results" / "quick"
 PAGES = sorted((ROOT / "docs" / "guide").glob("16*.md"))
-JSON_FIELDS = ("cells", "seeds", "events", "cox_negative", "estimates")
+# Simulation outputs compare exactly; the logistic fit's estimates (numpy
+# linear algebra, whose last bits depend on the CPU) to 6 significant digits.
+JSON_FIELDS = ("cells", "seeds", "events", "cox_negative")
+
+
+def _rounded(value):
+    if isinstance(value, float):
+        return float(f"{value:.6g}")
+    if isinstance(value, dict):
+        return {k: _rounded(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_rounded(v) for v in value]
+    return value
 
 
 def _python(*args):
@@ -56,18 +68,20 @@ def check_quick(report):
         for name in stored:
             if name not in made:
                 continue
-            same = (STORED / name).read_bytes() == (fresh / name).read_bytes()
+            differs = []
+            if (STORED / name).read_bytes() != (fresh / name).read_bytes():
+                differs.append("the CSV")
             info = STORED / name.replace(".csv", ".json")
             if info.exists():
-                a, b = (
-                    json.loads(info.read_text()),
-                    json.loads((fresh / info.name).read_text()),
-                )
-                same = same and all(a.get(k) == b.get(k) for k in JSON_FIELDS)
-            report["checks"].append({"file": name, "equal": same})
-            if not same:
+                a = json.loads(info.read_text())
+                b = json.loads((fresh / info.name).read_text())
+                differs += [k for k in JSON_FIELDS if a.get(k) != b.get(k)]
+                if _rounded(a.get("estimates")) != _rounded(b.get("estimates")):
+                    differs.append("estimates (6 significant digits)")
+            report["checks"].append({"file": name, "equal": not differs})
+            if differs:
                 report["failures"].append(
-                    f"{name}: differs from the stored quick result"
+                    f"{name}: differs from the stored quick result in {', '.join(differs)}"
                 )
 
 

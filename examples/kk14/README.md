@@ -64,10 +64,21 @@ samplers.
 ## Reference data
 
 - The PNAS Figure 3 markers were digitized from the 901 × 432 px figure
-  embedded in the journal PDF. After reading the tick positions, the
-  colored segments were extrapolated to each marker center. Rates are
-  read in log space. The source intervals allow ±2 pixels in the ordinate.
-  The printed three-year ATP lineage mean of 1.26 takes precedence.
+  embedded in the journal PDF. The axes are calibrated on the tick
+  positions (panel A: 10⁻² at row 52.0 and 10⁻⁷ at row 370.0; panel B: 40
+  at row 32.0 and 0 at row 345.5). A marker center is the center of its
+  disk or ring, or the centroid of its triangle; a marker that is partly
+  hidden is placed from its visible edge. Rates are read in log space. The
+  source intervals allow ±2 pixels in the ordinate. The printed three-year
+  ATP lineage mean of 1.26 takes precedence.
+  Four panel B rows (drift and size advantage at 3 and 10 years) were
+  first read 2 to 3.5 pixels too low, by extrapolating the steep colored
+  segments to the marker. They were read again from the marker outlines
+  after the full-tier run. The corrected readings agree with the sources
+  the PNAS figure cites: 35.7 printed in the 2013 table and 29.8 in the
+  size paper's Figure 6B. No simulated value depends on this file;
+  `manifest.json` records its hash after a replay from the saved batches,
+  and `draft-manifest.json` keeps the hash of the file at the draft run.
   [Article](https://pmc.ncbi.nlm.nih.gov/articles/PMC3939916/)
   · [PDF](https://europepmc.org/articles/PMC3939916?pdf=render)
 - The size paper includes the original bars in Figure 6. Figure 7 gives

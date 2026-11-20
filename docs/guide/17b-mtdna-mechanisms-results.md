@@ -128,16 +128,20 @@ intervals:
 | 2013 Table 1, drift, 3 y, rate | 7.6e-3 | 7.29e-3 (7.16–7.43) | −4% |
 | Size paper Fig 7A, 2-day half-life, 3 y, rate | 1.79e-5 (1.74–1.85) | 1.55e-5 (1.42–1.70) | −13% |
 | Size paper Fig 6B, size, 3 y, types | 29.8 (29.7–30.0) | 28.86 (28.64–29.07) | −3.3% |
-| PNAS Fig 3B, size, 3 y, types | 29.4 (29.1–29.6) | 28.86 (28.64–29.07) | −1.7% |
-| PNAS Fig 3B, drift, 3 y, types with wild type | 35.4 (35.1–35.6) | 34.83 (34.59–35.06) | −1.6% |
+| PNAS Fig 3B, size, 3 y, types | 29.7 (29.5–30.0) | 28.86 (28.64–29.07) | −3.0% |
+| PNAS Fig 3B, drift, 3 y, types with wild type | 35.7 (35.5–36.0) | 34.83 (34.59–35.06) | −2.5% |
 | 2013 Table 1, drift, 3 y, types with wild type | 35.7 | 34.83 (34.59–35.06) | −2.4% |
 | 2013 Table 1, drift, 80 y, types with wild type | 1.75 | 1.81 (1.77–1.84) | +3.2% |
 | Size paper Fig 7B, 2-day half-life, types | 1.16 | 1.107 (1.092–1.121) | −4.6% |
 
-The 80-year size-advantage value read from PNAS Figure 3B (1.26) also lies
-far from the reconstruction (1.09), but the same quantity in the size
-paper's own Figure 6B (1.12) agrees with it; the review could not check
-the PNAS reading. The drift rows depend on the counting convention: with
+The same quantity can appear in two sources. The PNAS figure takes its
+drift and size values from the two earlier papers, and the readings agree
+with them: 35.7 and 29.7 at three years against the printed 35.7 of the
+2013 table and the 29.8 read from the size paper's Figure 6B. At 40 and 80
+years the markers of PNAS Figure 3B overlap, so those readings are
+coarse: the 80-year size-advantage marker reads 1.26 (1.01–1.52), the
+size paper's own bar 1.12, the reconstruction 1.09. The drift rows depend
+on the counting convention: with
 mutant lineages only, every drift count would be about one lower at three
 years. The 2013 drift model also differs from this one in its 360-day
 year and its strict 60% threshold

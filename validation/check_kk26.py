@@ -279,6 +279,13 @@ def saved_evidence():
             else:
                 ok = str(value) == old[key]
             require(ok, f"bootstrap.csv {new['regime']} {new['parameter']} {key}")
+    bars = read_csv(ROOT / "examples" / "kk26" / "paper-figure5.csv")
+    passage = read_csv(STORED / "fig5-differences.csv")
+    require(len(bars) == 60, "60 digitized Figure 5 bars")
+    require(
+        [r["value"] for r in bars] == [r["value"] for r in passage],
+        "Figure 5 differences use the digitized values",
+    )
     review = {
         "review-budget.csv": 80,
         "review-wide-box.csv": 4,

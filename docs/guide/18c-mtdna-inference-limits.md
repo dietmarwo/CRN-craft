@@ -22,7 +22,7 @@ listed here, with their effect where it was measured.
 | Percentile definition | 2.5th and 97.5th percentiles of 40 fits | Linear interpolation (NumPy default) | Other definitions widen the intervals toward the extremes, e.g. baseline `s` 0.088–0.114 (Hazen) or 0.083–0.115 (Weibull) instead of 0.092–0.112 |
 | Takeover | Reaching 90% mutant copies | At least 900 of 1,000 copies of the founder's type | — |
 | Start of a takeover | A single advantageous mutant in a wild-type cell | One `A` copy, 999 `W`, no neutral mutants, mutation switched off | — |
-| Figure 5 bins | Histograms of accumulation times | 30-day bins named by their first day | — |
+| Figure 5 bins | Histograms of accumulation times | 30-day bins named by their first day, among all founders that ever take over | The published bars agree within 0.0085 per bin; the other bin naming would differ by up to 0.19 ([takeover times](18b-mtdna-inference-results.md#from-a-selection-advantage-to-a-takeover-time)) |
 | Model-1 time stepping | Stochastic simulation in one-hour steps | Chapter 17's order: degrade, replicate survivors, mutate wild-type daughters, relax ATP for one hour with the new counts | Half-hour steps: at most 0.28 percentage points, 2.3 standard errors |
 | Model-1 constants | Equations without values in the text read by the review | 2014 PNAS Table 1: `f_ATP = 0.1`, `v2 = 0.01`, `v1 = 0.2`; `c` from the 1,000-copy steady state | Not varied |
 | Model-1 neutral mutants | A fraction `fracAdv` of mutants is advantageous | Neutral mutants replicate like wild type | Not varied |
@@ -91,9 +91,11 @@ versions may give statistically equivalent, not identical, fits.
 - The authors' scripts and data (linked from the paper) could not be
   reached, so their optimizer settings, bounds and data generation are
   unknown.
-- The published values of Tables 2 and 3 and the Figure 5 modal bins were
-  not verified by the review. Panel B of Figure 6 was checked against a
-  second image; panel A was not.
+- The published values and figures were checked against the preprint of
+  the paper, not the journal article: the printed values of Tables 1 to 3
+  all agree, as do the labels of Figure 5 and the readings of both panels
+  of Figure 6. The published takeover distributions of Figure 5 lie 1.5 to
+  3 days later than the reconstruction's; the cause is not known.
 - The Model-1 reconstruction inherits chapter 17's choices and constants;
   the 2026 paper's own constants were not available to the review.
 - Matching the published curves and intervals does not show that real

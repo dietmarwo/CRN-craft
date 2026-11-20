@@ -181,6 +181,15 @@ readable (the others lie under another curve near zero), and all agree
 with the saved readings within 1.05 pixels of that image, 0.017
 percentage points; on the steep start of the 0% curve within 0.42 pixels.
 The same image also shows the 0% curve 1.2 to 2 pixels above the
-reconstruction. Panel A could not be checked against a second image.
+reconstruction.
+
+Both panels were then read again from the figure in the preprint of the
+paper itself (bioRxiv [10.64898/2026.01.30.702736](https://doi.org/10.64898/2026.01.30.702736), version 1; an 878 × 321 pixel image, one pixel is 0.022
+percentage points). After day 0, 127 of the 144 points of panel A are
+readable, and all agree with the saved readings within 1.05 pixels, 0.023
+percentage points. In panel B the same number is readable; the largest
+difference is 1.7 pixels, on the steep start of the 0% curve, where one
+pixel along the time axis already moves the curve by 0.04 percentage
+points.
 
 Next: [Fitting snapshots and takeover times](18b-mtdna-inference-results.md).

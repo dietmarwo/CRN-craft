@@ -149,6 +149,9 @@ def library():
                     *compiler,
                     "-std=c++17",
                     "-O3",
+                    # No fused multiply-add: compilers contract by default on
+                    # targets with FMA (arm64), which changes the rounding.
+                    "-ffp-contract=off",
                     "-Wall",
                     "-Wextra",
                     "-Werror",
@@ -162,6 +165,11 @@ def library():
             )
         except FileNotFoundError as exc:
             raise RuntimeError("install a C++17 compiler or set CXX") from exc
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(
+                f"{' '.join(compiler)} could not build reference.cpp as C++17; "
+                "set CXX to another compiler"
+            ) from exc
         lib = ct.CDLL(str(output))
     lib.kk14_batch.argtypes = [
         ct.POINTER(_Config),

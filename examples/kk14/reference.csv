@@ -1,0 +1,43 @@
+article,figure,panel,mechanism,years,metric,value,lower,upper,unit,precision,marker_y_px,note
+PNAS 2014,3,A,drift,3,mutation,0.0075175,0.0069924,0.0080821,per daughter,read ±2 px,60.20,Figure marker
+PNAS 2014,3,A,drift,10,mutation,0.0014664,0.001364,0.0015766,per daughter,read ±2 px,105.35,Figure marker
+PNAS 2014,3,A,drift,40,mutation,0.00017171,0.00015972,0.00018461,per daughter,read ±2 px,164.59,Figure marker
+PNAS 2014,3,A,drift,80,mutation,7.0844e-05,6.5896e-05,7.6165e-05,per daughter,read ±2 px,189.04,Figure marker
+PNAS 2014,3,A,size,3,mutation,0.0061697,0.0057387,0.006633,per daughter,read ±2 px,65.66,Figure marker
+PNAS 2014,3,A,size,10,mutation,0.0006011,0.00055911,0.00064624,per daughter,read ±2 px,129.98,Figure marker
+PNAS 2014,3,A,size,40,mutation,3.0195e-05,2.8086e-05,3.2463e-05,per daughter,read ±2 px,212.59,Figure marker
+PNAS 2014,3,A,size,80,mutation,1.0132e-05,9.4243e-06,1.0893e-05,per daughter,read ±2 px,242.75,Figure marker
+PNAS 2014,3,A,transcription,3,mutation,5.4096e-06,5.0318e-06,5.8159e-06,per daughter,read ±2 px,260.09,Figure marker
+PNAS 2014,3,A,transcription,10,mutation,1.1595e-06,1.0785e-06,1.2466e-06,per daughter,read ±2 px,302.62,Figure marker
+PNAS 2014,3,A,transcription,40,mutation,3.545e-07,3.2973e-07,3.8112e-07,per daughter,read ±2 px,335.36,Figure marker
+PNAS 2014,3,A,transcription,80,mutation,1.6258e-07,1.5122e-07,1.7479e-07,per daughter,read ±2 px,356.89,Figure marker
+PNAS 2014,3,B,drift,3,mutant_types,35.391,35.136,35.646,per affected cell,read ±2 px,68.63,Compare both counting conventions
+PNAS 2014,3,B,drift,10,mutant_types,10.174,9.9186,10.429,per affected cell,read ±2 px,266.18,Compare both counting conventions
+PNAS 2014,3,B,drift,40,mutant_types,2.8495,2.5942,3.1048,per affected cell,read ±2 px,323.56,Compare both counting conventions
+PNAS 2014,3,B,drift,80,mutant_types,1.7718,1.5165,2.0271,per affected cell,read ±2 px,332.00,Compare both counting conventions
+PNAS 2014,3,B,size,3,mutant_types,29.37,29.115,29.625,per affected cell,read ±2 px,115.80,Figure marker
+PNAS 2014,3,B,size,10,mutant_types,4.7198,4.4645,4.9751,per affected cell,read ±2 px,308.91,Figure marker
+PNAS 2014,3,B,size,40,mutant_types,1.2068,0.95154,1.4621,per affected cell,read ±2 px,336.43,Figure marker
+PNAS 2014,3,B,size,80,mutant_types,1.2612,1.0059,1.5165,per affected cell,read ±2 px,336.00,Figure marker
+PNAS 2014,3,B,transcription,3,mutant_types,1.26,1.26,1.26,per affected cell,printed text,335.76,At three years
+PNAS 2014,3,B,transcription,10,mutant_types,1.0865,0.83119,1.3418,per affected cell,read ±2 px,337.37,Figure marker
+PNAS 2014,3,B,transcription,40,mutant_types,1.0243,0.76905,1.2796,per affected cell,read ±2 px,337.86,Figure marker
+PNAS 2014,3,B,transcription,80,mutant_types,1.0059,0.75058,1.2612,per affected cell,read ±2 px,338.00,Figure marker
+JTB 2014,6,A,size,3,mutation,0.0062633,0.0060287,0.0065069,per daughter,read ±2 px,82.00,Bar top
+JTB 2014,6,B,size,3,mutant_types,29.835,29.69,29.979,per affected cell,read ±2 px,126.00,Bar top
+JTB 2014,6,A,size,10,mutation,0.00059909,0.00057666,0.0006224,per daughter,read ±2 px,205.00,Bar top
+JTB 2014,6,B,size,10,mutant_types,4.9553,4.8105,5.1002,per affected cell,read ±2 px,469.50,Bar top
+JTB 2014,6,A,size,40,mutation,2.9952e-05,2.883e-05,3.1117e-05,per daughter,read ±2 px,362.00,Bar top
+JTB 2014,6,B,size,40,mutant_types,1.1528,1.008,1.2977,per affected cell,read ±2 px,522.00,Bar top
+JTB 2014,6,A,size,80,mutation,9.9981e-06,9.6237e-06,1.0387e-05,per daughter,read ±2 px,419.50,Bar top
+JTB 2014,6,B,size,80,mutant_types,1.1166,0.97177,1.2615,per affected cell,read ±2 px,522.50,Bar top
+Aging Cell 2013,Table 1,10%,drift,3,mutation,0.0076,0.0076,0.0076,per daughter,printed table,,Transcribed in chapter 16
+Aging Cell 2013,Table 1,10%,drift,3,all_types,35.7,35.7,35.7,per affected cell,printed table,,Older counting convention
+Aging Cell 2013,Table 1,10%,drift,10,mutation,0.00145,0.00145,0.00145,per daughter,printed table,,Transcribed in chapter 16
+Aging Cell 2013,Table 1,10%,drift,10,all_types,10.4,10.4,10.4,per affected cell,printed table,,Older counting convention
+Aging Cell 2013,Table 1,10%,drift,40,mutation,0.00017,0.00017,0.00017,per daughter,printed table,,Transcribed in chapter 16
+Aging Cell 2013,Table 1,10%,drift,40,all_types,2.8,2.8,2.8,per affected cell,printed table,,Older counting convention
+Aging Cell 2013,Table 1,10%,drift,80,mutation,7e-05,7e-05,7e-05,per daughter,printed table,,Transcribed in chapter 16
+Aging Cell 2013,Table 1,10%,drift,80,all_types,1.75,1.75,1.75,per affected cell,printed table,,Older counting convention
+JTB 2014,7,A,size,3,mutation,1.7939e-05,1.7403e-05,1.8491e-05,per daughter,read ±2 px,516.30,2-day mtDNA half-life
+JTB 2014,7,B,size,3,mutant_types,1.16,1.16,1.16,per affected cell,printed text,,2-day mtDNA half-life

@@ -1,0 +1,31 @@
+{
+  "replicates": 8,
+  "matched_counts": true,
+  "events": 1157,
+  "mutant_counts": [
+    2,
+    0,
+    1,
+    0,
+    2,
+    0,
+    4,
+    7
+  ],
+  "clone_counts": [
+    1,
+    0,
+    1,
+    0,
+    2,
+    0,
+    2,
+    3
+  ],
+  "sampler": "chacha8-u53/rules-approximate-hybrid-dopri54/1",
+  "method": {
+    "atol": 1e-09,
+    "kind": "hybrid",
+    "rtol": 1e-06
+  }
+}

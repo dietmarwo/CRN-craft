@@ -1,0 +1,5 @@
+sampler,stages,cells,mean_mutant_fraction,mutant_delay_variance_h2,mutant_template_survival_continuous,mutant_template_survival_sampler
+fixed-delay hourly,0,320,0.2101516585590074,0.0,0.9856631986401876,1.0
+chacha8-u53-ziggurat/rules-static-direct/1,1,320,0.21145063301100064,1.0,0.9857649952674105,0.9857649952674105
+chacha8-u53-ziggurat/rules-static-direct/1,4,320,0.17122729500506445,0.25,0.9856888298422637,0.9856888298422637
+chacha8-u53-ziggurat/rules-static-direct/1,16,320,0.21128522041374315,0.0625,0.9856696179333873,0.9856696179333873

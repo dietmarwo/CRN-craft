@@ -32,6 +32,7 @@
   - [Fig 1B: mutation rates for 5, 10 and 15 %](guide/16b-fig1b.md)
   - [Fig 1C/1D: clones in COX-negative cells](guide/16c-fig1cd.md)
   - [Limits and lessons](guide/16d-limits-lessons.md)
+- [17. Case study: comparing mtDNA mechanisms](guide/17-mtdna-mechanisms.md)
 - [Troubleshooting](guide/troubleshooting.md)
 - [Migrating from earlier releases](guide/migrating.md)
 

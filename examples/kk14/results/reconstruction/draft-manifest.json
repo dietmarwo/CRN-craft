@@ -1,0 +1,1500 @@
+{
+  "sampler": "kk14-splitmix64/endpoints/1",
+  "reference_cpp_sha256": "ce166a4c037efc8a19e4a33a16115d2578648cab2edfff3b79c2172a9a227707",
+  "seed": 20261120,
+  "crn_craft_baseline": "42b27255d228a47a7e2dbb9e882669072276a85c",
+  "tier": "draft",
+  "planned_cells": {
+    "pilot": 240,
+    "refine": 800,
+    "validate": 1000,
+    "historical": 1000
+  },
+  "ages": [
+    3,
+    10,
+    40,
+    80
+  ],
+  "mechanisms": [
+    "drift",
+    "size",
+    "transcription"
+  ],
+  "threshold": "5*M >= 3*(W+M)",
+  "target": 0.1,
+  "target_band": [
+    0.095,
+    0.105
+  ],
+  "bootstrap_resamples": 1999,
+  "reference_csv_sha256": "c472e064c889c46a8a178b235c18388ef30de8448976e5480b6306bdc364dca3",
+  "batch_size": 256,
+  "three_year_gate": "separated",
+  "batches": {
+    "drift/26280/primary-bracket-low/dd53b6dfa36c1863": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 26280,
+        "mutation": 0.004470588235294118,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-low",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "dd53b6dfa36c1863"
+    },
+    "drift/26280/primary-bracket-high/dae1ec2625bac938": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 26280,
+        "mutation": 0.01292,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-high",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "dae1ec2625bac938"
+    },
+    "drift/26280/primary-refine/7cfb666e3cbedb7b": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 26280,
+        "mutation": 0.007500364526523379,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-refine",
+      "cells": 800,
+      "labelled": false,
+      "seed_base": "7cfb666e3cbedb7b"
+    },
+    "size/26280/primary-bracket-low/b4a7e61f16beb10e": {
+      "config": {
+        "mechanism": "size",
+        "hours": 26280,
+        "mutation": 0.0035294117647058825,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-low",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "b4a7e61f16beb10e"
+    },
+    "size/26280/primary-bracket-high/265cd9dc679f96d4": {
+      "config": {
+        "mechanism": "size",
+        "hours": 26280,
+        "mutation": 0.0102,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-high",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "265cd9dc679f96d4"
+    },
+    "size/26280/primary-refine/9fdf41e6e70e71cd": {
+      "config": {
+        "mechanism": "size",
+        "hours": 26280,
+        "mutation": 0.006479915649331078,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-refine",
+      "cells": 800,
+      "labelled": false,
+      "seed_base": "9fdf41e6e70e71cd"
+    },
+    "transcription/26280/primary-bracket-low/69e4e89c67e34c4f": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 26280,
+        "mutation": 2.9411764705882355e-06,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-low",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "69e4e89c67e34c4f"
+    },
+    "transcription/26280/primary-bracket-high/d2a3a87e3b847685": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 26280,
+        "mutation": 8.5e-06,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-high",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "d2a3a87e3b847685"
+    },
+    "transcription/26280/primary-refine/24b4d4e62fbc9a09": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 26280,
+        "mutation": 4.254795142465023e-06,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-refine",
+      "cells": 800,
+      "labelled": false,
+      "seed_base": "24b4d4e62fbc9a09"
+    },
+    "drift/87600/primary-bracket-low/a6a3d38afca574b7": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 87600,
+        "mutation": 0.0008529411764705882,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-low",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "a6a3d38afca574b7"
+    },
+    "drift/87600/primary-bracket-high/e69ee343f3ce380a": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 87600,
+        "mutation": 0.0024649999999999997,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-high",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "e69ee343f3ce380a"
+    },
+    "drift/87600/primary-refine/4a86442198213011": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 87600,
+        "mutation": 0.0012999656064887114,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-refine",
+      "cells": 800,
+      "labelled": false,
+      "seed_base": "4a86442198213011"
+    },
+    "size/87600/primary-bracket-low/f037bce61d171d74": {
+      "config": {
+        "mechanism": "size",
+        "hours": 87600,
+        "mutation": 0.0003529411764705882,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-low",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "f037bce61d171d74"
+    },
+    "size/87600/primary-bracket-high/0513b3c57c28cd64": {
+      "config": {
+        "mechanism": "size",
+        "hours": 87600,
+        "mutation": 0.0010199999999999999,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-high",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "0513b3c57c28cd64"
+    },
+    "size/87600/primary-refine/1badf4bebc1eb4bf": {
+      "config": {
+        "mechanism": "size",
+        "hours": 87600,
+        "mutation": 0.0005824595946322844,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-refine",
+      "cells": 800,
+      "labelled": false,
+      "seed_base": "1badf4bebc1eb4bf"
+    },
+    "transcription/87600/primary-bracket-low/cea29ff9a27a6694": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 87600,
+        "mutation": 7.647058823529412e-07,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-low",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "cea29ff9a27a6694"
+    },
+    "transcription/87600/primary-bracket-high/1dd7b70672cf9653": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 87600,
+        "mutation": 2.21e-06,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-high",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "1dd7b70672cf9653"
+    },
+    "transcription/87600/primary-refine/b01c2597a77a4037": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 87600,
+        "mutation": 1.211666922888171e-06,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-refine",
+      "cells": 800,
+      "labelled": false,
+      "seed_base": "b01c2597a77a4037"
+    },
+    "drift/350400/primary-bracket-low/e278eb9f70693b9c": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 350400,
+        "mutation": 0.0001,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-low",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "e278eb9f70693b9c"
+    },
+    "drift/350400/primary-bracket-high/6533146f2b4f268b": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 350400,
+        "mutation": 0.00028900000000000003,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-high",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "6533146f2b4f268b"
+    },
+    "drift/350400/primary-refine/613895e223b79f0b": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 350400,
+        "mutation": 0.00018580971716117826,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-refine",
+      "cells": 800,
+      "labelled": false,
+      "seed_base": "613895e223b79f0b"
+    },
+    "size/350400/primary-bracket-low/f2f9979a35fdd66e": {
+      "config": {
+        "mechanism": "size",
+        "hours": 350400,
+        "mutation": 1.7647058823529414e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-low",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "f2f9979a35fdd66e"
+    },
+    "size/350400/primary-bracket-high/e7b731e751936b2b": {
+      "config": {
+        "mechanism": "size",
+        "hours": 350400,
+        "mutation": 5.1e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-high",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "e7b731e751936b2b"
+    },
+    "size/350400/primary-refine/bfbca69b0955da0d": {
+      "config": {
+        "mechanism": "size",
+        "hours": 350400,
+        "mutation": 4.163623067973906e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-refine",
+      "cells": 800,
+      "labelled": false,
+      "seed_base": "bfbca69b0955da0d"
+    },
+    "transcription/350400/primary-bracket-low/3a23a7f01a8c03ff": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 350400,
+        "mutation": 1.8823529411764708e-07,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-low",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "3a23a7f01a8c03ff"
+    },
+    "transcription/350400/primary-bracket-high/b112640bb6614bc4": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 350400,
+        "mutation": 5.44e-07,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-high",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "b112640bb6614bc4"
+    },
+    "transcription/350400/primary-refine/f76948debc5617d9": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 350400,
+        "mutation": 3.898857782242822e-07,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-refine",
+      "cells": 800,
+      "labelled": false,
+      "seed_base": "f76948debc5617d9"
+    },
+    "drift/700800/primary-bracket-low/29ac76f89f0820bc": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 700800,
+        "mutation": 4.117647058823529e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-low",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "29ac76f89f0820bc"
+    },
+    "drift/700800/primary-bracket-high/0724ac50c2dd5b6a": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 700800,
+        "mutation": 0.00011899999999999999,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-high",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "0724ac50c2dd5b6a"
+    },
+    "drift/700800/primary-refine/0c848914cc24e43c": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 700800,
+        "mutation": 7.506326431886093e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-refine",
+      "cells": 800,
+      "labelled": false,
+      "seed_base": "0c848914cc24e43c"
+    },
+    "size/700800/primary-bracket-low/524284c072eecbf9": {
+      "config": {
+        "mechanism": "size",
+        "hours": 700800,
+        "mutation": 5.882352941176471e-06,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-low",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "524284c072eecbf9"
+    },
+    "size/700800/primary-bracket-high/50be719b77928e60": {
+      "config": {
+        "mechanism": "size",
+        "hours": 700800,
+        "mutation": 1.7e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-high",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "50be719b77928e60"
+    },
+    "size/700800/primary-refine/d6dd69dc06f1ef30": {
+      "config": {
+        "mechanism": "size",
+        "hours": 700800,
+        "mutation": 7.50628949768993e-06,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-refine",
+      "cells": 800,
+      "labelled": false,
+      "seed_base": "d6dd69dc06f1ef30"
+    },
+    "transcription/700800/primary-bracket-low/4a0ab24b815ac0c2": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 700800,
+        "mutation": 9.411764705882354e-08,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-low",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "4a0ab24b815ac0c2"
+    },
+    "transcription/700800/primary-bracket-high/a71e732e1ece2a4d": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 700800,
+        "mutation": 2.72e-07,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-bracket-high",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "a71e732e1ece2a4d"
+    },
+    "transcription/700800/primary-refine/c40c97b2d9620181": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 700800,
+        "mutation": 1.686697509780048e-07,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-refine",
+      "cells": 800,
+      "labelled": false,
+      "seed_base": "c40c97b2d9620181"
+    },
+    "size/26280/size-half-life-2d-bracket-low/e64f3435449ee3ad": {
+      "config": {
+        "mechanism": "size",
+        "hours": 26280,
+        "mutation": 0.0001764705882352941,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 48,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "size-half-life-2d-bracket-low",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "e64f3435449ee3ad"
+    },
+    "size/26280/size-half-life-2d-bracket-high/4534fc877d9b15e7": {
+      "config": {
+        "mechanism": "size",
+        "hours": 26280,
+        "mutation": 0.0005099999999999999,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 48,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "size-half-life-2d-bracket-high",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "4534fc877d9b15e7"
+    },
+    "size/26280/size-half-life-2d-lower-0/44553b399a5cdbd1": {
+      "config": {
+        "mechanism": "size",
+        "hours": 26280,
+        "mutation": 8.823529411764705e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 48,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "size-half-life-2d-lower-0",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "44553b399a5cdbd1"
+    },
+    "size/26280/size-half-life-2d-lower-1/b640a2cc7b9e5993": {
+      "config": {
+        "mechanism": "size",
+        "hours": 26280,
+        "mutation": 4.4117647058823526e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 48,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "size-half-life-2d-lower-1",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "b640a2cc7b9e5993"
+    },
+    "size/26280/size-half-life-2d-lower-2/8cebd897dad7e252": {
+      "config": {
+        "mechanism": "size",
+        "hours": 26280,
+        "mutation": 2.2058823529411763e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 48,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "size-half-life-2d-lower-2",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "8cebd897dad7e252"
+    },
+    "size/26280/size-half-life-2d-lower-3/93c2988ea73d73a1": {
+      "config": {
+        "mechanism": "size",
+        "hours": 26280,
+        "mutation": 1.1029411764705881e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 48,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "size-half-life-2d-lower-3",
+      "cells": 240,
+      "labelled": false,
+      "seed_base": "93c2988ea73d73a1"
+    },
+    "size/26280/size-half-life-2d-refine/ba8bb217a691f30d": {
+      "config": {
+        "mechanism": "size",
+        "hours": 26280,
+        "mutation": 1.6021875267212347e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 48,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "size-half-life-2d-refine",
+      "cells": 800,
+      "labelled": false,
+      "seed_base": "ba8bb217a691f30d"
+    },
+    "drift/26280/primary-historical/23dd58e2f3c16064": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 26280,
+        "mutation": 0.007236942223091916,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-historical",
+      "cells": 1000,
+      "labelled": false,
+      "seed_base": "23dd58e2f3c16064"
+    },
+    "drift/26280/primary-validation/292a7c9abd1b62ac": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 26280,
+        "mutation": 0.007236942223091916,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "292a7c9abd1b62ac"
+    },
+    "size/26280/primary-historical/28522e74872e646f": {
+      "config": {
+        "mechanism": "size",
+        "hours": 26280,
+        "mutation": 0.0061901033509532775,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-historical",
+      "cells": 1000,
+      "labelled": false,
+      "seed_base": "28522e74872e646f"
+    },
+    "size/26280/primary-validation/dcc08223d53e5f3f": {
+      "config": {
+        "mechanism": "size",
+        "hours": 26280,
+        "mutation": 0.0061901033509532775,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "dcc08223d53e5f3f"
+    },
+    "transcription/26280/primary-historical/5d69fecf0ddd22a2": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 26280,
+        "mutation": 4.491655164952723e-06,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-historical",
+      "cells": 1000,
+      "labelled": false,
+      "seed_base": "5d69fecf0ddd22a2"
+    },
+    "transcription/26280/primary-validation/22424625c430cf3b": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 26280,
+        "mutation": 4.491655164952723e-06,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "22424625c430cf3b"
+    },
+    "drift/87600/primary-historical/5ea94ae8c9a6b8e4": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 87600,
+        "mutation": 0.0013934640688034882,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-historical",
+      "cells": 1000,
+      "labelled": false,
+      "seed_base": "5ea94ae8c9a6b8e4"
+    },
+    "drift/87600/primary-validation/3c0a9b67eb2a81ee": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 87600,
+        "mutation": 0.0013934640688034882,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "3c0a9b67eb2a81ee"
+    },
+    "size/87600/primary-historical/434669b113e28af8": {
+      "config": {
+        "mechanism": "size",
+        "hours": 87600,
+        "mutation": 0.0006974236315899546,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-historical",
+      "cells": 1000,
+      "labelled": false,
+      "seed_base": "434669b113e28af8"
+    },
+    "size/87600/primary-validation/59ca231f6da56f35": {
+      "config": {
+        "mechanism": "size",
+        "hours": 87600,
+        "mutation": 0.0006974236315899546,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "59ca231f6da56f35"
+    },
+    "transcription/87600/primary-historical/00098187c98f068e": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 87600,
+        "mutation": 1.2825861168853756e-06,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-historical",
+      "cells": 1000,
+      "labelled": false,
+      "seed_base": "00098187c98f068e"
+    },
+    "transcription/87600/primary-validation/4963ed10eb5337ba": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 87600,
+        "mutation": 1.2825861168853756e-06,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "4963ed10eb5337ba"
+    },
+    "drift/350400/primary-historical/6a3247227600cd5e": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 350400,
+        "mutation": 0.00017377180841679512,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-historical",
+      "cells": 1000,
+      "labelled": false,
+      "seed_base": "6a3247227600cd5e"
+    },
+    "drift/350400/primary-validation/bcee5b978d858ac3": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 350400,
+        "mutation": 0.00017377180841679512,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "bcee5b978d858ac3"
+    },
+    "size/350400/primary-historical/7bd606b593cabcae": {
+      "config": {
+        "mechanism": "size",
+        "hours": 350400,
+        "mutation": 3.746116747924786e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-historical",
+      "cells": 1000,
+      "labelled": false,
+      "seed_base": "7bd606b593cabcae"
+    },
+    "size/350400/primary-validation/ec2801e87f4ed66c": {
+      "config": {
+        "mechanism": "size",
+        "hours": 350400,
+        "mutation": 3.746116747924786e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "ec2801e87f4ed66c"
+    },
+    "transcription/350400/primary-historical/1135ceb28f57d23a": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 350400,
+        "mutation": 3.394735520835679e-07,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-historical",
+      "cells": 1000,
+      "labelled": false,
+      "seed_base": "1135ceb28f57d23a"
+    },
+    "transcription/350400/primary-validation/4d773f3aa1d2acdb": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 350400,
+        "mutation": 3.394735520835679e-07,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "4d773f3aa1d2acdb"
+    },
+    "drift/700800/primary-historical/9997c054e65267f2": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 700800,
+        "mutation": 7.628330429345678e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-historical",
+      "cells": 1000,
+      "labelled": false,
+      "seed_base": "9997c054e65267f2"
+    },
+    "drift/700800/primary-validation/827d1fd5e9940a41": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 700800,
+        "mutation": 7.628330429345678e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "827d1fd5e9940a41"
+    },
+    "size/700800/primary-historical/80140660cb973136": {
+      "config": {
+        "mechanism": "size",
+        "hours": 700800,
+        "mutation": 1.0849447212515237e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-historical",
+      "cells": 1000,
+      "labelled": false,
+      "seed_base": "80140660cb973136"
+    },
+    "size/700800/primary-validation/513b48d9ef8e3cc1": {
+      "config": {
+        "mechanism": "size",
+        "hours": 700800,
+        "mutation": 1.0849447212515237e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "513b48d9ef8e3cc1"
+    },
+    "transcription/700800/primary-historical/a7be8d0d48f8272d": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 700800,
+        "mutation": 1.3375715626804308e-07,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-historical",
+      "cells": 1000,
+      "labelled": false,
+      "seed_base": "a7be8d0d48f8272d"
+    },
+    "transcription/700800/primary-validation/8a40a60dfe7ecd8d": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 700800,
+        "mutation": 1.3375715626804308e-07,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "primary-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "8a40a60dfe7ecd8d"
+    },
+    "size/26280/size-half-life-2d-validation/424f64560621ed47": {
+      "config": {
+        "mechanism": "size",
+        "hours": 26280,
+        "mutation": 1.4552246308362074e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 48,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "size-half-life-2d-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "424f64560621ed47"
+    },
+    "drift/25920/clock-360d-validation/396760b22985b67e": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 25920,
+        "mutation": 0.007236942223091916,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "clock-360d-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "396760b22985b67e"
+    },
+    "size/25920/clock-360d-validation/26989927b8d7ebd6": {
+      "config": {
+        "mechanism": "size",
+        "hours": 25920,
+        "mutation": 0.0061901033509532775,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "clock-360d-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "26989927b8d7ebd6"
+    },
+    "transcription/25920/clock-360d-validation/c73aa670da56de8b": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 25920,
+        "mutation": 4.491655164952723e-06,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "clock-360d-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "c73aa670da56de8b"
+    },
+    "drift/691200/clock-360d-validation/fb2d8f8c3e457143": {
+      "config": {
+        "mechanism": "drift",
+        "hours": 691200,
+        "mutation": 7.628330429345678e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "clock-360d-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "fb2d8f8c3e457143"
+    },
+    "size/691200/clock-360d-validation/d28c66dca80f5309": {
+      "config": {
+        "mechanism": "size",
+        "hours": 691200,
+        "mutation": 1.0849447212515237e-05,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "clock-360d-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "d28c66dca80f5309"
+    },
+    "transcription/691200/clock-360d-validation/4a4983aa904fd922": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 691200,
+        "mutation": 1.3375715626804308e-07,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "clock-360d-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "4a4983aa904fd922"
+    },
+    "size/26280/size-init-0.1-validation/d6379ad951e9c4bc": {
+      "config": {
+        "mechanism": "size",
+        "hours": 26280,
+        "mutation": 0.0061901033509532775,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 0.1,
+        "wild_only": false,
+        "step": 1.0
+      },
+      "phase": "size-init-0.1-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "d6379ad951e9c4bc"
+    },
+    "transcription/26280/atp-wild-only-validation/8c3e9e94708ec4d4": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 26280,
+        "mutation": 4.491655164952723e-06,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": true,
+        "step": 1.0
+      },
+      "phase": "atp-wild-only-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "8c3e9e94708ec4d4"
+    },
+    "transcription/26280/atp-half-step-validation/f0a2cb88b1ebccd6": {
+      "config": {
+        "mechanism": "transcription",
+        "hours": 26280,
+        "mutation": 4.491655164952723e-06,
+        "population": 1000,
+        "initial_mutants": 0,
+        "half_life": 240.0,
+        "wild_delay": 2,
+        "mutant_delay": 1,
+        "initiation": 1.0,
+        "wild_only": false,
+        "step": 0.5
+      },
+      "phase": "atp-half-step-validation",
+      "cells": 1000,
+      "labelled": true,
+      "seed_base": "f0a2cb88b1ebccd6"
+    }
+  },
+  "rate_import": null
+}

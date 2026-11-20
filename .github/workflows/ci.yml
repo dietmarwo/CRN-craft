@@ -154,6 +154,10 @@ jobs:
       - run: python validation/check_kk13.py --output kk13.json
       - run: python -O validation/check_kk13.py --output kk13-optimized.json
       - run: diff kk13.json kk13-optimized.json
+      # Guide chapter 17: exact count laws and stored comparison.
+      - run: python validation/check_kk14.py --output kk14.json
+      - run: python -O validation/check_kk14.py --output kk14-optimized.json
+      - run: diff kk14.json kk14-optimized.json
       # Every relative link of docs/ and the READMEs resolves.
       - run: python validation/check_links.py
       # docs/reference/python-api.md is generated from the installed package.

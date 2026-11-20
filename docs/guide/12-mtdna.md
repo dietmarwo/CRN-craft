@@ -157,3 +157,7 @@ shows them.
 
 See also: [Takeover in a fixed population](12a-mtdna-takeover.md),
 [mtDNA performance analysis](../evidence/mtdna-performance-analysis.md).
+
+Continue with [the three-mechanism comparison](17-mtdna-mechanisms.md) to
+fit the same affected-cell fraction under neutral drift, size advantage
+and transcription-linked replication.

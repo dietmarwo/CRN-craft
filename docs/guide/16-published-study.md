@@ -116,3 +116,6 @@ See also: [Fig 1A](16a-fig1a.md),
 [Case study: mtDNA mutants](12-mtdna.md) (a different mtDNA model, with
 mutant classes and a replication advantage),
 [Reproducing a published simulation](08-reproducibility.md#reproducing-a-published-simulation).
+
+[Chapter 17](17-mtdna-mechanisms.md) reuses the drift baseline to compare
+fixed replication delays and transcription-linked replication.

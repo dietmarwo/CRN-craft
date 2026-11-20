@@ -59,7 +59,7 @@ Coming from GillesPy2 or rebop? See [how CRN-craft compares](comparison.md).
 
 - **New here:** read [chapters 1 to 4](guide/01-install.md) in order.
 - **A question:** the [task index](howto.md) links fifty tasks to their answers.
-- **mtDNA models:** the [case study](guide/12-mtdna.md), and the [re-creation of a published study](guide/16-published-study.md).
+- **mtDNA models:** the [case study](guide/12-mtdna.md), the [re-creation of a published study](guide/16-published-study.md), and the [comparison of three mechanisms](guide/17-mtdna-mechanisms.md) from two 2014 studies.
 - **Code of an earlier release:** [Migrating from earlier releases](guide/migrating.md).
 
 ## What is included

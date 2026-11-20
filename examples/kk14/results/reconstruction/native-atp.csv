@@ -1,0 +1,5 @@
+method,sampler,cells,cox_negative,collapsed
+hybrid,chacha8-u53/rules-approximate-hybrid-dopri54/1,320,121,117
+thinning,chacha8-u53/rules-atp-thinning/1,320,139,137
+"hourly reconstruction, step 1 h",kk14-hourly,320,131,128
+"hourly reconstruction, step 0.5 h",kk14-hourly,320,132,127

@@ -1,0 +1,27 @@
+{
+  "atp_collapse_days": 247.40606595026722,
+  "atp_mutant_wild_ratio_at_collapse": 10.06993658724657,
+  "atp_equilibrium": 450.00000000000006,
+  "atp_scale": 1.303415374767057,
+  "atp_method": {
+    "solver": "Radau",
+    "rtol": 1e-09,
+    "atol": 1e-11,
+    "max_step_h": 12
+  },
+  "size_capacity": 2.9303313139192513,
+  "size_extinction_hours": 831783.3911134802,
+  "size_extinction_years": 94.95244190793153,
+  "size_wild_busy_equilibrium": 0.005792941067853431,
+  "size_mutant_busy_equilibrium": 0.0028922878693670713,
+  "size_final_mutant_busy_fraction": 0.0028923044324871304,
+  "size_checks_years": {
+    "mesh_0.5_h": 94.95244189615235,
+    "mesh_0.125_h": 94.95244191087728,
+    "initiation_0.1": 94.95351561693995,
+    "half_life_2_days": 3.866142301161525,
+    "wild_replication_10_h": 19.33021835648725,
+    "mutant_size_0.7": 158.3314395595612
+  },
+  "same_size_final_ratio": 998.9999999987054
+}

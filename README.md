@@ -63,6 +63,7 @@ Coming from GillesPy2 or rebop? See [how CRN-craft compares](docs/comparison.md)
 - [How do I ...?](docs/howto.md): fifty tasks, each with a link to the answer
 - [Case study: mtDNA mutants](docs/guide/12-mtdna.md)
 - [Case study: re-creating a published study](docs/guide/16-published-study.md) (Kowald & Kirkwood 2013)
+- [Case study: comparing mtDNA mechanisms](docs/guide/17-mtdna-mechanisms.md) (Kowald & Kirkwood 2014; Kowald, Dawson & Kirkwood 2014)
 - [Reference](docs/reference/model-language.md): model language, methods, Python API, contracts, diagnostics
 - [Changelog](CHANGELOG.md)
 

@@ -228,7 +228,34 @@ def passage_evidence(out, fitted=()):
             )
     save_csv(out / "fig5-passage.csv", rows)
     save_csv(out / "takeover-summary.csv", summary)
+    save_csv(out / "fig5-differences.csv", figure5_differences(rows))
     return summary
+
+
+def figure5_differences(rows):
+    """Published bars of Figure 5 against the probability of the same 30-day bin.
+
+    A bar labeled ``L`` is compared with the conditional probability of a
+    takeover in ``[L, L + 30)`` days, among the founders that take over at
+    some time.
+    """
+    cdf = {(r["advantage"], r["elapsed_days"]): r["conditional_cdf"] for r in rows}
+    pairs = []
+    for row in read_csv(HERE / "paper-figure5.csv"):
+        s, start = float(row["advantage"]), float(row["bin_start_days"])
+        model = cdf[s, start + 30] - cdf[s, start]
+        pairs.append(
+            {
+                "advantage": row["advantage"],
+                "bin_start_days": row["bin_start_days"],
+                "value": row["value"],
+                "lower": row["lower"],
+                "upper": row["upper"],
+                "reconstruction": model,
+                "difference": model - float(row["value"]),
+            }
+        )
+    return pairs
 
 
 def paper_table_differences(out):

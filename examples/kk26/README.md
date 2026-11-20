@@ -61,6 +61,7 @@ interrupted run continues, and `--cohort strong:2` selects one cohort.
 | `forward-checks.csv` | Solver against discrete reference at the truths and two box corners, neutral cap against the complete lattice, Figure 6 differences, ATP step comparison |
 | `fig6-curves.csv`, `fig6-differences.csv` | The Figure 6 curves of every backend and their differences from the digitized points |
 | `fig5-passage.csv`, `takeover-summary.csv` | Takeover CDFs, success probabilities, quantiles, modal bins and the share reached by day 1,080 |
+| `fig5-differences.csv` | The published bars of Figure 5 and the reconstruction's probability of the same 30-day bins |
 | `review-*.csv` | The review checks: larger optimizer budget, wider box, Model-1 data, independent cells per age |
 | `manifest.json`, `grids/` | Configuration, seeds, solver hash, build flags and the two forward grids |
 
@@ -86,15 +87,20 @@ saved one.
   checked against the copy of Figure 6B in the authors' companion preprint
   (bioRxiv [10.64898/2026.01.30.702741](https://doi.org/10.64898/2026.01.30.702741),
   Figure 4B): 132 readable points agree within 1.05 pixels of that image
-  (0.017 percentage points). Panel A was not checked against a second
-  image.
+  (0.017 percentage points). Both panels were read again from the figure
+  in the preprint of the paper (bioRxiv [10.64898/2026.01.30.702736](https://doi.org/10.64898/2026.01.30.702736), version 1; 878 × 321 px): after day 0, 127
+  points per panel are readable; panel A agrees within 1.05 pixels of that
+  image (0.023 percentage points), panel B within 1.7 pixels.
 - `paper-tables.csv`: the means, coefficients of variation and 95%
-  intervals of Tables 1 to 3, transcribed from the article PDF. The tables
-  are images; the review could not open them and did not verify the
-  values. The text agrees in two places: the upper end of the Table 3
-  mutation-probability interval lies below the true value, and the upper
-  end of the baseline `f` interval is the imposed maximum 1.
+  intervals of Tables 1 to 3, transcribed from the article PDF. All 27
+  values and the nine true values agree with the tables of the preprint
+  of the paper (version 1).
 - The modal bins of Figure 5 (990, 540, 390 and 240 days, in `evidence.py`)
-  were read from that figure and were not verified by the review.
+  are the four labels printed in that figure.
+- `paper-figure5.csv`: the 60 bars of Figure 5, read from the 768 × 465 px
+  figure image of the preprint of the paper. The ordinate is calibrated on
+  the grid lines 0.00 (row 419) and 0.35 (row 12); a bar's value is the row
+  of its top edge, with a reading interval of one pixel (0.00086). A bar
+  is assigned to its 30-day bin by its position in the group of four.
 - The authors' repository (linked from the paper) returned server errors
   when the example was written.

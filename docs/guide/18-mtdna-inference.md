@@ -17,10 +17,10 @@ time a mutant needs to take over a cell:
 
 This chapter is a reconstruction from the published text and figures. The
 authors' programs and data were not available to it (their repository
-returned server errors). The values of Tables 2 and 3 were transcribed
-from the article PDF when the example was written; the tables are images
-in every version of the article the review could open, so the review did
-not verify them. The paper's authors did not write or review this chapter.
+returned server errors). The printed values of Tables 1 to 3 and the
+readings of Figures 5 and 6 were checked against the preprint of the paper
+(bioRxiv [10.64898/2026.01.30.702736](https://doi.org/10.64898/2026.01.30.702736), version 1); the review did not have the journal PDF. The paper's authors did
+not write or review this chapter.
 
 The result in three lines:
 

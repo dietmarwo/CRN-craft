@@ -183,9 +183,35 @@ the 30-day bin with the most probability, named by its first day):
 | 0.509 (strong mean fit) | 33.73% | 270 | 213–370 | 240 | 100.0% |
 
 Quantiles are interpolated linearly in a CDF reported every 30 days. The
-modal bins 990, 540, 390 and 240 days match the values the example records
-for the paper's Figure 5; the review could not see that figure and did not
-verify them.
+modal bins 990, 540, 390 and 240 days are the four labels printed in the
+paper's Figure 5.
+
+The bars of that figure were read from the preprint of the paper (bioRxiv [10.64898/2026.01.30.702736](https://doi.org/10.64898/2026.01.30.702736), version 1;
+`examples/kk26/paper-figure5.csv`, 60 bars, one pixel is 0.0009 in
+probability) and compared with the reconstruction's probability of the
+same 30-day bin (`fig5-differences.csv`):
+
+| Selection advantage | Bars | Largest difference | Sum of the published bars | Sum of the same bins here |
+| ---: | ---: | ---: | ---: | ---: |
+| 0.10 | 15 | 0.0021 | 0.562 | 0.582 |
+| 0.20 | 21 | 0.0037 | 0.982 | 0.997 |
+| 0.30 | 15 | 0.0057 | 0.987 | 0.998 |
+| 0.50 | 9 | 0.0085 | 0.992 | 0.998 |
+
+The shapes agree within 0.0085 per bin, and the comparison settles two
+choices of the reconstruction. A bar labeled `L` is the takeover
+probability in the 30 days from `L` on; with the 30 days up to `L` the
+largest difference would be 0.19. And the bars are probabilities among all
+founders that ever take over: at `s` = 0.10 the published bars up to day
+1,080 sum to 0.56, as the 58% of the table above, where a distribution of
+the takeovers inside the window would sum to 1.
+
+The agreement is not complete: 35 of the 60 bars differ by more than the
+reading interval of one pixel, and the reconstruction's bars sum to 0.6%
+to 3.6% more. Moving the published distributions 1.5 to 3 days earlier brings
+every bar within 0.0015. This was found after the comparison and is a
+description, not a tested explanation; such a shift is 0.3% to 0.6% of the
+median times.
 
 Two cautions follow from the first row. Most single founders, 91% at
 `s` = 0.10, are lost, so a takeover time describes only the successful

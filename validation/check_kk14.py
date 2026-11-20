@@ -278,7 +278,7 @@ def stored():
         _selection(typed) == manifest["three_year_gate"],
         "three-year science gate replay",
     )
-    guide = (ROOT / "docs" / "guide" / "17-mtdna-mechanisms.md").read_text()
+    guide = (ROOT / "docs" / "guide" / "17b-mtdna-mechanisms-results.md").read_text()
     part = guide.partition("<!-- kk14-comparison -->\n")[2].partition(
         "<!-- /kk14-comparison -->"
     )[0]

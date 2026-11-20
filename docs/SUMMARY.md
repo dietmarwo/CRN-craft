@@ -33,6 +33,9 @@
   - [Fig 1C/1D: clones in COX-negative cells](guide/16c-fig1cd.md)
   - [Limits and lessons](guide/16d-limits-lessons.md)
 - [17. Case study: comparing mtDNA mechanisms](guide/17-mtdna-mechanisms.md)
+  - [The three models](guide/17a-mtdna-mechanisms-models.md)
+  - [Fitting and the comparison](guide/17b-mtdna-mechanisms-results.md)
+  - [Choices, checks and limits](guide/17c-mtdna-mechanisms-limits.md)
 - [Troubleshooting](guide/troubleshooting.md)
 - [Migrating from earlier releases](guide/migrating.md)
 

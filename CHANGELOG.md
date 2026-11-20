@@ -7,6 +7,10 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+### Documentation (guide and examples)
+
+- Guide chapter 17 (four pages): comparing neutral drift, a size-based replication advantage and transcription-linked replication at a matched 10% COX-negative prevalence, reconstructing Kowald & Kirkwood (2014), *PNAS* 111:2972–2977, Figures 2 and 3, and Kowald, Dawson & Kirkwood (2014), *J. Theor. Biol.* 340:111–118, Figures 2 to 7. The single-cell models run on CRN-craft (`tree`, `static_direct`, `hybrid`, `thinning`); the tissue study runs on a C++17 reference sampler local to `examples/kk14` (no engine change). The saved full tier (12 fits, 20,000 validation cells each) gives 1.25 mutant lineages per affected three-year cell for the transcription mechanism against 33.8 for drift and 28.9 for the size advantage; the earlier draft tier is kept with its four rows outside the target band. All reconstruction choices are listed on one page. `validation/check_kk14.py` (in CI, normally and under `-O`) checks the deterministic targets, exact count laws, thread replay, native lineage marking and the generated table.
+
 ## [0.8.0] - 2026-11-17
 
 Answers to feedback from a researcher who reproduced a published mtDNA drift

@@ -1,7 +1,9 @@
 # mtDNA mechanism comparison
 
 [Guide chapter 17](../../docs/guide/17-mtdna-mechanisms.md) reproduces the
-matching-prevalence experiment of the 2014 papers. Run the commands from
+matching-prevalence experiment of the 2014 papers. Its
+[last page](../../docs/guide/17c-mtdna-mechanisms-limits.md#reconstruction-choices)
+lists every reconstruction choice in one table. Run the commands from
 the CRN-craft root with Python 3.10 or newer and a C++17 compiler on Linux
 or macOS. Set `CXX` to choose the compiler.
 
@@ -11,6 +13,7 @@ python examples/kk14/study.py single-cell --size quick
 python examples/kk14/study.py compare --size quick --ages 3 --threads 2
 python examples/kk14/study.py compare --size draft --ages 3 --threads 4 --sensitivities
 python examples/kk14/study.py native --threads 2
+python examples/kk14/study.py native --threads 2 --cells 4000 --stage-seed 900000 --atp-seed 77000
 python examples/kk14/study.py figures --results examples/kk14/results/reconstruction
 ```
 
@@ -23,7 +26,12 @@ Use distinct `--results` directories for simultaneous invocations. Use
 `--resume` after interruption. Completed batches are replaced atomically
 and are reused only for the matching sampler code, scientific configuration,
 phase and replicate indices. Thread count does not change the simulated
-result. Record the compiler and C++ library for a byte-for-byte replay.
+result. A byte-for-byte replay needs the same C++ standard library and C
+math library: `std::uniform_int_distribution` and
+`std::binomial_distribution` are implementation-defined. The saved full
+tier (AMD x86-64, GCC 14.2) was reproduced byte for byte on Intel x86-64
+with GCC 13.3. The sampler is compiled with `-ffp-contract=off`, so FMA
+targets do not change the rounding.
 
 ```sh
 python examples/kk14/study.py compare --size full --ages 3 10 40 80 \
@@ -40,7 +48,8 @@ python validation/check_kk14.py --output kk14-validation.json
 | `reference-differences.csv` | Numeric differences from the printed and digitized sources, with source reading intervals and both conventions for drift |
 | `manifest.json` | Scientific configuration, sampler, seed bases, work sizes and the three-year decision rule |
 | `batches/`, `timings.json` | Local per-cell arrays for restart and wall times by cohort, produced by `compare` |
-| `single-cell.json`, `native-*.csv`, `native-marks.json` | Deterministic benchmarks and small native solver exercises |
+| `single-cell.json`, `native-*.csv`, `native-marks.json` | Deterministic benchmarks and small native solver exercises; `native-size-4000.csv` and `native-atp-4000.csv` come from `native --cells 4000` with the seeds above |
+| `draft-*.csv`, `draft-manifest.json` | The earlier draft tier (seed 20261120), kept with its four rows outside the target band |
 
 The checked-in [reconstruction results](results/reconstruction/comparison.csv)
 use the full tier. Run `figures --results examples/kk14/results/reconstruction

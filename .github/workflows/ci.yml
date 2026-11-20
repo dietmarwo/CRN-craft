@@ -110,7 +110,7 @@ jobs:
       # rebop is a reference for check_builder.py only, not a dependency.
       # matplotlib draws the plot of guide chapter 4; fcmaes, scipy and loguru
       # run the fitting scripts of chapter 13 (smoke mode).
-      - run: python -m pip install maturin==1.9.6 numpy==2.3.5 pandas==3.1.1 xarray==2026.9.0 jsonschema==4.26.0 rebop==0.10.0 matplotlib==3.11.2 fcmaes==2.1.0 scipy==1.18.1 loguru==0.8.0
+      - run: python -m pip install maturin==1.9.6 numpy==2.3.5 pandas==3.1.1 xarray==2026.9.0 jsonschema==4.26.0 rebop==0.10.0 matplotlib==3.11.2 fcmaes==2.2.0 scipy==1.18.1 loguru==0.8.0
       - run: cargo build --release --workspace --locked
       - run: maturin build --release --locked --out dist
       - run: python -m pip install dist/*.whl

@@ -7,6 +7,12 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+### Changed
+
+- The optional jobs integration (`integrations/jobs`) pins optimization-jobs `2bfa8e4` (tag `v0.5.0`, release 0.5.0; the job crates are 0.5.0) and fcmaes-rust `eba5f46` (main after release 0.4.0, the merge that moves its own optimization-jobs pin there; the fcmaes crates are 0.4.0), so both name one job API. The lockfile changes only in their git packages. `validation/check_jobs.py` records the new revisions. Through `optimization-run` 0.5.0 it passes all 15 rows, 17 jobs and 18 manifests ([jobs-pin-2bfa8e4.json](validation/campaign/jobs-pin-2bfa8e4.json)); the report equals the 41d5f00 report except for the three recorded pins.
+- The `fit` extra installs fcmaes-rust 0.4.0 (was 0.2.1); SciPy and SQP-craft keep their pins. fcmaes-rust 0.3.0 and 0.4.0 keep BiteOpt's seeded results. The parameter-optimization benchmark (`validation/parameter-optimization`) keeps 0.2.1, the version of its recorded 0.6.0 measurement, and `tutorials/optimization/results/verified.json` stays the record of its 0.2.1 runs.
+- CI runs the fitting scripts of guide chapter 13 with fcmaes 2.2.0 (was 2.1.0); their BiteOpt (`bitecpp`) and Python DE runs are not affected by its changes.
+
 ### Documentation (guide and examples)
 
 - Guide chapter 17 (four pages): comparing neutral drift, a size-based replication advantage and transcription-linked replication at a matched 10% COX-negative prevalence, reconstructing Kowald & Kirkwood (2014), *PNAS* 111:2972–2977, Figures 2 and 3, and Kowald, Dawson & Kirkwood (2014), *J. Theor. Biol.* 340:111–118, Figures 2 to 7. The single-cell models run on CRN-craft (`tree`, `static_direct`, `hybrid`, `thinning`); the tissue study runs on a C++17 reference sampler local to `examples/kk14` (no engine change). The saved full tier (12 fits, 20,000 validation cells each) gives 1.25 mutant lineages per affected three-year cell for the transcription mechanism against 33.8 for drift and 28.9 for the size advantage; the earlier draft tier is kept with its four rows outside the target band. All reconstruction choices are listed on one page. `validation/check_kk14.py` (in CI, normally and under `-O`) checks the deterministic targets, exact count laws, thread replay, native lineage marking and the generated table.

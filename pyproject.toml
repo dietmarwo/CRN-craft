@@ -33,7 +33,7 @@ crn-craft = "crn_craft.__main__:main"
 crn-craft-import = "crn_craft.importers:main"
 
 [project.optional-dependencies]
-fit = ["scipy==1.17.0", "fcmaes-rust==0.2.1", "sqp-craft==0.17.0"]
+fit = ["scipy==1.17.0", "fcmaes-rust==0.4.0", "sqp-craft==0.17.0"]
 # xarray is required since 0.5.0; the extra stays so that existing
 # `pip install "crn-craft[xarray]"` commands keep working.
 xarray = ["xarray>=2024.6"]

@@ -128,11 +128,37 @@ def main():
     )
     native.add_argument("--threads", type=_positive, default=2)
     native.add_argument("--results", type=Path, default=HERE / "results" / "native")
+    native.add_argument(
+        "--cells",
+        type=_positive,
+        help="cells per choice for a larger rerun with --stage-seed and --atp-seed",
+    )
+    native.add_argument("--stage-seed", type=int, default=900000)
+    native.add_argument("--atp-seed", type=int, default=77000)
     args = parser.parse_args()
     if args.command == "native":
         from native import atp_comparison, marked_hybrid, staged_comparison
 
         args.results.mkdir(parents=True, exist_ok=True)
+        if args.cells is not None:
+            # A larger rerun with its own seeds; the 320-cell tables stay as they are.
+            save_csv(
+                args.results / f"native-size-{args.cells}.csv",
+                staged_comparison(
+                    threads=args.threads,
+                    reps=args.cells,
+                    seed=args.stage_seed,
+                    stages=(1, 2, 4, 8, 16),
+                ),
+            )
+            save_csv(
+                args.results / f"native-atp-{args.cells}.csv",
+                atp_comparison(
+                    threads=args.threads, reps=args.cells, seed=args.atp_seed
+                ),
+            )
+            print(f"Native results for {args.cells} cells written to {args.results}")
+            return
         marks = marked_hybrid(threads=args.threads)
         (args.results / "native-marks.json").write_text(
             json.dumps(marks, indent=2) + "\n"

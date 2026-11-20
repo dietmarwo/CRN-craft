@@ -242,20 +242,36 @@ def _end(model, method, hours, reps, threads, seed):
     ).simulate()
 
 
-def staged_comparison(threads=2, reps=320):
+def _mean_se(values):
+    values = np.asarray(values, dtype=float)
+    return float(values.mean()), float(values.std(ddof=1) / math.sqrt(len(values)))
+
+
+def staged_comparison(threads=2, reps=320, seed=None, stages=(1, 4, 16)):
+    """Endpoint mutant fractions of the hourly queue and of Erlang chains.
+
+    Without ``seed`` the seeds of the saved 320-cell table are used. With a
+    seed, the hourly queue takes ``seed, seed + 1, ...`` and the chain with
+    ``k`` stages takes ensemble seed ``seed + 1000 * k``.
+    """
     n, m0, hours, half_life = 100, 10, 24 * 120, 48
     cfg = Config(
         "size", hours, 0, population=n, initial_mutants=m0, half_life=half_life
     )
-    base = simulate(cfg, np.arange(1010, 1010 + reps), threads=threads, labelled=False)
+    first = 1010 if seed is None else seed
+    base = simulate(
+        cfg, np.arange(first, first + reps), threads=threads, labelled=False
+    )
     total = base["wild"] + base["mutant"]
     delta = math.log(2) / half_life
+    mean, se = _mean_se(base["mutant"] / total)
     rows = [
         {
             "sampler": "fixed-delay hourly",
             "stages": 0,
             "cells": reps,
-            "mean_mutant_fraction": float((base["mutant"] / total).mean()),
+            "mean_mutant_fraction": mean,
+            "mean_mutant_fraction_se": se,
             "mutant_delay_variance_h2": 0.0,
             "mutant_template_survival_continuous": math.exp(-delta),
             "mutant_template_survival_sampler": 1.0,
@@ -263,30 +279,32 @@ def staged_comparison(threads=2, reps=320):
     ]
     # With a one-hour delay a new template completes at the next tick
     # before degradation draws for that tick.
-    for stages in (1, 4, 16):
+    for k in stages:
         result = _end(
-            staged_size(stages, n, m0, half_life),
+            staged_size(k, n, m0, half_life),
             "static_direct",
             hours,
             reps,
             threads,
-            420 + stages,
+            420 + k if seed is None else seed + 1000 * k,
         )
         final = result.paths.isel(time=-1)
-        w = final.sel(variable=["W", *(f"W{i}" for i in range(1, stages + 1))]).sum(
+        w = final.sel(variable=["W", *(f"W{i}" for i in range(1, k + 1))]).sum(
             "variable"
         )
-        m = final.sel(variable=["M", *(f"M{i}" for i in range(1, stages + 1))]).sum(
+        m = final.sel(variable=["M", *(f"M{i}" for i in range(1, k + 1))]).sum(
             "variable"
         )
-        p = (1 + delta / stages) ** -stages
+        p = (1 + delta / k) ** -k
+        mean, se = _mean_se(m / (m + w))
         rows.append(
             {
                 "sampler": result.metadata["sampler"],
-                "stages": stages,
+                "stages": k,
                 "cells": reps,
-                "mean_mutant_fraction": float((m / (m + w)).mean()),
-                "mutant_delay_variance_h2": 1.0 / stages,
+                "mean_mutant_fraction": mean,
+                "mean_mutant_fraction_se": se,
+                "mutant_delay_variance_h2": 1.0 / k,
                 "mutant_template_survival_continuous": p,
                 "mutant_template_survival_sampler": p,
             }
@@ -294,7 +312,13 @@ def staged_comparison(threads=2, reps=320):
     return rows
 
 
-def atp_comparison(threads=2, reps=320):
+def atp_comparison(threads=2, reps=320, seed=None):
+    """COX-negative cells and ATP stops of hybrid, thinning and the hourly scheme.
+
+    Without ``seed`` the seeds of the saved 320-cell table are used. With a
+    seed, hybrid takes ensemble seed ``seed + 1``, thinning ``seed + 2`` and
+    the hourly scheme the cell seeds ``seed + 10000, seed + 10001, ...``.
+    """
     # Reduced population and a single founder give a mixture of loss and takeover.
     n, initial, hours, half_life = 100, 1, 24 * 365, 120
     mutation = 0.0001
@@ -304,7 +328,14 @@ def atp_comparison(threads=2, reps=320):
             mutation, n, initial, half_life, legacy=method == "thinning"
         )
         result = _end(
-            model, method, hours, reps, threads, 521 if method == "hybrid" else 644
+            model,
+            method,
+            hours,
+            reps,
+            threads,
+            (521 if method == "hybrid" else 644)
+            if seed is None
+            else seed + (1 if method == "hybrid" else 2),
         )
         final = result.paths.isel(time=-1)
         w = final.sel(variable="W").to_numpy()
@@ -329,8 +360,9 @@ def atp_comparison(threads=2, reps=320):
             half_life=half_life,
             step=step,
         )
+        first = 3300 if seed is None else seed + 10000
         batch = simulate(
-            cfg, np.arange(3300, 3300 + reps), labelled=False, threads=threads
+            cfg, np.arange(first, first + reps), labelled=False, threads=threads
         )
         total = batch["wild"] + batch["mutant"]
         rows.append(

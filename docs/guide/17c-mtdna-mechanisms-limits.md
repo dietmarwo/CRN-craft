@@ -22,8 +22,11 @@ change one choice (1,000 new cells each, in
 | 60% threshold | Text of both papers: "at least 60%". Size paper figure captions and chapter 16: more than 60% | At least 60% (`5*M >= 3*(W+M)`); the strict count is saved as well | The strict rule removes 36 drift and 5 size cells at 3 years, no transcription cell |
 | What a "type" is | PNAS: different mutants. Size paper text: different mtDNAs. 2013 table: matches with wild type included | Mutant lineages; the wild type is added for the 2013 and PNAS drift values | Adds one type to almost every affected 3-year cell |
 | Drift time course | 2013 program steps hourly | Continuous time, the exact pair rule of chapter 16c | not varied |
-| ATP equations | Only as images in the PNAS article; parameters in Table 1 | The equations of [the models page](17a-mtdna-mechanisms-models.md#transcription-linked-replication), from the text and Table 1 | Deterministic collapse after 247 days (paper: about 250) |
 | How the rate is adjusted | Adjusted until 10 ± 0.5% of 1,000 cells are affected | Logistic fit, then an independent 20,000-cell cohort ([protocol](17b-mtdna-mechanisms-results.md#the-protocol)) | — |
+
+The ATP equations themselves are not a choice. They are Equations 1 to 3
+of the PNAS paper, and the formula for `c` in its Table 1 evaluates to the
+same 1.303.
 
 Two of these choices carry the transcription result. With collapsed cells
 counted as affected and mutant templates able to produce new deletions,
@@ -76,11 +79,12 @@ draws different, equally valid cells.
 - The original programs (Mathematica for the size paper, Java for the
   PNAS paper) were not available. Where the text is silent, the table
   above is a choice, not a fact about the published runs.
-- The PNAS equations are available only as images in the online article,
-  and the values of PNAS Figure 3 and the size paper's Figures 6 and 7 were
-  read from the figures with an interval of ±2 pixels. The size paper has
-  an erratum (doi:10.1016/j.jtbi.2014.02.008); its text was not
-  available to the reconstruction.
+- The values of PNAS Figure 3 and the size paper's Figures 6 and 7 were
+  read from the figures with an interval of ±2 pixels. In panel B of the
+  PNAS figure the markers at 40 and 80 years overlap; they are read from
+  their visible edges, and ±2 pixels is a quarter of a type there. The
+  size paper has an erratum (doi:10.1016/j.jtbi.2014.02.008); its text was
+  not available to the reconstruction.
 - The size paper is not self-consistent in one place: its Results give
   almost 160 years for the 70%-size mutant, its Discussion almost 150 years
   for a mutant 30% shorter. The reconstruction gives 158 years.

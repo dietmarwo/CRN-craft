@@ -11,12 +11,12 @@ PNAS 2014,3,A,transcription,3,mutation,5.4096e-06,5.0318e-06,5.8159e-06,per daug
 PNAS 2014,3,A,transcription,10,mutation,1.1595e-06,1.0785e-06,1.2466e-06,per daughter,read ±2 px,302.62,Figure marker
 PNAS 2014,3,A,transcription,40,mutation,3.545e-07,3.2973e-07,3.8112e-07,per daughter,read ±2 px,335.36,Figure marker
 PNAS 2014,3,A,transcription,80,mutation,1.6258e-07,1.5122e-07,1.7479e-07,per daughter,read ±2 px,356.89,Figure marker
-PNAS 2014,3,B,drift,3,mutant_types,35.391,35.136,35.646,per affected cell,read ±2 px,68.63,Compare both counting conventions
-PNAS 2014,3,B,drift,10,mutant_types,10.174,9.9186,10.429,per affected cell,read ±2 px,266.18,Compare both counting conventions
+PNAS 2014,3,B,drift,3,mutant_types,35.726,35.47,35.981,per affected cell,read ±2 px,65.50,Compare both counting conventions
+PNAS 2014,3,B,drift,10,mutant_types,10.348,10.093,10.603,per affected cell,read ±2 px,264.40,Compare both counting conventions
 PNAS 2014,3,B,drift,40,mutant_types,2.8495,2.5942,3.1048,per affected cell,read ±2 px,323.56,Compare both counting conventions
 PNAS 2014,3,B,drift,80,mutant_types,1.7718,1.5165,2.0271,per affected cell,read ±2 px,332.00,Compare both counting conventions
-PNAS 2014,3,B,size,3,mutant_types,29.37,29.115,29.625,per affected cell,read ±2 px,115.80,Figure marker
-PNAS 2014,3,B,size,10,mutant_types,4.7198,4.4645,4.9751,per affected cell,read ±2 px,308.91,Figure marker
+PNAS 2014,3,B,size,3,mutant_types,29.742,29.486,29.997,per affected cell,read ±2 px,112.40,Figure marker
+PNAS 2014,3,B,size,10,mutant_types,4.8612,4.6061,5.1164,per affected cell,read ±2 px,307.40,Figure marker
 PNAS 2014,3,B,size,40,mutant_types,1.2068,0.95154,1.4621,per affected cell,read ±2 px,336.43,Figure marker
 PNAS 2014,3,B,size,80,mutant_types,1.2612,1.0059,1.5165,per affected cell,read ±2 px,336.00,Figure marker
 PNAS 2014,3,B,transcription,3,mutant_types,1.26,1.26,1.26,per affected cell,printed text,335.76,At three years

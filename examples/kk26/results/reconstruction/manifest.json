@@ -134,6 +134,7 @@
           1.0
         ]
       ],
+      "build": "-std=c++17 -O3 -ffp-contract=off",
       "cap": 192,
       "case": "baseline",
       "code": "b080a3a8f57588da515eb2783d2aa2eb03c500b9d5749867f4b0788c9c8fb96a",
@@ -142,8 +143,8 @@
       "half_days": 10.0,
       "schema": "local-cubic-spline/1",
       "step_days": 5.0,
-      "file": "baseline-2a7f8e6494b6d579.npz",
-      "max_node_leakage": 0.0003205984191023692,
+      "file": "baseline-997d8c93f1a0b6cd.npz",
+      "max_node_leakage": 0.0003205984190998157,
       "max_node_negative_mass": 0.0
     },
     "strong": {
@@ -213,6 +214,7 @@
           0.47
         ]
       ],
+      "build": "-std=c++17 -O3 -ffp-contract=off",
       "cap": 320,
       "case": "strong",
       "code": "b080a3a8f57588da515eb2783d2aa2eb03c500b9d5749867f4b0788c9c8fb96a",
@@ -221,9 +223,9 @@
       "half_days": 10.0,
       "schema": "local-cubic-spline/1",
       "step_days": 5.0,
-      "file": "strong-6fe95c15208b8d24.npz",
-      "max_node_leakage": 0.00017611104576920056,
-      "max_node_negative_mass": 1.94896595912005e-10
+      "file": "strong-4358d0376c1f555c.npz",
+      "max_node_leakage": 0.000176111045686822,
+      "max_node_negative_mass": 1.9489659591200364e-10
     }
   }
 }

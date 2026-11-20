@@ -6,6 +6,7 @@ import csv
 import hashlib
 import json
 import math
+import shutil
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -14,9 +15,21 @@ from dataclasses import asdict, replace
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 from scipy.optimize import Bounds, least_squares
+from scipy.stats import qmc
 from scipy.sparse.linalg import spsolve
 
-from model import AGES, HERE, REGIMES, SAMPLER, SPLIT, cohort, forward, library, tails
+from model import (
+    AGES,
+    BUILD_FLAGS,
+    HERE,
+    REGIMES,
+    SAMPLER,
+    SPLIT,
+    cohort,
+    forward,
+    library,
+    tails,
+)
 
 ROOT_SEED = 20261120
 PARAMETERS = ("mutation", "advantage", "advantageous")
@@ -89,6 +102,7 @@ def _metadata(regime, model, ages, axes, cap, step):
             "schema": GRID,
             "forward": SPLIT,
             "code": code_hash(),
+            "build": " ".join(BUILD_FLAGS),
             "case": regime,
             "copies": model.copies,
             "half_days": model.half_days,
@@ -181,6 +195,7 @@ def prepare_grid(
             if i == len(coords) or i % 24 == 0:
                 print(f"{regime}: {i}/{len(coords)} forward nodes", flush=True)
     _save_npz(local, metadata=np.array(metadata), values=values)
+    shutil.rmtree(work)
     return Grid(model, days, axes, values, cap, step, metadata), local
 
 
@@ -210,9 +225,9 @@ def fit(grid, counts, seed, budget):
         rg=np.random.default_rng(seed),
         workers=1,
     )
+    if result.x is None or result.status < 0 or not np.isfinite(result.fun):
+        raise RuntimeError("fcmaes did not return a fit")
     model = from_x(grid.model, result.x)
-    if not np.isfinite(result.fun):
-        raise RuntimeError("fcmaes returned a non-finite fit")
     return {
         **{name: float(getattr(model, name)) for name in PARAMETERS},
         "ssq": float(objective(result.x)),
@@ -224,13 +239,20 @@ def fit(grid, counts, seed, budget):
     }
 
 
-def fit_summary(regime, rows):
+def fit_summary(regime, rows, bounds):
+    """Mean, CV, linear-interpolation percentiles and fits near the box edge."""
     truth = REGIMES[regime]
     out = []
-    for name in PARAMETERS:
+    for k, name in enumerate(PARAMETERS):
         data = np.array([float(row[name]) for row in rows])
         lo, hi = np.quantile(data, [0.025, 0.975])
         actual = getattr(truth, name)
+        x = np.log10(data) if name == "mutation" else data
+        span = bounds.ub[k] - bounds.lb[k]
+        near = (x - bounds.lb[k] <= 0.01 * span) | (bounds.ub[k] - x <= 0.01 * span)
+        box = (bounds.lb[k], bounds.ub[k])
+        if name == "mutation":
+            box = (10 ** box[0], 10 ** box[1])
         out.append(
             {
                 "regime": regime,
@@ -245,6 +267,9 @@ def fit_summary(regime, rows):
                 "p2_5": float(lo),
                 "p97_5": float(hi),
                 "truth_in_interval": bool(lo <= actual <= hi),
+                "box_low": float(box[0]),
+                "box_high": float(box[1]),
+                "fits_within_1pct_of_box_edge": int(near.sum()),
             }
         )
     return out
@@ -268,6 +293,13 @@ def diagnostics(grid, regime, fits, snapshots):
         ("off-grid", ix, to_x(with_parameters(grid.model, values)), None)
         for ix, values in enumerate(checks[regime], 1)
     ]
+    # The whole search box, not only the neighborhood of the truth.
+    box = qmc.scale(
+        qmc.Sobol(3, scramble=True, seed=26).random_base2(4),
+        grid.bounds.lb,
+        grid.bounds.ub,
+    )
+    sequences += [("box", ix, point, None) for ix, point in enumerate(box, 1)]
     ids = sorted({0, len(fits) // 2, len(fits) - 1})
     for ix in ids:
         row = fits[ix]
@@ -418,7 +450,7 @@ def campaign(out, cache, regimes, reps, cells, budget, seed, threads):
             save_csv(out / "fits.csv", fits)
             if i + 1 == reps or (i + 1) % 10 == 0:
                 print(f"{regime}: {i + 1}/{reps} fitted cohorts", flush=True)
-        summaries.extend(fit_summary(regime, current))
+        summaries.extend(fit_summary(regime, current, grid.bounds))
         checks.extend(diagnostics(grid, regime, current, snapshots))
         profiles.extend(fraction_profile(grid, snapshots[0], current[0], regime))
         save_csv(out / "fraction-profile.csv", profiles)

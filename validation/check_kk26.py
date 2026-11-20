@@ -19,8 +19,26 @@ sys.path.insert(0, str(ROOT / "examples" / "kk26"))
 
 import crn_craft as crn  # noqa: E402
 from evidence import PAPER_MODES  # noqa: E402
-from fitting import STORED, TOLERANCE, code_hash, fit, read_csv  # noqa: E402
-from model import Model, cohort, forward, native_model, passage, tails  # noqa: E402
+from fitting import (  # noqa: E402
+    STORED,
+    TOLERANCE,
+    code_hash,
+    fit,
+    fit_summary,
+    read_csv,
+)
+from model import (  # noqa: E402
+    BUILD_FLAGS,
+    Model,
+    cohort,
+    forward,
+    native_model,
+    passage,
+    tails,
+)
+from render import recovery_table  # noqa: E402
+
+GUIDE = ROOT / "docs" / "guide" / "18b-mtdna-inference-results.md"
 
 N_LAW = 16000
 ALPHA = 0.001
@@ -223,16 +241,50 @@ def saved_evidence():
         len(read_csv(STORED / "fig6-differences.csv")) == 296, "two digitized panels"
     )
     grids = read_csv(STORED / "grid-checks.csv")
-    require(len(grids) == 12, "both independent grid checks and checked fits")
+    kinds = Counter(r["kind"] for r in grids)
+    require(
+        kinds == {"off-grid": 6, "fitted": 6, "box": 32},
+        "off-grid, whole-box and fitted interpolation checks",
+    )
     require(
         all(float(r["max_curve_difference"]) <= TOLERANCE for r in grids),
         "grid accuracy",
     )
-    check = [r for r in read_csv(STORED / "forward-checks.csv") if r["accepted"]]
+    check = [r for r in read_csv(STORED / "forward-checks.csv") if r["accepted"] != ""]
     require(
-        len(check) == 5 and all(r["accepted"] == "True" for r in check),
+        len(check) == 9 and all(r["accepted"] == "True" for r in check),
         "full-size forward accuracy",
     )
+    paper = read_csv(ROOT / "examples" / "kk26" / "paper-figure6.csv")
+    compared = read_csv(STORED / "fig6-differences.csv")
+    require(
+        [r["value"] for r in paper] == [r["value"] for r in compared],
+        "Figure 6 differences use the digitized values",
+    )
+    # The summary replays from the fit rows; numpy may sum in another order.
+    summary = read_csv(STORED / "bootstrap.csv")
+    replay = []
+    for regime, grid in manifest["grids"].items():
+        require(grid["build"] == " ".join(BUILD_FLAGS), f"{regime} grid build flags")
+        axes = grid["axes"]
+        bounds = Bounds([a[0] for a in axes], [a[-1] for a in axes])
+        replay += fit_summary(
+            regime, [r for r in data if r["regime"] == regime], bounds
+        )
+    require(len(replay) == len(summary) == 6, "six summary rows")
+    for new, old in zip(replay, summary, strict=True):
+        for key, value in new.items():
+            if isinstance(value, float):
+                ok = math.isclose(value, float(old[key]), rel_tol=1e-12, abs_tol=0)
+            else:
+                ok = str(value) == old[key]
+            require(ok, f"bootstrap.csv {new['regime']} {new['parameter']} {key}")
+    near_edge = sum(int(r["fits_within_1pct_of_box_edge"]) for r in summary)
+    page = GUIDE.read_text()
+    part = page.partition("<!-- kk26-recovery -->\n")[2].partition(
+        "<!-- /kk26-recovery -->"
+    )[0]
+    require(part == recovery_table(STORED), "rendered guide table is out of date")
     rows = [
         r
         for r in read_csv(STORED / "takeover-summary.csv")
@@ -258,7 +310,9 @@ def saved_evidence():
         )
     return {
         "fits": len(data),
+        "fits_within_1pct_of_box_edge": near_edge,
         "validated_interpolations": len(grids),
+        "accepted_forward_checks": len(check),
         "paper_modes": len(rows),
     }
 

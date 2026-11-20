@@ -19,7 +19,7 @@ from fitting import (
     seed_for,
 )
 from model import HERE, REGIMES
-from render import figures
+from render import figures, recovery_table
 
 DEFAULT = HERE / "results" / "local"
 
@@ -88,6 +88,7 @@ def main():
         cache = args.cache or DEFAULT / "grids"
         campaign(out, cache, labels, reps, cells, budget, args.seed, args.threads)
         paper_table_differences(out)
+        (out / "recovery-table.md").write_text(recovery_table(out))
         print(f"Results written to {out}")
         return
     if args.command == "evidence":

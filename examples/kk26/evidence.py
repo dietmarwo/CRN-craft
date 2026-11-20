@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from fitting import CAPS, STEP, TOLERANCE, read_csv, save_csv
+from fitting import CAPS, STEP, TOLERANCE, axes_for, from_x, read_csv, save_csv
 from model import (
     AGES,
     BASE,
@@ -103,7 +103,14 @@ def forward_evidence(out, arrays, atp):
                 "ssq": float(d @ d),
             }
         )
-    d = tails(atp[1.0][0]) / ATP_CASES[0][1] - tails(atp[0.5][0]) / ATP_CASES[1][1]
+    (n1, n2) = (ATP_CASES[0][1], ATP_CASES[1][1])
+    hourly, half = tails(atp[1.0][0]) / n1, tails(atp[0.5][0]) / n2
+    d = hourly - half
+    # Two-proportion z with the pooled proportion, where it is not 0 or 1.
+    pooled = (hourly * n1 + half * n2) / (n1 + n2)
+    varied = (pooled > 0) & (pooled < 1)
+    se = np.sqrt(pooled[varied] * (1 - pooled[varied]) * (1 / n1 + 1 / n2))
+    z = d[varied] / se
     checks.append(
         {
             "regime": "baseline",
@@ -111,8 +118,29 @@ def forward_evidence(out, arrays, atp):
             "max_curve_difference": float(np.max(np.abs(d))),
             "rmse": float(np.sqrt(np.mean(d * d))),
             "ssq": float(np.sum(d * d)),
+            "compared_points": int(varied.sum()),
+            "max_abs_z": float(np.max(np.abs(z))),
         }
     )
+    for name in REGIMES:
+        for corner, values in arrays.items():
+            if not corner.startswith(f"{name}-corner-"):
+                continue
+            split = values[1]
+            difference = tails(split[:, :5]) - tails(values[0][:, :5])
+            gap = float(np.max(np.abs(difference)))
+            checks.append(
+                {
+                    "regime": name,
+                    "comparison": corner.removeprefix(f"{name}-")
+                    + " split_vs_discrete",
+                    "max_curve_difference": gap,
+                    "max_leaked_mass": float(split[:, 5].max()),
+                    "max_negative_mass": float(split[:, 6].max()),
+                    "reference_leakage": float(values[0][:, 5].max()),
+                    "accepted": gap <= TOLERANCE,
+                }
+            )
     if "baseline-discrete-complete" in arrays:
         data = arrays["baseline-discrete-complete"]
         d = tails(data[:, :5]) - tails(arrays["baseline-discrete"][:, :5])
@@ -140,6 +168,16 @@ def compute_forward(out, threads, complete=False):
         arrays[f"{name}-discrete"] = forward(model, cap=cap)
         arrays[f"{name}-split"] = forward(model, cap=cap, step=STEP)
         arrays[f"{name}-fine"] = forward(model, cap=cap, step=STEP / 2)
+        # Two corners of the search box with the largest p and s, at both
+        # ends of the advantageous fraction (the largest neutral load).
+        axes = axes_for(name)
+        for label, f in (("high-f", axes[2][-1]), ("low-f", axes[2][0])):
+            corner = from_x(model, [axes[0][-1], axes[1][-1], f])
+            print(f"{name}: corner {label}, discrete and implicit", flush=True)
+            arrays[f"{name}-corner-{label}"] = (
+                forward(corner, cap=cap),
+                forward(corner, cap=cap, step=STEP),
+            )
     if complete:
         arrays["baseline-discrete-complete"] = forward(BASE)
     atp = {}
@@ -209,6 +247,7 @@ def paper_table_differences(out):
                 "paper_cohorts": ref["cohorts"],
                 "paper_cells": ref["cells"],
                 "paper_mean": ref["mean"],
+                "paper_cv_percent": ref["cv_percent"],
                 "paper_p2_5": ref["p2_5"],
                 "paper_p97_5": ref["p97_5"],
                 "mean_difference": float(r["mean"]) - float(ref["mean"]),

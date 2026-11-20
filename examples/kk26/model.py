@@ -5,7 +5,6 @@ from __future__ import annotations
 import ctypes as ct
 import math
 import os
-import platform
 import shlex
 import subprocess
 import sys
@@ -24,6 +23,9 @@ DISCRETE = "kk26-discrete-moran/1"
 SPLIT = "kk26-poisson-strang-cn/1"
 SAMPLER = "kk26-discrete-geometric-splitmix64/1"
 ATP = "kk26-hourly-atp-reconstruction/1"
+# No -march=native and no fused multiply-add: compilers contract by default
+# on targets with FMA, which changes the last bits of the forward grids.
+BUILD_FLAGS = ("-std=c++17", "-O3", "-ffp-contract=off")
 
 
 @dataclass(frozen=True)
@@ -84,16 +86,13 @@ def _vec(dtype, dims):
 def library():
     compiler = shlex.split(os.environ.get("CXX", "c++"))
     link = "-dynamiclib" if sys.platform == "darwin" else "-shared"
-    cpu = ["-march=native"] if platform.machine() in ("x86_64", "AMD64") else []
     with TemporaryDirectory(prefix="kk26-") as temp:
         output = Path(temp) / "moran.so"
         try:
             subprocess.run(
                 [
                     *compiler,
-                    "-std=c++17",
-                    "-O3",
-                    *cpu,
+                    *BUILD_FLAGS,
                     "-Wall",
                     "-Wextra",
                     "-Werror",
@@ -107,6 +106,11 @@ def library():
             )
         except FileNotFoundError as exc:
             raise RuntimeError("install a C++17 compiler or set CXX") from exc
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(
+                f"{' '.join(compiler)} could not build moran.cpp as C++17; "
+                "set CXX to another compiler"
+            ) from exc
         lib = ct.CDLL(str(output))
     common = [ct.POINTER(_Model), _vec(np.float64, 1), _vec(np.uint64, 1), ct.c_int]
     lib.kk26_forward.argtypes = [

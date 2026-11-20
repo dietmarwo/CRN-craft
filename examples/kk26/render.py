@@ -8,6 +8,47 @@ from fitting import read_csv
 from model import THRESHOLDS
 
 COLORS = ("#234d82", "#148068", "#a04716", "#6e5294")
+NAMES = {
+    "mutation": "Mutation probability `p`",
+    "advantage": "Selection advantage `s`",
+    "advantageous": "Advantageous fraction `f`",
+}
+
+
+def _number(name, value):
+    value = float(value)
+    if name == "mutation":
+        mantissa, exponent = f"{value:.2e}".split("e")
+        return f"{mantissa}e-{int(exponent[1:])}"
+    return f"{value:.3f}"
+
+
+def recovery_table(source):
+    """The chapter's table of reconstructed and published recovery results."""
+    lines = [
+        "| Regime | Parameter | Truth | Search box | Mean (CV) | 2.5–97.5% | Published mean (CV) | Published 2.5–97.5% | Truth inside: here / paper |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+    ]
+    for row in read_csv(source / "parameter-differences.csv"):
+        name = row["parameter"]
+
+        def n(key, row=row, name=name):
+            return _number(name, row[key])
+
+        inside = (
+            float(row["paper_p2_5"]) <= float(row["truth"]) <= float(row["paper_p97_5"])
+        )
+        here = row["truth_in_interval"] == "True"
+        lines.append(
+            f"| {row['regime'].capitalize()} | {NAMES[name]} | {n('truth')} | "
+            f"{n('box_low')}–{n('box_high')} | "
+            f"{n('mean')} ({float(row['cv_percent']):.1f}%) | "
+            f"{n('p2_5')}–{n('p97_5')} | "
+            f"{n('paper_mean')} ({float(row['paper_cv_percent']):.1f}%) | "
+            f"{n('paper_p2_5')}–{n('paper_p97_5')} | "
+            f"{'yes' if here else 'no'} / {'yes' if inside else 'no'} |"
+        )
+    return "\n".join(lines) + "\n"
 
 
 def _plt():

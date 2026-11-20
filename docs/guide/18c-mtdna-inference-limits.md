@@ -31,7 +31,7 @@ listed here, with their effect where it was measured.
 ## How the reconstruction was checked
 
 `validation/check_kk26.py` runs in CI, normally and under `python -O`, in
-about a minute:
+a few seconds:
 
 - **Exact laws in a seven-copy cell**: the discrete forward solver against
   matrix powers of an independently built Equation 7 chain (within 1e-11);
@@ -47,7 +47,8 @@ about a minute:
 - **Optimizer**: fcmaes differential evolution recovers a known target of
   a small artificial problem.
 - **Saved evidence**: the solver hash and build flags in the manifest match
-  `moran.cpp` and `model.py`; all 80 fits are present and the summary
+  `moran.cpp` and `model.py`; the five review files are complete; all 80
+  fits are present and the summary
   statistics replay from them; all 44 interpolation checks and the 9
   forward checks are within 0.001; the Figure 6 differences use the
   digitized values; the modal bins and the order of the medians of Figure

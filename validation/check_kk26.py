@@ -279,6 +279,15 @@ def saved_evidence():
             else:
                 ok = str(value) == old[key]
             require(ok, f"bootstrap.csv {new['regime']} {new['parameter']} {key}")
+    review = {
+        "review-budget.csv": 80,
+        "review-wide-box.csv": 4,
+        "review-atp-fit.csv": 4,
+        "review-design.csv": 6,
+        "review-design-fits.csv": 80,
+    }
+    for name, count in review.items():
+        require(len(read_csv(STORED / name)) == count, f"{name} rows")
     near_edge = sum(int(r["fits_within_1pct_of_box_edge"]) for r in summary)
     page = GUIDE.read_text()
     part = page.partition("<!-- kk26-recovery -->\n")[2].partition(

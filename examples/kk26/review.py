@@ -9,6 +9,7 @@ decision rules were fixed before the runs; guide page 18b gives them.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -30,7 +31,7 @@ from fitting import (
     seed_for,
     to_x,
 )
-from model import AGES, REGIMES, cohort, forward, tails
+from model import AGES, BUILD_FLAGS, REGIMES, cohort, forward, tails
 
 LOCAL = Path(__file__).resolve().parent / "results" / "local"
 # Wide boxes in (log10 p, s, f) and the neutral cap they need. The strong
@@ -108,7 +109,8 @@ def wide_box(out, cache, threads, only=None):
         row, counts = data[i]
         observed = tails(counts) / counts.sum(axis=1, keepdims=True)
         model = REGIMES[regime]
-        memo_file = cache / f"wide-{regime}-{i}-{code_hash()[:12]}.jsonl"
+        build = hashlib.sha256(" ".join(BUILD_FLAGS).encode()).hexdigest()[:8]
+        memo_file = cache / f"wide-{regime}-{i}-{code_hash()[:12]}-{build}.jsonl"
         memo = {}
         if memo_file.is_file():
             with memo_file.open() as fh:

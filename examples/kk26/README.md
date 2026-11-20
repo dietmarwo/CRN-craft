@@ -1,84 +1,100 @@
-# Cross-sectional mtDNA parameter inference
+# Inferring mtDNA takeover times from cell snapshots
 
-[Guide chapter 18](../../docs/guide/18-mtdna-inference.md) reproduces parts
-of Kowald & Kirkwood (2026) at 1,000 mtDNA copies per cell. The Python driver
-uses native CRN-craft for small-law checks, the paper's Moran model for
-synthetic snapshots, and fcmaes differential evolution for fitting.
-[Paper and methods](https://doi.org/10.1038/s41514-026-00431-4)
+[Guide chapter 18](../../docs/guide/18-mtdna-inference.md) reconstructs
+Equation 7, Figures 5 and 6 and the parameter recovery of Tables 2 and 3 of
+Kowald & Kirkwood (2026), *npj Aging* 12
+([doi:10.1038/s41514-026-00431-4](https://doi.org/10.1038/s41514-026-00431-4)).
+Its [last page](../../docs/guide/18c-mtdna-inference-limits.md#reconstruction-choices)
+lists every reconstruction choice in one table. The paper's authors did not
+write or review this example.
 
-Run from the repository root with Python 3.10 or newer, a C++17 compiler
-on Linux or macOS, and these Python packages. `CXX` can select the compiler.
+Run the commands from the CRN-craft root with Python 3.10 or newer, a
+C++17 compiler on Linux or macOS (set `CXX` to choose it), and these
+packages:
 
 ```sh
-python -m pip install 'crn-craft==0.8.0' fcmaes scipy matplotlib
+python -m pip install 'crn-craft==0.8.0' 'fcmaes==2.2.0' scipy matplotlib
 python examples/kk26/study.py bootstrap --size quick --threads 2
-python examples/kk26/study.py bootstrap --size full --threads 8
 python examples/kk26/study.py fit examples/kk26/results/reconstruction/snapshots-baseline.csv
-python examples/kk26/study.py evidence --threads 8 --complete-grid --results examples/kk26/results/local/full
 python examples/kk26/study.py figures --images docs/guide/img/kk26
 python validation/check_kk26.py --output kk26-validation.json
 ```
 
-The quick run fits four 2,000-cell cohorts in the baseline regime. The
-full run fits 40 cohorts of 10,000 cells in each regime. The example
-keeps synthetic cohort counts and forward-grid nodes by configuration
-and seed, and reuses completed data when a run is repeated. The saved
-grids in `results/reconstruction/grids` make the default fit inexpensive.
-A different set of ages requires a new grid. The evaluation budget is
-passed to fcmaes, and the fit rows give actual evaluations, which can
-extend to the end of a generation. The evidence command
-recomputes the direct and implicit comparison curves and simulates
-100,000 ATP cells at a 1 h step and 30,000 at a 0.5 h step. The complete
-baseline lattice is an additional run.
+`quick` fits four baseline cohorts of 2,000 cells. `fit` fits a CSV of
+counts (columns `age_days`, `bin_0` to `bin_4`) with the saved baseline
+grid; the ages must be 0, 30, …, 1,080 days, otherwise a new grid is built.
+`figures` draws the two guide figures from the saved results.
 
-## Fit and output data
+The full study and its evidence:
 
-Input CSVs for `fit` have columns `age_days` and `bin_0` through `bin_4`.
-The bins used for fitting are exactly zero, (0%, 5%], (5%, 20%],
-(20%, 50%] and (50%, 100%]. Counts are nonnegative integers.
-Ages increase, and all five counts at an age share one denominator.
+```sh
+python examples/kk26/study.py bootstrap --size full --threads 8
+python examples/kk26/study.py evidence --threads 8 --complete-grid --results examples/kk26/results/local/full
+python examples/kk26/review.py budget
+python examples/kk26/review.py wide-box
+python examples/kk26/review.py atp-fit
+python examples/kk26/review.py design --threads 2
+```
 
-| Regime | Mutation probability bound | Selection advantage bound | Advantageous fraction bound | Truth (p, s, f) |
-| --- | --- | --- | --- | --- |
-| Baseline | 3.8e-6–1.12e-5 | 0.052–0.21 | 0.32–1 | (6.8e-6, 0.10, 0.80) |
-| Strong | 1.65e-5–5.2e-5 | 0.26–0.87 | 0.065–0.47 | (3e-5, 0.50, 0.20) |
+`bootstrap --size full` fits 40 cohorts of 10,000 cells in each regime.
+Forward grids are cached under `results/local/grids` by a key of the
+solver source, the build flags and the numerical configuration; a matching
+grid in `results/reconstruction/grids` is used instead of building one.
+Cohort counts are cached by seed and solver source, so a repeated or
+interrupted run reuses them; grid nodes are saved one by one while a grid
+is built. Thread count does not change any result. `evidence` recomputes
+the discrete reference, the solver and corner checks, the complete lattice
+(`--complete-grid`) and the 100,000 hourly and 30,000 half-hour ATP cells.
+`review.py` reruns the review checks of guide page 18b and writes
+`review-*.csv` to `results/local/review` (`--results` changes it).
+`wide-box` solves the forward law directly, 15 to 20 minutes per cohort on
+one core; it memoizes the solves under `results/local/review-cache`, so an
+interrupted run continues, and `--cohort strong:2` selects one cohort.
 
-| Saved output | What to read |
+| Saved output (`results/reconstruction/`) | What it records |
 | --- | --- |
-| `fig6-curves.csv`, `fig6-differences.csv` | The simulated and numerically propagated threshold curves and their differences from the digitized published values |
-| `fits.csv`, `bootstrap.csv`, `parameter-differences.csv` | Individual parameter fits, their seed and objective, summary intervals, and comparisons to the printed tables |
-| `fraction-profile.csv` | The least-squares objective with the advantageous fraction fixed. The mutation probability and selection advantage are fitted again. |
-| `grid-checks.csv`, `forward-checks.csv` | Off-grid checks, direct checks at selected fitted coefficients, numerical refinement, neutral-count leakage, and differences between clocks |
-| `fig5-passage.csv`, `takeover-summary.csv` | Takeover CDFs, success probability, duration quantiles, modal bins, finite-window coverage and remaining tails |
-| `manifest.json`, `grids/` | Reproducible choices and the prepared forward data. Wall time is written separately for live runs. |
+| `fits.csv` | The 80 fits: cohort seed, parameters, objective at the fit and at the truth, evaluations, optimizer status and seed |
+| `bootstrap.csv`, `parameter-differences.csv`, `recovery-table.md` | Mean, CV, percentiles, search box and fits near its edge; the differences from Tables 2 and 3; the guide table |
+| `snapshots-*.csv` | The first cohort of each regime as five bin counts per age, an input for `fit` |
+| `fraction-profile.csv` | The objective of the first cohort with `f` fixed and `p`, `s` refitted |
+| `grid-checks.csv` | The spline against the solver at 3 fixed points, 16 points over the whole box and 3 fits per regime |
+| `forward-checks.csv` | Solver against discrete reference at the truths and two box corners, neutral cap against the complete lattice, Figure 6 differences, ATP step comparison |
+| `fig6-curves.csv`, `fig6-differences.csv` | The Figure 6 curves of every backend and their differences from the digitized points |
+| `fig5-passage.csv`, `takeover-summary.csv` | Takeover CDFs, success probabilities, quantiles, modal bins and the share reached by day 1,080 |
+| `review-*.csv` | The review checks: larger optimizer budget, wider box, Model-1 data, independent cells per age |
+| `manifest.json`, `grids/` | Configuration, seeds, solver hash, build flags and the two forward grids |
 
-## Numerical and source details
+## Reproducibility
 
-Equation 7 uses independent choices of a reproducing and a replaced
-copy. Exact discrete simulation skips unchanged ticks with geometric
-waiting times. The full-scale master-equation reference propagates the
-six moves and the stay probability. The accelerated solver uses a
-Poisson clock, symmetric splitting and Crank–Nicolson along each of
-the three axes of the triangular lattice. Its default substep is five
-days. Caps of 192 and 320 on the neutral count, respectively, apply
-to the two regimes. Escaped probability stays excluded from the
-reported tails. The stored fit uses tensor-product cubic interpolation
-over 192 and 216 forward nodes. See the two numerical check files.
+The C++ library is built with `-std=c++17 -O3 -ffp-contract=off` and no
+`-march=native`: fused multiply-adds change the grids in the last bits,
+and the fits follow such changes (by about 3e-8 relative). The saved
+results were produced on Intel x86-64 with GCC 13.3, Python 3.13, NumPy
+2.3.5, SciPy 1.18.1 and fcmaes 2.2.0; fcmaes 2.1.0 gives the same fits
+byte for byte. Other compilers, math libraries or optimizer versions may
+give statistically equivalent, not identical, cohorts and fits: the
+sampler uses `log1p`, the ATP model `std::binomial_distribution`.
+`validation/check_kk26.py` therefore compares no simulated value with a
+saved one.
 
-Both panels of Figure 6 are in a 2,050 × 726 px image extracted from
-the article PDF. The digitization uses the 0–1,000 day ticks and
-ordinate ticks 0.01–0.05 to calibrate each panel. Read the traces
-at the published 30-day ages. Source reading intervals allow
-3–5 ordinate pixels. They describe the process of reading the image,
-while the bootstrap describes the synthetic cohort variation.
-The bins in Figure 5 are labeled by their lower day.
-[Article PDF](https://europepmc.org/articles/PMC13272806?pdf=render)
+## Reference data
 
-The hourly ATP reconstruction uses the ATP constants of the 2014
-model, survival and birth probabilities derived from hourly hazards,
-and a closed-form ATP update with the post-reaction counts held
-fixed. A cell that reaches zero ATP retains its counts. Only
-wild-type daughters can mutate in this reconstruction. The authors'
-source repository returned a service error during preparation.
-[ATP model](https://pmc.ncbi.nlm.nih.gov/articles/PMC3939916/)
-· [Published data and code](https://gitlab.uni-rostock.de/IBIMA/MitoMutantAccTimes1)
+- `paper-figure6.csv`: 296 points of both panels of Figure 6, read from
+  the 2,050 × 726 px figure image of the article PDF. Each panel is
+  calibrated on its 0–1,000 day and 0.01–0.05 ticks; the curves are read at
+  the 30-day ages with a reading interval of 3 to 5 pixels. Panel B was
+  checked against the copy of Figure 6B in the authors' companion preprint
+  (bioRxiv [10.64898/2026.01.30.702741](https://doi.org/10.64898/2026.01.30.702741),
+  Figure 4B): 132 readable points agree within 1.05 pixels of that image
+  (0.017 percentage points). Panel A was not checked against a second
+  image.
+- `paper-tables.csv`: the means, coefficients of variation and 95%
+  intervals of Tables 1 to 3, transcribed from the article PDF. The tables
+  are images; the review could not open them and did not verify the
+  values. The text agrees in two places: the upper end of the Table 3
+  mutation-probability interval lies below the true value, and the upper
+  end of the baseline `f` interval is the imposed maximum 1.
+- The modal bins of Figure 5 (990, 540, 390 and 240 days, in `evidence.py`)
+  were read from that figure and were not verified by the review.
+- The authors' repository (linked from the paper) returned server errors
+  when the example was written.

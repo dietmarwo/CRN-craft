@@ -1,168 +1,127 @@
-# Infer mtDNA takeover times from cell snapshots
+# 18. Case study: inferring mtDNA takeover times
 
-<!-- fixtures: examples/kk26/model.py -->
+## What this chapter reproduces
 
-[Chapter 17](17-mtdna-mechanisms.md) compares mechanisms that can reproduce
-a prevalence target. Here we ask how much a set of cell snapshots tells
-us about the dynamics. We use the synthetic examples of Kowald & Kirkwood
-(2026) and the fixed-copy-number intuition of [chapter 16](16-published-study.md).
-[Open-access paper](https://pmc.ncbi.nlm.nih.gov/articles/PMC13272806/)
+A single-cell experiment sees each cell once. It cannot follow how fast a
+deletion mutant takes over a cell; it only sees, at each age, how many
+cells carry how much mutant mtDNA. A 2026 paper asks whether such
+snapshots are enough to estimate the mutation probability and the
+selection advantage of the mutants, and then turns the advantage into the
+time a mutant needs to take over a cell:
 
-## Build the observations
+> Kowald A., Kirkwood T.B.L. (2026). Inferring accumulation times of
+> mitochondrial DNA deletion mutants from cross-sectional single-cell data:
+> methodological framework and validation. *npj Aging* 12.
+> [doi:10.1038/s41514-026-00431-4](https://doi.org/10.1038/s41514-026-00431-4)
+> (Equation 7, Figures 5 and 6, Tables 2 and 3)
 
-Suppose you know each cell's age and its proportion of mutant mtDNA.
-At each age, sort cells into five bins. A cell exactly at a threshold
-goes into the bin whose upper limit equals that threshold.
+This chapter is a reconstruction from the published text and figures. The
+authors' programs and data were not available to it (their repository
+returned server errors). The values of Tables 2 and 3 were transcribed
+from the article PDF when the example was written; the tables are images
+in every version of the article the review could open, so the review did
+not verify them. The paper's authors did not write or review this chapter.
 
-| Bin | Mutant fraction |
+The result in three lines:
+
+- With 40 synthetic cohorts of 10,000 cells per regime, the fit recovers
+  the mutation probability within 7%, the selection advantage within 20%
+  and the fraction of advantageous mutants within 18% of the truth (95%
+  percentile intervals); every true value lies inside its interval. The
+  fits search a box around the true values, which a real application would
+  not know ([what that means](18b-mtdna-inference-results.md#how-to-read-the-recovery)).
+- In the baseline regime the reconstructed intervals are narrower than the
+  published ones and the published means are shifted (selection advantage
+  +7%, advantageous fraction +9%); in the strong regime both agree more
+  closely. The cause is not known. The optimizer budget, the search box
+  and the surrogate of the forward law are ruled out.
+- At selection advantage 0.10, 9.1% of single founder mutants ever reach
+  90% of the copies, and those that do need a median of 1,038 days. Only
+  58% of them get there within the three years the data cover.
+
+## Words used in this chapter
+
+- **Snapshot**: the mutant fraction of each cell at one age, without
+  knowing the same cell's past or future.
+- **Threshold**: the paper summarizes a snapshot by the fraction of cells
+  with *more than* 0%, 5%, 20% and 50% mutant copies. A cell with `M`
+  mutants among `N` copies is above 5% when `20*M > N`, above 20% when
+  `5*M > N` and above 50% when `2*M > N`; a cell exactly at a threshold is
+  not above it.
+- **Cohort**: one synthetic data set, 10,000 cells observed at the 37 ages
+  0, 30, …, 1,080 days. In this reconstruction the same 10,000 cells are
+  followed through all ages.
+- **Takeover**: a mutant lineage reaching 90% of the copies of its cell
+  (900 of 1,000, at least).
+- **Regime**: one set of true parameters. *Baseline* is `p = 6.8e-6`,
+  `s = 0.10`, `f = 0.80` (Figure 6, Table 2); *strong* is `p = 3e-5`,
+  `s = 0.50`, `f = 0.20` (Table 3).
+
+## The model in plain words
+
+A cell holds a fixed number of mtDNA copies, 1,000. Copies are replaced one
+at a time: one copy is degraded and one copy is replicated, so the number
+stays the same. The copy that replicates is chosen in proportion to its
+fitness, `1 + s` for an advantageous mutant and 1 for the others; the copy
+that is degraded is chosen at random, independently. When a wild-type copy
+replicates, its daughter is a new deletion mutant with probability `p`; a
+fraction `f` of new mutants is advantageous, the others are neutral.
+Mutants do not mutate again. With a half-life of 10 days, one day is 69.3
+such replacements. This is the Moran model of the paper's Equation 7.
+
+The pages of the chapter:
+
+| Page | Question |
 | --- | --- |
-| 0 | Exactly zero |
-| 1 | Greater than zero, at most 5% |
-| 2 | Greater than 5%, at most 20% |
-| 3 | Greater than 20%, at most 50% |
-| 4 | Greater than 50% |
+| [The model and Figure 6](18a-mtdna-inference-model.md) | What exactly is simulated, how does CRN-craft express it, and how close are the published curves? |
+| [Fitting snapshots and takeover times](18b-mtdna-inference-results.md) | How are the parameters fitted, how well are they recovered, and what does that mean for takeover times? |
+| [Choices, checks and limits](18c-mtdna-inference-limits.md) | What did the reconstruction have to decide, how was it checked, and what does it not show? |
 
-The last four cumulative counts are the observables in Figure 6.
-Use ratios with the total number of cells of that age as the
-denominator. The synthetic experiment reports at 0, 30, …, 1,080 days.
-Its trajectories are longitudinal. The objective sees only the five
-aggregate counts at each age. A fresh synthetic cohort generates all
-of its own snapshots in the parametric bootstrap.
+## CRN-craft and the local solver
 
-## Give a Moran step its published meaning
+The Moran step is six reactions that move one copy between the wild type
+`W`, the neutral mutant `U` and the advantageous mutant `A`. CRN-craft
+runs them with Static Direct and solves their probability law with finite
+state projection (FSP); [the model page](18a-mtdna-inference-model.md)
+runs a seven-copy cell both ways and the check compares them with exact
+matrix calculations.
 
-Write `W`, `U` and `A` for wild-type, neutral-mutant and
-advantageous-mutant copies. The population `N = W+U+A` stays fixed.
-Weight reproductive draws by `W`, `U` and `(1+s)*A`. A wild-type
-parent produces a mutant with probability `p`. A fraction `f` of those
-mutants are advantageous. Mutant parents copy their class.
+The study itself runs on a small C++17 library local to the example
+(`examples/kk26/moran.cpp`). It changes nothing in CRN-craft. It exists
+for two reasons:
 
-Independently draw the replaced copy from the three counts divided
-by `N`. Each Moran tick draws one daughter and one replaced copy.
-A same-class outcome uses a tick and leaves the counts as they were.
-The discrete model uses `floor(days * N * ln(2) / half_life)` ticks.
-In chapter 16, a replacement parent comes from the survivors of the
-death event. The independent draws here implement Equation 7.
-[Published transition law](https://pmc.ncbi.nlm.nih.gov/articles/PMC13272806/)
+1. The fit needs the full probability law of a 1,000-copy cell, 501,501
+   joint count states, at 37 ages, for every parameter set the optimizer
+   tries. A specialized lattice solver does this in about three seconds.
+2. The paper counts time in Moran steps, a discrete clock, while CRN-craft
+   runs in continuous time. The library has both: the exact discrete law
+   as reference and synthetic data, and a continuous-time solver for the
+   fit. The two agree to 1.2e-5 in probability.
 
-The same count transitions can be written as six CRN-craft reactions.
-Place a Poisson clock on the published ticks and the Markov generator
-is `N * ln(2) / half_life * (P - I)`, where `P` is the one-tick
-transition matrix. Static Direct samples that continuous-time law.
-Finite state projection computes it over the reachable lattice.
-Try a seven-copy example first.
+## Running the example
 
-```python
-import sys
-
-sys.path.insert(0, "examples/kk26")
-from model import Model, native_model
-
-seven_copies = native_model(Model(0.05, 0.27, 0.7, copies=7))
-result = seven_copies.fsp(
-    end=12, report_times=[0.0, 12.0], bounds={"W": 7, "U": 7, "A": 7},
-    max_states=36, tolerance=1e-10,
-)
-states = result.metadata["states"]
-last = result.metadata["snapshots"][-1]["probabilities"]
-mutant_fraction = sum(p for state, p in zip(states, last, strict=True) if state[0] < 7)
-print(f"{mutant_fraction:.4f}")
-```
-
-```text
-0.2017
-```
-
-The full model has 501,501 joint count states. The example's discrete
-reference advances their probabilities directly. The fit evaluates a
-precomputed local spline of forward curves from a faster implicit solver.
-The solver splits transitions along three directions on the count
-lattice. It records escaped mass from a cap on the neutral count.
-For the discrete projection a tail probability lies between the
-reported tail and that tail plus escaped mass. The stored fast fit
-curves were checked against the discrete implementation, and the
-baseline cap was checked against the complete lattice.
-
-## Reconstruct Figure 6
-
-Use 1,000 mtDNA copies and a 10-day half-life. Start all cells wild type
-and set `p = 6.8e-6`, `s = 0.1` and `f = 0.8`. The left panel
-reconstructs the separate ATP model used to make synthetic data. It
-updates degradation, replication and ATP on an hourly clock, with
-mutations from wild-type templates. The right panel propagates
-Equation 7 directly. The paper's curves were read from its PDF.
-[Figure 6](https://pmc.ncbi.nlm.nih.gov/articles/PMC13272806/)
-
-![Four threshold curves for the hourly ATP reconstruction and fixed-population Moran model](img/kk26/fig6-snapshots.png)
-
-The largest ordinate differences from the digitized curves are 0.158
-percentage points in the ATP panel and 0.038 percentage points in the
-Moran panel. The ATP values include finite-cohort variation and the
-choice of hourly update. A 30,000-cell half-hour run provides a
-second check of the scale of those differences.
-
-## Fit the snapshots
-
-Install CRN-craft, fcmaes, SciPy and Matplotlib. The full-size example
-uses a local C++17 compiler. Run these commands from the repository root.
+You need Python 3.10 or newer, CRN-craft 0.8.0, fcmaes, SciPy, Matplotlib
+and a C++17 compiler (set `CXX` to choose one). The library is built in a
+temporary directory the first time a command needs it. Run the commands
+from the repository root:
 
 ```sh
-python -m pip install 'crn-craft==0.8.0' fcmaes scipy matplotlib
+python -m pip install 'crn-craft==0.8.0' 'fcmaes==2.2.0' scipy matplotlib
 python examples/kk26/study.py bootstrap --size quick --threads 2
 python examples/kk26/study.py fit examples/kk26/results/reconstruction/snapshots-baseline.csv
-```
-
-The fit uses the paper's unweighted sum of squared differences between
-the four observed and predicted fractions across ages. The three search
-coordinates are the log of `p`, the selection advantage `s`, and the
-advantageous fraction `f`. fcmaes differential evolution minimizes this
-objective. The exact same forward table can serve multiple datasets.
-[Paper Methods](https://pmc.ncbi.nlm.nih.gov/articles/PMC13272806/)
-
-The stored experiment contains 40 independently generated data sets
-of 10,000 cells in each of two regimes. The following intervals are
-the empirical 2.5th and 97.5th percentiles across the fitted data sets.
-
-| Regime | Parameter | True value | Fitted mean | Reconstructed interval | Published interval |
-| --- | --- | ---: | ---: | ---: | ---: |
-| Baseline | Mutation probability | 6.80e-6 | 6.76e-6 | 6.43e-6–7.25e-6 | 6.11e-6–7.22e-6 |
-| Baseline | Selection advantage | 0.10 | 0.101 | 0.092–0.112 | 0.089–0.125 |
-| Baseline | Advantageous fraction | 0.80 | 0.786 | 0.654–0.927 | 0.65–1.00 |
-| Strong | Mutation probability | 3.00e-5 | 3.02e-5 | 2.91e-5–3.10e-5 | 2.80e-5–2.99e-5 |
-| Strong | Selection advantage | 0.50 | 0.509 | 0.445–0.601 | 0.461–0.628 |
-| Strong | Advantageous fraction | 0.20 | 0.198 | 0.172–0.235 | 0.18–0.24 |
-
-The baseline leaves a much wider absolute range for the advantageous
-fraction. Use `fraction-profile.csv` to see how changing that fraction
-shifts the preferred mutation rate and selection advantage for the
-first synthetic cohort. These intervals describe parameter recovery
-under the synthetic model. The paper also discusses uncertainty in
-turnover and copy number and the relation between RNA and DNA mutant
-fractions when applying the method to measured data.
-[Tables 2–5 and the discussion](https://pmc.ncbi.nlm.nih.gov/articles/PMC13272806/)
-
-## Translate a fitted advantage into a time
-
-Start the time at one advantageous copy, with further mutation switched
-off. Absorb the chain at extinction or at 90% advantageous copies,
-whichever comes first. Divide the takeover CDF by the eventual takeover
-probability to obtain the duration distribution among successful founders.
-Keep the success probability alongside the conditional median.
-
-![Takeover-time distributions for four selection advantages and the effect of censoring](img/kk26/fig5-takeover.png)
-
-At selection advantage 0.10, about 9.1% of single founders eventually
-reach the threshold. Among those, the median time is about 1,038 days.
-Only about 58% of those takeovers are seen by day 1,080 even when the
-founder is present at the start of that window. Omitting later takeovers
-pushes the observed distribution toward shorter times. The saved table
-also contains times computed from the fitted mean advantages.
-
-```sh
-python examples/kk26/study.py bootstrap --size full --threads 8
 python examples/kk26/study.py figures
-python validation/check_kk26.py --output kk26-validation.json
 ```
 
-See the [example README](../../examples/kk26/README.md) for the fit bounds,
-data columns and commands to rebuild the discretization checks and figures.
+`bootstrap --size quick` simulates and fits four baseline cohorts of 2,000
+cells in about ten seconds. `fit` fits the first saved baseline cohort and
+prints the result as JSON. `figures` redraws the two figures from the
+saved results without simulating. The
+[example README](../../examples/kk26/README.md) lists all commands and
+output files; [the results page](18b-mtdna-inference-results.md#rerunning-the-study)
+gives the commands of the full study.
+
+See also: [Re-creating a published study](16-published-study.md) (the
+same fixed copy number, with a pair rule),
+[Comparing mtDNA mechanisms](17-mtdna-mechanisms.md) (the ATP model that
+generates panel A of Figure 6),
+[Fitting](13-fitting.md).

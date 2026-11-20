@@ -37,6 +37,9 @@
   - [Fitting and the comparison](guide/17b-mtdna-mechanisms-results.md)
   - [Choices, checks and limits](guide/17c-mtdna-mechanisms-limits.md)
 - [18. Case study: inferring mtDNA takeover times](guide/18-mtdna-inference.md)
+  - [The model and Figure 6](guide/18a-mtdna-inference-model.md)
+  - [Fitting snapshots and takeover times](guide/18b-mtdna-inference-results.md)
+  - [Choices, checks and limits](guide/18c-mtdna-inference-limits.md)
 - [Troubleshooting](guide/troubleshooting.md)
 - [Migrating from earlier releases](guide/migrating.md)
 

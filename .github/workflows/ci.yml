@@ -158,6 +158,9 @@ jobs:
       - run: python validation/check_kk14.py --output kk14.json
       - run: python -O validation/check_kk14.py --output kk14-optimized.json
       - run: diff kk14.json kk14-optimized.json
+      - run: python validation/check_kk26.py --output kk26.json
+      - run: python -O validation/check_kk26.py --output kk26-optimized.json
+      - run: diff kk26.json kk26-optimized.json
       # Every relative link of docs/ and the READMEs resolves.
       - run: python validation/check_links.py
       # docs/reference/python-api.md is generated from the installed package.

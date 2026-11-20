@@ -1,0 +1,10 @@
+table,regime,cohorts,cells,parameter,truth,mean,cv_percent,p2_5,p97_5
+1,baseline,40,100000,mutation,6.8e-6,6.74e-6,1.71,6.55e-6,6.99e-6
+1,baseline,40,100000,advantage,0.1,0.108,4.51,0.094,0.117
+1,baseline,40,100000,advantageous,0.8,0.87,7.41,0.71,1
+2,baseline,40,10000,mutation,6.8e-6,6.65e-6,4.24,6.11e-6,7.22e-6
+2,baseline,40,10000,advantage,0.1,0.107,9.74,0.089,0.125
+2,baseline,40,10000,advantageous,0.8,0.87,13.03,0.65,1
+3,strong,40,10000,mutation,3e-5,2.9e-5,1.78,2.80e-5,2.99e-5
+3,strong,40,10000,advantage,0.5,0.538,8.05,0.461,0.628
+3,strong,40,10000,advantageous,0.2,0.21,8.14,0.18,0.24

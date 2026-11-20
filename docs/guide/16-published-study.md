@@ -119,3 +119,5 @@ mutant classes and a replication advantage),
 
 [Chapter 17](17-mtdna-mechanisms.md) reuses the drift baseline to compare
 fixed replication delays and transcription-linked replication.
+[Chapter 18](18-mtdna-inference.md) fits a Moran model of the same fixed
+copy number to cell snapshots.

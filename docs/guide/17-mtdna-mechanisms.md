@@ -130,3 +130,6 @@ gives the commands of the full study.
 See also: [Case study: mtDNA mutants](12-mtdna.md),
 [Variable population: ATP](12c-mtdna-atp.md),
 [Re-creating a published study](16-published-study.md).
+
+Continue with [chapter 18](18-mtdna-inference.md) to infer mutation and
+selection parameters and estimate takeover times from cell snapshots.

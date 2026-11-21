@@ -146,6 +146,30 @@ KK14_NAMES = {
 }
 
 
+def interval(r, mean, low, high, spec, scale=1, unit=""):
+    """A mean with its fiber-bootstrap interval; a dash when no unit is
+    affected, and no interval when all affected units lie in one fiber."""
+    if r[mean] == "":
+        return "–"
+    m, lo, hi = (scale * float(r[k]) for k in (mean, low, high))
+    if lo == hi:
+        return f"{m:{spec}}{unit} (one fiber, no interval)"
+    return f"{m:{spec}}{unit} ({lo:{spec}}–{hi:{spec}}{unit})"
+
+
+def fibers_hit():
+    """Per cohort: fibers with an affected region, and fibers affected whole."""
+    hits = {}
+    for x in rows(RESULTS / "de-novo-regions.csv"):
+        key = (x["case"], x["years"], x["attempt"])
+        per = hits.setdefault(key, {})
+        per[x["fiber"]] = per.get(x["fiber"], 0) + (x["affected"] == "True")
+    return {
+        key: (sum(v > 0 for v in per.values()), sum(v == 32 for v in per.values()))
+        for key, per in hits.items()
+    }
+
+
 def de_novo_table():
     """The comparison table of page 19c, in the layout of chapter 17b."""
     lines = [
@@ -162,7 +186,7 @@ def de_novo_table():
             f"| {r['years']} y | {CASE_NAMES[r['case']]}, {cohort} | {float(r['m']):.4g}"
             f" | {r['affected']} / {r['regions']} regions"
             f" | {100 * float(r['prevalence']):.2f}% ({100 * float(r['wilson_low']):.2f}–{100 * float(r['wilson_high']):.2f}%)"
-            f" | {float(r['types_mean']):.0f} ({float(r['types_low']):.0f}–{float(r['types_high']):.0f})"
+            f" | {interval(r, 'types_mean', 'types_low', 'types_high', '.0f')}"
             f" | {r['band']} |"
         )
     for r in rows(KK14):
@@ -183,29 +207,29 @@ def de_novo_table():
 def de_novo_units():
     """Second table of page 19c: zones, segments and the size of the types."""
     lines = [
-        "| Case, cohort | Fiber 95% interval of prevalence | Mutant copies per type | Largest type, share of copies | Zones | Types per zone | Types per 32-region segment |",
-        "| --- | --- | ---: | ---: | ---: | --- | --- |",
+        "| Case, cohort | Fiber 95% interval of prevalence | Fibers with affected regions (all 32 affected) | Mutant copies per type | Largest type, share of copies | Zones | Types per zone | Types per 32-region segment |",
+        "| --- | --- | ---: | ---: | ---: | ---: | --- | --- |",
     ]
     names = {
         "main": "Denser mutant",
         "neutral": "Equal density",
         "isolated": "Isolated",
     }
+    hit = fibers_hit()
     for r in rows(RESULTS / "de-novo-summary.csv"):
         if r["case"] not in names:
             continue
         cohort = "first fit" if r["attempt"] == "1" else "refit"
-        f = {
-            k: float(v) for k, v in r.items() if k not in ("case", "band", "statement")
-        }
+        some, whole = hit[(r["case"], r["years"], r["attempt"])]
         lines.append(
             f"| {names[r['case']]}, {r['years']} y, {cohort}"
-            f" | {100 * f['fiber_boot_low']:.1f}–{100 * f['fiber_boot_high']:.1f}%"
-            f" | {f['copies_per_type']:.2f} ({f['copies_per_type_low']:.2f}–{f['copies_per_type_high']:.2f})"
-            f" | {100 * f['largest_share']:.2f}% ({100 * f['largest_low']:.2f}–{100 * f['largest_high']:.2f}%)"
+            f" | {100 * float(r['fiber_boot_low']):.1f}–{100 * float(r['fiber_boot_high']):.1f}%"
+            f" | {some} ({whole})"
+            f" | {interval(r, 'copies_per_type', 'copies_per_type_low', 'copies_per_type_high', '.2f')}"
+            f" | {interval(r, 'largest_share', 'largest_low', 'largest_high', '.2f', 100, '%')}"
             f" | {r['zones']}"
-            f" | {f['zone_types_mean']:.0f} ({f['zone_types_low']:.0f}–{f['zone_types_high']:.0f})"
-            f" | {f['segment_types_mean']:.0f} ({f['segment_types_low']:.0f}–{f['segment_types_high']:.0f}) |"
+            f" | {interval(r, 'zone_types_mean', 'zone_types_low', 'zone_types_high', '.0f')}"
+            f" | {interval(r, 'segment_types_mean', 'segment_types_low', 'segment_types_high', '.0f')} |"
         )
     return "\n".join(lines) + "\n"
 
@@ -272,12 +296,13 @@ def de_novo_saved():
     summary = rows(RESULTS / "de-novo-summary.csv")
     cohorts = [(r["years"], r["case"]) for r in summary]
     expected = [("3", c) for c in ["main", "main", "neutral", "neutral", "isolated"]]
-    expected += [("3", "main/neutral"), ("10", "main"), ("10", "main")]
+    expected += [("3", "main/neutral")]
+    expected += [(y, "main") for y in ("10", "40", "80") for _ in (1, 2)]
     require(cohorts == expected, "de novo cohorts")
-    require(len(rows(RESULTS / "de-novo-rates.csv")) == 7, "de novo rates")
+    require(len(rows(RESULTS / "de-novo-rates.csv")) == 11, "de novo rates")
     regions = rows(RESULTS / "de-novo-regions.csv")
-    require(len(regions) == 7 * 32 * 32, "de novo region rows")
-    require(len(rows(RESULTS / "de-novo-segments.csv")) == 7 * 32, "segments")
+    require(len(regions) == 11 * 32 * 32, "de novo region rows")
+    require(len(rows(RESULTS / "de-novo-segments.csv")) == 11 * 32, "segments")
     for r in summary:
         if r["case"] not in CASE_NAMES:
             continue
@@ -298,6 +323,9 @@ def de_novo_saved():
         for x in part:
             w, m = int(x["wild"]), int(x["mutant"])
             require((5 * m >= 3 * (w + m)) == (x["affected"] == "True"), "60% rule")
+        if hits == 0:
+            require(r["types_mean"] == "", "no types mean without affected regions")
+            continue
         mean = np.mean([int(x["types"]) for x in part if x["affected"] == "True"])
         require(abs(mean - float(r["types_mean"])) < 1e-3 * mean, "types mean")
     length = rows(RESULTS / "de-novo-length.csv")

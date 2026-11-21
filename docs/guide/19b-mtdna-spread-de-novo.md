@@ -32,7 +32,7 @@ does not simulate the diversity of its own model.
 This page asks the same question of stochastic survival of the densest:
 with the paper's Figure 2 parameters, no mutants at the start and new
 deletions at replication, how many different mutant types does an affected
-region hold after 3 years?
+region hold after 3 years, and after a human lifespan?
 
 ## The model
 
@@ -50,10 +50,11 @@ directed edge, regions of 30 µm. One reaction is added:
   deletion removes.
 
 Every region starts with 3,500 wild-type copies and no mutant. Time runs
-in days; a year has 360 days, as in chapter 16. The main lifespan is 3
-years (1,080 days), the case of a short-lived animal; the denser mutant is
-also run for 10 years (3,600 days). 40 and 80 years did not fit the compute
-budget of this study.
+in days; a year has 360 days, as in chapter 16. The protocol named 3 years
+(1,080 days), the case of a short-lived animal, as the essential lifespan,
+and 10, 40 and 80 years as lifespans to add if the compute budget allowed.
+All three cases are run at 3 years; the denser mutant is also run at 10,
+40 and 80 years (3,600, 14,400 and 28,800 days).
 
 **Geometry.** A fiber is a chain of 32 regions (960 µm) with closed ends: a
 copy in an end region has one neighbor and hops only inward, as in the
@@ -65,6 +66,11 @@ neighborhoods are like those of the central regions here; it would change
 little per region, add more regions per fiber, and raise the number of
 types in a whole segment roughly in proportion to its length. A run with 64
 regions tests this on the [results page](19c-mtdna-spread-de-novo-results.md#results).
+At 40 and 80 years the spread is √(0.2 × 14,400) ≈ 54 and √(0.2 × 28,800)
+≈ 76 regions, longer than the chain: the copies of every region mix with
+the whole fiber, and the fiber, not the region, becomes the unit that
+varies. The [results page](19c-mtdna-spread-de-novo-results.md#forty-and-eighty-years)
+shows what this does to the calibration.
 
 **Units.** A **region** is affected when at least 60% of its copies are
 mutants (`5*M >= 3*(W+M)`, as in chapter 17); its types are the different
@@ -142,7 +148,8 @@ Written down before any calibration run (and recorded in the example's
 `manifest.json`, entry `de_novo`), in the order of [chapter 17b](17b-mtdna-mechanisms-results.md#the-protocol),
 with fewer units because a fiber costs seconds rather than a millisecond:
 
-- **Target**: 10% of regions affected at 1,080 days. A prevalence interval
+- **Target**: 10% of regions affected at the end of the lifespan (1,080
+  days for 3 years). A prevalence interval
   is *within* the band if it lies inside 9.5–10.5%, *compatible* if it
   intersects it, and *outside* otherwise.
 - **Fit**: a start value of `m` from one probe fiber, then 4 fibers (128
@@ -152,8 +159,8 @@ with fewer units because a fiber costs seconds rather than a millisecond:
   the affected indicator on `log10(m)` through all fit regions. Only the
   affected indicator enters the fit, never a type count.
 - **Validation**: 32 new fibers (1,024 regions) at the frozen `m`, with
-  their own seeds (a hash of the manifest seed, case, phase, `m` and fiber
-  index). Prevalence gets a 95% Wilson interval, which treats regions as
+  their own seeds (a hash of the manifest seed, case, size, lifespan, phase,
+  `m` and fiber index). Prevalence gets a 95% Wilson interval, which treats regions as
   independent, and a 95% percentile bootstrap interval over whole fibers
   (1,999 resamples), which does not. Means per region, zone and segment get
   the fiber bootstrap.
@@ -168,6 +175,9 @@ with fewer units because a fiber costs seconds rather than a millisecond:
 Regions of one fiber share copies, so they are far from independent. The
 Wilson interval is therefore too narrow, and with only 32 fibers the
 prevalence of a cohort scatters more than the band allows; the bootstrap
-over fibers shows by how much.
+over fibers shows by how much. The same holds for the fit, whose logistic
+regression also treats regions as independent. The longer the lifespan, the
+stronger the effect: at 40 and 80 years whole fibers are affected or not,
+and the protocol, written for 3 years, no longer pins the prevalence.
 
 Next: [results and limits](19c-mtdna-spread-de-novo-results.md).

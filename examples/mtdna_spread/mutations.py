@@ -926,16 +926,11 @@ def figure(args):
     fit = fit[fit.years == 3]
     rates = pd.read_csv(args.results / "de-novo-rates.csv")
     rates = rates[rates.years == 3].sort_values("attempt").groupby("case").last()
-    regions = pd.read_csv(args.results / "de-novo-regions.csv")
-    regions = regions[regions.years == 3]
     kk14 = pd.read_csv(
         ROOT.parent / "kk14" / "results" / "reconstruction" / "comparison.csv"
     )
-    kk14 = kk14[
-        (kk14.label == "primary") & (kk14.years == 3) & (kk14.cohort == "validation")
-    ].set_index("mechanism")
     fig, (left, right) = plt.subplots(
-        1, 2, figsize=(9.2, 4.0), layout="constrained", width_ratios=(1.1, 1)
+        1, 2, figsize=(9.2, 4.8), layout="constrained", width_ratios=(1.1, 1)
     )
     for case, color in COLORS.items():
         if case not in rates.index:
@@ -968,36 +963,88 @@ def figure(args):
     left.set_xticks(ticks, [f"{t:.3f}" for t in ticks])
     left.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
     left.legend(frameon=False, fontsize=8, loc="upper left")
-    last = regions.groupby("case").attempt.transform("max")
-    hit = regions[regions.affected & (regions.attempt == last)]
-    order = [c for c in COLORS if c in set(hit.case)]
-    data = [hit[hit.case == c].types.to_numpy() for c in order]
-    parts = right.boxplot(data, widths=0.5, patch_artist=True, showfliers=True)
-    for patch, case in zip(parts["boxes"], order, strict=True):
-        patch.set(facecolor=COLORS[case], alpha=0.75, edgecolor=".25")
-    for line in parts["medians"]:
-        line.set(color=".15", linewidth=1.5)
-    for name, mech in (("drift", "Neutral drift"), ("transcription", "Transcription")):
-        value = kk14.loc[name, "mutant_types"]
-        right.axhline(value, color=".45", linewidth=1, linestyle=":")
-        right.text(
-            len(order) + 0.45,
-            value * 1.08,
-            f"{mech}, one cell (ch. 17): {value:.3g}",
-            ha="right",
-            fontsize=8,
-            color=".3",
+    # B: mean types per affected region against age, last cohort of each
+    # case and lifespan, with the 95% bootstrap interval over fibers.
+    summary = pd.read_csv(args.results / "de-novo-summary.csv")
+    summary = summary[summary.case.isin(COLORS) & summary.types_mean.notna()]
+    last = summary.sort_values("attempt").groupby(["case", "years"]).last()
+    shift = {"main": 1.0, "neutral": 0.9, "isolated": 1.1}
+    for case, color in COLORS.items():
+        if case not in last.index.get_level_values(0):
+            continue
+        part = last.loc[case].sort_index()
+        x = part.index.to_numpy() * shift[case]
+        whole = part.types_high > part.types_low
+        right.plot(x, part.types_mean, color=color, linewidth=1.5, zorder=2)
+        right.errorbar(
+            x[whole],
+            part.types_mean[whole],
+            yerr=[
+                (part.types_mean - part.types_low)[whole],
+                (part.types_high - part.types_mean)[whole],
+            ],
+            fmt="o",
+            color=color,
+            ms=6,
+            capsize=3,
+            label=LABELS[case],
+            zorder=3,
         )
-    right.set_xticks(
-        range(1, len(order) + 1),
-        [LABELS[c].replace(", ", "\n") for c in order],
-        fontsize=8,
-    )
+        for age, row in part[~whole].iterrows():
+            right.plot(
+                age * shift[case],
+                row.types_mean,
+                "o",
+                mfc="white",
+                mec=color,
+                mew=1.5,
+                ms=7,
+                zorder=3,
+            )
+            right.annotate(
+                "one fiber,\ncalibration failed",
+                (age * shift[case], row.types_mean),
+                xytext=(-10, -8),
+                textcoords="offset points",
+                ha="right",
+                va="top",
+                fontsize=7.5,
+                color=".3",
+            )
+    chapter17 = kk14[(kk14.label == "primary") & (kk14.cohort == "validation")]
+    styles = {
+        "drift": ("Neutral drift", ":"),
+        "size": ("Shorter mtDNA", "-."),
+        "transcription": ("Transcription", "--"),
+    }
+    for name, (mech, style) in styles.items():
+        part = chapter17[chapter17.mechanism == name].sort_values("years")
+        right.plot(
+            part.years,
+            part.mutant_types,
+            style,
+            color=".45",
+            linewidth=1.2,
+            label=f"{mech}, one cell (ch. 17)",
+        )
+    ages = sorted(set(last.index.get_level_values(1)) | set(chapter17.years))
     right.set(
+        xscale="log",
         yscale="log",
-        ylim=(1, 2.5 * max(max(map(np.max, data)), kk14.mutant_types.max())),
+        xlim=(2, 110),
+        ylim=(0.8, 5000),
+        xlabel="Age (years of 360 days)",
         ylabel="Mutant types per affected region",
         title="B  Types in affected regions",
+    )
+    right.set_xticks(ages, [str(a) for a in ages])
+    right.xaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+    right.legend(
+        frameon=False,
+        fontsize=7,
+        loc="upper center",
+        ncol=2,
+        bbox_to_anchor=(0.5, -0.17),
     )
     args.figures.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.figures / "de-novo-types.png", dpi=155)

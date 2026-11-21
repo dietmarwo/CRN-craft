@@ -41,7 +41,8 @@ mutant types. [Pages 19b and 19c](19b-mtdna-spread-de-novo.md) add de novo
 deletions to the model and count the types; they are an extension made in
 this guide, not a result of the paper. At 3 years an affected region then
 holds well over a thousand mutant types, with or without the density
-difference, and about 820 at 10 years.
+difference, about 820 at 10 years and about 110 at 80 years, at deletion
+rates far above the paper's estimate; at 40 years the calibration failed.
 
 The result in three lines:
 

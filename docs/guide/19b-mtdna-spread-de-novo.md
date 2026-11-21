@@ -180,4 +180,183 @@ regression also treats regions as independent. The longer the lifespan, the
 stronger the effect: at 40 and 80 years whole fibers are affected or not,
 and the protocol, written for 3 years, no longer pins the prevalence.
 
+## A design for long lifespans
+
+At 40 and 80 years the first protocol has about as many independent units
+as fibers, 32 per cohort, while its fit and its band count 1,024 regions
+([results page](19c-mtdna-spread-de-novo-results.md#forty-and-eighty-years)).
+A second design, `mutations.py run --design fibers`, makes the fiber the
+sampling unit everywhere. It was written down before any run of it, in
+`manifest.json` (entry `de_novo_fibers`) and here. The first design, its
+code path (the default, `--design regions`) and its saved tables stay as
+they are.
+
+**What stays the same.** The target is still 10% of regions with at least
+60% mutants at the end of the lifespan, so the rows of both designs can be
+compared. The model, the parameters, the 32-region chain with closed ends,
+the three cases, the year of 360 days, the units, the statement rule and
+the seed rule are those above.
+
+**Fit.** Stage 1 simulates 16 fibers at each of 0.92, 0.97, 1.03 and 1.09
+times a start value of `m`. At a logistic slope of 20 to 30 per decade of
+`m` this spans about 5% to 19% affected regions. The grid is extended by
+factors of 1.25, as above, until it encloses 10%. Stage 2 simulates 32
+fibers at 1/1.03, 1 and 1.03 times the stage-1 estimate. The start value
+is the last fitted `m` of the first design for the same case and lifespan
+(`results/de-novo-rates.csv`) where there is one, and otherwise the probe
+fiber of the first design. The point estimate is the same logistic
+regression of the region indicator on `log10(m)`. Its 95% interval comes
+from a bootstrap over fibers: within each fit point, whole fibers are
+resampled, the curve is refitted and inverted at 10%, 1,999 times. A
+resample whose fit has no positive slope counts at both ends of the
+interval, so it can only widen it. A fit through all points without a
+positive slope, or whose inverse lies outside the range of the fit points,
+ends the calibration as failed; at stage 1 such a fit puts stage 2 at the
+geometric mean of the stage-1 values. (This rule was added after a run of
+the small quick-size model extrapolated far beyond its fit points, before
+any run of the draft or full size.)
+
+**Validation.** 128 new fibers at the frozen `m`. The cohort is
+*compatible* if the 95% bootstrap interval over fibers of the share of
+affected regions contains 10% and at least 10 fibers hold an affected
+region. Otherwise it is *outside* (the interval excludes 10%) or has *too
+few affected fibers*. There is no band of ±0.5 points: with 128 fibers that
+behave as single units, the prevalence of a cohort cannot be pinned that
+closely. The Wilson interval is still reported, and it assumes independent
+regions. The statement on the number of types needs at least 20 affected
+regions in at least 10 fibers; otherwise none is made. This excludes the
+one-fiber case of the first design at 40 years.
+
+**Refit.** One refit is allowed if the first cohort is not compatible:
+three new stage-2 points of 32 fibers around the `m` fitted through all
+points, a fit through all points, and a new cohort of 128 fibers. If that
+one is not compatible either, the calibration failed. All rows are kept.
+
+**Fallback cohort.** A calibration that ends with a failed fit (at the
+first or the second attempt) has no validation cohort and so no count of
+types. Such a run still simulates one cohort of 128 fibers, at the fit
+point of the last stage 2 whose observed share of affected regions is
+closest to 10% (on a tie, the smaller `m`), with its own phase
+(`fibers-fallback`) and seeds. Its summary row reads "calibration failed,
+fallback cohort" and reports the same measures as a validation cohort; the
+statement rule applies unchanged. The calibration stays failed, and the row
+is never compatible: a fallback cohort measures the types at whatever
+prevalence it happens to have, not at a calibrated 10%. (This was added
+before any run of the draft or full size.)
+
+**Seeds and tables.** The phases have their own names (`fibers-stage1`,
+`fibers-validation` and so on), so no fiber of the first design is reused
+and no checkpoint is shared. The tables are `de-novo-fibers-*.csv`, with
+the columns of the first design and, in addition, the fibers with an
+affected region (`fibers_affected`), the fibers affected along their whole
+length (`fibers_full`), the bootstrap interval of `m` over fibers
+(`m_boot_low95`, `m_boot_high95`) and the label of the cohort
+(`decision`). The columns `m_low95`, `m_high95` (regression, regions
+independent) and `band` (the first design's rule) are kept for comparison
+only.
+
+**Size and cost.** Without a refit the design simulates 4 × 16 + 3 × 32 +
+128 = 288 fibers, with one 512. A 32-region fiber costs about 170
+CPU-seconds at 40 years and 330 at 80 years with Numba on the machine that
+made the first 40- and 80-year runs. That is about 13 to 24 CPU-hours at 40
+years and 27 to 47 at 80 years. A fallback cohort takes the place of a
+validation cohort and adds no fibers to these counts. The quick size (4, 8 and 32 fibers of the
+small model, at least 3 affected fibers) runs in seconds in pure Python; the
+draft size (2, 4 and 16 fibers, at least 3) takes minutes at 3 years.
+
+**Longer-chain control.** Whether 32 regions are long enough is tested
+once: 32 fibers of 128 regions at the `m` of the fiber design, 80 years,
+the denser mutant (`mutations.py length`, about 12 CPU-hours). If the 95%
+intervals of types per affected region of the 32- and the 128-region
+cohorts do not overlap, the result reads "chain length matters", otherwise
+"no difference seen". If either cohort has fewer than 10 affected fibers,
+no statement is made.
+
+### How well the design calibrates: synthetic fibers
+
+Before any simulated run, the fit and the validation rule were tried on
+fibers drawn from a known curve, with no simulation
+(`mutations.py coverage`, about 3 minutes; targets and rules written
+down first). The share of affected regions follows a logistic curve in
+`log10(m)` with a slope of 25 per decade and 10% at a true `m`. In the
+*whole fibers* scenario a fiber is affected along all 32 regions or not at
+all, as at 40 and 80 years. In the *partly clustered* scenario the regions
+of a fiber share a random probability (intra-fiber correlation 0.2, a
+design effect of about 7, as at 3 and 10 years). Every repetition runs the
+design's own code at the full size: 16 and 32 fibers per fit point, 128 per
+cohort, 1,999 resamples, a start value up to 7% from the true `m`. 400
+repetitions per scenario; the intervals are 95% Wilson intervals of the
+shares (`results/review-fiber-fit-coverage.csv`):
+
+<!-- mtdna-spread-fiber-coverage -->
+| Experiment, quantity | Whole fibers | Partly clustered |
+| --- | --- | --- |
+| T4 fit interval: coverage of true m, fiber bootstrap | 0.810 (0.769–0.845), undercovers | 0.907 (0.875–0.932) |
+| T4 fit interval: coverage of true m, regions independent | 0.235 (0.196–0.279) | 0.560 (0.511–0.608) |
+| T4 fit interval: median width / true m, fiber bootstrap | 0.126 | 0.0498 |
+| T4 fit interval: median width / true m, regions independent | 0.0158 | 0.0178 |
+| T4 fit interval: failed point fits (no positive slope or inverse outside the fit points) | 43 | 10 |
+| T4 fit interval: share of failed bootstrap refits | 0.0193 | 0.0016 |
+| T5 validation rule at the true m: fiber interval of prevalence contains 0.10 | 0.943 (0.915–0.961) | 0.935 (0.906–0.955) |
+| T5 validation rule at the true m: at least 10 affected fibers | 0.838 (0.798–0.870) | 1.000 (0.990–1.000) |
+| T5 validation rule at the true m: compatible | 0.820 (0.779–0.855) | 0.935 (0.906–0.955) |
+| T6 end to end, R0: done at attempt 1 | 0.660 (0.612–0.705) | 0.858 (0.820–0.888) |
+| T6 end to end, R0: done at attempt 2 | 0.180 (0.145–0.221) | 0.117 (0.090–0.153) |
+| T6 end to end, R0: failed calibrations | 0.160 (0.127–0.199) | 0.025 (0.014–0.045) |
+| T6 end to end, R0: coverage of true m, fiber bootstrap of the last fit | 0.848 (0.809–0.879) | 0.948 (0.921–0.965) |
+| T6 end to end, R0: median error of m in done calibrations (%) | 1.52 | 0.79 |
+| T6 end to end, R1: done at attempt 1 | 0.660 (0.612–0.705) | 0.858 (0.820–0.888) |
+| T6 end to end, R1: done at attempt 2 | 0.212 (0.175–0.255) | 0.120 (0.092–0.156) |
+| T6 end to end, R1: failed calibrations | 0.128 (0.098–0.164) | 0.022 (0.012–0.042) |
+| T6 end to end, R1: coverage of true m, fiber bootstrap of the last fit | 0.897 (0.864–0.924) | 0.950 (0.924–0.967) |
+| T6 end to end, R1: median error of m in done calibrations (%) | 1.52 | 0.788 |
+| T6 decision: R1 replaces R0 (last-fit coverage >= 0.90, no more failures) | 0, R0 kept | – |
+| T7 fallback cohort, R0: fit-failed calibrations with a fallback cohort | 40 | 1 |
+| T7 fallback cohort, R0: true prevalence at the fallback point, median | 0.0893 | 0.095 |
+| T7 fallback cohort, R0: true prevalence at the fallback point, 2.5% quantile | 0.0436 | 0.095 |
+| T7 fallback cohort, R0: true prevalence at the fallback point, 97.5% quantile | 0.218 | 0.095 |
+| T7 fallback cohort, R0: share of fallback cohorts with at least 10 affected fibers | 0.750 (0.598–0.858) | 1.000 (0.207–1.000) |
+<!-- /mtdna-spread-fiber-coverage -->
+
+**The fit interval (T4).** When whole fibers are affected or not, the
+interval of the first design's regression, which treats regions as
+independent, contains the true `m` in only 23.5% of the repetitions; its
+median width is 1.6% of `m`. The bootstrap over fibers is eight times
+wider and contains the true `m` in 81%. That is below the 90% the rule
+asked for, so by the rule declared before the run it *undercovers*. Most of
+the gap comes from the 43 repetitions (11%) whose fit through all points
+fails, counted as not covered: in 39 of them the inverse lies just outside
+the range of the fit points. Among the other 357, the interval covers in
+324 (91%); this split was not declared in advance. With partial clustering
+the bootstrap covers in 91%, the regression in 56%.
+
+**The validation rule at the true `m` (T5).** With whole fibers, a cohort
+of 128 fibers at exactly the right `m` is compatible in 82% of the
+repetitions: its prevalence interval contains 10% in 94%, but in 16% fewer
+than 10 fibers hold an affected region (12.8 are expected). So about one
+cohort in five triggers the refit even at the right `m`.
+
+**End to end (T6).** The whole procedure, fit, validation and refit, ends
+with a compatible cohort in 84% of the repetitions with whole fibers (66%
+at the first cohort) and in 97.5% with partial clustering. A done
+calibration misses the true `m` by 1.5% (median) with whole fibers and 0.8%
+with partial clustering. After the result of T4, one change was tested,
+written down before its run: revision R1 lets a failed fit at attempt 1
+lead to the refit instead of ending the calibration. R1 lowers the failed
+calibrations with whole fibers from 16% to 13% and raises the coverage of
+the last fit from 85% to 90% (0.8975). The rule asked for at least 0.90, so
+R1 was not adopted, and the full runs use the design as declared (R0). Its
+interval of `m` is honest only to about 85% with whole fibers; the
+validation cohort, not the fit interval, decides whether `m` is accepted.
+
+**What a fallback cohort is worth (T7).** In the same end-to-end runs of
+R0 (rule written down before the run), 40 of the 400 calibrations with
+whole fibers end with a failed fit and get a fallback cohort; the other 24
+failures have two cohorts that are not compatible. At the fallback points
+the true share of affected regions has a median of 8.9% (2.5% to 97.5%
+range: 4.4% to 21.8%), and 75% of the fallback cohorts have at least 10
+affected fibers, so the statement rule can apply to them. With partial
+clustering one calibration ends this way. A fallback cohort therefore
+measures the types at a prevalence near, but not at, 10%.
+
 Next: [results and limits](19c-mtdna-spread-de-novo-results.md).

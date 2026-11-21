@@ -281,11 +281,12 @@ What the experiment does not show:
   calibration failed, and at 80 years the refit is compatible with the band
   only by the Wilson interval, which treats regions as independent.
 - **The protocol does not suit long lifespans.** At 40 and 80 years whole
-  fibers are affected or not, so 32 fibers are about 32 units. A design for
-  long lifespans would calibrate on affected fibers or zones rather than
-  regions, and use more fibers, each at least as long as copies travel in
-  the lifespan (about 54 to 76 regions). That is outstanding work, not a
-  result of this page.
+  fibers are affected or not, so 32 fibers are about 32 units. A design
+  with fibers as the sampling unit, 128 fibers per cohort and a
+  128-region control is declared on
+  [page 19b](19b-mtdna-spread-de-novo.md#a-design-for-long-lifespans). Its
+  40- and 80-year runs and the control are outstanding; this page has no
+  result from them.
 - **The rate is far above the paper's estimate.** The 10% target sets `m`;
   at 80 years it is 84 to 3,300 times the paper's estimate for human
   fibers. The number of types at the paper's rate is not known from this
@@ -320,6 +321,11 @@ are choices of this guide, given with their reasons on
 | full, 40 years | `python examples/mtdna_spread/mutations.py run --size full --years 40 --case main --workers N` | the 40-year runs (133 fibers with the refit); the saved rows were run on a second machine by a reader of the guide | about 3 CPU-hours with Numba (estimate: 84 to 106 s per fiber on the review host) |
 | full, 80 years | `python examples/mtdna_spread/mutations.py run --size full --years 80 --case main --workers N` | the 80-year runs (141 fibers with the refit); the saved rows were run on a second machine by a reader of the guide | about 6.5 CPU-hours with Numba (estimate: 164 s for one fiber on the review host) |
 | length | `python examples/mtdna_spread/mutations.py length --m 0.01116696641687773 --regions 64` | eight 64-region fibers | 2 min |
+| fiber design, quick | `python examples/mtdna_spread/mutations.py run --size quick --design fibers` | the [fiber design](19b-mtdna-spread-de-novo.md#a-design-for-long-lifespans) on the small model, pure Python | 9 s |
+| coverage | `python examples/mtdna_spread/mutations.py coverage --output examples/mtdna_spread/results` | the fiber design on synthetic fibers (page 19b) | 3 min |
+| fiber design, 40 years | `python examples/mtdna_spread/mutations.py run --size full --years 40 --case main --design fibers --workers 16 --work DIR --output DIR` | 288 fibers, 512 with the refit; outstanding | 13 to 24 CPU-hours (estimate) |
+| fiber design, 80 years | `python examples/mtdna_spread/mutations.py run --size full --years 80 --case main --design fibers --workers 16 --work DIR --output DIR` | 288 fibers, 512 with the refit; outstanding | 27 to 47 CPU-hours (estimate) |
+| 128-region control | `python examples/mtdna_spread/mutations.py length --years 80 --regions 128 --fibers 32 --m-from DIR/de-novo-fibers-rates.csv --reference DIR/de-novo-fibers-summary.csv --workers 16 --output DIR2` | 32 fibers of 128 regions after the 80-year fiber run; outstanding | about 12 CPU-hours (estimate) |
 
 The draft and full sizes need Numba in practice: without it the same
 sampler runs in pure Python, roughly 100 times slower. Every fiber is
@@ -337,8 +343,16 @@ the 3-, 10-, 40- and 80-year rows in this order. A 10-year fiber has about
 185 million events and took 23 s; a 40-year fiber has 730 to 890 million
 and an 80-year fiber about 1.4 billion. Outstanding: equal density and
 isolated regions at 10, 40 and 80 years (at 10 years about 35 and 15
-CPU-minutes, at 40 and 80 years a few CPU-hours each), and a calibration
-for long lifespans on fibers or zones (see the limits above).
+CPU-minutes, at 40 and 80 years a few CPU-hours each), and the fiber-design
+runs at 40 and 80 years with the 128-region control (no results yet).
+
+The cost of the fiber design is an estimate of 0.13 CPU-seconds per region
+and year with Numba, from the machine that made the first 40- and 80-year
+runs (about 170 and 330 s per 32-region fiber). One 40-year fiber took 83
+s on the two-core review host, about half of that. `run --design fibers`
+prints the number of fibers and this estimate at its start. With
+`--workers 16` the stages run in 18 rounds of 16 fibers without a refit and
+32 with it, about 1.7 and 3 hours at 80 years.
 
 ## Exercises
 

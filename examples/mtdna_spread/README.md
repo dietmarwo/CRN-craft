@@ -84,3 +84,43 @@ the sampler with the CRN-craft model of the same reactions (`crn_model`) and
 with a moment law. The saved tables are `results/de-novo-*.csv`, with the
 3-, 10-, 40- and 80-year rows in this order; `figure` draws
 `de-novo-types.png` from them.
+
+### Fiber design for long lifespans
+
+At 40 and 80 years whole fibers are affected or not, so the first design
+counts far too many independent units. `run --design fibers` makes the
+fiber the sampling unit in the fit and in the validation
+([page 19b](../../docs/guide/19b-mtdna-spread-de-novo.md#a-design-for-long-lifespans),
+manifest entry `de_novo_fibers`). The default, `--design regions`, is the
+first design and writes the same tables as before.
+
+```sh
+python examples/mtdna_spread/mutations.py run --size quick --design fibers
+python examples/mtdna_spread/mutations.py coverage --output examples/mtdna_spread/results
+python examples/mtdna_spread/mutations.py run --size full --years 40 --case main --design fibers --workers 16 --work runs/f40 --output runs/f40
+python examples/mtdna_spread/mutations.py run --size full --years 80 --case main --design fibers --workers 16 --work runs/f80 --output runs/f80
+python examples/mtdna_spread/mutations.py length --years 80 --regions 128 --fibers 32 --m-from runs/f80/de-novo-fibers-rates.csv --reference runs/f80/de-novo-fibers-summary.csv --workers 16 --work runs/l128 --output runs/l128
+```
+
+The run prints how many fibers it will simulate and an estimate of the
+CPU-hours (0.13 CPU-seconds per region and year with Numba, from timings on a
+2.3 GHz Xeon): 288 fibers without a refit and 512 with it, about 13 to 24
+CPU-hours at 40 years and 27 to 47 at 80 years; the 128-region control
+about 12. Every fiber is checkpointed in `--work`, so a stopped run
+continues where it stopped, and the tables do not depend on `--workers`
+apart from the measured `seconds`. It writes `de-novo-fibers-rates.csv`,
+`-fit.csv`, `-summary.csv`, `-regions.csv`, `-zones.csv` and
+`-segments.csv`, with the columns of the first design plus
+`fibers_affected`, `fibers_full`, `m_boot_low95`/`m_boot_high95` (the
+bootstrap interval of `m` over fibers), `decision`, `calibration` and
+`cohort`; `m` keeps all its digits. A calibration that ends with a failed
+fit still simulates one cohort of validation size at the last stage-2 point
+closest to 10% affected regions; its rows have `cohort` `fallback` and the
+decision "calibration failed, fallback cohort", and they measure the types
+at the prevalence that cohort has, not at a calibrated 10%. In these tables `wilson_low`/`wilson_high` assume
+independent regions, and `band` and `m_low95`/`m_high95` are the first
+design's rule and regression, kept for comparison only. `length` writes the
+region rows to `de-novo-length.csv` and one summary row, in the same
+layout, to `de-novo-length-summary.csv`. `coverage` tests the fiber design
+on synthetic fibers without simulation (`results/review-fiber-fit-coverage.csv`).
+The 40- and 80-year runs of this design and the control are outstanding.

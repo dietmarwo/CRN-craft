@@ -6,11 +6,14 @@ calibration, and the saved tables of pages 19b and 19c.
 Run with --write to print the generated tables of the pages.
 """
 
+import contextlib
 import csv
+import io
 import math
 import sys
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -19,6 +22,7 @@ EXAMPLE = REPO / "examples" / "mtdna_spread"
 RESULTS = EXAMPLE / "results"
 PAGE = REPO / "docs" / "guide" / "19-mtdna-spread.md"
 DE_NOVO_PAGE = REPO / "docs" / "guide" / "19c-mtdna-spread-de-novo-results.md"
+DESIGN_PAGE = REPO / "docs" / "guide" / "19b-mtdna-spread-de-novo.md"
 KK14 = REPO / "examples" / "kk14" / "results" / "reconstruction" / "comparison.csv"
 sys.path.insert(0, str(EXAMPLE))
 import mutations  # noqa: E402
@@ -292,6 +296,116 @@ def de_novo_laws():
     require(serial == pooled, "fibers from a process pool equal fibers in turn")
 
 
+def de_novo_fibers():
+    """The fiber design: bootstrap laws on hand-checkable fibers, the fit
+    against the first design's regression, and a small calibration."""
+    rng = np.random.default_rng(7)
+    # Identical fibers within each fit point: every resample is the data,
+    # so the bootstrap interval of m collapses to the point estimate.
+    points = [
+        ("stage1", 1e-4 * f, [h] * 8, [32] * 8)
+        for f, h in ((0.9, 1), (1.0, 3), (1.1, 6), (1.2, 12))
+    ]
+    fit = mutations.fiber_fit(points, 199, rng)
+    require(fit["fit_ok"] and fit["boot_failed"] == 0, "identical fibers fit")
+    for key in ("m_boot_low95", "m_boot_high95"):
+        require(abs(fit[key] / fit["m"] - 1) < 1e-12, "fit interval collapses")
+    # The point estimate is the first design's regression through all regions.
+    first = mutations.logistic([(p[1], sum(p[2]), sum(p[3])) for p in points])
+    require(abs(first[2] / fit["m"] - 1) < 1e-9, "same regression as the first design")
+    require(abs(first[3] / fit["m_low95"] - 1) < 1e-9, "same delta-method interval")
+    # Identical fibers in a cohort: the prevalence interval collapses.
+    groups = [[True] * 3 + [False] * 29 for _ in range(16)]
+    flat = [v for g in groups for v in g]
+    _, low, high, _, _ = mutations.ratio_mean(flat, groups, 199, rng)
+    require(low == high == 3 / 32, "prevalence interval collapses")
+    # Whole fibers affected or not: the bootstrap SE of prevalence is the
+    # binomial SE over fibers, sqrt(p (1 - p) / F), up to Monte Carlo error.
+    groups = [[i < 20] * 32 for i in range(100)]
+    flat = [v for g in groups for v in g]
+    _, _, _, draws, _ = mutations.ratio_mean(flat, groups, 1999, rng)
+    ratio = np.std(draws) / math.sqrt(0.2 * 0.8 / 100)
+    require(abs(ratio - 1) < 0.10, f"whole-fiber bootstrap SE, ratio {ratio:.3f}")
+    # Labels of a validation cohort.
+    decide = mutations.decide
+    require(decide(0.05, 0.15, 10, 10) == "compatible", "compatible cohort")
+    require(decide(0.05, 0.15, 9, 10) == "too few affected fibers", "few fibers")
+    require(decide(0.11, 0.15, 30, 10) == "outside", "cohort outside")
+    # A fit without a positive slope, or with its inverse outside the fit
+    # points, fails.
+    flat_points = [("stage1", 1e-4 * f, [3] * 4, [32] * 4) for f in (0.9, 1.1)]
+    require(not mutations.fiber_fit(flat_points, 9, rng)["fit_ok"], "flat fit")
+    # The quick fiber design end to end on the small model, at reduced fiber
+    # counts so that the check stays fast. With these seeds (80 years) the
+    # first cohort is outside, the refit's fit fails, and the declared
+    # fallback cohort follows.
+    saved = mutations.FIBER_SIZES["quick"]
+    mutations.FIBER_SIZES["quick"] = {"fibers": (2, 2, 8), "boot": 99, "min_fibers": 2}
+    try:
+        args = SimpleNamespace(size="quick", years=80, cases=["main"], design="fibers")
+        with tempfile.TemporaryDirectory() as work:
+            args.work = args.output = Path(work)
+            with contextlib.redirect_stdout(io.StringIO()) as text:
+                mutations.run(args)
+            summary = rows(Path(work) / "de-novo-fibers-summary.csv")
+            rates = rows(Path(work) / "de-novo-fibers-rates.csv")
+            fit = rows(Path(work) / "de-novo-fibers-fit.csv")
+            units = rows(Path(work) / "de-novo-fibers-regions.csv")
+        require("fibers without a refit" in text.getvalue(), "plan line")
+        require(len(rates) == 2, "one rate row per attempt")
+        last = summary[-1]
+        label = "calibration failed, fallback cohort"
+        require(last["decision"] == label, "fallback row after a failed fit")
+        require(last["calibration"] == "failed", "fallback keeps the failure")
+        require(summary[-2]["decision"] == "fit failed", "failed fit before it")
+        require(all(r["decision"] != "compatible" for r in summary), "no success")
+        # The fallback m: the last stage 2's point closest to 10% affected.
+        stage = [r for r in fit if r["stage"] == "stage2-a2"] or [
+            r for r in fit if r["stage"] == "stage2"
+        ]
+        best = min(
+            stage,
+            key=lambda r: (
+                abs(int(r["affected"]) / int(r["regions"]) - 0.1),
+                float(r["m"]),
+            ),
+        )
+        require(last["m"] == best["m"], "fallback at the declared fit point")
+        cohort = [u for u in units if u["cohort"] == "fallback"]
+        require(len(cohort) == 8 * 4, "a fallback cohort of validation size")
+        hits = sum(u["affected"] == "True" for u in cohort)
+        require(hits == int(last["affected"]), "fallback affected count")
+    finally:
+        mutations.FIBER_SIZES["quick"] = saved
+
+
+def coverage_table():
+    """Coverage experiment of page 19b, from the saved review table: one row
+    per quantity, one column per scenario."""
+    data = rows(RESULTS / "review-fiber-fit-coverage.csv")
+    lines = [
+        "| Experiment, quantity | Whole fibers | Partly clustered |",
+        "| --- | --- | --- |",
+    ]
+    cells = {}
+    for r in data:
+        value = float(r["value"])
+        if r["low95"]:
+            text = f"{value:.3f} ({float(r['low95']):.3f}–{float(r['high95']):.3f})"
+        elif value == int(value):
+            text = f"{int(value)}"
+        else:
+            text = f"{value:.3g}"
+        if r["label"]:
+            text += f", {r['label']}"
+        cells.setdefault((r["experiment"], r["quantity"]), {})[r["scenario"]] = text
+    for (experiment, quantity), by in cells.items():
+        lines.append(
+            f"| {experiment}: {quantity} | {by.get('W', '–')} | {by.get('C', '–')} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
 def de_novo_saved():
     summary = rows(RESULTS / "de-novo-summary.csv")
     cohorts = [(r["years"], r["case"]) for r in summary]
@@ -348,6 +462,7 @@ def main():
         print(figure2_table())
         print(de_novo_table())
         print(de_novo_units())
+        print(coverage_table())
         return
     # Reference reader: the three day-700 neutral means of Figure 1C.
     reference = rows(EXAMPLE / "reference-1c.csv")
@@ -396,7 +511,13 @@ def main():
         "Figure 2E table out of date",
     )
     de_novo_laws()
+    de_novo_fibers()
     de_novo_saved()
+    require(
+        region(DESIGN_PAGE.read_text(encoding="utf-8"), "mtdna-spread-fiber-coverage")
+        == coverage_table(),
+        "coverage table of page 19b out of date",
+    )
     page = DE_NOVO_PAGE.read_text(encoding="utf-8")
     require(
         region(page, "mtdna-spread-de-novo") == de_novo_table(),
@@ -408,6 +529,7 @@ def main():
     )
     print("spatial archive, migration laws, saved results and guide tables verified")
     print("de novo sampler laws, saved tables and page 19c verified")
+    print("fiber design: bootstrap laws, quick calibration and page 19b verified")
 
 
 if __name__ == "__main__":

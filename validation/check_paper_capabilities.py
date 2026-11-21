@@ -638,7 +638,392 @@ def experiment_fixture(temp):
     return source
 
 
+_CORE = "http://www.sbml.org/sbml/level3/version2/core"
+_MML = "http://www.w3.org/1998/Math/MathML"
+_TIME = "http://www.sbml.org/sbml/symbols/time"
+_MANIFEST = """<omexManifest xmlns="http://identifiers.org/combine.specifications/omex-manifest">
+<content location="study.sedml" format="http://identifiers.org/combine.specifications/sed-ml" master="true"/>
+</omexManifest>"""
+
+
+def _sbml(
+    law="<apply><times/><ci>k</ci><ci>A</ci></apply>",
+    parameters='<parameter id="k" value="1" constant="false"/>',
+    rules="",
+    events="",
+    reactants='<speciesReference species="A" stoichiometry="1" constant="true"/>',
+    initial="5",
+):
+    return f"""<sbml xmlns="{_CORE}" level="3" version="2">
+<model id="m" timeUnits="second" substanceUnits="item">
+<listOfCompartments><compartment id="c" size="1" constant="true"/></listOfCompartments>
+<listOfSpecies><species id="A" compartment="c" initialAmount="{initial}"
+ hasOnlySubstanceUnits="true" boundaryCondition="false" constant="false"/></listOfSpecies>
+<listOfParameters>{parameters}</listOfParameters>{rules}
+<listOfReactions><reaction id="r" reversible="false"><listOfReactants>{reactants}
+</listOfReactants><kineticLaw><math xmlns="{_MML}">{law}</math></kineticLaw></reaction>
+</listOfReactions>{events}</model></sbml>"""
+
+
+def _sed(
+    source="model.xml",
+    changes="",
+    algorithm='<algorithm kisaoID="KISAO:0000029"/>',
+    start="0",
+    end="1",
+    task="t",
+):
+    return f"""<sedML xmlns="http://sed-ml.org/sed-ml/level1/version3" level="1" version="3">
+<listOfModels><model id="m" source="{source}" language="urn:sedml:language:sbml">
+{changes}</model></listOfModels>
+<listOfSimulations><uniformTimeCourse id="s" initialTime="{start}" outputStartTime="0"
+ outputEndTime="{end}" numberOfPoints="2">{algorithm}</uniformTimeCourse></listOfSimulations>
+<listOfTasks><task id="{task}" modelReference="m" simulationReference="s"/></listOfTasks>
+<listOfDataGenerators><dataGenerator id="g"><listOfVariables><variable id="x"
+ taskReference="{task}" target="/sbml:sbml/sbml:model/sbml:listOfSpecies/sbml:species[@id='A']"/>
+</listOfVariables><math xmlns="{_MML}"><ci>x</ci></math></dataGenerator></listOfDataGenerators>
+<listOfOutputs><report id="out"><listOfDataSets><dataSet id="A" dataReference="g"/>
+</listOfDataSets></report></listOfOutputs></sedML>"""
+
+
+def _event(name, time, assignments, priority=None, initial="true", extra=""):
+    rank = (
+        ""
+        if priority is None
+        else f'<priority><math xmlns="{_MML}"><cn>{priority}</cn></math></priority>'
+    )
+    body = "".join(
+        f'<eventAssignment variable="{k}"><math xmlns="{_MML}">{v}</math></eventAssignment>'
+        for k, v in assignments.items()
+    )
+    return f"""<event id="{name}" useValuesFromTriggerTime="{extra or "true"}">
+<trigger initialValue="{initial}" persistent="true"><math xmlns="{_MML}"><apply><geq/>
+<csymbol definitionURL="{_TIME}">time</csymbol><cn>{time}</cn></apply></math></trigger>
+{rank}<listOfEventAssignments>{body}</listOfEventAssignments></event>"""
+
+
+def _archive(path, members, *, compression=zipfile.ZIP_DEFLATED):
+    members = {"manifest.xml": _MANIFEST, "study.sedml": _sed(), **members}
+    with zipfile.ZipFile(path, "w", compression) as arc:
+        for name, data in members.items():
+            arc.writestr(name, data)
+    return path
+
+
+def _refused(read):
+    try:
+        read()
+    except ImportFailure as error:
+        return f"{error.code}: {error}"
+    return "accepted"
+
+
+def experiment_refusals(temp):
+    """Hostile or unsupported inputs: each must end in a CRN-E090 refusal."""
+    temp = Path(temp)
+    model = {"model.xml": _sbml()}
+    seed_parameter = (
+        '<algorithm kisaoID="KISAO:0000029"><listOfAlgorithmParameters>'
+        '<algorithmParameter kisaoID="KISAO:0000488" value="7"/>'
+        "</listOfAlgorithmParameters></algorithm>"
+    )
+    change = (
+        "<listOfChanges><changeAttribute newValue='2' target=\"{}\"/></listOfChanges>"
+    )
+    time_ge = f'<apply><geq/><csymbol definitionURL="{_TIME}">time</csymbol><cn>1</cn></apply>'
+    k_rule = (
+        '<parameter id="k" constant="false"/><parameter id="p" constant="false"/>',
+        f'<listOfRules><assignmentRule variable="k"><math xmlns="{_MML}"><ci>p</ci>'
+        f'</math></assignmentRule><assignmentRule variable="p"><math xmlns="{_MML}">'
+        "<ci>k</ci></math></assignmentRule></listOfRules>",
+    )
+    utf16 = (
+        '<?xml version="1.0" encoding="UTF-16"?><!DOCTYPE s [<!ENTITY e "x">]>' + _sed()
+    ).encode("utf-16-le")
+    cases = {
+        "source_parent": {"study.sedml": _sed("../model.xml"), **model},
+        "source_absolute": {"study.sedml": _sed("/model.xml"), **model},
+        "source_url": {"study.sedml": _sed("https://example.org/m.xml"), **model},
+        "source_urn": {"study.sedml": _sed("urn:miriam:biomodels.db:BIOMD1"), **model},
+        "member_parent": {"../model.xml": _sbml(), **model},
+        "member_missing": {},
+        "member_count": {**model, **{f"pad{i}": "" for i in range(256)}},
+        "doctype": {"study.sedml": '<!DOCTYPE s [<!ENTITY e "x">]>' + _sed(), **model},
+        "utf16_doctype": {"study.sedml": utf16, **model},
+        "encoding_latin1": {
+            "study.sedml": '<?xml version="1.0" encoding="ISO-8859-1"?>' + _sed(),
+            **model,
+        },
+        "nested_archive": {"model.xml": b"PK\x03\x04" + bytes(64)},
+        "kisao_next_reaction": {
+            "study.sedml": _sed(algorithm='<algorithm kisaoID="KISAO:0000027"/>'),
+            **model,
+        },
+        "kisao_seed_parameter": {
+            "study.sedml": _sed(algorithm=seed_parameter),
+            **model,
+        },
+        "xpath_descendant": {
+            "study.sedml": _sed(changes=change.format("//parameter[@id='k']/@value")),
+            **model,
+        },
+        "xpath_species_amount": {
+            "study.sedml": _sed(
+                changes=change.format(
+                    "/sbml/model/listOfSpecies/species[@id='A']/@initialAmount"
+                )
+            ),
+            **model,
+        },
+        "change_derived_parameter": {
+            "study.sedml": _sed(
+                changes=change.format(
+                    "/sbml/model/listOfParameters/parameter[@id='k']/@value"
+                )
+            ),
+            "model.xml": _sbml(
+                parameters='<parameter id="k" constant="false"/>'
+                '<parameter id="p" value="1" constant="true"/>',
+                rules=f'<listOfRules><assignmentRule variable="k"><math xmlns="{_MML}">'
+                "<ci>p</ci></math></assignmentRule></listOfRules>",
+            ),
+        },
+        "cyclic_rules": {"model.xml": _sbml(parameters=k_rule[0], rules=k_rule[1])},
+        "rule_reads_species": {
+            "model.xml": _sbml(
+                parameters='<parameter id="k" constant="false"/>',
+                rules=f'<listOfRules><assignmentRule variable="k"><math xmlns="{_MML}">'
+                "<ci>A</ci></math></assignmentRule></listOfRules>",
+            )
+        },
+        "pair_law_squared": {
+            "model.xml": _sbml(
+                law="<apply><times/><ci>k</ci><ci>A</ci><ci>A</ci></apply>",
+                reactants='<speciesReference species="A" stoichiometry="2" constant="true"/>',
+            )
+        },
+        "signed_law_strict": {
+            "model.xml": _sbml(
+                law="<apply><minus/><apply><times/><ci>k</ci><ci>A</ci></apply><cn>1</cn></apply>"
+            )
+        },
+        "state_trigger": {
+            "model.xml": _sbml(
+                events=f'<listOfEvents><event id="e" useValuesFromTriggerTime="true">'
+                f'<trigger initialValue="true" persistent="true"><math xmlns="{_MML}">'
+                "<apply><geq/><ci>A</ci><cn>3</cn></apply></math></trigger>"
+                f'<listOfEventAssignments><eventAssignment variable="k"><math xmlns="{_MML}">'
+                "<cn>2</cn></math></eventAssignment></listOfEventAssignments></event>"
+                "</listOfEvents>"
+            )
+        },
+        "event_delay": {
+            "model.xml": _sbml(
+                events=f'<listOfEvents><event id="e" useValuesFromTriggerTime="true">'
+                f'<trigger initialValue="true" persistent="true"><math xmlns="{_MML}">'
+                f'{time_ge}</math></trigger><delay><math xmlns="{_MML}"><cn>1</cn>'
+                '</math></delay><listOfEventAssignments><eventAssignment variable="k">'
+                f'<math xmlns="{_MML}"><cn>2</cn></math></eventAssignment>'
+                "</listOfEventAssignments></event></listOfEvents>"
+            )
+        },
+        "event_reads_species": {
+            "model.xml": _sbml(
+                events="<listOfEvents>"
+                + _event("e", 1, {"k": "<ci>A</ci>"})
+                + "</listOfEvents>"
+            )
+        },
+        "simultaneous_without_priority": {
+            "model.xml": _sbml(
+                events="<listOfEvents>"
+                + _event("e1", 1, {"k": "<cn>2</cn>"})
+                + _event("e2", 1, {"k": "<cn>3</cn>"})
+                + "</listOfEvents>"
+            )
+        },
+        "time_zero_event_negative_start": {
+            "study.sedml": _sed(start="-1"),
+            "model.xml": _sbml(
+                events="<listOfEvents>"
+                + _event("e", 0, {"k": "<cn>2</cn>"})
+                + "</listOfEvents>"
+            ),
+        },
+    }
+    result = {}
+    for name, members in cases.items():
+        path = _archive(temp / f"{name}.omex", members)
+        result[name] = _refused(
+            lambda path=path: crn.read_experiment(
+                path, convention="stochastic_count_propensity"
+            )
+        )
+    # Archive-level cases that need hand-edited bytes.
+    symlink = zipfile.ZipInfo("model.xml")
+    symlink.create_system = 3
+    symlink.external_attr = 0o120777 << 16
+    with zipfile.ZipFile(temp / "symlink.omex", "w") as arc:
+        arc.writestr("manifest.xml", _MANIFEST)
+        arc.writestr("study.sedml", _sed())
+        arc.writestr(symlink, "/etc/hosts")
+    raw = bytearray(_archive(temp / "bomb.omex", model).read_bytes())
+    entry = raw.rfind(b"PK\x01\x02")  # last central record: model.xml
+    raw[entry + 24 : entry + 28] = (65 << 20).to_bytes(4, "little")
+    (temp / "bomb.omex").write_bytes(raw)
+    raw = bytearray(_archive(temp / "corrupt.omex", model).read_bytes())
+    start = raw.find(b"PK\x03\x04", raw.find(b"study.sedml")) + 30 + len("model.xml")
+    raw[start : start + 16] = bytes(b ^ 0x5A for b in raw[start : start + 16])
+    (temp / "corrupt.omex").write_bytes(raw)
+    (temp / "folder").mkdir()
+    (temp / "folder" / "study.sedml").write_text(_sed("absent.xml"))
+    for name, path in (
+        ("member_symlink", temp / "symlink.omex"),
+        ("declared_size_bomb", temp / "bomb.omex"),
+        ("corrupt_deflate", temp / "corrupt.omex"),
+        ("folder_missing_model", temp / "folder" / "study.sedml"),
+        ("directory_path", temp / "folder"),
+    ):
+        result[name] = _refused(
+            lambda path=path: crn.read_experiment(
+                path, convention="stochastic_count_propensity"
+            )
+        )
+    # Run-time budget and archive directory rules.
+    plain = crn.read_experiment(
+        _archive(temp / "plain.omex", model), convention="stochastic_count_propensity"
+    )
+    result["value_budget"] = _refused(lambda: plain.run(replicates=1 << 23))
+    reserved = crn.read_experiment(
+        _archive(temp / "reserved.omex", {"study.sedml": _sed(task="con"), **model}),
+        convention="stochastic_count_propensity",
+    )
+    result["reserved_task_directory"] = _refused(
+        lambda: reserved.run(archive_directory=temp / "reserved")
+    )
+    (temp / "exists").mkdir()
+    try:
+        plain.run(archive_directory=temp / "exists")
+    except FileExistsError:
+        result["existing_archive_directory"] = "FileExistsError"
+    require(
+        all(
+            code.startswith("CRN-E090: ")
+            for k, code in result.items()
+            if "existing" not in k
+        )
+        and result["existing_archive_directory"] == "FileExistsError",
+        f"experiment refusals: {result}",
+    )
+    return result
+
+
+def experiment_semantics(temp):
+    """Pair combinatorics, derived parameters after edits, and event timing."""
+    temp = Path(temp)
+    pair = '<speciesReference species="A" stoichiometry="2" constant="true"/>'
+    falling = (
+        "<apply><times/><ci>k</ci><ci>A</ci>"
+        "<apply><minus/><ci>A</ci><cn>1</cn></apply></apply>"
+    )
+    study = crn.read_experiment(
+        _archive(
+            temp / "pair.omex",
+            {
+                "model.xml": _sbml(
+                    law=falling,
+                    reactants=pair,
+                    initial="2",
+                    parameters='<parameter id="k" value="0.5" constant="true"/>',
+                )
+            },
+        ),
+        convention="stochastic_count_propensity",
+    )
+    rate = study.preflight()["tasks"]["t"]["initial_rates"]["sbml_rate_0"]
+    require(rate == 1.0, "k A (A - 1) is the hazard rate C(A, 2) x 2k")
+    final = np.asarray(study.run(seed=1234, replicates=4000)["reports"]["out"]["A"])
+    survived = float(np.mean(final[:, -1] == 2))
+    require(abs(survived - np.exp(-1)) < 0.038, "pair hazard k A (A - 1)")
+    # A derived rate follows a SED-ML change of the parameter it reads.
+    derived = _sbml(
+        parameters='<parameter id="k" constant="false"/>'
+        '<parameter id="q" constant="false"/>'
+        '<parameter id="p" value="1" constant="true"/>',
+        rules=f'<listOfRules><assignmentRule variable="k"><math xmlns="{_MML}">'
+        "<apply><times/><cn>2</cn><ci>q</ci></apply></math></assignmentRule>"
+        f'<assignmentRule variable="q"><math xmlns="{_MML}"><ci>p</ci></math>'
+        "</assignmentRule></listOfRules>",
+    )
+    edit = (
+        "<listOfChanges><changeAttribute newValue='3' "
+        "target=\"/sbml:sbml/sbml:model/sbml:listOfParameters/sbml:parameter[@id='p']"
+        '/@value"/></listOfChanges>'
+    )
+    edited = crn.read_experiment(
+        _archive(
+            temp / "derived.omex",
+            {"model.xml": derived, "study.sedml": _sed(changes=edit)},
+        ),
+        convention="stochastic_count_propensity",
+    ).preflight()["tasks"]["t"]["initial_rates"]["sbml_rate_0"]
+    require(edited == 6.0, "rule chain recalculated after an edit")
+    # Events: time zero with both initial values, then two simultaneous
+    # events whose second reads k at trigger time or at execution.
+    zero = "<listOfEvents>{}</listOfEvents>"
+    q = '<parameter id="k" value="1" constant="false"/><parameter id="q" value="1" constant="false"/>'
+    law_q = "<apply><times/><ci>q</ci><ci>A</ci></apply>"
+    timing = {}
+    for name, events in {
+        "zero_initial_true": _event("e", 0, {"A": "<cn>7</cn>"}),
+        "zero_initial_false": _event("e", 0, {"A": "<cn>7</cn>"}, initial="false"),
+        "same_time_trigger_values": _event("a", 0.5, {"k": "<cn>5</cn>"}, priority=2)
+        + _event("b", 0.5, {"q": "<ci>k</ci>"}, priority=1),
+        "same_time_execution_values": _event("a", 0.5, {"k": "<cn>5</cn>"}, priority=2)
+        + _event("b", 0.5, {"q": "<ci>k</ci>"}, priority=1, extra="false"),
+    }.items():
+        loaded = crn.read_experiment(
+            _archive(
+                temp / f"{name}.omex",
+                {
+                    "model.xml": _sbml(
+                        law=law_q, parameters=q, events=zero.format(events)
+                    )
+                },
+            ),
+            convention="stochastic_count_propensity",
+        )
+        task = loaded.preflight()["tasks"]["t"]
+        first = np.asarray(loaded.run(seed=5, replicates=4)["reports"]["out"]["A"])
+        timing[name] = {
+            "events": [
+                [e["time"], e["parameters"].get("sbml_rate_0"), e["counts"]]
+                for e in task["events"]
+            ],
+            "inactive": task["events_inactive_at_time_zero"],
+            "first_report": sorted({int(x) for x in first[:, 0]}),
+        }
+    require(
+        timing["zero_initial_true"]["inactive"] == ["e"]
+        and timing["zero_initial_true"]["first_report"] == [5]
+        and timing["zero_initial_false"]["events"] == [[0.0, None, {"A": 7}]]
+        and timing["zero_initial_false"]["first_report"] == [7]
+        and [e[1] for e in timing["same_time_trigger_values"]["events"]] == [1.0, 1.0]
+        and [e[1] for e in timing["same_time_execution_values"]["events"]]
+        == [1.0, 5.0],
+        f"SBML event timing: {timing}",
+    )
+    return {
+        "pair_survival": survived,
+        "derived_rate_after_edit": edited,
+        "events": timing,
+    }
+
+
 def experiments(vilar):
+    with TemporaryDirectory() as temp:
+        refusals = experiment_refusals(temp)
+        semantics = experiment_semantics(temp)
     with TemporaryDirectory() as temp:
         path = experiment_fixture(temp)
         loaded = crn.read_experiment(path, convention="stochastic_count_propensity")
@@ -675,8 +1060,9 @@ def experiments(vilar):
             ),
             "native and imported pulse differ",
         )
+    checks = {"refusals": refusals, "semantics": semantics}
     if vilar is None:
-        return {"pulse_replicates": len(values)}
+        return {"pulse_replicates": len(values), **checks}
     expected = "d97b92fed06cc8b1d5cf152cdece7c30dee8458698f3c784876f68f0d4095c80"
     require(sha256(vilar.read_bytes()).hexdigest() == expected, "archive changed")
     try:
@@ -709,6 +1095,7 @@ def experiments(vilar):
         "pulse_replicates": len(values),
         "vilar_reports": len(replay["reports"]),
         "effective_decay_rates": rates,
+        **checks,
     }
 
 

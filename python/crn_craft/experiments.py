@@ -10,6 +10,7 @@ import math
 import re
 import xml.etree.ElementTree as ET
 import zipfile
+import zlib
 
 import numpy as np
 
@@ -17,6 +18,19 @@ from .importers import ImportFailure, _identifier, _number, _poly_add, _poly_mul
 from .protocol import Protocol
 
 _SIZE = 16 << 20
+# Work bounds for documents from untrusted archives. Rules and laws are
+# re-evaluated once per event, so the products of these counts stay small.
+_MAX_PARAMETERS = 4096
+_MAX_REACTIONS = 1024
+_MAX_EVENTS = 256
+# Reported values (paths x report times x species) of one run; the series
+# are returned as Python lists, about 32 bytes per value.
+_MAX_VALUES = 1 << 24
+# Device names that Windows reserves in every directory.
+_RESERVED = {"CON", "PRN", "AUX", "NUL"} | {
+    f"{kind}{i}" for kind in ("COM", "LPT") for i in range(1, 10)
+}
+_ENCODING = re.compile(rb"""<\?xml[^>]*?encoding\s*=\s*["']([^"']*)["']""")
 _MATH = "{http://www.w3.org/1998/Math/MathML}"
 _OMEX = "{http://identifiers.org/combine.specifications/omex-manifest}"
 _SED = re.compile(r"\{http://sed-ml.org/sed-ml/level1/version([34])\}sedML")
@@ -29,10 +43,17 @@ _EVENTS = "http://www.sbml.org/sbml/symbols/time"
 
 
 def _xml(raw):
-    if len(raw) > _SIZE or any(
-        mark in raw.upper() for mark in (b"<!DOCTYPE", b"<!ENTITY")
+    # Only UTF-8 is read: a UTF-16 or UTF-32 document (NUL bytes) or another
+    # declared encoding could hide a document type from the byte check.
+    if len(raw) > _SIZE:
+        fail("XML document exceeds 16 MiB")
+    declared = _ENCODING.match(raw.removeprefix(b"\xef\xbb\xbf"))
+    if (
+        b"\x00" in raw
+        or (declared and declared[1].lower() not in (b"utf-8", b"utf8"))
+        or any(mark in raw.upper() for mark in (b"<!DOCTYPE", b"<!ENTITY"))
     ):
-        fail("XML size or document type is unsupported")
+        fail("XML must be UTF-8 without a document type or entities")
     try:
         raw.decode("utf-8")
         return ET.fromstring(raw)
@@ -41,8 +62,15 @@ def _xml(raw):
 
 
 def _read(path, limit=_SIZE):
-    with Path(path).open("rb") as file:
-        value = file.read(limit + 1)
+    path = Path(path)
+    try:
+        # A regular file only: a directory, pipe or device is refused.
+        if not path.is_file():
+            fail(f"not a readable regular file: {path.name}")
+        with path.open("rb") as file:
+            value = file.read(limit + 1)
+    except OSError as error:
+        fail(f"cannot read {path.name}: {error.strerror or error}")
     if len(value) > limit:
         fail(f"file exceeds its size budget: {Path(path).name}")
     return value
@@ -84,7 +112,8 @@ def _allowed(node, allowed):
     for element in node:
         tag = _tag(element)
         if tag not in allowed and tag not in {"notes", "annotation"}:
-            fail(f"{_tag(node)} contains unsupported {tag}")
+            name = f" {node.get('id')!r}" if node.get("id") else ""
+            fail(f"{_tag(node)}{name} contains unsupported {tag}")
 
 
 def _math(node):
@@ -151,7 +180,9 @@ def _poly(node, symbols, zero, depth=0):
 
 
 def _scalar(node, environment):
-    result = _poly(node, {k: {(): v} if v else {} for k, v in environment.items()}, ())
+    used = _symbols_used(node) & environment.keys()
+    symbols = {k: {(): environment[k]} if environment[k] else {} for k in used}
+    result = _poly(node, symbols, ())
     return result.get((), Fraction(0))
 
 
@@ -275,17 +306,44 @@ def _coefficients(law, reactants, products, names, split):
     fail("kinetic law does not match the declared stochastic reactant factors")
 
 
-def _resolve_rules(condition, raw, rule_nodes):
+def _rule_order(known, rule_nodes):
+    """Order assignment rules so that each follows the rules it reads.
+
+    Kahn's algorithm, linear in the rules; a rule that reads an undefined
+    symbol, a species or itself (directly or through other rules) fails.
+    """
+    uses = {name: _symbols_used(node) for name, node in rule_nodes.items()}
+    users = {name: [] for name in rule_nodes}
+    waiting = {}
+    for name, symbols in uses.items():
+        unknown = symbols - known - users.keys()
+        if unknown:
+            fail(
+                f"assignment rule {name!r} reads a non-scalar or undefined symbol "
+                f"{sorted(unknown)[0]!r}"
+            )
+        waiting[name] = len(symbols & users.keys())
+        for symbol in symbols & users.keys():
+            users[symbol].append(name)
+    ready = sorted(name for name, n in waiting.items() if n == 0)
+    order = []
+    while ready:
+        name = ready.pop()
+        order.append(name)
+        for user in users[name]:
+            waiting[user] -= 1
+            if waiting[user] == 0:
+                ready.append(user)
+    if len(order) != len(rule_nodes):
+        cycle = sorted(set(rule_nodes) - set(order))
+        fail(f"cyclic SBML assignment rules: {', '.join(cycle[:4])}")
+    return tuple((name, rule_nodes[name]) for name in order)
+
+
+def _resolve_rules(condition, raw, ordered_rules):
     env = {**condition, **raw}
-    pending = dict(rule_nodes)
-    while pending:
-        before = len(pending)
-        for name, math_node in tuple(pending.items()):
-            if _symbols_used(math_node) <= env.keys():
-                env[name] = _scalar(math_node, env)
-                del pending[name]
-        if len(pending) == before:
-            fail("cyclic or non-scalar SBML assignment rule")
+    for name, math_node in ordered_rules:
+        env[name] = _scalar(math_node, env)
     return env
 
 
@@ -297,6 +355,9 @@ class _SbmlModel:
     concentrations: frozenset
     time_scale: float
     effective_rates: dict
+    # Events whose trigger `time >= 0` is already true at time 0 with
+    # initialValue="true": they never fire when the run starts at time 0.
+    inactive_at_zero: tuple = ()
 
 
 def _translate_sbml(raw, overrides, *, split=False):
@@ -399,6 +460,8 @@ def _translate_sbml(raw, overrides, *, split=False):
         else:
             fail(f"ambiguous initial amount for {name!r}")
     parameters = _collection(node, "listOfParameters", "parameter")
+    if len(parameters) + len(compartments) > _MAX_PARAMETERS:
+        fail(f"experiments support at most {_MAX_PARAMETERS} parameters")
     if len(set(species) | set(parameters) | set(compartments)) != len(species) + len(
         parameters
     ) + len(compartments):
@@ -417,6 +480,9 @@ def _translate_sbml(raw, overrides, *, split=False):
         assignments[name] = _math(rule)
     if overrides.keys() - parameters.keys() or overrides.keys() & assignments.keys():
         fail("model change must target a declared independent SBML parameter")
+    ordered_rules = _rule_order(
+        volumes.keys() | (parameters.keys() - assignments.keys()), assignments
+    )
     raw_parameters = {
         name: _number(p.get("value"))
         for name, p in parameters.items()
@@ -424,8 +490,8 @@ def _translate_sbml(raw, overrides, *, split=False):
     }
     raw_parameters.update(overrides)
     reactions = _collection(node, "listOfReactions", "reaction")
-    if not reactions:
-        fail("SBML experiment model needs a reaction")
+    if not reactions or len(reactions) > _MAX_REACTIONS:
+        fail(f"SBML experiment model needs 1 to {_MAX_REACTIONS} reactions")
     names = tuple(species)
     zero = (0,) * len(names)
     rx = []
@@ -448,16 +514,20 @@ def _translate_sbml(raw, overrides, *, split=False):
         }
         rx.append((name, reactants, products, _math(law), local))
 
+    unit_counts = {
+        s: {tuple(int(j == k) for j in range(len(names))): 1 / divisors[s]}
+        for k, s in enumerate(names)
+    }
+
     def rates(current):
-        resolved = _resolve_rules(volumes, current, assignments)
+        resolved = _resolve_rules(volumes, current, ordered_rules)
+        shared = unit_counts | {k: {zero: v} if v else {} for k, v in resolved.items()}
         result = {}
         for i, (name, reactants, products, math_node, local) in enumerate(rx):
-            context = {
-                s: {tuple(int(j == k) for j in range(len(names))): 1 / divisors[s]}
-                for k, s in enumerate(names)
-            }
-            context.update(
-                {k: {zero: v} if v else {} for k, v in (resolved | local).items()}
+            context = (
+                shared | {k: {zero: v} if v else {} for k, v in local.items()}
+                if local
+                else shared
             )
             try:
                 forward, reverse = _coefficients(
@@ -501,14 +571,23 @@ def _translate_sbml(raw, overrides, *, split=False):
         divisors,
         rates,
     )
+    schedule, inactive = schedule
     return _SbmlModel(
-        model, schedule, divisors, frozenset(concentrations), seconds, initial_rates
+        model,
+        schedule,
+        divisors,
+        frozenset(concentrations),
+        seconds,
+        initial_rates,
+        inactive,
     )
 
 
 def _events(node, initial, parameters, rules, declarations, counts, divisors, rates):
     events = _collection(node, "listOfEvents", "event")
-    timing = []
+    if len(events) > _MAX_EVENTS:
+        fail(f"experiments support at most {_MAX_EVENTS} events")
+    timing, inactive = [], []
     for name, event in events.items():
         _allowed(event, {"trigger", "priority", "listOfEventAssignments"})
         trigger = _child(event, "trigger", required=True)
@@ -526,6 +605,7 @@ def _events(node, initial, parameters, rules, declarations, counts, divisors, ra
         if when < 0:
             fail(f"event {name!r} has a negative threshold")
         if when == 0 and trigger.get("initialValue", "true") == "true":
+            inactive.append(name)
             continue
         priority = _child(event, "priority")
         order = None if priority is None else _scalar(_math(priority), {})
@@ -535,10 +615,18 @@ def _events(node, initial, parameters, rules, declarations, counts, divisors, ra
             _tag(item) != "eventAssignment" for item in assignments
         ):
             fail(f"ambiguous assignments in event {name!r}")
-        timing.append((when, order, name, tuple(zip(keys, assignments, strict=True))))
+        # Simultaneous events read the state before the instant unless they
+        # ask for values at execution (useValuesFromTriggerTime="false").
+        at_trigger = event.get("useValuesFromTriggerTime", "true") != "false"
+        timing.append(
+            (when, order, name, tuple(zip(keys, assignments, strict=True)), at_trigger)
+        )
     timing.sort(key=lambda item: (item[0], -(item[1] or 0), item[2]))
     output = []
-    for i, (when, order, name, assignments) in enumerate(timing):
+    before = initial
+    for i, (when, order, name, assignments, at_trigger) in enumerate(timing):
+        if not i or when != timing[i - 1][0]:
+            before = initial
         if (
             i
             and when == timing[i - 1][0]
@@ -547,7 +635,7 @@ def _events(node, initial, parameters, rules, declarations, counts, divisors, ra
             fail("simultaneous events need distinct literal priorities")
         updates, copies = {}, {}
         for key, element in assignments:
-            value = _scalar(_math(element), initial)
+            value = _scalar(_math(element), before if at_trigger else initial)
             if key in counts:
                 copies[key] = _count(value * divisors[key])
             elif (
@@ -561,7 +649,7 @@ def _events(node, initial, parameters, rules, declarations, counts, divisors, ra
         parameters = {**parameters, **updates}
         initial, effective = rates(parameters)
         output.append((float(when), effective if updates else {}, copies))
-    return tuple(output)
+    return tuple(output), tuple(inactive)
 
 
 def _member(name):
@@ -654,6 +742,11 @@ class Experiment:
                     "times": data[1].tolist(),
                     "time_scale_seconds": data[0].time_scale,
                     "initial_rates": data[0].effective_rates,
+                    "events": [
+                        {"time": t, "parameters": p, "counts": c}
+                        for t, p, c in data[0].events
+                    ],
+                    "events_inactive_at_time_zero": list(data[0].inactive_at_zero),
                     "repetitions": data[3],
                     "species_units": {
                         s: "item"
@@ -671,8 +764,22 @@ class Experiment:
         """Execute tasks in declaration order and return the requested series."""
         from . import ensemble
 
+        values = sum(
+            replicates * data[3] * len(data[1]) * len(data[0].volume_divisors)
+            for data in self.tasks.values()
+        )
+        if values > _MAX_VALUES:
+            fail(
+                f"the run would return {values} values, above {_MAX_VALUES}; "
+                "use fewer replicates"
+            )
         archive = None if archive_directory is None else Path(archive_directory)
         if archive is not None:
+            # Task IDs name the task directories: refuse names that collide on
+            # a case-insensitive file system or that Windows reserves.
+            folded = [name.upper() for name in self.tasks]
+            if len(set(folded)) != len(folded) or _RESERVED & set(folded):
+                fail("task IDs cannot name distinct archive directories")
             archive.mkdir()
         executed = {}
         for i, (name, (spec, times, start, repetitions)) in enumerate(
@@ -745,7 +852,15 @@ def read_experiment(path, *, convention):
     if path.suffix.lower() in {".omex", ".zip"}:
         try:
             files, master, source_hash = _omex(path)
-        except (ValueError, zipfile.BadZipFile, RuntimeError) as error:
+        except (
+            ValueError,
+            zipfile.BadZipFile,
+            RuntimeError,
+            NotImplementedError,
+            EOFError,
+            OSError,
+            zlib.error,
+        ) as error:
             fail(f"invalid OMEX archive: {error}")
 
         def read(member):
@@ -822,7 +937,8 @@ def read_experiment(path, *, convention):
         algorithm = _child(simulation, "algorithm", required=True)
         if algorithm.get("kisaoID") != "KISAO:0000029" or len(algorithm):
             fail(
-                "the stochastic adapter supports Gillespie direct with its native defaults"
+                f"simulation {simulation.get('id')!r}: the stochastic adapter supports "
+                "Gillespie direct (KISAO:0000029) without algorithm parameters"
             )
         initial, first, end = [
             float(_number(simulation.get(n)))
@@ -839,6 +955,11 @@ def read_experiment(path, *, convention):
         if not initial <= first < end or not 1 <= steps <= 100_000:
             fail("invalid uniform time course")
         model = load_model(task.get("modelReference"), ())[1]
+        if initial < 0 and model.inactive_at_zero:
+            fail(
+                f"event {model.inactive_at_zero[0]!r} at time 0 needs a run that "
+                "starts at time 0"
+            )
         model_tasks[key] = (model, np.linspace(first, end, steps + 1), initial, 1)
     for key, task in repeated:
         _allowed(task, {"listOfRanges", "listOfSubTasks"})
@@ -968,7 +1089,9 @@ def main():
             )
         )
     except (ValueError, RuntimeError, OSError) as error:
-        parser.exit(2, f"{error}\n")
+        # Refused input carries CRN-E090; a file system failure CRN-E030.
+        code = getattr(error, "code", "CRN-E030" if isinstance(error, OSError) else "")
+        parser.exit(2, f"{code + ': ' if code else ''}{error}\n")
     print(json.dumps(result, sort_keys=True, allow_nan=False))
 
 

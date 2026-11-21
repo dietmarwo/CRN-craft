@@ -6,11 +6,14 @@ calibration, and the saved tables of pages 19b and 19c.
 Run with --write to print the generated tables of the pages.
 """
 
+import contextlib
 import csv
+import io
 import math
 import sys
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -292,6 +295,64 @@ def de_novo_laws():
     require(serial == pooled, "fibers from a process pool equal fibers in turn")
 
 
+def de_novo_fibers():
+    """The fiber design: bootstrap laws on hand-checkable fibers, the fit
+    against the first design's regression, and a small calibration."""
+    rng = np.random.default_rng(7)
+    # Identical fibers within each fit point: every resample is the data,
+    # so the bootstrap interval of m collapses to the point estimate.
+    points = [
+        ("stage1", 1e-4 * f, [h] * 8, [32] * 8)
+        for f, h in ((0.9, 1), (1.0, 3), (1.1, 6), (1.2, 12))
+    ]
+    fit = mutations.fiber_fit(points, 199, rng)
+    require(fit["fit_ok"] and fit["boot_failed"] == 0, "identical fibers fit")
+    for key in ("m_boot_low95", "m_boot_high95"):
+        require(abs(fit[key] / fit["m"] - 1) < 1e-12, "fit interval collapses")
+    # The point estimate is the first design's regression through all regions.
+    first = mutations.logistic([(p[1], sum(p[2]), sum(p[3])) for p in points])
+    require(abs(first[2] / fit["m"] - 1) < 1e-9, "same regression as the first design")
+    require(abs(first[3] / fit["m_low95"] - 1) < 1e-9, "same delta-method interval")
+    # Identical fibers in a cohort: the prevalence interval collapses.
+    groups = [[True] * 3 + [False] * 29 for _ in range(16)]
+    flat = [v for g in groups for v in g]
+    _, low, high, _, _ = mutations.ratio_mean(flat, groups, 199, rng)
+    require(low == high == 3 / 32, "prevalence interval collapses")
+    # Whole fibers affected or not: the bootstrap SE of prevalence is the
+    # binomial SE over fibers, sqrt(p (1 - p) / F), up to Monte Carlo error.
+    groups = [[i < 20] * 32 for i in range(100)]
+    flat = [v for g in groups for v in g]
+    _, _, _, draws, _ = mutations.ratio_mean(flat, groups, 1999, rng)
+    ratio = np.std(draws) / math.sqrt(0.2 * 0.8 / 100)
+    require(abs(ratio - 1) < 0.10, f"whole-fiber bootstrap SE, ratio {ratio:.3f}")
+    # Labels of a validation cohort.
+    decide = mutations.decide
+    require(decide(0.05, 0.15, 10, 10) == "compatible", "compatible cohort")
+    require(decide(0.05, 0.15, 9, 10) == "too few affected fibers", "few fibers")
+    require(decide(0.11, 0.15, 30, 10) == "outside", "cohort outside")
+    # A fit without a positive slope, or with its inverse outside the fit
+    # points, fails.
+    flat_points = [("stage1", 1e-4 * f, [3] * 4, [32] * 4) for f in (0.9, 1.1)]
+    require(not mutations.fiber_fit(flat_points, 9, rng)["fit_ok"], "flat fit")
+    # The quick fiber design end to end on the small model, at reduced fiber
+    # counts so that the check stays fast; pooled fibers equal fibers in turn.
+    saved = mutations.FIBER_SIZES["quick"]
+    mutations.FIBER_SIZES["quick"] = {"fibers": (2, 2, 8), "boot": 99, "min_fibers": 2}
+    try:
+        args = SimpleNamespace(size="quick", years=3, cases=["main"], design="fibers")
+        with tempfile.TemporaryDirectory() as work:
+            args.work = args.output = Path(work)
+            with contextlib.redirect_stdout(io.StringIO()) as text:
+                mutations.run(args)
+            summary = rows(Path(work) / "de-novo-fibers-summary.csv")
+            rates = rows(Path(work) / "de-novo-fibers-rates.csv")
+        require("fibers without a refit" in text.getvalue(), "plan line")
+        require(summary and summary[-1]["calibration"] in ("done", "failed"), "end")
+        require(len(rates) == len(summary), "one rate row per attempt")
+    finally:
+        mutations.FIBER_SIZES["quick"] = saved
+
+
 def de_novo_saved():
     summary = rows(RESULTS / "de-novo-summary.csv")
     cohorts = [(r["years"], r["case"]) for r in summary]
@@ -396,6 +457,7 @@ def main():
         "Figure 2E table out of date",
     )
     de_novo_laws()
+    de_novo_fibers()
     de_novo_saved()
     page = DE_NOVO_PAGE.read_text(encoding="utf-8")
     require(
@@ -408,6 +470,7 @@ def main():
     )
     print("spatial archive, migration laws, saved results and guide tables verified")
     print("de novo sampler laws, saved tables and page 19c verified")
+    print("fiber design: bootstrap laws and quick calibration verified")
 
 
 if __name__ == "__main__":

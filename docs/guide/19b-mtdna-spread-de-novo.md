@@ -209,7 +209,12 @@ regression of the region indicator on `log10(m)`. Its 95% interval comes
 from a bootstrap over fibers: within each fit point, whole fibers are
 resampled, the curve is refitted and inverted at 10%, 1,999 times. A
 resample whose fit has no positive slope counts at both ends of the
-interval, so it can only widen it.
+interval, so it can only widen it. A fit through all points without a
+positive slope, or whose inverse lies outside the range of the fit points,
+ends the calibration as failed; at stage 1 such a fit puts stage 2 at the
+geometric mean of the stage-1 values. (This rule was added after a run of
+the small quick-size model extrapolated far beyond its fit points, before
+any run of the draft or full size.)
 
 **Validation.** 128 new fibers at the frozen `m`. The cohort is
 *compatible* if the 95% bootstrap interval over fibers of the share of
@@ -242,7 +247,7 @@ only.
 128 = 288 fibers, with one 512. A 32-region fiber costs about 170
 CPU-seconds at 40 years and 330 at 80 years with Numba on the machine that
 made the first 40- and 80-year runs. That is about 13 to 24 CPU-hours at 40
-years and 26 to 47 at 80 years. The quick size (4, 8 and 32 fibers of the
+years and 27 to 47 at 80 years. The quick size (4, 8 and 32 fibers of the
 small model, at least 3 affected fibers) runs in seconds in pure Python; the
 draft size (2, 4 and 16 fibers, at least 3) takes minutes at 3 years.
 
@@ -251,6 +256,7 @@ once: 32 fibers of 128 regions at the `m` of the fiber design, 80 years,
 the denser mutant (`mutations.py length`, about 12 CPU-hours). If the 95%
 intervals of types per affected region of the 32- and the 128-region
 cohorts do not overlap, the result reads "chain length matters", otherwise
-"no difference seen".
+"no difference seen". If either cohort has fewer than 10 affected fibers,
+no statement is made.
 
 Next: [results and limits](19c-mtdna-spread-de-novo-results.md).

@@ -7,6 +7,15 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-21
+
+A documentation and packaging release. The engine, the crates, the Python
+API and every contract are those of 0.8.0. The guide gains seven case studies
+that reconstruct published stochastic models (chapters 17 to 23), each with a
+runnable example, saved results and an offline check; chapter 17 uses the
+conventions confirmed by an author of its papers. The `fit` extra installs
+fcmaes-rust 0.4.0.
+
 ### Changed
 
 - The optional jobs integration (`integrations/jobs`) pins optimization-jobs `2bfa8e4` (the merge of release 0.5.0; the tag `v0.5.0` is on `df7c55d`, whose shared files are the same; the job crates are 0.5.0) and fcmaes-rust `eba5f46` (main after release 0.4.0, the merge that moves its own optimization-jobs pin there; the fcmaes crates are 0.4.0), so both name one job API. The lockfile changes only in their git packages. `validation/check_jobs.py` records the new revisions. Through `optimization-run` 0.5.0 it passes all 15 rows, 17 jobs and 18 manifests ([jobs-pin-2bfa8e4.json](validation/campaign/jobs-pin-2bfa8e4.json)); the report equals the 41d5f00 report except for the three recorded pins.
@@ -1217,7 +1226,8 @@ iterations that make up this release follow.
 - Experimental non-negative Poisson leaping with explicit approximate request/result schemas.
 - Ten performance experiments and same-host reference/quality evidence; no package publishing.
 
-[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/dietmarwo/CRN-craft/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/dietmarwo/CRN-craft/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.6.0...v0.7.0

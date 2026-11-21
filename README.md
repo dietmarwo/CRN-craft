@@ -82,7 +82,7 @@ reticulate.
 
 ## Status and license
 
-Version 0.8.0. Release 0.7.0 merged two earlier engines into one; the
+Version 0.8.1. Release 0.7.0 merged two earlier engines into one; the
 changelog says what changed and how to migrate. A successful numerical run
 is not biological validation. MIT licensed; see `LICENSE` and
 `THIRD_PARTY_NOTICES.md`.

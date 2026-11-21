@@ -53,3 +53,28 @@ terms; see
 [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md#reference-data-of-the-guide-case-studies). No upstream code is included. Run outputs go to `runs/` by default. `--figures`
 reads the committed result tables unless `--output` specifies a run.
 [Paper and parameters](https://doi.org/10.1073/pnas.2122073119)
+
+## De novo deletions and mutant types
+
+The paper's model has no de novo mutations. `mutations.py` adds them as an
+extension of this guide ([page 19b](../../docs/guide/19b-mtdna-spread-de-novo.md)):
+32 regions with the Figure 2 parameters, all wild type at the start, a new
+deletion type with probability `m` per replication, and `m` fitted so that
+10% of regions hold at least 60% mutants after 3 years of 360 days
+(and 10 years for the denser mutant). Its
+exact per-copy sampler follows every copy's type label; with Numba it runs
+about 120 ns per event, without Numba it is far slower and only suits the
+quick size.
+
+```sh
+python examples/mtdna_spread/mutations.py run --size quick
+python examples/mtdna_spread/mutations.py sampler
+python examples/mtdna_spread/mutations.py run --size full --output examples/mtdna_spread/results
+python examples/mtdna_spread/mutations.py figure --figures docs/guide/img/mtdna_spread
+```
+
+`run` checkpoints every fiber under `runs/de-novo/<size>/` (`--work`), so an
+interrupted run resumes; the quick size uses a small model (4 regions of 20
+copies, 120 days) in pure Python and takes a few seconds. `sampler` compares
+the sampler with the CRN-craft model of the same reactions (`crn_model`) and
+with a moment law. The saved tables are `results/de-novo-*.csv`.

@@ -42,6 +42,8 @@
   - [Choices, checks and limits](guide/18c-mtdna-inference-limits.md)
 - [19. Spatial spread of mtDNA deletions](guide/19-mtdna-spread.md)
   - [Choices, checks and limits](guide/19a-mtdna-spread-limits.md)
+  - [Extension: de novo deletions](guide/19b-mtdna-spread-de-novo.md)
+  - [Extension: results and limits](guide/19c-mtdna-spread-de-novo-results.md)
 - [20. Mitochondrial networks and genetic drift](guide/20-mtdna-network.md)
   - [Results, choices and limits](guide/20a-mtdna-network-results.md)
 - [21. The mtDNA bottleneck during development](guide/21-mtdna-bottleneck.md)

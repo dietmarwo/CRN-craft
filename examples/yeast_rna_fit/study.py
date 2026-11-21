@@ -322,7 +322,7 @@ def plot(output, folder):
             line.minute,
             1 - line.model_probability,
             color="#234a74",
-            label="Frozen prediction",
+            label="Recomputed, archived vector",
         )
         axes[i, 0].set(
             xlabel="Time (minutes)", ylabel="Fraction active", title=f"{dose} M NaCl"
@@ -351,7 +351,7 @@ def plot(output, folder):
             averaged.index[positive] + 0.5,
             averaged[positive],
             color="#234a74",
-            label="Frozen prediction",
+            label="Recomputed, archived vector",
         )
         axes[i, 1].set(
             xlabel="Mature-RNA intensity equivalents",
@@ -378,7 +378,7 @@ def main():
     p.add_argument(
         "--spatial-fit",
         action="store_true",
-        help="Refit initiation and cytoplasmic decay on a verified sparse grid",
+        help="Vary initiation in state 3 and cytoplasmic decay on a 3 x 3 grid",
     )
     p.add_argument("--cross-validate", action="store_true")
     p.add_argument("--budget-check", action="store_true")

@@ -32,11 +32,12 @@ The example runs one lineage by joining CRN-craft segments
 `static_direct`, draws the binomial partition in Python, and starts the
 next segment from the sampled counts.
 
-The published example also exposes `protocol_lineages` in the same module.
-It uses one scheduled count run and reports the daughter immediately after
-each partition. A comparison with the phase recurrence checks the mean
-and variance through the ordered division times. [Scheduled experiments](../reference/experiments.md#scheduled-stochastic-simulation)
-
+The same module also defines `protocol_lineages`. It runs all phases and
+partitions of a lineage in one native scheduled run and reports the
+daughter's counts right after each partition. The results in this chapter
+do not use it. The bottleneck check compares its means and variances after
+each phase with the phase and division recurrences on a small test
+vector. [Scheduled experiments](../reference/experiments.md#scheduled-stochastic-simulation)
 
 ## Moments without simulation
 

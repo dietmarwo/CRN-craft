@@ -74,7 +74,9 @@ python examples/mtdna_spread/mutations.py figure --figures docs/guide/img/mtdna_
 ```
 
 `run` checkpoints every fiber under `runs/de-novo/<size>/` (`--work`), so an
-interrupted run resumes; the quick size uses a small model (4 regions of 20
+interrupted run resumes. `run --workers N` simulates up to `N` fibers at the
+same time in separate processes; every fiber has its own seed, so the
+tables do not depend on `N`, apart from the measured `seconds`. The quick size uses a small model (4 regions of 20
 copies, 120 days) in pure Python and takes a few seconds. `sampler` compares
 the sampler with the CRN-craft model of the same reactions (`crn_model`) and
 with a moment law. The saved tables are `results/de-novo-*.csv`.

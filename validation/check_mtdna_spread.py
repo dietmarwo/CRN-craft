@@ -250,6 +250,22 @@ def de_novo_laws():
         share = [f["affected"] / f["regions"] for f in fit]
         require(min(share) <= 0.10 <= max(share), "quick fit brackets 10%")
         require(rate["m_low95"] < rate["m"] < rate["m_high95"], "quick fit interval")
+    # Fibers simulated by a process pool equal the fibers simulated in turn.
+    from concurrent.futures import ProcessPoolExecutor
+
+    def cohort(work):
+        group = mutations.cohort("main", "pool", 0.02, 4, "quick", Path(work), 3)
+        return [{k: v for k, v in f.items() if k != "seconds"} for f in group]
+
+    with tempfile.TemporaryDirectory() as work:
+        serial = cohort(work)
+    with tempfile.TemporaryDirectory() as work, ProcessPoolExecutor(2) as pool:
+        mutations.POOL = pool
+        try:
+            pooled = cohort(work)
+        finally:
+            mutations.POOL = None
+    require(serial == pooled, "fibers from a process pool equal fibers in turn")
 
 
 def de_novo_saved():

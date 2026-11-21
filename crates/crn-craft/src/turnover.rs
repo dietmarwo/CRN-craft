@@ -8,7 +8,9 @@ use serde::{Deserialize, Serialize};
 
 const MAX_COUNT: u64 = 1 << 53;
 const MAX_LABELS: u64 = 8_000_000;
-const RESOLUTION: f64 = 1.0 / MAX_COUNT as f64;
+// A positive weight must stay above 16 × 2⁻⁵³ of the total for the 53-bit
+// selection draw (docs/developer/specialized-kernels.md).
+const RESOLUTION: f64 = 16.0 / MAX_COUNT as f64;
 
 /// A chain with count feedback, nearest-neighbor hopping and neutral clone IDs.
 #[derive(Clone, Debug, Deserialize)]
@@ -47,13 +49,17 @@ pub struct TurnoverResult {
     pub mutations: u64,
 }
 
-fn error(message: impl Into<String>) -> Diagnostic {
+fn error_with(code: &'static str, message: impl Into<String>) -> Diagnostic {
     Diagnostic::error(
-        "CRN-R030",
+        code,
         "/turnover",
         message,
         "Check chain rates, counts, time and event budget.",
     )
+}
+
+fn error(message: impl Into<String>) -> Diagnostic {
+    error_with("CRN-R030", message)
 }
 
 struct Tree {
@@ -280,7 +286,7 @@ pub fn simulate(
     let mut mutations = 0;
     while time < end {
         if events % 4096 == 0 && control.is_cancelled() {
-            return Err(error("chain simulation cancelled"));
+            return Err(error_with("CRN-R044", "chain simulation cancelled"));
         }
         let total = chain.tree.sums[1];
         if total == 0.0 {
@@ -310,9 +316,10 @@ pub fn simulate(
             break;
         }
         if events == max_events {
-            return Err(error(format!(
-                "event budget {max_events} reached at time {time}"
-            )));
+            return Err(error_with(
+                "CRN-R040",
+                format!("event budget {max_events} reached at time {time}"),
+            ));
         }
         let i = chain.tree.pick(uniform(&mut rng) * total);
         let pop = chain.wild[i] + chain.mutant[i];
@@ -361,4 +368,168 @@ pub fn simulate(
         events,
         mutations,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn spec(hop: f64) -> Turnover {
+        Turnover {
+            target: 20.0,
+            feedback: 0.01,
+            mutant_weight: 0.5,
+            death: 0.07,
+            hop,
+            mutation: 0.0,
+            fixed_left: false,
+        }
+    }
+
+    fn hops_only() -> Turnover {
+        Turnover {
+            feedback: 0.0,
+            death: 0.0,
+            target: 0.0,
+            ..spec(0.3)
+        }
+    }
+
+    #[test]
+    fn tree_pick_skips_zero_weights() {
+        let mut tree = Tree::new(5);
+        for (site, rate) in [0.0, 3.0, 0.0, 0.0, 5.0].into_iter().enumerate() {
+            tree.update(site, rate);
+        }
+        assert_eq!(tree.sums[1], 8.0);
+        assert_eq!(tree.pick(0.0), 1);
+        assert_eq!(tree.pick(2.999), 1);
+        assert_eq!(tree.pick(3.0), 4);
+        assert_eq!(tree.pick(f64::from_bits(8.0_f64.to_bits() - 1)), 4);
+    }
+
+    #[test]
+    fn hops_conserve_each_genotype_and_keep_labels() {
+        let initial = [[7, 3], [0, 5], [4, 0], [2, 2]];
+        let result = simulate(
+            &hops_only(),
+            &initial,
+            50.0,
+            11,
+            1_000_000,
+            true,
+            &Control::default(),
+        )
+        .expect("hops only");
+        assert!(result.events > 0);
+        assert_eq!(result.wild.iter().sum::<u64>(), 13);
+        assert_eq!(result.mutant.iter().sum::<u64>(), 10);
+        let labels = result.labels.expect("labels were requested");
+        for (ids, &count) in labels.iter().zip(&result.mutant) {
+            assert_eq!(ids.len() as u64, count);
+        }
+        assert_eq!(result.mutations, 0);
+    }
+
+    #[test]
+    fn fixed_left_keeps_the_reservoir_counts() {
+        let reservoir = Turnover {
+            fixed_left: true,
+            ..spec(0.3)
+        };
+        let initial = [[10, 10], [20, 0], [20, 0]];
+        let result = simulate(
+            &reservoir,
+            &initial,
+            30.0,
+            5,
+            1_000_000,
+            false,
+            &Control::default(),
+        )
+        .expect("reservoir chain");
+        assert!(result.events > 0);
+        assert_eq!((result.wild[0], result.mutant[0]), (10, 10));
+    }
+
+    #[test]
+    fn zero_horizon_and_zero_rates_do_nothing() {
+        let initial = [[3, 1], [2, 2]];
+        let at_zero = simulate(&spec(0.3), &initial, 0.0, 1, 10, false, &Control::default())
+            .expect("zero horizon");
+        assert_eq!(at_zero.events, 0);
+        assert_eq!((at_zero.wild, at_zero.mutant), (vec![3, 2], vec![1, 2]));
+        let frozen = Turnover {
+            hop: 0.0,
+            ..hops_only()
+        };
+        let still = simulate(&frozen, &initial, 100.0, 1, 10, false, &Control::default())
+            .expect("no hazards");
+        assert_eq!(still.events, 0);
+    }
+
+    #[test]
+    fn the_same_seed_gives_the_same_path() {
+        let initial = [[20, 0], [15, 5], [20, 0]];
+        let run = |seed| {
+            let r = simulate(
+                &spec(0.2),
+                &initial,
+                40.0,
+                seed,
+                1_000_000,
+                false,
+                &Control::default(),
+            )
+            .expect("chain");
+            (r.wild, r.mutant, r.events)
+        };
+        assert_eq!(run(3), run(3));
+        assert_ne!(run(3), run(4));
+    }
+
+    #[test]
+    fn invalid_setups_are_numerical_errors() {
+        let initial = [[5, 5]];
+        let control = Control::default();
+        let code = |spec: &Turnover, counts: &[[u64; 2]], end: f64| {
+            simulate(spec, counts, end, 1, 10, false, &control)
+                .expect_err("invalid setup")
+                .code
+        };
+        let too_likely = Turnover {
+            mutation: 1.5,
+            ..spec(0.1)
+        };
+        let not_a_number = Turnover {
+            death: f64::NAN,
+            ..spec(0.1)
+        };
+        assert_eq!(code(&too_likely, &initial, 1.0), "CRN-R030");
+        assert_eq!(code(&not_a_number, &initial, 1.0), "CRN-R030");
+        assert_eq!(code(&spec(0.1), &[], 1.0), "CRN-R030");
+        assert_eq!(code(&spec(0.1), &vec![[1, 0]; 4097], 1.0), "CRN-R030");
+        assert_eq!(code(&spec(0.1), &initial, f64::INFINITY), "CRN-R030");
+    }
+
+    #[test]
+    fn budget_and_cancellation_have_their_own_codes() {
+        let initial = [[20, 0], [20, 0]];
+        let budget = simulate(
+            &spec(0.2),
+            &initial,
+            1.0e6,
+            1,
+            10,
+            false,
+            &Control::default(),
+        )
+        .expect_err("event budget");
+        assert_eq!(budget.code, "CRN-R040");
+        let control = Control::default();
+        control.cancel();
+        let cancelled =
+            simulate(&spec(0.2), &initial, 1.0, 1, 1_000, false, &control).expect_err("cancelled");
+        assert_eq!(cancelled.code, "CRN-R044");
+    }
 }

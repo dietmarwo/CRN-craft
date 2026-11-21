@@ -4,7 +4,9 @@ import ctypes
 import functools
 import hashlib
 import os
+import shlex
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -14,6 +16,9 @@ from scipy.integrate import solve_ivp
 from scipy.sparse import coo_matrix
 
 ROOT = Path(__file__).resolve().parent
+# Fixed flags: no -march=native and no fused multiply-add, which compilers
+# use by default on targets with FMA and which change the last bits.
+BUILD_FLAGS = ("-std=c++17", "-O3", "-DNDEBUG", "-ffp-contract=off")
 KEYS = (
     "k12",
     "k21",
@@ -79,32 +84,30 @@ def native(x, signal=0.0, spatial=False):
 
 @functools.cache
 def compiled():
-    """Build one shared library per source hash outside the repository."""
+    """Build one shared library per source, compiler and flags outside the repository."""
     source = ROOT / "cme.cpp"
-    digest = hashlib.sha256(source.read_bytes()).hexdigest()[:20]
-    directory = Path(tempfile.gettempdir()) / f"crn-craft-yeast-{os.getuid()}"
+    compiler = shlex.split(os.environ.get("CXX", "c++"))
+    link = "-dynamiclib" if sys.platform == "darwin" else "-shared"
+    command = [*compiler, *BUILD_FLAGS, "-fPIC", link]
+    digest = hashlib.sha256(
+        source.read_bytes() + "\0".join(command).encode()
+    ).hexdigest()[:20]
+    user = getattr(os, "getuid", lambda: "user")()
+    directory = Path(tempfile.gettempdir()) / f"crn-craft-yeast-{user}"
     directory.mkdir(mode=0o700, exist_ok=True)
     lib = directory / f"{digest}.so"
     if not lib.is_file():
-        with tempfile.NamedTemporaryFile(dir=directory, suffix=".so") as tmp:
-            subprocess.run(
-                [
-                    "c++",
-                    "-O3",
-                    "-DNDEBUG",
-                    "-std=c++17",
-                    "-fPIC",
-                    "-shared",
-                    str(source),
-                    "-o",
-                    tmp.name,
-                ],
-                check=True,
-            )
-            try:
-                os.link(tmp.name, lib)
-            except FileExistsError:
-                pass
+        pending = directory / f"{digest}-{os.getpid()}.tmp.so"
+        try:
+            subprocess.run([*command, str(source), "-o", str(pending)], check=True)
+        except FileNotFoundError as exc:
+            raise RuntimeError("install a C++17 compiler or set CXX") from exc
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(
+                f"{' '.join(compiler)} could not build cme.cpp as C++17; "
+                "set CXX to another compiler"
+            ) from exc
+        os.replace(pending, lib)
     dll = ctypes.CDLL(str(lib))
     method = dll.advance
     real = np.ctypeslib.ndpointer(dtype=np.float64, flags="C_CONTIGUOUS")

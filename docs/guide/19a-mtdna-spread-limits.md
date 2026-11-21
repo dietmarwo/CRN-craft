@@ -68,7 +68,7 @@ windows start at the same region.
 
 ## Checks
 
-`validation/check_mtdna_spread.py` runs in about a second without network
+`validation/check_mtdna_spread.py` runs in a few seconds without network
 access. It checks:
 
 - the reference reader: 48 Figure 1C rows and the three day-700 means;
@@ -78,10 +78,17 @@ access. It checks:
   projection, `(1 - exp(-0.8)) / 2` at day 2) and conservation of each
   genotype under migration alone;
 - the row counts of every saved result table;
-- that both tables of chapter 19 equal the saved results.
+- that both tables of chapter 19 equal the saved results;
+- for the extension of pages 19b and 19c: the exact bookkeeping laws of the
+  lineage sampler, a moment law, the quick calibration, the saved tables
+  and the two generated tables of page 19c.
 
 ## Limits
 
+- The paper's model has no de novo mutations: every run starts with
+  mutants present. Pages [19b](19b-mtdna-spread-de-novo.md) and
+  [19c](19c-mtdna-spread-de-novo-results.md) add them as an extension of
+  this guide.
 - The published supplement was not reachable for this review. Chain length,
   spacing, initial profile and boundary handling come from the first
   preprint's supplement; they match the archived day-0 profile exactly.

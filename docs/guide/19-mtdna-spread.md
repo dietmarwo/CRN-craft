@@ -24,6 +24,25 @@ supplement could not be opened for this review; the model details come from
 the paper, the headers of the archived files and the supplement of the
 first preprint ([arXiv:2009.00403](https://arxiv.org/abs/2009.00403)).
 
+The paper's model has no de novo mutations. Its reactions are birth, death
+and hopping of wild-type and mutant copies; no reaction makes a new mutant.
+Every simulation starts with mutants already present and follows their
+spread: the two-region runs of Figure 1C start both regions at a mutant
+fraction of 0.5, the wave of Figure 2E starts from a sigmoid front, and the
+founder simulations behind the paper's Figure 4 start from one mutant copy
+(described in the supplement of the preprint as having "no additional
+mutational events"). The paper
+states that it focuses on "the mechanism by which a preexisting mutation
+reaches high heteroplasmy through clonal expansion". Its estimate of a de
+novo mutation rate for human fibers (4.1 · 10⁻⁸ to 1.6 · 10⁻⁶ per
+replication) is derived from the founder's takeover probability, not from
+simulations in which mutations keep arising, and the paper does not count
+mutant types. [Pages 19b and 19c](19b-mtdna-spread-de-novo.md) add de novo
+deletions to the model and count the types; they are an extension made in
+this guide, not a result of the paper. At 3 years an affected region then
+holds well over a thousand mutant types, with or without the density
+difference.
+
 The result in three lines:
 
 - Figure 1C, two connected regions: fresh runs with 2,000 paths per
@@ -195,5 +214,8 @@ reader and the tables of this page. The
 
 [Choices, checks and limits](19a-mtdna-spread-limits.md) lists every
 reconstruction choice and the review experiments.
+[De novo deletions and mutant types](19b-mtdna-spread-de-novo.md) and
+[its results](19c-mtdna-spread-de-novo-results.md) are the extension of this
+guide described above.
 [Chapter 20](20-mtdna-network.md) uses the same mutant fraction to measure
 how different cells become over time.

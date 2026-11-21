@@ -18,6 +18,8 @@ MANIFEST = json.loads((ROOT / "manifest.json").read_text())
 # archive headers give delta and the hop rate; Nss = 150 in every panel is a
 # reconstruction choice (the per-region spread at day 700 matches the archive).
 # Each region starts at h = 0.5 on its steady state W + delta * M = Nss.
+# Sampler identity of crn.spatial_turnover; part of the checkpoint fingerprint.
+LOCAL_SAMPLER = "chacha8-u53-ziggurat/spatial-turnover/2"
 CONDITIONS = {
     "deterministic": (2, 150, 0.5, 0.0),
     "isolated": (1, 150, 0.5, 0.0),
@@ -260,6 +262,72 @@ def small_chain(size, threads):
     )
 
 
+def front(position, profile, level):
+    """The chapter's front position: crossing of the three-bin smoothed profile."""
+    smooth = np.convolve(profile, [0.25, 0.5, 0.25], mode="valid")
+    return crossing(np.asarray(position)[1:-1], smooth, level)
+
+
+def exact_speeds(x, sample, resamples=700):
+    """Speeds of whole-fiber profiles with the estimator of ``wave.summarize``.
+
+    ``sample`` has shape (fibers, 2, regions): mutant fractions at days 0
+    and 1,480. Returns one row per threshold, the chapter's label at half
+    height, its 99% interval and the number of ambiguous resamples.
+    """
+    n = len(sample)
+    rng = np.random.default_rng(MANIFEST["seed"] + 2000)
+    reference = speeds(pd.read_csv(ROOT / "reference-2e.csv"))
+    start = sample[0, 0]
+    rows = []
+    for level in MANIFEST["fig2_crossings"]:
+        x0 = front(x, start, level)
+        try:
+            point = (front(x, sample[:, 1].mean(axis=0), level) - x0) / 1480
+        except ValueError:
+            point = None
+        estimates, ambiguous = [], 0
+        for counts in rng.multinomial(n, np.full(n, 1 / n), size=resamples):
+            try:
+                estimates.append(
+                    (front(x, counts @ sample[:, 1] / n, level) - x0) / 1480
+                )
+            except ValueError:
+                ambiguous += 1
+        low, high = (
+            np.quantile(estimates, [0.005, 0.995]).tolist()
+            if estimates
+            else (None, None)
+        )
+        archived = float(
+            reference.loc[reference.threshold == level, "speed_um_day"].iloc[0]
+        )
+        rows.append(
+            {
+                "threshold": level,
+                "speed_um_day": point,
+                "low_99": low,
+                "high_99": high,
+                "ambiguous": ambiguous,
+                "archived_speed": archived,
+            }
+        )
+    # The chapter's rule: inside the margin is agreement, excluding the
+    # archived speed is a discrepancy, anything else (including an ambiguous
+    # resample) is inconclusive.
+    half = next(r for r in rows if r["threshold"] == 0.5)
+    margin = MANIFEST["fig2_half_height_margin_um_day"]
+    target = half["archived_speed"]
+    low, high = half["low_99"], half["high_99"]
+    status = "inconclusive"
+    if not half["ambiguous"] and low is not None:
+        if target - margin <= low <= high <= target + margin:
+            status = "numerical agreement"
+        elif high < target or low > target:
+            status = "unresolved discrepancy"
+    return rows, status, [low, high], half["ambiguous"]
+
+
 def full_chain(output, threads, fibers=800, sampler="static_direct", start=0):
     """Exact source-scale route with independent, restartable single-fiber jobs."""
     p = MANIFEST["fig2_site_parameters"]
@@ -270,7 +338,7 @@ def full_chain(output, threads, fibers=800, sampler="static_direct", start=0):
                 "parameters": p,
                 "horizon": 1480,
                 "seed": MANIFEST["seed"],
-                "method": "chacha8-u53-ziggurat/spatial-turnover/2",
+                "method": LOCAL_SAMPLER,
             },
             sort_keys=True,
         ).encode()
@@ -299,6 +367,8 @@ def full_chain(output, threads, fibers=800, sampler="static_direct", start=0):
                     fixed_left=True,
                     seed=MANIFEST["seed"] + 1000 + i,
                 )
+                if result["sampler"] != LOCAL_SAMPLER:
+                    raise RuntimeError(f"unexpected sampler {result['sampler']}")
                 counts = np.stack(
                     (initial, np.stack((result["wild"], result["mutant"]), axis=1))
                 )
@@ -342,38 +412,11 @@ def full_chain(output, threads, fibers=800, sampler="static_direct", start=0):
         ],
         columns=["day", "position_um", "mean"],
     )
-    rng = np.random.default_rng(MANIFEST["seed"] + 2000)
-    estimates, ambiguous = [], 0
-    for weights in rng.multinomial(fibers, np.full(fibers, 1 / fibers), size=500):
-        profile = np.einsum("i,ijk->jk", weights / fibers, sample)
-        try:
-            estimates.append((crossing(x, profile[1]) - crossing(x, profile[0])) / 1480)
-        except ValueError:
-            ambiguous += 1
-    interval = (
-        np.quantile(estimates, [0.005, 0.995]).tolist() if estimates else [None, None]
-    )
-    reference_speed = (
-        speeds(pd.read_csv(ROOT / "reference-2e.csv")).iloc[1].speed_um_day
-    )
-    margin = MANIFEST["fig2_half_height_margin_um_day"]
-    status = "inconclusive"
-    if not ambiguous and interval[0] is not None:
-        if (
-            reference_speed - margin
-            <= interval[0]
-            <= interval[1]
-            <= reference_speed + margin
-        ):
-            status = "equivalent"
-        elif (
-            interval[1] < reference_speed - margin
-            or interval[0] > reference_speed + margin
-        ):
-            status = "discrepancy"
+    rows, status, interval, ambiguous = exact_speeds(x, sample)
     return frame, {
         "interval_99": interval,
         "ambiguous_bootstraps": ambiguous,
+        "speeds": rows,
         "fibers": fibers,
         "first_fiber": start,
         "sampler": sampler,
@@ -517,7 +560,7 @@ def main():
             args.output, args.threads, args.fibers, args.wave_sampler, args.fiber_start
         )
         frame.to_csv(args.output / "wave-fresh.csv", index=False)
-        speeds(frame, strict=False).to_csv(
+        pd.DataFrame(review["speeds"]).to_csv(
             args.output / "wave-fresh-speeds.csv", index=False
         )
         summary["wave"] = review

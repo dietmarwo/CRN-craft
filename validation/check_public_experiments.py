@@ -1,4 +1,12 @@
-"""Compare the public experiment adapter with two external reference fixtures."""
+"""Compare the public experiment adapter with two external reference fixtures.
+
+Inputs, pinned by SHA-256 (CI downloads them by commit; they are not in the
+repository):
+
+- the BioSimulators discrete-SSA oscillator archive (`--vilar`),
+- `00001-sbml-l3v2.xml` and `00001-results.csv` of the SBML Test Suite
+  stochastic case 00001 (`--dsmts`, a directory).
+"""
 
 import argparse
 from hashlib import sha256
@@ -14,8 +22,20 @@ from scipy.stats import ks_2samp
 
 from check_paper_capabilities import require
 
+VILAR_SHA256 = "d97b92fed06cc8b1d5cf152cdece7c30dee8458698f3c784876f68f0d4095c80"
+DSMTS_SHA256 = {
+    "00001-sbml-l3v2.xml": "1ba61a28537918456018ee3fb162ffcc52775c6504ff4e97ff1847f16c9c5c3d",
+    "00001-results.csv": "bc7164b674ac8788223f3a3f74401fc5d8f4920ad727845c7fd432b471511e52",
+}
 
-def stochastic_case(folder):
+
+def pinned(path, expected):
+    require(sha256(path.read_bytes()).hexdigest() == expected, f"{path.name} changed")
+
+
+def stochastic_case(folder, threads):
+    for name, digest in DSMTS_SHA256.items():
+        pinned(folder / name, digest)
     raw = (folder / "00001-sbml-l3v2.xml").read_bytes()
     reference = pd.read_csv(folder / "00001-results.csv")
     with TemporaryDirectory() as temp:
@@ -43,28 +63,24 @@ def stochastic_case(folder):
         experiment = crn.read_experiment(
             sedml, convention="stochastic_count_propensity"
         )
-        data = experiment.run(seed=843, replicates=5000, threads=3)
-    x = np.asarray(data["reports"]["report"]["X"])
-    m = x.mean(axis=0)
-    s = x.std(axis=0, ddof=1)
-    ref_s = reference["X-sd"].to_numpy()
-    d = float(
-        np.max(
-            np.abs(m[1:] - reference["X-mean"].to_numpy()[1:])
-            / (ref_s[1:] / np.sqrt(len(x)))
-        )
-    )
-    var = x.var(axis=0, ddof=1)
-    variance_se = ((x - m) ** 4).mean(axis=0) - var**2
-    variance_se = np.sqrt(variance_se / len(x))
-    v = float(np.max(np.abs(var[1:] - ref_s[1:] ** 2) / variance_se[1:]))
-    require(d < 5 and v < 5, "DSMTS case 00001 mean and variance screen")
+        data = experiment.run(seed=843, replicates=5000, threads=threads)
+    x = np.asarray(data["reports"]["report"]["X"], dtype=float)
+    n = len(x)
+    mu = reference["X-mean"].to_numpy()[1:]
+    sigma = reference["X-sd"].to_numpy()[1:]
+    # The suite's own statistics and ranges (00001-settings.txt): at each
+    # report time after 0, Z = sqrt(n) (mean - mu) / sigma within (-3, 3)
+    # and Y = sqrt(n / 2) (S^2 / sigma^2 - 1) within (-5, 5).
+    z = np.sqrt(n) * (x.mean(axis=0)[1:] - mu) / sigma
+    y = np.sqrt(n / 2) * (x.var(axis=0, ddof=1)[1:] / sigma**2 - 1)
+    z_max, y_max = float(np.max(np.abs(z))), float(np.max(np.abs(y)))
+    require(z_max < 3 and y_max < 5, "DSMTS case 00001 Z and Y ranges")
     return {
         "source_sha256": sha256(raw).hexdigest(),
-        "replicates": len(x),
-        "mean_standard_errors": d,
-        "variance_standard_errors": v,
-        "maximum_sd_error": float(np.max(abs(ref_s - s))),
+        "replicates": n,
+        "report_times": len(z),
+        "max_abs_z": z_max,
+        "max_abs_y": y_max,
     }
 
 
@@ -100,11 +116,10 @@ def oscillator(initial, needs, changes, rates, t, n, seed):
     return out
 
 
-def vilar(path):
-    n = 512
+def vilar(path, n, threads):
+    pinned(path, VILAR_SHA256)
     t = np.array([0.5, 1, 2])
     experiment = crn.read_experiment(path, convention="split_signed_mass_action")
-    report = experiment.run(seed=4391, replicates=n, threads=3)
     # An independent literal reconstruction of the deposited archive's
     # stoichiometries and numeric rates. A and R are monomer counts.
     labels = (
@@ -147,18 +162,31 @@ def vilar(path):
         changes[i, [labels.index(s) for s in products]] += 1
         rates[i] = rate * 4.1887902047863905
     output = {}
+    # Two-sample DKW bound for equal sizes, Bonferroni over 12 comparisons,
+    # family-wise level 0.01: 0.1233 at 512 paths, 0.0299 at 8,704.
     bound = float(np.sqrt(np.log(2 * 12 / 0.01) / n))
-    for i, (rid, mapping) in enumerate(
-        (k, v) for k, v in experiment.outputs.items() if k.startswith("report_")
-    ):
+    for i, task in enumerate(("tsk_1_0", "tsk_1_1")):
         expected = rates.copy()
         if i == 1:
             expected[5] *= 0.25
         oracle = oscillator(initial, needs, changes, expected, t, n, 5351 + i)
-        actual = report["reports"][rid]
+        # The imported task model, sampled at the three comparison times
+        # only, so that large ensembles stay small in memory. The 401-point
+        # reports are checked by check_paper_capabilities.py --vilar.
+        actual = crn.ensemble(
+            experiment.tasks[task][0].model,
+            end=2.0,
+            report_times=t,
+            seed=4391 + i,
+            replicates=n,
+            threads=threads,
+            method="static_direct",
+            keep_paths=n,
+            quantiles=(),
+            strict=True,
+        ).simulate()
         for label in ("A", "R"):
-            key = next(key for key, (_, s) in mapping.items() if s == label)
-            trace = np.asarray(actual[key])[:, [100, 200, 400]]
+            trace = actual.paths.sel(variable=label).values
             statistics = [
                 float(
                     ks_2samp(
@@ -167,7 +195,7 @@ def vilar(path):
                 )
                 for j in range(len(t))
             ]
-            output[rid + "/" + label] = statistics
+            output[task + "/" + label] = statistics
     require(
         max(max(v) for v in output.values()) < bound,
         "published archive vs independent SSA",
@@ -185,8 +213,18 @@ def main():
     parser.add_argument("--vilar", type=Path, required=True)
     parser.add_argument("--dsmts", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--vilar-paths",
+        type=int,
+        default=512,
+        help="paths per task and sampler; 8704 resolves CDF gaps of 0.03",
+    )
+    parser.add_argument("--threads", type=int, default=1)
     args = parser.parse_args()
-    result = {"vilar": vilar(args.vilar), "dsmts_00001": stochastic_case(args.dsmts)}
+    result = {
+        "vilar": vilar(args.vilar, args.vilar_paths, args.threads),
+        "dsmts_00001": stochastic_case(args.dsmts, args.threads),
+    }
     args.output.write_text(json.dumps(result, indent=2) + "\n")
 
 

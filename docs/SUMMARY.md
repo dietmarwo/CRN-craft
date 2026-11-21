@@ -41,6 +41,7 @@
   - [Fitting snapshots and takeover times](guide/18b-mtdna-inference-results.md)
   - [Choices, checks and limits](guide/18c-mtdna-inference-limits.md)
 - [19. Spatial spread of mtDNA deletions](guide/19-mtdna-spread.md)
+  - [Choices, checks and limits](guide/19a-mtdna-spread-limits.md)
 - [20. Mitochondrial networks and genetic drift](guide/20-mtdna-network.md)
 - [21. The mtDNA bottleneck during development](guide/21-mtdna-bottleneck.md)
 - [22. Protein distributions from four reactions](guide/22-two-stage-expression.md)

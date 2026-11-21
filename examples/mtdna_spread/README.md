@@ -35,9 +35,15 @@ binomial departures while holding the local feedback fixed over a step.
 A three-site mean profile smoother is applied before interpolation.
 Three fresh approximate cohorts accompany the archived benchmark.
 The 0.125-day cohort gives 0.14617 µm/day at half height, with a
-99% interval of 0.13016–0.16360. That interval only partly overlaps
-the ±0.03 µm/day equivalence range centered on the archive.
-The fresh 800-fiber exact ensemble is still outstanding.
+99% interval of 0.13016–0.16360. The interval excludes the archived
+0.18973 µm/day: an unresolved discrepancy. The fresh 800-fiber exact
+ensemble is still outstanding.
+
+`review.py` holds the review experiments on that gap (deterministic part,
+copy number, step size, exact-versus-approximate noise, and the
+equal-density setting of Figure 1C). Its rows are in
+`results/review-experiments.csv`; its working files go to `runs/review`.
+The cohorts take 4 to 15 minutes each on one core.
 
 `fetch.py` can regenerate the compact reference CSVs from the pinned
 public archive. Run outputs go to `runs/` by default. `--figures`

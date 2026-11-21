@@ -3,7 +3,9 @@
 [Guide chapter 17](../../docs/guide/17-mtdna-mechanisms.md) reproduces the
 matching-prevalence experiment of the 2014 papers. Its
 [last page](../../docs/guide/17c-mtdna-mechanisms-limits.md#reconstruction-choices)
-lists every reconstruction choice in one table. Run the commands from
+lists every reconstruction choice in one table. The tissue study counts a
+year as 360 days (lifespans of 1,080, 3,600, 14,400 and 28,800 days); a
+365-day year is one of its sensitivities. Run the commands from
 the CRN-craft root with Python 3.10 or newer and a C++17 compiler on Linux
 or macOS. Set `CXX` to choose the compiler.
 
@@ -29,9 +31,9 @@ phase and replicate indices. Thread count does not change the simulated
 result. A byte-for-byte replay needs the same C++ standard library and C
 math library: `std::uniform_int_distribution` and
 `std::binomial_distribution` are implementation-defined. The saved full
-tier (AMD x86-64, GCC 14.2) was reproduced byte for byte on Intel x86-64
-with GCC 13.3. The sampler is compiled with `-ffp-contract=off`, so FMA
-targets do not change the rounding.
+tier was produced on one Intel x86-64 host with GCC 13.3 and Python 3.13;
+it has not been replayed on a second host. The sampler is compiled with
+`-ffp-contract=off`, so FMA targets do not change the rounding.
 
 ```sh
 python examples/kk14/study.py compare --size full --ages 3 10 40 80 \
@@ -48,8 +50,8 @@ python validation/check_kk14.py --output kk14-validation.json
 | `reference-differences.csv` | Numeric differences from the printed and digitized sources, with source reading intervals and both conventions for drift |
 | `manifest.json` | Scientific configuration, sampler, seed bases, work sizes and the three-year decision rule |
 | `batches/`, `timings.json` | Local per-cell arrays for restart and wall times by cohort, produced by `compare` |
-| `single-cell.json`, `native-*.csv`, `native-marks.json` | Deterministic benchmarks and small native solver exercises; `native-size-4000.csv` and `native-atp-4000.csv` come from `native --cells 4000` with the seeds above |
-| `draft-*.csv`, `draft-manifest.json` | The earlier draft tier (seed 20261120), kept with its four rows outside the target band |
+| `single-cell.json`, `native-*.csv`, `native-marks.json` | Deterministic benchmarks (times in hours, with conversions to years of 365 and 360 days) and small native solver exercises on fixed test horizons of 2,880 h and 8,760 h; `native-size-4000.csv` and `native-atp-4000.csv` come from `native --cells 4000` with the seeds above |
+| `draft-*.csv`, `draft-manifest.json` | The earlier draft tier (seed 20261120) on a 365-day year, kept with its four rows outside the target band; a rerun of `--size draft` uses the 360-day year |
 
 The checked-in [reconstruction results](results/reconstruction/comparison.csv)
 use the full tier. Run `figures --results examples/kk14/results/reconstruction

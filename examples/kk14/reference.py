@@ -213,8 +213,7 @@ def solve_delay(
     wild_delay=2.0,
     mutant_size=0.5,
     initiation=1.0,
-    days_per_year=365,
-    max_years=200,
+    max_hours=200 * 365 * 24,
 ):
     """Method of steps with aligned delays and Heun integration."""
     tm = wild_delay * mutant_size
@@ -226,7 +225,7 @@ def solve_delay(
         for t in (tm, wild_delay)
     ):
         raise ValueError("both delays must be positive integer numbers of steps")
-    n_steps = round(max_years * days_per_year * 24 / step)
+    n_steps = round(max_hours / step)
     if not 1 <= n_steps <= 100_000_000:
         raise ValueError("method-of-steps work limit exceeded")
     stride = max(1, n_steps // 1600)

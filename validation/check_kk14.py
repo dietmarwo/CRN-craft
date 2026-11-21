@@ -76,10 +76,18 @@ def endpoints():
 
 
 def deterministic():
+    # The size paper prints these times in years. They match years of 365
+    # days (19.33 years for the 10-h case; 19.60 with 360 days), so the
+    # printed values are compared in hours through that conversion.
+    year = 365 * 24
     with tempfile.TemporaryDirectory() as tmp:
         row = single_cell(Path(tmp))
+        hours = row["size_checks_hours"]
         require(abs(row["atp_collapse_days"] - 247.4061) < 0.1, "PNAS Figure 2 zero")
-        require(abs(row["size_extinction_years"] - 94.9524) < 0.05, "JTB Figure 2")
+        require(
+            abs(row["size_extinction_hours"] - 94.9524 * year) < 0.05 * year,
+            "JTB Figure 2",
+        )
         require(abs(row["size_wild_busy_equilibrium"] - 0.0058) < 4e-5, "WT busy pool")
         require(
             abs(row["size_final_mutant_busy_fraction"] - 0.0029) < 3e-5,
@@ -87,27 +95,27 @@ def deterministic():
         )
         for mesh in ("mesh_0.5_h", "mesh_0.125_h"):
             require(
-                abs(row["size_checks_years"][mesh] - row["size_extinction_years"])
-                < 1e-4,
+                abs(hours[mesh] - row["size_extinction_hours"]) < 1e-4 * year,
                 "delay step convergence",
             )
+        require(abs(hours["half_life_2_days"] - 3.87 * year) < 0.08 * year, "JTB Fig 3")
         require(
-            abs(row["size_checks_years"]["half_life_2_days"] - 3.87) < 0.08,
-            "JTB Figure 3",
-        )
-        require(
-            abs(row["size_checks_years"]["wild_replication_10_h"] - 19.33) < 0.2,
+            abs(hours["wild_replication_10_h"] - 19.33 * year) < 0.2 * year,
             "JTB Figure 4",
         )
-        require(
-            abs(row["size_checks_years"]["mutant_size_0.7"] - 160) < 3, "JTB Figure 5"
-        )
+        require(abs(hours["mutant_size_0.7"] - 160 * year) < 3 * year, "JTB Figure 5")
+        for days in (365, 360):
+            require(
+                row[f"size_extinction_years_{days}d"]
+                == row["size_extinction_hours"] / (days * 24),
+                "year conversions",
+            )
         require(
             abs(row["same_size_final_ratio"] - 999) < 1e-6, "equal-delay neutrality"
         )
         return {
             "atp_zero_days": round(row["atp_collapse_days"], 4),
-            "wild_displacement_years": round(row["size_extinction_years"], 4),
+            "wild_displacement_hours": round(row["size_extinction_hours"], 1),
         }
 
 
@@ -254,6 +262,22 @@ def stored():
     )
     keys = [(r["mechanism"], r["years"]) for r in rates if r["label"] == "primary"]
     require(len(keys) == len(set(keys)) == 12, "all mechanism-age fits")
+    # The tissue study counts 360 days per year; 365 days is a sensitivity.
+    # Every primary rate is refitted, none imported.
+    require(
+        manifest["rate_import"] is None
+        and all(
+            r["days_per_year"] == "360" and r["fit_status"] == "fitted"
+            for r in rates
+            if r["label"] in ("primary", "size-half-life-2d")
+        ),
+        "primary fits on the 360-day year",
+    )
+    clock = [r for r in results if r["label"] == "clock-365d"]
+    require(
+        len(clock) == 6 and all(r["days_per_year"] == "365" for r in clock),
+        "365-day sensitivity",
+    )
     validation = [
         r for r in results if r["label"] == "primary" and r["cohort"] == "validation"
     ]
@@ -283,6 +307,17 @@ def stored():
         "<!-- /kk14-comparison -->"
     )[0]
     require(part == comparison_table(STORED), "rendered guide table is out of date")
+    # The deterministic size results are hours; the page gives both year
+    # conversions next to them.
+    cell = json.loads((STORED / "single-cell.json").read_text())
+    models = (ROOT / "docs" / "guide" / "17a-mtdna-mechanisms-models.md").read_text()
+    hours = {"": cell["size_extinction_hours"], **cell["size_checks_hours"]}
+    for name in ("", "half_life_2_days", "wild_replication_10_h", "mutant_size_0.7"):
+        text = (
+            f"{hours[name]:,.0f} h ({hours[name] / 24:,.0f} days) | "
+            f"{hours[name] / 8760:.3f} / {hours[name] / 8640:.3f} |"
+        )
+        require(text in models, f"deterministic size row {name or 'base'} on 17a")
     return {
         "fits": len(keys),
         "reference_rows": len(refs),

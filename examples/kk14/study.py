@@ -35,10 +35,10 @@ def single_cell(out, images=None):
         "mesh_0.5_h": solve_delay(step=0.5),
         "mesh_0.125_h": solve_delay(step=0.125),
         "initiation_0.1": solve_delay(initiation=0.1),
-        "half_life_2_days": solve_delay(half_life=48, max_years=10),
-        "wild_replication_10_h": solve_delay(wild_delay=10, max_years=50),
+        "half_life_2_days": solve_delay(half_life=48, max_hours=10 * 365 * 24),
+        "wild_replication_10_h": solve_delay(wild_delay=10, max_hours=50 * 365 * 24),
         "mutant_size_0.7": solve_delay(step=0.1, mutant_size=0.7),
-        "identical_delays": solve_delay(mutant_size=1, max_years=3),
+        "identical_delays": solve_delay(mutant_size=1, max_hours=3 * 365 * 24),
     }
     for path, data, cols in (
         ("atp-trajectory.csv", atp, "hour,wild,mutants,ATP"),
@@ -65,16 +65,26 @@ def single_cell(out, images=None):
         },
         "size_capacity": size_capacity(1000, 240, 2, 1),
         "size_extinction_hours": float(size[-1, 0]),
-        "size_extinction_years": float(size[-1, 0] / 8760),
+        # Hours are the result. Both year lengths are conversions only.
+        "size_extinction_years_365d": float(size[-1, 0] / (365 * 24)),
+        "size_extinction_years_360d": float(size[-1, 0] / (360 * 24)),
         "size_wild_busy_equilibrium": math.expm1(2 * delta),
         "size_mutant_busy_equilibrium": math.expm1(delta),
         "size_final_mutant_busy_fraction": float(
             size[-1, 4] / (size[-1, 3] + size[-1, 4])
         ),
-        "size_checks_years": {
-            name: float(points[-1, 0] / 8760)
+        "size_checks_hours": {
+            name: float(points[-1, 0])
             for name, points in other.items()
             if name != "identical_delays"
+        },
+        **{
+            f"size_checks_years_{days}d": {
+                name: float(points[-1, 0] / (days * 24))
+                for name, points in other.items()
+                if name != "identical_delays"
+            }
+            for days in (365, 360)
         },
         "same_size_final_ratio": float(
             (other["identical_delays"][-1, 1:3].sum())
@@ -175,7 +185,9 @@ def main():
         result = single_cell(out, args.images or out / "figures")
         print(
             f"ATP zero at {result['atp_collapse_days']:.3f} days; wild type <1 at "
-            f"{result['size_extinction_years']:.3f} years."
+            f"{result['size_extinction_hours']:.0f} hours "
+            f"({result['size_extinction_years_365d']:.3f} years of 365 days, "
+            f"{result['size_extinction_years_360d']:.3f} of 360)."
         )
         return
     if args.command == "compare":

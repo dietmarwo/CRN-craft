@@ -11,17 +11,34 @@
   },
   "size_capacity": 2.9303313139192513,
   "size_extinction_hours": 831783.3911134802,
-  "size_extinction_years": 94.95244190793153,
+  "size_extinction_years_365d": 94.95244190793153,
+  "size_extinction_years_360d": 96.27122582331947,
   "size_wild_busy_equilibrium": 0.005792941067853431,
   "size_mutant_busy_equilibrium": 0.0028922878693670713,
   "size_final_mutant_busy_fraction": 0.0028923044324871304,
-  "size_checks_years": {
+  "size_checks_hours": {
+    "mesh_0.5_h": 831783.3910102946,
+    "mesh_0.125_h": 831783.3911392849,
+    "initiation_0.1": 831792.796804394,
+    "half_life_2_days": 33867.40655817496,
+    "wild_replication_10_h": 169332.71280282832,
+    "mutant_size_0.7": 1386983.410541756
+  },
+  "size_checks_years_365d": {
     "mesh_0.5_h": 94.95244189615235,
     "mesh_0.125_h": 94.95244191087728,
     "initiation_0.1": 94.95351561693995,
     "half_life_2_days": 3.866142301161525,
     "wild_replication_10_h": 19.33021835648725,
     "mutant_size_0.7": 158.3314395595612
+  },
+  "size_checks_years_360d": {
+    "mesh_0.5_h": 96.27122581137668,
+    "mesh_0.125_h": 96.27122582630612,
+    "initiation_0.1": 96.27231444495301,
+    "half_life_2_days": 3.919838722010991,
+    "wild_replication_10_h": 19.598693611438463,
+    "mutant_size_0.7": 160.53048733122176
   },
   "same_size_final_ratio": 998.9999999987054
 }

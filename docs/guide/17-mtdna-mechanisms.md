@@ -7,8 +7,8 @@ mtDNA deletion mutants. In an affected cell, the mutant copies usually
 descend from a single deletion. Two papers from 2014 used this observation
 to test three candidate mechanisms. Each mechanism was given the mutation
 rate that makes 10% of simulated cells COX-negative at the end of a
-virtual lifespan of 3, 10, 40 or 80 years. Each mechanism was then asked
-how many different mutants an affected cell contains:
+virtual lifespan of 3, 10, 40 or 80 years of 360 days. Each mechanism was
+then asked how many different mutants an affected cell contains:
 
 > Kowald A., Kirkwood T.B.L. (2014). Transcription could be the key to the
 > selection advantage of mitochondrial deletion mutants in aging.
@@ -30,16 +30,18 @@ authors did not write or review it.
 
 The result in three lines:
 
-- At three years, an affected cell holds 33.8 mutant lineages under neutral
-  drift, 28.9 under the size advantage and 1.25 under transcription-linked
+- At three years, an affected cell holds 34.7 mutant lineages under neutral
+  drift, 29.3 under the size advantage and 1.26 under transcription-linked
   replication (20,000 new cells per mechanism after the fit). The
   PNAS paper reports 1.26 for the transcription mechanism and about 30 for
   the others.
 - The difference shrinks with lifespan. At 80 years, every mechanism gives
   1.0 to 1.5 lineages per affected cell.
-- The transcription result depends on two reconstruction choices that the
-  papers do not settle: what happens to a cell whose ATP runs out, and
-  whether mutant templates mutate. Both are explained on
+- The transcription result depends on two points that the papers do not
+  state and that an author of the papers confirmed (personal
+  communication, November 2026): a cell whose ATP runs out stays as it is
+  for the rest of the simulation and is counted, and mutant templates
+  mutate too. Both, and the 360-day year, are explained on
   [the last page](17c-mtdna-mechanisms-limits.md).
 
 ## Words used in this chapter
@@ -98,8 +100,9 @@ The reference sampler exists for two reasons:
    16 ms on CRN-craft's `tree` method (76,000 events) and 0.75 ms in the
    reference sampler. A three-year ATP cell took about 15 ms on
    `thinning` and 1 ms in the hourly sampler. The calibration needs mostly
-   10- to 80-year cells; the full study took 53 minutes on that host with
-   the reference sampler and would take roughly 20 times as long natively.
+   10- to 80-year cells. The full study took 136 minutes of sampling with
+   one thread on a two-core Intel x86-64 host with the reference sampler,
+   and would take roughly 20 times as long natively.
 
 For neutral drift both run the same continuous-time process, and the
 validation script checks both against its exact count law

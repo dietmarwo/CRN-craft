@@ -320,7 +320,9 @@ def atp_comparison(threads=2, reps=320, seed=None):
     the hourly scheme the cell seeds ``seed + 10000, seed + 10001, ...``.
     """
     # Reduced population and a single founder give a mixture of loss and takeover.
-    n, initial, hours, half_life = 100, 1, 24 * 365, 120
+    # 8,760 h is a fixed test horizon for this small cell, not a year of the
+    # tissue study (which counts 360 days per year).
+    n, initial, hours, half_life = 100, 1, 8760, 120
     mutation = 0.0001
     rows = []
     for method in ("hybrid", "thinning"):

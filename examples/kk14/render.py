@@ -199,7 +199,7 @@ def tissue_figures(out, images):
         ylim=(0, None),
     )
     for ax in (rates, types):
-        ax.set(xticks=ages, xlabel="Virtual lifespan (years)")
+        ax.set(xticks=ages, xlabel="Virtual lifespan (years of 360 days)")
         ax.grid(axis="y", linewidth=0.7)
         ax.set_axisbelow(True)
     rates.legend(frameon=False, fontsize=8, loc="upper right")
@@ -266,11 +266,11 @@ def single_cell_figure(atp, delayed, images):
         yscale="log",
     )
     h, w, bw, m, bm = delayed.T
-    right.plot(h / 8760, w + bw, color="#244d88", label="Wild type")
-    right.plot(h / 8760, m + bm, color="#a74d0d", label="Mutants")
+    right.plot(h / 24, w + bw, color="#244d88", label="Wild type")
+    right.plot(h / 24, m + bm, color="#a74d0d", label="Mutants")
     right.set(
         title="Fixed-delay competition",
-        xlabel="Years (365 days)",
+        xlabel="Days",
         ylabel="mtDNA copies",
         yscale="log",
     )

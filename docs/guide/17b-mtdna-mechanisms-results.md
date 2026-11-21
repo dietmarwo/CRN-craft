@@ -3,7 +3,9 @@
 Part of [chapter 17](17-mtdna-mechanisms.md).
 
 Both papers ran 1,000 cells per lifespan and adjusted the mutation rate
-until 10 ± 0.5% of them were COX-negative at the end. Then they reported
+until 10 ± 0.5% of them were COX-negative at the end. A year has 360 days,
+so the lifespans of 3, 10, 40 and 80 years are 25,920, 86,400, 345,600 and
+691,200 hours. Then they reported
 the number of types in the affected cells. This page does the same with a
 fit on one set of cells and the reported numbers from a second,
 independent set, so that the fitted rate is not judged on the cells it
@@ -60,52 +62,64 @@ The validation cohorts (the table is generated from
 <!-- kk14-comparison -->
 | Age | Mechanism | Affected / cells | Prevalence (95% Wilson) | Mutant lineages (95% bootstrap) | Target band |
 | ---: | --- | ---: | --- | --- | --- |
-| 3 y | Neutral drift | 1920 / 20000 | 9.60% (9.20–10.02%) | 33.83 (33.59–34.06) | compatible |
-| 3 y | Faster copying of shorter mtDNA | 1967 / 20000 | 9.84% (9.43–10.26%) | 28.86 (28.64–29.07) | compatible |
-| 3 y | Transcription-linked replication | 1944 / 20000 | 9.72% (9.32–10.14%) | 1.25 (1.23–1.28) | compatible |
-| 10 y | Neutral drift | 2088 / 20000 | 10.44% (10.02–10.87%) | 9.54 (9.42–9.66) | compatible |
-| 10 y | Faster copying of shorter mtDNA | 1947 / 20000 | 9.74% (9.33–10.15%) | 4.84 (4.76–4.92) | compatible |
-| 10 y | Transcription-linked replication | 2088 / 20000 | 10.44% (10.02–10.87%) | 1.07 (1.06–1.08) | compatible |
-| 40 y | Neutral drift | 1908 / 20000 | 9.54% (9.14–9.95%) | 2.19 (2.14–2.23) | compatible |
-| 40 y | Faster copying of shorter mtDNA | 1979 / 20000 | 9.89% (9.49–10.32%) | 1.23 (1.21–1.25) | compatible |
-| 40 y | Transcription-linked replication | 2042 / 20000 | 10.21% (9.80–10.64%) | 1.02 (1.01–1.03) | compatible |
-| 80 y | Neutral drift | 2098 / 20000 | 10.49% (10.07–10.92%) | 1.50 (1.47–1.53) | compatible |
-| 80 y | Faster copying of shorter mtDNA | 1852 / 20000 | 9.26% (8.87–9.67%) | 1.09 (1.07–1.10) | compatible |
-| 80 y | Transcription-linked replication | 2071 / 20000 | 10.36% (9.94–10.78%) | 1.01 (1.01–1.02) | compatible |
+| 3 y | Neutral drift | 2122 / 20000 | 10.61% (10.19–11.04%) | 34.72 (34.51–34.93) | compatible |
+| 3 y | Faster copying of shorter mtDNA | 1994 / 20000 | 9.97% (9.56–10.39%) | 29.30 (29.11–29.51) | within |
+| 3 y | Transcription-linked replication | 1976 / 20000 | 9.88% (9.47–10.30%) | 1.26 (1.24–1.28) | compatible |
+| 10 y | Neutral drift | 1953 / 20000 | 9.77% (9.36–10.18%) | 9.46 (9.35–9.57) | compatible |
+| 10 y | Faster copying of shorter mtDNA | 1831 / 20000 | 9.16% (8.76–9.56%) | 4.92 (4.84–5.01) | compatible |
+| 10 y | Transcription-linked replication | 2049 / 20000 | 10.24% (9.83–10.67%) | 1.07 (1.06–1.08) | compatible |
+| 40 y | Neutral drift | 1945 / 20000 | 9.72% (9.32–10.14%) | 2.21 (2.16–2.25) | compatible |
+| 40 y | Faster copying of shorter mtDNA | 2125 / 20000 | 10.62% (10.21–11.06%) | 1.26 (1.24–1.28) | compatible |
+| 40 y | Transcription-linked replication | 1966 / 20000 | 9.83% (9.43–10.25%) | 1.01 (1.01–1.01) | compatible |
+| 80 y | Neutral drift | 1935 / 20000 | 9.68% (9.27–10.09%) | 1.50 (1.47–1.53) | compatible |
+| 80 y | Faster copying of shorter mtDNA | 2009 / 20000 | 10.04% (9.64–10.47%) | 1.10 (1.08–1.11) | within |
+| 80 y | Transcription-linked replication | 1985 / 20000 | 9.93% (9.52–10.35%) | 1.01 (1.00–1.01) | within |
 <!-- /kk14-comparison -->
 
 How to read the prevalence column:
 
-- All 12 intervals intersect 9.5–10.5%, and none lies inside it. So the
-  data are compatible with the band but do not confirm it. 11 of the 12
-  point estimates lie in the band. The exception is the size advantage at
-  80 years: 9.26%, an interval that reaches only 9.67%, and an exact
-  binomial test against 10% gives p = 0.0004. The fitted rates carry their
-  own uncertainty: the 95% intervals in `rates.csv` are ±2% to ±9% of the
-  rate at three years and up to ±14% at 40 and 80 years.
+- All 12 intervals intersect 9.5–10.5%, and three lie inside it (size
+  advantage at 3 and 80 years, transcription at 80 years). So the data are
+  compatible with the band everywhere but confirm it only for those three.
+  9 of the 12 point estimates lie in the band. The exceptions are drift at
+  3 years (10.61%, interval from 10.19%), the size advantage at 10 years
+  (9.16%, interval up to 9.56%) and at 40 years (10.62%, interval from
+  10.21%); exact binomial tests against 10% give p = 0.004, 0.00006 and
+  0.003. These misses come from the fits, not from the validation cells:
+  the 95% intervals of the fitted rates in `rates.csv` are ±1.5% to ±7% of
+  the rate at three years and up to ±14% at 10 and 40 years.
 - At the papers' sample size the criterion is much weaker than it looks.
   With 1,000 cells at 10% the binomial standard error is 0.95 percentage
   points, so a ±0.5-point band is narrower than one standard error. The
-  1,000-cell repeats at the fitted rates gave 95, 111, 99 (3 y), 105, 96,
-  100 (10 y), 97, 98, 97 (40 y) and 94, 87, 116 (80 y) affected cells, in
-  the order drift, size, transcription. Four of the twelve, 111, 94, 87
-  and 116, are outside 95–105 although the rates are the same as above.
+  1,000-cell repeats at the fitted rates gave 84, 96, 92 (3 y), 95, 113,
+  123 (10 y), 90, 105, 102 (40 y) and 108, 110, 100 (80 y) affected cells,
+  in the order drift, size, transcription. Seven of the twelve, 84, 92,
+  113, 123, 90, 108 and 110, are outside 95–105 although the rates are the
+  same as above.
 
 How to read the lineage column: at three years the transcription
-interval (1.23–1.28) lies far below drift (33.6–34.1) and size advantage
-(28.6–29.1), so the decision rule gives `separated`. 78% of the affected
-transcription cells hold a single mutant lineage, 19% two, and none more
-than four, while drift and size cells hold between 13 and 51.
+interval (1.24–1.28) lies far below drift (34.5–34.9) and size advantage
+(29.1–29.5), so the decision rule gives `separated`. 77% of the affected
+transcription cells hold a single mutant lineage, 20% two, and none more
+than four, while drift and size cells hold between 14 and 54.
 
 ![Distribution of mutant lineages among affected 3-year cells for the three mechanisms](img/kk14/diversity-3y.png)
 
 Under the transcription mechanism almost every affected cell is a cell
-whose ATP ran out: 1,863 of the 1,944 at three years, and 2,064, 2,035
-and 2,069 of the affected cells at 10, 40 and 80 years. Only 81 of the
-18,137 three-year cells that kept their ATP are affected (0.45%), with
-1.06 lineages each. What the papers did with such cells is not stated;
-[the last page](17c-mtdna-mechanisms-limits.md#reconstruction-choices)
-discusses this choice.
+whose ATP ran out: 1,904 of the 1,976 at three years, and 2,031, 1,959
+and 1,983 of the affected cells at 10, 40 and 80 years. Such a cell keeps
+zero ATP and its wild-type and mutant counts for the rest of the
+simulation, and at the end of the lifespan it is classified and its
+lineages are counted like those of any other cell, as an author of the
+papers confirmed (personal communication, November 2026). Only 72 of the
+18,096 three-year cells that kept their ATP are affected (0.40%), with
+1.03 lineages each
+([choices](17c-mtdna-mechanisms-limits.md#reconstruction-choices)).
+
+An extension in [chapter 19c](19c-mtdna-spread-de-novo-results.md) applies
+this protocol to a fourth mechanism, stochastic survival of the densest in
+a spatial chain, with de novo deletions added: at 3 years an affected
+region of that model holds about 1,460 mutant types.
 
 ## Comparison with the published values
 
@@ -120,19 +134,26 @@ on about 100 affected cells, and a published rate on a ±0.5-point band at
 1,000 cells.
 
 Most values agree within a few percent. These do not, judged by the two
-intervals:
+intervals (a printed value is taken as exact to half its last digit):
 
 | Published value | Published | Reconstruction | Difference |
 | --- | ---: | ---: | ---: |
-| PNAS Fig 3A, transcription, 10 y, rate | 1.16e-6 (1.08–1.25) | 1.36e-6 (1.29–1.43) | +17% |
-| 2013 Table 1, drift, 3 y, rate | 7.6e-3 | 7.29e-3 (7.16–7.43) | −4% |
-| Size paper Fig 7A, 2-day half-life, 3 y, rate | 1.79e-5 (1.74–1.85) | 1.55e-5 (1.42–1.70) | −13% |
-| Size paper Fig 6B, size, 3 y, types | 29.8 (29.7–30.0) | 28.86 (28.64–29.07) | −3.3% |
-| PNAS Fig 3B, size, 3 y, types | 29.7 (29.5–30.0) | 28.86 (28.64–29.07) | −3.0% |
-| PNAS Fig 3B, drift, 3 y, types with wild type | 35.7 (35.5–36.0) | 34.83 (34.59–35.06) | −2.5% |
-| 2013 Table 1, drift, 3 y, types with wild type | 35.7 | 34.83 (34.59–35.06) | −2.4% |
-| 2013 Table 1, drift, 80 y, types with wild type | 1.75 | 1.81 (1.77–1.84) | +3.2% |
-| Size paper Fig 7B, 2-day half-life, types | 1.16 | 1.107 (1.092–1.121) | −4.6% |
+| PNAS Fig 3A, transcription, 10 y, rate | 1.16e-6 (1.08–1.25) | 1.42e-6 (1.25–1.61) | +22% |
+| Size paper Fig 6A, size, 80 y, rate | 1.00e-5 (0.96–1.04) | 1.13e-5 (1.06–1.22) | +13% |
+| Size paper Fig 7A, 2-day half-life, 3 y, rate | 1.79e-5 (1.74–1.85) | 1.46e-5 (1.37–1.55) | −19% |
+| Size paper Fig 6B, size, 3 y, types | 29.8 (29.7–30.0) | 29.30 (29.11–29.51) | −1.8% |
+| 2013 Table 1, drift, 80 y, types with wild type | 1.75 | 1.81 (1.78–1.85) | +3.7% |
+| Size paper Fig 7B, 2-day half-life, types | 1.16 | 1.117 (1.102–1.134) | −3.7% |
+
+Against PNAS Figure 3 itself, every interval of the reconstruction
+overlaps the reading interval except for the 10-year transcription rate. At three years the
+reconstruction is close to every published value: rates differ by +0.8%
+(drift), −1.4% (size) and −5.6% (transcription), lineage counts by 0.0%
+(drift, with the wild type), −1.5% (size) and 0.0% (transcription,
+1.26 printed). At 10 to 80 years the other rates differ by −9% to +12%
+and the lineage counts by −13% to +4%; there the fitted rates have 95%
+intervals of ±4% to ±14%, so differences of that size are within the
+fit's own uncertainty.
 
 The same quantity can appear in two sources. The PNAS figure takes its
 drift and size values from the two earlier papers, and the readings agree
@@ -140,11 +161,10 @@ with them: 35.7 and 29.7 at three years against the printed 35.7 of the
 2013 table and the 29.8 read from the size paper's Figure 6B. At 40 and 80
 years the markers of PNAS Figure 3B overlap, so those readings are
 coarse: the 80-year size-advantage marker reads 1.26 (1.01–1.52), the
-size paper's own bar 1.12, the reconstruction 1.09. The drift rows depend
-on the counting convention: with
-mutant lineages only, every drift count would be about one lower at three
-years. The 2013 drift model also differs from this one in its 360-day
-year and its strict 60% threshold
+size paper's own bar 1.12, the reconstruction 1.10. The drift rows depend
+on the counting convention: with mutant lineages only, every drift count
+would be about one lower at three years. The 2013 drift model uses the
+same 360-day year; it differs from this one in its strict 60% threshold
 ([choices](17c-mtdna-mechanisms-limits.md#reconstruction-choices)).
 
 None of these differences changes the comparison between the mechanisms:
@@ -159,20 +179,24 @@ python examples/kk14/study.py figures --results examples/kk14/results/full
 python validation/check_kk14.py --output kk14-validation.json
 ```
 
-The full tier simulates 417,800 cells and writes its tables and figures
-to `examples/kk14/results/full/`. It took 53 minutes on two x86-64 cores
-and reproduced every saved table under `results/reconstruction/` byte for
-byte; `--resume` continues an interrupted run from its saved batches. The
-`draft` tier (`--size draft`) runs the same steps with 240 and 800
-calibration cells, no local refinement and 1,000 validation cells.
+The full tier writes its tables and figures to
+`examples/kk14/results/full/`; the saved tables under
+`results/reconstruction/` are copies of that output. With one thread on a
+two-core Intel x86-64 host shared with another job it took 2 hours 19
+minutes (136 minutes of sampling); thread count does not change the
+result, and `--resume` continues an interrupted run from its saved
+batches. The `draft` tier (`--size draft`) runs the same steps with 240
+and 800 calibration cells, no local refinement and 1,000 validation
+cells.
 
-The draft run came first (seed 20261120). Its fits were not precise
-enough: 4 of its 24 primary rows have prevalence intervals outside the
-band (10-year size advantage, validation, 133 of 1,000; and the
-1,000-cell repeats of 40-year size advantage, 127; 40-year transcription,
-129; 80-year drift, 134). The full tier, with its local refinement and
-confirmation points and a new seed, was set up after that run. The draft
-results are kept in `results/reconstruction/draft-*.csv` and
-`draft-manifest.json`; the band rule is the same in both tiers.
+The draft run came first (seed 20261120), on a 365-day year. Its fits
+were not precise enough: 4 of its 24 primary rows have prevalence
+intervals outside the band (10-year size advantage, validation, 133 of
+1,000; and the 1,000-cell repeats of 40-year size advantage, 127; 40-year
+transcription, 129; 80-year drift, 134). The full tier, with its local
+refinement and confirmation points and a new seed, was set up after that
+run. The draft results are kept in `results/reconstruction/draft-*.csv`
+and `draft-manifest.json` as the record of that run; the band rule is the
+same in both tiers, and a rerun of `--size draft` uses the 360-day year.
 
 Next: [Choices, checks and limits](17c-mtdna-mechanisms-limits.md).

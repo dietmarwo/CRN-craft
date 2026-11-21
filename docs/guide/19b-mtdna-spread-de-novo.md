@@ -21,8 +21,8 @@ essentially one deletion type per affected cell. Kowald & Kirkwood (2013, *Aging
 [doi:10.1111/acel.12098](https://doi.org/10.1111/acel.12098)) and
 (2014, *PNAS* 111:2972–2977,
 [doi:10.1073/pnas.1314970111](https://doi.org/10.1073/pnas.1314970111))
-used this to compare mechanisms: chapter 17b finds about 34 mutant types
-per affected cell for neutral drift at 3 years and about 1.25 for
+used this to compare mechanisms: chapter 17b finds about 35 mutant types
+per affected cell for neutral drift at 3 years and about 1.26 for
 transcription-linked replication. The paper of chapter 19 uses the same
 argument against neutral models: their high de novo rates "produce an
 unrealistically high mutational diversity, at odds with the observed

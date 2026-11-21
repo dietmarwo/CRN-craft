@@ -211,19 +211,63 @@ recurrence evidence. `result.method` separates the exact finite law
 
 ## Spatial models
 
-`SpatialModel` expands local reaction templates and directed first-order
-hops to an ordinary count model. For equal-volume lattice neighbors,
-`diffusion(..., diffusivity=D, spacing=h)` adds both directions with rate
-`D / h**2` per copy. Specify transport rates directly for unequal
-volumes and other graph edges. An explicit reservoir maintains its
-initial concentration of copies at the boundary.
+`SpatialModel(name, volumes)` expands named, well-mixed compartments to an
+ordinary count model. `volumes` maps region IDs (letters, digits and `_`)
+to positive, fixed volumes. Each species gets one count per region,
+labeled `<species>_<region>`; `label(species, region)` returns that name
+and `profile(run.paths, species)` selects the region columns in region
+order. Ensemble means of a profile are the means of those columns. There
+is no separate helper for conserved totals; sum the region columns.
 
-`spatial_turnover` is a grouped exact sampler for the two-genotype chain
-in the [spatial spread study](../guide/19-mtdna-spread.md). It updates
-the affected regions after each event and can carry neutral clone labels
-when a mutation creates a new identity. Opt in through
-`study.py --source-chain --wave-sampler local`. Fiber IDs, checkpoints and
-bootstraps all operate on independent fibers.
+- `add_species(name, initial, reservoirs=())` takes one count for every
+  region or a mapping by region.
+- `local(name, rate, reactants, products, combinatorial=False,
+  regions=None)` adds one reaction per region. A string rate may name the
+  local species as `{X}` and the region volume as `{volume}`. Volumes are
+  not applied automatically: write a second-order rate constant as, for
+  example, `"k / {volume}"`. A local reaction may not change a reservoir
+  species, so pass `regions` to leave reservoir regions out.
+- `transport(species, origin, target, rate)` adds a directed hop at
+  `rate` per copy and day. Volumes do not enter the rate. For detailed
+  balance between unequal volumes choose rates with
+  `V_i * k_ij = V_j * k_ji`.
+- `diffusion(species, first, second, diffusivity, spacing)` adds both
+  directions at `diffusivity / spacing**2` per copy. It requires equal
+  volumes.
+
+A region without an edge is a reflecting end. A reservoir is a species
+whose region count never changes. A hop out of it fires at
+`rate * initial count` and adds one copy to the target. A hop into it
+removes the copy from the origin; the copy is absorbed.
+
+`spatial_turnover(initial, end=, target=, feedback=, mutant_weight=,
+death=, hop=, seed=0, mutation=0.0, fixed_left=False, labels=False,
+max_events=3_000_000_000)` samples the endpoint of one exact path of the
+two-genotype chain of the [spatial spread study](../guide/19-mtdna-spread.md).
+`initial` lists `(wild, mutant)` counts by region, at most 4,096 regions.
+Every copy is born at `max(0, death + feedback * (target - W - mutant_weight * M))`,
+dies at `death` and hops to each nearest neighbor at `hop` per day. With
+`mutation > 0` a birth makes a new mutant clone with that probability.
+With `labels=True` the result lists the clone ID of every mutant copy by
+region: 0 for initial mutants, then 1, 2, … in order of creation. Labels
+do not change the hazards. With `fixed_left=True` region 0 is a reservoir
+with the same semantics as above. The result holds `wild`, `mutant`,
+`labels`, `events`, `mutations` and the sampler identity
+`chacha8-u53-ziggurat/spatial-turnover/2`. Seed `s` uses the same ChaCha8
+stream as replicate 0 of a generic run with root seed `s`; do not use
+equal seeds for a comparison between the two. Invalid input, an event
+budget, a cancellation and a hazard below the 2⁻⁵³ selection resolution
+raise `CrnError` with `CRN-R030`.
+
+The sampler keeps the region weights in a binary sum tree that recomputes
+each parent from its children, so no running total drifts. It updates the
+event's region and the destination of a hop. Against the generic engine on
+a four-region chain with the clamp and the reservoir, five count CDFs over
+20,000 paths each differed by at most 0.0099, against a simultaneous 99%
+bound of 0.0276. On the 500-region chain it took about 150 ns per event,
+4 to 7 times less than Next Reaction. Use it through
+`study.py --source-chain --wave-sampler local`; fiber `i` uses seed
+`seed + 1000 + i` and its own checkpoint.
 
 ## Observation models
 

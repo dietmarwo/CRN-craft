@@ -1,0 +1,44 @@
+{
+  "doi": "10.1073/pnas.1804060115",
+  "derived_from": "Authors' original MATLAB data arrays and fitted parameter vectors; no upstream code incorporated",
+  "upstream": "1aa0b5ce25d21484c7c4e8a894477b1719209ce7",
+  "seed": 230521,
+  "holdouts": {
+    "0.2": "20140429",
+    "0.4": "20160509"
+  },
+  "signal_units": "seconds",
+  "histogram_refinement_target_nats_per_cell": 0.01,
+  "elongation_nt_per_second": 63,
+  "active_site_threshold": 2,
+  "rna_on_threshold_strict": 3,
+  "presets": {
+    "quick": {
+      "restarts": 1,
+      "evaluations": 80,
+      "step": 20,
+      "cap": 250
+    },
+    "draft": {
+      "restarts": 4,
+      "evaluations": 500,
+      "step": 12,
+      "cap": 250
+    },
+    "full": {
+      "restarts": 8,
+      "evaluations": 2000,
+      "step": 6,
+      "cap": 280
+    }
+  },
+  "paper_reported_cells": {
+    "0.2": 25511,
+    "0.4": 39943
+  },
+  "mature_archive_cells": {
+    "0.2": 25511,
+    "0.4": 40132
+  },
+  "archive_total_compartment_disagreements": 235
+}

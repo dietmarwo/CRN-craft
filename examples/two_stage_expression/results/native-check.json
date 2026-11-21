@@ -1,0 +1,9 @@
+{
+  "max_gap": 1.8840484727888906e-13,
+  "sink_gap": 3.520472216696213e-16,
+  "figure1b_gamma1_age3": {
+    "max_marginal_cdf_gap": 5.131470715014075e-08,
+    "physical_leakage": 7.267727258213061e-08,
+    "series_tail_upper_bound": 3.506332783648776e-10
+  }
+}

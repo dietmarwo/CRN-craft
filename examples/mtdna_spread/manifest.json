@@ -1,0 +1,13 @@
+{
+  "doi": "10.1073/pnas.2122073119",
+  "upstream": "45462390b4c27cf2ffe4860c4f526e67d49ad6c8",
+  "units": {"time": "days", "distance": "micrometers"},
+  "seed": 190521,
+  "fig1_times": [0, 140, 280, 420, 560, 700],
+  "fig1_simultaneous_confidence": 0.99,
+  "fig2_half_height_margin_um_day": 0.03,
+  "fig2_crossings": [0.4, 0.5, 0.6],
+  "fig2_observational_estimate": [0.131, 0.025],
+  "fig2_site_parameters": {"sites": 500, "spacing": 30, "copies": 3500, "c": 0.0002, "death": 0.07, "hop": 0.1, "delta": 0.2, "initial_slope": 0.000715, "initial_intercept": 3.915, "right_cutoff": 0.005},
+  "reference_kind": "Authors' numerical means (1C) and ensemble-mean profiles (2E), converted to long CSV. See fetch.py."
+}

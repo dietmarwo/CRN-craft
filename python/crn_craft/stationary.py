@@ -5,7 +5,7 @@ from operator import index
 
 import numpy as np
 
-from .projection import prepare_fsp
+from .projection import _require_scipy, prepare_fsp
 
 
 @dataclass(frozen=True)
@@ -153,6 +153,7 @@ def stationary_fsp(
     SciPy's sparse LU solves the linear system. Without a return state,
     every transition must stay inside the bounds.
     """
+    _require_scipy("stationary_fsp")
     expansions = index(expansions)
     if (
         not 0 <= expansions <= 20

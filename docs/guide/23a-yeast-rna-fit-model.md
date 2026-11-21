@@ -117,8 +117,10 @@ The library is built with `-std=c++17 -O3 -ffp-contract=off` and no
 different machines.
 
 The reusable projection in `native_fit.py` reads the same model and
-prescribed rate through CRN-craft. Its checks keep the two original solvers
-as independent references. [Prepared probability laws](../reference/experiments.md#prepared-probability-laws)
+prescribed rate through CRN-craft. Its checks compare it with the two
+original solvers. Both share the input waveform function. The total-RNA
+solver has its own integrator. The joint solver shares SciPy's BDF, so
+it checks the state space and the generator only. [Prepared probability laws](../reference/experiments.md#prepared-probability-laws)
 
 What the check verifies about these solvers:
 

@@ -141,30 +141,72 @@ continued = projection.solve(5, [5], initial=law.snapshots[1],
                              tolerance=1e-12)
 ```
 
+Install the `projection` extra (`pip install "crn-craft[projection]"`)
+for `prepare_fsp`, `stationary_fsp` and the SciPy-based readouts in
+`crn_craft.likelihood`. `import crn_craft` works without SciPy; these
+functions then raise `ModuleNotFoundError` naming the extra.
+
+The native core lowers the model and evaluates the rates, including
+count-dependent rates and stop conditions. Python enumerates the states
+and applies interventions. SciPy propagates the law: sparse matrices,
+the uniformization series, `solve_ivp` BDF and `expm_multiply`. The
+existing `Model.fsp` is unchanged and fully native. Use it for one fixed
+model from one initial state. Use `prepare_fsp` for protocols, prescribed
+signals, initial mixtures, checkpoints or many parameter vectors on one
+graph.
+
 Prepare with `initial={(0,): 0.25, (1,): 0.75}` to seed a distribution.
-`solve(parameters=...)` reuses the reachable graph while evaluating
-numerical rates. Topology, initial-support or bound changes require a
-fresh graph when they would introduce states or edges. An action maps
-the retained law through its count kernel. Escaped probability and
-previously stopped probability carry forward.
+The labels are count tuples in the order of `projection.species`. The
+probabilities must be finite, nonnegative and sum to one within 1e-12.
+Preparation enumerates every transition whose reactants are present,
+whatever its rate, and every state an action can reach. So a rule with
+zero rate at preparation can be switched on later. `solve(parameters=...)`
+reuses this graph and only re-evaluates the rates. A binding that changes
+the topology or the initial counts raises `ValueError`; prepare a new
+projection for new bounds or initial support. A prepared projection
+keeps no per-solve state, so threads can share it. It cannot be pickled;
+prepare one per process.
+
+An action maps the retained law through its count kernel, one species at
+a time; a partition is binomial. Escaped probability stays in the
+absorbing sink; an action can add to it but never returns it. Previously stopped
+probability carries forward. A snapshot from `law.snapshots` continues a
+solve under the same parameters and signals. To change parameters at a
+time point, use a protocol action.
 
 Pass `signals={"arrival": crn.Signal.table(times, rates)}` to replace
-the count-independent rate of a named rule by a prescribed time series.
-Tables use linear interpolation or an explicit right-continuous step
-curve. `Signal(function, change_times=...)` also accepts a Python rate
-function. Python callables are supplied by the caller when rerunning the
-experiment. The two integrators for smoothly forced segments are sparse
-BDF and adaptive exponential midpoint. Constant segments use positive
-uniformization. Each snapshot exposes the absorbing projection sink,
-Poisson series-tail estimate, mass defect and minimum probability.
-Check tolerance refinement on the selected observable for a smooth
-signal. See the [RNA fit replay](../../examples/yeast_rna_fit/native_fit.py).
+the count-independent rate constant of a named rule by a prescribed time
+series in the rule's rate units and the model's time unit. Tables use
+linear interpolation or an explicit right-continuous step curve and hold
+their end values outside the table. Step times split the integration;
+the knots of a linear table do not. `Signal(function, change_times=...)`
+accepts a Python rate function; list its discontinuities in
+`change_times`. Python callables are supplied by the caller when
+rerunning the experiment.
+
+Constant segments use uniformization with a truncated Poisson series.
+Smoothly forced segments use SciPy's sparse BDF (`solver="bdf"`) or an
+adaptive exponential midpoint rule (`solver="midpoint"`). `result.solver`
+names the method used. Each snapshot reports the absorbing sink, the
+Poisson series-tail bound, the mass defect and the minimum probability.
+The series-tail bound covers uniformization only. It excludes rounding
+and adds nothing for BDF or midpoint segments, which report no
+integration error estimate. BDF can return slightly negative
+probabilities; check `minimum_probability`. The midpoint rule is much
+slower and stops with an error when its tolerance is below the rounding
+level of its step estimate. Check tolerance refinement on the selected
+observable for a smooth signal. See the
+[RNA fit replay](../../examples/yeast_rna_fit/native_fit.py).
 
 Use `stationary_fsp(model, bounds)` for one finite closed communicating
 class or specify `class_state`. With a `return_state`, escaped rates
-redirect to a retained state. Successive enlargements compare marginal
-CDFs and outward flux. These diagnostics are empirical on unbounded
-networks. Certified error bounds require additional recurrence evidence.
+redirect to a retained state. SciPy's sparse LU solves the linear
+system, and the result reports its L1 residual. Successive enlargements
+compare marginal CDFs and outward flux. These diagnostics are empirical
+on unbounded networks. Certified error bounds require additional
+recurrence evidence. `result.method` separates the exact finite law
+(`finite-closed-class`) from the redirected approximation
+(`stationary-fsp-return-state`).
 [Stationary FSP method](https://arxiv.org/abs/1704.07259)
 
 ## Spatial models
@@ -187,11 +229,16 @@ bootstraps all operate on independent fibers.
 
 `crn_craft.likelihood` maps states to counts, sums, joint measurements
 and intervals. It implements binomial detection and binned Gaussian
-fluorescence. `histogram_score` returns grouped log scores with the
-effect of missing probability bounded separately. `mean_score` uses a
-sample covariance. The RNA example binds candidates to the prepared
-projection and supplies the score to fcmaes. The historical `legacy_tail`
-option reproduces the guide's coarse overflow convention.
+fluorescence. Fluorescence bins integrate the Gaussian over the bin
+edges. `histogram_score` returns the negative log likelihood in nats per
+cell and the contribution of each group. Empty bins contribute zero. An
+occupied bin with zero retained probability makes the score infinite
+and is counted in `impossible_bins`. The optimistic score adds the
+missing probability of a group to each occupied bin. `mean_score` takes
+a symmetric positive definite covariance. The RNA example binds
+candidates to the prepared projection and supplies the score to fcmaes.
+The example's `legacy_tail` argument reproduces the guide's coarse
+overflow convention.
 
 ## Published experiment files
 

@@ -12,8 +12,13 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 - Native count runs can schedule rate edits, count assignments and binomial
   partitions. Fixed-delay completions have cancellable busy owners. The
   versioned protocol request and result are 1.1.
-- The optional Python projection API reuses the state graph for time-varying
-  distributions, scheduled probability updates and stationary laws.
+- The optional Python projection API (`prepare_fsp`, `stationary_fsp`, the
+  `projection` extra) reuses the state graph for time-varying
+  distributions, scheduled probability updates and stationary laws. The
+  native core lowers the model and evaluates rates; Python enumerates the
+  states and SciPy propagates the law. `Model.fsp` is unchanged. The yeast
+  example replays both readouts at the archived vectors; the 15-coefficient
+  joint refit is not completed.
 - Spatial templates lower fixed compartments to count reactions. The
   specialized turnover-chain sampler updates local hazards and carries
   neutral clone labels.

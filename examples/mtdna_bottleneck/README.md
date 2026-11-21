@@ -1,36 +1,43 @@
 # Birth, death and partition
 
-See [chapter 21](../../docs/guide/21-mtdna-bottleneck.md) for the
-observables and model. The first cycling phase has 29 divisions
-7 hours apart, followed by seven divisions 16 hours apart.
-Observation at a division uses the daughter counts. Table 1
-rounds some early times, so labeled division times use the
-corresponding 7-hour boundaries. Starred oocytes are plotted at 100 dpc.
+The example of [chapter 21](../../docs/guide/21-mtdna-bottleneck.md):
+copy number and heteroplasmy variance through mouse development, fitted
+to Table 1 of Johnston et al. (2015), *eLife* 4:e07464,
+[doi:10.7554/eLife.07464](https://doi.org/10.7554/eLife.07464).
 
 ```sh
 python examples/mtdna_bottleneck/study.py --size quick
 python examples/mtdna_bottleneck/study.py --size full
+python examples/mtdna_bottleneck/study.py --size full --free-final-degradation
+python examples/mtdna_bottleneck/review.py
 python examples/mtdna_bottleneck/study.py --figures docs/guide/img/mtdna_bottleneck
 ```
 
-The inference uses the appendix's natural-log copy-number residual,
-weight 1,000 on normalized heteroplasmy variance, and a hard distance
-threshold of 40. Copy means are exact for the model. The fitted variance
-uses the first-order expansion in fluctuations of the two counts.
-Use Numba for the larger campaigns. The six phases include a terminal
-state with zero replication and degradation, combining the final
-constraints stated in the main text and appendix.
+Run outputs go to `runs/<size>` (with `-free-final` for the sensitivity
+run). Numba is optional; without it only the quick size is practical.
 
-After fitting Table 1, inherit the calibrated parameters at the ages
-of the independent HB groups. Exactly sample one-age founder-family
-descendants conditional on each group's mean mutant fraction. The
-validation table gives both the population statistic's interval and
-the wider interval for a sample of that group's size. The supplied
-`holdout` column identifies the prespecified litters highlighted in the
-comparison. All HB samples come from the independent data file.
+| File | Content |
+|---|---|
+| `model.py` | CRN-craft builder and lineage driver, exact founder-family sampler, moment recursion, ABC distance and samplers |
+| `study.py` | ABC fit of Table 1 at distance 40, Figure 3 bands, HB group comparison, plot |
+| `review.py` | first-order variance against exact lineages, early-age timing, ensemble agreement, phase-six degradation |
+| `fetch.py` | converts the paper's XML (Table 1) and the Figure 4 source spreadsheet |
+| `digitize.py` | pixel readings of the Figure 3 central curve and envelopes (unchecked; see the chapter) |
+| `reference-table1.csv` | 74 rows of Table 1; the cell-count rows at 7, 14 and 21 h are placed at the division times |
+| `reference-table2.csv` | the 15 group summaries of the Figure 4 spreadsheet |
+| `reference-hb.csv` | the 339 single-cell heteroplasmy values of the Figure 4 spreadsheet |
+| `reference-figure3.csv` | digitized central values and envelopes at 6 ages |
+| `results/abc.csv` | acceptance, distances and effective sizes per ensemble |
+| `results/trajectories.csv` | quantiles of mean copies and `V'(h)` over accepted sets |
+| `results/figure3-comparison.csv` | the 12 anchors against the reconstructed bands |
+| `results/hb-comparison.csv` | the 15 groups against population and group-sized bands |
+| `results/review-*.csv` | the review checks described in the chapter's results page |
 
-`fetch.py` parses the paper XML and Fig. 4 source file. `digitize.py`
-converts checked display coordinates for the reference Figure 3 curves.
-`abc.csv` records acceptance and effective sample sizes. The result
-directory holds per-age bands and HB comparisons.
-[Paper and supplement](https://doi.org/10.7554/eLife.07464)
+The `holdout` column of `hb-comparison.csv` marks the two litters listed in
+`manifest.json`. No HB group enters the fit, so all 15 groups are a new
+validation. The group-sized band uses a founder law matched to two
+moments; it is not an exact sample of the six-phase law.
+
+The reference files are derived from the paper and its source data,
+published under the Creative Commons Attribution 4.0 license; cite the
+paper when reusing them.

@@ -1,20 +1,57 @@
 # 21. Inheriting an mtDNA bottleneck
 
-A mouse germ cell can lose many mitochondrial DNA copies over several
-divisions, then recover its copy number later in development. Cells that
-have the same average mutant fraction can still vary considerably in
-what a daughter inherits. Johnston and colleagues use observations of
-both mean copy number and heteroplasmy variance to infer how this
-variation arises. [Paper, tables and appendix](https://doi.org/10.7554/eLife.07464)
+## What this chapter reproduces
 
-## Alternate turnover and division
+A fertilized mouse egg holds about 200,000 copies of mitochondrial DNA
+(mtDNA). Over the next week the copy number per cell falls to about
+1,000, and it recovers only in the developing egg cells of the next
+generation. Cells that start with the same mutant fraction end up with
+different mutant fractions. This chapter asks what copy numbers and the
+spread of mutant fractions, measured together, reveal about how that
+spread arises:
 
-Between divisions a copy can replicate or disappear. A scheduled
-division draws from a binomial distribution for each genotype, with
-probability one half of entering the tracked daughter. The simulation
-advances to the same time for every lineage and then applies the
-partitioning rule. Here's the exact distribution for the number of
-mutant copies a daughter inherits from a mother with two mutant copies.
+> Johnston I.G., Burgstaller J.P., Havlicek V., Kolbe T., Rülicke T.,
+> Brem G., Poulton J., Jones N.S. (2015). Stochastic modelling, Bayesian
+> inference, and new in vivo measurements elucidate the debated mtDNA
+> bottleneck mechanism. *eLife* 4:e07464.
+> [doi:10.7554/eLife.07464](https://doi.org/10.7554/eLife.07464)
+> (Table 1, Figure 3A–B, Figure 4 source data)
+
+The paper is open access under the Creative Commons Attribution license.
+The chapter takes the measurements of Table 1 and the individual cell
+measurements of Figure 4 from the paper. It reads the published Figure 3
+curves from the figure by eye. Everything else is simulated or
+calculated here. The authors' programs were not used. The paper's authors
+did not write or review this chapter.
+
+The result in three lines:
+
+- Approximate Bayesian computation at the paper's distance threshold 40
+  reproduces Figure 3 up to 50 days post-conception (dpc). There, every
+  reconstructed median lies inside the published outer envelope.
+- After 50 dpc the data constrain copy number weakly. The reconstructed
+  copy-number band at 100 dpc spans more than three orders of magnitude,
+  and its median is 23 times below the published curve.
+  [Results](21b-mtdna-bottleneck-results.md)
+- The fitted model, which never sees the 15 new mouse groups of
+  Figure 4, puts 12 of their 15 measured variances inside the range that
+  a sample of that group's size would show.
+
+## Words used in this chapter
+
+- **Heteroplasmy** `h`: the mutant fraction of the mtDNA in one cell.
+- **Normalized variance** `V'(h) = Var(h) / (E(h) (1 - E(h)))`: the
+  variance of `h` across cells, divided by its largest possible value for
+  that mean. It does not depend on the mean to first order.
+- **dpc**: days post-conception.
+- **Phase**: one of six stretches of development with its own
+  replication and degradation rates.
+
+## One division, by hand
+
+At a division each copy enters the tracked daughter with probability one
+half, independently of the others. A mother with two mutant copies
+therefore passes on zero, one or two of them with these probabilities:
 
 ```python
 from math import comb
@@ -27,36 +64,39 @@ print(probabilities)
 [0.25, 0.5, 0.25]
 ```
 
-The example runs one lineage by joining CRN-craft segments and checks
-that the expected copy number grows as `exp((birth - death) * hours)`
-in each segment. It halves at each division. At paper-scale counts
-the generating-function calculation reduces the descendant count
-from each original copy to a zero-or-geometric distribution.
+Between divisions each copy is copied at rate `λ` and removed at rate
+`ν`. Thirty-six such divisions, with turnover in between, produce the
+bottleneck. [The model and the inference](21a-mtdna-bottleneck-model.md)
 
-## Fit copy number and variance together
+## Run it
 
-The distance sums squared differences in log mean copy number and in
-normalized variance. The threshold for Figure 3 is 40. Approximate
-Bayesian computation accepts a parameter draw only when the distance
-is below that value and its rates and copy numbers meet the stated
-constraints. The code approximates the normalized heteroplasmy variance by the
-copy-number variance divided by the square of the mean copy number.
-This follows from expanding the mutant fraction around its mean when
-both genotypes follow independent, neutral turnover. At a fixed age an independent calculation draws copies
-from the exact founder-family law.
+| Size | What it runs | Time, one core with Numba |
+|---|---|---|
+| `quick` | one ensemble, 16 walkers, 200 sweeps | about 9 s |
+| `draft` | four ensembles, 15,000 sweeps each | about 15 s |
+| `full` | four ensembles, 360,000 sweeps each (the stored results) | about 1 min |
 
-![Copy-number and normalized-variance trajectories compared with the study](img/mtdna_bottleneck/bottleneck.png)
+```sh
+python examples/mtdna_bottleneck/study.py --size quick
+python examples/mtdna_bottleneck/study.py --size full
+python examples/mtdna_bottleneck/study.py --size full --free-final-degradation
+python examples/mtdna_bottleneck/review.py
+python examples/mtdna_bottleneck/study.py --figures docs/guide/img/mtdna_bottleneck
+python validation/check_mtdna_bottleneck.py
+```
 
-The dots are separate group measurements. The shaded region describes
-variation in the predicted population statistic over accepted
-parameter sets. The validation then uses group-sized samples of
-individual heteroplasmies from the founder-family law. This distinction
-matters when a litter contributes only a few observed cells.
+Numba is optional. Without it the quick size runs in about the same
+time, but the draft and full sizes are too slow to be practical. The
+check needs neither Numba nor a stored run. It verifies the exact laws,
+the reference files, and that every table on the results page equals the
+stored result files.
 
-Run `python examples/mtdna_bottleneck/study.py --size quick` for a short
-inference. The example documents the priors, the display convention for
-mature oocytes, the comparison and the effective sample sizes.
-[Example and result files](../../examples/mtdna_bottleneck/README.md)
+The chapter has three parts:
 
+1. [The model and the inference](21a-mtdna-bottleneck-model.md)
+2. [Results](21b-mtdna-bottleneck-results.md)
+3. [Choices, checks and limits](21c-mtdna-bottleneck-limits.md)
+
+[Example and result files](../../examples/mtdna_bottleneck/README.md) ·
 [Chapter 22](22-two-stage-expression.md) turns to the shape of a different
 stochastic count distribution.

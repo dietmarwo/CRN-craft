@@ -40,6 +40,11 @@ from ._rules_loop import CompiledLoopError
 from .builder import Model as _RulesModel
 from .builder import copy, mass_action, new, pattern
 from .report import load_report
+from .protocol import Protocol
+from .projection import Signal, prepare_fsp
+from .stationary import stationary_fsp
+from .spatial import SpatialModel, spatial_turnover
+from .experiments import read_experiment
 from .rules import DEFAULT_QUANTILES as _DEFAULT_QUANTILES
 from .rules import archive, verify_archive
 
@@ -49,6 +54,9 @@ __all__ = [
     "IncompleteEnsembleError",
     "IncompleteEnsembleWarning",
     "Model",
+    "Protocol",
+    "Signal",
+    "SpatialModel",
     "archive",
     "check",
     "compile_loop",
@@ -64,8 +72,12 @@ __all__ = [
     "new",
     "pattern",
     "prepare",
+    "prepare_fsp",
     "read_bngl",
+    "read_experiment",
     "read_sbml",
+    "stationary_fsp",
+    "spatial_turnover",
     "verify_archive",
 ]
 
@@ -119,6 +131,7 @@ def ensemble(
     quantiles=_DEFAULT_QUANTILES,
     selector=None,
     strict=False,
+    protocol=None,
 ):
     """Build and prepare a ``crn-craft.run/1.0`` request; ``simulate()`` runs it.
 
@@ -132,6 +145,9 @@ def ensemble(
     (absent means ``"auto"``). ``method=None`` runs the exact tree method;
     higher-order reactions (``count``) need ``"static_direct"``,
     ``"next_reaction"``, ``"tau"`` or ``"hybrid"``.
+
+    A :class:`Protocol` selects the run/1.1 count scheduler. Supply
+    linear Static Direct (the default with a protocol) or Next Reaction.
 
     Budgets: ``max_events`` defaults to 10**8 events per replicate, and
     ``max_sampling_steps=None`` follows it (16 random words per event), so
@@ -165,6 +181,7 @@ def ensemble(
         selector=rules._selector(selector),
         unified=True,
         strict=strict,
+        protocol=protocol,
     )
 
 

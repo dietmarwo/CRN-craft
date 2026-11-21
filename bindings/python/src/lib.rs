@@ -124,9 +124,8 @@ fn run_files_json(
     control.cancel_file = cancel_file.map(PathBuf::from);
     run_interruptible(py, control, crn_craft::rules::Control::cancel, move |c| {
         let (model, request) = (std::path::Path::new(&model), std::path::Path::new(&request));
-        let pretty = |value: &serde_json::Value| {
-            serde_json::to_string_pretty(value).expect("finite JSON")
-        };
+        let pretty =
+            |value: &serde_json::Value| serde_json::to_string_pretty(value).expect("finite JSON");
         let compact = |value: serde_json::Value| value.to_string();
         let refusal = |errors: Vec<crn_craft::diagnostic::Diagnostic>| {
             (
@@ -155,7 +154,10 @@ fn run_files_json(
             match crn_craft::rules::solve_files(model, request, c) {
                 Ok(result) => {
                     let complete = result.termination == crn_craft::rules::Termination::Completed;
-                    (compact(serde_json::to_value(result).expect("finite")), complete)
+                    (
+                        compact(serde_json::to_value(result).expect("finite")),
+                        complete,
+                    )
                 }
                 Err(errors) => refusal(errors),
             }
@@ -167,9 +169,34 @@ fn analyze_json(model: &[u8]) -> PyResult<String> {
     serde_json::to_string(&crn_craft::analyze_bytes(model, None))
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }
+#[pyfunction]
+fn turnover_json(
+    py: Python<'_>,
+    specification: Vec<u8>,
+    initial: Vec<[u64; 2]>,
+    end: f64,
+    seed: u64,
+    max_events: u64,
+    labels: bool,
+) -> PyResult<String> {
+    let spec = crn_craft::strict_json::parse(&specification).map_err(|d| failure(&[d]))?;
+    run_interruptible(
+        py,
+        crn_craft::rules::Control::default(),
+        crn_craft::rules::Control::cancel,
+        move |c| {
+            let result =
+                crn_craft::turnover::simulate(&spec, &initial, end, seed, max_events, labels, c)
+                    .map_err(|d| failure(&[d]))?;
+            Ok(serde_json::to_string(&result).expect("turnover endpoint is serializable"))
+        },
+    )?
+}
+
 #[pymodule]
 fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     rules::register(module)?;
+    module.add_function(wrap_pyfunction!(turnover_json, module)?)?;
     module.add_function(wrap_pyfunction!(describe_json, module)?)?;
     module.add_function(wrap_pyfunction!(check_any_json, module)?)?;
     module.add_function(wrap_pyfunction!(check_any_files_json, module)?)?;

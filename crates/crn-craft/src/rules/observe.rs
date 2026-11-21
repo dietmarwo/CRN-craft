@@ -112,6 +112,8 @@ pub struct Event<'a> {
     /// at least once; a rule with several channels can appear more than once.
     /// Empty for an exact step.
     pub firings: &'a [(usize, u64)],
+    /// Calendar or queue accounting in a protocol run.
+    pub protocol: Option<ProtocolEvent>,
 }
 
 /// Receives committed events during [`crate::rules::execute_with_observer`].
@@ -232,6 +234,32 @@ pub struct TrackerResult {
     pub omitted_peak: Option<f64>,
 }
 
+/// Event bookkeeping of a protocol run.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProtocolEvent {
+    /// Which part of the calendar or reaction queue fired.
+    pub kind: ProtocolEventKind,
+    /// Number of pending completions after the event.
+    pub pending: usize,
+    /// Pending completions cancelled by this event.
+    pub cancelled: usize,
+}
+
+/// Type of an event in the protocol log.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ProtocolEventKind {
+    /// One ordered external action group.
+    Intervention,
+    /// A reaction queued a future completion.
+    Initiation,
+    /// A queued reaction completed.
+    Completion,
+    /// An owner was destroyed before completion.
+    Cancellation,
+}
+
 /// One retained event of the event log.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -257,6 +285,14 @@ pub struct LogEntry {
     /// For a leap, `[rule index, firings]` pairs, one per lowered channel
     /// that fired; empty for an exact step.
     pub firings: Vec<(usize, u64)>,
+    /// Calendar or queue accounting in result/1.1.
+    #[serde(
+        default,
+        deserialize_with = "super::present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "ProtocolEvent")]
+    pub protocol: Option<ProtocolEvent>,
 }
 
 /// The trackers and event log of one replicate, in the result's
@@ -663,6 +699,47 @@ impl<'a> Monitor<'a> {
         }
     }
 
+    pub(crate) fn keeps_protocol_event(&self) -> bool {
+        self.spec
+            .log
+            .as_ref()
+            .is_some_and(|(cap, rules)| rules.is_empty() && self.output.log.len() < *cap)
+    }
+
+    pub(crate) fn observe_protocol(
+        &mut self,
+        event: &Event<'_>,
+        params: &[f64],
+        before: Option<&[u64]>,
+        after: &[u64],
+        network: &super::flat::Network,
+    ) {
+        self.observe(event, params);
+        if let Some(before) = before {
+            let entry = self
+                .output
+                .log
+                .last_mut()
+                .expect("protocol event was retained");
+            for (i, (&a, &b)) in before.iter().zip(after).enumerate() {
+                if a == b {
+                    continue;
+                }
+                let record = |count| InstanceRecord {
+                    type_index: network.species[i].ty,
+                    attributes: Vec::new(),
+                    count,
+                };
+                if a > 0 {
+                    entry.reactants.push(record(a));
+                }
+                if b > 0 {
+                    entry.products.push(record(b));
+                }
+            }
+        }
+    }
+
     pub(crate) fn observe_count(&mut self, indices: &[usize], value: f64, time: f64) {
         for &i in indices {
             self.trackers[i].update(value, time, self.spec.trackers[i].0.keep_episodes);
@@ -714,5 +791,6 @@ pub fn log_entry(event: &Event<'_>) -> LogEntry {
         products: records(event.products),
         observables: event.observables.to_vec(),
         firings: event.firings.to_vec(),
+        protocol: event.protocol,
     }
 }

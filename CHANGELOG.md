@@ -7,6 +7,21 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+### Experiment protocols and analysis
+
+- Native count runs can schedule rate edits, count assignments and binomial
+  partitions. Fixed-delay completions have cancellable busy owners. The
+  versioned protocol request and result are 1.1.
+- The optional Python projection API reuses the state graph for time-varying
+  distributions, scheduled probability updates and stationary laws.
+- Spatial templates lower fixed compartments to count reactions. The
+  specialized turnover-chain sampler updates local hazards and carries
+  neutral clone labels.
+- Observation maps and grouped likelihoods support count and fluorescence
+  readouts. The experiment adapter runs a documented SBML/SED-ML subset
+  from local files or COMBINE archives.
+
+
 ### Documentation (guide and examples)
 
 - Guide chapter 19, extension (pages 19b and 19c): the 40- and 80-year runs of the de novo study for the denser mutant, run on a second machine with `mutations.py run --size full --years 40|80 --case main`, are added to the saved tables (both cohorts of each, failed ones kept); two of their fibers replay bit for bit on another host. At 80 years the refit cohort is compatible with the 10% band (111 of 1,024 regions) and an affected region holds 108 mutant types (95% bootstrap over fibers 95–119) of 44 copies each, at a deletion probability 84 to 3,300 times the paper's estimate for human fibers. At 40 years the calibration failed by the predeclared rule (0 and 32 of 1,024 regions affected; the 32 are one fiber), so no statement is made. At these ages whole fibers are affected or not, so the region-based protocol has about 32 effective units; pages 19c and 19b state this limit. The figure plots types per affected region against age, and `validation/check_mtdna_spread.py` checks the eleven cohorts and the generated tables.

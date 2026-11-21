@@ -70,6 +70,7 @@ Coming from GillesPy2 or rebop? See [how CRN-craft compares](docs/comparison.md)
 - [The mtDNA bottleneck during development](docs/guide/21-mtdna-bottleneck.md)
 - [Protein distributions from four reactions](docs/guide/22-two-stage-expression.md)
 - [Fitting single-cell RNA distributions](docs/guide/23-yeast-rna-fit.md)
+- [Reproducible experiments](docs/reference/experiments.md) with scheduled changes, projected laws, spatial transport and published experiment files
 - [Reference](docs/reference/model-language.md): model language, methods, Python API, contracts, diagnostics
 - [Changelog](CHANGELOG.md)
 

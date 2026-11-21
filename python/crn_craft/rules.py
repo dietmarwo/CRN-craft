@@ -1383,6 +1383,7 @@ def _ensemble(
     selector,
     unified,
     strict=False,
+    protocol=None,
 ):
     """``ensemble``; with ``unified`` (the top-level name) the documents are
     always model/1.0 and run/1.0 and network models are converted."""
@@ -1458,6 +1459,8 @@ def _ensemble(
         ):
             # Options left out take the rules-run/0.6 defaults.
             request["schema"] = "crn-craft.rules-run/0.6"
+    if protocol is not None and method is None:
+        request["method"] = {"kind": "static_direct"}
     if selector is not None:
         request["method"] = _with_selector(request.get("method"), selector)
     if (
@@ -1482,6 +1485,17 @@ def _ensemble(
         request["method"].setdefault("selector", "linear")
     if probabilities:
         request["outputs"]["quantiles"] = probabilities
+    if protocol is not None:
+        from .protocol import Protocol
+
+        if not isinstance(protocol, Protocol):
+            raise TypeError("protocol must be a Protocol")
+        request["schema"] = "crn-craft.run/1.1"
+        if method is None:
+            request["method"] = {"kind": "static_direct"}
+            if selector is not None:
+                request["method"]["selector"] = selector
+        request["protocol"] = protocol.to_dict()
     return _prepared(data, request, compiled, unified_from, unified, strict)
 
 

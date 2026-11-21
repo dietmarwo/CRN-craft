@@ -235,6 +235,7 @@ pub use libm;
 pub mod model;
 mod mtdna;
 pub mod observe;
+pub mod protocol;
 pub(crate) mod quantile;
 mod rssa;
 mod select;
@@ -493,6 +494,9 @@ pub enum RunVersion {
     )]
     #[serde(rename = "crn-craft.run/1.0")]
     V10,
+    #[doc = concat!("Schedule and fixed-delay completions for closed count networks.")]
+    #[serde(rename = "crn-craft.run/1.1")]
+    V11,
 }
 
 /// The simulated horizon and the report grid of a run request.
@@ -846,6 +850,14 @@ pub struct RunRequest {
     )]
     #[schemars(with = "LogSpec")]
     pub event_log: Option<LogSpec>,
+    /// Scheduled actions and fixed-delay completions. Requires run/1.1.
+    #[serde(
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schemars(with = "protocol::Protocol")]
+    pub protocol: Option<protocol::Protocol>,
 }
 
 impl RunRequest {
@@ -896,6 +908,9 @@ pub enum ResultVersion {
     )]
     #[serde(rename = "crn-craft.result/1.0")]
     V10,
+    #[doc = concat!("A result of a run/1.1 protocol request.")]
+    #[serde(rename = "crn-craft.result/1.1")]
+    V11,
 }
 
 /// How a replicate, or the whole ensemble, ended.
@@ -1218,6 +1233,7 @@ pub struct Prepared {
     /// `hybrid`: the shared solution of the independent continuous
     /// variables (rules-model/0.4), solved once here.
     independent: Option<engine::Shared>,
+    schedule: Option<protocol::Schedule>,
     request: RunRequest,
     model_sha256: String,
     run_sha256: String,
@@ -1682,7 +1698,10 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
     })?;
     let model_sha256 = crate::sha256(model_bytes);
     let mut diagnostics = validate_request(&request, &model_sha256);
-    if model.schema == model::ModelVersion::V10 && request.schema != RunVersion::V10 {
+    if let Err(error) = protocol::validate(&request) {
+        diagnostics.push(error);
+    }
+    if model.schema == model::ModelVersion::V10 && request.schema < RunVersion::V10 {
         // Old requests cannot reach the features of the 1.0 contracts.
         diagnostics.push(request_error(
             "/schema",
@@ -1701,7 +1720,7 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
         return Err(diagnostics);
     }
     let mut compiled = compiled.expect("compiled when valid");
-    if request.schema != RunVersion::V10 {
+    if request.schema < RunVersion::V10 {
         // Random pair labels are a policy of crn-craft.run/1.0 (sampler
         // version 3); older requests replay the streams of version 2.
         for rule in &mut compiled.rules {
@@ -1777,6 +1796,16 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
             "Use thinning with an ATP rules model.",
         )]);
     }
+    if request.protocol.is_some() {
+        if !compiled.types.iter().all(|t| t.attributes.is_empty()) {
+            return Err(vec![request_error(
+                "/protocol",
+                "protocol needs attribute-free species",
+                "Use declared counts.",
+            )]);
+        }
+        protocol::include_empty_types(&mut compiled);
+    }
     let mut flat = match request.method.unwrap_or_default() {
         Method::Tree {} => None,
         Method::StaticDirect { .. }
@@ -1802,7 +1831,10 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
             "Select tau or exact SSA for other channels.",
         )]);
     }
-    let sizes = observation_sizes(&compiled, request.method, flat.as_ref());
+    let mut sizes = observation_sizes(&compiled, request.method, flat.as_ref());
+    if request.protocol.is_some() {
+        sizes.participants = sizes.participants.max(2 * compiled.types.len());
+    }
     let reserved = observations.reservation(&sizes);
     let reservation = reserved.per_replicate() * u128::from(request.ensemble.replicates);
     let budget = MAX_WORKSPACE_BYTES.min(request.budget.max_output_bytes);
@@ -1821,7 +1853,7 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
     let mut sparse_unused = false;
     if let Some(net) = &mut flat {
         let sparse = sparse_request(&request);
-        if sparse != Sparse::Off {
+        if sparse != Sparse::Off && request.protocol.is_none() {
             observations.enable_sparse(net);
             // No eligible tracker: the run is the per-event one, and an
             // explicit request says so.
@@ -1832,7 +1864,7 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
     let (mtdna, mtdna_fallback) = match (request.method, flat.as_ref()) {
         (Some(Method::MtdnaDirect {}), Some(net)) => {
             // The builder form is certified for crn-craft.run/1.0 only.
-            let builder = request.schema == RunVersion::V10;
+            let builder = request.schema >= RunVersion::V10;
             match mtdna::Kernel::compile(net, &compiled, &observations, builder) {
                 Ok(kernel) => (Some(kernel), None),
                 Err(reason) => (None, Some(reason)),
@@ -1853,10 +1885,29 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
         ),
         _ => None,
     };
+    let schedule = request
+        .protocol
+        .as_ref()
+        .map(|p| {
+            protocol::Schedule::build(
+                p,
+                &model,
+                flat.as_ref().expect("protocol uses a flat method"),
+                &observations,
+            )
+        })
+        .transpose()
+        .map_err(|error| vec![error])?;
     let selector = match request.method {
-        Some(Method::StaticDirect { selector, .. }) => {
-            select::resolve(request.schema, selector, flat.as_ref())
-        }
+        Some(Method::StaticDirect { selector, .. }) => select::resolve(
+            request.schema,
+            if schedule.is_some() {
+                Some(Selector::Linear)
+            } else {
+                selector
+            },
+            flat.as_ref(),
+        ),
         _ => select::Kind::Linear,
     };
     let rssa = match (selector, flat.as_ref()) {
@@ -1874,6 +1925,7 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
         compiled,
         flat,
         independent,
+        schedule,
         observations,
         request,
         model_sha256,
@@ -1884,6 +1936,13 @@ pub fn prepare(model_bytes: &[u8], request_bytes: &[u8]) -> Result<Prepared, Vec
 /// `CRN-R020` at `/method/selector` unless the prepared request runs the
 /// linear scan, the only selector generated code implements.
 fn linear_selector(prepared: &Prepared, what: &str) -> Result<(), Diagnostic> {
+    if prepared.schedule.is_some() {
+        return Err(request_error(
+            "/protocol",
+            "generated kernels do not run protocols",
+            "Use the engine's Static Direct scheduler.",
+        ));
+    }
     if prepared.selector == select::Kind::Linear {
         return Ok(());
     }
@@ -2086,7 +2145,7 @@ fn admission(
     // the run counts them as replicates finish (`kept_limit`), so
     // max_instances bounds only the live state. Older requests keep the
     // worst-case reservation of 0.7.
-    let instances = if request.schema == RunVersion::V10 {
+    let instances = if request.schema >= RunVersion::V10 {
         0
     } else {
         let attributes = model
@@ -2495,7 +2554,7 @@ fn execute_inner<O: EventObserver>(
         // least 41 + 4 per attribute bytes), so lists past twice the budget
         // cannot fit; anything less is left to the exact check at the end.
         // Older requests keep 0.7's admission reservation instead.
-        kept_limit: if request.schema == RunVersion::V10 {
+        kept_limit: if request.schema >= RunVersion::V10 {
             2 * u128::from(request.budget.max_output_bytes.min(MAX_RESULT_BYTES))
         } else {
             u128::MAX
@@ -2549,8 +2608,9 @@ fn execute_inner<O: EventObserver>(
                         method: prepared.method,
                         selector: prepared.selector,
                         rssa: prepared.rssa.as_ref(),
-                        lenient_clock: prepared.request.schema == RunVersion::V10,
+                        lenient_clock: prepared.request.schema >= RunVersion::V10,
                         independent: prepared.independent.as_ref(),
+                        schedule: prepared.schedule.as_ref(),
                         id,
                     };
                     let output = path.run(&mut stream(request.ensemble.root_seed, id), observer);
@@ -2677,10 +2737,20 @@ fn execute_inner<O: EventObserver>(
             RunVersion::V02 | RunVersion::V03 | RunVersion::V04 => ResultVersion::V02,
             RunVersion::V05 | RunVersion::V06 => ResultVersion::V03,
             RunVersion::V10 => ResultVersion::V10,
+            RunVersion::V11 => ResultVersion::V11,
         },
         model_sha256: prepared.model_sha256.clone(),
         run_sha256: prepared.run_sha256.clone(),
         sampler: match prepared.method {
+            Method::NextReaction {} if prepared.schedule.is_some() => {
+                "chacha8-u53/rules-protocol-next-reaction/1".into()
+            }
+            Method::StaticDirect { .. } if prepared.schedule.is_some() => if ziggurat {
+                "chacha8-u53-ziggurat/rules-protocol-direct/1"
+            } else {
+                "chacha8-u53/rules-protocol-direct/1"
+            }
+            .into(),
             Method::Tree {} if prepared.compiled.rules.iter().any(|r| r.random_labels) => {
                 SAMPLER_RANDOM_LABELS.into()
             }
@@ -3026,7 +3096,9 @@ pub fn schema(kind: &str) -> Option<Value> {
         "model-1.0" => (schema_for!(Model), "ModelVersion", Some(MODEL_1_0)),
         "check-1.0" => (schema_for!(RulesCheck), "CheckVersion", Some(CHECK_1_0)),
         "run-1.0" => (schema_for!(RunRequest), "RunVersion", Some(RUN_1_0)),
+        "run-1.1" => (schema_for!(RunRequest), "RunVersion", Some(RUN_1_1)),
         "result-1.0" => (schema_for!(RulesResult), "ResultVersion", Some(RESULT_1_0)),
+        "result-1.1" => (schema_for!(RulesResult), "ResultVersion", Some(RESULT_1_1)),
         _ => return None,
     };
     let mut value = serde_json::to_value(schema).ok()?;
@@ -3041,7 +3113,24 @@ pub fn schema(kind: &str) -> Option<Value> {
             }
         }
     }
+    if kind != "run-1.1" && definition == "RunVersion" {
+        value
+            .get_mut("properties")?
+            .as_object_mut()?
+            .remove("protocol");
+    }
+    if kind == "run-1.1" {
+        value
+            .get_mut("required")?
+            .as_array_mut()?
+            .push("protocol".into());
+    }
     let definitions = value.get_mut("definitions")?.as_object_mut()?;
+    if kind != "run-1.1" && definition == "RunVersion" {
+        for name in ["Protocol", "Action", "Delay"] {
+            definitions.remove(name);
+        }
+    }
     if unified.is_none() {
         // A rules-* document cannot hold the fields of the 1.0 contracts.
         for (name, property) in ONLY_1_0 {
@@ -3086,11 +3175,27 @@ pub fn schema(kind: &str) -> Option<Value> {
             *text = "`sum` (default), `distinct`, `max` or `min`.".into();
         }
     }
+    if kind != "result-1.1" && definition == "ResultVersion" {
+        if let Some(log) = definitions.get_mut("LogEntry") {
+            log.get_mut("properties")?
+                .as_object_mut()?
+                .remove("protocol");
+        }
+        definitions.remove("ProtocolEvent");
+        definitions.remove("ProtocolEventKind");
+    }
     let version = definitions.get_mut(definition)?;
-    version
-        .get_mut("enum")?
-        .as_array_mut()?
-        .retain(|v| v.as_str().is_some_and(is_unified) == unified.is_some());
+    version.get_mut("enum")?.as_array_mut()?.retain(|v| {
+        if kind == "run-1.1" {
+            return v == "crn-craft.run/1.1";
+        }
+        if kind == "result-1.1" {
+            return v == "crn-craft.result/1.1";
+        }
+        v != "crn-craft.run/1.1"
+            && v != "crn-craft.result/1.1"
+            && v.as_str().is_some_and(is_unified) == unified.is_some()
+    });
     if let Some((description, version_description)) = unified {
         version["description"] = version_description.into();
         value["description"] = description.into();
@@ -3187,9 +3292,17 @@ const CHECK_1_0: Descriptions = (
     "The report of `crn-craft check MODEL [REQUEST]`: `crn-craft.check/1.0`, with the fields of `crn-craft.rules-check/0.1` and `run_sha256`. It is reported for a `crn-craft.model/1.0` document, for a network `crn-craft.model/0.1` (checked by converting it) and for any model with a request (whether `crn-craft run` would accept the two documents).\n\nThe check stops at the first stage that fails (parsing, size limits, names and types, then the rest of the model, then the request), so `diagnostics` lists the errors of that stage.",
     "The version of a model check report, its `schema` field.",
 );
+const RUN_1_1: Descriptions = (
+    "A run/1.1 simulation request with a protocol of scheduled interventions and fixed reaction completions.",
+    "The protocol run/request version.",
+);
 const RUN_1_0: Descriptions = (
     "A run request: `crn-craft.run/1.0`, the unified request contract, with the fields and defaults of `crn-craft.rules-run/0.6` plus `outputs.quantiles` and the Static Direct `selector`, whose default `auto` picks a selector from the lowered network (`\"selector\": \"linear\"` runs what rules-run/0.6 runs).\n\nIt binds one model, `crn-craft.model/1.0` or any `crn-craft.rules-model` version, by hash and states the time grid, the ensemble, the outputs and an explicit budget. Unknown fields and duplicate keys are rejected. It returns `crn-craft.result/1.0`.",
     "The version of a run request, its `schema` field.",
+);
+const RESULT_1_1: Descriptions = (
+    "The result of a run/1.1 request, with protocol event information in retained logs.",
+    "The protocol result version.",
 );
 const RESULT_1_0: Descriptions = (
     "The result of a `crn-craft.run/1.0` request: `crn-craft.result/1.0`, with the fields of `crn-craft.rules-result/0.3` plus `statistics.quantiles`.\n\nA result is returned even when replicates hit limits or fail: check `termination`, the per-replicate records and `diagnostics`. Matrices are indexed by report time, then observable.",

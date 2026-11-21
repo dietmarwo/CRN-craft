@@ -26,7 +26,9 @@ REMOVED = ["simulate", "simulate-cached", "ssa", "tau", "fsp"]
 SCHEMAS = [
     "model-1.0",
     "run-1.0",
+    "run-1.1",
     "result-1.0",
+    "result-1.1",
     "check-1.0",
     "fsp-result-1.0",
     "analysis-1.0",

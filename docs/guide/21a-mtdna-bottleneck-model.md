@@ -32,6 +32,12 @@ The example runs one lineage by joining CRN-craft segments
 `static_direct`, draws the binomial partition in Python, and starts the
 next segment from the sampled counts.
 
+The published example also exposes `protocol_lineages` in the same module.
+It uses one scheduled count run and reports the daughter immediately after
+each partition. A comparison with the phase recurrence checks the mean
+and variance through the ordered division times. [Scheduled experiments](../reference/experiments.md#scheduled-stochastic-simulation)
+
+
 ## Moments without simulation
 
 The inference never simulates. Within a phase the expected copy number

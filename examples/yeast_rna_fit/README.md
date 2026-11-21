@@ -54,3 +54,16 @@ repository's MIT license and stay under the terms of their source; see
 [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md#reference-data-of-the-guide-case-studies). No upstream code is included. The checks fetch nothing.
 
 [Paper](https://doi.org/10.1073/pnas.1804060115) · [Author archive](https://github.com/MunskyGroup/Munsky_et_al_2018/tree/1aa0b5ce25d21484c7c4e8a894477b1719209ce7)
+
+
+## Prepared projection and fitting
+
+`native_fit.py check OUTPUT` compares prepared CRN-craft predictions for
+both readouts and salt doses against the independent chapter solvers.
+`native_fit.py fit OUTPUT --budget 60 --restarts 2` times the joint grid
+and then varies all 15 coefficients. `--draft-joint` uses a smaller
+projection for search and scores candidates on the refined joint law.
+`--total --holdout` evaluates the total-count fit with the two chapter
+splits. Add `--training-only` to use a preset independent of the archived
+parameters. The original example's data and likelihood conventions apply.
+Results include the actual number of evaluations.

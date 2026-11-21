@@ -45,6 +45,36 @@ def native_lineage(initial, phases, seed):
     return np.asarray(saved)
 
 
+def protocol_lineages(initial, phases, seed, *, replicates=1, threads=1):
+    """Run all birth–death phases and daughter partitions on one trajectory clock."""
+    model = crn.Model("scheduled_bottleneck")
+    model.add_species({"W": int(initial[0]), "M": int(initial[1])})
+    model.add_parameter({"birth": 0.0, "death": 0.0})
+    for s in ("W", "M"):
+        model.add_reaction(crn.mass_action("birth"), [s], [s, s], name=f"replicate_{s}")
+        model.add_reaction(crn.mass_action("death"), [s], [], name=f"degrade_{s}")
+    schedule = crn.Protocol(time_unit="hour")
+    t, reports = 0.0, []
+    for hours, birth, death, divide in phases:
+        schedule.at(t, parameters={"birth": birth, "death": death})
+        t += hours
+        if divide:
+            schedule.at(t, partition={"W": 0.5, "M": 0.5})
+        reports.append(t)
+    return crn.ensemble(
+        model,
+        end=t,
+        report_times=reports,
+        keep_paths=replicates,
+        protocol=schedule,
+        seed=seed,
+        replicates=replicates,
+        threads=threads,
+        strict=True,
+        quantiles=(),
+    ).simulate()
+
+
 def birth_death_draw(n, birth, death, hours, rng):
     """Sample the independent founder families, each zero or geometric."""
     net = birth - death

@@ -13,6 +13,8 @@ document.
 | Contract | Role | `describe` kind |
 | --- | --- | --- |
 | `crn-craft.model/1.0` | the model: [model reference](model-language.md) | `model-1.0` |
+| `crn-craft.run/1.1` | a simulation with scheduled interventions or fixed-delay completions | `run-1.1` |
+| `crn-craft.result/1.1` | protocol simulation result and optional queue log | `result-1.1` |
 | `crn-craft.run/1.0` | the request: simulation methods, or `fsp` | `run-1.0` |
 | `crn-craft.result/1.0` | the result of a simulation request ([results](results.md)) | `result-1.0` |
 | `crn-craft.fsp-result/1.0` | the result of an `fsp` request | `fsp-result-1.0` |

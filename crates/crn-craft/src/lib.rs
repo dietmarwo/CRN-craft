@@ -149,6 +149,7 @@ pub mod rules;
 pub mod sampling;
 pub mod ssa;
 pub mod strict_json;
+pub mod turnover;
 pub mod unified;
 
 pub use analysis::{AnalysisReport, analyze_bytes};

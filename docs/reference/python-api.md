@@ -8,7 +8,7 @@ Import the package as `import crn_craft as crn`. `crn_craft.rules` is the API of
 
 `crn_craft.rules.ensemble` takes the arguments of `ensemble` below. Its `quantiles` defaults to `None` (no quantiles), and an absent `selector` means the linear scan.
 
-Contents: [Models](#models), [Running](#running), [Results](#results), [Files and archives](#files-and-archives), [Analysis and import/export](#analysis-and-importexport), [Compiled loops](#compiled-loops).
+Contents: [Models](#models), [Running](#running), [Experiments and probability laws](#experiments-and-probability-laws), [Results](#results), [Files and archives](#files-and-archives), [Analysis and import/export](#analysis-and-importexport), [Compiled loops](#compiled-loops).
 
 ## Models
 
@@ -622,6 +622,7 @@ ensemble(
     quantiles=(0.025, 0.5, 0.975),
     selector=None,
     strict=False,
+    protocol=None,
 )
 ```
 
@@ -649,6 +650,7 @@ Build and prepare a `crn-craft.run/1.0` request; `simulate()` runs it.
 | `quantiles` (keyword only) | `(0.025, 0.5, 0.975)` | Probabilities for `statistics["quantiles"]` and `statistics["median"]`. `()` or `None` asks for none. |
 | `selector` (keyword only) | `None` | The event selector of `static_direct`: `"linear"`, `"composition_rejection"`, `"sorting"`, `"rssa_cr"` or `"auto"`. See [methods](methods.md#selectors). |
 | `strict` (keyword only) | `False` | `True`: replicates that end early raise `IncompleteEnsembleError` in `simulate()` instead of warning with `IncompleteEnsembleWarning`. |
+| `protocol` (keyword only) | `None` | An ordered Protocol describing count operations and delays. |
 
 The arguments are those of [`crn_craft.rules.ensemble`](#ensemble), with two
 differences: the documents are always `crn-craft.model/1.0` (a
@@ -660,6 +662,9 @@ is converted) and `crn-craft.run/1.0`, and `quantiles` defaults to
 (absent means `"auto"`). `method=None` runs the exact tree method;
 higher-order reactions (`count`) need `"static_direct"`,
 `"next_reaction"`, `"tau"` or `"hybrid"`.
+
+A [`Protocol`](#protocol) selects the run/1.1 count scheduler. Supply
+linear Static Direct (the default with a protocol) or Next Reaction.
 
 Budgets: `max_events` defaults to 10**8 events per replicate, and
 `max_sampling_steps=None` follows it (16 random words per event), so
@@ -930,6 +935,341 @@ It carries the message and `counts` of
 [`IncompleteEnsembleWarning`](#incompleteensemblewarning), and `result`, the
 [`crn_craft.rules.Result`](#result) of the run, so the records can still be
 read.
+
+## Experiments and probability laws
+
+Declare [scheduled experiments](experiments.md), prepare a probability projection, build spatial compartments and import an experiment bundle.
+
+### `Protocol`
+
+```text
+class Protocol(*, time_unit=None, max_pending=4096)
+```
+
+An ordered calendar in the time unit of the model's rates.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `time_unit` (keyword only) | `None` | A label for the time unit of the model and the protocol. |
+| `max_pending` (keyword only) | `4096` | Per-replicate cap on pending reaction completions. |
+
+Use `at` for external interventions and `delay` to attach
+completions to the firings of a reaction. Equal times preserve insertion
+order. Reports see the state after actions and due completions.
+
+### `Protocol.at`
+
+```text
+Protocol.at(
+    time,
+    parameters=None,
+    change=None,
+    set_counts=None,
+    partition=None,
+)
+```
+
+Add an atomic group of rate edits and count operations.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `time` | required | Timestamp in the same time unit as the model. |
+| `parameters` (keyword only) | `None` | Named kinetic parameters to replace at this time. |
+| `change` (keyword only) | `None` | Map species names to signed count increments. |
+| `set_counts` (keyword only) | `None` | Map species names to absolute counts. |
+| `partition` (keyword only) | `None` | Map species names to independent retention probabilities. |
+
+Count increments may be negative. Counts assigned or partitioned in
+the same group use their pre-group values. Give at most one count
+operation per species. Return the protocol for chaining.
+
+### `Protocol.delay`
+
+```text
+Protocol.delay(reaction, duration, *, products=None, owner=None)
+```
+
+Add fixed delayed products to a named initiation reaction.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `reaction` | required | Name of the reaction. |
+| `duration` | required | Positive time from initiation to completion. |
+| `products` (keyword only) | `None` | Count increments made by a successful completion. |
+| `owner` (keyword only) | `None` | Optional busy species whose removal cancels the completion. |
+
+When supplied, the owner is a busy species created once per
+initiation. Its loss cancels the completion; a completion consumes
+one surviving owner.
+
+### `Protocol.to_dict`
+
+```text
+Protocol.to_dict()
+```
+
+Return a detached copy of the protocol payload for run/1.1.
+
+### `Signal`
+
+```text
+class Signal(function, *, change_times=())
+```
+
+A real-time rate input. Tables use linear or right-continuous steps.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `function` | required | Prescribed time-dependent rate function. |
+| `change_times` (keyword only) | `()` | Times where the rate can change discontinuously. |
+
+Callables are a Python-only option. Provide their change points and a
+reproducible description of their parameters in the calling experiment.
+
+### `Signal.table`
+
+```text
+Signal.table(times, values, *, interpolation='linear')
+```
+
+Create a table with held endpoint values outside its range.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `times` | required | Increasing times at which the rate is tabulated. |
+| `values` | required | Values in the same order as times. |
+| `interpolation` (keyword only) | `'linear'` | Linear interpolation or a right-continuous step curve. |
+
+### `prepare_fsp`
+
+```text
+prepare_fsp(
+    model,
+    bounds,
+    protocol=None,
+    initial=None,
+    max_states=100000,
+    max_edges=2000000,
+)
+```
+
+Prepare a reusable projection for a closed model.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `model` | required | A model: bytes from `load`, a JSON string, a dictionary or a `Model`. |
+| `bounds` | required | Mapping of species labels to inclusive upper counts. |
+| `protocol` (keyword only) | `None` | An ordered Protocol describing count operations and delays. |
+| `initial` (keyword only) | `None` | Optional mapping of count tuples to probabilities. |
+| `max_states` (keyword only) | `100000` | Reachable-state limit. |
+| `max_edges` (keyword only) | `2000000` | Sparse edge limit. |
+
+Optional SciPy powers the probability integrators. Existing
+[`Model.fsp`](#modelfsp) remains the uniformization entry point for a fixed
+model without experiments.
+
+### `stationary_fsp`
+
+```text
+stationary_fsp(
+    model,
+    bounds,
+    return_state=None,
+    class_state=None,
+    parameters=None,
+    expansions=0,
+    tolerance=1e-06,
+    flux_tolerance=1e-06,
+    max_states=100000,
+)
+```
+
+Solve a finite stationary law or an outward-flux-redirected FSP.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `model` | required | A model: bytes from `load`, a JSON string, a dictionary or a `Model`. |
+| `bounds` | required | Mapping of species labels to inclusive upper counts. |
+| `return_state` (keyword only) | `None` | Retained count tuple to which stationary FSP redirects escaping rates. |
+| `class_state` (keyword only) | `None` | State identifying the selected finite closed class. |
+| `parameters` (keyword only) | `None` | Numeric model parameter overrides. |
+| `expansions` (keyword only) | `0` | Maximum number of additional projection enlargements. |
+| `tolerance` (keyword only) | `1e-06` | Target maximum marginal CDF change after refinement. |
+| `flux_tolerance` (keyword only) | `1e-06` | Target outward rate after projection refinement. |
+| `max_states` (keyword only) | `100000` | Reachable-state limit. |
+
+With a return state, expand faces according to boundary flux exposure
+and compare marginal CDFs across successive bounds. The resulting
+convergence indication is empirical for an infinite network. A finite
+generator with several closed classes needs an explicit class state.
+
+### `SpatialModel`
+
+```text
+class SpatialModel(name, volumes)
+```
+
+Build an ordinary reaction network from named well-mixed compartments.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `name` | required | A name. |
+| `volumes` | required | Mapping of compartment names to their positive fixed volumes. |
+
+The graph uses directed per-molecule transport hazards. Compartment
+volumes are fixed. Rate templates can interpolate local species names
+and the fixed volume.
+
+### `SpatialModel.add_species`
+
+```text
+SpatialModel.add_species(name, initial=0, *, reservoirs=())
+```
+
+Add a species in every compartment, with optional fixed counts.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `name` | required | A name. |
+| `initial` | `0` | Initial count or a mapping from compartments to counts. |
+| `reservoirs` (keyword only) | `()` | Compartments that keep this species at its initial count. |
+
+### `SpatialModel.label`
+
+```text
+SpatialModel.label(species, region)
+```
+
+Return the species label used by the lowered model.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `species` | required | A species name. |
+| `region` | required | Compartment name. |
+
+### `SpatialModel.local`
+
+```text
+SpatialModel.local(
+    name,
+    rate,
+    reactants,
+    products,
+    combinatorial=False,
+    regions=None,
+)
+```
+
+Instantiate a local reaction template in the selected regions.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `name` | required | A name. |
+| `rate` | required | Numeric rate or expression with local substitution fields. |
+| `reactants` | required | Species consumed by the local reaction. |
+| `products` | required | Species produced by the local reaction. |
+| `combinatorial` (keyword only) | `False` | Multiply an expression by the available reactant combinations. |
+| `regions` (keyword only) | `None` | Compartments receiving the local reaction template. |
+
+### `SpatialModel.transport`
+
+```text
+SpatialModel.transport(species, origin, target, rate)
+```
+
+Add a directed, per-copy first-order hop.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `species` | required | A species name. |
+| `origin` | required | Source compartment of a directed hop. |
+| `target` | required | Destination compartment or reference copy count, depending on the model. |
+| `rate` | required | First-order hop rate per copy. |
+
+### `SpatialModel.diffusion`
+
+```text
+SpatialModel.diffusion(species, first, second, diffusivity, spacing)
+```
+
+Add both directions on a uniform lattice at rate D / spacing².
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `species` | required | A species name. |
+| `first` | required | One region of the lattice pair. |
+| `second` | required | The other region of the lattice pair. |
+| `diffusivity` | required | Diffusion coefficient per distance unit squared per time unit. |
+| `spacing` | required | Distance between lattice neighbors. |
+
+### `SpatialModel.profile`
+
+```text
+SpatialModel.profile(values, species)
+```
+
+Select region columns from a trajectory/report array.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `values` | required | A trajectory array with a variable axis. |
+| `species` | required | A species name. |
+
+### `spatial_turnover`
+
+```text
+spatial_turnover(
+    initial,
+    end,
+    target,
+    feedback,
+    mutant_weight,
+    death,
+    hop,
+    seed=0,
+    mutation=0.0,
+    fixed_left=False,
+    labels=False,
+    max_events=3000000000,
+)
+```
+
+Sample the endpoint of a two-genotype nearest-neighbor turnover chain.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `initial` | required | Per-region sequence of initial wild and mutant count pairs. |
+| `end` (keyword only) | required | Horizon of the run. Report times lie in [0, `end`]. |
+| `target` (keyword only) | required | Destination compartment or reference copy count, depending on the model. |
+| `feedback` (keyword only) | required | Coefficient of linear birth feedback. |
+| `mutant_weight` (keyword only) | required | Relative contribution of a mutant to copy-count feedback. |
+| `death` (keyword only) | required | Loss rate per molecule. |
+| `hop` (keyword only) | required | Hopping rate per molecule in each available direction. |
+| `seed` (keyword only) | `0` | Root seed. Replicate `i` draws from its own stream, so results do not depend on `threads`. |
+| `mutation` (keyword only) | `0.0` | Probability of a new mutant clone at birth. |
+| `fixed_left` (keyword only) | `False` | Use the first compartment as a fixed reservoir. |
+| `labels` (keyword only) | `False` | Return clone labels by region. |
+| `max_events` (keyword only) | `3000000000` | Event budget per replicate. `None` means no limit (the request records 2**64 - 1). |
+
+Each copy has birth rate max(0, death + feedback * (target - W - weight*M)).
+Death and migration have constant per-copy rates. New mutations are
+marked at birth, and labels have no effect on subsequent hazards.
+
+### `read_experiment`
+
+```text
+read_experiment(path, *, convention)
+```
+
+Read an OMEX or SED-ML path and resolve its local stochastic experiment.
+
+| Argument | Default | Meaning |
+| --- | --- | --- |
+| `path` | required | A file path. |
+| `convention` (keyword only) | required | The rate convention. The importer refuses an absent or other value. |
+
+The caller explicitly confirms stochastic count propensity semantics.
+Exact polynomial conversion verifies the falling-factorial reactants.
 
 ## Results
 

@@ -623,6 +623,43 @@ impl FlatView {
         evaluator.stops()
     }
 
+    /// Evaluate selected channels and the stop predicate on a batch of states.
+    ///
+    /// Returns the stop flags and a row-major array, with one value per
+    /// requested channel for each state.
+    ///
+    /// # Errors
+    /// Rejects an invalid state, channel index or non-finite rate.
+    pub fn projection_rates(
+        &self,
+        states: &[Vec<u64>],
+        channels: &[usize],
+    ) -> Result<(Vec<bool>, Vec<f64>), Diagnostic> {
+        if channels.iter().any(|&i| i >= self.channels()) {
+            return Err(refusal(
+                "/channels",
+                "unknown channel",
+                "Select a lowered channel index.",
+            ));
+        }
+        let mut evaluator = self.evaluator();
+        let mut stopped = Vec::with_capacity(states.len());
+        let mut rates = Vec::new();
+        for counts in states {
+            evaluator.load(counts)?;
+            let stop = evaluator.stops()?;
+            stopped.push(stop);
+            for &channel in channels {
+                rates.push(if stop {
+                    0.0
+                } else {
+                    evaluator.channel(channel)?
+                });
+            }
+        }
+        Ok((stopped, rates))
+    }
+
     /// Scratch space for evaluating many states.
     pub(crate) fn evaluator(&self) -> Evaluator<'_> {
         Evaluator {

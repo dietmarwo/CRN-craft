@@ -120,6 +120,13 @@ jobs:
       - run: python validation/check_rules_python.py --output rules-python.json
       - run: python -O validation/check_rules_python.py --output rules-python-optimized.json
       - run: diff rules-python.json rules-python-optimized.json
+      - name: Protocol and projection laws
+        env:
+          OPENBLAS_NUM_THREADS: "1"
+        run: |
+          python validation/check_paper_capabilities.py --output paper-capabilities.json
+          python -O validation/check_paper_capabilities.py --output paper-capabilities-optimized.json
+          diff paper-capabilities.json paper-capabilities-optimized.json
       # The opt-in compiled event loop, built with this checkout, against the
       # interpreter. CARGO_TARGET_DIR reuses the release build above; the -O
       # run and the manual block reuse the cached program.

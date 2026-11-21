@@ -62,6 +62,7 @@
 
 - [Model language](reference/model-language.md)
 - [Methods and their options](reference/methods.md)
+- [Reproducible experiments](reference/experiments.md)
 - [Python API](reference/python-api.md)
 - [Contracts and versions](reference/contracts.md)
 - [Results](reference/results.md)

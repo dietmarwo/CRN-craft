@@ -397,7 +397,7 @@ impl LeapWorkspace {
 }
 
 #[allow(clippy::cast_precision_loss)]
-fn binomial<R: RngCore>(n: u64, p: f64, words: &mut Words<'_, R>) -> Result<u64, Halt> {
+pub(super) fn binomial<R: RngCore>(n: u64, p: f64, words: &mut Words<'_, R>) -> Result<u64, Halt> {
     if p == 0.0 {
         return Ok(0);
     }
@@ -555,6 +555,7 @@ impl Path<'_> {
                     products: &[],
                     observables: values,
                     firings: &firings,
+                    protocol: None,
                 };
                 if let Some(m) = monitor {
                     m.observe(&event, &self.model.params);

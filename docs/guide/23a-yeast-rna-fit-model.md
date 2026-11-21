@@ -116,6 +116,10 @@ The library is built with `-std=c++17 -O3 -ffp-contract=off` and no
 `-march=native`, so compilers do not fuse multiply-adds differently on
 different machines.
 
+The reusable projection in `native_fit.py` reads the same model and
+prescribed rate through CRN-craft. Its checks keep the two original solvers
+as independent references. [Prepared probability laws](../reference/experiments.md#prepared-probability-laws)
+
 What the check verifies about these solvers:
 
 - With a constant signal the model is an ordinary reaction network. The

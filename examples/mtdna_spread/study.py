@@ -2,6 +2,8 @@
 
 import argparse
 import json
+from hashlib import sha256
+from tempfile import NamedTemporaryFile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -62,6 +64,37 @@ def build(
                     )
                     model.add_reaction(rate, old, new, name=f"move{species}to{j}")
     return model
+
+
+def build_graph(
+    initial, copies, delta, hop, *, death=0.07, c=0.001, extra=0.0, fixed_left=False
+):
+    """The same two-genotype reactions built from a compartment graph."""
+    regions = [str(i) for i in range(len(initial))]
+    graph = crn.SpatialModel("spatial_graph_mtdna", dict.fromkeys(regions, 1.0))
+    graph.model.add_parameter(
+        {"target": copies, "delta": delta, "feedback": c, "death": death}
+    )
+    active = regions[1:] if fixed_left else regions
+    for label, counts in zip(("W", "M"), np.asarray(initial).T, strict=True):
+        graph.add_species(
+            label,
+            dict(zip(regions, map(int, counts), strict=True)),
+            reservoirs=regions[:1] if fixed_left else (),
+        )
+    for label, removal in (("W", death), ("M", death + extra)):
+        graph.local(
+            f"birth_{label}",
+            "max(0, death + feedback * (target - {W} - delta * {M}))",
+            [label],
+            [label, label],
+            combinatorial=True,
+            regions=active,
+        )
+        graph.local(f"death_{label}", removal, [label], [], regions=active)
+        for a, b in zip(regions[:-1], regions[1:], strict=True):
+            graph.transport(label, a, b, hop).transport(label, b, a, hop)
+    return graph
 
 
 def crossing(x, h, threshold=0.5):
@@ -227,37 +260,79 @@ def small_chain(size, threads):
     )
 
 
-def full_chain(output, threads, fibers=800):
+def full_chain(output, threads, fibers=800, sampler="static_direct", start=0):
     """Exact source-scale route with independent, restartable single-fiber jobs."""
     p = MANIFEST["fig2_site_parameters"]
     x, initial = chain_initial(p)
-    checkpoint = output / "fiber-checkpoints"
+    fingerprint = sha256(
+        json.dumps(
+            {
+                "parameters": p,
+                "horizon": 1480,
+                "seed": MANIFEST["seed"],
+                "method": "chacha8-u53-ziggurat/spatial-turnover/2",
+            },
+            sort_keys=True,
+        ).encode()
+    ).hexdigest()[:16]
+    checkpoint = output / (
+        "fiber-checkpoints"
+        if sampler == "static_direct"
+        else f"local-fiber-checkpoints-{fingerprint}"
+    )
     checkpoint.mkdir(parents=True, exist_ok=True)
-    if fibers < 1:
-        raise ValueError("At least one fiber is required")
+    if fibers < 1 or start < 0:
+        raise ValueError("At least one fiber and a nonnegative start are required")
 
     def one(i):
         file = checkpoint / f"{i:04d}.npy"
         if not file.exists():
-            counts = paths(
-                initial,
-                (p["copies"], p["delta"], p["hop"]),
-                [0.0, 1480.0],
-                1,
-                MANIFEST["seed"] + 1000 + i,
-                1,
-                death=p["death"],
-                c=p["c"],
-                fixed_left=True,
-            )
-            sample = fractions(counts)[0]
-            tmp = file.with_suffix(".tmp.npy")
-            np.save(tmp, sample)
+            if sampler == "local":
+                result = crn.spatial_turnover(
+                    initial,
+                    end=1480,
+                    target=p["copies"],
+                    feedback=p["c"],
+                    mutant_weight=p["delta"],
+                    death=p["death"],
+                    hop=p["hop"],
+                    fixed_left=True,
+                    seed=MANIFEST["seed"] + 1000 + i,
+                )
+                counts = np.stack(
+                    (initial, np.stack((result["wild"], result["mutant"]), axis=1))
+                )
+                sample = fractions(counts)
+            else:
+                counts = paths(
+                    initial,
+                    (p["copies"], p["delta"], p["hop"]),
+                    [0.0, 1480.0],
+                    1,
+                    MANIFEST["seed"] + 1000 + i,
+                    1,
+                    death=p["death"],
+                    c=p["c"],
+                    fixed_left=True,
+                )
+                sample = fractions(counts)[0]
+            with NamedTemporaryFile(
+                dir=checkpoint, suffix=".npy", delete=False
+            ) as temporary:
+                tmp = Path(temporary.name)
+                try:
+                    np.save(temporary, sample)
+                except BaseException:
+                    tmp.unlink(missing_ok=True)
+                    raise
             tmp.replace(file)
-        return np.load(file, allow_pickle=False)
+        saved = np.load(file, allow_pickle=False)
+        if saved.shape != (2, len(initial)) or not np.isfinite(saved).all():
+            raise ValueError(f"invalid fiber checkpoint {file}")
+        return saved
 
     with ThreadPoolExecutor(max_workers=threads) as pool:
-        sample = np.asarray(list(pool.map(one, range(fibers))))
+        sample = np.asarray(list(pool.map(one, range(start, start + fibers))))
     mean = sample.mean(axis=0)
     frame = pd.DataFrame(
         [
@@ -300,6 +375,9 @@ def full_chain(output, threads, fibers=800):
         "interval_99": interval,
         "ambiguous_bootstraps": ambiguous,
         "fibers": fibers,
+        "first_fiber": start,
+        "sampler": sampler,
+        "checkpoint_directory": checkpoint.name,
         "status": status,
     }
 
@@ -399,6 +477,10 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--figures", type=Path)
     parser.add_argument(
+        "--wave-sampler", choices=("static_direct", "local"), default="static_direct"
+    )
+    parser.add_argument("--fiber-start", type=int, default=0)
+    parser.add_argument(
         "--source-chain",
         action="store_true",
         help="Run the exact 800-fiber source-scale cohort",
@@ -431,7 +513,9 @@ def main():
     if not table.empty:
         table.to_csv(args.output / "terminal-checks.csv", index=False)
     if args.source_chain or args.size == "full":
-        frame, review = full_chain(args.output, args.threads, args.fibers)
+        frame, review = full_chain(
+            args.output, args.threads, args.fibers, args.wave_sampler, args.fiber_start
+        )
         frame.to_csv(args.output / "wave-fresh.csv", index=False)
         speeds(frame, strict=False).to_csv(
             args.output / "wave-fresh-speeds.csv", index=False

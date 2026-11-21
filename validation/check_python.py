@@ -39,6 +39,9 @@ TOP_LEVEL = {
     "IncompleteEnsembleError",
     "IncompleteEnsembleWarning",
     "Model",
+    "Protocol",
+    "Signal",
+    "SpatialModel",
     "archive",
     "check",
     "compile_loop",
@@ -54,8 +57,12 @@ TOP_LEVEL = {
     "new",
     "pattern",
     "prepare",
+    "prepare_fsp",
     "read_bngl",
+    "read_experiment",
     "read_sbml",
+    "spatial_turnover",
+    "stationary_fsp",
     "verify_archive",
 }
 # The network functions of 0.6.0 that left the top level.
@@ -185,7 +192,19 @@ def cli_identity(cli, result):
 def check_names(rows):
     """The top level exports the unified names; crn_craft.rules its 0.6.0 ones."""
     public = {n for n in dir(crn) if not n.startswith("_")}
-    modules = {"builder", "importers", "observables", "report", "rules"}
+    modules = {
+        "builder",
+        "experiments",
+        "importers",
+        "likelihood",
+        "observables",
+        "projection",
+        "protocol",
+        "report",
+        "rules",
+        "spatial",
+        "stationary",
+    }
     require(set(crn.__all__) == TOP_LEVEL, f"__all__: {sorted(crn.__all__)}")
     require(public - modules == TOP_LEVEL, f"top level: {sorted(public - modules)}")
     require(not REMOVED & public, f"removed names exported: {REMOVED & public}")

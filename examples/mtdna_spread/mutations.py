@@ -399,7 +399,29 @@ def fiber(case, phase, index, m, size, work, years):
     return result
 
 
+POOL = None  # process pool of ``run --workers N``; None runs fibers in turn
+
+
+def prefetch(case, cohorts, size, work, years):
+    """Simulate the fibers of several cohorts at once and checkpoint them.
+
+    ``cohorts`` holds (phase, m, fibers). Every fiber has its own seed and
+    its own checkpoint file, so the order of simulation does not change any
+    result. Without a pool this does nothing; the fibers are then simulated
+    when ``cohort`` asks for them.
+    """
+    if POOL is None:
+        return
+    jobs = [
+        (case, phase, k, m, size, work, years)
+        for phase, m, fibers in cohorts
+        for k in range(fibers)
+    ]
+    list(POOL.map(fiber, *zip(*jobs, strict=True)))
+
+
 def cohort(case, phase, m, fibers, size, work, years):
+    prefetch(case, [(phase, m, fibers)], size, work, years)
     return [fiber(case, phase, k, m, size, work, years) for k in range(fibers)]
 
 
@@ -464,6 +486,7 @@ def calibrate(case, size, work, years, log, attempt=1):
         log(f"{case} {stage} m={m:.6e} affected {hits}/{total}")
 
     n1, n2, _ = spec["fibers"]
+    prefetch(case, [("stage1", m0 * f, n1) for f in GRID], size, work, years)
     for factor in GRID:
         add("stage1", m0 * factor, n1)
     for _ in range(4):  # extend the grid until it brackets the target
@@ -475,10 +498,13 @@ def calibrate(case, size, work, years, log, attempt=1):
         else:
             break
     m1 = logistic([(r[1], r[3], r[4]) for r in rows])[2]
+    prefetch(case, [("stage2", m1 * f, n2) for f in LOCAL], size, work, years)
     for factor in LOCAL:
         add("stage2", m1 * factor, n2)
     for repeat in range(2, attempt + 1):
         previous = logistic([(r[1], r[3], r[4]) for r in rows])[2]
+        stage = f"stage2-a{repeat}"
+        prefetch(case, [(stage, previous * f, n2) for f in LOCAL], size, work, years)
         for factor in LOCAL:
             add(f"stage2-a{repeat}", previous * factor, n2)
     a, b, m, low, high = logistic([(r[1], r[3], r[4]) for r in rows])
@@ -1021,6 +1047,12 @@ def main():
     p.add_argument("--case", dest="cases", action="append", choices=tuple(CASES))
     p.add_argument("--work", type=Path, help="checkpoint folder")
     p.add_argument("--output", type=Path, help="folder for the result tables")
+    p.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="processes that simulate fibers at the same time; results do not depend on it",
+    )
     p = sub.add_parser("pilot", help="time single fibers")
     p.add_argument("--m", type=float, default=0.011)
     p.add_argument("--gamma", type=float)
@@ -1058,7 +1090,20 @@ def main():
         sampler_checks(args)
     elif args.command == "run":
         args.cases = args.cases or list(CASES)
-        run(args)
+        if args.workers < 1:
+            parser.error("--workers must be at least 1")
+        if args.workers == 1:
+            run(args)
+        else:
+            from concurrent.futures import ProcessPoolExecutor
+
+            global POOL
+            with ProcessPoolExecutor(max_workers=args.workers) as pool:
+                POOL = pool
+                try:
+                    run(args)
+                finally:
+                    POOL = None
     elif args.command == "pilot":
         args.cases = [(int(a), b, bool(c)) for a, b, c in (args.cases or [(8, 20, 1)])]
         pilot(args)

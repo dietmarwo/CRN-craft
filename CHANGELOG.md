@@ -24,7 +24,11 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
   neutral clone labels.
 - Observation maps and grouped likelihoods support count and fluorescence
   readouts. The experiment adapter runs a documented SBML/SED-ML subset
-  from local files or COMBINE archives.
+  from local files or COMBINE archives, with bounded, UTF-8-only input and
+  model sources confined to the archive or folder.
+- `import_sbml` refuses UTF-16 and UTF-32 documents (`CRN-E090`). Such a
+  document without a byte order mark hid its DTD from the check, and its
+  entities were expanded.
 
 
 ### Documentation (guide and examples)

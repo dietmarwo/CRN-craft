@@ -287,22 +287,81 @@ overflow convention.
 ## Published experiment files
 
 Use `crn.read_experiment(path, convention="stochastic_count_propensity")`
-and then `preflight()` or `run()`. The wheel also installs
+and then `preflight()` or `run()`. `path` is a COMBINE/OMEX archive
+(`.omex` or `.zip`) or a SED-ML file whose models lie in its folder. The
+wheel also installs
 `crn-craft-experiment EXPERIMENT --convention stochastic_count_propensity`,
-with `--check` and `--archive DIRECTORY`. The archive contains the sealed
-native task runs and a report of the source members and interpreted
-conditions.
+with `--check` (preflight only), `--seed`, `--replicates`, `--threads` and
+`--archive DIRECTORY`. `DIRECTORY` must not exist; it receives one sealed
+native run per task, named by the task ID, and `experiment.json` with the
+source member hashes, effective rates, events and output mappings. Task `i`
+in document order uses seed `seed + i`. A refused input raises
+`ImportFailure` (`CRN-E090`); the command prints `CRN-E090: message` and
+exits with status 2.
 
 | Format | Supported subset |
 |---|---|
-| SBML L3V1 and L3V2 Core | Fixed compartments, integer item amounts, concentration references with explicit compartment size, nonnegative binomial mass-action hazards, acyclic scalar parameter assignments, and instantaneous time-triggered assignments with resolved priorities |
-| SED-ML L1V3 and L1V4 | Local SBML documents and model references, parameter `changeAttribute`, Gillespie direct uniform time courses, reset-only repeated tasks with a single uniform range, time/species report datasets and plot series |
-| COMBINE/OMEX | One resolved master SED-ML document, local model members, bounded archive reads and member hashes |
+| SBML L3V1 and L3V2 Core | Fixed compartments of any size and dimension; species with item amount units, as amounts or as concentrations in a sized compartment; an explicit time unit; acyclic scalar parameter assignment rules, recalculated after each edit; time triggers `time >= t` with a literal `t`, instantaneous assignments to non-constant independent parameters or species counts, literal priorities |
+| SED-ML L1V3 and L1V4 | Local SBML models and `#model` references; `changeAttribute` of a parameter `value` given as the absolute path `/sbml/model/listOfParameters/parameter[@id='…']/@value` (namespace prefixes allowed and not resolved); uniform time courses with Gillespie direct (`KISAO:0000029`) and no algorithm parameters; repeated tasks with one subtask, one uniform range and `resetModel="true"`, which add replicates; data generators that select one time or species variable; reports and 2D plots |
+| COMBINE/OMEX | One master SED-ML document from the manifest; members read from the archive, never extracted |
 
-The explicit `split_signed_mass_action` convention decomposes a signed
-law into a forward jump and a reverse jump only when exact polynomial
-factorization gives two nonnegative hazards. It handles the two signed
-promoter-binding laws in the [published oscillator archive](https://github.com/biosimulators/Biosimulators_test_suite/blob/ae6afe13c37aa4b896eb5f839ab0e26ba3bc2f5b/examples/sbml-core/Vilar-PNAS-2002-minimal-circardian-clock-discrete-SSA.omex).
-Use the strict count convention for ordinary nonnegative irreversible laws.
-Ambiguous rate conventions, unsupported constructs and unresolved units
-produce a diagnostic during translation. [SBML](https://sbml.org/documents/specifications/level-3/version-2/core/) · [SED-ML](https://sed-ml.org/specifications.html)
+**Rate convention.** A kinetic law is read as the jump hazard in items per
+model time unit, with species amounts in items and concentrations as items
+per compartment size. A law must equal `c × Π C(n, k)` for the reactants of
+its reaction, the convention of every native rate, so `k*A*(A - 1)` for
+`2 A → …` is accepted with `c = 2k`, and `k*A*A` is refused. The explicit
+`split_signed_mass_action` convention also accepts a law
+`u × Π C(n_reactant, k) − v × Π C(n_product, k)` with `u, v ≥ 0`, found by
+exact rational arithmetic; it becomes a forward and a reverse jump, both
+nonnegative in every state. This handles the two signed promoter-binding
+laws in the [published oscillator archive](https://github.com/biosimulators/Biosimulators_test_suite/blob/ae6afe13c37aa4b896eb5f839ab0e26ba3bc2f5b/examples/sbml-core/Vilar-PNAS-2002-minimal-circardian-clock-discrete-SSA.omex).
+Every law of that model is multiplied by the size of compartment `cell`
+(4.18879), so its rates are those of the paper times 4.18879 per archive
+time unit. Use the strict count convention for ordinary irreversible laws.
+
+**Grid and events.** `numberOfPoints` (L1V3) or `numberOfSteps` (L1V4)
+counts intervals: 400 gives 401 report times from `outputStartTime` to
+`outputEndTime`. The model starts at `initialTime`. Reports at an event
+time show the state after the event. An event whose trigger is true at
+time 0 with `initialValue="true"` never fires; with `initialValue="false"`
+it fires at time 0. Events at the same time need distinct priorities and
+run from the highest; their assignments read the state before that time
+unless `useValuesFromTriggerTime="false"`. State triggers, delays,
+assignments that read species, and events before `initialTime` are
+refused.
+
+**Input safety and limits.** XML must be UTF-8 and may not contain a
+document type or entities. Model sources must be relative paths inside the
+archive or the SED-ML folder; `..`, absolute paths, URLs, URNs and links
+are refused. Limits: 16 MiB per XML document, 64 MiB per archive and for
+its declared uncompressed members, 256 members, 64 species, 4,096
+parameters and compartments, 1,024 reactions, 256 events, and 16,777,216
+returned values (paths × report times × species) per run.
+
+Not supported: SBML Level 2 (the official `L1V3_repeated-stochastic-runs.omex`
+is refused), local functions, algebraic and rate rules, other KiSAO
+methods, seeds or other algorithm parameters, data generator expressions,
+`setValue` in repeated tasks, and report labels (the series are keyed by
+data set ID). Unsupported constructs and unresolved units produce a
+diagnostic during translation. [SBML](https://sbml.org/documents/specifications/level-3/version-2/core/) · [SED-ML](https://sed-ml.org/specifications.html)
+
+**Verification.** `validation/check_paper_capabilities.py` runs offline in
+CI: a two-compartment pulse with a non-unit volume against the same native
+protocol (32 paths, identical counts), the pair hazard (survival 0.3535 at
+4,000 paths against e^−1 = 0.3679), derived rates after an edit, event
+timing, and 33 refused inputs. CI also downloads the oscillator archive and
+SBML Test Suite stochastic case 00001 by commit and checks their SHA-256.
+Both oscillator tasks give 401 report times; the decay rate of `R` is
+0.837758 and 0.209440 per archive time unit. `validation/check_public_experiments.py`
+compares the counts of `A` and `R` at times 0.5, 1 and 2 with a separately
+written direct SSA of the same reactions: at 512 paths per task the largest
+of 12 two-sample CDF gaps was 0.066 against a simultaneous bound of 0.123,
+which detects an edit that is not applied but not a 10% change of one rate.
+With `--vilar-paths 8704` (about 3 minutes on one core) the largest gap was
+0.023 against 0.030. In a review run with a reference SSA changed on
+purpose, 512 paths missed a 10% change of the `R` decay rate or of the
+promoter unbinding rate (largest gaps 0.086 and 0.057), and 8,704 paths
+caught both (0.062 and 0.038). Case 00001 at 5,000 paths and 50
+report times gave |Z| ≤ 1.71 and |Y| ≤ 2.73, within the suite's ranges of 3
+and 5. These runs exercise the two 2-unit tasks of the deposited
+experiment, not the paper's long oscillation.

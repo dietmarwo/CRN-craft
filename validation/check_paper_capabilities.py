@@ -4,6 +4,8 @@ import argparse
 from hashlib import sha256
 import json
 from pathlib import Path
+import subprocess
+import sys
 from tempfile import TemporaryDirectory
 import zipfile
 
@@ -18,6 +20,7 @@ from crn_craft.likelihood import (
 )
 from crn_craft.importers import ImportFailure
 import numpy as np
+from scipy.linalg import expm
 from scipy.stats import binom, norm, poisson
 
 
@@ -96,6 +99,12 @@ def timed_laws():
 
     error = np_gap(result.marginal("X"), expected)
     require(error < 1e-8, "smooth law with mixed initial state")
+    for table in (
+        crn.Signal.table([0, 2], [2, 4]),
+        crn.Signal.table([0, 1], [2, 4], interpolation="step"),
+    ):
+        tabled = forced.solve(2, [2], signals={"birth_event": table}, tolerance=1e-10)
+        require(np_gap(tabled.marginal("X"), expected) < 1e-8, "signal table law")
     received = []
     reduced = forced.solve(
         2, [0, 1, 2], on_report=received.append, keep_snapshots=False
@@ -109,6 +118,35 @@ def timed_laws():
         tolerance=1e-9,
     )
     require(np_gap(midpoint.marginal("X"), expected) < 1e-8, "exponential midpoint law")
+    # Birth 2 + t and death 1 do not commute: Poisson mean (1 - e^-t) + t.
+    decaying = immigration()
+    decaying.add_parameter("death", 1.0)
+    decaying.add_reaction(crn.mass_action("death"), ["X"], [], name="death_event")
+    dg = crn.prepare_fsp(decaying, {"X": 48})
+    noncommuting = {}
+    for solver, tolerance, bound in (("bdf", 1e-10, 1e-8), ("midpoint", 1e-6, 1e-6)):
+        law = dg.solve(
+            2,
+            [2],
+            signals={"birth_event": crn.Signal(lambda t: 2 + t)},
+            solver=solver,
+            tolerance=tolerance,
+        )
+        gap = np_gap(law.marginal("X"), poisson(3 - np.exp(-2)).cdf)
+        require(gap < bound and law.solver == solver, f"forced decay law {solver}")
+        noncommuting[solver] = gap
+    try:
+        dg.solve(
+            2,
+            [2],
+            signals={"birth_event": crn.Signal(lambda t: 2 + t)},
+            solver="midpoint",
+            tolerance=1e-14,
+        )
+    except RuntimeError as e:
+        require("rounding level" in str(e), str(e))
+    else:
+        raise RuntimeError("unreachable midpoint tolerance accepted")
     small = crn.prepare_fsp(m, {"X": 3}, protocol=policy)
     overflow = small.solve(5, [3, 5], tolerance=1e-12)
     resumed = small.solve(5, [5], initial=overflow.snapshots[0], tolerance=1e-12)
@@ -118,6 +156,25 @@ def timed_laws():
         < resumed.snapshots[0].physical_leakage,
         "escaped probability must persist",
     )
+
+    # Dense reference: states 0..3 and the sink, with the partition kernel.
+    def generator(rate):
+        q = np.zeros((5, 5))
+        for i in range(4):
+            q[i, i] -= rate
+            q[i, i + 1] += rate
+        return q
+
+    kernel = np.zeros((5, 5))
+    kernel[4, 4] = 1
+    for n in range(4):
+        kernel[n, : n + 1] = binom.pmf(np.arange(n + 1), n, 0.5)
+    hour3 = np.eye(5)[0] @ expm(3 * generator(2)) @ kernel
+    for snap, reference in zip(
+        overflow.snapshots, (hour3, hour3 @ expm(2 * generator(4))), strict=True
+    ):
+        got = np.r_[snap.probabilities, snap.physical_leakage]
+        require(np.max(abs(got - reference)) < 1e-12, "sink across a partition")
     pulse = crn.Protocol().at(0, parameters={"birth": 0}, set_counts={"X": 4})
     pulse.at(1, parameters={"birth": 1}, partition={"X": 1}).at(2, partition={"X": 0})
     run = crn.ensemble(
@@ -153,7 +210,27 @@ def timed_laws():
         abs(ordered.marginal("B")[1] - (1 - np.exp(-1)) * np.exp(-0.3)) < 1e-11,
         "ordered generators were averaged",
     )
-    return {"ssa": rows, "fsp": gaps, "smooth": error}
+    # A channel with zero rate at preparation switched on by a binding.
+    dormant = crn.Model("dormant_switch")
+    dormant.add_species({"A": 0, "B": 1}).add_parameter({"f": 0.0, "r": 0.0})
+    dormant.add_reaction(crn.mass_action("f"), ["A"], ["B"], name="forward")
+    dormant.add_reaction(crn.mass_action("r"), ["B"], ["A"], name="reverse")
+    warm = crn.prepare_fsp(dormant, {"A": 1, "B": 1})
+    switched = warm.solve(1, [1], parameters={"r": 1.0}, tolerance=1e-12)
+    require(
+        abs(switched.marginal("A")[1] - (1 - np.exp(-1))) < 1e-11,
+        "channel switched on by a parameter binding",
+    )
+    cold = crn.prepare_fsp(dormant, {"A": 1, "B": 1}).solve(
+        1, [1], parameters={"r": 1.0}, tolerance=1e-12
+    )
+    require(
+        np.array_equal(
+            cold.snapshots[0].probabilities, switched.snapshots[0].probabilities
+        ),
+        "cold and reused projections differ",
+    )
+    return {"ssa": rows, "fsp": gaps, "smooth": error, "noncommuting": noncommuting}
 
 
 def delayed_laws():
@@ -337,10 +414,27 @@ def stationary_laws():
         finite, {"A": 1, "B": 1, "C": 1}, class_state=(0, 1, 0)
     )
     require(resolved.marginal("B")[1] == 1, "class selection")
+    switch = crn.Model("two_state_switch")
+    switch.add_species({"A": 1, "B": 0})
+    switch.add_reaction(2.0, ["A"], ["B"])
+    switch.add_reaction(3.0, ["B"], ["A"])
+    exact = crn.stationary_fsp(switch, {"A": 1, "B": 1})
+    require(
+        abs(exact.marginal("B")[1] - 0.4) < 1e-12
+        and exact.method == "finite-closed-class"
+        and result.method == "stationary-fsp-return-state",
+        "two-state stationary law",
+    )
+    # Plan 5.3: the same small box with two return states (descriptive).
+    returns = {}
+    for state in (0, 8):
+        small = crn.stationary_fsp(m, {"X": 8}, return_state=(state,))
+        returns[str(state)] = np_gap(small.marginal("X"), poisson(2).cdf)
     return {
         "poisson_cdf": error,
         "outward_flux": result.outward_flux,
         "residual": result.residual_l1,
+        "return_state_cdf_at_bound_8": returns,
     }
 
 
@@ -355,6 +449,50 @@ def observations():
         [[1, 2], [2, 1]], [0.2, 0.8], [[0, 0], [1, 2]], detection=[0, 1]
     )
     require(np.all(exact == 0), "binomial observation extremes")
+    exact = count_probability(
+        [[1, 2], [2, 1]], [0.2, 0.8], [[0, 2], [0, 1]], detection=[0, 1]
+    )
+    require(np.array_equal(exact, [0.2, 0.8]), "zero and perfect detection")
+    thinned = count_probability(
+        [[0], [1], [2]], [0.2, 0.5, 0.3], [[0], [1], [2]], detection=0.5
+    )
+    hand = [0.2 + 0.25 + 0.075, 0.25 + 0.15, 0.075]
+    require(np.max(abs(thinned - hand)) < 1e-14, "binomial detection")
+    zero = histogram_score([HistogramGroup("c", "a", 1, [7, 0, 1], [0.9, 0, 0.1])])
+    require(
+        abs(zero.nats_per_cell + (7 * np.log(0.9) + np.log(0.1)) / 8) < 1e-12
+        and zero.impossible_bins == 0,
+        "empty bins contribute zero",
+    )
+    blocked = histogram_score(
+        [HistogramGroup("c", "a", 1, [7, 1, 1], [0.9, 0, 0.09], missing_mass=0.01)]
+    )
+    optimistic = -(7 * np.log(0.91) + np.log(0.01) + np.log(0.1)) / 9
+    require(
+        blocked.nats_per_cell == np.inf
+        and blocked.impossible_bins == 1
+        and abs(blocked.optimistic_nats_per_cell - optimistic) < 1e-12,
+        "occupied impossible bin",
+    )
+    try:
+        mean_score([1, 2], [0, 0], [[1, 1], [1, 1]])
+    except ValueError:
+        pass
+    else:
+        raise RuntimeError("singular covariance accepted")
+    missing = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; sys.modules['scipy'] = None; import crn_craft as crn\n"
+            "try:\n crn.prepare_fsp(crn.Model('m'), {})\n"
+            "except ModuleNotFoundError as e:\n print(e)",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    require("crn-craft[projection]" in missing.stdout, "missing SciPy message")
     axes = measured_counts([[1, 2, 3], [5, 2, 3]], ("N", "C", "P"), (["N", "C"], "P"))
     require(np.array_equal(axes, [[3, 3], [7, 3]]), "joint and summed readout")
     noise = binned_probability([1], [1], [-np.inf, 0, 1, np.inf], gain=1, sigma=1)

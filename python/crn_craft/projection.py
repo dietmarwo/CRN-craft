@@ -19,6 +19,18 @@ from .rules import _as_model_1_0, _crn_error, _unique_keys
 _MAX_COUNT = 2**53
 
 
+def _require_scipy(feature):
+    """Fail with the name of the optional extra when SciPy is missing."""
+    try:
+        import scipy  # noqa: F401
+    except ModuleNotFoundError as error:
+        raise ModuleNotFoundError(
+            f"{feature} needs SciPy; install it with "
+            "pip install 'crn-craft[projection]'",
+            name="scipy",
+        ) from error
+
+
 class Signal:
     """A real-time rate input. Tables use linear or right-continuous steps.
 
@@ -113,7 +125,9 @@ class _Work:
     def charge(self, amount=1):
         self.count += amount
         if self.count > self.limit:
-            raise RuntimeError("projection work limit exceeded")
+            raise RuntimeError(
+                f"projection work limit of {self.limit} exceeded; raise max_work"
+            )
 
 
 def _view(document):
@@ -188,6 +202,7 @@ class PreparedFsp:
         max_states=100_000,
         max_edges=2_000_000,
     ):
+        _require_scipy("prepare_fsp")
         from scipy import sparse
 
         self._document = json.loads(
@@ -463,10 +478,14 @@ class PreparedFsp:
         """Propagate from a prepared law or a compatible report-time checkpoint.
 
         Constant segments use positive uniformization. Inhomogeneous
-        segments use BDF or adaptive exponential midpoint. Series-tail,
+        segments use SciPy's BDF or adaptive exponential midpoint. Series-tail,
         leakage, minimum probability and mass defect are retained separately.
-        An optional on_report callback receives each snapshot in order.
-        Pass keep_snapshots=False when a reduction suffices.
+        The series-tail bound covers uniformization only; BDF and midpoint
+        segments add no integration error estimate, and BDF can return
+        slightly negative probabilities. A checkpoint continues only under
+        the same parameters and signals; change parameters at a time point
+        with a protocol action. An optional on_report callback receives each
+        snapshot in order. Pass keep_snapshots=False when a reduction suffices.
         """
         if on_report is not None and not callable(on_report):
             raise TypeError("on_report must be a callable")
@@ -762,6 +781,12 @@ def _forced(
         if gap <= goal:
             p = half
             t += h
+        elif goal <= 64 * np.finfo(float).eps:
+            # The step error estimate cannot resolve this goal in floating point.
+            raise RuntimeError(
+                "midpoint tolerance is below the rounding level of its step "
+                "error estimate; use a looser tolerance or solver='bdf'"
+            )
         factor = 2.0 if gap == 0 else np.clip(0.9 * (goal / gap) ** (1 / 3), 0.2, 2.0)
         h = min(max_step, h * factor)
     return p
@@ -778,9 +803,12 @@ def prepare_fsp(
 ):
     """Prepare a reusable projection for a closed model.
 
-    Optional SciPy powers the probability integrators. Existing
-    :meth:`Model.fsp` remains the uniformization entry point for a fixed
-    model without experiments.
+    The native core lowers the model and evaluates rates. Python enumerates
+    the states, and SciPy (the ``projection`` extra) propagates the law.
+    Existing :meth:`Model.fsp` is the native uniformization for one fixed
+    model without protocols, signals or initial mixtures. A prepared
+    projection holds no per-solve state, so threads can share it. It cannot
+    be pickled; prepare one per process.
     """
     return PreparedFsp(
         model,

@@ -6,6 +6,17 @@ from math import fsum, isfinite
 import numpy as np
 
 
+def _require_scipy(feature):
+    try:
+        import scipy  # noqa: F401
+    except ModuleNotFoundError as error:
+        raise ModuleNotFoundError(
+            f"{feature} needs SciPy; install it with "
+            "pip install 'crn-craft[projection]'",
+            name="scipy",
+        ) from error
+
+
 def measured_counts(states, species, observable):
     """Map projected states to one count, a species sum, or a joint readout.
 
@@ -55,6 +66,7 @@ def count_probability(states, probabilities, values, *, detection=1.0):
             result[key] = result.get(key, 0.0) + weight
         return np.array([result.get(tuple(key), 0.0) for key in bins])
 
+    _require_scipy("binomial detection")
     from scipy.stats import binom
 
     return np.array(
@@ -94,6 +106,7 @@ def binned_probability(
         or sigma <= 0
     ):
         raise ValueError("fluorescence needs a nonnegative gain and positive noise")
+    _require_scipy("fluorescence bins")
     from scipy.special import ndtr
 
     mean = background + gain * counts
@@ -132,7 +145,13 @@ class HistogramGroup:
 
 @dataclass(frozen=True)
 class HistogramScore:
-    """Negative log likelihood and a bound allowing for uncaptured mass."""
+    """Negative log likelihood and a bound allowing for uncaptured mass.
+
+    ``impossible_bins`` counts occupied bins with zero retained probability.
+    ``nats_per_cell`` is infinite exactly when it is positive. Each entry
+    of ``groups`` is (condition, replicate, time, cells, nats, optimistic
+    nats).
+    """
 
     nats_per_cell: float
     optimistic_nats_per_cell: float
@@ -162,7 +181,7 @@ def histogram_score(groups):
         with np.errstate(divide="ignore"):
             cost = float(-counts[use] @ np.log(floor))
             optimistic = float(-counts[use] @ np.log(ceiling))
-        impossible += int(np.count_nonzero(ceiling == 0))
+        impossible += int(np.count_nonzero(floor == 0))
         rows.append((group.condition, group.replicate, group.time, n, cost, optimistic))
         cells += n
     if not cells:
@@ -177,10 +196,25 @@ def histogram_score(groups):
 
 
 def mean_score(observed, predicted, covariance):
-    """Return the quadratic mean objective for a group covariance."""
+    """Return the quadratic mean objective for a group covariance.
+
+    The value is delta' V^-1 delta / 2 without the log-determinant term.
+    The covariance must be symmetric positive definite.
+    """
     delta = np.atleast_1d(np.asarray(observed, dtype=float) - predicted)
-    v = np.atleast_2d(covariance)
-    if v.shape != (len(delta), len(delta)) or not np.allclose(v, v.T):
-        raise ValueError("a symmetric covariance must match the observation axes")
-    transformed = np.linalg.solve(np.linalg.cholesky(v), delta)
+    v = np.atleast_2d(np.asarray(covariance, dtype=float))
+    if (
+        v.shape != (len(delta), len(delta))
+        or not np.isfinite(delta).all()
+        or not np.isfinite(v).all()
+        or not np.allclose(v, v.T)
+    ):
+        raise ValueError(
+            "finite observations and a symmetric covariance must match the axes"
+        )
+    try:
+        factor = np.linalg.cholesky(v)
+    except np.linalg.LinAlgError:
+        raise ValueError("the covariance must be positive definite") from None
+    transformed = np.linalg.solve(factor, delta)
     return float(transformed @ transformed / 2)

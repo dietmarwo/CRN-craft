@@ -10,7 +10,12 @@ from .projection import prepare_fsp
 
 @dataclass(frozen=True)
 class StationaryResult:
-    """Stationary probabilities and empirical projection diagnostics."""
+    """Stationary probabilities and empirical projection diagnostics.
+
+    ``method`` is ``"finite-closed-class"`` for an exact finite generator
+    and ``"stationary-fsp-return-state"`` for outward-rate redirection. It
+    distinguishes this result from the transient absorbing-sink projection.
+    """
 
     species: tuple
     states: np.ndarray
@@ -21,6 +26,7 @@ class StationaryResult:
     marginal_cdf_change: float | None
     history: tuple
     converged: bool
+    method: str
 
     def marginal(self, species):
         """Return the projected probability of each count of one species."""
@@ -144,6 +150,8 @@ def stationary_fsp(
     and compare marginal CDFs across successive bounds. The resulting
     convergence indication is empirical for an infinite network. A finite
     generator with several closed classes needs an explicit class state.
+    SciPy's sparse LU solves the linear system. Without a return state,
+    every transition must stay inside the bounds.
     """
     expansions = index(expansions)
     if (
@@ -193,6 +201,9 @@ def stationary_fsp(
                 delta,
                 tuple(history),
                 converged,
+                "finite-closed-class"
+                if return_state is None
+                else "stationary-fsp-return-state",
             )
         previous = marginals
         generator, _, _ = graph._generator(parameters or {}, {})

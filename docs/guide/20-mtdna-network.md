@@ -45,7 +45,7 @@ through the origin. Resample whole paths for an interval on the slope.
 
 The shipped comparisons include the turnover, copy-number, mutant-sensing
 and fusion/fission sweeps from Figures 2E–H, plus the rate-magnitude sweep
-from Figure S3D. The archived 0–100 hour summary and the fresh short-time
+from Figure S3D. The archived 0–100 day summary and the fresh short-time
 slopes answer related questions on different time windows.
 
 Run `python examples/mtdna_network/study.py --size quick` for one short

@@ -62,13 +62,13 @@ def predicted_slope(counts, mu):
     return 2 * mu * fs * h * (1 - h) / n
 
 
-def sample(row, hours, n, seed, threads):
+def sample(row, days, n, seed, threads):
     initial, params = parameters(row)
     model = build(initial, **params)
     result = crn.ensemble(
         model,
-        end=float(hours[-1]),
-        report_times=list(hours),
+        end=float(days[-1]),
+        report_times=list(days),
         seed=seed,
         replicates=n,
         threads=threads,
@@ -82,7 +82,7 @@ def sample(row, hours, n, seed, threads):
     mutant = paths[..., 1] + paths[..., 3]
     h = np.divide(mutant, totals, out=np.full_like(totals, np.nan), where=totals > 0)
     influence = (h - np.nanmean(h, axis=0)) ** 2
-    w = np.asarray(hours) / np.dot(hours, hours)
+    w = np.asarray(days) / np.dot(days, days)
     path_slope = influence @ w
     prediction = predicted_slope(initial, params["mu"])
     rng = np.random.default_rng(seed + 40000)
@@ -97,7 +97,7 @@ def sample(row, hours, n, seed, threads):
     lo, hi = np.quantile(bootstrap, [0.01 / 6, 1 - 0.01 / 6])
     trace = pd.DataFrame(
         {
-            "hour": hours,
+            "day": days,
             "variance": np.nanvar(h, axis=0),
             "mean_copies": totals.mean(axis=0),
             "mean_heteroplasmy": np.nanmean(h, axis=0),
@@ -125,11 +125,11 @@ def compare_archive(sweep):
         return sweep
     rows = []
     for (panel, index), data in pd.read_csv(path).groupby(["panel", "index"]):
-        series = data.query("0 <= hour <= 100")
-        slopes = np.dot(series.hour, series.variance) / np.dot(series.hour, series.hour)
+        series = data.query("0 <= day <= 100")
+        slopes = np.dot(series.day, series.variance) / np.dot(series.day, series.day)
         rows.append((panel, index, slopes))
     return sweep.merge(
-        pd.DataFrame(rows, columns=["panel", "index", "archived_slope_0_100h"]),
+        pd.DataFrame(rows, columns=["panel", "index", "archived_slope_0_100d"]),
         how="left",
     )
 
@@ -151,13 +151,13 @@ def campaign(size, threads, output):
                 {**common, "n": 0, "equation13": predicted_slope(init, settings["mu"])}
             )
             continue
-        hours = np.array(M["early_hours"])
+        days = np.array(M["early_days"])
         n = 256 if size == "quick" else 2000
         if size == "quick":
-            hours = hours / 8
+            days = days / 8
         if size == "full" and key not in M["primary"] and settings["beta"] >= 100:
             # Prespecified effort for the very fast switching control sweep.
-            hours *= min(1.0, 100.0 / settings["beta"])
+            days *= min(1.0, 100.0 / settings["beta"])
             n = 1024
         file = (
             output
@@ -170,16 +170,16 @@ def campaign(size, threads, output):
             trace = pd.read_csv(file)
             row_summary = json.loads(note.read_text())
         else:
-            trace, row_summary = sample(row, hours, n, M["seed"] + i, threads)
+            trace, row_summary = sample(row, days, n, M["seed"] + i, threads)
             tmp = file.with_suffix(".tmp")
             trace.to_csv(tmp, index=False)
             tmp.replace(file)
             tmp = note.with_suffix(".tmp")
             tmp.write_text(json.dumps(row_summary, sort_keys=True))
             tmp.replace(note)
-        summaries.append({**common, **row_summary, "end_hour": float(hours[-1])})
+        summaries.append({**common, **row_summary, "end_day": float(days[-1])})
         print(
-            f"{key} n={n} at {hours[-1]:g} h, slope ratio {row_summary['ratio']:.3f}",
+            f"{key} n={n} at {days[-1]:g} d, slope ratio {row_summary['ratio']:.3f}",
             flush=True,
         )
         traces.append(trace.assign(**common))
@@ -222,18 +222,18 @@ def plot(output, folder):
                 continue
             slope = table.loc[table.condition == condition, "equation13"].iloc[0]
             line = ax.plot(
-                group.hour, group.variance, marker="o", ms=3, label=condition
+                group.day, group.variance, marker="o", ms=3, label=condition
             )[0]
             ax.plot(
-                group.hour,
-                group.hour * slope,
+                group.day,
+                group.day * slope,
                 color=line.get_color(),
                 linestyle="--",
                 alpha=0.8,
             )
         ax.set(
             title=f"{panel} · {names[panel]}",
-            xlabel="Time (hours)",
+            xlabel="Time (days)",
             ylabel="Variance of mutant fraction",
         )
         if ax.lines:

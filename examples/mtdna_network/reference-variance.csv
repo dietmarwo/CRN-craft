@@ -1,4 +1,4 @@
-panel,index,hour,variance
+panel,index,day,variance
 E,0,0.0,0.0
 E,0,10.0,3.36930317045e-05
 E,0,20.0,6.7731154716e-05

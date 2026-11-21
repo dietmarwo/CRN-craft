@@ -1,4 +1,4 @@
-hour,variance,mean_copies,mean_heteroplasmy,empty,fixed_fraction,panel,index,condition
+day,variance,mean_copies,mean_heteroplasmy,empty,fixed_fraction,panel,index,condition
 0.0,4.686943112660777e-30,999.0,0.30030030030029814,0,0.0,E,0,E:0
 0.5,1.675969757382282e-06,998.9925,0.30032142026283526,0,0.0,E,0,E:0
 1.0,3.437081831440123e-06,999.004,0.3003359399017641,0,0.0,E,0,E:0

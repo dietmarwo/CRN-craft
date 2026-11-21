@@ -11,8 +11,8 @@ python examples/mtdna_network/study.py --figures docs/guide/img/mtdna_network
 
 The condition table is extracted by `fetch.py`. Add
 `--online-summaries` to also regenerate the source variance series.
-The fresh slope normally uses the first 2 hours, while the archived
-slope uses the first 100 hours. Figure 2H varies the ratio of fusion to
+The fresh slope normally uses the first 2 days, while the archived
+slope uses the first 100 days. Figure 2H varies the ratio of fusion to
 fission at fixed magnitude. Figure S3D varies the magnitude at fixed
 ratio. Both sweeps use the published initial counts. Selected extreme
 switching magnitudes use a shorter reported window and 1,024 paths.

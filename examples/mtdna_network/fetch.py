@@ -115,7 +115,7 @@ def main():
             (ROOT / "reference-variance.csv").open("w", newline="") as f,
         ):
             writer = csv.writer(f, lineterminator="\n")
-            writer.writerow(["panel", "index", "hour", "variance"])
+            writer.writerow(["panel", "index", "day", "variance"])
             for result in pool.map(summaries, rows):
                 writer.writerows(result)
 

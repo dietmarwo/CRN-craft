@@ -19,6 +19,7 @@ import numpy as np
 from reference import HERE, MECHANISMS, SAMPLER, STATUS, Config, simulate
 
 AGES = (3, 10, 40, 80)
+YEAR = 360  # days per year of the tissue study
 TARGET = 0.10
 BAND = (0.095, 0.105)
 BASE_SEED = 20261120
@@ -331,28 +332,35 @@ def _rates(path):
 
 
 def _conditions(ages, mechanisms, sensitivity):
+    # The tissue study counts a year as 360 days. The 365-day clock is a
+    # sensitivity at the 360-day rates.
     for years in ages:
         for name in mechanisms:
-            yield "primary", years, 365, Config(name, years * 365 * 24, 0)
+            yield "primary", years, YEAR, Config(name, years * YEAR * 24, 0)
     if sensitivity and "size" in mechanisms and 3 in ages:
-        yield "size-half-life-2d", 3, 365, Config("size", 3 * 365 * 24, 0, half_life=48)
+        yield (
+            "size-half-life-2d",
+            3,
+            YEAR,
+            Config("size", 3 * YEAR * 24, 0, half_life=48),
+        )
     if sensitivity:
         for years in (3, 80):
             if years in ages:
                 for name in mechanisms:
-                    yield "clock-360d", years, 360, Config(name, years * 360 * 24, 0)
+                    yield "clock-365d", years, 365, Config(name, years * 365 * 24, 0)
     if sensitivity and 3 in ages:
-        hours = 3 * 365 * 24
+        hours = 3 * YEAR * 24
         if "size" in mechanisms:
-            yield "size-init-0.1", 3, 365, Config("size", hours, 0, initiation=0.1)
+            yield "size-init-0.1", 3, YEAR, Config("size", hours, 0, initiation=0.1)
         if "transcription" in mechanisms:
             yield (
                 "atp-wild-only",
                 3,
-                365,
+                YEAR,
                 Config("transcription", hours, 0, wild_only=True),
             )
-            yield "atp-half-step", 3, 365, Config("transcription", hours, 0, step=0.5)
+            yield "atp-half-step", 3, YEAR, Config("transcription", hours, 0, step=0.5)
 
 
 def _selection(rows):

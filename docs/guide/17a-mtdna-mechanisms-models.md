@@ -6,11 +6,17 @@ Part of [chapter 17](17-mtdna-mechanisms.md).
 
 All three models describe one post-mitotic cell with about 1,000 mtDNA
 copies, a half-life of 10 days (`delta = ln(2)/240` per hour) and time in
-hours. Every tissue simulation starts with 1,000 wild-type copies and no
-mutant. A new deletion appears on a daughter copy with probability `p`
-per replication. `p` is the parameter that the
+hours. The tissue study counts a year as 360 days, so its lifespans of 3,
+10, 40 and 80 years are 1,080, 3,600, 14,400 and 28,800 days. Every
+tissue simulation starts with 1,000 wild-type copies and no mutant. A new
+deletion appears on a daughter copy with probability `p` per
+replication, whether the template is a wild-type or a mutant copy: mutants
+can mutate. `p` is the parameter that the
 [fit](17b-mtdna-mechanisms-results.md) adjusts. The three models differ
-in what decides which copy replicates.
+in what decides which copy replicates. The 360-day year, the mutation of
+mutant templates and the fate of a cell whose ATP runs out (below) were
+confirmed by an author of the papers (personal communication, November
+2026).
 
 ## Neutral drift
 
@@ -159,8 +165,12 @@ reference sampler does this per hour: degrade each copy with probability
 `1 - exp(-delta)`; let each survivor replicate with probability
 `1 - exp(-rate)` for its rate above; make each daughter a new deletion with
 probability `p`, from either genotype; then relax ATP for one hour with the
-new counts held fixed. A cell whose ATP reaches zero is frozen at that
-moment ([choices](17c-mtdna-mechanisms-limits.md#reconstruction-choices)).
+new counts held fixed. A cell whose ATP reaches zero stays in that state
+for the rest of the simulation: its ATP stays at zero and its wild-type
+and mutant counts stay fixed. The sampler therefore stops the cell at that
+moment and keeps its counts and lineages; at the end of the lifespan it
+is classified like any other cell
+([choices](17c-mtdna-mechanisms-limits.md#reconstruction-choices)).
 
 ### The ATP model in CRN-craft
 
@@ -169,9 +179,11 @@ Applies: [chapter 12c, Variable population: ATP](12c-mtdna-atp.md).
 `coupled_atp` in `native.py` builds the same rules as a continuous-time
 model: ATP as a continuous variable with `add_ode(..., lower_bound=0)`
 for `hybrid`, and as the stored `atp` block for exact `thinning`. Both stop
-a cell when ATP reaches zero, as the reference sampler does. A deletion is
-a separate reaction (`mutate_W`, `mutate_M`) with rate `p` times the
-replication rate.
+a cell when ATP reaches zero, as the reference sampler does: the cell is
+`stopped`, ATP reads 0 at every later report time, and the counts stay as
+they were at the stop. A deletion is a separate reaction (`mutate_W`,
+`mutate_M`) with rate `p` times the replication rate, so wild-type and
+mutant templates both produce new mutants.
 
 The hybrid solver tracks counts, not lineages. `marked_hybrid` recovers
 lineages in a small run with a callback: a mutation event opens a new
@@ -182,7 +194,8 @@ mutant count, and the run with the callback has the same trajectories as
 the run without it.
 
 In a small test cell (100 copies, one founder mutant, half-life 120 h,
-one year), hybrid and thinning gave 121 and 139 COX-negative cells of 320
+8,760 h, a fixed test horizon rather than a year of the study), hybrid
+and thinning gave 121 and 139 COX-negative cells of 320
 (z = −1.45); with 4,000 cells each, 1,690 and 1,639 (z = 1.16). The hourly
 sampler gave 131 and 1,663. The continuous-time and the hourly versions
 agree at this precision.
@@ -195,19 +208,28 @@ Both papers start with a deterministic single cell: 1,000 wild-type copies
 ![Deterministic ATP depletion and fixed-delay wild-type displacement](img/kk14/single-cell.png)
 
 `study.py single-cell` integrates the ATP equations with Radau and the delay
-equations with Heun's method on a 0.25-h mesh:
+equations with Heun's method on a 0.25-h mesh. Both programs work in
+hours, so the times are reported in hours or days; the size paper reports
+its times in years:
 
-| Quantity | Reconstruction | Paper |
-| --- | --- | --- |
-| ATP reaches zero | 247.406 days, mutants 10.07 times the wild type | about 250 days, mutants about ninefold (PNAS Figure 2) |
-| Wild type below one copy, size model | 94.952 years | about 95 years (size paper, Figure 2) |
-| Same, 2-day half-life | 3.866 years | about 3.9 years (Figure 3) |
-| Same, 10-h wild-type copying time | 19.330 years | 19.33 years (Figure 4) |
-| Same, mutant 70% of wild-type size | 158.331 years | almost 160 years (Figure 5) |
-| Busy fraction, wild-type cell and mutant cell | 0.579% and 0.289% | 0.58% and 0.29% (Figure 2) |
+| Quantity | Reconstruction | In years of 365 / 360 days | Paper |
+| --- | --- | --- | --- |
+| ATP reaches zero | 247.406 days, mutants 10.07 times the wild type | — | about 250 days, mutants about ninefold (PNAS Figure 2) |
+| Wild type below one copy, size model | 831,783 h (34,658 days) | 94.952 / 96.271 | about 95 years (size paper, Figure 2) |
+| Same, 2-day half-life | 33,867 h (1,411 days) | 3.866 / 3.920 | about 3.9 years (Figure 3) |
+| Same, 10-h wild-type copying time | 169,333 h (7,056 days) | 19.330 / 19.599 | 19.33 years (Figure 4) |
+| Same, mutant 70% of wild-type size | 1,386,983 h (57,791 days) | 158.331 / 160.530 | almost 160 years (Figure 5) |
+| Busy fraction, wild-type cell and mutant cell | 0.579% and 0.289% | — | 0.58% and 0.29% (Figure 2) |
 
-The size results use a 365-day year. Meshes of 0.5 h and 0.125 h give the
-same 94.952 years, and `r` = 0.1 per hour with `C` recomputed gives 94.954
-years. All values are in `examples/kk14/results/reconstruction/single-cell.json`.
+The printed 19.33 years matches the 365-day conversion and not the
+360-day one (19.60 years). The other three values fit 365 days at least
+as well: about 95, about 3.9 (both conversions round to it) and almost
+160 (158.3 is below 160, 160.5 above). The tissue study of the PNAS paper
+uses 360 days, so the size paper's deterministic program may have used a
+365-day year. This is an open question for the authors
+([limits](17c-mtdna-mechanisms-limits.md#limits)). Meshes of 0.5 h and
+0.125 h give the same 831,783 h, and `r` = 0.1 per hour with `C`
+recomputed gives 831,793 h. All values are in
+`examples/kk14/results/reconstruction/single-cell.json`.
 
 Next: [Fitting and the comparison](17b-mtdna-mechanisms-results.md).

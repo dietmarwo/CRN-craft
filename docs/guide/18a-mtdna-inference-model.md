@@ -152,7 +152,7 @@ a cell whose ATP reaches zero keeps its counts. Three things differ from
 chapter 17, as the 2026 paper prescribes: mutants replicate `1+s` times as
 fast as wild type instead of 1.5 times, a fraction `1-f` of new mutants is
 neutral and replicates like wild type, and only wild-type daughters
-mutate (chapter 17's default lets mutant templates mutate too).
+mutate (in chapter 17 mutant templates mutate too).
 
 The figure shows 100,000 such cells (`examples/kk26/moran.cpp`,
 `sample_atp`). The largest difference from the 144 published points is

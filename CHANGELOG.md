@@ -7,7 +7,7 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
-### Experiment protocols and analysis
+### Added
 
 - Native count runs can schedule rate edits, count assignments and binomial
   partitions. Fixed-delay completions have cancellable busy owners. The
@@ -29,7 +29,6 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 - `import_sbml` refuses UTF-16 and UTF-32 documents (`CRN-E090`). Such a
   document without a byte order mark hid its DTD from the check, and its
   entities were expanded.
-
 
 ### Documentation (guide and examples)
 

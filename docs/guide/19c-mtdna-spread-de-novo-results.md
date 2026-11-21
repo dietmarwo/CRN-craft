@@ -11,7 +11,7 @@ paper, and no author of any of the papers cited here wrote or reviewed it.**
 The validation cohorts, 32 fibers of 32 regions each, at 1,080 days (3
 years) and, for the denser mutant only, at 3,600 days (10 years).
 Chapter 17's rows are its 20,000-cell validation cohorts at 3 and 10 years
-of 365 days, for comparison of the layout and the order of magnitude only (the
+of 360 days, for comparison of the layout and the order of magnitude only (the
 table is generated from `results/de-novo-summary.csv` and chapter 17's
 `comparison.csv`, and checked by `validation/check_mtdna_spread.py`):
 
@@ -25,12 +25,12 @@ table is generated from `results/de-novo-summary.csv` and chapter 17's
 | 3 y | Survival of the densest, isolated regions (this guide), first fit | 0.009855 | 104 / 1024 regions | 10.16% (8.45–12.16%) | 271 (267–275) | compatible |
 | 10 y | Survival of the densest, 32 regions (this guide), first fit | 0.002966 | 37 / 1024 regions | 3.61% (2.63–4.94%) | 849 (763–866) | outside |
 | 10 y | Survival of the densest, 32 regions (this guide), refit | 0.003 | 83 / 1024 regions | 8.11% (6.59–9.94%) | 817 (767–856) | compatible |
-| 3 y | Neutral drift, one cell (chapter 17) | 0.00729 | 1920 / 20000 cells | 9.60% (9.20–10.02%) | 33.83 (33.59–34.06) | compatible |
-| 3 y | Faster copying of shorter mtDNA, one cell (chapter 17) | 0.00597 | 1967 / 20000 cells | 9.84% (9.43–10.26%) | 28.86 (28.64–29.07) | compatible |
-| 3 y | Transcription-linked replication, one cell (chapter 17) | 4.95e-06 | 1944 / 20000 cells | 9.72% (9.32–10.14%) | 1.25 (1.23–1.28) | compatible |
-| 10 y | Neutral drift, one cell (chapter 17) | 0.00144 | 2088 / 20000 cells | 10.44% (10.02–10.87%) | 9.54 (9.42–9.66) | compatible |
-| 10 y | Faster copying of shorter mtDNA, one cell (chapter 17) | 0.0006 | 1947 / 20000 cells | 9.74% (9.33–10.15%) | 4.84 (4.76–4.92) | compatible |
-| 10 y | Transcription-linked replication, one cell (chapter 17) | 1.36e-06 | 2088 / 20000 cells | 10.44% (10.02–10.87%) | 1.07 (1.06–1.08) | compatible |
+| 3 y | Neutral drift, one cell (chapter 17) | 0.00758 | 2122 / 20000 cells | 10.61% (10.19–11.04%) | 34.72 (34.51–34.93) | compatible |
+| 3 y | Faster copying of shorter mtDNA, one cell (chapter 17) | 0.00608 | 1994 / 20000 cells | 9.97% (9.56–10.39%) | 29.30 (29.11–29.51) | within |
+| 3 y | Transcription-linked replication, one cell (chapter 17) | 5.1e-06 | 1976 / 20000 cells | 9.88% (9.47–10.30%) | 1.26 (1.24–1.28) | compatible |
+| 10 y | Neutral drift, one cell (chapter 17) | 0.00142 | 1953 / 20000 cells | 9.77% (9.36–10.18%) | 9.46 (9.35–9.57) | compatible |
+| 10 y | Faster copying of shorter mtDNA, one cell (chapter 17) | 0.000599 | 1831 / 20000 cells | 9.16% (8.76–9.56%) | 4.92 (4.84–5.01) | compatible |
+| 10 y | Transcription-linked replication, one cell (chapter 17) | 1.42e-06 | 2049 / 20000 cells | 10.24% (9.83–10.67%) | 1.07 (1.06–1.08) | compatible |
 <!-- /mtdna-spread-de-novo -->
 
 ![A: share of affected regions against m in the fit runs, with the fitted logistic curves and the 10% target. B: mutant types per affected region in the last validation cohort of each case, on a log scale, with chapter 17's three-year values for neutral drift and transcription-linked replication](img/mtdna_spread/de-novo-types.png)
@@ -65,7 +65,7 @@ first fit and refit (1,487 and 1,456; 798 and 816), because it depends on
 
 **The number of types.** Every case gives many types per affected region:
 about 1,460 for the denser mutant, about 820 with equal density and about
-270 in isolated regions, against 34 for neutral drift and 1.25 for
+270 in isolated regions, against 35 for neutral drift and 1.26 for
 transcription-linked replication in one cell of chapter 17. By the
 predeclared rule all three read "many types, like drift". No affected
 region held fewer than 230 types. The largest single type held 0.4% of

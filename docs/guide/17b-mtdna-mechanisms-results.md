@@ -116,6 +116,11 @@ papers confirmed (personal communication, November 2026). Only 72 of the
 1.03 lineages each
 ([choices](17c-mtdna-mechanisms-limits.md#reconstruction-choices)).
 
+An extension in [chapter 19c](19c-mtdna-spread-de-novo-results.md) applies
+this protocol to a fourth mechanism, stochastic survival of the densest in
+a spatial chain, with de novo deletions added: at 3 years an affected
+region of that model holds about 1,460 mutant types.
+
 ## Comparison with the published values
 
 `results/reconstruction/reference-differences.csv` compares the

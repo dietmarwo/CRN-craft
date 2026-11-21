@@ -232,6 +232,18 @@ three new stage-2 points of 32 fibers around the `m` fitted through all
 points, a fit through all points, and a new cohort of 128 fibers. If that
 one is not compatible either, the calibration failed. All rows are kept.
 
+**Fallback cohort.** A calibration that ends with a failed fit (at the
+first or the second attempt) has no validation cohort and so no count of
+types. Such a run still simulates one cohort of 128 fibers, at the fit
+point of the last stage 2 whose observed share of affected regions is
+closest to 10% (on a tie, the smaller `m`), with its own phase
+(`fibers-fallback`) and seeds. Its summary row reads "calibration failed,
+fallback cohort" and reports the same measures as a validation cohort; the
+statement rule applies unchanged. The calibration stays failed, and the row
+is never compatible: a fallback cohort measures the types at whatever
+prevalence it happens to have, not at a calibrated 10%. (This was added
+before any run of the draft or full size.)
+
 **Seeds and tables.** The phases have their own names (`fibers-stage1`,
 `fibers-validation` and so on), so no fiber of the first design is reused
 and no checkpoint is shared. The tables are `de-novo-fibers-*.csv`, with

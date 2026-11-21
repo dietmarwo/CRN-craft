@@ -1,25 +1,30 @@
 # Mitochondrial network and early drift
 
-The four-species model and the variance calculation are introduced in
-[chapter 20](../../docs/guide/20-mtdna-network.md).
+The model, the protocol and the results are explained in
+[chapter 20](../../docs/guide/20-mtdna-network.md) and
+[its results page](../../docs/guide/20a-mtdna-network-results.md).
+Time is in days.
 
 ```sh
 python examples/mtdna_network/study.py --size quick
-python examples/mtdna_network/study.py --size full --threads 4
+python examples/mtdna_network/study.py --size full
+python examples/mtdna_network/review.py --size full
 python examples/mtdna_network/study.py --figures docs/guide/img/mtdna_network
+python examples/mtdna_network/review.py --figures docs/guide/img/mtdna_network
 ```
 
-The condition table is extracted by `fetch.py`. Add
-`--online-summaries` to also regenerate the source variance series.
-The fresh slope normally uses the first 2 days, while the archived
-slope uses the first 100 days. Figure 2H varies the ratio of fusion to
-fission at fixed magnitude. Figure S3D varies the magnitude at fixed
-ratio. Both sweeps use the published initial counts. Selected extreme
-switching magnitudes use a shorter reported window and 1,024 paths.
-All other full-size conditions use 2,000 paths, with checkpoints.
+Runs write to `runs/<size>/` (or `--output`); `--figures` reads `results/`.
 
-The three primary intervals for simulated slope divided by the
-Equation 13 slope are 0.904–1.074, 0.903–1.062 and 0.935–1.084.
-Some other source conditions have wider intervals. Read the
-`within_band` column alongside the interval and the number of paths.
-[Paper and supplement](https://doi.org/10.1534/genetics.119.302423)
+| File | Content |
+|---|---|
+| `conditions.csv` | parameters and initial counts of the 39 source conditions, from the authors' parameter tables |
+| `reference-variance.csv` | the authors' archived variance series (10,000 paths, every 10 days to day 500) |
+| `fetch.py` | regenerates both files from the pinned upstream revision (`--online-summaries` for the series) |
+| `manifest.json` | primary conditions, seed, report times and decision rule, fixed before the runs |
+| `results/slopes.csv` | one row per condition: Equation 13 slope, measured slope, ratio and 99% interval |
+| `results/variance.csv` | the early variance series of every condition |
+| `results/nominal-long.csv` | a 96-path H:60 run to day 50 from the full campaign |
+| `results/review-*.csv` | the review runs of the results page (`review.py`) |
+
+The upstream repository is licensed under GPL-3.0. No upstream code is
+used here; the two input CSV files are derived from its data files.

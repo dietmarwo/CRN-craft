@@ -198,6 +198,117 @@ def campaign(size, threads, output):
     )
 
 
+def _table(header, rows):
+    lines = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
+    lines += ["| " + " | ".join(row) + " |" for row in rows]
+    return "\n".join(lines)
+
+
+def render(results):
+    """Markdown tables of the guide page, generated from the saved CSV files."""
+    slopes = pd.read_csv(results / "slopes.csv")
+    params = pd.read_csv(ROOT / "conditions.csv")
+    review = pd.read_csv(results / "review-primary-intervals.csv").set_index(
+        "condition"
+    )
+    shipped = slopes.set_index("condition")
+    primary = []
+    for c in M["primary"]:
+        s, r = shipped.loc[c], review.loc[c]
+        primary.append(
+            [
+                c,
+                f"{int(s.n):,}",
+                f"{s.ratio:.3f}",
+                f"{s.ratio_low:.3f}–{s.ratio_high:.3f}",
+                f"{r.ratio_low:.3f}–{r.ratio_high:.3f}",
+                "yes" if r.within_band and s.within_band else "no",
+            ]
+        )
+    varied = {
+        "E": lambda p: f"μ = {p.mu:g}/day",
+        "F": lambda p: f"κ = {p.kappa:.0f}",
+        "G": lambda p: f"δ = {p.delta:g}",
+        "H": lambda p: f"R = {p.net_rat:.3g}, M = {p.net_mag:.3g}",
+    }
+    every = []
+    for (_, s), (_, p) in zip(slopes.iterrows(), params.iterrows(), strict=True):
+        every.append(
+            [
+                s.condition,
+                varied[s.panel](p),
+                f"{int(s.n):,}",
+                f"{s.end_day:.3g}",
+                f"{s.singleton_fraction:.3f}",
+                f"{s.equation13 * 1e6:.3f}",
+                f"{s.ratio:.3f}",
+                f"{s.ratio_low:.3f}–{s.ratio_high:.3f}",
+                f"{s.archived_slope_0_100d / s.equation13:.3f}",
+            ]
+        )
+    h65 = pd.read_csv(results / "review-h65.csv").iloc[0]
+    arch = pd.read_csv(results / "review-archive.csv")
+    checks = [
+        [
+            "H:65 again, fresh seed",
+            f"{int(h65.paths):,}",
+            f"0–{h65.end_day:.3f}",
+            "fresh / Equation 13",
+            f"{h65.ratio:.3f} ({h65.ratio_low:.3f}–{h65.ratio_high:.3f})",
+        ]
+    ]
+    for _, a in arch.iterrows():
+        checks.append(
+            [
+                f"{a.condition} fresh vs archive",
+                f"{int(a.paths):,}",
+                f"0–{a.end_day:g}",
+                "fresh / archived",
+                f"{a.fresh_over_archive:.3f} ({a.low_over_archive:.3f}–{a.high_over_archive:.3f})",
+            ]
+        )
+        checks.append(
+            [
+                f"{a.condition} vs Equation 13",
+                f"{int(a.paths):,}",
+                f"0–{a.end_day:g}",
+                "fresh / Equation 13",
+                f"{a.fresh_over_equation13:.3f} ({a.low_over_equation13:.3f}–"
+                f"{a.high_over_equation13:.3f}); archived {a.archive_over_equation13:.3f}",
+            ]
+        )
+    return {
+        "mtdna-network-primary": _table(
+            [
+                "Condition",
+                "Paths",
+                "Ratio",
+                "99% simultaneous, 600 replicates",
+                "Same, 20,000 replicates",
+                "Inside 0.80–1.20",
+            ],
+            primary,
+        ),
+        "mtdna-network-all": _table(
+            [
+                "Condition",
+                "Varied",
+                "Paths",
+                "Window (days)",
+                "f_s",
+                "Eq. 13 (1e-6/day)",
+                "Ratio",
+                "99% interval",
+                "Archive 0–100 d / Eq. 13",
+            ],
+            every,
+        ),
+        "mtdna-network-review": _table(
+            ["Run", "Paths", "Days", "Quantity", "Value (99% interval)"], checks
+        ),
+    }
+
+
 def plot(output, folder):
     import matplotlib
 

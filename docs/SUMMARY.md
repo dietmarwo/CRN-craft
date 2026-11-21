@@ -43,6 +43,7 @@
 - [19. Spatial spread of mtDNA deletions](guide/19-mtdna-spread.md)
   - [Choices, checks and limits](guide/19a-mtdna-spread-limits.md)
 - [20. Mitochondrial networks and genetic drift](guide/20-mtdna-network.md)
+  - [Results, choices and limits](guide/20a-mtdna-network-results.md)
 - [21. The mtDNA bottleneck during development](guide/21-mtdna-bottleneck.md)
 - [22. Protein distributions from four reactions](guide/22-two-stage-expression.md)
 - [23. Fitting single-cell RNA distributions](guide/23-yeast-rna-fit.md)

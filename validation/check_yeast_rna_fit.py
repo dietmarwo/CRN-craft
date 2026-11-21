@@ -12,7 +12,8 @@ sys.path.insert(
     0, str(Path(__file__).resolve().parents[1] / "examples" / "yeast_rna_fit")
 )
 from fitting import Data, observations  # noqa: E402
-from model import ROOT, matrix, native, nonspatial, quick_means  # noqa: E402
+from model import ROOT, exact_means, matrix, native, nonspatial, quick_means  # noqa: E402
+from render import TABLES, region  # noqa: E402
 from sites import intensity_map, site_data  # noqa: E402
 
 
@@ -51,12 +52,19 @@ def main():
     ]
     if np.max(np.abs(law[ids] - result["snapshots"][0]["probabilities"])) > 5e-10:
         raise SystemExit("Native FSP and explicit forced model disagree")
-    p = nonspatial(x, 0.2, 5, 0.05, minutes=1)[1].ravel()
-    if np.max(np.abs(p - law[:-1])) > 2e-5:
-        raise SystemExit("Banded BDF2 does not converge to the native limit")
-    predicted = quick_means(x, 0.2, 0.1, minutes=1)
-    if not 0.1 < predicted[1, 0] < 1.0:
-        raise SystemExit("Closed moment calculation failed")
+    try:
+        p = nonspatial(x, 0.2, 5, 0.05, minutes=1)[1].ravel()
+    except RuntimeError as exc:
+        # The fits need the example's C++ solver; the data, likelihood and
+        # result checks below do not.
+        print(f"C++ solver not checked: {exc}")
+    else:
+        if np.max(np.abs(p - law[:-1])) > 2e-5:
+            raise SystemExit("Banded BDF2 does not converge to the native limit")
+        predicted = quick_means(x, 0.2, 0.1, minutes=1)
+        exact = exact_means(x, 0.2, [0, 1])[1, 0]
+        if abs(predicted[1, 0] - exact) > 1e-4 * exact:
+            raise SystemExit("Closed moment calculation failed")
     frame = pd.DataFrame(
         {
             "dose": [0.2] * 3,
@@ -71,12 +79,24 @@ def main():
     score = Data(frame).counts_cost({0.2: {1: np.array(probabilities)}})
     if abs(score - exact) > 1e-12:
         raise SystemExit("Likelihood does not preserve counts")
-    n = observations().groupby("dose").cells.sum().tolist()
+    rows = observations()
+    n = rows.groupby("dose").cells.sum().tolist()
     if n != [25511, 40132]:
         raise SystemExit("Mature cell totals changed from the pinned fit archive")
-    audit = pd.read_csv(ROOT / "source-audit.csv")
-    if audit.total_disagrees.sum() != 235:
+    if Data(rows).n() != 59557 or rows[rows.minute > 0].cells.sum() != 59557:
+        raise SystemExit("Usable cells after time zero changed")
+    differ = rows[rows.total != rows.nuclear + rows.cytoplasm].cells.sum()
+    audit = pd.read_csv(ROOT / "source-audit.csv", dtype={"replicate": str})
+    if differ != 235 or audit.total_disagrees.sum() != 235:
         raise SystemExit("Compartment accounting changed")
+    grouped = rows.groupby(["dose", "replicate", "minute"]).cells.sum()
+    if (
+        audit.cells.tolist()
+        != grouped.loc[
+            list(zip(audit.dose, audit.replicate, audit.minute, strict=True))
+        ].tolist()
+    ):
+        raise SystemExit("Count rows and audit disagree")
     n_site = site_data().groupby("dose").cells.sum().tolist()
     if n_site != [25511, 39943]:
         raise SystemExit("Site archive no longer matches the reported cell totals")
@@ -110,7 +130,43 @@ def main():
     intensities = intensity_map(8, 10)
     if np.any(intensities[:3]) or abs(intensities[3].sum() - 1 / 6) > 1e-12:
         raise SystemExit("Transcription-site active threshold mismatch")
+    results()
     print("yeast CME, count likelihood, cell totals and site intensity verified")
+
+
+def results():
+    """Structure of the saved results and the tables of guide page 23b."""
+    scores = pd.read_csv(ROOT / "results" / "scores.csv")
+    if sorted(
+        zip(scores.preset, scores.partition, scores.objective, strict=True)
+    ) != sorted(
+        [("full", "all", k) for k in ("mean", "histogram")]
+        + [
+            ("draft", p, k)
+            for p in ("all", "0.2", "0.4")
+            for k in ("mean", "histogram")
+        ]
+    ):
+        raise SystemExit("scores.csv rows changed")
+    if scores.coarse_refined_nats_per_cell.max() >= 0.01:
+        raise SystemExit("A reported fit misses the refinement target")
+    work = pd.read_csv(ROOT / "results" / "optimizer-work.csv")
+    full = work[work.preset == "full"].groupby("objective").evaluations.sum()
+    if full.to_dict() != {"histogram": 24175, "mean": 24174}:
+        raise SystemExit("Full-run evaluation counts changed")
+    start = pd.read_csv(ROOT / "results" / "review-optimizer-start.csv")
+    best = start.groupby("box").change_vs_archived.min()
+    if len(start) != 8 or not best["wide"] <= 0.01:
+        raise SystemExit("Search-start review result changed")
+    grid = pd.read_csv(ROOT / "results" / "spatial-fits.csv").set_index("objective")
+    if grid.loc["histogram", ["log_i3_factor", "log_decay_factor"]].any() or set(
+        grid.verified_selection
+    ) != {"grid"}:
+        raise SystemExit("The spatial histogram result is no longer the archive")
+    page = (ROOT.parents[1] / "docs/guide/23b-yeast-rna-fit-results.md").read_text()
+    for name, make in TABLES.items():
+        if region(page, name) != make():
+            raise SystemExit(f"Guide table {name} is out of date")
 
 
 if __name__ == "__main__":

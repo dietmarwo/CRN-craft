@@ -50,6 +50,9 @@
   - [Choices, checks and limits](guide/21c-mtdna-bottleneck-limits.md)
 - [22. Protein distributions from four reactions](guide/22-two-stage-expression.md)
 - [23. Fitting single-cell RNA distributions](guide/23-yeast-rna-fit.md)
+  - [Data and model](guide/23a-yeast-rna-fit-model.md)
+  - [Fits and predictions](guide/23b-yeast-rna-fit-results.md)
+  - [Choices, checks and limits](guide/23c-yeast-rna-fit-limits.md)
 - [Troubleshooting](guide/troubleshooting.md)
 - [Migrating from earlier releases](guide/migrating.md)
 

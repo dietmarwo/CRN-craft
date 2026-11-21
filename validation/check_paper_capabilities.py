@@ -1119,6 +1119,8 @@ def experiments(vilar):
         abs(rates[0] / rates[1] - 4) < 1e-12,
         "condition change did not update derived rate",
     )
+    changes = [t["parameter_changes"] for t in study.preflight()["tasks"].values()]
+    require(changes == [{}, {"delta_R_R_decay": 0.05}], "recorded SED-ML change")
     return {
         "pulse_replicates": len(values),
         "vilar_reports": len(replay["reports"]),

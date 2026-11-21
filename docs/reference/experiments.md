@@ -294,7 +294,8 @@ wheel also installs
 with `--check` (preflight only), `--seed`, `--replicates`, `--threads` and
 `--archive DIRECTORY`. `DIRECTORY` must not exist; it receives one sealed
 native run per task, named by the task ID, and `experiment.json` with the
-source member hashes, effective rates, events and output mappings. Task `i`
+source member hashes, parameter changes, effective rates, events and
+output mappings; `preflight()` returns the same without simulating. Task `i`
 in document order uses seed `seed + i`. A refused input raises
 `ImportFailure` (`CRN-E090`); the command prints `CRN-E090: message` and
 exits with status 2.

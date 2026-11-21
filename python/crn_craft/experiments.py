@@ -358,6 +358,8 @@ class _SbmlModel:
     # Events whose trigger `time >= 0` is already true at time 0 with
     # initialValue="true": they never fire when the run starts at time 0.
     inactive_at_zero: tuple = ()
+    # SED-ML parameter changes applied before compilation.
+    changes: tuple = ()
 
 
 def _translate_sbml(raw, overrides, *, split=False):
@@ -580,6 +582,7 @@ def _translate_sbml(raw, overrides, *, split=False):
         seconds,
         initial_rates,
         inactive,
+        tuple(sorted((k, float(v)) for k, v in overrides.items())),
     )
 
 
@@ -741,6 +744,7 @@ class Experiment:
                     "method": "KISAO:0000029",
                     "times": data[1].tolist(),
                     "time_scale_seconds": data[0].time_scale,
+                    "parameter_changes": dict(data[0].changes),
                     "initial_rates": data[0].effective_rates,
                     "events": [
                         {"time": t, "parameters": p, "counts": c}

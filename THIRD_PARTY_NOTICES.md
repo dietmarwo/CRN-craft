@@ -46,3 +46,21 @@ CRN-craft engine. The upstream MIT notice is preserved in
 `validation/parameter-optimization/REBOP_LICENSE.txt`. Cargo.lock pins its
 reference dependencies. Python fcmaes-rust/rebop dependencies are separately
 listed in that directory's requirements file.
+
+## Reference data of the guide case studies
+
+The MIT license of this repository covers the code and text written for
+CRN-craft. The files below are numerical tables derived from other authors'
+published data. They are not covered by the MIT license and remain under
+the terms of their sources. They are included so that the checks and plots
+of guide chapters 19 to 23 run without network access. No code from these
+sources is included. Where an example has a `fetch.py`, it rebuilds the
+tables from the stated revision.
+
+| Files | Derived from | License of the source |
+| --- | --- | --- |
+| `examples/mtdna_spread/reference-1c.csv`, `reference-2e.csv` | Simulated figure data of Insalata, Hoitzing, Aryaman and Jones (2022), doi:10.1073/pnas.2122073119: https://github.com/ferdinando17/Survival-of-the-Densest at `45462390b4c27cf2ffe4860c4f526e67d49ad6c8` | No license file at that revision |
+| `examples/mtdna_network/conditions.csv`, `reference-variance.csv` | Parameter tables and simulation summaries of Aryaman, Bowles, Jones and Johnston (2019), doi:10.1534/genetics.119.302423: https://github.com/ImperialCollegeLondon/MitoNetworksGenetics at `8f158fb7a61eaaa622d6e715d654c8bdfb44db89` | GPL-3.0 |
+| `examples/mtdna_bottleneck/reference-table1.csv`, `reference-table2.csv`, `reference-hb.csv`, `reference-figure3.csv` | Tables 1 and 2, the Figure 4 source data and readings of Figure 3 of Johnston et al. (2015), doi:10.7554/eLife.07464 | CC BY 4.0 |
+| `examples/two_stage_expression/reference-figure1d.csv` | Marker heights read from Figure 1D of Shahrezaei and Swain (2008), doi:10.1073/pnas.0803850105 | Readings of a published figure |
+| `examples/yeast_rna_fit/source-counts.csv`, `source-sites.csv`, `source-audit.csv`, `source-parameters.json`, `reference-site-activity.csv`, `reference-site-distribution.csv` | Cell counts, parameter vectors and figure series of Munsky, Li, Fox, Shepherd and Neuert (2018), doi:10.1073/pnas.1804060115: https://github.com/MunskyGroup/Munsky_et_al_2018 at `1aa0b5ce25d21484c7c4e8a894477b1719209ce7` | GPL-3.0 |

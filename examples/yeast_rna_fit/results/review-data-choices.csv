@@ -1,0 +1,25 @@
+vector,cells,n,nll_per_cell
+archived histogram fit,"all replicates, recorded total",59557,2.0412572683926142
+archived histogram fit,"all replicates, nuclear plus cytoplasmic",59557,2.0414511671870055
+archived histogram fit,"authors' fit replicates, nuclear plus cytoplasmic",52468,2.018043625028303
+archived histogram fit,"replicate 201301004, recorded total",17544,2.7647695577563858
+archived histogram fit,"replicate 20131022, recorded total",7089,2.214473719861422
+archived histogram fit,"replicate 20140425, recorded total",12452,1.3394989475032006
+archived histogram fit,"replicate 20140429, recorded total",9101,1.3224811889781984
+archived histogram fit,"replicate 20160509, recorded total",13371,2.1428685675778065
+histogram fit,"all replicates, recorded total",59557,2.038453695028883
+histogram fit,"all replicates, nuclear plus cytoplasmic",59557,2.0386455198017166
+histogram fit,"authors' fit replicates, nuclear plus cytoplasmic",52468,2.020519643011299
+histogram fit,"replicate 201301004, recorded total",17544,2.7675305414836857
+histogram fit,"replicate 20131022, recorded total",7089,2.172590620756859
+histogram fit,"replicate 20140425, recorded total",12452,1.3478055822865034
+histogram fit,"replicate 20140429, recorded total",9101,1.3275729028793433
+histogram fit,"replicate 20160509, recorded total",13371,2.1377623128235435
+mean fit,"all replicates, recorded total",59557,2.3969015270057605
+mean fit,"all replicates, nuclear plus cytoplasmic",59557,2.39709617773497
+mean fit,"authors' fit replicates, nuclear plus cytoplasmic",52468,2.3623660480081794
+mean fit,"replicate 201301004, recorded total",17544,3.249174365919317
+mean fit,"replicate 20131022, recorded total",7089,2.6539768675628808
+mean fit,"replicate 20140425, recorded total",12452,1.5976986724604425
+mean fit,"replicate 20140429, recorded total",9101,1.5504955855099345
+mean fit,"replicate 20160509, recorded total",13371,2.4627255224618203

@@ -1,0 +1,47 @@
+experiment,variant,threshold,value,unit,fibers,low_99,high_99,label
+T2-copies-3000,Nss=3000 step=0.125,0.4,0.15206,um/day,96,0.131761,0.17181,unresolved discrepancy
+T2-copies-3000,Nss=3000 step=0.125,0.5,0.142926,um/day,96,0.124237,0.162453,unresolved discrepancy
+T2-copies-3000,Nss=3000 step=0.125,0.6,0.154605,um/day,96,0.140085,0.171515,unresolved discrepancy
+T2-copies-3000,Nss=3000 step=0.125 area,,0.140804,um/day,96,0.133131,0.148478,
+T3-step-0.0625,Nss=3500 step=0.0625,0.4,0.146436,um/day,32,0.11982,0.182493,unresolved discrepancy
+T3-step-0.0625,Nss=3500 step=0.0625,0.5,0.149207,um/day,32,0.125715,0.173672,unresolved discrepancy
+T3-step-0.0625,Nss=3500 step=0.0625,0.6,0.154249,um/day,32,0.132985,0.176186,unresolved discrepancy
+T3-step-0.0625,Nss=3500 step=0.0625 area,,0.141403,um/day,32,0.132276,0.150531,
+T3b-step-0.5,Nss=3500 step=0.5,0.4,0.126464,um/day,32,0.0957937,0.164312,unresolved discrepancy
+T3b-step-0.5,Nss=3500 step=0.5,0.5,0.12579,um/day,32,0.0967847,0.153381,unresolved discrepancy
+T3b-step-0.5,Nss=3500 step=0.5,0.6,0.124593,um/day,32,0.0964366,0.151815,unresolved discrepancy
+T3b-step-0.5,Nss=3500 step=0.5 area,,0.128161,um/day,32,0.118356,0.137967,
+T4-noise,"step=0.5 vs exact, day 20",,0.981287,variance ratio,64,0.939917,1.17842,no evidence of bias
+T4-noise,"step=0.125 vs exact, day 20",,0.986585,variance ratio,64,0.949252,1.18936,no evidence of bias
+E1-equal-density,Nss=200 start=100/100 neutral region 0,,0.844896,SEM ratio fresh/archive,2000,,,mismatch
+E1-equal-density,Nss=200 start=100/100 neutral region 1,,0.847849,SEM ratio fresh/archive,2000,,,mismatch
+E1-equal-density,Nss=200 start=100/100 extra region 0,,0.86978,SEM ratio fresh/archive,2000,,,mismatch
+E1-equal-density,Nss=200 start=100/100 extra region 1,,0.862008,SEM ratio fresh/archive,2000,,,mismatch
+E1-equal-density,Nss=150 start=75/75 neutral region 0,,0.981118,SEM ratio fresh/archive,2000,,,match
+E1-equal-density,Nss=150 start=75/75 neutral region 1,,0.979638,SEM ratio fresh/archive,2000,,,match
+E1-equal-density,Nss=150 start=75/75 extra region 0,,0.998143,SEM ratio fresh/archive,2000,,,match
+E1-equal-density,Nss=150 start=75/75 extra region 1,,0.995932,SEM ratio fresh/archive,2000,,,match
+T1-deterministic,ode Nss=3500,0.4,0.0486533,um/day,,,,
+T1-deterministic,ode Nss=3500,0.5,0.0419933,um/day,,,,
+T1-deterministic,ode Nss=3500,0.6,0.0336896,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3500 step=0.5,0.4,0.0455633,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3500 step=0.5,0.5,0.0393203,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3500 step=0.5,0.6,0.0315533,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3500 step=0.25,0.4,0.0470747,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3500 step=0.25,0.5,0.0406277,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3500 step=0.25,0.6,0.0325982,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3500 step=0.125,0.4,0.0478554,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3500 step=0.125,0.5,0.0413031,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3500 step=0.125,0.6,0.0331379,um/day,,,,
+T1-deterministic,ode Nss=3000,0.4,0.0485515,um/day,,,,
+T1-deterministic,ode Nss=3000,0.5,0.0419621,um/day,,,,
+T1-deterministic,ode Nss=3000,0.6,0.0338114,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3000 step=0.5,0.4,0.0454636,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3000 step=0.5,0.5,0.0392901,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3000 step=0.5,0.6,0.0316745,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3000 step=0.25,0.4,0.046974,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3000 step=0.25,0.5,0.040597,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3000 step=0.25,0.6,0.0327197,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3000 step=0.125,0.4,0.0477541,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3000 step=0.125,0.5,0.0412721,um/day,,,,
+T1-deterministic,mean-of-step-scheme Nss=3000 step=0.125,0.6,0.0332596,um/day,,,,

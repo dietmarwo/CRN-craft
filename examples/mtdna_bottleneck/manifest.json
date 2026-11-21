@@ -1,0 +1,16 @@
+{
+  "doi": "10.7554/eLife.07464",
+  "units": "time in hours internally, days post-conception in tables",
+  "seed": 210521,
+  "reference_ages": [10, 20, 35, 50, 70, 100],
+  "figure3_threshold": 40,
+  "variance_weight": 1000,
+  "copy_ceiling": 500000,
+  "division_counts": [29, 7],
+  "division_hours": [7, 16],
+  "initial_heteroplasmy": 0.2,
+  "hb_holdout_litters": ["1424", "1406"],
+  "abc_chains": 4,
+  "target_effective_draws": 1000,
+  "reference_kind": "eLife Table 1 and Figure 4 source spreadsheet, with display coordinates for Figure 3 calibrated separately"
+}

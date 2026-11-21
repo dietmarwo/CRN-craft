@@ -65,6 +65,11 @@ Coming from GillesPy2 or rebop? See [how CRN-craft compares](docs/comparison.md)
 - [Case study: re-creating a published study](docs/guide/16-published-study.md) (Kowald & Kirkwood 2013)
 - [Case study: comparing mtDNA mechanisms](docs/guide/17-mtdna-mechanisms.md) (Kowald & Kirkwood 2014; Kowald, Dawson & Kirkwood 2014)
 - [Case study: inferring mtDNA takeover times](docs/guide/18-mtdna-inference.md) (Kowald & Kirkwood 2026)
+- [Spatial spread of mtDNA deletions](docs/guide/19-mtdna-spread.md)
+- [Mitochondrial networks and genetic drift](docs/guide/20-mtdna-network.md)
+- [The mtDNA bottleneck during development](docs/guide/21-mtdna-bottleneck.md)
+- [Protein distributions from four reactions](docs/guide/22-two-stage-expression.md)
+- [Fitting single-cell RNA distributions](docs/guide/23-yeast-rna-fit.md)
 - [Reference](docs/reference/model-language.md): model language, methods, Python API, contracts, diagnostics
 - [Changelog](CHANGELOG.md)
 

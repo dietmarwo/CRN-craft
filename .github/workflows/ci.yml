@@ -161,6 +161,13 @@ jobs:
       - run: python validation/check_kk26.py --output kk26.json
       - run: python -O validation/check_kk26.py --output kk26-optimized.json
       - run: diff kk26.json kk26-optimized.json
+      - name: Published studies in guide chapters 19–23
+        run: |
+          for example in mtdna_spread mtdna_network mtdna_bottleneck two_stage_expression yeast_rna_fit; do
+            python "validation/check_${example}.py" > "${example}.txt"
+            python -O "validation/check_${example}.py" > "${example}-optimized.txt"
+            diff "${example}.txt" "${example}-optimized.txt"
+          done
       # Every relative link of docs/ and the READMEs resolves.
       - run: python validation/check_links.py
       # docs/reference/python-api.md is generated from the installed package.

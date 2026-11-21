@@ -1,0 +1,16 @@
+{
+  "doi": "10.1073/pnas.0803850105",
+  "author_manuscript": "https://arxiv.org/abs/0812.3344",
+  "units": "one protein lifetime",
+  "paper_protein_decay": "not given in the paper; time is in units of 1/d1",
+  "seed": 220521,
+  "regimes": [[20, 2.5], [0.5, 100]],
+  "gamma_figure_bc": [1, 10],
+  "log10_gamma_figure_d": [-1.2, -0.9, -0.6, -0.3, 0, 0.3, 0.6, 0.9, 1.2],
+  "gamma_grid_source": "logarithmic positions of symbols in Figure 1D, read at 0.3-decade spacing",
+  "cdf_double_horizon_tolerance": 0.001,
+  "numerical_tail_target": 1e-6,
+  "stationary_relative_moment_tolerance": 0.01,
+  "divergence": "D(four-reaction distribution || negative binomial), count bins plus one tail",
+  "divergence_units": "divergence.csv: nats; figure and guide page: bits (log base 2)"
+}

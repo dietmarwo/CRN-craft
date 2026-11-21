@@ -125,3 +125,5 @@ same fixed copy number, with a pair rule),
 [Comparing mtDNA mechanisms](17-mtdna-mechanisms.md) (the ATP model that
 generates panel A of Figure 6),
 [Fitting](13-fitting.md).
+
+[Chapter 19](19-mtdna-spread.md) follows mtDNA expansion along a muscle fiber.

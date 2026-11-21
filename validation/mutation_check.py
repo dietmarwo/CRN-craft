@@ -364,7 +364,7 @@ MUTATIONS = [
     (
         "builder_form_for_every_request",
         "crates/crn-craft/src/rules/mod.rs",
-        "let builder = request.schema == RunVersion::V10;",
+        "let builder = request.schema >= RunVersion::V10;",
         "let builder = true;",
     ),
     # Review of E1: the checks of the builder certificate that no mutant

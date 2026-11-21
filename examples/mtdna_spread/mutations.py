@@ -927,6 +927,18 @@ def fiber_refit(points, sample, n2, log=print):
     return points
 
 
+def fallback_point(points):
+    """The m of the fallback cohort after a failed fit.
+
+    Among the fit points of the last stage 2 that was run, the one whose
+    share of affected regions is closest to TARGET; on a tie, the smaller m.
+    """
+    last = "stage2-a2" if any(p[0] == "stage2-a2" for p in points) else "stage2"
+    pool = [p for p in points if p[0] == last]
+    best = min(pool, key=lambda p: (abs(sum(p[2]) / sum(p[3]) - TARGET), p[1]))
+    return best[1]
+
+
 def fiber_calibration(start, sample, judge, spec, rng_for, log, revision):
     """Fit, validation and at most one refit; the same code for simulated
     and synthetic fibers.
@@ -1019,13 +1031,17 @@ def fiber_plan(args):
     plain = refit = most = 0
     for case in args.cases:
         probe = saved_start(case, args.size, args.years) is None
+        # Each attempt ends with one cohort of n3 fibers: a validation cohort,
+        # or after a failed fit the fallback cohort, never both.
         plain += probe + 4 * n1 + 3 * n2 + n3
         refit += probe + 4 * n1 + 6 * n2 + 2 * n3
         most += probe + 8 * n1 + 6 * n2 + 2 * n3
     print(
         f"fiber design, {args.size} size, {args.years} years,"
         f" cases {', '.join(args.cases)}: {plain} fibers without a refit,"
-        f" {refit} with it, at most {most} (grid extended four times)",
+        f" {refit} with it, at most {most} (grid extended four times); a"
+        " fallback cohort after a failed fit takes the place of a validation"
+        " cohort, so it adds nothing to these counts",
         flush=True,
     )
     if args.size == "quick":
@@ -1048,7 +1064,10 @@ def write_tables(tables, output):
     import pandas as pd
 
     for name, rows in tables.items():
-        frame = pd.DataFrame(rows)
+        # Columns in the order of the fullest row (a "fit failed" row has few).
+        order = list(max(rows, key=len)) if rows else []
+        order += [k for r in rows for k in r if k not in order]
+        frame = pd.DataFrame(rows, columns=list(dict.fromkeys(order)))
         for column in FULL_PRECISION:
             if column in frame and "fibers" in name:
                 frame[column] = [
@@ -1109,11 +1128,13 @@ def run_fibers(args):
             )
             summary = fiber_decision(summary, group, spec["min_fibers"])
             summary["attempt"] = attempt
+            summary["cohort"] = "validation"
             summary["seconds"] = round(sum(f["seconds"] for f in group), 1)
             summaries.append(summary)
-            regions.extend({**x, "attempt": attempt} for x in r)
-            zones.extend({**x, "attempt": attempt} for x in z)
-            segments.extend({**x, "attempt": attempt} for x in s)
+            tag = {"attempt": attempt, "cohort": "validation"}
+            regions.extend({**x, **tag} for x in r)
+            zones.extend({**x, **tag} for x in z)
+            segments.extend({**x, **tag} for x in s)
             draws[case] = d
             log(json.dumps(summary))
             return summary["decision"]
@@ -1150,13 +1171,35 @@ def run_fibers(args):
             if label == "fit failed":
                 summaries.append(
                     {"case": case, "years": years, "attempt": attempt}
-                    | {"decision": label}
+                    | {"decision": label, "cohort": "none"}
                 )
         summaries[first:] = sorted(summaries[first:], key=lambda r: r["attempt"])
         done = attempts[-1][2] == "compatible"
         for i, row in enumerate(summaries[first:]):
             last = first + i == len(summaries) - 1
             row["calibration"] = ("done" if done else "failed") if last else "refit"
+        if attempts[-1][2] == "fit failed":
+            # The declared fallback: one cohort of validation size at the
+            # fit point of the last stage 2 closest to 10% affected regions.
+            attempt = attempts[-1][0]
+            m = fallback_point(points)
+            group = cohort(case, "fibers-fallback", m, n3, size, work, years)
+            rate = {"m": m, "days": days, "attempt": attempt}
+            summary, r, z, s, _ = validation_tables(
+                case, years, rate, group, resamples, tag="fibers-fallback"
+            )
+            summary = fiber_decision(summary, group, spec["min_fibers"])
+            summary["decision"] = "calibration failed, fallback cohort"
+            summary["attempt"] = attempt
+            summary["cohort"] = "fallback"
+            summary["calibration"] = "failed"
+            summary["seconds"] = round(sum(f["seconds"] for f in group), 1)
+            summaries.append(summary)
+            tag = {"attempt": attempt, "cohort": "fallback"}
+            regions.extend({**x, **tag} for x in r)
+            zones.extend({**x, **tag} for x in z)
+            segments.extend({**x, **tag} for x in s)
+            log(json.dumps(summary))
         for stage, m, hits, sizes in points:
             fits.append(
                 {
@@ -1500,8 +1543,13 @@ def synthetic_sampler(scenario, rng, truth, slope=25.0, regions=32, icc=0.2):
     return sample
 
 
-def end_to_end(scenario, revision, truth, reps, row):
-    """T6: whole synthetic calibrations, validation and refit included."""
+def end_to_end(scenario, revision, truth, reps, row, fallback=None):
+    """T6: whole synthetic calibrations, validation and refit included.
+
+    With a list ``fallback``, every calibration that ends with a failed fit
+    adds (true prevalence at the fallback point, affected fibers of a
+    fallback cohort drawn there) to it (T7).
+    """
     spec = FIBER_SIZES["full"]
     n3 = spec["fibers"][2]
     done = {1: 0, 2: 0}
@@ -1520,10 +1568,18 @@ def end_to_end(scenario, revision, truth, reps, row):
             some = sum(h > 0 for h in hits)
             return decide(low, high, some, spec["min_fibers"])
 
-        _, _, attempts = fiber_calibration(
+        points, _, attempts = fiber_calibration(
             first, sample, judge, spec, lambda _, rng=rng: rng, lambda _: None, revision
         )
         attempt, fit, label = attempts[-1]
+        if label == "fit failed" and fallback is not None:
+            # T7: the fallback cohort, drawn with its own seed.
+            m = fallback_point(points)
+            draw = np.random.default_rng(seed_for("fallback", scenario, rep))
+            hits, _ = synthetic_sampler(scenario, draw, truth)("fallback", [m], n3)[0]
+            slope, logit = 25.0, math.log(TARGET / (1 - TARGET))
+            prob = 1 / (1 + math.exp(-(logit + slope * math.log10(m / truth))))
+            fallback.append((prob, sum(h > 0 for h in hits)))
         if label == "compatible":
             done[attempt] += 1
             errors.append(abs(math.log10(fit["m"] / truth)))
@@ -1573,6 +1629,7 @@ def coverage(args):
         )
 
     start = time.perf_counter()
+    fallbacks = {"W": [], "C": []}
     for scenario in ("W", "C"):
         boot = delta = failed_fit = failed_resamples = 0
         widths_boot, widths_delta = [], []
@@ -1640,7 +1697,7 @@ def coverage(args):
         row(name, scenario, "fiber interval of prevalence contains 0.10", contains)
         row(name, scenario, f"at least {least} affected fibers", enough)
         row(name, scenario, "compatible", compatible)
-        r0 = end_to_end(scenario, "R0", truth, reps, row)
+        r0 = end_to_end(scenario, "R0", truth, reps, row, fallbacks[scenario])
         r1 = end_to_end(scenario, "R1", truth, reps, row)
         if scenario == "W":
             adopt = r1[0] >= 0.90 and r1[1] <= r0[1]
@@ -1652,6 +1709,44 @@ def coverage(args):
                 label="R1 adopted" if adopt else "R0 kept",
             )
         print(f"{scenario} done after {time.perf_counter() - start:.0f} s", flush=True)
+    # T7, appended so that the rows above keep their order: what the fallback
+    # cohort of a calibration that ends with a failed fit is worth (R0).
+    name = "T7 fallback cohort, R0"
+    for scenario, found in fallbacks.items():
+        row(
+            name,
+            scenario,
+            "fit-failed calibrations with a fallback cohort",
+            value=len(found),
+        )
+        prob = np.array([p for p, _ in found])
+        for q, text in (
+            (0.5, "median"),
+            (0.025, "2.5% quantile"),
+            (0.975, "97.5% quantile"),
+        ):
+            value = float(np.quantile(prob, q)) if len(prob) else float("nan")
+            row(
+                name,
+                scenario,
+                f"true prevalence at the fallback point, {text}",
+                value=value,
+            )
+        enough = sum(k >= least for _, k in found)
+        low, high = wilson(enough, len(found)) if found else (float("nan"),) * 2
+        rows.append(
+            {
+                "experiment": name,
+                "scenario": scenario,
+                "quantity": f"share of fallback cohorts with at least {least} affected fibers",
+                "value": enough / len(found) if found else float("nan"),
+                "low95": low,
+                "high95": high,
+                "repetitions": reps,
+                "resamples": resamples,
+                "label": "",
+            }
+        )
     frame = pd.DataFrame(rows)
     args.output.mkdir(parents=True, exist_ok=True)
     frame.to_csv(

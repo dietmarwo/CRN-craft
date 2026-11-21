@@ -259,7 +259,8 @@ only.
 128 = 288 fibers, with one 512. A 32-region fiber costs about 170
 CPU-seconds at 40 years and 330 at 80 years with Numba on the machine that
 made the first 40- and 80-year runs. That is about 13 to 24 CPU-hours at 40
-years and 27 to 47 at 80 years. The quick size (4, 8 and 32 fibers of the
+years and 27 to 47 at 80 years. A fallback cohort takes the place of a
+validation cohort and adds no fibers to these counts. The quick size (4, 8 and 32 fibers of the
 small model, at least 3 affected fibers) runs in seconds in pure Python; the
 draft size (2, 4 and 16 fibers, at least 3) takes minutes at 3 years.
 
@@ -310,6 +311,11 @@ shares (`results/review-fiber-fit-coverage.csv`):
 | T6 end to end, R1: coverage of true m, fiber bootstrap of the last fit | 0.897 (0.864–0.924) | 0.950 (0.924–0.967) |
 | T6 end to end, R1: median error of m in done calibrations (%) | 1.52 | 0.788 |
 | T6 decision: R1 replaces R0 (last-fit coverage >= 0.90, no more failures) | 0, R0 kept | – |
+| T7 fallback cohort, R0: fit-failed calibrations with a fallback cohort | 40 | 1 |
+| T7 fallback cohort, R0: true prevalence at the fallback point, median | 0.0893 | 0.095 |
+| T7 fallback cohort, R0: true prevalence at the fallback point, 2.5% quantile | 0.0436 | 0.095 |
+| T7 fallback cohort, R0: true prevalence at the fallback point, 97.5% quantile | 0.218 | 0.095 |
+| T7 fallback cohort, R0: share of fallback cohorts with at least 10 affected fibers | 0.750 (0.598–0.858) | 1.000 (0.207–1.000) |
 <!-- /mtdna-spread-fiber-coverage -->
 
 **The fit interval (T4).** When whole fibers are affected or not, the
@@ -342,5 +348,15 @@ the last fit from 85% to 90% (0.8975). The rule asked for at least 0.90, so
 R1 was not adopted, and the full runs use the design as declared (R0). Its
 interval of `m` is honest only to about 85% with whole fibers; the
 validation cohort, not the fit interval, decides whether `m` is accepted.
+
+**What a fallback cohort is worth (T7).** In the same end-to-end runs of
+R0 (rule written down before the run), 40 of the 400 calibrations with
+whole fibers end with a failed fit and get a fallback cohort; the other 24
+failures have two cohorts that are not compatible. At the fallback points
+the true share of affected regions has a median of 8.9% (2.5% to 97.5%
+range: 4.4% to 21.8%), and 75% of the fallback cohorts have at least 10
+affected fibers, so the statement rule can apply to them. With partial
+clustering one calibration ends this way. A fallback cohort therefore
+measures the types at a prevalence near, but not at, 10%.
 
 Next: [results and limits](19c-mtdna-spread-de-novo-results.md).

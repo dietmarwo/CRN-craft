@@ -336,20 +336,45 @@ def de_novo_fibers():
     flat_points = [("stage1", 1e-4 * f, [3] * 4, [32] * 4) for f in (0.9, 1.1)]
     require(not mutations.fiber_fit(flat_points, 9, rng)["fit_ok"], "flat fit")
     # The quick fiber design end to end on the small model, at reduced fiber
-    # counts so that the check stays fast; pooled fibers equal fibers in turn.
+    # counts so that the check stays fast. With these seeds (80 years) the
+    # first cohort is outside, the refit's fit fails, and the declared
+    # fallback cohort follows.
     saved = mutations.FIBER_SIZES["quick"]
     mutations.FIBER_SIZES["quick"] = {"fibers": (2, 2, 8), "boot": 99, "min_fibers": 2}
     try:
-        args = SimpleNamespace(size="quick", years=3, cases=["main"], design="fibers")
+        args = SimpleNamespace(size="quick", years=80, cases=["main"], design="fibers")
         with tempfile.TemporaryDirectory() as work:
             args.work = args.output = Path(work)
             with contextlib.redirect_stdout(io.StringIO()) as text:
                 mutations.run(args)
             summary = rows(Path(work) / "de-novo-fibers-summary.csv")
             rates = rows(Path(work) / "de-novo-fibers-rates.csv")
+            fit = rows(Path(work) / "de-novo-fibers-fit.csv")
+            units = rows(Path(work) / "de-novo-fibers-regions.csv")
         require("fibers without a refit" in text.getvalue(), "plan line")
-        require(summary and summary[-1]["calibration"] in ("done", "failed"), "end")
-        require(len(rates) == len(summary), "one rate row per attempt")
+        require(len(rates) == 2, "one rate row per attempt")
+        last = summary[-1]
+        label = "calibration failed, fallback cohort"
+        require(last["decision"] == label, "fallback row after a failed fit")
+        require(last["calibration"] == "failed", "fallback keeps the failure")
+        require(summary[-2]["decision"] == "fit failed", "failed fit before it")
+        require(all(r["decision"] != "compatible" for r in summary), "no success")
+        # The fallback m: the last stage 2's point closest to 10% affected.
+        stage = [r for r in fit if r["stage"] == "stage2-a2"] or [
+            r for r in fit if r["stage"] == "stage2"
+        ]
+        best = min(
+            stage,
+            key=lambda r: (
+                abs(int(r["affected"]) / int(r["regions"]) - 0.1),
+                float(r["m"]),
+            ),
+        )
+        require(last["m"] == best["m"], "fallback at the declared fit point")
+        cohort = [u for u in units if u["cohort"] == "fallback"]
+        require(len(cohort) == 8 * 4, "a fallback cohort of validation size")
+        hits = sum(u["affected"] == "True" for u in cohort)
+        require(hits == int(last["affected"]), "fallback affected count")
     finally:
         mutations.FIBER_SIZES["quick"] = saved
 

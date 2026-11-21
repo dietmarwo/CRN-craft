@@ -112,8 +112,12 @@ apart from the measured `seconds`. It writes `de-novo-fibers-rates.csv`,
 `-fit.csv`, `-summary.csv`, `-regions.csv`, `-zones.csv` and
 `-segments.csv`, with the columns of the first design plus
 `fibers_affected`, `fibers_full`, `m_boot_low95`/`m_boot_high95` (the
-bootstrap interval of `m` over fibers), `decision` and `calibration`; `m`
-keeps all its digits. In these tables `wilson_low`/`wilson_high` assume
+bootstrap interval of `m` over fibers), `decision`, `calibration` and
+`cohort`; `m` keeps all its digits. A calibration that ends with a failed
+fit still simulates one cohort of validation size at the last stage-2 point
+closest to 10% affected regions; its rows have `cohort` `fallback` and the
+decision "calibration failed, fallback cohort", and they measure the types
+at the prevalence that cohort has, not at a calibrated 10%. In these tables `wilson_low`/`wilson_high` assume
 independent regions, and `band` and `m_low95`/`m_high95` are the first
 design's rule and regression, kept for comparison only. `length` writes the
 region rows to `de-novo-length.csv` and one summary row, in the same

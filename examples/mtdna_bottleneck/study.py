@@ -12,10 +12,14 @@ from model import accept_distance, chain, ensemble_chain, forecast_sample, predi
 
 ROOT = Path(__file__).resolve().parent
 M = json.loads((ROOT / "manifest.json").read_text())
-# Broad published ranges for rates, with phase six fixed to zero net
-# growth and zero replication. Search bounds for starting points merely
-# put the initial candidates near measurable trajectories.
+# Uniform priors: replication and degradation rates in [0, 1] per hour,
+# initial copies in (0, 1e6], quiescent phase lengths in [0, 50] days.
+# Phase six has no replication; by default its degradation is fixed to
+# zero as well (--free-final-degradation frees it, as in the appendix's
+# prior). Search bounds for starting points merely put the initial
+# candidates near measurable trajectories.
 FREE = np.array([0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 13, 14, 15])
+FREE_FINAL = np.array([0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15])
 START_BOUNDS = [
     (5e4, 2.9e5),
     (0.052, 0.095),
@@ -59,16 +63,19 @@ def data():
 
 def expand(values):
     theta = np.zeros(16)
-    theta[FREE] = values
+    theta[FREE if len(values) == len(FREE) else FREE_FINAL] = values
     return theta
 
 
-def start(age, kind, observed, seed):
+def start(age, kind, observed, seed, free_final=False):
     def cost(values):
         return accept_distance(expand(values), age, kind, observed)
 
+    bounds = list(START_BOUNDS)
+    if free_final:
+        bounds.insert(11, (0.0, 0.002))
     result = differential_evolution(
-        cost, START_BOUNDS, maxiter=250, popsize=9, rng=seed, polish=False
+        cost, bounds, maxiter=250, popsize=9, rng=seed, polish=False
     )
     if result.fun > M["figure3_threshold"]:
         raise RuntimeError(
@@ -138,12 +145,14 @@ def hb_comparison(draws, seed):
     return pd.DataFrame(rows)
 
 
-def run(size, output):
+def run(size, output, free_final=False):
     _, age, kinds, observed = data()
     width = 16
     sweeps = {"quick": 200, "draft": 15000, "full": 360000}[size]
     count = 1 if size == "quick" else M["abc_chains"]
     changes = SCALES.copy()
+    if free_final:
+        changes[12] = 0.0005
     indices = np.flatnonzero(changes)
     ages = np.unique(np.r_[np.linspace(0, 70, 141), 100.0, M["reference_ages"]])
     draw_rows, diag = [], []
@@ -155,7 +164,7 @@ def run(size, output):
                     saved[k] for k in ("states", "distances", "accepted", "first")
                 )
         else:
-            initial, first = start(age, kinds, observed, 61 + i)
+            initial, first = start(age, kinds, observed, 61 + i, free_final)
             spread, _, _ = chain(
                 initial,
                 160000 if size != "quick" else 2000,
@@ -305,13 +314,19 @@ def main():
     p.add_argument("--size", choices=("quick", "draft", "full"), default="quick")
     p.add_argument("--output", type=Path)
     p.add_argument("--figures", type=Path)
+    p.add_argument(
+        "--free-final-degradation",
+        action="store_true",
+        help="sensitivity run: degradation in phase six free on [0, 1] per hour",
+    )
     a = p.parse_args()
-    a.output = a.output or ROOT / ("results" if a.figures else f"runs/{a.size}")
+    suffix = "-free-final" if a.free_final_degradation else ""
+    a.output = a.output or ROOT / ("results" if a.figures else f"runs/{a.size}{suffix}")
     if a.figures:
         plot(a.output, a.figures)
         return
     a.output.mkdir(parents=True, exist_ok=True)
-    run(a.size, a.output)
+    run(a.size, a.output, a.free_final_degradation)
 
 
 if __name__ == "__main__":

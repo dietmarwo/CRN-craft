@@ -59,14 +59,17 @@ def birth_death_draw(n, birth, death, hours, rng):
 
 @njit
 def predictions(theta, ages):
-    """Exact log mean and leading normalized heteroplasmy variance.
+    """Exact log mean copy number and first-order normalized variance.
 
-    theta holds initial copies, six rate differences, six removal rates
-    and three quiescent phase lengths. Phase six has zero growth and
-    removal as in the steady terminal-oocyte convention.
+    theta holds initial copies, six net growth rates (replication minus
+    degradation, per hour), six degradation rates (per hour) and three
+    quiescent phase lengths (days). Phase six has no replication, so its
+    net growth is minus its degradation rate; the default study also fixes
+    that degradation rate to zero.
     """
     copy_log = math.log(theta[0])
-    growth, death = theta[1:7], theta[7:13]
+    growth, death = theta[1:7].copy(), theta[7:13]
+    growth[5] = -death[5]
     ends = np.array(
         [
             203.0,
@@ -155,7 +158,13 @@ def chain(initial, steps, changes, indices, ages, kinds, measured, threshold, se
 
 
 def forecast_sample(initial_count, h, log_mean, relative_var, n, rng):
-    """Exact one-age founder distribution from two count moments."""
+    """Heteroplasmy of n cells from a moment-matched founder law.
+
+    Each founder copy leaves zero or a geometric number of descendants,
+    with the two parameters chosen to match the exact mean and the
+    first-order relative variance at one age. This is an approximation
+    to the six-phase law, not an exact sample of it.
+    """
     founders = max(1, int(round(initial_count)))
     mean = math.exp(log_mean) / founders
     var = relative_var * founders * mean * mean

@@ -259,4 +259,76 @@ cohorts do not overlap, the result reads "chain length matters", otherwise
 "no difference seen". If either cohort has fewer than 10 affected fibers,
 no statement is made.
 
+### How well the design calibrates: synthetic fibers
+
+Before any simulated run, the fit and the validation rule were tried on
+fibers drawn from a known curve, with no simulation
+(`mutations.py coverage`, about 3 minutes; targets and rules written
+down first). The share of affected regions follows a logistic curve in
+`log10(m)` with a slope of 25 per decade and 10% at a true `m`. In the
+*whole fibers* scenario a fiber is affected along all 32 regions or not at
+all, as at 40 and 80 years. In the *partly clustered* scenario the regions
+of a fiber share a random probability (intra-fiber correlation 0.2, a
+design effect of about 7, as at 3 and 10 years). Every repetition runs the
+design's own code at the full size: 16 and 32 fibers per fit point, 128 per
+cohort, 1,999 resamples, a start value up to 7% from the true `m`. 400
+repetitions per scenario; the intervals are 95% Wilson intervals of the
+shares (`results/review-fiber-fit-coverage.csv`):
+
+<!-- mtdna-spread-fiber-coverage -->
+| Experiment, quantity | Whole fibers | Partly clustered |
+| --- | --- | --- |
+| T4 fit interval: coverage of true m, fiber bootstrap | 0.810 (0.769–0.845), undercovers | 0.907 (0.875–0.932) |
+| T4 fit interval: coverage of true m, regions independent | 0.235 (0.196–0.279) | 0.560 (0.511–0.608) |
+| T4 fit interval: median width / true m, fiber bootstrap | 0.126 | 0.0498 |
+| T4 fit interval: median width / true m, regions independent | 0.0158 | 0.0178 |
+| T4 fit interval: failed point fits (no positive slope or inverse outside the fit points) | 43 | 10 |
+| T4 fit interval: share of failed bootstrap refits | 0.0193 | 0.0016 |
+| T5 validation rule at the true m: fiber interval of prevalence contains 0.10 | 0.943 (0.915–0.961) | 0.935 (0.906–0.955) |
+| T5 validation rule at the true m: at least 10 affected fibers | 0.838 (0.798–0.870) | 1.000 (0.990–1.000) |
+| T5 validation rule at the true m: compatible | 0.820 (0.779–0.855) | 0.935 (0.906–0.955) |
+| T6 end to end, R0: done at attempt 1 | 0.660 (0.612–0.705) | 0.858 (0.820–0.888) |
+| T6 end to end, R0: done at attempt 2 | 0.180 (0.145–0.221) | 0.117 (0.090–0.153) |
+| T6 end to end, R0: failed calibrations | 0.160 (0.127–0.199) | 0.025 (0.014–0.045) |
+| T6 end to end, R0: coverage of true m, fiber bootstrap of the last fit | 0.848 (0.809–0.879) | 0.948 (0.921–0.965) |
+| T6 end to end, R0: median error of m in done calibrations (%) | 1.52 | 0.79 |
+| T6 end to end, R1: done at attempt 1 | 0.660 (0.612–0.705) | 0.858 (0.820–0.888) |
+| T6 end to end, R1: done at attempt 2 | 0.212 (0.175–0.255) | 0.120 (0.092–0.156) |
+| T6 end to end, R1: failed calibrations | 0.128 (0.098–0.164) | 0.022 (0.012–0.042) |
+| T6 end to end, R1: coverage of true m, fiber bootstrap of the last fit | 0.897 (0.864–0.924) | 0.950 (0.924–0.967) |
+| T6 end to end, R1: median error of m in done calibrations (%) | 1.52 | 0.788 |
+| T6 decision: R1 replaces R0 (last-fit coverage >= 0.90, no more failures) | 0, R0 kept | – |
+<!-- /mtdna-spread-fiber-coverage -->
+
+**The fit interval (T4).** When whole fibers are affected or not, the
+interval of the first design's regression, which treats regions as
+independent, contains the true `m` in only 23.5% of the repetitions; its
+median width is 1.6% of `m`. The bootstrap over fibers is eight times
+wider and contains the true `m` in 81%. That is below the 90% the rule
+asked for, so by the rule declared before the run it *undercovers*. Most of
+the gap comes from the 43 repetitions (11%) whose fit through all points
+fails, counted as not covered: in 39 of them the inverse lies just outside
+the range of the fit points. Among the other 357, the interval covers in
+324 (91%); this split was not declared in advance. With partial clustering
+the bootstrap covers in 91%, the regression in 56%.
+
+**The validation rule at the true `m` (T5).** With whole fibers, a cohort
+of 128 fibers at exactly the right `m` is compatible in 82% of the
+repetitions: its prevalence interval contains 10% in 94%, but in 16% fewer
+than 10 fibers hold an affected region (12.8 are expected). So about one
+cohort in five triggers the refit even at the right `m`.
+
+**End to end (T6).** The whole procedure, fit, validation and refit, ends
+with a compatible cohort in 84% of the repetitions with whole fibers (66%
+at the first cohort) and in 97.5% with partial clustering. A done
+calibration misses the true `m` by 1.5% (median) with whole fibers and 0.8%
+with partial clustering. After the result of T4, one change was tested,
+written down before its run: revision R1 lets a failed fit at attempt 1
+lead to the refit instead of ending the calibration. R1 lowers the failed
+calibrations with whole fibers from 16% to 13% and raises the coverage of
+the last fit from 85% to 90% (0.8975). The rule asked for at least 0.90, so
+R1 was not adopted, and the full runs use the design as declared (R0). Its
+interval of `m` is honest only to about 85% with whole fibers; the
+validation cohort, not the fit interval, decides whether `m` is accepted.
+
 Next: [results and limits](19c-mtdna-spread-de-novo-results.md).

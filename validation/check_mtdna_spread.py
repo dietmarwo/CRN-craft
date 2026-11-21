@@ -22,6 +22,7 @@ EXAMPLE = REPO / "examples" / "mtdna_spread"
 RESULTS = EXAMPLE / "results"
 PAGE = REPO / "docs" / "guide" / "19-mtdna-spread.md"
 DE_NOVO_PAGE = REPO / "docs" / "guide" / "19c-mtdna-spread-de-novo-results.md"
+DESIGN_PAGE = REPO / "docs" / "guide" / "19b-mtdna-spread-de-novo.md"
 KK14 = REPO / "examples" / "kk14" / "results" / "reconstruction" / "comparison.csv"
 sys.path.insert(0, str(EXAMPLE))
 import mutations  # noqa: E402
@@ -353,6 +354,33 @@ def de_novo_fibers():
         mutations.FIBER_SIZES["quick"] = saved
 
 
+def coverage_table():
+    """Coverage experiment of page 19b, from the saved review table: one row
+    per quantity, one column per scenario."""
+    data = rows(RESULTS / "review-fiber-fit-coverage.csv")
+    lines = [
+        "| Experiment, quantity | Whole fibers | Partly clustered |",
+        "| --- | --- | --- |",
+    ]
+    cells = {}
+    for r in data:
+        value = float(r["value"])
+        if r["low95"]:
+            text = f"{value:.3f} ({float(r['low95']):.3f}–{float(r['high95']):.3f})"
+        elif value == int(value):
+            text = f"{int(value)}"
+        else:
+            text = f"{value:.3g}"
+        if r["label"]:
+            text += f", {r['label']}"
+        cells.setdefault((r["experiment"], r["quantity"]), {})[r["scenario"]] = text
+    for (experiment, quantity), by in cells.items():
+        lines.append(
+            f"| {experiment}: {quantity} | {by.get('W', '–')} | {by.get('C', '–')} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
 def de_novo_saved():
     summary = rows(RESULTS / "de-novo-summary.csv")
     cohorts = [(r["years"], r["case"]) for r in summary]
@@ -409,6 +437,7 @@ def main():
         print(figure2_table())
         print(de_novo_table())
         print(de_novo_units())
+        print(coverage_table())
         return
     # Reference reader: the three day-700 neutral means of Figure 1C.
     reference = rows(EXAMPLE / "reference-1c.csv")
@@ -459,6 +488,11 @@ def main():
     de_novo_laws()
     de_novo_fibers()
     de_novo_saved()
+    require(
+        region(DESIGN_PAGE.read_text(encoding="utf-8"), "mtdna-spread-fiber-coverage")
+        == coverage_table(),
+        "coverage table of page 19b out of date",
+    )
     page = DE_NOVO_PAGE.read_text(encoding="utf-8")
     require(
         region(page, "mtdna-spread-de-novo") == de_novo_table(),
@@ -470,7 +504,7 @@ def main():
     )
     print("spatial archive, migration laws, saved results and guide tables verified")
     print("de novo sampler laws, saved tables and page 19c verified")
-    print("fiber design: bootstrap laws and quick calibration verified")
+    print("fiber design: bootstrap laws, quick calibration and page 19b verified")
 
 
 if __name__ == "__main__":

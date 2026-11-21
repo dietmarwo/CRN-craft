@@ -2,7 +2,7 @@
   "doi": "10.1073/pnas.0803850105",
   "author_manuscript": "https://arxiv.org/abs/0812.3344",
   "units": "one protein lifetime",
-  "paper_protein_decay_per_s": 0.0005,
+  "paper_protein_decay": "not given in the paper; time is in units of 1/d1",
   "seed": 220521,
   "regimes": [[20, 2.5], [0.5, 100]],
   "gamma_figure_bc": [1, 10],
@@ -11,5 +11,6 @@
   "cdf_double_horizon_tolerance": 0.001,
   "numerical_tail_target": 1e-6,
   "stationary_relative_moment_tolerance": 0.01,
-  "divergence": "D(four-reaction distribution || negative binomial), count bins plus one tail"
+  "divergence": "D(four-reaction distribution || negative binomial), count bins plus one tail",
+  "divergence_units": "divergence.csv: nats; figure and guide page: bits (log base 2)"
 }

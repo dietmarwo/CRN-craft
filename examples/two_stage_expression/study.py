@@ -191,7 +191,9 @@ def plot(output, folder):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    hist = pd.read_csv(output / "histograms.csv").query("count <= 150")
+    full = pd.read_csv(output / "histograms.csv")
+    above = full[full["count"] == 151].set_index(["a", "gamma"]).reaction_pmf
+    hist = full.query("count <= 150")
     divergence = pd.read_csv(output / "divergence.csv").sort_values("gamma")
     folder.mkdir(parents=True, exist_ok=True)
     fig, axes = plt.subplots(1, 2, figsize=(9.2, 4.0), layout="constrained")
@@ -199,14 +201,18 @@ def plot(output, folder):
         axes, hist.groupby(["a", "b"], sort=False), strict=True
     ):
         for gamma, s in group.groupby("gamma"):
-            ax.plot(s["count"], s.reaction_pmf, label=f"Reaction law, γ={gamma:g}")
+            ax.plot(
+                s["count"],
+                s.reaction_pmf,
+                label=f"Reaction law, γ={gamma:g}, {above[a, gamma]:.1%} above 150",
+            )
             ax.scatter(s["count"].iloc[::5], s.ssa.iloc[::5], s=5, alpha=0.55)
         ax.plot(
             s["count"],
             s.negative_binomial,
             color="0.35",
             linestyle="--",
-            label="Negative binomial",
+            label=f"Negative binomial, {1 - s.negative_binomial.sum():.1%} above 150",
         )
         ax.set(
             title=f"a={a:g}, b={b:g}, mean 50",
@@ -218,10 +224,22 @@ def plot(output, folder):
     plt.close(fig)
     fig, ax = plt.subplots(figsize=(7.1, 4.2), layout="constrained")
     archive = pd.read_csv(ROOT / "reference-figure1d.csv")
+    sampled = pd.read_csv(output / "review-figure1d-conventions.csv")
     for (a, b), series in divergence.groupby(["a", "b"]):
-        line = ax.plot(series.gamma, series.kl, marker="o", label=f"a={a:g}, b={b:g}")[
-            0
-        ]
+        line = ax.plot(
+            series.gamma,
+            series.kl / np.log(2),
+            marker="o",
+            label=f"a={a:g}, b={b:g}, exact law",
+        )[0]
+        draws = sampled[sampled.a == a]
+        ax.plot(
+            draws.gamma,
+            draws.bits_sampled_10000_mean,
+            linestyle="--",
+            color=line.get_color(),
+            label=f"a={a:g}, 10,000 simulated draws",
+        )
         values = archive[(archive.a == a) & (archive.b == b)]
         ax.scatter(
             values.gamma,
@@ -234,7 +252,7 @@ def plot(output, folder):
     ax.set(
         xscale="log",
         xlabel="mRNA-to-protein decay-rate ratio γ",
-        ylabel="KL divergence (nats)",
+        ylabel="KL divergence (bits)",
     )
     ax.legend(frameon=False)
     fig.savefig(folder / "divergence.png", dpi=155)

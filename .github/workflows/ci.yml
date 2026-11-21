@@ -151,6 +151,9 @@ jobs:
           python validation/check_public_experiments.py --vilar "$RUNNER_TEMP/vilar.omex" --dsmts "$RUNNER_TEMP/sbml-stochastic" --output public-experiments.json
           python -O validation/check_public_experiments.py --vilar "$RUNNER_TEMP/vilar.omex" --dsmts "$RUNNER_TEMP/sbml-stochastic" --output public-experiments-optimized.json
           diff public-experiments.json public-experiments-optimized.json
+          # Numba serves the independent reference sampler above only; the
+          # steps below run as they do for a user without it.
+          python -m pip uninstall -y numba llvmlite
       # The opt-in compiled event loop, built with this checkout, against the
       # interpreter. CARGO_TARGET_DIR reuses the release build above; the -O
       # run and the manual block reuse the cached program.

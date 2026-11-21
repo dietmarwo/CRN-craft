@@ -1064,9 +1064,12 @@ Prepare a reusable projection for a closed model.
 | `max_states` (keyword only) | `100000` | Reachable-state limit. |
 | `max_edges` (keyword only) | `2000000` | Sparse edge limit. |
 
-Optional SciPy powers the probability integrators. Existing
-[`Model.fsp`](#modelfsp) remains the uniformization entry point for a fixed
-model without experiments.
+The native core lowers the model and evaluates rates. Python enumerates
+the states, and SciPy (the `projection` extra) propagates the law.
+Existing [`Model.fsp`](#modelfsp) is the native uniformization for one fixed
+model without protocols, signals or initial mixtures. A prepared
+projection holds no per-solve state, so threads can share it. It cannot
+be pickled; prepare one per process.
 
 ### `stationary_fsp`
 
@@ -1102,6 +1105,8 @@ With a return state, expand faces according to boundary flux exposure
 and compare marginal CDFs across successive bounds. The resulting
 convergence indication is empirical for an infinite network. A finite
 generator with several closed classes needs an explicit class state.
+SciPy's sparse LU solves the linear system. Without a return state,
+every transition must stay inside the bounds.
 
 ### `SpatialModel`
 

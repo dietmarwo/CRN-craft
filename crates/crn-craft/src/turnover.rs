@@ -168,7 +168,10 @@ impl<'a> Chain<'a> {
             let inv = 1.0 / total;
             for rate in [b, self.death_at(i), self.left[i], self.right[i]] {
                 if rate > 0.0 && rate * inv < RESOLUTION {
-                    return Err(error("a positive local event is below RNG resolution"));
+                    return Err(error_with(
+                        "CRN-R031",
+                        "a positive local event is below RNG resolution",
+                    ));
                 }
             }
         }
@@ -302,7 +305,7 @@ pub fn simulate(
                 .copied()
                 .fold(f64::INFINITY, f64::min);
             if chain.minimum_weight < total * RESOLUTION {
-                return Err(error("a region is below RNG resolution"));
+                return Err(error_with("CRN-R031", "a region is below RNG resolution"));
             }
         }
         let unit = exponential_from_words(|_| Ok::<_, std::convert::Infallible>(rng.next_u64()))

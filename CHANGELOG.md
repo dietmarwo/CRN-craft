@@ -9,29 +9,47 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ### Added
 
-- Native count runs can schedule rate edits, count assignments and binomial
-  partitions. Fixed-delay completions have cancellable busy owners. The
-  versioned protocol request and result are 1.1.
+- `crn-craft.run/1.1` and `crn-craft.result/1.1`: native linear Static
+  Direct and Next Reaction runs follow a protocol of timed parameter edits,
+  count changes and binomial partitions, and fixed-delay completions whose
+  busy owners cancel them on loss. Reports at a boundary see the committed
+  counts. Runs carry the sampler identities `rules-protocol-direct/1`,
+  its Ziggurat variant and `rules-protocol-next-reaction/1`. Other methods
+  are refused with `CRN-R020`, and `run/1.0` requests are unchanged. Python:
+  `crn.Protocol`, the `protocol=` argument of `crn.ensemble`.
 - The optional Python projection API (`prepare_fsp`, `stationary_fsp`, the
   `projection` extra) reuses the state graph for time-varying
   distributions, scheduled probability updates and stationary laws. The
   native core lowers the model and evaluates rates; Python enumerates the
-  states and SciPy propagates the law. `Model.fsp` is unchanged. The yeast
-  example replays both readouts at the archived vectors; the 15-coefficient
-  joint refit is not completed.
-- Spatial templates lower fixed compartments to count reactions. The
-  specialized turnover-chain sampler updates local hazards and carries
-  neutral clone labels.
-- Observation maps and grouped likelihoods support count and fluorescence
-  readouts. The experiment adapter runs a documented SBML/SED-ML subset
-  from local files or COMBINE archives, with bounded, UTF-8-only input and
-  model sources confined to the archive or folder.
+  states and SciPy propagates the law. `Model.fsp` is unchanged. Forced
+  segments report no integration error estimate.
+- `crn_craft.likelihood`: count, summed, joint and censored observations,
+  binomial detection, binned fluorescence, grouped histogram scores with
+  the effect of missing probability bounded separately, and a mean score.
+- `SpatialModel` lowers fixed-volume compartments with local reaction
+  templates, directed transport, reflecting ends and fixed-count reservoirs
+  to count reactions. `spatial_turnover` is an exact sampler of the
+  two-genotype chain of guide chapter 19 only; it matches the generic
+  engine within a predeclared bound and runs the 500-region fiber about
+  five times faster than the fastest generic method.
+- `crn.read_experiment` and the `crn-craft-experiment` command run a
+  documented SBML L3 and SED-ML L1V3/L1V4 subset from local files or
+  COMBINE archives, with bounded, UTF-8-only input and model sources
+  confined to the archive or folder. CI replays a pinned published
+  oscillator archive and an official stochastic test case.
+
+### Fixed
+
 - `import_sbml` refuses UTF-16 and UTF-32 documents (`CRN-E090`). Such a
   document without a byte order mark hid its DTD from the check, and its
   entities were expanded.
 
 ### Documentation (guide and examples)
 
+- Guide chapter 19: eight exact 500-region fibers of Figure 2E, simulated with `spatial_turnover`, are saved (`results/exact-wave-fibers.csv`). With the chapter's estimator they give 0.160 µm/day (99% interval 0.064–0.199): inconclusive against the archived 0.190 µm/day and against the approximate cohorts. The exact 800-fiber run is outstanding, at an estimated 55 to 65 CPU-hours with `study.py --source-chain --wave-sampler local`.
+- Guide chapter 21: the scheduled-protocol form of the tracked lineage (`protocol_lineages`) is checked against the mean and variance recurrences across divisions. The chapter's results still come from the segmented implementation.
+- Guide chapter 23: `examples/yeast_rna_fit/native_fit.py` replays both salt doses for total and joint counts at the archived vectors with the prepared projection (2.04125 and 2.65027 nats per cell). Its short total-RNA searches return their archived starting vector and are a test of the plumbing, not fits; the 15-coefficient joint refit is not completed.
+- `examples/delayed_feedback/study.py` compares the spectral peak of a delayed negative-feedback model between the native scheduler and an independent one; with 12 paths per sampler it detects only large period changes.
 - Guide chapter 19, extension (pages 19b and 19c): the 40- and 80-year runs of the de novo study for the denser mutant, run on a second machine with `mutations.py run --size full --years 40|80 --case main`, are added to the saved tables (both cohorts of each, failed ones kept); two of their fibers replay bit for bit on another host. At 80 years the refit cohort is compatible with the 10% band (111 of 1,024 regions) and an affected region holds 108 mutant types (95% bootstrap over fibers 95–119) of 44 copies each, at a deletion probability 84 to 3,300 times the paper's estimate for human fibers. At 40 years the calibration failed by the predeclared rule (0 and 32 of 1,024 regions affected; the 32 are one fiber), so no statement is made. At these ages whole fibers are affected or not, so the region-based protocol has about 32 effective units; pages 19c and 19b state this limit. The figure plots types per affected region against age, and `validation/check_mtdna_spread.py` checks the eleven cohorts and the generated tables.
 - Guide chapter 19, extension (page 19b): a second calibration design for the de novo study, declared before any of its runs, for lifespans at which whole fibers are affected or not. `mutations.py run --design fibers` makes the fiber the sampling unit: 16, 32 and 128 fibers per fit value, stage-2 value and validation cohort; an interval of `m` from a bootstrap over fibers; a cohort is compatible if the fiber-bootstrap interval of its prevalence contains 10% and at least 10 fibers hold an affected region; one refit; own seeds and tables (`de-novo-fibers-*.csv`); a calibration that ends with a failed fit still simulates a 128-fiber fallback cohort at the last stage-2 point closest to 10%, labeled "calibration failed, fallback cohort" (on synthetic whole fibers its true prevalence has a median of 8.9%, range 4.4–21.8%). The default `--design regions` and the saved tables of the first design are unchanged. `length` gains `--years`, `--workers`, checkpoints and a summary row, for a predeclared 128-region control at 80 years. On synthetic fibers that are affected whole (`mutations.py coverage`, `results/review-fiber-fit-coverage.csv`), the fiber-bootstrap interval of `m` covers the true value in 81% of 400 calibrations against 23.5% for the regression that treats regions as independent; that is below the predeclared 90%, mostly because 11% of the fits fail; end to end, 84% of the calibrations reach a compatible cohort with a median error of 1.5% in `m`. A tested change of the failed-fit rule reached 0.8975 and was not adopted under its 0.90 rule. The 40- and 80-year runs of this design (about 13 to 24 and 27 to 47 CPU-hours) and the control (about 12) are outstanding. `validation/check_mtdna_spread.py` checks the bootstrap laws on hand-checkable fibers, a small fiber-design run and the table on page 19b.
 

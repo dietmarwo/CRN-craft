@@ -256,8 +256,8 @@ with the same semantics as above. The result holds `wild`, `mutant`,
 `chacha8-u53-ziggurat/spatial-turnover/2`. Seed `s` uses the same ChaCha8
 stream as replicate 0 of a generic run with root seed `s`; do not use
 equal seeds for a comparison between the two. The sampler raises `CrnError`
-with `CRN-R030` for invalid input and for a positive region weight below
-16 × 2⁻⁵³ of the total (the resolution of the selection draw), `CRN-R040`
+with `CRN-R030` for invalid input, `CRN-R031` for a positive weight below
+16 × 2⁻⁵³ of its total (the resolution of the selection draw), `CRN-R040`
 when the event budget is reached, and `CRN-R044` when the run is cancelled.
 
 The sampler keeps the region weights in a binary sum tree that recomputes

@@ -9,5 +9,6 @@
   "fig2_crossings": [0.4, 0.5, 0.6],
   "fig2_observational_estimate": [0.131, 0.025],
   "fig2_site_parameters": {"sites": 500, "spacing": 30, "copies": 3500, "c": 0.0002, "death": 0.07, "hop": 0.1, "delta": 0.2, "initial_slope": 0.000715, "initial_intercept": 3.915, "right_cutoff": 0.005},
+  "de_novo": {"page": "docs/guide/19b-mtdna-spread-de-novo.md", "script": "mutations.py", "parameters": "fig2_site_parameters", "regions": 32, "boundary": "closed ends", "days_per_year": 360, "years": [3], "cases": {"main": {"delta": 0.2, "hop": 0.1}, "neutral": {"delta": 1.0, "hop": 0.1}, "isolated": {"delta": 0.2, "hop": 0.0}}, "target_affected_regions": 0.10, "affected_rule": "5 * M >= 3 * (W + M)", "fit": "stage 1: 4 fibers at 0.9, 0.97, 1.04, 1.12 times a start value; stage 2: 8 fibers at 1/1.02, 1, 1.02 times the stage-1 inverse; logistic regression on log10(m)", "validation_fibers": 32, "bootstrap_resamples": 1999, "seed_rule": "sha256 of the manifest seed, case, size, years, phase, m and fiber index"},
   "reference_kind": "Authors' numerical means (1C) and ensemble-mean profiles (2E), converted to long CSV. See fetch.py."
 }

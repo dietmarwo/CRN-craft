@@ -1,0 +1,9 @@
+test,statistic,paths,value,bound,mean_sampler,mean_reference,passed
+"V1 CDF gap, sampler vs CRN-craft",W0,20000,0.0068,0.0287994,18.8888,18.9107,True
+"V1 CDF gap, sampler vs CRN-craft",M0,20000,0.0042,0.0287994,2.0831,2.0916,True
+"V1 CDF gap, sampler vs CRN-craft",M1,20000,0.00465,0.0287994,2.08895,2.0914,True
+"V1 CDF gap, sampler vs CRN-craft",types in region 0,20000,0.00405,0.0287994,1.055,1.06455,True
+"V1 CDF gap, sampler vs CRN-craft",types in fiber,20000,0.0023,0.0287994,2.12055,2.1241,True
+"V2 moment law, c = 0",mutant copies,4000,-0.41239,3.29,58.9068,59.0624,True
+"V2 moment law, c = 0",mutation events,4000,-0.0122129,3.29,69.9972,70,True
+timing,seconds sampler / CRN-craft tree,20000,5.33851,,5.33851,22.4818,True

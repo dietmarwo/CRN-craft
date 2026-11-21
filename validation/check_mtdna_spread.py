@@ -1,12 +1,15 @@
 """Check guide chapter 19: exact migration laws, the archive reader, the saved
-results and the tables printed on the guide page.
+results and the tables printed on the guide pages, and the de novo extension:
+exact bookkeeping laws of the lineage sampler, a moment law, its quick
+calibration, and the saved tables of pages 19b and 19c.
 
-Run with --write to print the two generated tables of the page.
+Run with --write to print the generated tables of the pages.
 """
 
 import csv
 import math
 import sys
+import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -15,7 +18,10 @@ REPO = Path(__file__).resolve().parents[1]
 EXAMPLE = REPO / "examples" / "mtdna_spread"
 RESULTS = EXAMPLE / "results"
 PAGE = REPO / "docs" / "guide" / "19-mtdna-spread.md"
+DE_NOVO_PAGE = REPO / "docs" / "guide" / "19c-mtdna-spread-de-novo-results.md"
+KK14 = REPO / "examples" / "kk14" / "results" / "reconstruction" / "comparison.csv"
 sys.path.insert(0, str(EXAMPLE))
+import mutations  # noqa: E402
 from study import build, paths  # noqa: E402
 
 
@@ -128,6 +134,153 @@ def figure2_table():
     return "\n".join(lines) + "\n"
 
 
+CASE_NAMES = {
+    "main": "Survival of the densest, 32 regions (this guide)",
+    "neutral": "Equal density, 32 regions (this guide)",
+    "isolated": "Survival of the densest, isolated regions (this guide)",
+}
+KK14_NAMES = {
+    "drift": "Neutral drift, one cell (chapter 17)",
+    "size": "Faster copying of shorter mtDNA, one cell (chapter 17)",
+    "transcription": "Transcription-linked replication, one cell (chapter 17)",
+}
+
+
+def de_novo_table():
+    """The comparison table of page 19c, in the layout of chapter 17b."""
+    lines = [
+        "| Age | Mechanism and unit | m per replication | Affected / units | Prevalence (95% Wilson) | Mutant types (95% bootstrap) | Target band |",
+        "| ---: | --- | --- | ---: | --- | --- | --- |",
+    ]
+    for r in rows(RESULTS / "de-novo-summary.csv"):
+        if r["case"] not in CASE_NAMES:
+            continue
+        cohort = "first fit" if r["attempt"] == "1" else "refit"
+        lines.append(
+            f"| {r['years']} y | {CASE_NAMES[r['case']]}, {cohort} | {float(r['m']):.4g}"
+            f" | {r['affected']} / {r['regions']} regions"
+            f" | {100 * float(r['prevalence']):.2f}% ({100 * float(r['wilson_low']):.2f}–{100 * float(r['wilson_high']):.2f}%)"
+            f" | {float(r['types_mean']):.0f} ({float(r['types_low']):.0f}–{float(r['types_high']):.0f})"
+            f" | {r['band']} |"
+        )
+    for r in rows(KK14):
+        if (r["label"], r["years"], r["cohort"]) != ("primary", "3", "validation"):
+            continue
+        lines.append(
+            f"| 3 y | {KK14_NAMES[r['mechanism']]} | {float(r['mutation']):.3g}"
+            f" | {r['cox_negative']} / {r['classified']} cells"
+            f" | {100 * float(r['prevalence']):.2f}% ({100 * float(r['wilson_low']):.2f}–{100 * float(r['wilson_high']):.2f}%)"
+            f" | {float(r['mutant_types']):.2f} ({float(r['mutant_types_low']):.2f}–{float(r['mutant_types_high']):.2f})"
+            f" | {r['target_band']} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def de_novo_units():
+    """Second table of page 19c: zones, segments and the size of the types."""
+    lines = [
+        "| Case, cohort | Fiber 95% interval of prevalence | Mutant copies per type | Largest type, share of copies | Zones | Types per zone | Types per 32-region segment |",
+        "| --- | --- | ---: | ---: | ---: | --- | --- |",
+    ]
+    names = {
+        "main": "Denser mutant",
+        "neutral": "Equal density",
+        "isolated": "Isolated",
+    }
+    for r in rows(RESULTS / "de-novo-summary.csv"):
+        if r["case"] not in names:
+            continue
+        cohort = "first fit" if r["attempt"] == "1" else "refit"
+        f = {
+            k: float(v) for k, v in r.items() if k not in ("case", "band", "statement")
+        }
+        lines.append(
+            f"| {names[r['case']]}, {cohort}"
+            f" | {100 * f['fiber_boot_low']:.1f}–{100 * f['fiber_boot_high']:.1f}%"
+            f" | {f['copies_per_type']:.2f} ({f['copies_per_type_low']:.2f}–{f['copies_per_type_high']:.2f})"
+            f" | {100 * f['largest_share']:.2f}% ({100 * f['largest_low']:.2f}–{100 * f['largest_high']:.2f}%)"
+            f" | {r['zones']}"
+            f" | {f['zone_types_mean']:.0f} ({f['zone_types_low']:.0f}–{f['zone_types_high']:.0f})"
+            f" | {f['segment_types_mean']:.0f} ({f['segment_types_low']:.0f}–{f['segment_types_high']:.0f}) |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def de_novo_laws():
+    """Exact bookkeeping of the lineage sampler on small pure-Python runs."""
+    small = {"nss": 20, "c": 0.01, "mu": 0.07, "gamma": 0.1, "delta": 0.2}
+    for seed in (11, 12, 13):
+        a = mutations.simulate(4, 0.05, 60.0, seed, compiled=False, **small)
+        b = mutations.simulate(
+            4, 0.05, 60.0, seed, compiled=False, labels=False, **small
+        )
+        # Labels do not change the copy-number path.
+        require(np.array_equal(a["wild"], b["wild"]), "replay: wild type")
+        require(np.array_equal(a["mutant"], b["mutant"]), "replay: mutants")
+        require(np.array_equal(a["events"], b["events"]), "replay: events")
+        births, deaths, _, made = a["events"]
+        total = int(a["wild"].sum() + a["mutant"].sum())
+        require(births - deaths == total - 4 * 20, "births minus deaths")
+        for i, labels in enumerate(a["labels"]):
+            require(len(labels) == a["mutant"][i], "one label per mutant copy")
+            require(np.all((labels >= 1) & (labels <= made)), "labels are types")
+        require(made >= 1, "the small run makes deletions")
+    # Hops alone conserve every type: no birth or death when c = mu = 0.
+    out = mutations.simulate(
+        3, 0.5, 30.0, 5, nss=10, c=0.0, mu=0.0, gamma=0.3, delta=0.2, compiled=False
+    )
+    require(out["events"][0] == out["events"][1] == 0, "no birth or death")
+    require(int(out["wild"].sum()) == 30, "hops conserve copies")
+    # Moment law with c = 0: E[mutants] = L Nss (1 - exp(-m mu t)).
+    sample = mutations.small_paths(
+        600, 4242, regions=2, days=50.0, nss=10, c=0.0, m=0.1, compiled=False
+    )
+    expected = 20 * (1 - math.exp(-0.1 * 0.07 * 50))
+    z = (sample[:, 5].mean() - expected) / (
+        sample[:, 5].std(ddof=1) / math.sqrt(len(sample))
+    )
+    require(abs(z) < 3.29, f"mutant moment law, z = {z:.2f}")
+    # The quick calibration runs end to end and brackets 10%.
+    with tempfile.TemporaryDirectory() as work:
+        rate, fit = mutations.calibrate("main", "quick", Path(work), 3, lambda _: None)
+        share = [f["affected"] / f["regions"] for f in fit]
+        require(min(share) <= 0.10 <= max(share), "quick fit brackets 10%")
+        require(rate["m_low95"] < rate["m"] < rate["m_high95"], "quick fit interval")
+
+
+def de_novo_saved():
+    summary = rows(RESULTS / "de-novo-summary.csv")
+    cases = ["main", "main", "neutral", "neutral", "isolated", "main/neutral"]
+    require([r["case"] for r in summary] == cases, "de novo cohorts")
+    require(len(rows(RESULTS / "de-novo-rates.csv")) == 5, "de novo rates")
+    regions = rows(RESULTS / "de-novo-regions.csv")
+    require(len(regions) == 5 * 32 * 32, "de novo region rows")
+    require(len(rows(RESULTS / "de-novo-segments.csv")) == 5 * 32, "segments")
+    for r in summary[:5]:
+        # The refit rule: a second cohort only after one outside the band.
+        if r["attempt"] == "2":
+            first = next(x for x in summary if x["case"] == r["case"])
+            require(first["band"] == "outside", "refit only after a miss")
+        part = [
+            x
+            for x in regions
+            if x["case"] == r["case"] and x["attempt"] == r["attempt"]
+        ]
+        hits = sum(x["affected"] == "True" for x in part)
+        require(hits == int(r["affected"]), f"{r['case']} affected count")
+        for x in part:
+            w, m = int(x["wild"]), int(x["mutant"])
+            require((5 * m >= 3 * (w + m)) == (x["affected"] == "True"), "60% rule")
+        mean = np.mean([int(x["types"]) for x in part if x["affected"] == "True"])
+        require(abs(mean - float(r["types_mean"])) < 1e-3 * mean, "types mean")
+    length = rows(RESULTS / "de-novo-length.csv")
+    require(len(length) == 8 * 64, "chain-length rows")
+    require(sum(r["affected"] == "True" for r in length) == 79, "64-region affected")
+    checks = rows(RESULTS / "de-novo-sampler.csv")
+    require(len(checks) == 8, "sampler rows")
+    require(all(r["passed"] == "True" for r in checks), "sampler checks passed")
+
+
 def region(page, name):
     start, end = f"<!-- {name} -->\n", f"<!-- /{name} -->"
     require(start in page and end in page, f"page region {name}")
@@ -138,6 +291,8 @@ def main():
     if "--write" in sys.argv:
         print(figure1_table())
         print(figure2_table())
+        print(de_novo_table())
+        print(de_novo_units())
         return
     # Reference reader: the three day-700 neutral means of Figure 1C.
     reference = rows(EXAMPLE / "reference-1c.csv")
@@ -185,7 +340,19 @@ def main():
         region(page, "mtdna-spread-2e") == figure2_table(),
         "Figure 2E table out of date",
     )
+    de_novo_laws()
+    de_novo_saved()
+    page = DE_NOVO_PAGE.read_text(encoding="utf-8")
+    require(
+        region(page, "mtdna-spread-de-novo") == de_novo_table(),
+        "de novo table out of date",
+    )
+    require(
+        region(page, "mtdna-spread-de-novo-units") == de_novo_units(),
+        "de novo unit table out of date",
+    )
     print("spatial archive, migration laws, saved results and guide tables verified")
+    print("de novo sampler laws, saved tables and page 19c verified")
 
 
 if __name__ == "__main__":

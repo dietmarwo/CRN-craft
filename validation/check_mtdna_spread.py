@@ -152,7 +152,9 @@ def de_novo_table():
         "| Age | Mechanism and unit | m per replication | Affected / units | Prevalence (95% Wilson) | Mutant types (95% bootstrap) | Target band |",
         "| ---: | --- | --- | ---: | --- | --- | --- |",
     ]
-    for r in rows(RESULTS / "de-novo-summary.csv"):
+    summary = rows(RESULTS / "de-novo-summary.csv")
+    ours = {r["years"] for r in summary}
+    for r in summary:
         if r["case"] not in CASE_NAMES:
             continue
         cohort = "first fit" if r["attempt"] == "1" else "refit"
@@ -164,10 +166,12 @@ def de_novo_table():
             f" | {r['band']} |"
         )
     for r in rows(KK14):
-        if (r["label"], r["years"], r["cohort"]) != ("primary", "3", "validation"):
+        if (r["label"], r["cohort"]) != ("primary", "validation"):
+            continue
+        if r["years"] not in ours:
             continue
         lines.append(
-            f"| 3 y | {KK14_NAMES[r['mechanism']]} | {float(r['mutation']):.3g}"
+            f"| {r['years']} y | {KK14_NAMES[r['mechanism']]} | {float(r['mutation']):.3g}"
             f" | {r['cox_negative']} / {r['classified']} cells"
             f" | {100 * float(r['prevalence']):.2f}% ({100 * float(r['wilson_low']):.2f}–{100 * float(r['wilson_high']):.2f}%)"
             f" | {float(r['mutant_types']):.2f} ({float(r['mutant_types_low']):.2f}–{float(r['mutant_types_high']):.2f})"
@@ -195,7 +199,7 @@ def de_novo_units():
             k: float(v) for k, v in r.items() if k not in ("case", "band", "statement")
         }
         lines.append(
-            f"| {names[r['case']]}, {cohort}"
+            f"| {names[r['case']]}, {r['years']} y, {cohort}"
             f" | {100 * f['fiber_boot_low']:.1f}–{100 * f['fiber_boot_high']:.1f}%"
             f" | {f['copies_per_type']:.2f} ({f['copies_per_type_low']:.2f}–{f['copies_per_type_high']:.2f})"
             f" | {100 * f['largest_share']:.2f}% ({100 * f['largest_low']:.2f}–{100 * f['largest_high']:.2f}%)"
@@ -250,21 +254,28 @@ def de_novo_laws():
 
 def de_novo_saved():
     summary = rows(RESULTS / "de-novo-summary.csv")
-    cases = ["main", "main", "neutral", "neutral", "isolated", "main/neutral"]
-    require([r["case"] for r in summary] == cases, "de novo cohorts")
-    require(len(rows(RESULTS / "de-novo-rates.csv")) == 5, "de novo rates")
+    cohorts = [(r["years"], r["case"]) for r in summary]
+    expected = [("3", c) for c in ["main", "main", "neutral", "neutral", "isolated"]]
+    expected += [("3", "main/neutral"), ("10", "main"), ("10", "main")]
+    require(cohorts == expected, "de novo cohorts")
+    require(len(rows(RESULTS / "de-novo-rates.csv")) == 7, "de novo rates")
     regions = rows(RESULTS / "de-novo-regions.csv")
-    require(len(regions) == 5 * 32 * 32, "de novo region rows")
-    require(len(rows(RESULTS / "de-novo-segments.csv")) == 5 * 32, "segments")
-    for r in summary[:5]:
+    require(len(regions) == 7 * 32 * 32, "de novo region rows")
+    require(len(rows(RESULTS / "de-novo-segments.csv")) == 7 * 32, "segments")
+    for r in summary:
+        if r["case"] not in CASE_NAMES:
+            continue
         # The refit rule: a second cohort only after one outside the band.
         if r["attempt"] == "2":
-            first = next(x for x in summary if x["case"] == r["case"])
+            first = next(
+                x for x in summary if (x["case"], x["years"]) == (r["case"], r["years"])
+            )
             require(first["band"] == "outside", "refit only after a miss")
         part = [
             x
             for x in regions
-            if x["case"] == r["case"] and x["attempt"] == r["attempt"]
+            if (x["case"], x["attempt"], x["years"])
+            == (r["case"], r["attempt"], r["years"])
         ]
         hits = sum(x["affected"] == "True" for x in part)
         require(hits == int(r["affected"]), f"{r['case']} affected count")

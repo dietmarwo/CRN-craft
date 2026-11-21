@@ -897,9 +897,11 @@ def figure(args):
     import pandas as pd
 
     fit = pd.read_csv(args.results / "de-novo-fit.csv")
+    fit = fit[fit.years == 3]
     rates = pd.read_csv(args.results / "de-novo-rates.csv")
-    rates = rates.sort_values("attempt").groupby("case").last()
+    rates = rates[rates.years == 3].sort_values("attempt").groupby("case").last()
     regions = pd.read_csv(args.results / "de-novo-regions.csv")
+    regions = regions[regions.years == 3]
     kk14 = pd.read_csv(
         ROOT.parent / "kk14" / "results" / "reconstruction" / "comparison.csv"
     )

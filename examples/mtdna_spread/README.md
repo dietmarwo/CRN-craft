@@ -60,7 +60,8 @@ The paper's model has no de novo mutations. `mutations.py` adds them as an
 extension of this guide ([page 19b](../../docs/guide/19b-mtdna-spread-de-novo.md)):
 32 regions with the Figure 2 parameters, all wild type at the start, a new
 deletion type with probability `m` per replication, and `m` fitted so that
-10% of regions hold at least 60% mutants after 3 years of 360 days. Its
+10% of regions hold at least 60% mutants after 3 years of 360 days
+(and 10 years for the denser mutant). Its
 exact per-copy sampler follows every copy's type label; with Numba it runs
 about 120 ns per event, without Numba it is far slower and only suits the
 quick size.

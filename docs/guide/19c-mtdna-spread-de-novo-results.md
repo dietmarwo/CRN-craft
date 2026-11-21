@@ -8,9 +8,10 @@ paper, and no author of any of the papers cited here wrote or reviewed it.**
 
 ## Results
 
-The validation cohorts, 32 fibers of 32 regions each, at 1,080 days.
-Chapter 17's rows are its 20,000-cell validation cohorts at 3 years of 365
-days, for comparison of the layout and the order of magnitude only (the
+The validation cohorts, 32 fibers of 32 regions each, at 1,080 days (3
+years) and, for the denser mutant only, at 3,600 days (10 years).
+Chapter 17's rows are its 20,000-cell validation cohorts at 3 and 10 years
+of 365 days, for comparison of the layout and the order of magnitude only (the
 table is generated from `results/de-novo-summary.csv` and chapter 17's
 `comparison.csv`, and checked by `validation/check_mtdna_spread.py`):
 
@@ -22,9 +23,14 @@ table is generated from `results/de-novo-summary.csv` and chapter 17's
 | 3 y | Equal density, 32 regions (this guide), first fit | 0.01133 | 146 / 1024 regions | 14.26% (12.25–16.53%) | 798 (778–813) | outside |
 | 3 y | Equal density, 32 regions (this guide), refit | 0.01133 | 114 / 1024 regions | 11.13% (9.35–13.21%) | 816 (795–832) | compatible |
 | 3 y | Survival of the densest, isolated regions (this guide), first fit | 0.009855 | 104 / 1024 regions | 10.16% (8.45–12.16%) | 271 (267–275) | compatible |
+| 10 y | Survival of the densest, 32 regions (this guide), first fit | 0.002966 | 37 / 1024 regions | 3.61% (2.63–4.94%) | 849 (763–866) | outside |
+| 10 y | Survival of the densest, 32 regions (this guide), refit | 0.003 | 83 / 1024 regions | 8.11% (6.59–9.94%) | 817 (767–856) | compatible |
 | 3 y | Neutral drift, one cell (chapter 17) | 0.00729 | 1920 / 20000 cells | 9.60% (9.20–10.02%) | 33.83 (33.59–34.06) | compatible |
 | 3 y | Faster copying of shorter mtDNA, one cell (chapter 17) | 0.00597 | 1967 / 20000 cells | 9.84% (9.43–10.26%) | 28.86 (28.64–29.07) | compatible |
 | 3 y | Transcription-linked replication, one cell (chapter 17) | 4.95e-06 | 1944 / 20000 cells | 9.72% (9.32–10.14%) | 1.25 (1.23–1.28) | compatible |
+| 10 y | Neutral drift, one cell (chapter 17) | 0.00144 | 2088 / 20000 cells | 10.44% (10.02–10.87%) | 9.54 (9.42–9.66) | compatible |
+| 10 y | Faster copying of shorter mtDNA, one cell (chapter 17) | 0.0006 | 1947 / 20000 cells | 9.74% (9.33–10.15%) | 4.84 (4.76–4.92) | compatible |
+| 10 y | Transcription-linked replication, one cell (chapter 17) | 1.36e-06 | 2088 / 20000 cells | 10.44% (10.02–10.87%) | 1.07 (1.06–1.08) | compatible |
 <!-- /mtdna-spread-de-novo -->
 
 ![A: share of affected regions against m in the fit runs, with the fitted logistic curves and the 10% target. B: mutant types per affected region in the last validation cohort of each case, on a log scale, with chapter 17's three-year values for neutral drift and transcription-linked replication](img/mtdna_spread/de-novo-types.png)
@@ -88,19 +94,34 @@ each region.
 <!-- mtdna-spread-de-novo-units -->
 | Case, cohort | Fiber 95% interval of prevalence | Mutant copies per type | Largest type, share of copies | Zones | Types per zone | Types per 32-region segment |
 | --- | --- | ---: | ---: | ---: | --- | --- |
-| Denser mutant, first fit | 14.7–31.4% | 2.83 (2.78–2.90) | 0.39% (0.37–0.41%) | 73 | 2174 (1980–2391) | 9095 (9034–9161) |
-| Denser mutant, refit | 4.6–11.9% | 2.85 (2.77–2.93) | 0.41% (0.38–0.44%) | 49 | 1741 (1601–1871) | 8937 (8882–8990) |
-| Equal density, first fit | 8.3–20.3% | 2.71 (2.66–2.78) | 0.62% (0.59–0.67%) | 63 | 1058 (944–1190) | 5061 (5037–5084) |
-| Equal density, refit | 6.3–17.0% | 2.64 (2.58–2.71) | 0.59% (0.55–0.63%) | 53 | 1056 (949–1172) | 5049 (5028–5071) |
-| Isolated, first fit | 8.7–11.7% | 16.32 (16.11–16.50) | 3.77% (3.53–4.02%) | 95 | 297 (282–314) | 7401 (7357–7449) |
+| Denser mutant, 3 y, first fit | 14.7–31.4% | 2.83 (2.78–2.90) | 0.39% (0.37–0.41%) | 73 | 2174 (1980–2391) | 9095 (9034–9161) |
+| Denser mutant, 3 y, refit | 4.6–11.9% | 2.85 (2.77–2.93) | 0.41% (0.38–0.44%) | 49 | 1741 (1601–1871) | 8937 (8882–8990) |
+| Equal density, 3 y, first fit | 8.3–20.3% | 2.71 (2.66–2.78) | 0.62% (0.59–0.67%) | 63 | 1058 (944–1190) | 5061 (5037–5084) |
+| Equal density, 3 y, refit | 6.3–17.0% | 2.64 (2.58–2.71) | 0.59% (0.55–0.63%) | 53 | 1056 (949–1172) | 5049 (5028–5071) |
+| Isolated, 3 y, first fit | 8.7–11.7% | 16.32 (16.11–16.50) | 3.77% (3.53–4.02%) | 95 | 297 (282–314) | 7401 (7357–7449) |
+| Denser mutant, 10 y, first fit | 0.6–7.5% | 4.87 (4.76–5.54) | 0.72% (0.68–0.77%) | 16 | 1007 (817–1095) | 3035 (2999–3070) |
+| Denser mutant, 10 y, refit | 3.4–13.8% | 5.13 (4.89–5.42) | 0.82% (0.76–0.88%) | 34 | 990 (888–1101) | 3107 (3077–3139) |
 <!-- /mtdna-spread-de-novo-units -->
 
 An affected zone holds more types than one of its regions (about 1,740
-for the denser mutant), and a whole 32-region segment holds about 8,900
-mutant types. No segment of the denser mutant was affected as a whole (its
-pooled mutant fraction stayed below 60%), so the segment row describes all
+for the denser mutant at 3 years), and a whole 32-region segment holds
+about 8,900 mutant types. No 3-year segment was affected as a whole (its
+pooled mutant fraction stayed below 60%), so the segment rows describe all
 segments, not affected ones. In isolated regions a zone is only a run of
 neighbors that share no copies.
+
+**Ten years.** For the denser mutant the same protocol at 3,600 days needed
+a refit as well (first cohort 3.6%, refit 8.1% affected). The fitted `m`
+is 0.0030, about a quarter of the 3-year value, and an affected region
+holds about 820 mutant types (95% bootstrap 767–856; no affected region
+fewer than 628), with 5.1 mutant copies per type and a largest type of
+0.8% of the copies (at most 1.4%). Over 10 years survival of the densest
+raises the mean mutant fraction more than over 3: the refit cohort's mean
+is 0.568, while mutation pressure alone, `1 - exp(-m * mu * t)`, gives
+0.530. That gain is spread over hundreds of types. Chapter 17's drift cell
+holds 9.5 types at 10 years. Each copy now travels about 27 regions, so a
+32-region segment mixes almost completely; its 3,100 types are about 4
+times the count of one region.
 
 **Chain length.** Eight fibers of 64 regions at the refit `m` (0.01117,
 `results/de-novo-length.csv`) gave 79 of 512 regions affected, with 1,558
@@ -124,7 +145,8 @@ experiment look like the drift cells of chapters 16 and 17, only more so,
 and unlike the essentially clonal affected cells found in experiments. In
 3 years the mechanism has no time to act on a single new deletion: a new
 type starts as one copy among 3,500 to 6,800 and, in about 75 copy
-generations, grows only by drift.
+generations, grows only by drift. At 10 years the picture is the same with
+about 820 types per affected region.
 
 What the experiment does not show:
 
@@ -141,9 +163,10 @@ What the experiment does not show:
   neighbors. A muscle fiber section classified as COX-negative in an
   experiment may cover one region or many. The zone and segment rows show
   how the count grows with the unit.
-- **Longer lifespans are not run.** At 10 to 80 years, chapter 17's drift
-  cells hold 1.5 to 9.5 mutant types, and survival of the densest has more time to
-  act. Whether it then produces clonal regions is open; see
+- **40 and 80 years are not run, and 10 years only for the denser
+  mutant.** At 40 and 80 years chapter 17's drift cells hold 2.2 and 1.5
+  mutant types, and survival of the densest has more time to act. Whether
+  it then produces clonal regions is open; see
   [Running the experiment](#running-the-experiment) for the commands and
   costs.
 - **All deletion types are alike.** Real deletions differ in size and
@@ -171,6 +194,7 @@ are choices of this guide, given with their reasons on
 | sampler | `python examples/mtdna_spread/mutations.py sampler` | the sampler against CRN-craft and the moment law | 30 s with Numba |
 | draft | `python examples/mtdna_spread/mutations.py run --size draft` | the Figure 2 parameters, 2 fibers per fit point and 8 validation fibers per case | not run; about 6 to 10 min with Numba (estimate from the full run) |
 | full | `python examples/mtdna_spread/mutations.py run --size full --output examples/mtdna_spread/results` | the 3-year runs of this page, with the refits | 28 CPU-minutes with Numba (main 15, equal density 10, isolated 3) |
+| full, 10 years | `python examples/mtdna_spread/mutations.py run --size full --years 10 --case main` | the 10-year runs (133 fibers with the refit) | 50 CPU-minutes with Numba |
 | length | `python examples/mtdna_spread/mutations.py length --m 0.01116696641687773 --regions 64` | eight 64-region fibers | 2 min |
 
 The draft and full sizes need Numba in practice: without it the same
@@ -179,11 +203,13 @@ checkpointed under `runs/de-novo/<size>/` (`--work`), so an interrupted run
 continues where it stopped. `mutations.py figure --figures
 docs/guide/img/mtdna_spread` redraws the figure from the saved tables.
 
-Longer lifespans are outstanding. `--years 10 --case main` runs the same
-protocol for 10 years (3,600 days); a fiber has about 3.3 times as many
-events, about 25 s with Numba, so one case takes about 35 minutes, or about
-1 hour with a refit; 40 and 80 years take about 4 and 8 times as long as
-10 years (about 2.5 and 5 hours per case, about 15 hours for three cases).
+The `run` command writes the tables of one lifespan; the saved tables hold
+the 3-year rows followed by the 10-year rows. Outstanding: 10 years with
+equal density and isolated regions (about 35 and 15 CPU-minutes), and 40
+and 80 years (`--years 40`, `--years 80`). A 10-year fiber has about 185
+million events and took 23 s; 40 and 80 years cost about 4 and 8 times as
+much per fiber, so with a refit about 3.5 and 7 CPU-hours for the denser
+mutant, and roughly 15 to 20 CPU-hours for all three cases at both ages.
 
 ## Exercises
 

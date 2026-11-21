@@ -50,7 +50,10 @@ directed edge, regions of 30 µm. One reaction is added:
   deletion removes.
 
 Every region starts with 3,500 wild-type copies and no mutant. Time runs
-in days; a year has 360 days, as in chapter 16; 3 years are 1,080 days.
+in days; a year has 360 days, as in chapter 16. The main lifespan is 3
+years (1,080 days), the case of a short-lived animal; the denser mutant is
+also run for 10 years (3,600 days). 40 and 80 years did not fit the compute
+budget of this study.
 
 **Geometry.** A fiber is a chain of 32 regions (960 µm) with closed ends: a
 copy in an end region has one neighbor and hops only inward, as in the

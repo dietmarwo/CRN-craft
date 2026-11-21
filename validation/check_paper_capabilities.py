@@ -384,7 +384,85 @@ def spatial_laws():
         pop.append(result["mutant"][1])
     local = cdf_gap(pop, theoretical.cdf)
     require(local < 0.027, "local scheduler transition law")
-    return {"graph_gap": gap, "local_gap": local, "volume_equilibrium": equilibrium}
+    chain = local_against_generic()
+    return {
+        "graph_gap": gap,
+        "local_gap": local,
+        "volume_equilibrium": equilibrium,
+        "local_vs_generic_gaps": chain,
+    }
+
+
+def two_sample_gap(a, b):
+    a, b = np.asarray(a, dtype=int), np.asarray(b, dtype=int)
+    last = int(max(a.max(), b.max())) + 1
+    fa = np.bincount(a, minlength=last).cumsum() / len(a)
+    fb = np.bincount(b, minlength=last).cumsum() / len(b)
+    return float(np.max(np.abs(fa - fb)))
+
+
+def local_against_generic():
+    """The local turnover sampler against the generic engine on a small chain.
+
+    Four regions, a fixed left reservoir and feedback strong enough that the
+    birth clamp at zero is reached (about 5% of endpoint regions). Five count
+    CDFs, 20,000 paths per sampler, and a two-sample bound from DKW at
+    alpha = 0.01 / 10 per sample: 2 * sqrt(ln(2000) / 40000) = 0.02757.
+    """
+    n, initial = 20_000, [(6, 4), (8, 2), (10, 0), (10, 0)]
+    rates = {"target": 10, "feedback": 0.2, "mutant_weight": 0.5, "death": 0.5}
+    model = crn.Model("turnover_chain")
+    model.add_parameter(rates)
+    for i, (w, m) in enumerate(initial):
+        model.add_species({f"W{i}": w, f"M{i}": m})
+    for i in range(4):
+        for kind in "WM":
+            x = f"{kind}{i}"
+            if i:
+                birth = (
+                    "max(0, death + feedback * (target - W{0} - mutant_weight * M{0}))"
+                )
+                model.add_reaction(crn.mass_action(birth.format(i)), [x], [x, x])
+                model.add_reaction(0.5, [x], [])
+            for j in (i - 1, i + 1):
+                if 0 <= j < 4:
+                    source = [] if i == 0 else [x]
+                    target = [] if j == 0 else [f"{kind}{j}"]
+                    count = initial[0][kind == "M"]
+                    model.add_reaction(0.3 * count if i == 0 else 0.3, source, target)
+    run = crn.ensemble(
+        model,
+        end=5,
+        report_times=[5],
+        replicates=n,
+        seed=777,
+        method="next_reaction",
+        keep_paths="all",
+        quantiles=(),
+        strict=True,
+    ).simulate()
+    names = [f"{k}{i}" for i in range(4) for k in "WM"]
+    generic = run.paths.sel(variable=names).values[:, 0].reshape(n, 4, 2)
+    local = np.empty_like(generic)
+    for k in range(n):
+        result = crn.spatial_turnover(
+            initial, end=5, hop=0.3, fixed_left=True, seed=100_000 + k, **rates
+        )
+        local[k, :, 0], local[k, :, 1] = result["wild"], result["mutant"]
+    require(np.all(local[:, 0] == initial[0]), "the reservoir holds its counts")
+
+    def columns(x):
+        w, m = x[..., 0], x[..., 1]
+        return [w[:, 1], m[:, 1], m[:, 3], m[:, 1:].sum(1), (w + m)[:, 1:].sum(1)]
+
+    gaps = [
+        two_sample_gap(a, b)
+        for a, b in zip(columns(generic), columns(local), strict=True)
+    ]
+    require(max(gaps) < 0.02757, "local turnover sampler against the generic engine")
+    still = crn.spatial_turnover([(5, 5), (0, 0)], end=5, hop=0, seed=1, **rates)
+    require(still["wild"][1] == still["mutant"][1] == 0, "zero transport")
+    return gaps
 
 
 def stationary_laws():

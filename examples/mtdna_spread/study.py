@@ -12,10 +12,14 @@ from scipy.stats import norm
 
 ROOT = Path(__file__).resolve().parent
 MANIFEST = json.loads((ROOT / "manifest.json").read_text())
+# Regions, Nss, delta and hop rate per directed edge (per copy and day). The
+# archive headers give delta and the hop rate; Nss = 150 in every panel is a
+# reconstruction choice (the per-region spread at day 700 matches the archive).
+# Each region starts at h = 0.5 on its steady state W + delta * M = Nss.
 CONDITIONS = {
-    "deterministic": (2, 150, 0.5, 0.0007),
+    "deterministic": (2, 150, 0.5, 0.0),
     "isolated": (1, 150, 0.5, 0.0),
-    "equal": (2, 200, 1.0, 0.035),
+    "equal": (2, 150, 1.0, 0.035),
     "dense": (2, 150, 0.5, 0.035),
 }
 
@@ -128,8 +132,9 @@ def figure1(size, threads):
                 h = 1 / (1 + np.exp(extra * times))
                 err, empty, actual = np.zeros_like(h), np.zeros_like(h), 0
             else:
+                half = round(copies / (1 + delta))
                 p = paths(
-                    [(100, 100)] * regions,
+                    [(half, half)] * regions,
                     (copies, delta, hop),
                     times,
                     n,
@@ -314,7 +319,12 @@ def plot(results, folder, output):
     ):
         for kind, color in (("neutral", "#234a74"), ("extra", "#bc4b34")):
             data = group[group.degradation == kind]
-            ax.plot(data.day, data["mean"], color=color, label=kind)
+            ax.plot(
+                data.day,
+                data["mean"],
+                color=color,
+                label="neutral" if kind == "neutral" else "mutants degraded faster",
+            )
             ax.errorbar(
                 data.day,
                 data.mean_reference,

@@ -889,6 +889,34 @@ def experiment_refusals(temp):
                 path, convention="stochastic_count_propensity"
             )
         )
+    # The single-file SBML importer applies the same UTF-8 rule. The UTF-8
+    # form of this model imports; its BOM-less UTF-16 form with an entity
+    # was imported with the entity expanded by 0.8.1.
+    single = (
+        f'<sbml xmlns="{_CORE}" level="3" version="2"><model id="m" '
+        'substanceUnits="item" timeUnits="second" extentUnits="item">'
+        '<listOfCompartments><compartment id="c" size="1" spatialDimensions="3" '
+        'constant="true"/></listOfCompartments><listOfSpecies><species id="A" '
+        'compartment="c" initialAmount="5" hasOnlySubstanceUnits="true" '
+        'boundaryCondition="false" constant="false"/></listOfSpecies>'
+        '<listOfParameters><parameter id="k" value="VALUE" constant="true"/>'
+        '</listOfParameters><listOfReactions><reaction id="r" reversible="false">'
+        '<listOfReactants><speciesReference species="A" stoichiometry="1" '
+        'constant="true"/></listOfReactants><kineticLaw><math '
+        f'xmlns="{_MML}"><apply><times/><ci>k</ci><ci>A</ci></apply></math>'
+        "</kineticLaw></reaction></listOfReactions></model></sbml>"
+    )
+    convention = "stochastic_count_propensity"
+    crn.importers.import_sbml(
+        single.replace("VALUE", "0.25").encode(), convention=convention
+    )
+    hidden = '<?xml version="1.0" encoding="UTF-16"?><!DOCTYPE s [<!ENTITY e "0.25">]>'
+    hidden += single.replace("VALUE", "&e;")
+    result["importer_utf16_doctype"] = _refused(
+        lambda: crn.importers.import_sbml(
+            hidden.encode("utf-16-le"), convention=convention
+        )
+    )
     # Run-time budget and archive directory rules.
     plain = crn.read_experiment(
         _archive(temp / "plain.omex", model), convention="stochastic_count_propensity"

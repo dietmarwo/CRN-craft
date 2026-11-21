@@ -88,6 +88,14 @@ fn protocol_error(message: impl Into<String>) -> Halt {
     )
 }
 
+fn action_error(index: usize, message: String) -> Halt {
+    numerical(
+        &format!("/protocol/actions/{index}"),
+        message,
+        "Check the counts that the action group reads and the pending completion budget.",
+    )
+}
+
 fn count_add(n: u64, change: i64) -> Result<u64, Halt> {
     n.checked_add_signed(change)
         .filter(|&x| x <= MAX_COUNT)
@@ -270,12 +278,40 @@ impl Path<'_> {
                     pending.remove(key, completion.owner);
                 } else {
                     let action = actions.next().expect("there is a scheduled action");
+                    let name = |s: usize| &model.types[net.species[s].ty].name;
                     for (s, op) in &action.operations {
-                        next_counts[*s] = operation(counts[*s], op, words)?;
+                        // Only a count change can fail on the counts; other errors,
+                        // such as the sampling budget of a partition, pass through.
+                        let fails = matches!(op, Operation::Change(_));
+                        next_counts[*s] = operation(counts[*s], op, words).map_err(|e| {
+                            if !fails {
+                                return e;
+                            }
+                            action_error(
+                                action.index,
+                                format!(
+                                    "action group {} at time {}: {:?} has {} copies; the operation \
+                                     would leave it negative or above the count limit",
+                                    action.index,
+                                    action.time,
+                                    name(*s),
+                                    counts[*s]
+                                ),
+                            )
+                        })?;
                     }
                     for &s in &schedule.owned {
                         let removed = counts[s].checked_sub(next_counts[s]).ok_or_else(|| {
-                            protocol_error("an intervention cannot create busy molecules")
+                            action_error(
+                                action.index,
+                                format!(
+                                    "action group {} at time {}: an intervention cannot create \
+                                     busy {:?} molecules",
+                                    action.index,
+                                    action.time,
+                                    name(s)
+                                ),
+                            )
                         })?;
                         pending.cancel(s, removed, words)?;
                     }

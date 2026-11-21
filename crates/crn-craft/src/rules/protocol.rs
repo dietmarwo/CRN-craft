@@ -91,6 +91,8 @@ pub(super) struct Phase {
 }
 
 pub(super) struct Boundary {
+    /// Position of the group in `protocol.actions`, for diagnostics.
+    pub index: usize,
     pub time: f64,
     pub operations: Vec<(usize, Operation)>,
     pub phase: usize,
@@ -280,6 +282,7 @@ impl Schedule {
                 phases.push(Phase { model, network });
             }
             boundaries.push(Boundary {
+                index: i,
                 time: action.time,
                 operations,
                 phase: phases.len(),

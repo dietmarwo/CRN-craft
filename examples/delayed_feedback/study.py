@@ -1,4 +1,16 @@
-"""Delayed feedback benchmark using equations 15–17 of the cited paper."""
+"""Delayed feedback benchmark using equations 15–17 of the cited paper.
+
+The native run (a run/1.1 protocol with a fixed production delay) and an
+independent delayed direct method written here in Python give the first
+power-spectrum peak in the band 0.09–0.22 rad per time unit and the
+autocorrelation at twice the delay. With the default 12 paths per sampler
+the peak estimate varies between seeds by about 0.005–0.01 rad per time
+unit, so the 0.03 tolerance (about ten frequency bins) detects only large
+shifts of the oscillation period. The autocorrelation at twice the delay is
+near 0.01 for both samplers, so its 0.10 tolerance cannot detect a
+difference of that size. pi / delay is the angular frequency of a period of
+twice the delay; it is a reference value, not a number read from the paper.
+"""
 
 from argparse import ArgumentParser
 import heapq
@@ -135,18 +147,19 @@ def main():
     expected = spectrum(
         np.stack([oracle(times, 641110 + i) for i in range(args.paths)])
     )
+    # The angular frequency of a period of twice the delay.
     reference_peak = np.pi / DELAY
     result = {
         "native": actual,
         "independent": expected,
-        "paper_angular": reference_peak,
+        "pi_over_delay": reference_peak,
         "phase_tolerance": 0.03,
         "acf_tolerance": 0.10,
         "paths": args.paths,
         "native_vs_reference_peak": abs(
             actual["peak_angular"] - expected["peak_angular"]
         ),
-        "native_vs_paper_peak": abs(actual["peak_angular"] - reference_peak),
+        "native_vs_pi_over_delay": abs(actual["peak_angular"] - reference_peak),
         "acf_difference": abs(
             actual["acf_at_twice_delay"] - expected["acf_at_twice_delay"]
         ),
@@ -154,7 +167,7 @@ def main():
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     if (
         result["native_vs_reference_peak"] > 0.03
-        or result["native_vs_paper_peak"] > 0.03
+        or result["native_vs_pi_over_delay"] > 0.03
         or result["acf_difference"] > 0.10
     ):
         raise SystemExit("spectral comparison failed its declared tolerance")

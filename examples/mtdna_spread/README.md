@@ -61,7 +61,9 @@ extension of this guide ([page 19b](../../docs/guide/19b-mtdna-spread-de-novo.md
 32 regions with the Figure 2 parameters, all wild type at the start, a new
 deletion type with probability `m` per replication, and `m` fitted so that
 10% of regions hold at least 60% mutants after 3 years of 360 days
-(and 10 years for the denser mutant). Its
+(and 10, 40 and 80 years for the denser mutant; the 40- and 80-year tables
+were run on a second machine by a reader of the guide with the same
+command, and at 40 years the calibration failed). Its
 exact per-copy sampler follows every copy's type label; with Numba it runs
 about 120 ns per event, without Numba it is far slower and only suits the
 quick size.
@@ -79,4 +81,6 @@ same time in separate processes; every fiber has its own seed, so the
 tables do not depend on `N`, apart from the measured `seconds`. The quick size uses a small model (4 regions of 20
 copies, 120 days) in pure Python and takes a few seconds. `sampler` compares
 the sampler with the CRN-craft model of the same reactions (`crn_model`) and
-with a moment law. The saved tables are `results/de-novo-*.csv`.
+with a moment law. The saved tables are `results/de-novo-*.csv`, with the
+3-, 10-, 40- and 80-year rows in this order; `figure` draws
+`de-novo-types.png` from them.

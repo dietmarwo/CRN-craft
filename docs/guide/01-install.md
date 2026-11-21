@@ -29,7 +29,7 @@ print(crn.describe()["schema"])
 ```
 
 ```text
-0.8.0
+0.8.1
 crn-craft.describe/1.0
 ```
 

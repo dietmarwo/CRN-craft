@@ -46,6 +46,10 @@ equal-density setting of Figure 1C). Its rows are in
 The cohorts take 4 to 15 minutes each on one core.
 
 `fetch.py` can regenerate the compact reference CSVs from the pinned
-public archive. Run outputs go to `runs/` by default. `--figures`
+public archive. That archive has no license file. `reference-1c.csv` and
+`reference-2e.csv` are numerical extracts of its data; they are not
+covered by this repository's MIT license and stay under the authors'
+terms; see
+[THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md#reference-data-of-the-guide-case-studies). No upstream code is included. Run outputs go to `runs/` by default. `--figures`
 reads the committed result tables unless `--output` specifies a run.
 [Paper and parameters](https://doi.org/10.1073/pnas.2122073119)

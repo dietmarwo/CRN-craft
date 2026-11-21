@@ -74,8 +74,9 @@ platform's floating point and are not compared bit for bit.
 The authors' repository is licensed GPL-3.0; it has no separate license
 for its data. `source-counts.csv`, `source-sites.csv`,
 `reference-site-*.csv` and `source-parameters.json` are tables derived
-from its MATLAB arrays and figure files. Whether these derived tables may
-be shipped in this MIT-licensed repository has not been settled;
+from its MATLAB arrays and figure files. They are not covered by this
+repository's MIT license and stay under the terms of their source
+([notice](../../THIRD_PARTY_NOTICES.md#reference-data-of-the-guide-case-studies));
 `fetch.py` rebuilds all of them from the pinned revision. The underlying
 images are deposited at the BioImage Archive (S-BIAD1) and the Image Data
 Resource (idr0047).

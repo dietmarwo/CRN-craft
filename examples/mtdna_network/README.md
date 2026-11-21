@@ -27,4 +27,7 @@ Runs write to `runs/<size>/` (or `--output`); `--figures` reads `results/`.
 | `results/review-*.csv` | the review runs of the results page (`review.py`) |
 
 The upstream repository is licensed under GPL-3.0. No upstream code is
-used here; the two input CSV files are derived from its data files.
+used here; `conditions.csv` and `reference-variance.csv` are derived from
+its data files. They are not covered by this repository's MIT license and
+stay under the terms of their source; see
+[THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md#reference-data-of-the-guide-case-studies). `fetch.py` regenerates both from the pinned revision.

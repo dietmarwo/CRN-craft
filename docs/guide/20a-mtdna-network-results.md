@@ -177,9 +177,11 @@ tables above equal the saved CSV files.
 - The early-window ratios do not test the fast-switching assumption of
   Equation 13, and the slow-switching deviation in the archive (7% for
   H:55) is not resolved by the fresh runs.
-- `conditions.csv` and `reference-variance.csv` are derived from a
-  GPL-3.0 repository; `fetch.py` regenerates both from the pinned
-  revision.
+- `conditions.csv` and `reference-variance.csv` are derived from the data
+  files of a GPL-3.0 repository. They are not covered by this repository's
+  MIT license and stay under the terms of their source
+  ([notice](../../THIRD_PARTY_NOTICES.md#reference-data-of-the-guide-case-studies));
+  `fetch.py` regenerates both from the pinned revision.
 
 ## Exercises
 

@@ -48,7 +48,9 @@ the `preset` column.
 
 `fetch.py` rebuilds the source tables from the pinned authors' archive and
 records the SHA-256 of each MATLAB file. The authors' repository is
-licensed GPL-3.0; the derived tables are kept here pending a decision on
-their redistribution (page 23c). The checks fetch nothing.
+licensed GPL-3.0. The derived tables (`source-*.csv`,
+`source-parameters.json`, `reference-site-*.csv`) are not covered by this
+repository's MIT license and stay under the terms of their source; see
+[THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md#reference-data-of-the-guide-case-studies). No upstream code is included. The checks fetch nothing.
 
 [Paper](https://doi.org/10.1073/pnas.1804060115) · [Author archive](https://github.com/MunskyGroup/Munsky_et_al_2018/tree/1aa0b5ce25d21484c7c4e8a894477b1719209ce7)

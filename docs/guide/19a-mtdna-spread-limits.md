@@ -92,8 +92,10 @@ access. It checks:
   archive does not report. From the spread of the fresh fibers it is about
   0.002 µm/day, too small to close the gap.
 - The upstream repository has no license file. The two reference tables
-  are short numerical extracts; `fetch.py` regenerates them from the
-  pinned revision.
+  are short numerical extracts of its data. They are not covered by this
+  repository's MIT license and stay under the authors' terms
+  ([notice](../../THIRD_PARTY_NOTICES.md#reference-data-of-the-guide-case-studies));
+  `fetch.py` regenerates them from the pinned revision.
 - The rhesus speed of Figure 2B is an observation from another study. The
   data are not in the archive and were not refitted.
 

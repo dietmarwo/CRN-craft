@@ -180,4 +180,77 @@ regression also treats regions as independent. The longer the lifespan, the
 stronger the effect: at 40 and 80 years whole fibers are affected or not,
 and the protocol, written for 3 years, no longer pins the prevalence.
 
+## A design for long lifespans
+
+At 40 and 80 years the first protocol has about as many independent units
+as fibers, 32 per cohort, while its fit and its band count 1,024 regions
+([results page](19c-mtdna-spread-de-novo-results.md#forty-and-eighty-years)).
+A second design, `mutations.py run --design fibers`, makes the fiber the
+sampling unit everywhere. It was written down before any run of it, in
+`manifest.json` (entry `de_novo_fibers`) and here. The first design, its
+code path (the default, `--design regions`) and its saved tables stay as
+they are.
+
+**What stays the same.** The target is still 10% of regions with at least
+60% mutants at the end of the lifespan, so the rows of both designs can be
+compared. The model, the parameters, the 32-region chain with closed ends,
+the three cases, the year of 360 days, the units, the statement rule and
+the seed rule are those above.
+
+**Fit.** Stage 1 simulates 16 fibers at each of 0.92, 0.97, 1.03 and 1.09
+times a start value of `m`. At a logistic slope of 20 to 30 per decade of
+`m` this spans about 5% to 19% affected regions. The grid is extended by
+factors of 1.25, as above, until it encloses 10%. Stage 2 simulates 32
+fibers at 1/1.03, 1 and 1.03 times the stage-1 estimate. The start value
+is the last fitted `m` of the first design for the same case and lifespan
+(`results/de-novo-rates.csv`) where there is one, and otherwise the probe
+fiber of the first design. The point estimate is the same logistic
+regression of the region indicator on `log10(m)`. Its 95% interval comes
+from a bootstrap over fibers: within each fit point, whole fibers are
+resampled, the curve is refitted and inverted at 10%, 1,999 times. A
+resample whose fit has no positive slope counts at both ends of the
+interval, so it can only widen it.
+
+**Validation.** 128 new fibers at the frozen `m`. The cohort is
+*compatible* if the 95% bootstrap interval over fibers of the share of
+affected regions contains 10% and at least 10 fibers hold an affected
+region. Otherwise it is *outside* (the interval excludes 10%) or has *too
+few affected fibers*. There is no band of ±0.5 points: with 128 fibers that
+behave as single units, the prevalence of a cohort cannot be pinned that
+closely. The Wilson interval is still reported, and it assumes independent
+regions. The statement on the number of types needs at least 20 affected
+regions in at least 10 fibers; otherwise none is made. This excludes the
+one-fiber case of the first design at 40 years.
+
+**Refit.** One refit is allowed if the first cohort is not compatible:
+three new stage-2 points of 32 fibers around the `m` fitted through all
+points, a fit through all points, and a new cohort of 128 fibers. If that
+one is not compatible either, the calibration failed. All rows are kept.
+
+**Seeds and tables.** The phases have their own names (`fibers-stage1`,
+`fibers-validation` and so on), so no fiber of the first design is reused
+and no checkpoint is shared. The tables are `de-novo-fibers-*.csv`, with
+the columns of the first design and, in addition, the fibers with an
+affected region (`fibers_affected`), the fibers affected along their whole
+length (`fibers_full`), the bootstrap interval of `m` over fibers
+(`m_boot_low95`, `m_boot_high95`) and the label of the cohort
+(`decision`). The columns `m_low95`, `m_high95` (regression, regions
+independent) and `band` (the first design's rule) are kept for comparison
+only.
+
+**Size and cost.** Without a refit the design simulates 4 × 16 + 3 × 32 +
+128 = 288 fibers, with one 512. A 32-region fiber costs about 170
+CPU-seconds at 40 years and 330 at 80 years with Numba on the machine that
+made the first 40- and 80-year runs. That is about 13 to 24 CPU-hours at 40
+years and 26 to 47 at 80 years. The quick size (4, 8 and 32 fibers of the
+small model, at least 3 affected fibers) runs in seconds in pure Python; the
+draft size (2, 4 and 16 fibers, at least 3) takes minutes at 3 years.
+
+**Longer-chain control.** Whether 32 regions are long enough is tested
+once: 32 fibers of 128 regions at the `m` of the fiber design, 80 years,
+the denser mutant (`mutations.py length`, about 12 CPU-hours). If the 95%
+intervals of types per affected region of the 32- and the 128-region
+cohorts do not overlap, the result reads "chain length matters", otherwise
+"no difference seen".
+
 Next: [results and limits](19c-mtdna-spread-de-novo-results.md).

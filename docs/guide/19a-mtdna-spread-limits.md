@@ -18,7 +18,7 @@ example, and the review experiments on the Figure 2E speed.
 | Left boundary | fixed reservoir at `h = 1` | dynamic region held at `h = 1` | none expected: diffusion reaches about 520 µm |
 | Window alignment | both archive files start at the same region | shifted by one region | one region moves the archived speed by 0.020 µm/day; not testable from the files |
 | Wave estimator | crossing of the ensemble-mean profile, three-point smoother | no smoother | at most 0.004 µm/day |
-| Wave simulator | approximate steps of 0.0625 to 0.5 days | exact path simulation | exact run outstanding |
+| Wave simulator | approximate steps of 0.0625 to 0.5 days | exact path simulation | eight exact fibers: 0.160 µm/day (99% interval 0.064–0.199), inconclusive; 800 fibers outstanding |
 
 ## The approximate wave scheme
 
@@ -60,8 +60,16 @@ in `results/review-experiments.csv`; `review.py` reruns them.
 - **Equal-density setting** (`review.py equal`). See the first row of the
   choices table; the shipped Figure 1C results use `Nss = 150`.
 
-What remains: the exact simulator over 1,480 days was not run at full
-size, and the authors' Figure 2E run itself is not documented in the
+- **Exact pilot** (`study.py --source-chain --wave-sampler local --fibers 8`).
+  Eight exact fibers of the full chain, fibers 0 to 7 of the 800-fiber
+  design. Half-height speed 0.15951 µm/day (99% interval 0.06445–0.19865,
+  no ambiguous resample). Label: inconclusive. Without the smoother, the
+  eight-fiber mean profile crosses 0.5 twice (at 5,699 and 5,731 µm), and
+  100 of 500 resamples are ambiguous. The fibers are in
+  `results/exact-wave-fibers.csv`.
+
+What remains: the exact simulator over 1,480 days was run for eight
+fibers, not 800, and the authors' Figure 2E run itself is not documented in the
 archive (no run time, no step, no window position). Before the full exact
 run, the most informative check is whether the authors' two profile
 windows start at the same region.
@@ -114,5 +122,6 @@ access. It checks:
 2. Remove the noise: `review.py deterministic` gives the speed without
    survival of the densest. Why does the crossing at 0.4 move faster than
    the crossing at 0.6?
-3. Run `study.py --size full --fibers 1` (about 16 minutes) and compare
-   the single fiber's crossing with the spread of the approximate fibers.
+3. Run `study.py --source-chain --wave-sampler local --fibers 1` (about
+   5 minutes) and compare the single fiber's crossing with the spread of
+   the approximate fibers.

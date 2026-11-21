@@ -50,13 +50,15 @@ The result in three lines:
   condition reproduce all three neutral day-700 means within simultaneous
   99% intervals, and the denser mutant gains 0.040 in mean mutant fraction.
 - Figure 2E, the wave: the authors' two archived profiles give
-  0.18973 µm/day. Every fresh cohort, from four step sizes and two copy
-  numbers, gives 0.126 to 0.163 µm/day, and every 99% interval excludes
-  0.18973. This is an **unresolved discrepancy**.
-- The fresh wave runs use an approximate time-stepping scheme. The exact
-  800-fiber run (about 16 CPU-minutes per fiber) is outstanding. Copy
-  number, boundaries, the birth-rate clipping and the step size were
-  tested as causes and do not explain the gap
+  0.18973 µm/day. Every approximate cohort, from four step sizes and two
+  copy numbers, gives 0.126 to 0.163 µm/day, and every 99% interval
+  excludes 0.18973. This is an **unresolved discrepancy**.
+- Most fresh wave runs use an approximate time-stepping scheme. A pilot of
+  eight exact fibers gives 0.160 µm/day with a 99% interval of 0.064 to
+  0.199: with eight fibers this is **inconclusive**. The exact 800-fiber
+  run (about 5 CPU-minutes per fiber with the local sampler) is
+  outstanding. Copy number, boundaries, the birth-rate clipping and the
+  step size were tested as causes and do not explain the gap
   ([limits](19a-mtdna-spread-limits.md)).
 
 ## The model
@@ -179,11 +181,19 @@ unresolved discrepancy; anything else is inconclusive.
 | Approximate, 0.0625-day step, Nss = 3,500 | 32 | 0.14921 | 0.12571–0.17367 | unresolved discrepancy |
 | Approximate, 0.5-day step, Nss = 3,500, second cohort | 32 | 0.12579 | 0.09678–0.15338 | unresolved discrepancy |
 | Approximate, 0.125-day step, Nss = 3,000 | 96 | 0.14293 | 0.12424–0.16245 | unresolved discrepancy |
+| Exact (local sampler), Nss = 3,500, pilot | 8 | 0.15951 | 0.06445–0.19865 | inconclusive |
 <!-- /mtdna-spread-2e -->
 
-The fresh speeds come from the approximate scheme of `wave.py`, not the
-exact simulator, because one exact 1,480-day fiber takes about 16
-CPU-minutes. The two 0.5-day cohorts agree (0.128 and 0.126). Averaged
+The approximate rows come from the scheme of `wave.py`. The last row
+comes from eight exact fibers of the local sampler (`spatial_turnover`),
+fibers 0 to 7 of the 800-fiber design, with the same estimator: the
+three-bin smoother and 700 whole-fiber resamples. Its interval contains
+the archived speed and is wider than the ±0.03 µm/day margin, so eight
+fibers cannot decide between the approximate cohorts and the archive.
+Averaged over the whole profile, the eight exact fibers gain
+0.148 µm/day (99% interval 0.097 to 0.198, t with 7 degrees of
+freedom), close to the approximate cohorts' 0.128 to 0.141. The
+two 0.5-day cohorts agree (0.128 and 0.126). Averaged
 over the whole profile, the step effect between 0.5 and 0.0625 days is
 −0.013 µm/day (99% interval −0.027 to +0.000). The last three rows are review runs; the limits page
 gives their targets, which were fixed before the runs. Even without noise
@@ -205,7 +215,7 @@ it. The paper reports its simulated speed as about 0.2 µm/day.
 | quick | `python examples/mtdna_spread/study.py --size quick` | 128 two-region paths, short chain, archived crossings | 2 s |
 | draft | `python examples/mtdna_spread/study.py --size draft` | Figure 1C with 2,000 paths per condition | 1 min |
 | wave | `python examples/mtdna_spread/wave.py --fibers 96 --step 0.125` | approximate fiber cohort | 7 to 12 min |
-| full | `python examples/mtdna_spread/study.py --size full --fibers 800` | exact fibers, checkpointed | about 210 CPU-hours |
+| full | `python examples/mtdna_spread/study.py --source-chain --wave-sampler local --fibers 800 --threads N` | exact fibers, checkpointed | about 55 to 65 CPU-hours (estimate) |
 
 `python examples/mtdna_spread/study.py --figures docs/guide/img/mtdna_spread`
 redraws the figures from the saved tables, and

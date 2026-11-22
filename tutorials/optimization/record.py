@@ -5,6 +5,12 @@ Each directory holds C1/, C2/, C3/ and C4/ with the summary.json that run.py
 writes (C1 with --include-next-reaction). Only complete, passed runs are recorded;
 the record keeps the numbers that VALIDATION.md cites, not host paths or
 timings.
+
+`--publications DIR` records the smoke runs of C5 to C10 instead, in their own
+file (results/publications-smoke.json): DIR holds C5/ to C10/, and the record
+keeps each chapter's check names and verdicts and the package versions, no
+numbers, paths or timings. The study numbers of those chapters are the tables
+under results/C5/ to results/C10/.
 """
 
 import argparse
@@ -12,6 +18,7 @@ import json
 from pathlib import Path
 
 CHAPTERS = ["C1", "C2", "C3", "C4"]
+PUBLICATIONS = ["C5", "C6", "C7", "C8", "C9", "C10"]
 
 
 def fail(field, message):
@@ -153,13 +160,18 @@ def c4(s):
     )
 
 
-def chapter(folder, name):
+def load(folder, name):
     path = folder / name / "summary.json"
     if not path.is_file():
         fail(f"{name}.summary", f"{path.name} missing for {name}")
     s = json.loads(path.read_text())
     if s.get("state") != "complete" or s.get("passed") is not True:
         fail(f"{name}.state", f"{name} did not complete with passed checks")
+    return s
+
+
+def chapter(folder, name):
+    s = load(folder, name)
     return s, dict(
         passed=True,
         checks=[c["name"] for c in s["checks"]],
@@ -168,12 +180,44 @@ def chapter(folder, name):
     )
 
 
+def publications(folder):
+    record = dict(
+        schema_version="crn-craft.optimization-record/0.1",
+        scope="Smoke runs of the publication tutorials: which checks passed.",
+        chapters={},
+    )
+    versions = {}
+    for name in PUBLICATIONS:
+        summary = load(folder, name)
+        if summary["preset"] != "smoke":
+            fail(f"{name}.preset", f"{folder.name}/{name} is not a smoke run")
+        if not summary["checks"]:
+            fail(f"{name}.checks", f"{name} ran no checks")
+        for package, version in summary["versions"].items():
+            if versions.setdefault(package, version) != version:
+                fail(f"{name}.versions", f"runs used different {package} versions")
+        record["chapters"][name] = [
+            pick(c, ["name", "passed"]) for c in summary["checks"]
+        ]
+    record["versions"] = versions
+    return record
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--smoke", type=Path, required=True)
-    p.add_argument("--study", type=Path, required=True)
+    p.add_argument("--smoke", type=Path)
+    p.add_argument("--study", type=Path)
+    p.add_argument("--publications", type=Path)
     p.add_argument("--output", type=Path, required=True)
     args = p.parse_args()
+    if args.publications is not None:
+        if args.smoke or args.study:
+            fail("arguments", "--publications excludes --smoke and --study")
+        record = publications(args.publications)
+        args.output.write_text(json.dumps(record, indent=2, allow_nan=False) + "\n")
+        return
+    if args.smoke is None or args.study is None:
+        fail("arguments", "give --smoke and --study, or --publications")
     record = dict(
         schema_version="crn-craft.optimization-record/0.1",
         scope="Executed teaching workflows, not optimizer-performance claims.",

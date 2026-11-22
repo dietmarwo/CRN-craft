@@ -46,6 +46,59 @@ note in C3); completion does not establish that a niche contains a robust
 oscillator. The Vilar control is only a short conservation test of a separate
 model.
 
+## C5–C10 publication studies
+
+C5–C10 reconstruct published optimization studies on the same engine and the
+same `run.py` driver; they add the finite state projection with retained sets,
+forward sensitivities on a prepared projection and the persistent
+concentration solver of the diffsol workspace, and change no SSA, rule or
+optimizer algorithm. [verified.json](results/verified.json) records C1–C4 only: the
+studies of C5–C10 take hours on eight threads, and the record keeps one smoke
+and one study run of the chapters that finish in minutes.
+
+Each chapter keeps its compact tables in `results/C#/`, and `results/C#/README.md`
+names for every file where it came from: the study run of the implementer on
+eight threads (kept as delivered, not rerun in review), or a run repeated in
+review with its command, seed and thread count. The numbers of a chapter are
+on its own page, next to the published value; this page repeats none of them.
+Figures are drawn only from these tables.
+
+The smoke preset of each chapter checks the workflow with a small budget; it
+does not reproduce a published number. It runs the gates that are fixed in the
+chapter's module before any search:
+
+| Chapter | Smoke gates (check names in `summary.json`) |
+|---|---|
+| C5 | FSP against SSA with the count noise of the data, the two-rank score, the search ran |
+| C6 | the 376 archived cells (pinned files, SHA-256), the joint likelihood at a fixed vector |
+| C7 | the archived reference noise, outlet parity of the virtual reactor, a hand-computed hypervolume, exactly 50 evaluations |
+| C8 | probability sensitivities against finite differences and a Fisher fixture, the bursting-interval peak near 6.1 minutes, the archived grid and its 97-of-100 ranking |
+| C9 | the archived Gaussian likelihood and the nominal signal at the published parameters |
+| C10 | the sixteen conditions against an independent trajectory, a hand-computed weighted loss |
+
+`record.py --publications DIR --output results/publications-smoke.json` writes
+the check names and verdicts of complete smoke runs of C5–C10 (one folder per
+chapter, `C5/` to `C10/`) and the package versions; it refuses a missing,
+failed, non-smoke or mixed-version run, and it records no number, path or
+timing.
+
+Every search arm writes `NAME.csv` (the proposals in evaluation order with
+their scores and error text) and `NAME.run.json` (seed, optimizer, population,
+bounds, context, backend and its version, failure count, replayed rows and
+the elapsed time). The CSV files and the run.json fields other than
+`elapsed_seconds`, `workers`, `replayed` and the requested budget are
+deterministic for a fixed seed; elapsed times depend on the host and are kept
+out of the traces. `--resume-from` replays the completed proposals of an
+earlier, completed output and continues the same optimizer sequence; it
+refuses a trace that is cut, edited, incomplete or from another seed,
+optimizer, population, bounds or context. A run that stopped before it wrote
+its `run.json` cannot be resumed. Whether a context string names the objective
+completely is the chapter's duty: the replay trusts the saved scores.
+
+CI runs the unit checks (normally and under `python -O`) and the smoke presets of
+C1, C4, C5 and C6; C2, C3 and C7–C10 need the diffsol binary, the reference binary
+of another repository or a large archive and are run by hand.
+
 Timing is descriptive and depends on host load. Independent training and
 validation seeds and native work counts establish the numerical protocol, not
 statistical power for a scientific discovery. Clone inference, learned

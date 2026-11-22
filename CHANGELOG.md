@@ -43,6 +43,16 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 - `import_sbml` refuses UTF-16 and UTF-32 documents (`CRN-E090`). Such a
   document without a byte order mark hid its DTD from the check, and its
   entities were expanded.
+- One XML guard reads every document: `import_sbml`, the SBML and SED-ML of
+  `read_experiment` and the archive manifest share one set of checks, and
+  `validation/check_importers.py` fails if another module parses XML.
+  Messages that existed are unchanged. Newly refused (`CRN-E090`): elements
+  nested deeper than 256 levels, in every document; in `import_sbml`, a
+  declared encoding other than UTF-8 over UTF-8 bytes (the parser
+  reinterpreted them) and a `str` or `None` argument (it raised
+  `TypeError`); in `read_experiment`, an element other than `model`,
+  `notes` or `annotation` below the `sbml` root (it was ignored). A
+  `memoryview` is read instead of raising `AttributeError`.
 
 ### Documentation (guide and examples)
 

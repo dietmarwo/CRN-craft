@@ -1788,6 +1788,12 @@ Returns a `crn-craft.import/1.0` report as a dictionary:
 the source format and its SHA-256. Unsupported input raises
 [`crn_craft.importers.ImportFailure`](#importersimportfailure).
 
+The document is read by the package's one XML guard: at most 16 MiB of
+well-formed UTF-8 (UTF-16 and UTF-32 are refused, and so is a declared
+encoding other than UTF-8) without a document type or entity declaration
+anywhere in its bytes, so nothing is expanded or fetched, and with
+elements nested at most 256 levels deep.
+
 ### `importers.import_bng_net`
 
 ```text

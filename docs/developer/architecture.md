@@ -43,7 +43,7 @@ flowchart TB
 | `crates/crn-craft` | The engine. `crn_craft::rules` holds the model contract, the expression language, preparation, every simulation method, observation and the result contract. Around it: the flat view and the features that read it (finite state projection, network analysis, ODE kinetics, GillesPy2 export), sealed archives, the converter for network models, strict JSON, diagnostics, samplers and the discovery and check entry points. |
 | `crates/crn-craft-cli` | The `crn-craft` command: reads files, calls the engine, prints JSON and schemas. |
 | `crates/crn-craft-rules` | A deprecated facade: `pub use crn_craft::rules::*;`, so code written for 0.6.0 against `crn_craft_rules::X` still compiles. It also holds the generator examples `generate_rules_kernel`, `generate_rules_loop` and `benchmark_rules`. |
-| `bindings/python`, `python/crn_craft` | The Python package: builder, prepared ensembles, pandas and xarray results, reports, importers, the compiled-loop driver and `python -m crn_craft`. The numerical loops run in Rust. |
+| `bindings/python`, `python/crn_craft` | The Python package: builder, prepared ensembles, pandas and xarray results, reports, importers, the experiment reader, the single XML guard (`_xml.py`, the only module that parses XML), the compiled-loop driver and `python -m crn_craft`. The numerical loops run in Rust. |
 | `integrations/jobs`, `integrations/diffsol`, `validation/parameter-optimization/worker` | Optional fcmaes job objectives, BDF integration with forward sensitivities, and a benchmark worker. Each has its own workspace and lockfile. |
 
 The engine has no dependency on Python, job infrastructure or diffsol, and

@@ -145,6 +145,18 @@ def options(parser):
         type=int,
         help="Override the faster search evaluations per start.",
     )
+    parser.add_argument(
+        "--datasets",
+        type=int,
+        default=8,
+        help="Regenerated 100-trajectory datasets in the study (default 8).",
+    )
+    parser.add_argument(
+        "--starts",
+        type=int,
+        default=2,
+        help="Optimizer starts per 100-trajectory dataset in the study (default 2).",
+    )
 
 
 def run(args, report):
@@ -154,7 +166,10 @@ def run(args, report):
     fast = args.preset == "smoke"
     seed = 5193 + args.seed_offset
     samples = (100,) if fast else (10, 20, 100, 10_000)
-    budget = args.evaluations or (40 if fast else 300)
+    # 300 calls (ten DE generations) left 11 of 16 delivered starts above the
+    # score of the generating rates on the same data; 3,000 reached it on all
+    # four datasets of the review rerun.
+    budget = args.evaluations or (40 if fast else 3000)
     times = TIMES if not fast else TIMES[::10].copy()
     if fast:
         times[-1] = TIMES[-1]
@@ -182,7 +197,7 @@ def run(args, report):
     reproducible = {}
     generated = 0
     for size in samples:
-        for data_index in range(1 if fast or size != 100 else 8):
+        for data_index in range(1 if fast or size != 100 else args.datasets):
             data_seed = seed + size + data_index * 20000
             observations = observed(net, TRUTH, size, data_seed, times)
             generated += size
@@ -194,7 +209,7 @@ def run(args, report):
                 midrank=not args.published_rank and size < 10_000,
             )
             f = objective(graph, problem, times)
-            for retry in range(1 if fast or size != 100 else 2):
+            for retry in range(1 if fast or size != 100 else args.starts):
                 arm = f"m{size}-data{data_index}-de{retry}"
                 # Unit-box cubing is a bijection onto [0, 5] and allocates
                 # more early proposals near the lower end of the rate box.
@@ -209,6 +224,7 @@ def run(args, report):
                     pop=10 if fast else 30,
                 )
                 fitted = 5 * fit.best**3
+                at_truth = f(TRUTH)
                 held = problem.from_counts(
                     observed(
                         net,
@@ -225,7 +241,9 @@ def run(args, report):
                         rates=fitted,
                         score=fit.value,
                         held_ssa_score=held,
-                        truth_score=f(TRUTH),
+                        truth_score=at_truth,
+                        # False means the search stopped short of the optimum.
+                        reached_truth_score=fit.value <= at_truth,
                         paper=TABLE[size],
                         evaluations=len(fit.candidates),
                         failures=fit.failures,
@@ -255,10 +273,13 @@ def run(args, report):
             candidate_paths=10_000 * len(fit.candidates),
             evaluations=len(fit.candidates),
         )
+    # Figure 2A: ten trajectories, first rate at truth, the score of the fits.
     contour_times = times
     small = observed(net, TRUTH, 10, seed + 10, contour_times)
-    f = objective(graph, CdfScore(small), contour_times)
-    grid = np.linspace(0.1, 1.0, 5 if fast else 15)
+    f = objective(
+        graph, CdfScore(small, midrank=not args.published_rank), contour_times
+    )
+    grid = np.linspace(0.1, 1.0, 5 if fast else 31)
     cost = np.array([[f((TRUTH[0], a, b)) for a in grid] for b in grid])
     report.update(
         doi=DOI,
@@ -268,6 +289,7 @@ def run(args, report):
         generated_paths=generated,
         search_coordinates="rates = 5*u^3",
         sparse_score="published ranks" if args.published_rank else "discrete midranks",
+        starts_reaching_truth_score=sum(r["reached_truth_score"] for r in results),
         measurement="rounded normal, signed observations",
         source_sample="regenerated",
     )

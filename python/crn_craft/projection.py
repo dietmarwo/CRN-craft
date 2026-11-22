@@ -699,7 +699,7 @@ def prepare_fsp(
     be pickled; prepare one per process.
 
     ``retained`` optionally restricts the projection to a finite set of
-    count tuples in the order of :attr:`PreparedFsp.species`, inside
+    count tuples in the order of the projection's ``species``, inside
     ``bounds`` (for example a hyperbolic cut ``(x - 4) (y - 4) < c``). Only
     retained states reachable from the initial law are enumerated; a
     transition to any other state flows to the absorbing sink, so the sink

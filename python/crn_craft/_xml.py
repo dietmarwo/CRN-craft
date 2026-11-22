@@ -21,7 +21,8 @@ import xml.etree.ElementTree as ET
 # reinterpret the bytes). Only the XML declaration at the start is looked at.
 _ENCODING = re.compile(rb"""<\?xml[^>]*?encoding\s*=\s*["']([^"']*)["']""")
 _UTF8 = (b"utf-8", b"utf8")
-_PARSE_ERRORS = (ET.ParseError, UnicodeDecodeError, LookupError, ValueError)
+# UnicodeDecodeError is a ValueError.
+_PARSE_ERRORS = (ET.ParseError, LookupError, ValueError)
 
 
 class _XmlRefused(Exception):

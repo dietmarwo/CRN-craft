@@ -9,7 +9,10 @@ model cannot hold, is rejected.
 import argparse
 import json
 from pathlib import Path
+import re
+import tempfile
 import time
+import zipfile
 
 import crn_craft
 
@@ -17,6 +20,7 @@ import crn_craft
 crn_craft.__path__.insert(
     0, str(Path(__file__).resolve().parents[1] / "python/crn_craft")
 )
+from crn_craft._xml import _read_xml, _XmlRefused  # noqa: E402
 from crn_craft.importers import ImportFailure, import_bng_net, import_sbml  # noqa: E402
 
 SBML = b"""<sbml xmlns="http://www.sbml.org/sbml/level3/version2/core" level="3" version="2"><model id="Dimer" substanceUnits="item" timeUnits="second"><listOfCompartments><compartment id="cell" size="1" constant="true"/></listOfCompartments><listOfSpecies><species id="A" compartment="cell" initialAmount="10" hasOnlySubstanceUnits="true" boundaryCondition="false" constant="false"/><species id="B" compartment="cell" initialAmount="0" hasOnlySubstanceUnits="true" boundaryCondition="false" constant="false"/></listOfSpecies><listOfParameters><parameter id="k" value="0.1" constant="true"/></listOfParameters><listOfReactions><reaction id="dimer" reversible="false"><listOfReactants><speciesReference species="A" stoichiometry="2" constant="true"/></listOfReactants><listOfProducts><speciesReference species="B" stoichiometry="1" constant="true"/></listOfProducts><kineticLaw><math xmlns="http://www.w3.org/1998/Math/MathML"><apply><divide/><apply><times/><ci>k</ci><ci>A</ci><apply><minus/><ci>A</ci><cn>1</cn></apply></apply><cn>2</cn></apply></math></kineticLaw></reaction></listOfReactions></model></sbml>"""
@@ -36,6 +40,324 @@ begin groups
 1 A_total 1,2*2
 end groups
 """
+
+SED = """<sedML xmlns="http://sed-ml.org/sed-ml/level1/version3" level="1" version="3">
+<listOfModels><model id="m" source="model.xml" language="urn:sedml:language:sbml"/></listOfModels>
+<listOfSimulations><uniformTimeCourse id="s" initialTime="0" outputStartTime="0" outputEndTime="1" numberOfPoints="2"><algorithm kisaoID="KISAO:0000029"/></uniformTimeCourse></listOfSimulations>
+<listOfTasks><task id="t" modelReference="m" simulationReference="s"/></listOfTasks>
+<listOfDataGenerators><dataGenerator id="g"><listOfVariables><variable id="x" taskReference="t" target="/sbml:sbml/sbml:model/sbml:listOfSpecies/sbml:species[@id='A']"/></listOfVariables><math xmlns="http://www.w3.org/1998/Math/MathML"><ci>x</ci></math></dataGenerator></listOfDataGenerators>
+<listOfOutputs><report id="out"><listOfDataSets><dataSet id="A" dataReference="g"/></listOfDataSets></report></listOfOutputs></sedML>"""
+MANIFEST = """<omexManifest xmlns="http://identifiers.org/combine.specifications/omex-manifest">
+<content location="study.sedml" format="http://identifiers.org/combine.specifications/sed-ml" master="true"/>
+</omexManifest>"""
+CONVENTION = "stochastic_count_propensity"
+LIMIT = 16 << 20
+UTF8_ONLY = "XML must be UTF-8 without a document type or entities"
+DTD_OR_SIZE = "oversized XML or DTD/entities unsupported"
+ONLY_UTF8 = "unreadable XML: only UTF-8 is supported"
+
+
+def anchor(text, extra):
+    """Add attribute text to the first element below the root."""
+    return re.sub(r"<(model|content)\b", lambda m: m[0] + extra, text, count=1)
+
+
+def pad(text, size):
+    return text.encode() + b" " * (size - len(text.encode()))
+
+
+def encoded(name):
+    return lambda t: t.encode(name)
+
+
+def declared(name, quote='"'):
+    return (
+        lambda t: f"<?xml version={quote}1.0{quote} encoding={quote}{name}{quote}?>{t}".encode()
+    )
+
+
+def prefixed(head):
+    return lambda t: (head + t).encode()
+
+
+DTD = '<!DOCTYPE a [<!ENTITY e "x">]>'
+# case name -> (kind, builder). The kinds, with the refusal each one gets:
+#   ok            read
+#   type          not bytes (import_sbml only)
+#   size          over 16 MiB
+#   nul           NUL bytes (UTF-16, UTF-32)
+#   dtd           a document type or entity declaration, anywhere in the bytes
+#   enc_only      a declared encoding other than UTF-8 that the parser accepts
+#   enc_parser    a declared encoding that the parser rejects as well
+#   utf8          bytes that are not UTF-8
+#   syntax        not well-formed XML
+# Not file contents: only import_sbml takes a value rather than a path.
+IMPORT_ONLY = {"str", "none", "bytearray", "memoryview"}
+GUARD_CASES = {
+    "utf8": ("ok", encoded("utf-8")),
+    "utf8_bom": ("ok", lambda t: b"\xef\xbb\xbf" + t.encode()),
+    "declared_utf8_upper": ("ok", declared("UTF-8")),
+    "declared_utf8_nodash": ("ok", declared("utf8")),
+    "declared_none": ("ok", prefixed('<?xml version="1.0"?>')),
+    "processing_instruction": ("ok", prefixed("<?target data?>")),
+    "stylesheet_instruction": ("ok", prefixed('<?xml-stylesheet href="x.xsl"?>')),
+    "comment": ("ok", prefixed("<!-- hello -->")),
+    "cdata": ("ok", lambda t: t.replace(">", "><![CDATA[x]]>", 1).encode()),
+    "predefined_entity": ("ok", lambda t: anchor(t, " name='&amp;&lt;'").encode()),
+    "large_attribute": (
+        "ok",
+        lambda t: anchor(t, " name='" + "a" * (8 << 20) + "'").encode(),
+    ),
+    "size_limit_minus_one": ("ok", lambda t: pad(t, LIMIT - 1)),
+    "size_limit": ("ok", lambda t: pad(t, LIMIT)),
+    "size_limit_plus_one": ("size", lambda t: pad(t, LIMIT + 1)),
+    "size_utf16": ("size", lambda t: t.encode("utf-16") + b" \x00" * LIMIT),
+    "str": ("type", lambda t: t),
+    "none": ("type", lambda t: None),
+    "bytearray": ("ok", lambda t: bytearray(t.encode())),
+    "memoryview": ("ok", lambda t: memoryview(t.encode())),
+    "utf16_bom": ("nul", encoded("utf-16")),
+    "utf16_le": ("nul", encoded("utf-16-le")),
+    "utf16_be": ("nul", encoded("utf-16-be")),
+    "utf32_bom": ("nul", encoded("utf-32")),
+    "utf32_le": ("nul", encoded("utf-32-le")),
+    "utf32_be": ("nul", encoded("utf-32-be")),
+    "utf16_declared_dtd": (
+        "nul",
+        lambda t: ('<?xml version="1.0" encoding="UTF-16"?>' + DTD + t).encode(
+            "utf-16-le"
+        ),
+    ),
+    "nul_in_comment": ("nul", prefixed("<!--\x00-->")),
+    "doctype": ("dtd", prefixed("<!DOCTYPE a>")),
+    "doctype_lower": ("dtd", prefixed("<!doctype a>")),
+    "doctype_mixed": ("dtd", prefixed("<!DocType a>")),
+    "doctype_internal_subset": ("dtd", prefixed("<!DOCTYPE a [<!ELEMENT a ANY>]>")),
+    "doctype_entity": ("dtd", prefixed(DTD)),
+    "parameter_entity": ("dtd", prefixed('<!DOCTYPE a [<!ENTITY % p "x">%p;]>')),
+    "external_entity": (
+        "dtd",
+        prefixed('<!DOCTYPE a [<!ENTITY e SYSTEM "file:///nonexistent/crn-craft">]>'),
+    ),
+    "external_subset": (
+        "dtd",
+        prefixed('<!DOCTYPE a SYSTEM "file:///nonexistent/crn-craft">'),
+    ),
+    "billion_laughs": (
+        "dtd",
+        lambda t: (
+            '<!DOCTYPE l [<!ENTITY a "aaaaaaaaaa"><!ENTITY b "&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;">'
+            '<!ENTITY c "&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;">]>' + anchor(t, " note='&c;'")
+        ).encode(),
+    ),
+    "entity_declaration": ("dtd", prefixed("<!ENTITY e 'x'>")),
+    "entity_declaration_lower": ("dtd", prefixed("<!entity e 'x'>")),
+    "doctype_in_comment": ("dtd", prefixed("<!-- <!DOCTYPE a> -->")),
+    "entity_in_comment": ("dtd", prefixed("<!-- <!ENTITY e 'x'> -->")),
+    "doctype_in_cdata": (
+        "dtd",
+        lambda t: t.replace(">", "><![CDATA[<!DOCTYPE a>]]>", 1).encode(),
+    ),
+    "declared_utf7_doctype": (
+        "dtd",
+        lambda t: ('<?xml version="1.0" encoding="utf-7"?><!DOCTYPE a>' + t).encode(),
+    ),
+    "declared_latin1": ("enc_only", declared("ISO-8859-1")),
+    "declared_latin1_single_quote": ("enc_only", declared("ISO-8859-1", "'")),
+    "declared_latin1_after_bom": (
+        "enc_only",
+        lambda t: b"\xef\xbb\xbf" + declared("ISO-8859-1")(t),
+    ),
+    "declared_ascii": ("enc_only", declared("US-ASCII")),
+    "declared_ascii_lower": ("enc_only", declared("ascii")),
+    "declared_utf16": ("enc_parser", declared("UTF-16")),
+    "declared_utf32": ("enc_parser", declared("UTF-32")),
+    "declared_utf7": ("enc_parser", declared("utf-7")),
+    "declared_ebcdic": ("enc_parser", declared("cp037")),
+    "declared_unknown": ("enc_parser", declared("x-unknown")),
+    "declared_empty": ("enc_parser", declared("")),
+    "declared_latin1_bytes": (
+        "enc_parser",
+        lambda t: (
+            '<?xml version="1.0" encoding="ISO-8859-1"?><!-- \xe9 -->' + t
+        ).encode("latin-1"),
+    ),
+    "invalid_utf8": ("utf8", lambda t: anchor(t, " note='\xff'").encode("latin-1")),
+    "binary": ("utf8", lambda t: bytes(range(1, 255)) * 8),
+    "empty": ("syntax", lambda t: b""),
+    "whitespace": ("syntax", lambda t: b"  \n"),
+    "text": ("syntax", lambda t: b"hello"),
+    "truncated": ("syntax", lambda t: t.encode()[:-12]),
+    "undefined_entity": ("syntax", lambda t: anchor(t, " note='&e;'").encode()),
+    "control_character": ("syntax", lambda t: anchor(t, " note='\x01'").encode()),
+    "uppercase_declaration": ("syntax", prefixed('<?XML version="1.0"?>')),
+    "space_in_declaration_open": ("syntax", prefixed("<! DOCTYPE a>")),
+}
+
+
+def guard_expectation(kind, channel):
+    """The refusal expected from one entry point: (text, exact) or None to read."""
+    if kind == "ok":
+        return None
+    if channel == "import":
+        if kind in {"size", "nul", "dtd"}:
+            return DTD_OR_SIZE, True
+        if kind == "enc_only":
+            return ONLY_UTF8, True
+        if kind == "type":
+            return "unreadable XML: XML must be given as bytes", True
+        if kind == "enc_parser":
+            return "unreadable XML: ", False
+        if kind == "utf8":
+            return "unreadable XML: 'utf-8' codec can't decode", False
+        return "unreadable XML: ", False
+    # read_experiment; a manifest failure is wrapped as an archive failure
+    wrap = "invalid OMEX archive: " if channel == "manifest" else ""
+    if kind == "size":
+        if channel == "manifest":
+            return wrap + "XML document exceeds 16 MiB", True
+        return f"file exceeds its size budget: {channel}", True
+    if kind in {"nul", "dtd", "enc_only", "enc_parser"}:
+        return wrap + UTF8_ONLY, True
+    if kind == "utf8":
+        return wrap + "invalid XML: 'utf-8' codec can't decode", False
+    return wrap + "invalid XML: ", False
+
+
+REASONS = {
+    "type": "type",
+    "size": "size",
+    "nul": "nul",
+    "dtd": "dtd",
+    "enc_only": "encoding",
+    "enc_parser": "encoding",
+    "utf8": "utf8",
+    "syntax": "syntax",
+}
+
+
+def guard_reason(data):
+    """The reason and parser detail with which the guard itself refuses data."""
+    try:
+        _read_xml(data, LIMIT)
+    except _XmlRefused as refused:
+        return refused.reason, refused.detail
+    return None, None
+
+
+def refusal(read, *args, **kwargs):
+    try:
+        read(*args, **kwargs)
+    except ImportFailure as error:
+        return f"{error.code}: {error}"
+    return None
+
+
+def guard_rows():
+    """Every guard condition through import_sbml and read_experiment.
+
+    One transformation is applied to an SBML document read by import_sbml, to
+    a SED-ML file, to a model file and to the manifest of an archive, so all
+    four reading sites of the package meet the same bytes.
+    """
+    rows = []
+    with tempfile.TemporaryDirectory() as temp:
+        temp = Path(temp)
+        for name, (kind, build) in GUARD_CASES.items():
+            sites = {
+                "import": SBML.decode(),
+                "study.sedml": SED,
+                "model.xml": SBML.decode(),
+                "manifest": MANIFEST,
+            }
+            for channel, text in sites.items():
+                if name in IMPORT_ONLY and channel != "import":
+                    continue
+                data = build(text)
+                if channel == "import":
+                    reason, detail = guard_reason(data)
+                    require(
+                        reason == REASONS.get(kind),
+                        f"{name}: the guard says {reason!r}",
+                    )
+                    require(
+                        (detail is None) == (kind != "enc_parser"),
+                        f"{name}: parser detail {detail!r}",
+                    )
+                    result = refusal(import_sbml, data, convention=CONVENTION)
+                elif channel == "manifest":
+                    archive = temp / "case.omex"
+                    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as arc:
+                        arc.writestr("manifest.xml", data)
+                        arc.writestr("study.sedml", SED)
+                        arc.writestr("model.xml", SBML)
+                    result = refusal(
+                        crn_craft.read_experiment, archive, convention=CONVENTION
+                    )
+                else:
+                    folder = temp / "files"
+                    folder.mkdir(exist_ok=True)
+                    (folder / "study.sedml").write_bytes(
+                        data if channel == "study.sedml" else SED.encode()
+                    )
+                    (folder / "model.xml").write_bytes(
+                        data if channel == "model.xml" else SBML
+                    )
+                    result = refusal(
+                        crn_craft.read_experiment,
+                        folder / "study.sedml",
+                        convention=CONVENTION,
+                    )
+                expected = guard_expectation(kind, channel)
+                if expected is None:
+                    require(
+                        result is None, f"{name} through {channel} refused: {result}"
+                    )
+                else:
+                    text_, exact = expected
+                    want = "CRN-E090: " + text_
+                    require(
+                        result is not None
+                        and (result == want if exact else result.startswith(want))
+                        # the parser's own message, not the guard's
+                        and (kind != "enc_parser" or ONLY_UTF8 not in result),
+                        f"{name} through {channel}: {result!r} not {want!r}",
+                    )
+            rows.append({"check": "xml_guard_" + name, "passed": True})
+    return rows
+
+
+FORBIDDEN_XML = (
+    "xml.etree",
+    "xml.dom",
+    "xml.sax",
+    "expat",
+    "lxml",
+    "fromstring",
+    "iterparse",
+    "XMLParser",
+    "ET.parse",
+    "minidom",
+    "defusedxml",
+)
+
+
+def xml_entry_points():
+    """Only the guard module may name an XML parser."""
+    package = Path(__file__).resolve().parents[1] / "python/crn_craft"
+    guard = package / "_xml.py"
+    require(guard.is_file(), "the XML guard module is missing")
+    found = []
+    for path in sorted(package.rglob("*.py")):
+        if path == guard:
+            continue
+        source = path.read_text(encoding="utf-8")
+        found += [f"{path.name}: {word}" for word in FORBIDDEN_XML if word in source]
+    require(not found, "XML parsing outside the guard: " + ", ".join(found))
+    require(
+        "fromstring" in guard.read_text(encoding="utf-8"), "the guard parses nothing"
+    )
+    return [{"check": "xml_parsing_only_in_guard", "passed": True}]
 
 
 def require(v, message):
@@ -238,6 +560,8 @@ def main():
             rows.append({"check": "reject_" + name, "passed": True})
         else:
             raise RuntimeError("accepted " + name)
+    rows.extend(guard_rows())
+    rows.extend(xml_entry_points())
     args.output.write_text(
         json.dumps(
             {"schema": "crn-craft.import-validation/0.1", "passed": True, "rows": rows},

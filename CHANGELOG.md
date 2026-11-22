@@ -7,6 +7,19 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-22
+
+Scheduled experiments and probability laws. Runs follow a protocol of
+timed edits, count changes, partitions and fixed delays under the new
+contracts `crn-craft.run/1.1` and `crn-craft.result/1.1`; `run/1.0`
+requests and their results are unchanged. A prepared finite state
+projection solves time-dependent and stationary laws for many parameter
+vectors on one enumerated state graph, entirely in Rust. Spatial
+compartments, likelihood readouts and a reader for a subset of SBML and
+SED-ML experiment files are added. All XML is read through one guard,
+which closes a hole of 0.8.1: `import_sbml` expanded the entities of a
+UTF-16 document without a byte order mark.
+
 ### Added
 
 - `crn-craft.run/1.1` and `crn-craft.result/1.1`: native linear Static
@@ -1306,7 +1319,8 @@ iterations that make up this release follow.
 - Experimental non-negative Poisson leaping with explicit approximate request/result schemas.
 - Ten performance experiments and same-host reference/quality evidence; no package publishing.
 
-[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/dietmarwo/CRN-craft/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.7.1...v0.8.0
 [0.7.1]: https://github.com/dietmarwo/CRN-craft/compare/v0.7.0...v0.7.1

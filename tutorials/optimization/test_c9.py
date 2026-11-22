@@ -8,10 +8,17 @@ import tempfile
 import unittest
 
 import numpy as np
+import yaml
 
 from publications import petab
 
 DATA = Path(os.environ.get("CRN_PUBLICATION_DATA", ".publication-data")) / "C9"
+ODE = Path(
+    os.environ.get(
+        "CRN_DIFFSOL_BINARY",
+        Path(__file__).parents[2] / "integrations/diffsol/target/release/crn-diffsol",
+    )
+)
 
 YAML = """format_version: 1
 parameter_file: parameters.tsv
@@ -120,12 +127,15 @@ class ReaderAccepts(Fixture):
 
 class ReaderRefuses(Fixture):
     def test_unsafe_yaml(self):
+        # An unsafe loader would build the integer 1 and accept the problem.
         (self.folder / "problem.yaml").write_text(
-            "format_version: !!python/object/apply:os.system ['true']\n"
+            YAML.replace(
+                "format_version: 1",
+                "format_version: !!python/object/apply:builtins.int ['1']",
+            )
         )
-        with self.assertRaises(Exception) as caught:
+        with self.assertRaises(yaml.constructor.ConstructorError):
             petab.read(self.folder / "problem.yaml")
-        self.assertNotIsInstance(caught.exception, AssertionError)
         (self.folder / "problem.yaml").write_text(YAML + "format_version: 1\n")
         self.refuses("duplicate PEtab YAML key")
         (self.folder / "problem.yaml").write_text(
@@ -274,6 +284,35 @@ class Archive(unittest.TestCase):
         np.testing.assert_allclose(
             per_signal, [44.2806969, 52.8702405, 41.0710623], rtol=0, atol=5e-8
         )
+
+
+@unittest.skipUnless(
+    DATA.joinpath("problem.yaml").is_file() and ODE.is_file(),
+    "C9 fixtures or crn-diffsol binary absent",
+)
+class Model(unittest.TestCase):
+    def test_hand_mapping_matches_sbml_at_three_vectors(self):
+        from publications import stat5
+        from publications.concentrations import Solver
+
+        problem = petab.read(DATA / "problem.yaml")
+        with tempfile.TemporaryDirectory() as folder:
+            with Solver(ODE, Path(folder) / "m.json", stat5.model(problem)) as solver:
+                for name, parameters in stat5.vectors(problem).items():
+                    with self.subTest(name):
+                        _, reference = stat5.reference(problem, parameters)
+                        _, native = solver.batch(
+                            [[parameters[k] for k in stat5.KINETIC]],
+                            problem.times,
+                            rtol=2e-10,
+                            atol=1e-12,
+                        )
+                        self.assertLess(np.max(np.abs(native[0] - reference)), 1e-5)
+                        gap = (
+                            problem.score(native[0], parameters).sum()
+                            - problem.score(reference, parameters).sum()
+                        )
+                        self.assertLess(abs(gap), 1e-4)
 
 
 if __name__ == "__main__":

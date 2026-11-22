@@ -1,7 +1,9 @@
 """Reproduce the STAT5 fit using the archived PEtab measurements."""
 
+import csv
 from functools import reduce
 import operator
+from pathlib import Path
 
 from crn_craft._xml import _read_xml
 import libsbml as sbml
@@ -11,7 +13,7 @@ from scipy.integrate import solve_ivp
 from common import require, write
 from . import petab
 from .concentrations import Solver, document
-from .search import PACKAGES, PENALTY, check, options_resume, save_plot, search
+from .search import PACKAGES, PENALTY, check, options_resume, search
 from .sources import data_option, fixtures
 
 PACKAGES = (*PACKAGES, "PyYAML", "python-libsbml")
@@ -75,15 +77,22 @@ OPERATIONS = {
 
 
 def arithmetic(node, env):
+    """Evaluate a libSBML formula tree of names, numbers, + - * / ^ and exp."""
     kind = node.getType()
     if kind == sbml.AST_NAME_TIME:
         return env["time"]
     if node.isName():
-        return env[node.getName()]
+        name = node.getName()
+        require(name in env, f"SBML formula uses an unknown name {name!r}")
+        return env[name]
     if node.isInteger():
         return node.getInteger()
     if node.isReal():
         return node.getReal()
+    require(
+        kind in OPERATIONS or kind == sbml.AST_FUNCTION_EXP,
+        f"unsupported SBML math {node.getName() or kind}",
+    )
     children = [arithmetic(node.getChild(i), env) for i in range(node.getNumChildren())]
     if kind == sbml.AST_FUNCTION_EXP:
         return np.exp(children[0])
@@ -92,16 +101,72 @@ def arithmetic(node, env):
     return reduce(OPERATIONS[kind], children)
 
 
-def reference(problem, parameters):
-    # Independent amount-space interpretation of the pinned SBML source.
+def sbml_model(problem):
+    """Read the SBML file through the package's XML guard, then with libSBML."""
     raw = problem.model.read_bytes()
-    _read_xml(raw, 4 << 20)
+    _read_xml(raw, petab.LIMIT)  # refuses DTDs, entities, non-UTF-8, deep nesting
     source = sbml.readSBMLFromString(raw.decode("utf-8"))
     sbmodel = source.getModel()
     require(
-        source.getLevel() == 2 and sbmodel is not None,
-        "expected the archived SBML model",
+        source.getLevel() == 2
+        and sbmodel is not None
+        and source.getNumErrors(sbml.LIBSBML_SEV_ERROR) == 0
+        and source.getNumErrors(sbml.LIBSBML_SEV_FATAL) == 0,
+        "expected a valid SBML Level 2 model",
     )
+    require(
+        sbmodel.getNumEvents() == 0
+        and sbmodel.getNumFunctionDefinitions() == 0
+        and sbmodel.getNumConstraints() == 0,
+        "events, function definitions and constraints are not supported",
+    )
+    require(
+        all(r.isAssignment() for r in sbmodel.getListOfRules()),
+        "only SBML assignment rules are supported",
+    )
+    require(
+        all(
+            not s.getHasOnlySubstanceUnits()
+            and not s.getBoundaryCondition()
+            and not s.getConstant()
+            for s in sbmodel.getListOfSpecies()
+        ),
+        "only variable concentration species are supported",
+    )
+    require(
+        all(c.getConstant() for c in sbmodel.getListOfCompartments()),
+        "compartment sizes must be constant",
+    )
+    require(
+        all(
+            r.getKineticLaw() is not None
+            and r.getKineticLaw().getNumParameters() == 0
+            and all(
+                ref.getStoichiometryMath() is None
+                for side in (r.getListOfReactants(), r.getListOfProducts())
+                for ref in side
+            )
+            for r in sbmodel.getListOfReactions()
+        ),
+        "reactions need a kinetic law without local parameters"
+        " and constant stoichiometry",
+    )
+    require(
+        sorted(s.getId() for s in sbmodel.getListOfSpecies()) == sorted(STATES),
+        "the SBML species differ from the hand-mapped STAT5 states",
+    )
+    return sbmodel
+
+
+def reference(problem, parameters, *, rtol=2e-10, atol=1e-12):
+    """Solve the SBML reactions in amount space from libSBML formula trees.
+
+    This route does not use the hand-written equations of `model`: it builds
+    the stoichiometry and the rates from the SBML file, integrates molecule
+    amounts (concentration times compartment size) with SciPy's Radau method
+    and divides by the sizes afterwards.
+    """
+    sbmodel = sbml_model(problem)
     compartments = {c.getId(): c.getSize() for c in sbmodel.getListOfCompartments()}
     species = {s.getId(): s for s in sbmodel.getListOfSpecies()}
     volumes = np.array([compartments[species[s].getCompartment()] for s in STATES])
@@ -137,8 +202,8 @@ def reference(problem, parameters):
         y0,
         method="Radau",
         t_eval=problem.times,
-        rtol=2e-10,
-        atol=1e-12,
+        rtol=rtol,
+        atol=atol,
     )
     require(result.success, result.message)
     states = result.y.T / volumes
@@ -146,11 +211,57 @@ def reference(problem, parameters):
         sbml.parseL3Formula(r["observableFormula"])
         for r in problem.observations.values()
     ]
+    require(all(s is not None for s in signals), "unparsable observable formula")
     observations = [
         [arithmetic(s, env | dict(zip(STATES, y, strict=True))) for s in signals]
         for y in states
     ]
     return states, np.asarray(observations)
+
+
+# Log10 shifts of the six kinetic rates for the two off-nominal checks; the
+# second also moves the two fixed parameters so that their mapping is tested.
+OFF_NOMINAL = {
+    "off-nominal-a": (
+        dict(
+            Epo_degradation_BaF3=0.3,
+            k_exp_hetero=1,
+            k_exp_homo=-0.5,
+            k_imp_hetero=0.5,
+            k_imp_homo=-3,
+            k_phos=-0.5,
+        ),
+        {},
+    ),
+    "off-nominal-b": (
+        dict(
+            Epo_degradation_BaF3=-0.5,
+            k_exp_hetero=3,
+            k_exp_homo=1,
+            k_imp_hetero=-1,
+            k_imp_homo=-5,
+            k_phos=0.5,
+        ),
+        dict(ratio=0.5, specC17=0.2),
+    ),
+}
+
+
+def vectors(problem):
+    """The nominal vector and two declared off-nominal vectors inside the bounds."""
+    result = {"nominal": problem.nominal}
+    for name, (shifts, fixed) in OFF_NOMINAL.items():
+        p = problem.nominal | fixed
+        for key, shift in shifts.items():
+            p[key] *= 10**shift
+        for key, value in p.items():
+            meta = problem.parameters[key]
+            require(
+                float(meta["lowerBound"]) <= value <= float(meta["upperBound"]),
+                f"{name} leaves the bounds of {key}",
+            )
+        result[name] = p
+    return result
 
 
 def options(parser):
@@ -169,6 +280,19 @@ def options(parser):
     )
 
 
+def per_signal(problem, costs):
+    return [float(costs[problem.o_index == i].sum()) for i in range(3)]
+
+
+def write_csv(path, header, rows):
+    with path.open("w", newline="") as stream:
+        writer = csv.writer(stream, lineterminator="\n")
+        writer.writerow(header)
+        writer.writerows(
+            [f"{v:.12g}" if isinstance(v, float) else v for v in row] for row in rows
+        )
+
+
 def run(args, report):
     """Verify the archived likelihood and fit all nine PEtab coordinates."""
     files = fixtures(args.data_dir, "C9")
@@ -183,18 +307,19 @@ def run(args, report):
         and len(problem.fits) == 9
         and abs(archived_nll - REFERENCE_NLL) < 1e-6,
         nll=archived_nll,
-        per_signal=[float(costs[problem.o_index == i].sum()) for i in range(3)],
+        per_signal=per_signal(problem, costs),
     )
-    ref_state, ref_signal = reference(problem, nominal)
     fast = args.preset == "smoke"
     retries = args.retries or (1 if fast else 8)
     budget = args.evaluations or (50 if fast else 5000)
+    tables = args.output / "tables"
+    tables.mkdir()
     with Solver(args.ode_binary, args.output / "model.json", model(problem)) as solver:
 
-        def simulate(parameters, *, tight=False):
+        def simulate(parameters, *, tight=False, times=problem.times):
             y, outputs = solver.batch(
                 [[parameters[key] for key in KINETIC]],
-                problem.times,
+                times,
                 **(dict(rtol=2e-10, atol=1e-12) if tight else {}),
             )
             return y[0], outputs[0]
@@ -204,9 +329,31 @@ def run(args, report):
             _, ys = simulate(p)
             return float(problem.score(ys, p).sum())
 
-        native, readouts = simulate(nominal, tight=True)
-        discrepancy = float(np.max(np.abs(readouts - ref_signal)))
-        nll = float(problem.score(readouts, nominal).sum())
+        # The hand-mapped native model against the libSBML route at the nominal
+        # vector and two off-nominal vectors; the search tolerance against the
+        # tight one. Targets are the plan's: 0.01 signal units and 0.05 nats.
+        verification = []
+        for name, parameters in vectors(problem).items():
+            ref_state, ref_signal = reference(problem, parameters)
+            state, signal = simulate(parameters, tight=True)
+            _, loose = simulate(parameters)
+            row = dict(
+                vector=name,
+                signal_max_abs=float(np.max(np.abs(signal - ref_signal))),
+                state_max_abs=float(np.max(np.abs(state - ref_state))),
+                nll_native=float(problem.score(signal, parameters).sum()),
+                nll_reference=float(problem.score(ref_signal, parameters).sum()),
+                nll_search_tolerance=float(problem.score(loose, parameters).sum()),
+            )
+            verification.append(row)
+            if name == "nominal":
+                native, readouts, nominal_reference = state, signal, ref_signal
+        write_csv(
+            tables / "verification.csv",
+            list(verification[0]),
+            [list(row.values()) for row in verification],
+        )
+        nll = verification[0]["nll_native"]
         scale = np.array([1.4] * 5 + [0.45] * 3)
         incidence = np.array([[1, 0, 2, 1, 0, 2, 1, 0], [0, 1, 0, 1, 2, 0, 1, 2]])
         mass = (native * scale) @ incidence.T
@@ -214,12 +361,20 @@ def run(args, report):
         check(
             report,
             "native-nominal-signal-and-nll",
-            discrepancy < 0.01 and abs(nll - archived_nll) < 0.05 and mass_error < 1e-4,
+            all(
+                row["signal_max_abs"] < 0.01
+                and abs(row["nll_native"] - row["nll_reference"]) < 0.05
+                and abs(row["nll_search_tolerance"] - row["nll_native"]) < 0.05
+                for row in verification
+            )
+            and abs(nll - archived_nll) < 0.05
+            and mass_error < 1e-4,
             nll=nll,
-            signal_max_abs=discrepancy,
-            state_max_abs=np.max(np.abs(native - ref_state)),
+            signal_max_abs=verification[0]["signal_max_abs"],
+            state_max_abs=verification[0]["state_max_abs"],
             archive_nll_gap=nll - archived_nll,
             dimer_amount_drift=mass_error,
+            vectors=verification,
         )
         results = []
         for i in range(retries):
@@ -249,7 +404,7 @@ def run(args, report):
             require(best.value < PENALTY, "no finite STAT5 fit")
             params = problem.bind(best.best)
             _, fitted_signal = simulate(params, tight=True)
-            tight_nll = float(problem.score(fitted_signal, params).sum())
+            tight_costs = problem.score(fitted_signal, params)
             results.append(
                 (
                     dict(
@@ -257,7 +412,9 @@ def run(args, report):
                         seed=seed,
                         parameters=params,
                         proposed=best.value,
-                        verified=tight_nll,
+                        verified=float(tight_costs.sum()),
+                        per_signal=per_signal(problem, tight_costs),
+                        de_best=de.value,
                         calls=len(de.scores) + len(cma.scores),
                         failures=de.failures + cma.failures,
                     ),
@@ -265,7 +422,12 @@ def run(args, report):
                 )
             )
         best, signal = min(results, key=lambda pair: pair[0]["verified"])
+        fits = {"best plain retry": (best["parameters"], best["calls"])}
         if args.profile_evaluations:
+            # Kinetic rates only; each noise scale is replaced by its conditional
+            # maximum-likelihood value, the root mean square residual of its
+            # signal (clipped to the declared bounds). `nominal` supplies only the
+            # two fixed parameters; its noise scales are overwritten.
             kinetics = [i for i, name in enumerate(problem.fits) if name in KINETIC]
             labels = [problem.fits[i] for i in kinetics]
 
@@ -309,22 +471,20 @@ def run(args, report):
             )
             candidate = min((fit, second), key=lambda arm: arm.value)
             value, pp, vv = profiled(candidate.best, tight=True)
+            calls = len(fit.scores) + len(second.scores)
             report["profiled_noise"] = dict(
                 verified=value,
+                per_signal=per_signal(problem, problem.score(vv, pp)),
                 parameters=pp,
-                calls=len(fit.scores) + len(second.scores),
+                calls=calls,
             )
+            fits["profiled noise scales"] = (pp, calls)
             write(
                 args.output / "profiled-signals.json",
                 dict(times=problem.times, signals=vv),
             )
             if args.joint_refine_evaluations:
-                seed = [
-                    np.log10(pp[k])
-                    if problem.parameters[k]["parameterScale"] == "log10"
-                    else pp[k]
-                    for k in problem.fits
-                ]
+                # CMA-ES on all nine coordinates, started at the profiled optimum.
                 joint = search(
                     args,
                     "joint-refinement-cma",
@@ -333,22 +493,107 @@ def run(args, report):
                     problem.bounds,
                     7460 + args.seed_offset,
                     args.joint_refine_evaluations,
-                    x0=seed,
+                    x0=problem.scaled(pp),
                     sigma=0.015,
                     pop=14,
                 )
                 joint_parameters = problem.bind(joint.best)
                 _, joint_signals = simulate(joint_parameters, tight=True)
-                joint_nll = float(problem.score(joint_signals, joint_parameters).sum())
+                joint_costs = problem.score(joint_signals, joint_parameters)
                 report["joint_refinement"] = dict(
-                    verified=joint_nll,
+                    verified=float(joint_costs.sum()),
+                    per_signal=per_signal(problem, joint_costs),
                     parameters=joint_parameters,
                     calls=len(joint.scores),
+                    start="profiled-noise optimum",
+                )
+                fits["profiled, then joint refinement"] = (
+                    joint_parameters,
+                    calls + len(joint.scores),
                 )
                 write(
                     args.output / "joint-refined-signals.json",
                     dict(times=problem.times, signals=joint_signals),
                 )
+        # Saved tables: the inputs of `draw`.
+        archived = {}
+        for row in petab.table(files["simulations.tsv"], "simulations"):
+            archived[petab.key(row)] = float(row["simulation"])
+        dense = np.linspace(0.0, float(problem.times[-1]), 161)
+        curves = {"nominal (native)": simulate(nominal, tight=True, times=dense)[1]}
+        measured = {"nominal (native)": readouts}
+        nll_rows = [
+            ["archive", "archived simulations", *per_signal(problem, costs), 0],
+            [
+                "nominal (native)",
+                "PEtab nominal vector, native solve",
+                *per_signal(problem, problem.score(readouts, nominal)),
+                0,
+            ],
+            [
+                "nominal (libSBML route)",
+                "PEtab nominal vector, SciPy solve",
+                *per_signal(problem, problem.score(nominal_reference, nominal)),
+                0,
+            ],
+        ]
+        for label, (parameters, calls) in fits.items():
+            _, at_data = simulate(parameters, tight=True)
+            measured[label] = at_data
+            curves[label] = simulate(parameters, tight=True, times=dense)[1]
+            nll_rows.append(
+                [
+                    label,
+                    "fcmaes search",
+                    *per_signal(problem, problem.score(at_data, parameters)),
+                    calls,
+                ]
+            )
+    ids = list(problem.observations)
+    write_csv(
+        tables / "nll.csv",
+        ["source", "route", *ids, "total", "calls"],
+        [[*r[:5], sum(r[2:5]), r[5]] for r in nll_rows],
+    )
+    write_csv(
+        tables / "measurements.csv",
+        ["observable", "time", "measurement", "archive", *measured],
+        [
+            [
+                row["observableId"],
+                float(row["time"]),
+                float(row["measurement"]),
+                archived[petab.key(row)],
+                *[
+                    float(v[problem.t_index[i], problem.o_index[i]])
+                    for v in measured.values()
+                ],
+            ]
+            for i, row in enumerate(problem.measurements)
+        ],
+    )
+    write_csv(
+        tables / "curves.csv",
+        ["time", *[f"{k}|{o}" for k in curves for o in ids]],
+        [
+            [float(t), *[float(v[j, i]) for v in curves.values() for i in range(3)]]
+            for j, t in enumerate(dense)
+        ],
+    )
+    fitted = [*[(f"retry {r['retry']}", r) for r, _ in results]]
+    if "profiled_noise" in report:
+        fitted.append(("profiled", report["profiled_noise"]))
+    if "joint_refinement" in report:
+        fitted.append(("joint", report["joint_refinement"]))
+    write_csv(
+        tables / "fits.csv",
+        ["fit", "nll", "calls", *[f"log10 {k}" for k in problem.fits]],
+        [["nominal", nll, 0, *problem.scaled(nominal)]]
+        + [
+            [name, r["verified"], r["calls"], *problem.scaled(r["parameters"])]
+            for name, r in fitted
+        ],
+    )
     report.update(
         doi=DOI,
         nominal_nll=nll,
@@ -362,23 +607,106 @@ def run(args, report):
         dict(
             times=problem.times,
             nominal=readouts,
-            archive_model=ref_signal,
+            archive_model=nominal_reference,
             fitted=signal,
         ),
     )
+    draw(tables, args.output)
 
-    def draw(fig):
-        for i, ax in enumerate(fig.subplots(1, 3)):
-            choose = problem.o_index == i
-            ax.scatter(
-                problem.times[problem.t_index[choose]],
-                problem.y[choose],
-                s=12,
-                label="Measurements",
+
+def read_csv(path):
+    with path.open(newline="") as stream:
+        return list(csv.DictReader(stream))
+
+
+def draw(tables: Path, folder: Path):
+    """Draw the C9 figures from the saved tables only."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    from matplotlib.figure import Figure
+
+    tables, folder = Path(tables), Path(folder)
+    measurements = read_csv(tables / "measurements.csv")
+    curves = read_csv(tables / "curves.csv")
+    ids = list(dict.fromkeys(r["observable"] for r in measurements))
+    labels = list(dict.fromkeys(k.split("|")[0] for k in curves[0] if "|" in k))
+    figure = Figure(figsize=(10, 3.6), layout="constrained")
+    styles = {
+        "nominal (native)": dict(color="0.35", lw=2.2),
+        "best plain retry": dict(color="tab:red", lw=1.2, ls="--"),
+        "profiled noise scales": dict(color="tab:orange", lw=1.0, ls=":"),
+        "profiled, then joint refinement": dict(color="tab:blue", lw=1.0),
+    }
+    for i, (ax, name) in enumerate(zip(figure.subplots(1, 3), ids, strict=True)):
+        rows = [r for r in measurements if r["observable"] == name]
+        t = [float(r["time"]) for r in rows]
+        ax.scatter(
+            t,
+            [float(r["measurement"]) for r in rows],
+            s=14,
+            color="k",
+            label="measurement (archive)",
+            zorder=3,
+        )
+        ax.scatter(
+            t,
+            [float(r["archive"]) for r in rows],
+            s=30,
+            marker="x",
+            color="tab:green",
+            label="archived simulation",
+            zorder=4,
+        )
+        for label in labels:
+            ax.plot(
+                [float(r["time"]) for r in curves],
+                [float(r[f"{label}|{name}"]) for r in curves],
+                label=f"ours: {label}",
+                **styles.get(label, {}),
             )
-            ax.plot(problem.times, readouts[:, i], label="Nominal")
-            ax.plot(problem.times, signal[:, i], label="fcmaes")
-            ax.set(xlabel="Time (min)", title=list(problem.observations)[i])
-        fig.axes[0].legend(fontsize=7)
+        ax.set(xlabel="time (min)", ylabel="percent" if i == 0 else None, title=name)
+    figure.axes[0].legend(fontsize=6.5, loc="lower right")
+    figure.savefig(folder / "C9-signals.png", dpi=155)
 
-    save_plot(args, "signal-fits.png", draw)
+    fits = read_csv(tables / "fits.csv")
+    names = [k for k in fits[0] if k.startswith("log10 ")]
+    figure = Figure(figsize=(10, 4), layout="constrained")
+    left, right = figure.subplots(1, 2, width_ratios=[2.2, 1])
+    colors = {"nominal": "k", "profiled": "tab:orange", "joint": "tab:blue"}
+    for row in fits:
+        retry = row["fit"].startswith("retry")
+        left.plot(
+            range(len(names)),
+            [float(row[k]) for k in names],
+            marker="o",
+            ms=3,
+            lw=0.8,
+            color="tab:red" if retry else colors[row["fit"]],
+            alpha=0.45 if retry else 1.0,
+            label=None
+            if retry and row["fit"] != "retry 0"
+            else ("plain retries (8)" if retry else row["fit"]),
+        )
+    left.set_xticks(
+        range(len(names)), [k[6:] for k in names], rotation=40, ha="right", fontsize=7
+    )
+    left.set(
+        ylabel="log10 value (bounds -5 to 5)",
+        ylim=(-5.3, 5.3),
+        title="fitted coordinates",
+    )
+    left.legend(fontsize=7)
+    order = sorted(fits, key=lambda r: float(r["nll"]))
+    right.barh(
+        [r["fit"] for r in order],
+        [float(r["nll"]) - float(order[0]["nll"]) + 0.01 for r in order],
+        color=[colors.get(r["fit"], "tab:red") for r in order],
+    )
+    right.set_xscale("log")
+    right.invert_yaxis()
+    right.set(
+        xlabel=f"NLL above {float(order[0]['nll']):.4f} (+0.01)", title="verified NLL"
+    )
+    right.tick_params(labelsize=7)
+    figure.savefig(folder / "C9-fits.png", dpi=155)

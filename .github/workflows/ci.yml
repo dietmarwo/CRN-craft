@@ -127,6 +127,9 @@ jobs:
           python validation/check_paper_capabilities.py --output paper-capabilities.json
           python -O validation/check_paper_capabilities.py --output paper-capabilities-optimized.json
           diff paper-capabilities.json paper-capabilities-optimized.json
+          python validation/check_projection_native.py --output projection-native.json
+          python -O validation/check_projection_native.py --output projection-native-optimized.json
+          diff projection-native.json projection-native-optimized.json
       # Published experiment files, downloaded by commit and checked by
       # SHA-256; they are not stored in the repository.
       - name: Pin external experiment archives

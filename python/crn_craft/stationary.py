@@ -86,7 +86,7 @@ def _stationary(q, anchor=None):
 def _solve(graph, parameters, redirect, selected):
     from scipy.sparse import csc_matrix
 
-    generator, _, stopped = graph._generator(parameters, {})
+    generator, stopped = graph._scipy_generator(parameters)
     if np.any(stopped) and redirect is not None:
         raise ValueError(
             "stationary FSP requires an ergodic model without a reachable stop"
@@ -95,7 +95,7 @@ def _solve(graph, parameters, redirect, selected):
     escapes = generator[-1, :-1].toarray().ravel()
     anchor = None
     if redirect is not None:
-        anchor = graph._ids.get(redirect)
+        anchor = graph._index(redirect)
         if anchor is None:
             raise ValueError("return state is outside the reachable projection")
         columns = np.flatnonzero(escapes)
@@ -108,7 +108,7 @@ def _solve(graph, parameters, redirect, selected):
         )
 
     if selected is not None:
-        target = graph._ids.get(selected)
+        target = graph._index(selected)
         if target is None:
             raise ValueError("selected class state is outside the projection")
         matches = [ids for ids in _closed_classes(q) if target in ids]
@@ -120,7 +120,7 @@ def _solve(graph, parameters, redirect, selected):
         probabilities[ids] = p
     else:
         probabilities, error = _stationary(q, anchor)
-    return probabilities, error, float(escapes @ probabilities)
+    return probabilities, error, float(escapes @ probabilities), escapes
 
 
 def _cdf_difference(previous, current):
@@ -150,7 +150,8 @@ def stationary_fsp(
     and compare marginal CDFs across successive bounds. The resulting
     convergence indication is empirical for an infinite network. A finite
     generator with several closed classes needs an explicit class state.
-    SciPy's sparse LU solves the linear system. Without a return state,
+    The native engine builds the generator; SciPy's sparse LU (the
+    ``projection`` extra) solves the linear system. Without a return state,
     every transition must stay inside the bounds.
     """
     _require_scipy("stationary_fsp")
@@ -172,7 +173,9 @@ def stationary_fsp(
     history, previous = [], None
     for step in range(expansions + 1):
         graph = prepare_fsp(model, bounds, max_states=max_states)
-        p, residual, flux = _solve(graph, parameters or {}, return_state, class_state)
+        p, residual, flux, escapes = _solve(
+            graph, parameters or {}, return_state, class_state
+        )
         marginals = tuple(
             np.bincount(graph.states[:, i], p) for i in range(len(graph.species))
         )
@@ -207,8 +210,7 @@ def stationary_fsp(
                 else "stationary-fsp-return-state",
             )
         previous = marginals
-        generator, _, _ = graph._generator(parameters or {}, {})
-        out = generator[-1, :-1].toarray().ravel() * p
+        out = escapes * p
         face_fluxes = []
         for i, label in enumerate(graph.species):
             # A jump may cross a face from within the largest positive jump.

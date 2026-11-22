@@ -1,12 +1,10 @@
-"""Reusable finite state projections using native CRN-craft rate semantics."""
+"""Reusable finite state projections on the native CRN-craft engine."""
 
 import json
-from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
-from itertools import product
-from math import comb, fsum, isfinite, prod
+from math import fsum, isfinite
 from operator import index
 
 import numpy as np
@@ -17,6 +15,9 @@ from .protocol import Protocol
 from .rules import _as_model_1_0, _crn_error, _unique_keys
 
 _MAX_COUNT = 2**53
+# Counts and increments beyond this behave like any value outside the bounds.
+_CLAMP = 2**62
+_OPERATIONS = {"set": 0, "change": 1, "partition": 2}
 
 
 def _require_scipy(feature):
@@ -34,8 +35,10 @@ def _require_scipy(feature):
 class Signal:
     """A real-time rate input. Tables use linear or right-continuous steps.
 
-    Callables are a Python-only option. Provide their change points and a
-    reproducible description of their parameters in the calling experiment.
+    Tables are evaluated natively by the midpoint rule. Callables are a
+    Python-only option, called from the native step loop. Provide their
+    change points and a reproducible description of their parameters in the
+    calling experiment.
     """
 
     def __init__(self, function, *, change_times=()):
@@ -43,6 +46,7 @@ class Signal:
             raise TypeError("a prescribed signal needs a time function")
         self.evaluate = function
         self._table_sha256 = None
+        self._table = None
         self.change_times = tuple(float(x) for x in change_times)
         if any(not isfinite(x) for x in self.change_times):
             raise ValueError("signal breakpoints must be finite")
@@ -70,6 +74,12 @@ class Signal:
             )
         else:
             raise ValueError("interpolation must be linear or step")
+        signal._table = (
+            signal.evaluate,
+            interpolation == "step",
+            t.tolist(),
+            v.tolist(),
+        )
         signal._table_sha256 = sha256(
             model_bytes(
                 {
@@ -121,6 +131,8 @@ class _Work:
     def __init__(self, limit):
         self.limit = index(limit)
         self.count = 0
+        # The native counter is an int64; larger limits cannot be reached.
+        self.native_limit = max(-(2**63), min(self.limit, 2**63 - 1))
 
     def charge(self, amount=1):
         self.count += amount
@@ -128,6 +140,63 @@ class _Work:
             raise RuntimeError(
                 f"projection work limit of {self.limit} exceeded; raise max_work"
             )
+
+
+def _native_error(error, work=None, signals=()):
+    """The exception the projection raises for a native refusal.
+
+    Budget, work and integrator failures (``CRN-E070``) are ``RuntimeError``,
+    inputs the projection cannot represent (``CRN-E071``) ``ValueError``;
+    other diagnostics (rate evaluation) are a ``CrnError``.
+    """
+    try:
+        first = json.loads(str(error))[0]
+        code, path, message = first["code"], first["path"], first["message"]
+    except (ValueError, LookupError, TypeError):
+        return _crn_error(error)
+    if code == "CRN-E070":
+        if path == "/projection/work" and work is not None:
+            message = f"projection work limit of {work.limit} exceeded; raise max_work"
+        return RuntimeError(message)
+    if code == "CRN-E071":
+        if path == "/projection/overflow":
+            return OverflowError(message)
+        if path.startswith("/signals/"):
+            name = signals[int(path.rsplit("/", 1)[1])]
+            message = f"{name!r} is not a rule with a count-independent rate"
+        return ValueError(message)
+    return _crn_error(error)
+
+
+def _clamp(n):
+    return max(-_CLAMP, min(n, _CLAMP))
+
+
+def _vector(data):
+    return np.frombuffer(data, dtype="<f8")
+
+
+def _sparse(generator, signal=None):
+    """One native generator matrix as a SciPy CSC matrix."""
+    from scipy import sparse
+
+    dim, indptr, indices, data = generator.csc(signal)
+    return sparse.csc_matrix(
+        (
+            _vector(data),
+            np.frombuffer(indices, dtype="<i8"),
+            np.frombuffer(indptr, dtype="<i8"),
+        ),
+        shape=(dim, dim),
+    )
+
+
+def _source(signal):
+    """A native table, or the Python callable of the signal."""
+    table = signal._table
+    if table is not None and table[0] is signal.evaluate:
+        return table[1:]
+    return signal.evaluate
 
 
 def _view(document):
@@ -173,22 +242,6 @@ def _action_indices(actions, species, parameters):
     return tuple(compiled)
 
 
-def _target(state, changes, bounds):
-    target = list(state)
-    for i, delta in changes:
-        target[i] += delta
-        if target[i] > bounds[i]:
-            return None
-    return tuple(target)
-
-
-def _outcomes(count, operation):
-    kind, value = operation
-    if kind == "partition":
-        return range(count + 1) if 0 < value < 1 else (count if value else 0,)
-    return (value if kind == "set" else count + value,)
-
-
 class PreparedFsp:
     """Fixed projection topology shared by independent numerical solves."""
 
@@ -202,9 +255,6 @@ class PreparedFsp:
         max_states=100_000,
         max_edges=2_000_000,
     ):
-        _require_scipy("prepare_fsp")
-        from scipy import sparse
-
         self._document = json.loads(
             _as_model_1_0(model, network=True), object_pairs_hook=_unique_keys
         )
@@ -236,19 +286,46 @@ class PreparedFsp:
         )
         self._initial = self._law(initial)
         self._channels = self._layout["channels"]
-        self._initialize_graph()
+        interventions = [
+            [
+                (
+                    i,
+                    _OPERATIONS[kind],
+                    _clamp(value) if kind != "partition" else 0,
+                    value if kind == "partition" else 0.0,
+                )
+                for i, (kind, value) in changes.items()
+            ]
+            for _, changes, _ in self._actions
+            if changes
+        ]
+        try:
+            self._topology = _native.ProjectionTopology(
+                self._native,
+                list(self._bounds),
+                [[_clamp(n) for n in state] for state in sorted(self._initial)],
+                interventions,
+                self._max_states,
+                self._max_edges,
+            )
+        except _native.NativeError as error:
+            raise _native_error(error) from None
+        self.states = np.frombuffer(self._topology.states(), dtype="<i8").reshape(
+            -1 if self.species else 1, len(self.species)
+        )
         state_bytes = self.states.astype("<i8", copy=False).tobytes()
         self._id = sha256(
             model_bytes([self.species, self._protocol, self._document]) + state_bytes
         ).hexdigest()
         self.states.setflags(write=False)
-        self._constant = tuple(
-            i for i, c in enumerate(self._channels) if c["rate"] is not None
-        )
-        self._variable = tuple(
-            i for i, c in enumerate(self._channels) if c["rate"] is None
-        )
-        self._sparse = sparse
+
+    def _index(self, state):
+        """The index of a count tuple, or None outside the projection."""
+        if len(state) != len(self.species) or any(
+            not 0 <= n <= _MAX_COUNT for n in state
+        ):
+            return None
+        return self._topology.index(list(state))
 
     def _law(self, initial):
         if initial is None:
@@ -263,87 +340,6 @@ class PreparedFsp:
         ):
             raise ValueError("initial probabilities must be nonnegative and sum to one")
         return {k: p for k, p in law.items() if p}
-
-    def _initialize_graph(self):
-        states, identities = [], {}
-        origins, destinations, edges, multiplicities = [], [], [], []
-        sink = self._max_states
-        width = len(self._bounds)
-        touched = 0
-
-        def admit(state):
-            if len(state) != width or any(n < 0 for n in state):
-                raise ValueError("invalid initial or reachable counts")
-            if any(n > bound for n, bound in zip(state, self._bounds, strict=True)):
-                return sink
-            if state not in identities:
-                if len(states) >= sink:
-                    raise RuntimeError("reachable-state budget exceeded")
-                # Reserve the state table and the indices used for lookups.
-                if (len(states) + 1) * (128 + 40 * width) > 256 << 20:
-                    raise RuntimeError(
-                        "projection state table exceeds the workspace budget"
-                    )
-                identities[state] = len(states)
-                states.append(state)
-            return identities[state]
-
-        for state in sorted(self._initial):
-            if admit(state) == sink:
-                raise ValueError("initial law lies outside the projection")
-
-        cursor = 0
-        for changes in [None, *(changes for _, changes, _ in self._actions if changes)]:
-            if changes:
-                # Every state reached before this action may be its input.
-                for state in tuple(states):
-                    indices = tuple(changes)
-                    supports = [_outcomes(state[i], changes[i]) for i in indices]
-                    if any(len(s) and s[0] < 0 for s in supports):
-                        continue
-                    if prod(map(len, supports)) > self._max_edges * 4 - touched:
-                        raise RuntimeError("intervention expansion exceeds work budget")
-                    for values in product(*supports):
-                        touched += 1
-                        if touched > self._max_edges * 4:
-                            raise RuntimeError(
-                                "intervention expansion exceeds work budget"
-                            )
-                        output = list(state)
-                        for i, n in zip(indices, values, strict=True):
-                            output[i] = n
-                        admit(tuple(output))
-            while cursor < len(states):
-                state = states[cursor]
-                for i, channel in enumerate(self._channels):
-                    touched += 1
-                    if touched > self._max_edges * 25:
-                        raise RuntimeError("projection enumeration exceeds work budget")
-                    needs = channel["needs"]
-                    if any(state[j] < n for j, n in needs):
-                        continue
-                    dst = _target(state, channel["changes"], self._bounds)
-                    if dst == state:
-                        continue
-                    if len(edges) >= self._max_edges:
-                        raise RuntimeError("projection edge budget exceeded")
-                    origins.append(cursor)
-                    destinations.append(sink if dst is None else admit(dst))
-                    edges.append(i)
-                    multiplicities.append(
-                        1.0 if channel["whole"] else _combinations(state, needs)
-                    )
-                cursor += 1
-
-        self.states = np.asarray(states, dtype=np.int64)
-        self._list = tuple(states)
-        self._ids = identities
-        self._src = np.asarray(origins, dtype=np.int64)
-        self._dst = np.asarray(destinations, dtype=np.int64)
-        self._dst[self._dst == sink] = len(states)
-        self._edges = np.asarray(edges, dtype=np.int64)
-        self._multiplicities = np.asarray(multiplicities, dtype=float)
-        self._shape = (len(states) + 1,) * 2
 
     def _binding(self, parameters):
         if not parameters:
@@ -368,96 +364,45 @@ class PreparedFsp:
             )
         return native, layout
 
-    def _matrix(self, rates, selected):
-        src, dst, data = self._src[selected], self._dst[selected], rates[selected]
-        return self._sparse.coo_matrix(
-            (np.r_[data, -data], (np.r_[dst, src], np.r_[src, src])),
-            shape=self._shape,
-        ).tocsc()
-
     def _generator(self, parameters, signals):
+        """The native generator under a binding, the signals in its order,
+        and the stop flags."""
         native, layout = self._binding(parameters)
-        n = len(self.states)
         channels = layout["channels"]
-        constants = np.array(
-            [0.0 if c["rate"] is None else c["rate"] for c in channels]
-        )
-        factors = np.array([c["factor"] for c in channels])
-        basis = self._multiplicities * factors[self._edges]
-        with np.errstate(over="ignore", invalid="ignore"):
-            rates = constants[self._edges] * basis
-        stopped = np.zeros(n, dtype=bool)
-        if self._variable or layout["has_stop"]:
-            if n * max(1, len(self._variable)) > 10_000_000:
-                raise RuntimeError(
-                    "state-dependent rate table exceeds the workspace budget"
-                )
-            try:
-                flags, data = native.evaluate(self._list, self._variable)
-            except _native.NativeError as error:
-                raise _crn_error(error) from None
-            stopped[:] = flags
-            data = np.asarray(data).reshape(n, len(self._variable))
-            for i, channel in enumerate(self._variable):
-                select = self._edges == channel
-                rates[select] = data[self._src[select], i]
-        signal_matrices = []
-        for name, signal in signals.items():
-            ids = [i for i, c in enumerate(channels) if c["name"] == name]
-            if not ids or any(i not in self._constant for i in ids):
-                raise ValueError(
-                    f"{name!r} is not a rule with a count-independent rate"
-                )
-            mask = np.isin(self._edges, ids) & ~stopped[self._src]
-            signal_matrices.append((signal, self._matrix(basis, mask)))
-            rates[np.isin(self._edges, ids)] = 0.0
-        rates[stopped[self._src]] = 0.0
-        if np.any(rates < 0) or not np.isfinite(rates).all():
-            raise ValueError("invalid rate in the projection")
-        keep = rates > 0
-        return self._matrix(rates, keep), tuple(signal_matrices), stopped
+        names = tuple(signals)
+        ids = [[i for i, c in enumerate(channels) if c["name"] == n] for n in names]
+        try:
+            generator = self._topology.generator(native, ids)
+        except _native.NativeError as error:
+            raise _native_error(error, signals=names) from None
+        stopped = np.frombuffer(generator.stopped(), dtype=bool)
+        return generator, tuple(signals.values()), stopped
+
+    def _scipy_generator(self, parameters):
+        """The generator without signals as a SciPy CSC matrix (sink last),
+        and the stop flags."""
+        generator, _, stopped = self._generator(parameters, {})
+        return _sparse(generator), stopped
 
     def _kick(self, state, changes, work):
-        from scipy.stats import binom
-
         if not changes:
             return state
-        mass = {self._list[j]: state[j] for j in np.flatnonzero(state[:-1])}
-        escape = state[-1]
-        for i, (kind, value) in changes.items():
-            next_mass = defaultdict(float)
-            for counts, amount in mass.items():
-                possible = _outcomes(counts[i], (kind, value))
-                work.charge(len(possible))
-                if possible[0] < 0:
-                    raise ValueError(
-                        f"intervention removes more {self.species[i]} than available"
-                    )
-                weights = (
-                    binom.pmf(np.arange(len(possible)), counts[i], value)
-                    if len(possible) > 1
-                    else (1.0,)
-                )
-                for count, weight in zip(possible, weights, strict=True):
-                    if count > self._bounds[i]:
-                        escape += amount * weight
-                    elif weight:
-                        target = counts[:i] + (count,) + counts[i + 1 :]
-                        next_mass[target] += amount * weight
-                        if len(next_mass) > self._max_states:
-                            raise RuntimeError("intervention workspace budget exceeded")
-            mass = next_mass
-        new = np.zeros_like(state)
-        new[-1] = escape
-        for counts, value in mass.items():
-            if value:
-                try:
-                    new[self._ids[counts]] = value
-                except KeyError as error:
-                    raise ValueError(
-                        "intervention reaches an unprepared state"
-                    ) from error
-        return new
+        operations = [
+            (
+                i,
+                _OPERATIONS[kind],
+                _clamp(value) if kind != "partition" else 0,
+                value if kind == "partition" else 0.0,
+            )
+            for i, (kind, value) in changes.items()
+        ]
+        try:
+            data, work.count = self._topology.kick(
+                state.tobytes(), operations, work.count, work.native_limit
+            )
+        except _native.NativeError as error:
+            raise _native_error(error, work) from None
+        return _vector(data)
 
     def solve(
         self,
@@ -478,7 +423,8 @@ class PreparedFsp:
         """Propagate from a prepared law or a compatible report-time checkpoint.
 
         Constant segments use positive uniformization. Inhomogeneous
-        segments use SciPy's BDF or adaptive exponential midpoint. Series-tail,
+        segments use SciPy's BDF (``solver="bdf"``, the one solve that needs
+        SciPy) or the native adaptive exponential midpoint rule. Series-tail,
         leakage, minimum probability and mass defect are retained separately.
         The series-tail bound covers uniformization only; BDF and midpoint
         segments add no integration error estimate, and BDF can return
@@ -552,12 +498,12 @@ class PreparedFsp:
             for key, value in (
                 self._initial if initial is None else self._law(initial)
             ).items():
-                try:
-                    state[self._ids[key]] = value
-                except KeyError as error:
+                at = self._index(key)
+                if at is None:
                     raise ValueError(
                         "initial support requires a new prepared projection"
-                    ) from error
+                    )
+                state[at] = value
         if times[0] < start or start > end:
             raise ValueError("reports must follow the restart time")
         actions = self._actions
@@ -566,7 +512,10 @@ class PreparedFsp:
             actions = tuple(action for action in actions if action[0] <= end)
         for _, _, edits in actions[:actions_applied]:
             parameters.update(edits)
+        if signals and solver == "bdf":
+            _require_scipy("solver='bdf'")
         generator, forcing, stopped = self._generator(parameters, signals)
+        matrices = None
         boundaries = {start, float(end)}
         boundaries.update(t for t, _, _ in actions[actions_applied:] if t >= start)
         boundaries.update(
@@ -607,17 +556,21 @@ class PreparedFsp:
             if t > start:
                 sample_times = np.r_[interior, t]
                 if forcing and solver == "bdf":
-                    values = _forced(
-                        generator,
+                    if matrices is None:
+                        matrices = (
+                            _sparse(generator),
+                            tuple(_sparse(generator, k) for k in range(len(forcing))),
+                        )
+                    values = _bdf(
+                        matrices,
                         forcing,
                         state,
                         start,
                         t,
                         tolerance,
                         max_step,
-                        solver,
                         work,
-                        reports=sample_times,
+                        sample_times,
                     )
                     for at, vector in zip(interior, values[:-1], strict=True):
                         snapshot(float(at), vector)
@@ -626,7 +579,7 @@ class PreparedFsp:
                     previous = start
                     for at in sample_times:
                         if forcing:
-                            state = _forced(
+                            state = _midpoint(
                                 generator,
                                 forcing,
                                 state,
@@ -634,7 +587,6 @@ class PreparedFsp:
                                 at,
                                 tolerance,
                                 max_step,
-                                solver,
                                 work,
                             )
                         else:
@@ -660,6 +612,7 @@ class PreparedFsp:
                 if edits:
                     parameters.update(edits)
                     generator, forcing, stopped = self._generator(parameters, signals)
+                    matrices = None
                 actions_applied += 1
             if report_index < len(times) and times[report_index] == t:
                 snapshot(t, state)
@@ -678,54 +631,46 @@ class PreparedFsp:
         )
 
 
-def _combinations(state, needs):
-    # The native engine bounds the work for large combinatorial factors.
-    # Two nontrivial arguments above this range already overflow f64.
-    result = 1
-    for i, n in needs:
-        choose = min(n, state[i] - n)
-        if choose > 1024:
-            raise ValueError("reactant combinatorics exceed probability solver range")
-        result *= comb(state[i], choose)
-    return float(result)
+def _uniform(generator, p, duration, tol, work):
+    """Native uniformization of the constant part; see the Rust `uniform`."""
+    try:
+        data, tail, work.count = generator.uniform(
+            p.tobytes(), float(duration), float(tol), work.count, work.native_limit
+        )
+    except _native.NativeError as error:
+        raise _native_error(error, work) from None
+    return _vector(data), tail
 
 
-def _uniform(matrix, p, duration, tol, work):
-    from scipy.special import gammainc
-
-    rate = float(np.max(-matrix.diagonal()))
-    if rate == 0.0:
-        return p, 0.0
-    pieces = max(1, int(np.ceil(rate * duration / 16.0)))
-    if pieces > work.limit - work.count:
-        raise RuntimeError("uniformization exceeds the work budget")
-    transition = matrix / rate
-    transition.setdiag(1.0 + transition.diagonal())
-    mu = rate * duration / pieces
-    tail = 0.0
-    for _ in range(pieces):
-        term = p
-        weight = float(np.exp(-mu))
-        p = weight * term
-        k = 0
-        while (remaining := float(gammainc(k + 1, mu))) > tol / pieces:
-            work.charge()
-            k += 1
-            term = transition @ term
-            weight *= mu / k
-            p += weight * term
-        tail += remaining
-    return p, tail
+def _midpoint(generator, signals, p, start, end, tol, max_step, work):
+    """Native adaptive exponential midpoint rule; see the Rust `midpoint`."""
+    try:
+        data, work.count = generator.midpoint(
+            p.tobytes(),
+            float(start),
+            float(end),
+            float(tol),
+            float(max_step),
+            [_source(s) for s in signals],
+            work.count,
+            work.native_limit,
+        )
+    except _native.NativeError as error:
+        raise _native_error(error, work) from None
+    return _vector(data)
 
 
-def _forced(
-    constant, forcing, p, start, end, tol, max_step, solver, work, *, reports=None
-):
+def _bdf(matrices, signals, p, start, end, tol, max_step, work, reports):
+    """SciPy's BDF on the native generator matrices."""
+    from scipy.integrate import solve_ivp
+
+    constant, forcing = matrices
+
     def weights(t):
         # Integrate to a discontinuity using the incoming hazard. The next
         # interval starts at the boundary with the right-continuous hazard.
         at = np.nextafter(end, start) if t == end else t
-        values = [float(s.evaluate(at)) for s, _ in forcing]
+        values = [float(s.evaluate(at)) for s in signals]
         if any(v < 0 or not isfinite(v) for v in values):
             raise ValueError(
                 "time-dependent reaction rate must be finite and nonnegative"
@@ -734,62 +679,31 @@ def _forced(
 
     def matrix_at(t):
         q = constant
-        for v, (_, matrix) in zip(weights(t), forcing, strict=True):
+        for v, matrix in zip(weights(t), forcing, strict=True):
             q = q + v * matrix
         return q
 
-    if solver == "bdf":
-        from scipy.integrate import solve_ivp
-
-        def rhs(t, vector):
-            work.charge()
-            result = constant @ vector
-            for v, (_, matrix) in zip(weights(t), forcing, strict=True):
-                result += v * (matrix @ vector)
-            return result
-
-        result = solve_ivp(
-            rhs,
-            (start, end),
-            p,
-            method="BDF",
-            t_eval=[end] if reports is None else reports,
-            jac=lambda t, _: matrix_at(t),
-            rtol=tol,
-            atol=tol * 1e-4,
-            max_step=max_step,
-        )
-        if not result.success:
-            raise RuntimeError(result.message)
-        return result.y[:, -1] if reports is None else result.y.T
-
-    from scipy.sparse.linalg import expm_multiply
-
-    def advance(at, h, vector):
+    def rhs(t, vector):
         work.charge()
-        return expm_multiply(h * matrix_at(at + h / 2), vector)
+        result = constant @ vector
+        for v, matrix in zip(weights(t), forcing, strict=True):
+            result += v * (matrix @ vector)
+        return result
 
-    t, h = start, min(end - start, max_step)
-    while t < end:
-        h = min(h, end - t)
-        if t + h <= t:
-            raise RuntimeError("midpoint step cannot advance the clock")
-        full = advance(t, h, p)
-        half = advance(t + h / 2, h / 2, advance(t, h / 2, p))
-        gap = float(np.linalg.norm(full - half, 1))
-        goal = tol * h / (end - start)
-        if gap <= goal:
-            p = half
-            t += h
-        elif goal <= 64 * np.finfo(float).eps:
-            # The step error estimate cannot resolve this goal in floating point.
-            raise RuntimeError(
-                "midpoint tolerance is below the rounding level of its step "
-                "error estimate; use a looser tolerance or solver='bdf'"
-            )
-        factor = 2.0 if gap == 0 else np.clip(0.9 * (goal / gap) ** (1 / 3), 0.2, 2.0)
-        h = min(max_step, h * factor)
-    return p
+    result = solve_ivp(
+        rhs,
+        (start, end),
+        p,
+        method="BDF",
+        t_eval=reports,
+        jac=lambda t, _: matrix_at(t),
+        rtol=tol,
+        atol=tol * 1e-4,
+        max_step=max_step,
+    )
+    if not result.success:
+        raise RuntimeError(result.message)
+    return result.y.T
 
 
 def prepare_fsp(
@@ -803,8 +717,9 @@ def prepare_fsp(
 ):
     """Prepare a reusable projection for a closed model.
 
-    The native core lowers the model and evaluates rates. Python enumerates
-    the states, and SciPy (the ``projection`` extra) propagates the law.
+    The native engine lowers the model, enumerates the states, builds the
+    generator and propagates the law; only ``solve(solver="bdf")`` with
+    signals needs SciPy (the ``projection`` extra).
     Existing :meth:`Model.fsp` is the native uniformization for one fixed
     model without protocols, signals or initial mixtures. A prepared
     projection holds no per-solve state, so threads can share it. It cannot

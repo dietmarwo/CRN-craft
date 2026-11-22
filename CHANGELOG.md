@@ -17,12 +17,18 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
   its Ziggurat variant and `rules-protocol-next-reaction/1`. Other methods
   are refused with `CRN-R020`, and `run/1.0` requests are unchanged. Python:
   `crn.Protocol`, the `protocol=` argument of `crn.ensemble`.
-- The optional Python projection API (`prepare_fsp`, `stationary_fsp`, the
-  `projection` extra) reuses the state graph for time-varying
-  distributions, scheduled probability updates and stationary laws. The
-  native core lowers the model and evaluates rates; Python enumerates the
-  states and SciPy propagates the law. `Model.fsp` is unchanged. Forced
-  segments report no integration error estimate.
+- The Python projection API (`prepare_fsp`, `stationary_fsp`) reuses the
+  state graph for time-varying distributions, scheduled probability
+  updates and stationary laws. The native engine (`crn_craft::projection`)
+  lowers the model, enumerates the states, assembles the generator,
+  applies interventions with exact binomial partitions and propagates the
+  law by uniformization and by an adaptive exponential midpoint rule.
+  SciPy (the `projection` extra) is needed only for `solver="bdf"`,
+  `stationary_fsp` and the SciPy-based likelihood readouts; both take the
+  generator from the native engine. `Model.fsp` is unchanged. Forced
+  segments report no integration error estimate. Native refusals cross
+  the binding as `CRN-E070` (budgets, work, integrator) and `CRN-E071`
+  (inputs the projection cannot represent).
 - `crn_craft.likelihood`: count, summed, joint and censored observations,
   binomial detection, binned fluorescence, grouped histogram scores with
   the effect of missing probability bounded separately, and a mean score.

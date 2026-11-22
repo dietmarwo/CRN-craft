@@ -2,8 +2,9 @@
 
 A protocol gives the time and conditions of an experiment. A count model
 describes the reactions. Timed interventions and reaction completions use
-the native count scheduler. Prepared projections and likelihoods are
-available in Python with the optional `crn-craft[projection]` dependency.
+the native count scheduler. Prepared projections run on the native
+engine; BDF integration, stationary laws and some likelihood readouts need
+the optional `crn-craft[projection]` dependency (SciPy).
 
 ## Scheduled stochastic simulation
 
@@ -141,16 +142,18 @@ continued = projection.solve(5, [5], initial=law.snapshots[1],
                              tolerance=1e-12)
 ```
 
-Install the `projection` extra (`pip install "crn-craft[projection]"`)
-for `prepare_fsp`, `stationary_fsp` and the SciPy-based readouts in
-`crn_craft.likelihood`. `import crn_craft` works without SciPy; these
-functions then raise `ModuleNotFoundError` naming the extra.
-
-The native core lowers the model and evaluates the rates, including
-count-dependent rates and stop conditions. Python enumerates the states
-and applies interventions. SciPy propagates the law: sparse matrices,
-the uniformization series, `solve_ivp` BDF and `expm_multiply`. The
-existing `Model.fsp` is unchanged and fully native. Use it for one fixed
+The native engine lowers the model, evaluates the rates (including
+count-dependent rates and stop conditions), enumerates the states,
+assembles the sparse generator, applies interventions and propagates the
+law by uniformization and by the exponential midpoint rule. SciPy is used
+only by `solve(..., solver="bdf")` with signals (`solve_ivp` on the native
+generator), by `stationary_fsp` (sparse LU) and by the SciPy-based
+readouts in `crn_craft.likelihood`. Install it with the `projection`
+extra (`pip install "crn-craft[projection]"`). `import crn_craft`,
+`prepare_fsp`, piecewise-constant solves and `solver="midpoint"` work
+without SciPy; the functions that need it raise `ModuleNotFoundError`
+naming the extra. The existing `Model.fsp` (the `fsp` method of
+`crn-craft.run/1.0`) is a separate native solver. Use it for one fixed
 model from one initial state. Use `prepare_fsp` for protocols, prescribed
 signals, initial mixtures, checkpoints or many parameter vectors on one
 graph.
@@ -182,32 +185,55 @@ their end values outside the table. Step times split the integration;
 the knots of a linear table do not. `Signal(function, change_times=...)`
 accepts a Python rate function; list its discontinuities in
 `change_times`. Python callables are supplied by the caller when
-rerunning the experiment.
+rerunning the experiment. The midpoint rule evaluates tables natively and
+calls a Python function from the native step loop; an interval is
+integrated with the value just before its end, so a discontinuity at a
+boundary is approached from the left and the next interval starts with
+the right-continuous value.
 
-Constant segments use uniformization with a truncated Poisson series.
-Smoothly forced segments use SciPy's sparse BDF (`solver="bdf"`) or an
-adaptive exponential midpoint rule (`solver="midpoint"`). `result.solver`
-names the method used. Each snapshot reports the absorbing sink, the
-Poisson series-tail bound, the mass defect and the minimum probability.
-The series-tail bound covers uniformization only. It excludes rounding
+Constant segments use uniformization with a truncated Poisson series:
+an interval of length `t` splits into `ceil(λt/16)` pieces (λ the largest
+exit rate), and each piece stops the series once the omitted Poisson
+weight is at most its share of the tolerance. Smoothly forced segments
+use SciPy's sparse BDF (`solver="bdf"`) or an adaptive exponential
+midpoint rule (`solver="midpoint"`). The midpoint rule compares one step
+`exp(h Q(t + h/2))` with two half steps and accepts when their L1 gap is
+at most `tolerance · h / (end − start)`; each matrix exponential action
+is a uniformization of the frozen generator whose omitted Poisson weight
+is at most 1/1024 of that step goal. `result.solver` names the method
+used. Each snapshot reports the absorbing sink, the Poisson series-tail
+bound, the mass defect and the minimum probability. The series-tail bound
+covers the uniformization of constant segments only. It excludes rounding
 and adds nothing for BDF or midpoint segments, which report no
-integration error estimate. BDF can return slightly negative
-probabilities; check `minimum_probability`. The midpoint rule is much
-slower and stops with an error when its tolerance is below the rounding
-level of its step estimate. Check tolerance refinement on the selected
-observable for a smooth signal. See the
+integration error estimate (the midpoint rule's truncation shows in the
+mass defect). BDF can return slightly negative probabilities; check
+`minimum_probability`. The midpoint rule stops with an error when its
+tolerance is below the rounding level of its step estimate. `max_work`
+counts series terms, intervention outcomes, matrix exponential actions
+and BDF right-hand-side evaluations. Check tolerance refinement on the
+selected observable for a smooth signal. See the
 [RNA fit replay](../../examples/yeast_rna_fit/native_fit.py).
 
 Use `stationary_fsp(model, bounds)` for one finite closed communicating
 class or specify `class_state`. With a `return_state`, escaped rates
-redirect to a retained state. SciPy's sparse LU solves the linear
-system, and the result reports its L1 residual. Successive enlargements
+redirect to a retained state. The native engine enumerates the states
+and builds the generator; SciPy's sparse LU solves the linear system,
+and the result reports its L1 residual. Successive enlargements
 compare marginal CDFs and outward flux. These diagnostics are empirical
 on unbounded networks. Certified error bounds require additional
 recurrence evidence. `result.method` separates the exact finite law
 (`finite-closed-class`) from the redirected approximation
 (`stationary-fsp-return-state`).
 [Stationary FSP method](https://arxiv.org/abs/1704.07259)
+
+**Verification.** `validation/check_projection_native.py` compares the
+native engine with an independent Python and SciPy implementation
+(`validation/reference_projection.py`, not shipped) on a declared case
+set: identical states and prepared ids, laws within the solve tolerance
+(twice it for forced segments), identical errors on budget and input
+failures. It also checks the binomial and Poisson-tail kernels against
+SciPy and, where SciPy loses accuracy for large counts, against a
+60-digit evaluation.
 
 ## Spatial models
 

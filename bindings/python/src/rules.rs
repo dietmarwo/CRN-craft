@@ -189,57 +189,8 @@ fn rules_archive_json(
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
-/// Read-only rate evaluator shared with the native finite state projection.
-#[pyclass(frozen)]
-struct ProjectionView(crn_craft::rules::FlatView);
-
-#[pymethods]
-impl ProjectionView {
-    #[new]
-    fn new(py: Python<'_>, model: Vec<u8>) -> PyResult<Self> {
-        py.detach(move || crn_craft::rules::FlatView::of_any_model(&model))
-            .map(Self)
-            .map_err(|diagnostics| failure(&diagnostics))
-    }
-
-    fn layout(&self) -> String {
-        let view = &self.0;
-        let channels: Vec<_> = (0..view.channels())
-            .map(|i| {
-                let rule = view.rule(i);
-                serde_json::json!({
-                    "name": view.rule_name(rule),
-                    "needs": view.reactants(i),
-                    "changes": view.changes(i),
-                    "whole": view.whole(i),
-                    "factor": view.factor(i),
-                    "rate": view.rate_constant(rule),
-                })
-            })
-            .collect();
-        serde_json::json!({
-            "species": view.species(),
-            "initial": view.initial(),
-            "channels": channels,
-            "has_stop": view.has_stop(),
-        })
-        .to_string()
-    }
-
-    fn evaluate(
-        &self,
-        py: Python<'_>,
-        states: Vec<Vec<u64>>,
-        channels: Vec<usize>,
-    ) -> PyResult<(Vec<bool>, Vec<f64>)> {
-        py.detach(move || self.0.projection_rates(&states, &channels))
-            .map_err(|diagnostic| failure(&[diagnostic]))
-    }
-}
-
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<PreparedRules>()?;
-    module.add_class::<ProjectionView>()?;
     module.add_function(wrap_pyfunction!(describe_rules_json, module)?)?;
     module.add_function(wrap_pyfunction!(check_rules_json, module)?)?;
     module.add_function(wrap_pyfunction!(prepare_rules, module)?)?;

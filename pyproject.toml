@@ -34,6 +34,8 @@ crn-craft-import = "crn_craft.importers:main"
 crn-craft-experiment = "crn_craft.experiments:main"
 
 [project.optional-dependencies]
+# SciPy for solve(solver="bdf"), stationary_fsp and the SciPy-based
+# readouts of crn_craft.likelihood; prepared projections run natively.
 projection = ["scipy>=1.12,<2"]
 fit = ["scipy==1.17.0", "fcmaes-rust==0.4.0", "sqp-craft==0.17.0"]
 # xarray is required since 0.5.0; the extra stays so that existing

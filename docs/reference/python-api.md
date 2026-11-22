@@ -1023,8 +1023,10 @@ A real-time rate input. Tables use linear or right-continuous steps.
 | `function` | required | Prescribed time-dependent rate function. |
 | `change_times` (keyword only) | `()` | Times where the rate can change discontinuously. |
 
-Callables are a Python-only option. Provide their change points and a
-reproducible description of their parameters in the calling experiment.
+Tables are evaluated natively by the midpoint rule. Callables are a
+Python-only option, called from the native step loop. Provide their
+change points and a reproducible description of their parameters in the
+calling experiment.
 
 ### `Signal.table`
 
@@ -1064,8 +1066,9 @@ Prepare a reusable projection for a closed model.
 | `max_states` (keyword only) | `100000` | Reachable-state limit. |
 | `max_edges` (keyword only) | `2000000` | Sparse edge limit. |
 
-The native core lowers the model and evaluates rates. Python enumerates
-the states, and SciPy (the `projection` extra) propagates the law.
+The native engine lowers the model, enumerates the states, builds the
+generator and propagates the law; only `solve(solver="bdf")` with
+signals needs SciPy (the `projection` extra).
 Existing [`Model.fsp`](#modelfsp) is the native uniformization for one fixed
 model without protocols, signals or initial mixtures. A prepared
 projection holds no per-solve state, so threads can share it. It cannot
@@ -1105,7 +1108,8 @@ With a return state, expand faces according to boundary flux exposure
 and compare marginal CDFs across successive bounds. The resulting
 convergence indication is empirical for an infinite network. A finite
 generator with several closed classes needs an explicit class state.
-SciPy's sparse LU solves the linear system. Without a return state,
+The native engine builds the generator; SciPy's sparse LU (the
+`projection` extra) solves the linear system. Without a return state,
 every transition must stay inside the bounds.
 
 ### `SpatialModel`

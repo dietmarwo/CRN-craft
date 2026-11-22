@@ -1,4 +1,5 @@
 //! Minimal JSON bridge; numerical semantics and validators live in the core.
+mod projection;
 mod rules;
 mod rules_payload;
 
@@ -196,6 +197,7 @@ fn turnover_json(
 #[pymodule]
 fn _native(module: &Bound<'_, PyModule>) -> PyResult<()> {
     rules::register(module)?;
+    projection::register(module)?;
     module.add_function(wrap_pyfunction!(turnover_json, module)?)?;
     module.add_function(wrap_pyfunction!(describe_json, module)?)?;
     module.add_function(wrap_pyfunction!(check_any_json, module)?)?;

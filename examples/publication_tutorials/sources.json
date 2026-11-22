@@ -28,10 +28,22 @@
     ]
   },
   "C8": {
-    "fsp-fim.tar.gz": [
-      "https://codeload.github.com/Munsky/FSPFIM_2018/tar.gz/2e2f76fdeeb0d9290b48aa981210422d254b07c2",
-      "8f1ffd982566b2cbbf402e183b2edb82bb0a9ee2cf2ac0a7c783633619299b31"
-    ]
+    "fsp-fim.tar.gz": {
+      "kind": "tar-content",
+      "url": "https://codeload.github.com/Munsky/FSPFIM_2018/tar.gz/2e2f76fdeeb0d9290b48aa981210422d254b07c2",
+      "commit": "2e2f76fdeeb0d9290b48aa981210422d254b07c2",
+      "prefixes": [
+        "toggle/out/all_fims_sampled_fim/"
+      ],
+      "files": [
+        "bursting_gene/out/E_opt_fsamp_fsp1.0_100.txt",
+        "toggle/out/initial_condition.txt",
+        "toggle/parameter_samples.txt",
+        "toggle/ref_pars.txt"
+      ],
+      "members": 676,
+      "sha256": "9a8e64d3b7a0717cf8e99bc07b781fd4e28cf2d9d71e2067ded00d21afd9b227"
+    }
   },
   "C9": {
     "conditions.tsv": [

@@ -2,11 +2,11 @@
 
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
+import io
 from itertools import product
 import json
 import re
 from pathlib import Path
-import tarfile
 
 import crn_craft as crn
 from crn_craft.sensitivities import fisher_information, forward_sensitivities
@@ -17,7 +17,7 @@ from scipy.stats import poisson
 from common import require, write
 from .search import PACKAGES as PACKAGES
 from .search import check, save_plot, search
-from .sources import data_option, fixtures
+from .sources import MANIFEST, data_option, fixtures, read_tar
 
 DOI = "10.1371/journal.pcbi.1006365"
 A = (2.0, 3.0, 9.0)
@@ -45,24 +45,40 @@ def eigenvalue(probabilities, derivatives, cells, floor=1e-8):
     return float(np.linalg.eigvalsh(fim)[0]), float(np.max(clipped))
 
 
-def archive(path):
-    designs, references = {}, {}
-    with tarfile.open(path, mode="r|gz") as source:
-        for entry in source:
-            name = entry.name.partition("/")[2]
-            match = FILE_PATTERN.search(name)
-            if match and entry.isfile():
-                values = np.loadtxt(source.extractfile(entry)).reshape(7, 7, 100)
-                designs[tuple(map(float, match.groups()))] = np.linalg.eigvalsh(
-                    values.transpose(2, 0, 1)
-                )[:, 0]
-            elif name in FILES and entry.isfile():
-                references[FILES[name]] = np.loadtxt(source.extractfile(entry))
+def _table(data):
+    """Parse a whitespace-separated numeric text member; nothing else."""
+    values = np.loadtxt(io.StringIO(data.decode("ascii")), dtype=float, ndmin=1)
+    require(np.isfinite(values).all(), "nonfinite value in the design archive")
+    return values
+
+
+def archive(path, spec):
+    """Read the archived Fisher matrices and reference tables.
+
+    Returns the smallest eigenvalue per design and sample, the 100 matrices
+    of each design (archive parameter order, natural-log coordinates) and
+    the reference tables. The content is verified while it is read.
+    """
+    designs, matrices, references = {}, {}, {}
+
+    def handle(name, data):
+        match = FILE_PATTERN.search("/" + name)
+        if match:
+            values = _table(data)
+            require(values.size == 4900, f"unexpected matrix size in {name}")
+            stack = values.reshape(7, 7, 100).transpose(2, 0, 1)
+            key = tuple(map(float, match.groups()))
+            matrices[key] = stack
+            designs[key] = np.linalg.eigvalsh(stack)[:, 0]
+        elif name in FILES:
+            references[FILES[name]] = _table(data)
+
+    read_tar(path, spec, handle)
     require(
         len(designs) == 672 and set(references) == set(FILES.values()),
         "incomplete design archive",
     )
-    return designs, references
+    return designs, matrices, references
 
 
 def analytic_check(report):
@@ -333,7 +349,8 @@ def run(args, report):
     """Check the 6.1-minute design and optimize the robust toggle experiment."""
     analytic_check(report)
     file = fixtures(args.data_dir, "C8")["fsp-fim.tar.gz"]
-    designs, references = archive(file)
+    spec = json.loads(MANIFEST.read_text())["C8"]["fsp-fim.tar.gz"]
+    designs, matrices, references = archive(file, spec)
     burst, values, script_grid = burst_sweep(report, references["burst"])
     write(args.output / "bursting-model.json", burst.to_dict())
     archive_winner = max(designs, key=lambda k: designs[k].mean())

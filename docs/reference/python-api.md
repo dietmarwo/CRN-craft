@@ -1050,6 +1050,7 @@ prepare_fsp(
     bounds,
     protocol=None,
     initial=None,
+    retained=None,
     max_states=100000,
     max_edges=2000000,
 )
@@ -1063,6 +1064,7 @@ Prepare a reusable projection for a closed model.
 | `bounds` | required | Mapping of species labels to inclusive upper counts. |
 | `protocol` (keyword only) | `None` | An ordered Protocol describing count operations and delays. |
 | `initial` (keyword only) | `None` | Optional mapping of count tuples to probabilities. |
+| `retained` (keyword only) | `None` | Optional iterable of count tuples, in lowered species order, that restrict the state space; transitions that leave the set flow to the absorbing sink. Not available with scheduled interventions. |
 | `max_states` (keyword only) | `100000` | Reachable-state limit. |
 | `max_edges` (keyword only) | `2000000` | Sparse edge limit. |
 
@@ -1070,7 +1072,9 @@ The native engine lowers the model, enumerates the states, builds the
 generator and propagates the law; no solve needs SciPy.
 Existing [`Model.fsp`](#modelfsp) is the native uniformization for one fixed
 model without protocols, signals or initial mixtures. A prepared
-projection holds no per-solve state, so threads can share it. It cannot
+projection holds no per-solve state, so threads can share it. Optional
+retained tuples restrict the state space in lowered species order:
+excluded transitions flow to the absorbing sink. It cannot
 be pickled; prepare one per process.
 
 ### `stationary_fsp`

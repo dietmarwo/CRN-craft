@@ -43,7 +43,7 @@ UTF-16 document without a byte order mark.
   natively. Sparse LU factorizations (faer) are refused with `CRN-E070`
   above `max_factor_bytes` (a keyword of `solve` and `stationary_fsp`,
   default 2 GiB). For BDF, `max_work` counts generator-vector products,
-  solves and numeric factorizations. SciPy (the `projection` extra) is
+  solves and numeric factorizations. SciPy (the `likelihood` extra) is
   needed only by the binomial-detection and fluorescence readouts of
   `crn_craft.likelihood`. `Model.fsp` is unchanged. Forced segments
   report no integration error estimate. Native refusals cross the binding

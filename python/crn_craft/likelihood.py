@@ -12,7 +12,7 @@ def _require_scipy(feature):
     except ModuleNotFoundError as error:
         raise ModuleNotFoundError(
             f"{feature} needs SciPy; install it with "
-            "pip install 'crn-craft[projection]'",
+            "pip install 'crn-craft[likelihood]'",
             name="scipy",
         ) from error
 

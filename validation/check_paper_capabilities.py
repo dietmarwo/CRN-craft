@@ -558,21 +558,28 @@ def observations():
         pass
     else:
         raise RuntimeError("singular covariance accepted")
-    # Without SciPy, preparation, constant segments and the midpoint rule
-    # run natively; BDF and stationary laws name the optional extra.
+    # Without SciPy, preparation, every solver and stationary laws run
+    # natively; only the binomial-detection and fluorescence readouts of
+    # crn_craft.likelihood name the optional extra.
     missing = subprocess.run(
         [
             sys.executable,
             "-c",
             "import sys; sys.modules['scipy'] = None; import crn_craft as crn\n"
+            "from crn_craft.likelihood import binned_probability, count_probability\n"
             "m = crn.Model('m'); m.add_species('X', 0); m.add_parameter('b', 2)\n"
             "m.add_reaction(crn.mass_action('b'), [], ['X'], name='birth')\n"
             "g = crn.prepare_fsp(m, {'X': 30})\n"
             "g.solve(1, [1])\n"
             "s = {'birth': crn.Signal(lambda t: 1 + t)}\n"
-            "g.solve(1, [1], signals=s, solver='midpoint')\n"
-            "for call in (lambda: g.solve(1, [1], signals=s),\n"
-            "             lambda: crn.stationary_fsp(m, {'X': 3})):\n"
+            "for solver in ('midpoint', 'bdf'):\n"
+            " r = g.solve(1, [1], signals=s, solver=solver)\n"
+            " print(solver, r.solver, round(float(r.marginal('X') @ range(31)), 6))\n"
+            "law = crn.stationary_fsp(m, {'X': 3}, return_state=(0,))\n"
+            "print('stationary', law.probabilities.round(6).tolist())\n"
+            "for call in (lambda: count_probability([1], [1], [1], detection=0.5),\n"
+            "             lambda: binned_probability([1], [1], [0, 1, 2], gain=1,"
+            " sigma=1)):\n"
             " try:\n  call()\n"
             " except ModuleNotFoundError as e:\n  print(e)",
         ],
@@ -582,8 +589,15 @@ def observations():
     )
     lines = missing.stdout.splitlines()
     require(
-        len(lines) == 2 and all("crn-craft[projection]" in line for line in lines),
-        "missing SciPy message",
+        lines[:3]
+        == [
+            "midpoint midpoint 1.5",
+            "bdf bdf 1.5",
+            "stationary [0.25, 0.25, 0.25, 0.25]",
+        ]
+        and len(lines) == 5
+        and all("crn-craft[projection]" in line for line in lines[3:]),
+        "native projection without SciPy and the missing SciPy message",
     )
     axes = measured_counts([[1, 2, 3], [5, 2, 3]], ("N", "C", "P"), (["N", "C"], "P"))
     require(np.array_equal(axes, [[3, 3], [7, 3]]), "joint and summed readout")

@@ -14,3 +14,5 @@ crn-craft = { path = "../../crates/crn-craft" }
 pyo3 = { version = "=0.29.0", features = ["extension-module", "abi3-py310"] }
 serde_json = "=1.0.154"
 serde = "=1.0.229"
+# The sparse LU of the implicit projection integrator and stationary laws.
+faer = { version = "=0.24.4", default-features = false, features = ["std", "sparse-linalg"] }

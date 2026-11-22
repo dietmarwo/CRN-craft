@@ -19,7 +19,7 @@
           "additionalProperties": false,
           "properties": {
             "error": {
-              "type": "string"
+              "$ref": "#/definitions/Failure"
             }
           },
           "required": [
@@ -28,6 +28,22 @@
           "type": "object"
         }
       ]
+    },
+    "Failure": {
+      "description": "A refused case or line: a stable diagnostic code and a free message. `CRN-E001`-`CRN-E003`: the line is not a valid request document; `CRN-E004`: line or batch size; `CRN-E015`: times, tolerances or parameters out of their domain; `CRN-E080`: the integration failed, a reported state went negative beyond the tolerance, or a readout is not finite.",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "type": "object"
     },
     "ResultVersion": {
       "enum": [
@@ -65,19 +81,32 @@
       "type": "object"
     }
   },
+  "description": "One result line: `cases` in request order, or `error` for a line that was refused as a whole.",
   "properties": {
     "cases": {
       "items": {
         "$ref": "#/definitions/Evaluation"
       },
-      "type": "array"
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Failure"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "schema": {
       "$ref": "#/definitions/ResultVersion"
     }
   },
   "required": [
-    "cases",
     "schema"
   ],
   "title": "BatchResult",

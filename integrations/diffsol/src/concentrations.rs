@@ -3,7 +3,11 @@ use crn_craft::{concentration::Concentration, strict_json};
 use diffsol::{NalgebraLU, NalgebraMat, OdeBuilder, OdeSolverMethod, OdeSolverStopReason};
 use schemars::{JsonSchema, schema_for};
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, Write};
+use std::io::{BufRead, Read, Write};
+use std::panic::{AssertUnwindSafe, catch_unwind};
+
+/// Largest request line in bytes, newline excluded.
+const LINE_LIMIT: usize = 1 << 20;
 
 #[derive(Deserialize, JsonSchema)]
 enum ModelVersion {
@@ -47,11 +51,32 @@ struct Case {
     atol: f64,
 }
 
+/// A refused case or line: a stable diagnostic code and a free message.
+/// `CRN-E001`-`CRN-E003`: the line is not a valid request document;
+/// `CRN-E004`: line or batch size; `CRN-E015`: times, tolerances or
+/// parameters out of their domain; `CRN-E080`: the integration failed, a
+/// reported state went negative beyond the tolerance, or a readout is
+/// not finite.
+#[derive(Serialize, JsonSchema)]
+struct Failure {
+    code: String,
+    message: String,
+}
+
+impl Failure {
+    fn new(code: &str, message: impl Into<String>) -> Self {
+        Self {
+            code: code.into(),
+            message: message.into(),
+        }
+    }
+}
+
 #[derive(Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 enum Evaluation {
     Values(Trajectory),
-    Error(String),
+    Error(Failure),
 }
 
 #[derive(Serialize, JsonSchema)]
@@ -66,13 +91,18 @@ enum ResultVersion {
     V01,
 }
 
+/// One result line: `cases` in request order, or `error` for a line that
+/// was refused as a whole.
 #[derive(Serialize, JsonSchema)]
 struct BatchResult {
     schema: ResultVersion,
-    cases: Vec<Evaluation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    cases: Option<Vec<Evaluation>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<Failure>,
 }
 
-fn solve(model: &Concentration, case: &Case) -> Result<Trajectory, String> {
+fn solve(model: &Concentration, case: &Case) -> Result<Trajectory, Failure> {
     if !(2..=201).contains(&case.times.len())
         || case.times[0] != 0.0
         || case
@@ -82,9 +112,18 @@ fn solve(model: &Concentration, case: &Case) -> Result<Trajectory, String> {
         || !(1e-13..=1e-2).contains(&case.rtol)
         || !(1e-15..=1e-2).contains(&case.atol)
     {
-        return Err("invalid concentration times or tolerances".into());
+        return Err(Failure::new(
+            "CRN-E015",
+            "invalid concentration times or tolerances",
+        ));
     }
-    let initial = model.initial(&case.parameters)?;
+    let initial = model
+        .initial(&case.parameters)
+        .map_err(|e| Failure::new("CRN-E015", e))?;
+    integrate(model, case, initial).map_err(|e| Failure::new("CRN-E080", e))
+}
+
+fn integrate(model: &Concentration, case: &Case, initial: Vec<f64>) -> Result<Trajectory, String> {
     let n = initial.len();
     let problem = OdeBuilder::<NalgebraMat<f64>>::new()
         .p(case.parameters.clone())
@@ -141,6 +180,45 @@ fn solve(model: &Concentration, case: &Case) -> Result<Trajectory, String> {
     })
 }
 
+fn reply(model: &Concentration, line: &[u8]) -> BatchResult {
+    let refuse = |error| BatchResult {
+        schema: ResultVersion::V01,
+        cases: None,
+        error: Some(error),
+    };
+    if line.len() > LINE_LIMIT {
+        return refuse(Failure::new(
+            "CRN-E004",
+            format!("request line exceeds {LINE_LIMIT} bytes"),
+        ));
+    }
+    let batch = match strict_json::parse::<Batch>(line) {
+        Ok(batch) => batch,
+        Err(error) => return refuse(Failure::new(&error.code, error.message)),
+    };
+    let _ = batch.schema;
+    if !(1..=32).contains(&batch.cases.len()) {
+        return refuse(Failure::new("CRN-E004", "a request holds 1 to 32 cases"));
+    }
+    let cases = batch
+        .cases
+        .iter()
+        .map(|case| {
+            // A panic inside the integrator fails this case only.
+            match catch_unwind(AssertUnwindSafe(|| solve(model, case))) {
+                Ok(Ok(value)) => Evaluation::Values(value),
+                Ok(Err(error)) => Evaluation::Error(error),
+                Err(_) => Evaluation::Error(Failure::new("CRN-E080", "internal ODE solver panic")),
+            }
+        })
+        .collect();
+    BatchResult {
+        schema: ResultVersion::V01,
+        cases: Some(cases),
+        error: None,
+    }
+}
+
 pub(crate) fn command(args: &[String]) -> Result<(), String> {
     if args.len() == 1 && args[0] == "describe" {
         println!(
@@ -171,29 +249,31 @@ pub(crate) fn command(args: &[String]) -> Result<(), String> {
         &model.observations,
     )?;
     let mut out = std::io::stdout().lock();
-    for line in std::io::stdin().lock().lines() {
-        let line = line.map_err(|e| e.to_string())?;
-        let reply = match strict_json::parse::<Batch>(line.as_bytes()) {
-            Ok(batch) if line.len() <= 1 << 20 && (1..=32).contains(&batch.cases.len()) => {
-                let _ = batch.schema;
-                let cases = batch
-                    .cases
-                    .iter()
-                    .map(|case| match solve(&prepared, case) {
-                        Ok(value) => Evaluation::Values(value),
-                        Err(error) => Evaluation::Error(error),
-                    })
-                    .collect();
-                serde_json::to_value(BatchResult {
-                    schema: ResultVersion::V01,
-                    cases,
-                })
-                .map_err(|e| e.to_string())?
-            }
-            Ok(_) => serde_json::json!({"error": "invalid concentration batch size"}),
-            Err(error) => serde_json::json!({"error": error.message}),
-        };
-        writeln!(out, "{reply}").map_err(|e| e.to_string())?;
+    let mut input = std::io::stdin().lock();
+    let mut line = Vec::new();
+    loop {
+        line.clear();
+        let read = input
+            .by_ref()
+            .take(LINE_LIMIT as u64 + 1)
+            .read_until(b'\n', &mut line)
+            .map_err(|e| e.to_string())?;
+        if read == 0 {
+            break;
+        }
+        let complete = line.last() == Some(&b'\n');
+        if complete {
+            line.pop();
+        } else if line.len() > LINE_LIMIT {
+            // Discard the rest of an oversized line.
+            let mut rest = Vec::new();
+            input
+                .read_until(b'\n', &mut rest)
+                .map_err(|e| e.to_string())?;
+        }
+        let reply = reply(&prepared, &line);
+        let text = serde_json::to_string(&reply).map_err(|e| e.to_string())?;
+        writeln!(out, "{text}").map_err(|e| e.to_string())?;
         out.flush().map_err(|e| e.to_string())?;
     }
     Ok(())

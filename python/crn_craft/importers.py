@@ -131,6 +131,11 @@ def import_sbml(raw, *, convention):
     ``report["model"]`` is the converted ``crn-craft.model/1.0`` model, beside
     the source format and its SHA-256. Unsupported input raises
     :class:`crn_craft.importers.ImportFailure`.
+
+    The document is read by the package's one XML guard: at most 16 MiB of
+    well-formed UTF-8 (UTF-16 and UTF-32 are refused, and so is a declared
+    encoding other than UTF-8) without a document type or entity declaration
+    anywhere in its bytes, so nothing is expanded or fetched.
     """
     if convention != "stochastic_count_propensity":
         fail("explicit stochastic_count_propensity convention required")

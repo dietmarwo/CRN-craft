@@ -318,3 +318,154 @@ def run(args, report):
         ax.legend()
 
     save_plot(args, "cdf-contour.png", draw)
+
+
+def draw(tables, folder):
+    """Draw C5-contour.png and C5-recovery.png from results/C5 tables."""
+    import csv
+    from pathlib import Path
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    tables, folder = Path(tables), Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    with (tables / "recovery.csv").open(newline="") as stream:
+        fits = list(csv.DictReader(stream))
+
+    def rates(row):
+        return float(row["k2"]), float(row["k3"])
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4.4), layout="constrained")
+    for ax, cells in zip(axes, (10, 100), strict=True):
+        with (tables / f"contour-m{cells}.csv").open(newline="") as stream:
+            grid = np.array(
+                [[float(v) for v in row.values()] for row in csv.DictReader(stream)]
+            )
+        k2, k3 = np.unique(grid[:, 0]), np.unique(grid[:, 1])
+        score = grid[:, 2].reshape(len(k3), len(k2))
+        shade = ax.contourf(
+            k2, k3, np.log10(score / score.min()), levels=12, cmap="Blues_r"
+        )
+        fig.colorbar(shade, ax=ax, label="log10(score / grid minimum)")
+        i, j = np.unravel_index(np.argmin(score), score.shape)
+        ax.plot(
+            k2[j], k3[i], "*", ms=13, color="white", mec="black", label="grid minimum"
+        )
+        ax.plot(
+            TRUTH[1],
+            TRUTH[2],
+            "o",
+            ms=9,
+            color="white",
+            mec="black",
+            label="generating rates",
+        )
+        ax.plot(
+            *TABLE[cells][1:],
+            "P",
+            ms=10,
+            color="#eb6834",
+            mec="black",
+            label="paper's fit, Table 1 (own data)",
+        )
+        for row in fits:
+            if (row["run"], row["cells"], row["data_index"]) == (
+                "review-3000",
+                str(cells),
+                "0",
+            ) and 0.1 <= min(rates(row)) <= max(rates(row)) <= 1:
+                ax.plot(
+                    *rates(row),
+                    "D",
+                    ms=8,
+                    color="#1baf7a",
+                    mec="black",
+                    label="our fit, 3,000 calls (k1 free)",
+                )
+        ax.set(
+            xlim=(0.1, 1),
+            ylim=(0.1, 1),
+            xlabel="k2, switching off (1/min)",
+            ylabel="k3, RNA production (1/min)",
+        )
+        ax.set_title(
+            f"{cells} regenerated trajectories, k1 = 0.0277 fixed", fontsize=10
+        )
+        ax.legend(fontsize=7, loc="lower right")
+    fig.suptitle(
+        "Midrank CDF score over (k2, k3), the setting of Figure 2A", fontsize=10
+    )
+    fig.savefig(folder / "C5-contour.png", dpi=155)
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(6.4, 4.6), layout="constrained")
+    styles = (
+        (
+            "delivered-300",
+            "published",
+            "s",
+            "#eb6834",
+            "none",
+            "300 calls, individual ranks",
+        ),
+        ("delivered-300", "midrank", "o", "#2a78d6", "none", "300 calls, midranks"),
+        ("review-3000", "midrank", "D", "#1baf7a", "#1baf7a", "3,000 calls, midranks"),
+    )
+    for run, variant, marker, color, face, label in styles:
+        chosen = [
+            rates(row)
+            for row in fits
+            if (row["run"], row["sparse_score"], row["cells"]) == (run, variant, "100")
+        ]
+        ax.plot(
+            *np.array(chosen).T,
+            marker,
+            ms=7,
+            color=color,
+            mfc=face,
+            ls="none",
+            label=f"ours, {label} ({len(chosen)})",
+        )
+    line = np.array([0.02, 6])
+    ax.plot(
+        line,
+        line * TRUTH[2] / TRUTH[1],
+        "--",
+        color="#52514e",
+        lw=1,
+        label="k3/k2 of the generating rates",
+    )
+    ax.plot(
+        TRUTH[1],
+        TRUTH[2],
+        "*",
+        ms=14,
+        color="white",
+        mec="black",
+        label="generating rates",
+    )
+    ax.plot(
+        *TABLE[100][1:],
+        "P",
+        ms=10,
+        color="black",
+        label="paper, Table 1, 100 trajectories",
+    )
+    ax.set(
+        xscale="log",
+        yscale="log",
+        xlim=(0.02, 6),
+        ylim=(0.04, 6),
+        xlabel="fitted k2 (1/min)",
+        ylabel="fitted k3 (1/min)",
+    )
+    ax.grid(alpha=0.3, lw=0.5)
+    ax.legend(fontsize=7, loc="upper left")
+    ax.set_title(
+        "Fits to regenerated 100-trajectory datasets (upper bound 5)", fontsize=10
+    )
+    fig.savefig(folder / "C5-recovery.png", dpi=155)
+    plt.close(fig)

@@ -53,8 +53,7 @@ same `run.py` driver; they add the finite state projection with retained sets,
 forward sensitivities on a prepared projection and the persistent
 concentration solver of the diffsol workspace, and change no SSA, rule or
 optimizer algorithm. [verified.json](results/verified.json) records C1–C4 only: the
-studies of C5–C10 take hours on eight threads, and the record keeps one smoke
-and one study run of the chapters that finish in minutes.
+studies of C5–C10 take hours on eight threads and are not part of that record.
 
 Each chapter keeps its compact tables in `results/C#/`, and `results/C#/README.md`
 names for every file where it came from: the study run of the implementer on

@@ -16,7 +16,7 @@ from scipy.stats import poisson
 
 from common import require, write
 from .search import PACKAGES as PACKAGES
-from .search import check, save_plot, search
+from .search import check, search
 from .sources import MANIFEST, data_option, fixtures, read_tar
 
 DOI = "10.1371/journal.pcbi.1006365"
@@ -25,6 +25,7 @@ B = (3.0, 4.0, 6.0)
 AXES = (np.arange(1.0, 5.0), np.arange(1.0, 7.0, 0.5), np.arange(1.0, 15.0))
 TOGGLE_BOUNDS = [(g[0], g[-1]) for g in AXES]
 SWEEP = np.geomspace(0.02, 700.0, 60)
+FINE = np.geomspace(3.0, 12.0, 141)
 FILE_PATTERN = re.compile(
     r"/all_fims_sampled_fim/exp_design_FIM_alpha_(.+)_delta_(.+)_uv_(.+)_sampled.txt$"
 )
@@ -154,39 +155,54 @@ def burst_sweep(report, archive_curve):
     ):
         net.add_reaction(crn.mass_action(name), lhs, rhs, name=name)
     graph = crn.prepare_fsp(net, {"on": 1, "off": 1, "rna": 215})
+    # The author script: 50 log-spaced dimensionless intervals, time unit
+    # 1/removal = 20 min, five time points 0..5 f (t = 0 dropped, it
+    # carries no information), so the spacing is 1.25 f = 25 f min.
     script_grid = 25 * np.logspace(-3, 1.5, 50)
-    schedules = np.r_[SWEEP, script_grid][:, None] * np.arange(1, 5)[None, :]
+    grids = (SWEEP, script_grid, FINE)
+    schedules = np.concatenate(grids)[:, None] * np.arange(1, 5)[None, :]
     times = np.unique(schedules)
     res = forward_sensitivities(
         graph,
         [(times[-1], binding)],
         times,
         ("koff", "synth"),
-        tolerance=1e-8,
-        max_work=300_000,
+        tolerance=1e-9,
+        max_work=600_000,
     )
     _, p, s = res.observed(("rna",))
+    # The author FSP keeps 0..199 RNA and drops bins below 1e-6.
+    p, s = p[:, :200], s[:, :, :200]
     table = []
     for schedule in schedules:
         idx = np.searchsorted(times, schedule)
-        table.append(eigenvalue(p[idx], s[idx], 1000.0)[0])
-    values = np.asarray(table)
-    native_peak = float(SWEEP[np.argmax(values[: len(SWEEP)])])
+        table.append(eigenvalue(p[idx], s[idx], 1000.0, floor=1e-6)[0])
+    values = np.split(np.asarray(table), np.cumsum([len(g) for g in grids])[:-1])
+    paper, script, fine = values
+    native_peak = float(SWEEP[np.argmax(paper)])
     archive_peak = float(script_grid[np.argmax(archive_curve)])
-    script_peak = float(script_grid[np.argmax(values[len(SWEEP) :])])
+    script_peak = float(script_grid[np.argmax(script)])
+    # Archive values are the dimensionless matrix over 400: a constant
+    # factor 1/160000 of ours if the reconstruction is exact.
+    ratio = archive_curve / script
     near = np.abs(np.log(SWEEP / 6.1)).argmin()
     check(
         report,
         "bursting-interval-near-6.1-minutes",
         SWEEP[near - 1] <= native_peak <= SWEEP[near + 1]
-        and abs(archive_peak - 6.1) < 0.1,
+        and abs(archive_peak - 6.1) < 0.1
+        and script_peak == archive_peak
+        and np.ptp(ratio) < 1e-4 * np.median(ratio),
         native_peak=native_peak,
         archive_peak=archive_peak,
         native_on_archive_grid=script_peak,
+        fine_grid_peak=float(FINE[np.argmax(fine)]),
+        archive_to_native_ratio=[float(ratio.min()), float(ratio.max())],
         leakage=res.probabilities[-1, -1],
         archive_grid_points=len(script_grid),
     )
-    return net, values[: len(SWEEP)], script_grid
+    curves = dict(paper=paper, script=script, fine=fine, script_grid=script_grid)
+    return net, curves
 
 
 def toggle_network(reference):
@@ -369,8 +385,28 @@ def run(args, report):
     file = fixtures(args.data_dir, "C8")["fsp-fim.tar.gz"]
     spec = json.loads(MANIFEST.read_text())["C8"]["fsp-fim.tar.gz"]
     designs, matrices, references = archive(file, spec)
-    burst, values, script_grid = burst_sweep(report, references["burst"])
+    burst, curves = burst_sweep(report, references["burst"])
     write(args.output / "bursting-model.json", burst.to_dict())
+    write_csv(
+        args.output / "burst-sweep.csv",
+        ["grid", "interval_min", "native_eopt", "archive_eopt"],
+        [
+            *(
+                ["paper-60", t, v, ""]
+                for t, v in zip(SWEEP, curves["paper"], strict=True)
+            ),
+            *(
+                ["script-50", t, v, a]
+                for t, v, a in zip(
+                    curves["script_grid"],
+                    curves["script"],
+                    references["burst"],
+                    strict=True,
+                )
+            ),
+            *(["fine", t, v, ""] for t, v in zip(FINE, curves["fine"], strict=True)),
+        ],
+    )
     archive_winner = max(designs, key=lambda k: designs[k].mean())
     ranking = int(np.sum(designs[A] > designs[B]))
     check(
@@ -457,26 +493,61 @@ def run(args, report):
         )
         ids = range(args.native_pair_samples)
 
-        def pair(i):
-            return (
-                i,
-                toggle.scores(A, [i], args.cache)[0],
-                toggle.scores(B, [i], args.cache)[0],
-            )
+        def compare(toggle_design, d, i):
+            fim, solved = toggle_design.matrix(d, i)
+            reference = matrices[d][i]
+            return [
+                float(np.linalg.eigvalsh(fim)[0]),
+                float(designs[d][i]),
+                float(solved.probabilities[:, -1].max()),
+                float(np.linalg.norm(fim - reference) / np.linalg.norm(reference)),
+            ]
 
+        def pair(i):
+            return [i, *compare(toggle, A, i), *compare(toggle, B, i)]
+
+        columns = ["native", "archive", "sink", "matrix_gap"]
+        header = ["sample", *(f"{d}_{c}" for d in "ab" for c in columns)]
         with ThreadPoolExecutor(args.threads) as pool:
-            comparison = list(pool.map(pair, ids))
-        write(args.output / "native-pair.json", comparison)
-        candidates_a = np.array([a for _, a, _ in comparison])
-        candidates_b = np.array([b for _, _, b in comparison])
+            table = np.array(list(pool.map(pair, ids)))
+        write_csv(args.output / "native-pair.csv", header, table)
+        native_a, archive_a, sink_a = table[:, 1], table[:, 2], table[:, 3]
+        native_b, archive_b, sink_b = table[:, 5], table[:, 6], table[:, 7]
+        gaps = np.abs(np.r_[native_a / archive_a, native_b / archive_b] - 1)
         report["native_pair"] = dict(
-            samples=len(comparison),
-            wins=int(sum(candidates_a[:, 0] > candidates_b[:, 0])),
-            archive_wins=int(sum(designs[A][: len(ids)] > designs[B][: len(ids)])),
-            average_a=np.mean(candidates_a[:, 0]),
-            average_b=np.mean(candidates_b[:, 0]),
-            max_leakage=np.max([candidates_a[:, 1], candidates_b[:, 1]]),
+            samples=len(table),
+            wins=int(np.sum(native_a > native_b)),
+            archive_wins=int(np.sum(archive_a > archive_b)),
+            same_winner=int(np.sum((native_a > native_b) == (archive_a > archive_b))),
+            average_a=float(np.mean(native_a)),
+            average_b=float(np.mean(native_b)),
+            median_relative_gap=float(np.median(gaps)),
+            samples_gap_above_1e_3=int(np.sum(gaps > 1e-3)),
+            max_matrix_gap=float(np.max(table[:, [4, 8]])),
+            max_leakage=float(np.max([sink_a, sink_b])),
         )
+        # The archive truncates at the same domain. Recompute the samples
+        # that lose more than 0.1 % there on the expanded domain.
+        leaky = [
+            int(i)
+            for i, a, b in zip(table[:, 0], sink_a, sink_b, strict=True)
+            if max(a, b) > 1e-3
+        ]
+        if leaky:
+
+            def wider(i):
+                return [i, *compare(expanded, A, i), *compare(expanded, B, i)]
+
+            with ThreadPoolExecutor(args.threads) as pool:
+                rows = np.array(list(pool.map(wider, leaky)))
+            write_csv(args.output / "domain-expansion.csv", header, rows)
+            report["domain_expansion"] = dict(
+                bounds=bounds,
+                samples=leaky,
+                wins=int(np.sum(rows[:, 1] > rows[:, 5])),
+                archive_wins=int(np.sum(rows[:, 2] > rows[:, 6])),
+                max_leakage=float(np.max(rows[:, [3, 7]])),
+            )
     if args.native_grid:
         require(args.cache is not None, "native grid needs --cache for restart")
         write(
@@ -502,25 +573,126 @@ def run(args, report):
         native_pair_wins=int(np.sum(tested["A"][:, 0] > tested["B"][:, 0])),
     )
 
-    def draw(fig):
-        burst_axis, pair_axis = fig.subplots(1, 2)
-        burst_axis.semilogx(SWEEP, values / np.max(values), label="CRN-craft")
-        burst_axis.semilogx(
-            script_grid,
-            references["burst"] / np.max(references["burst"]),
-            ls="--",
-            label="Archived",
-        )
-        burst_axis.set(
-            xlabel="Sampling interval (min)", ylabel="Normalized information"
-        )
-        burst_axis.legend()
-        pair_axis.loglog(designs[B], designs[A], ".")
-        extent = [
-            min(designs[A].min(), designs[B].min()),
-            max(designs[A].max(), designs[B].max()),
-        ]
-        pair_axis.plot(extent, extent, color="grey")
-        pair_axis.set(xlabel="Design B information", ylabel="Design A information")
+    draw(args.output, args.output)
 
-    save_plot(args, "information-designs.png", draw)
+
+def write_csv(path, header, rows):
+    import csv
+
+    with open(path, "w", newline="") as handle:
+        out = csv.writer(handle, lineterminator="\n")
+        out.writerow(header)
+        for row in rows:
+            out.writerow([_cell(v) for v in row])
+
+
+def _cell(value):
+    if isinstance(value, str):
+        return value
+    value = float(value)
+    return str(int(value)) if value.is_integer() and abs(value) < 2**53 else repr(value)
+
+
+def _read_csv(path):
+    import csv
+
+    with open(path, newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def draw(tables: Path, folder: Path):
+    """Draw the C8 figures from the saved tables in ``tables``."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    tables, folder = Path(tables), Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    rows = _read_csv(tables / "burst-sweep.csv")
+    fig, ax = plt.subplots(figsize=(6.4, 3.8), layout="constrained")
+    for grid, style, label in (
+        ("paper-60", "-o", "ours, 60 intervals as in the article"),
+        ("script-50", "-", "ours, 50 intervals of the author script"),
+    ):
+        part = [r for r in rows if r["grid"] == grid]
+        t = np.array([float(r["interval_min"]) for r in part])
+        v = np.array([float(r["native_eopt"]) for r in part])
+        ax.semilogx(t, v, style, ms=3, lw=1, label=label)
+        if grid == "script-50":
+            arch = np.array([float(r["archive_eopt"]) for r in part])
+            scale = np.median(v / arch)
+            ax.semilogx(
+                t,
+                arch * scale,
+                "x",
+                ms=5,
+                color="black",
+                label=f"author archive x {scale:.0f} (unit change)",
+            )
+    ax.axvline(6.1, color="grey", ls=":", label="article optimum 6.1 min")
+    ax.set(
+        xlabel="Sampling interval (min), 5 time points from 0",
+        ylabel="Smallest FIM eigenvalue, 1000 cells",
+    )
+    ax.legend(fontsize=8)
+    fig.savefig(folder / "C8-burst-interval.png", dpi=155)
+    plt.close(fig)
+
+    path = tables / "native-pair.csv"
+    if not path.is_file():
+        return
+    rows = _read_csv(path)
+    col = {k: np.array([float(r[k]) for r in rows]) for k in rows[0]}
+    fig, (left, right) = plt.subplots(1, 2, figsize=(9, 4), layout="constrained")
+    for d, mark in (("a", "o"), ("b", "s")):
+        left.loglog(
+            col[f"{d}_archive"],
+            col[f"{d}_native"],
+            mark,
+            ms=4,
+            mfc="none",
+            label=f"design {d.upper()}: ours vs archive",
+        )
+    lo = min(col["a_archive"].min(), col["b_archive"].min())
+    hi = max(col["a_archive"].max(), col["b_archive"].max())
+    left.plot([lo, hi], [lo, hi], color="grey", lw=1, label="equality")
+    left.set(
+        xlabel="Archive smallest eigenvalue (per sample)",
+        ylabel="Ours (CRN-craft) smallest eigenvalue",
+    )
+    left.legend(fontsize=8)
+    sink = np.maximum(col["a_sink"], col["b_sink"])
+    gap = np.maximum(
+        np.abs(col["a_native"] / col["a_archive"] - 1),
+        np.abs(col["b_native"] / col["b_archive"] - 1),
+    )
+    right.loglog(np.maximum(sink, 1e-12), np.maximum(gap, 1e-12), ".", ms=5)
+    right.set(
+        xlabel="Largest sink probability, original domain (ours)",
+        ylabel="Relative eigenvalue difference, ours vs archive",
+    )
+    fig.savefig(folder / "C8-archive-vs-native.png", dpi=155)
+    plt.close(fig)
+
+    path = tables / "domain-expansion.csv"
+    if not path.is_file():
+        return
+    wide = {int(float(r["sample"])): r for r in _read_csv(path)}
+    narrow = {int(float(r["sample"])): r for r in rows}
+    fig, ax = plt.subplots(figsize=(6.4, 3.8), layout="constrained")
+    for d, mark in (("a", "o"), ("b", "s")):
+        x = [float(narrow[i][f"{d}_sink"]) for i in wide]
+        y = [
+            float(wide[i][f"{d}_native"]) / float(narrow[i][f"{d}_native"]) - 1
+            for i in wide
+        ]
+        ax.semilogx(x, y, mark, mfc="none", label=f"design {d.upper()}")
+    ax.axhline(0.0, color="grey", lw=1)
+    ax.set(
+        xlabel="Sink probability on the archive's domain (ours)",
+        ylabel="Relative change of the smallest\neigenvalue on the expanded domain",
+    )
+    ax.legend(fontsize=8, title="ours, samples losing > 0.1 %", title_fontsize=8)
+    fig.savefig(folder / "C8-domain.png", dpi=155)
+    plt.close(fig)

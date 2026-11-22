@@ -447,7 +447,10 @@ def run(args, report):
     tested = {label: at(d) for label, d in (("A", A), ("B", B))}
     searches = []
     candidates = [A, B]
-    for retry in range(args.native_retries or (1 if fast else 4)):
+    retries = args.native_retries or (1 if fast else 4)
+    # Seeds 72580 + retry must stay clear of the archive search's 72611.
+    require(retries <= 31, "at most 31 native retries")
+    for retry in range(retries):
         fit = search(
             args,
             f"native-de-{retry}",
@@ -630,7 +633,7 @@ def draw(tables: Path, folder: Path):
                 color="black",
                 label=f"author archive x {scale:.0f} (unit change)",
             )
-    ax.axvline(6.1, color="grey", ls=":", label="article optimum 6.1 min")
+    ax.axvline(6.1, color="gray", ls=":", label="article optimum 6.1 min")
     ax.set(
         xlabel="Sampling interval (min), 5 time points from 0",
         ylabel="Smallest FIM eigenvalue, 1000 cells",
@@ -656,7 +659,7 @@ def draw(tables: Path, folder: Path):
         )
     lo = min(col["a_archive"].min(), col["b_archive"].min())
     hi = max(col["a_archive"].max(), col["b_archive"].max())
-    left.plot([lo, hi], [lo, hi], color="grey", lw=1, label="equality")
+    left.plot([lo, hi], [lo, hi], color="gray", lw=1, label="equality")
     left.set(
         xlabel="Archive smallest eigenvalue (per sample)",
         ylabel="Ours (CRN-craft) smallest eigenvalue",
@@ -688,7 +691,7 @@ def draw(tables: Path, folder: Path):
             for i in wide
         ]
         ax.semilogx(x, y, mark, mfc="none", label=f"design {d.upper()}")
-    ax.axhline(0.0, color="grey", lw=1)
+    ax.axhline(0.0, color="gray", lw=1)
     ax.set(
         xlabel="Sink probability on the archive's domain (ours)",
         ylabel="Relative change of the smallest\neigenvalue on the expanded domain",

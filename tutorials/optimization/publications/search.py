@@ -3,6 +3,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 import csv
+import hashlib
 import importlib.metadata
 import json
 from dataclasses import dataclass
@@ -29,6 +30,23 @@ class Search:
     best: np.ndarray
     value: float
     failures: int
+
+
+def objective_context(chapter, **settings):
+    """Name an objective for the checkpoint of a search.
+
+    A resumed search replays saved scores, so the saved run must belong to
+    the same objective. The digest covers the chapter, the pinned fixtures
+    of the chapter in the source manifest and the given settings; a lesson
+    passes every setting that changes its scores and an objective version
+    that it raises when the scoring code changes.
+    """
+    from .sources import MANIFEST
+
+    fixtures = json.loads(MANIFEST.read_text()).get(chapter)
+    document = {"chapter": chapter, "fixtures": fixtures, "settings": settings}
+    text = json.dumps(document, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(text.encode()).hexdigest()
 
 
 def options_resume(parser):

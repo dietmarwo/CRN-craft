@@ -11,7 +11,14 @@ from scipy.sparse.linalg import expm_multiply, spsolve
 
 from common import require, write
 from .search import PACKAGES as PACKAGES
-from .search import PENALTY, check, options_resume, save_plot, search
+from .search import (
+    PENALTY,
+    check,
+    objective_context,
+    options_resume,
+    save_plot,
+    search,
+)
 from .sources import data_option, fixtures
 
 DOI = "10.1186/s13059-017-1297-9"
@@ -313,6 +320,14 @@ def run(args, report):
     for j, changed in enumerate(HYPOTHESES):
         label = "-".join(NAMES[i] for i in changed)
         bounds = np.log10([*BOUNDS, *[BOUNDS[i] for i in changed]])
+        # A resumed search replays saved scores: tie them to this objective.
+        context = objective_context(
+            "C6",
+            objective="joint count NLL, version 1",
+            hypothesis=label,
+            rna_limit=limit,
+            decay=FIXED_DECAY,
+        )
         fits = [
             search(
                 args,
@@ -323,6 +338,7 @@ def run(args, report):
                 4497 + i + args.seed_offset,
                 calls,
                 pop=16 if not fast else 10,
+                context=context,
             )
             for i in range(attempts)
         ]
@@ -352,6 +368,7 @@ def run(args, report):
                 pop=12,
                 x0=start,
                 sigma=0.04,
+                context=context,
             )
             fits.append(polish)
             competing.append((polish.value, polish.best))

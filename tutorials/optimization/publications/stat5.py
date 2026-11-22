@@ -13,7 +13,14 @@ from scipy.integrate import solve_ivp
 from common import require, write
 from . import petab
 from .concentrations import Solver, document
-from .search import PACKAGES, PENALTY, check, options_resume, search
+from .search import (
+    PACKAGES,
+    PENALTY,
+    check,
+    objective_context,
+    options_resume,
+    search,
+)
 from .sources import data_option, fixtures
 
 PACKAGES = (*PACKAGES, "PyYAML", "python-libsbml")
@@ -329,6 +336,14 @@ def run(args, report):
             _, ys = simulate(p)
             return float(problem.score(ys, p).sum())
 
+        # A resumed search replays saved scores: tie them to their objective.
+        joint_context = objective_context(
+            "C9", objective="Gaussian NLL of nine variables, version 1"
+        )
+        profiled_context = objective_context(
+            "C9", objective="Gaussian NLL with profiled noise scales, version 1"
+        )
+
         # The hand-mapped native model against the libSBML route at the nominal
         # vector and two off-nominal vectors; the search tolerance against the
         # tight one. Targets are the plan's: 0.01 signal units and 0.05 nats.
@@ -388,6 +403,7 @@ def run(args, report):
                 seed,
                 budget // 2,
                 pop=12,
+                context=joint_context,
             )
             cma = search(
                 args,
@@ -399,6 +415,7 @@ def run(args, report):
                 budget - budget // 2,
                 pop=12,
                 x0=de.best,
+                context=joint_context,
             )
             best = min((de, cma), key=lambda fit: fit.value)
             require(best.value < PENALTY, "no finite STAT5 fit")
@@ -456,6 +473,7 @@ def run(args, report):
                 7458 + args.seed_offset,
                 args.profile_evaluations // 2,
                 pop=24,
+                context=profiled_context,
             )
             second = search(
                 args,
@@ -468,6 +486,7 @@ def run(args, report):
                 pop=16,
                 x0=fit.best,
                 sigma=0.06,
+                context=profiled_context,
             )
             candidate = min((fit, second), key=lambda arm: arm.value)
             value, pp, vv = profiled(candidate.best, tight=True)
@@ -496,6 +515,7 @@ def run(args, report):
                     x0=problem.scaled(pp),
                     sigma=0.015,
                     pop=14,
+                    context=joint_context,
                 )
                 joint_parameters = problem.bind(joint.best)
                 _, joint_signals = simulate(joint_parameters, tight=True)

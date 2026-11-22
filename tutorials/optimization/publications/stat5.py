@@ -584,7 +584,8 @@ def run(args, report):
     if "profiled_noise" in report:
         fitted.append(("profiled", report["profiled_noise"]))
     if "joint_refinement" in report:
-        fitted.append(("joint", report["joint_refinement"]))
+        total = report["profiled_noise"]["calls"] + report["joint_refinement"]["calls"]
+        fitted.append(("joint", report["joint_refinement"] | {"calls": total}))
     write_csv(
         tables / "fits.csv",
         ["fit", "nll", "calls", *[f"log10 {k}" for k in problem.fits]],

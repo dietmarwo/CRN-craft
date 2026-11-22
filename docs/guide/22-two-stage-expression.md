@@ -113,6 +113,9 @@ Three independent calculations are compared.
    20 parameter rows the two agree within 1.5e-12 in divergence, and
    within 2.4e-10 in the CDF of the four tabulated cases. Both reproduce
    the exact mean and Fano factor within 1.1e-9 (relative).
+   `stationary_check.py` solves the same 20 rows with CRN-craft's
+   `stationary_fsp` (closed classes and a sparse LU in the native engine)
+   and agrees with this solver within 1e-13 in the CDF.
 
 Exact stochastic simulation (Gillespie's direct method) gives 10,000
 independent cells per Figure 1B–C case, each started from zero and read

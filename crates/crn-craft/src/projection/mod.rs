@@ -20,12 +20,19 @@
 //! - [`midpoint`] integrates time-dependent signals with the adaptive
 //!   exponential midpoint rule, each matrix-exponential action by
 //!   uniformization of the frozen generator.
+//! - [`bdf`] integrates time-dependent signals with the variable-order
+//!   numerical differentiation formulas (orders 1 to 5) on an
+//!   [`Implicit`] iteration matrix, through a [`SparseLinearSolver`].
+//! - [`stationary`] solves the stationary law of one closed communicating
+//!   class with one anchored sparse solve.
 //! - [`kick`] applies a count intervention to a law with exact binomial
 //!   partition weights.
 //!
-//! Failures are diagnostics: `CRN-E070` for budgets, work, the integrator's
-//! stall and interruption, `CRN-E071` for an input or law the projection
-//! cannot represent, and the rate evaluator's codes (`CRN-R030`).
+//! Failures are diagnostics: `CRN-E070` for budgets, work, the
+//! integrators' stalls, the factorization memory budget, a stationary
+//! solve that fails and interruption; `CRN-E071` for an input or law the
+//! projection cannot represent (including a class count other than one);
+//! and the rate evaluator's codes (`CRN-R030`).
 //! Everything runs on the calling thread; results do not depend on timing.
 //!
 //! ```

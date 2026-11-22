@@ -218,6 +218,7 @@ ARGUMENTS = {
     "spatial_turnover.initial": "Per-region sequence of initial wild and mutant count pairs.",
     "stationary_fsp.parameters": "Numeric model parameter overrides.",
     "stationary_fsp.tolerance": "Target maximum marginal CDF change after refinement.",
+    "stationary_fsp.max_factor_bytes": "Memory budget, in bytes, of the sparse LU factorization and its workspace; a larger bound is refused (`CRN-E070`).",
     "protocol": "An ordered Protocol describing count operations and delays.",
     "time_unit": "A label for the time unit of the model and the protocol.",
     "max_pending": "Per-replicate cap on pending reaction completions.",

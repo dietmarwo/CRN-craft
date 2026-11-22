@@ -118,9 +118,10 @@ different machines.
 
 The reusable projection in `native_fit.py` reads the same model and
 prescribed rate through CRN-craft. Its checks compare it with the two
-original solvers. Both share the input waveform function. The total-RNA
-solver has its own integrator. The joint solver shares SciPy's BDF, so
-it checks the state space and the generator only. [Prepared probability laws](../reference/experiments.md#prepared-probability-laws)
+original solvers. Both share the input waveform function. Each original
+solver has its own integrator: the total-RNA one fixed-step BDF2, the
+joint one SciPy's sparse BDF, while the projection uses CRN-craft's
+native variable-order integrator (`solver="bdf"`). [Prepared probability laws](../reference/experiments.md#prepared-probability-laws)
 
 What the check verifies about these solvers:
 

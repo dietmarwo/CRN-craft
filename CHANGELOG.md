@@ -22,12 +22,19 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
   updates and stationary laws. The native engine (`crn_craft::projection`)
   lowers the model, enumerates the states, assembles the generator,
   applies interventions with exact binomial partitions and propagates the
-  law by uniformization and by an adaptive exponential midpoint rule.
-  SciPy (the `projection` extra) is needed only for `solver="bdf"`,
-  `stationary_fsp` and the SciPy-based likelihood readouts; both take the
-  generator from the native engine. `Model.fsp` is unchanged. Forced
-  segments report no integration error estimate. Native refusals cross
-  the binding as `CRN-E070` (budgets, work, integrator) and `CRN-E071`
+  law by uniformization, by a variable-order implicit integrator
+  (`solver="bdf"`, the default: NDF of orders 1 to 5 after Shampine and
+  Reichelt, `rtol = tolerance`, `atol = 1e-4 * tolerance`) and by an
+  adaptive exponential midpoint rule. `stationary_fsp` finds the closed
+  communicating classes and solves the anchored balance equations
+  natively. Sparse LU factorizations (faer) are refused with `CRN-E070`
+  above `max_factor_bytes` (a keyword of `solve` and `stationary_fsp`,
+  default 2 GiB). For BDF, `max_work` counts generator-vector products,
+  solves and numeric factorizations. SciPy (the `projection` extra) is
+  needed only by the binomial-detection and fluorescence readouts of
+  `crn_craft.likelihood`. `Model.fsp` is unchanged. Forced segments
+  report no integration error estimate. Native refusals cross the binding
+  as `CRN-E070` (budgets, work, integrator, memory) and `CRN-E071`
   (inputs the projection cannot represent).
 - `crn_craft.likelihood`: count, summed, joint and censored observations,
   binomial detection, binned fluorescence, grouped histogram scores with
@@ -43,6 +50,17 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
   COMBINE archives, with bounded, UTF-8-only input and model sources
   confined to the archive or folder. CI replays a pinned published
   oscillator archive and an official stochastic test case.
+
+### Changed
+
+- **New dependency (Python extension only):** the extension module is
+  built with the Rust crate faer 0.24 (MIT) and its dependencies for the
+  sparse LU of the projection; it is compiled without default features
+  (no rayon thread pool) and needs no system BLAS or LAPACK. The engine
+  crates (`crn-craft`, `crn-craft-cli`, `crn-craft-rules`) do not depend
+  on it. The wheel grows by about 0.6 MB. The dependency gate audits the
+  extension's crates and their licenses
+  (`validation/dependency-policy-python.json`).
 
 ### Fixed
 

@@ -58,13 +58,16 @@ repository's MIT license and stay under the terms of their source; see
 
 ## Prepared projection and fitting
 
-`native_fit.py` needs the `projection` extra. `native_fit.py check OUTPUT`
+`native_fit.py` runs on the native engine (`solve(solver="bdf")`) and
+needs SciPy only for the chapter's reference solvers it compares with.
+`native_fit.py check OUTPUT`
 solves both readouts at both salt doses at the archived vectors with
 `prepare_fsp` and compares them with the chapter's solvers. The
 total-RNA reference is the fixed-step BDF2 solve of `cme.cpp`. The joint
 reference is the chapter's SciPy sparse BDF with the same tolerance and
-input waveform. It checks the state space and the generator, not the
-integrator. The check requires a maximum marginal CDF difference of
+input waveform; the projection integrates with CRN-craft's native
+variable-order integrator, so the check compares two integrators on the
+same state space. The check requires a maximum marginal CDF difference of
 0.001 and a score within 0.01 nats per cell of the recorded 2.04126
 (total RNA) and 2.65027 (joint counts). Total-RNA leakage must stay
 below 1e-5.
@@ -73,8 +76,10 @@ The total-RNA projection has 1,444 states and takes a few seconds. Its
 CDF differences of about 1.8e-4 come mostly from the reference's 1.5 s
 step. At a 0.25 s step they fall to about 4.6e-5. Tightening the
 projection tolerance from 1e-8 to 1e-10 changes its law by less than
-4e-8. The joint projection has 35,496 states. One salt dose took about
-6 minutes on one core and peaked at about 640 MB of resident memory.
+4e-8. The joint projection has 35,496 states. One salt dose (tolerance
+4e-7, `max_step` 20 s) took 77 s on one core in one measurement, with 638
+steps and 126 sparse LU factorizations, and peaked at about 420 MB of
+resident memory.
 
 `fit OUTPUT` (joint model, `--budget 0`) scores the chapter's 3 × 3 grid
 in the transcription rate `i3` and the decay rate on the (21, 240)

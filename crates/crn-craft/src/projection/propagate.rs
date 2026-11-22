@@ -105,9 +105,11 @@ pub fn uniform(
         for (out, &x) in p.iter_mut().zip(&term) {
             *out = weight * x;
         }
-        for k in 1..=terms {
+        let mut k: u64 = 0;
+        while k < terms {
             work.charge(1)?;
             interrupt.check()?;
+            k += 1;
             weight *= mu / k as f64;
             transition.apply(&term, &mut next, p, weight);
             std::mem::swap(&mut term, &mut next);
@@ -297,8 +299,12 @@ impl Midpoint<'_> {
             for (out, &x) in p.iter_mut().zip(&self.term) {
                 *out = weight * x;
             }
-            for k in 1..=terms {
+            // A `while` loop: with an inclusive range this loop took about
+            // a fifth longer in a measurement.
+            let mut k: u64 = 0;
+            while k < terms {
                 self.interrupt.check()?;
+                k += 1;
                 weight *= mu / k as f64;
                 let rows = self
                     .next

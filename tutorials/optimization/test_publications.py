@@ -5,17 +5,22 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
 
-import crn_craft as crn
-from crn_craft.sensitivities import forward_sensitivities
 import numpy as np
 
-from publications.experiment_design import analytic_check
-from publications.pathway import weighted_error
-from publications.petab import gaussian_nll
-from publications.reactor import hypervolume
-from publications.rna_counts import CdfScore
-from publications.search import search
-from publications.stimulus_fit import information
+try:
+    import crn_craft as crn
+    from crn_craft.sensitivities import forward_sensitivities
+    from publications.experiment_design import analytic_check
+    from publications.pathway import weighted_error
+    from publications.petab import gaussian_nll
+    from publications.reactor import hypervolume
+    from publications.rna_counts import CdfScore
+    from publications.search import search
+    from publications.stimulus_fit import information
+except ImportError as error:  # pragma: no cover - depends on the environment
+    raise unittest.SkipTest(
+        f"publication tutorials need the packages of tutorials/optimization/README.md: {error}"
+    ) from None
 
 
 class PublicationTests(unittest.TestCase):

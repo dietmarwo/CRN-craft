@@ -233,7 +233,29 @@ class StimulusFit:
 
 
 def information(nll, order, cells):
+    """AIC and BIC from the total NLL, as in the BayFish figure code."""
     return 2 * nll + 2 * order, 2 * nll + order * np.log(cells)
+
+
+def corrected_aic(nll, order, cells):
+    """The small-sample AIC that the paper's Methods section writes."""
+    return 2 * nll + 2 * order + 2 * order * (order + 1) / (cells - order - 1)
+
+
+def nested_pairs(models, tolerance=0.01):
+    """Every (superset, subset) pair and whether the superset fits no worse."""
+    by_set = {frozenset(m["changed_indices"]): m for m in models}
+    return [
+        dict(
+            superset=big["changed"],
+            subset=small["changed"],
+            gap=big["nll"] - small["nll"],
+            passed=big["nll"] <= small["nll"] + tolerance,
+        )
+        for key, big in by_set.items()
+        for other, small in by_set.items()
+        if other < key
+    ]
 
 
 def options(parser):
@@ -342,6 +364,7 @@ def run(args, report):
         score = large.score(pmf)
         nll = score.nats_per_cell * score.cells
         aic, bic = information(nll, len(rates), score.cells)
+        retries = [f.value for f in fits[:attempts]]
         all_models.append(
             dict(
                 changed=label,
@@ -350,7 +373,10 @@ def run(args, report):
                 size=len(rates),
                 aic=aic,
                 bic=bic,
+                aicc=corrected_aic(nll, len(rates), score.cells),
                 nll=nll,
+                retry_nll=retries,
+                retry_spread=max(retries) - min(retries),
                 search_nll=nll_search,
                 cutoff_difference=nll - nll_search,
                 by_time=score.groups,
@@ -370,6 +396,13 @@ def run(args, report):
             delta_bic=m["bic"] - all_models[0]["bic"],
             delta_aic=m["aic"] - min(row["aic"] for row in all_models),
         )
+    pairs = nested_pairs(all_models)
+    # A superset worse than its subset means an unconverged search.
+    # The smoke budget is too small for this gate; it only records the pairs.
+    if fast:
+        report["nested_pairs"] = pairs
+    else:
+        check(report, "nested-hypotheses", all(p["passed"] for p in pairs), pairs=pairs)
     winner = all_models[0]
     pmf, *_ = large.probabilities(winner["before"], winner["after"])
     report.update(

@@ -437,3 +437,104 @@ def run(args, report):
         fig.axes[0].legend(fontsize=7)
 
     save_plot(args, "joint-distributions.png", draw)
+
+
+SITE_COLORS = ("#2a78d6", "#eb6834", "#1baf7a")
+
+
+def draw(tables, folder):
+    """Draw C6-distributions.png and C6-criteria.png from results/C6 tables."""
+    import csv
+    from pathlib import Path
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    tables, folder = Path(tables), Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    with (tables / "distributions.csv").open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    with (tables / "models.csv").open(newline="") as stream:
+        models = [m for m in csv.DictReader(stream) if m["run"] == "delivered"]
+    width = 10
+    edges = np.arange(0, 301 + width, width)
+    fig, axes = plt.subplots(2, 2, figsize=(9, 6), sharex=True, layout="constrained")
+    for ax, t in zip(axes.flat, TIMES, strict=True):
+        sub = [row for row in rows if int(row["time"]) == t]
+        cells = sum(int(row["observed"]) for row in sub)
+        for sites, color in enumerate(SITE_COLORS):
+            part = [row for row in sub if int(row["sites"]) == sites]
+            rna = np.array([int(row["rna"]) for row in part])
+            bins = np.digitize(rna, edges) - 1
+            size = len(edges) - 1
+            predicted = np.bincount(
+                bins, [float(row["predicted"]) for row in part], size
+            )
+            observed = np.bincount(bins, [int(row["observed"]) for row in part], size)
+            centers = edges[:-1] + width / 2
+            ax.plot(centers, predicted, color=color, lw=2, label=f"fit, {sites} sites")
+            seen = observed > 0
+            ax.plot(
+                centers[seen],
+                observed[seen] / cells,
+                "o",
+                ms=5,
+                mfc="none",
+                color=color,
+                label=f"cells, {sites} sites",
+            )
+        ax.set_title(f"{t} min, {cells} cells", fontsize=10)
+        ax.set_yscale("log")
+        ax.set_ylim(5e-4, 1)
+        ax.grid(alpha=0.3, lw=0.5)
+    for ax in axes[1]:
+        ax.set_xlabel("mature RNA copies per cell (bins of 10)")
+    for ax in axes[:, 0]:
+        ax.set_ylabel("fraction of cells")
+    axes[0, 0].legend(fontsize=7, ncol=2)
+    fig.suptitle(
+        "Npas4 joint counts: archive cells (circles) and our maximum-likelihood"
+        " kon-koff fit (lines)",
+        fontsize=10,
+    )
+    fig.savefig(folder / "C6-distributions.png", dpi=155)
+    plt.close(fig)
+
+    order = sorted(models, key=lambda m: float(m["delta_bic"]))
+    fig, ax = plt.subplots(figsize=(7, 3.6), layout="constrained")
+    y = np.arange(len(order))[::-1]
+    for key, marker, color, label in (
+        ("delta_aic", "s", SITE_COLORS[0], "ΔAIC (ours)"),
+        ("delta_bic", "o", SITE_COLORS[1], "ΔBIC (ours)"),
+    ):
+        ax.plot(
+            [float(m[key]) for m in order],
+            y,
+            marker,
+            ms=8,
+            color=color,
+            mfc="none" if marker == "s" else color,
+            label=label,
+            ls="none",
+        )
+    ax.set_yticks(y, [f"{m['changed']} (k={m['k']})" for m in order])
+    ax.set_xscale("symlog", linthresh=1)
+    ax.set_xlim(-0.3, 2000)
+    ax.set_xlabel("difference to the best model (symmetric log scale)")
+    ax.axvline(0, color="#52514e", lw=0.8)
+    ax.annotate(
+        "paper's selection: (k1, k0)",
+        (0, y[0]),
+        xytext=(3, y[0] - 0.4),
+        fontsize=8,
+        arrowprops=dict(arrowstyle="->", lw=0.8),
+    )
+    ax.grid(axis="x", alpha=0.3, lw=0.5)
+    ax.legend(fontsize=8, loc="lower left")
+    ax.set_title(
+        "Seven stimulus hypotheses, 376 cells, delivered study fits", fontsize=10
+    )
+    fig.savefig(folder / "C6-criteria.png", dpi=155)
+    plt.close(fig)

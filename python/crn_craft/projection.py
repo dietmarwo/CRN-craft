@@ -318,9 +318,6 @@ class PreparedFsp:
             model_bytes([self.species, self._protocol, self._document]) + state_bytes
         ).hexdigest()
         self.states.setflags(write=False)
-        self._constant = tuple(
-            i for i, c in enumerate(self._channels) if c["rate"] is not None
-        )
 
     def _index(self, state):
         """The index of a count tuple, or None outside the projection."""

@@ -1,8 +1,8 @@
 """Pure-Python/SciPy reference of the prepared projection (not shipped).
 
-This is the implementation of ``crn_craft.projection`` before enumeration
-and propagation moved to the native engine, kept as an independent oracle
-for ``validation/check_projection_native.py``. Only model lowering and rate
+A pure-Python implementation of ``crn_craft.prepare_fsp`` with the same
+API and error messages, kept as an independent oracle for
+``validation/check_projection_native.py``. Only model lowering and rate
 evaluation use the native extension; enumeration, generator assembly,
 interventions and propagation are Python, NumPy and SciPy. ``Signal`` and
 ``ProjectionState`` are the package's own classes, so signals and

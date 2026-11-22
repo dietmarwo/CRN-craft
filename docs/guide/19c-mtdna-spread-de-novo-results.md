@@ -335,8 +335,9 @@ continues where it stopped. Add `--workers N` to `run` to simulate up to
 `run --size full --years 80 --case main --workers 16`; every fiber has its
 own seed, so the tables do not depend on `N`, apart from the measured
 `seconds`. The times in the table are
-CPU time on one core. `mutations.py figure --figures
-docs/guide/img/mtdna_spread` redraws the figure from the saved tables.
+CPU time on one core. `mutations.py figure --figures FOLDER` redraws the
+figure from the saved tables; add `--results RUN_FOLDER` to draw it from
+the tables of a run of your own (the folder given to `run --output`).
 
 The `run` command writes the tables of one lifespan; the saved tables hold
 the 3-, 10-, 40- and 80-year rows in this order. A 10-year fiber has about

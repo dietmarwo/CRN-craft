@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import sys
 from hashlib import sha256
 from tempfile import NamedTemporaryFile
 from concurrent.futures import ThreadPoolExecutor
@@ -25,6 +26,13 @@ CONDITIONS = {
     "isolated": (1, 150, 0.5, 0.0),
     "equal": (2, 150, 1.0, 0.035),
     "dense": (2, 150, 0.5, 0.035),
+}
+# Panel titles of the Figure 1C plot.
+PANELS = {
+    "deterministic": "Deterministic control",
+    "isolated": "Isolated region",
+    "equal": "Equal density",
+    "dense": "Higher mutant density",
 }
 
 
@@ -431,21 +439,21 @@ def plot(results, folder, output):
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    from matplotlib.lines import Line2D
+
     folder.mkdir(parents=True, exist_ok=True)
     fig, axes = plt.subplots(
-        2, 2, figsize=(8, 5.8), sharex=True, sharey=True, layout="constrained"
+        2, 2, figsize=(8, 6.4), sharex=True, sharey=True, layout="constrained"
     )
+    colors = (("neutral", "#234a74"), ("extra", "#bc4b34"))
     for (name, group), ax in zip(
         results.groupby("condition", sort=False), axes.flat, strict=True
     ):
-        for kind, color in (("neutral", "#234a74"), ("extra", "#bc4b34")):
+        for kind, color in colors:
             data = group[group.degradation == kind]
-            ax.plot(
-                data.day,
-                data["mean"],
-                color=color,
-                label="neutral" if kind == "neutral" else "mutants degraded faster",
-            )
+            # Line: this table (the simulated paths, or the closed form in
+            # the deterministic panel). Points: the authors' archived curve.
+            ax.plot(data.day, data["mean"], color=color)
             ax.errorbar(
                 data.day,
                 data.mean_reference,
@@ -455,10 +463,39 @@ def plot(results, folder, output):
                 ms=3,
                 alpha=0.6,
             )
+        paths = int(group.replicates.max())
         ax.set(
-            title=name.capitalize(), xlabel="Time (days)", ylabel="Mean mutant fraction"
+            title=f"{PANELS[name]} ({paths:,} paths)" if paths else PANELS[name],
+            xlabel="Time (days)",
+            ylabel="Mean mutant fraction",
         )
-    axes.flat[0].legend(frameon=False, fontsize=8)
+        ax.label_outer()
+    fig.legend(
+        handles=[
+            Line2D(
+                [],
+                [],
+                color="0.25",
+                label="Line: this run (closed form in the deterministic panel)",
+            ),
+            Line2D(
+                [],
+                [],
+                color="0.25",
+                marker="o",
+                ms=3,
+                alpha=0.6,
+                linestyle="none",
+                label="Points: authors' archive; bar: upper bound of its standard error",
+            ),
+            Line2D([], [], color=colors[0][1], lw=4, label="Neutral"),
+            Line2D([], [], color=colors[1][1], lw=4, label="Mutants degraded faster"),
+        ],
+        loc="outside lower center",
+        ncols=2,
+        frameon=False,
+        fontsize=8,
+    )
     fig.savefig(folder / "two-regions.png", dpi=155)
     plt.close(fig)
     archive = pd.read_csv(ROOT / "reference-2e.csv")
@@ -541,6 +578,7 @@ def main():
     args.output.mkdir(parents=True, exist_ok=True)
     if args.figures:
         plot(pd.read_csv(args.output / "two-regions.csv"), args.figures, args.output)
+        print(f"Drew the figures in {args.figures} from the tables in {args.output}")
         return
     reference = pd.read_csv(ROOT / "reference-1c.csv").rename(
         columns={"mean": "mean_reference"}
@@ -565,6 +603,11 @@ def main():
         )
         summary["wave"] = review
     print(json.dumps({"size": args.size, **summary}, sort_keys=True))
+    print(
+        f"Tables are in {args.output}. To draw the figures from this run:\n"
+        f"  python {sys.argv[0]} --figures FOLDER --output {args.output}",
+        file=sys.stderr,
+    )
 
 
 if __name__ == "__main__":

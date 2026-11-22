@@ -7,6 +7,16 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+### Documentation (guide and examples)
+
+- Chapter 19: the Figure 1C plot names its lines (this guide's runs, the
+  closed form in the deterministic panel) and its points (the authors'
+  archived curves with the upper bound of their standard error) in a
+  legend, and the page explains them. The example README separates running
+  from drawing: `study.py --figures` and `mutations.py figure` draw the
+  saved tables unless `--output` or `--results` names the folder of a run,
+  and both scripts print that command after a run.
+
 ## [0.9.0] - 2026-11-22
 
 Scheduled experiments and probability laws. Runs follow a protocol of

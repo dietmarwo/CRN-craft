@@ -29,7 +29,7 @@ print(crn.describe()["schema"])
 ```
 
 ```text
-0.9.0
+0.10.0
 crn-craft.describe/1.0
 ```
 
@@ -72,6 +72,9 @@ python -m pip install --force-reinstall dist/*.whl
 - **Fitting.** `python -m pip install "crn-craft[fit]"` adds the pinned
   SciPy, fcmaes-rust and SQP-craft versions of the fitting examples
   ([chapter 13](13-fitting.md)).
+- **Optimization lessons.** `python -m pip install "crn-craft[publications]"`
+  adds fcmaes, SciPy, matplotlib, PyYAML and libSBML for lessons C5 to C10
+  ([chapter 24](24-publication-tutorials.md)).
 - **Likelihood readouts.** `python -m pip install "crn-craft[likelihood]"`
   adds SciPy for the binomial-detection and fluorescence readouts of
   `crn_craft.likelihood`

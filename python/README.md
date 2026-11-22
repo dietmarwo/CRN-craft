@@ -124,6 +124,9 @@ crn-craft.analysis/1.0 exact
   (`cargo install crn-craft-cli --locked`) has the same commands.
 - `pip install "crn-craft[fit]"` adds the pinned SciPy, fcmaes-rust and
   SQP-craft versions used by the fitting examples.
+- `pip install "crn-craft[publications]"` adds fcmaes, SciPy, matplotlib,
+  PyYAML and libSBML for the optimization lessons C5 to C10 of the
+  repository.
 - `pip install "crn-craft[likelihood]"` adds SciPy for the
   binomial-detection and fluorescence readouts of `crn_craft.likelihood`.
 

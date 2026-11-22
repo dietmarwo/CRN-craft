@@ -7,8 +7,23 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-22
+
+Optimization with fcmaes around the engine. Six lessons reconstruct
+published optimization studies and report what reproduces and what does
+not. A prepared projection gives parameter derivatives of its law and
+Fisher information, and can be restricted to a retained set of states. The
+optional diffsol workspace solves concentration models in batches. No
+contract of an earlier release changes.
+
 ### Added
 
+- `import crn_craft as crn` loads the modules `crn.sensitivities` and
+  `crn.likelihood` (`crn.sensitivities.forward_sensitivities`,
+  `crn.likelihood.histogram_score`), and their names are listed in the
+  [Python API reference](docs/reference/python-api.md#likelihoods-and-sensitivities).
+- The extra `publications` installs what optimization lessons C5 to C10
+  import: fcmaes 2.2.0, SciPy, matplotlib, PyYAML and libSBML.
 - Optimization lessons C5 to C10 (`tutorials/optimization`) reconstruct six
   published studies with fcmaes: distribution fitting, joint-count model
   selection, a virtual reactor Pareto search, Fisher experiment design, a
@@ -1364,7 +1379,8 @@ iterations that make up this release follow.
 - Experimental non-negative Poisson leaping with explicit approximate request/result schemas.
 - Ten performance experiments and same-host reference/quality evidence; no package publishing.
 
-[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/dietmarwo/CRN-craft/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.7.1...v0.8.0

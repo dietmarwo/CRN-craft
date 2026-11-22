@@ -136,6 +136,11 @@ original domain.
   is a property of the truncated model. On a domain about twice as large
   the sink falls below 2e-5 and λ_min moves by at most 6 %; the ranking of
   A and B holds on all ten samples.
+
+  ![Toggle: change on the expanded domain](img/C8-domain.png)
+
+  Ours on the expanded domain against ours on the archive's domain, for
+  the ten samples that lose more than 0.1 % there.
 - **Two samples.** Samples 0 and 47 differ from the archive by 4.6 % and
   2.2 % in λ_min (matrix gaps 0.2 %) at the same domain, stable from
   tolerance 3e-6 to 1e-9 and not explained by the `1e-8` bin floor. The

@@ -1,3 +1,4 @@
+use super::implicit::implicit_alpha;
 use super::*;
 use crate::rules::FlatView;
 use serde_json::{Value, json};
@@ -802,4 +803,116 @@ fn stationary_redirects_escapes_to_the_return_state() {
     )
     .unwrap();
     assert_eq!(law.probabilities, vec![0.0, 0.0, 1.0]);
+}
+
+/// Birth 1 until t = 0.5, then 40 (a jump the integrator is not told
+/// about), death 1.
+struct Jump;
+impl SignalValues for Jump {
+    fn evaluate(
+        &mut self,
+        time: f64,
+        out: &mut [f64],
+    ) -> Result<(), crate::diagnostic::Diagnostic> {
+        out[0] = if time < 0.5 { 1.0 } else { 40.0 };
+        Ok(())
+    }
+}
+
+#[test]
+fn bdf_converges_through_an_undeclared_jump() {
+    // Each corrector must solve its own equation: an unconverged corrector
+    // after the jump (a factorization from before it) shows in the law.
+    let v = birth_death(1.0, 1.0, 0);
+    let interrupt = Interrupt::new(&never);
+    let t = Topology::enumerate(&spec(&v, vec![120], vec![vec![0]]), &interrupt).unwrap();
+    let g = Generator::build(&t, &v, &[vec![0]], &interrupt).unwrap();
+    let mut implicit = Implicit::new(&g, DenseLu::default()).unwrap();
+    let mut p = vec![0.0; t.len() + 1];
+    p[0] = 1.0;
+    let mut work = Work::new(0, 10_000_000);
+    bdf(
+        &mut implicit,
+        &mut p,
+        bdf_controls(1.5, 1e-9, 0.05),
+        &[],
+        &mut Jump,
+        &mut work,
+        &interrupt,
+    )
+    .unwrap();
+    let at_jump = 1.0 - (-0.5f64).exp();
+    let mean = at_jump * (-1.0f64).exp() + 40.0 * (1.0 - (-1.0f64).exp());
+    let gap: f64 = t
+        .states()
+        .iter()
+        .enumerate()
+        .map(|(i, &x)| (p[i] - poisson(x, mean)).abs())
+        .sum();
+    assert!(gap < 1e-6, "{gap}");
+}
+
+#[test]
+fn ndf_coefficients_are_the_published_ones() {
+    // Shampine and Reichelt (1997), table 1: kappa and the error constants.
+    let kappa = [-0.1850, -1.0 / 9.0, -0.0823, -0.0415, 0.0];
+    for (k, &expected) in kappa.iter().enumerate() {
+        let order = k + 1;
+        let gamma: f64 = (1..=order).map(|j| 1.0 / j as f64).sum();
+        // alpha_k = (1 - kappa_k) gamma_k, so kappa_k = 1 - alpha_k / gamma_k.
+        let alpha = implicit_alpha(order);
+        assert!((1.0 - alpha / gamma - expected).abs() < 1e-15, "{order}");
+    }
+}
+
+/// A stiff forced law: birth `2000 (1 + sin(t) / 2)`, death 1000 per
+/// molecule.
+struct StiffWave;
+impl SignalValues for StiffWave {
+    fn evaluate(
+        &mut self,
+        time: f64,
+        out: &mut [f64],
+    ) -> Result<(), crate::diagnostic::Diagnostic> {
+        out[0] = 2000.0 * (1.0 + 0.5 * time.sin());
+        Ok(())
+    }
+}
+
+#[test]
+fn bdf_iterates_stale_factorizations_of_a_stiff_forced_law() {
+    // Equal steps reuse the factorization of an earlier time; with stiff
+    // rates its error is large, and only converged iterations keep the law.
+    let v = birth_death(2000.0, 1000.0, 0);
+    let interrupt = Interrupt::new(&never);
+    let t = Topology::enumerate(&spec(&v, vec![30], vec![vec![0]]), &interrupt).unwrap();
+    let g = Generator::build(&t, &v, &[vec![0]], &interrupt).unwrap();
+    let mut implicit = Implicit::new(&g, DenseLu::default()).unwrap();
+    let mut p = vec![0.0; t.len() + 1];
+    p[0] = 1.0;
+    let mut work = Work::new(0, 10_000_000);
+    let end = 3.0;
+    bdf(
+        &mut implicit,
+        &mut p,
+        bdf_controls(end, 1e-8, f64::INFINITY),
+        &[],
+        &mut StiffWave,
+        &mut work,
+        &interrupt,
+    )
+    .unwrap();
+    let (a, k) = (2000.0, 1000.0);
+    let decay = (-k * end).exp();
+    let mean =
+        a / k * (1.0 - decay) + 0.5 * a * (k * end.sin() - end.cos() + decay) / (k * k + 1.0);
+    let gap: f64 = t
+        .states()
+        .iter()
+        .enumerate()
+        .map(|(i, &x)| (p[i] - poisson(x, mean)).abs())
+        .sum();
+    let c = implicit.counts();
+    assert!(gap < 1e-6, "{gap} {c:?}");
+    assert!(c.solves > c.steps + c.rejected, "{c:?}");
 }

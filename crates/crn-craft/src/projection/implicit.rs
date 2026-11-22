@@ -31,6 +31,12 @@ fn alpha(k: usize) -> f64 {
     (1.0 - KAPPA[k]) * gamma(k)
 }
 
+/// `alpha_k` for the tests of the parent module.
+#[cfg(test)]
+pub(super) fn implicit_alpha(k: usize) -> f64 {
+    alpha(k)
+}
+
 /// The local error constant of order `k`: the error is about
 /// `(kappa_k gamma_k + 1/(k+1)) (y - y0)`.
 fn error_constant(k: usize) -> f64 {

@@ -202,9 +202,13 @@ def check_names(rows):
         "protocol",
         "report",
         "rules",
+        "sensitivities",
         "spatial",
         "stationary",
     }
+    # `import crn_craft` loads the two modules that are used by their names.
+    loaded = {"likelihood", "sensitivities"}
+    require(loaded <= public, f"modules not loaded: {sorted(loaded - public)}")
     require(set(crn.__all__) == TOP_LEVEL, f"__all__: {sorted(crn.__all__)}")
     require(public - modules == TOP_LEVEL, f"top level: {sorted(public - modules)}")
     require(not REMOVED & public, f"removed names exported: {REMOVED & public}")

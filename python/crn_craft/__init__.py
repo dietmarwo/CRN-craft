@@ -31,7 +31,9 @@ import json as _json
 from pathlib import Path as _Path
 
 from . import _native
+from . import likelihood as likelihood
 from . import rules
+from . import sensitivities as sensitivities
 from ._common import CrnError, convert, model_bytes as _model_bytes
 from ._common import IncompleteEnsembleError, IncompleteEnsembleWarning
 from ._common import __version__ as __version__

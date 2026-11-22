@@ -15,7 +15,7 @@ does it beat uniform random designs? Code: [reactor.py](publications/reactor.py)
 | Emulator outputs | Summit's NSGA-II sample `pareto_front_snar.csv` (10,000 designs) | reproduced to 7e-8 relative on 200 designs |
 | Terminal hypervolume of the archived runs at 50 experiments | `snar_results.csv` (582 runs, all with zero noise) | read, grouped by strategy and transform |
 | Hypervolume definition | Summit's analysis code, reference point (−2957, 10.7) on (−STY, E-factor) | same code path, recounted independently |
-| MODE and random designs, 20 × 50 evaluations | not in the paper | new runs |
+| MODE and random designs, 20 × 50 evaluations | not in the paper | runs of this lesson |
 
 The archived runs are the comparison; the paper's figure itself is not
 redrawn. The archive keeps only the terminal hypervolume of each run, so

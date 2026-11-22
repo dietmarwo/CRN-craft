@@ -2,6 +2,8 @@
 
 import json
 from pathlib import Path
+import subprocess
+import sys
 from tempfile import TemporaryDirectory
 import unittest
 
@@ -58,6 +60,44 @@ class PublicationRecord(unittest.TestCase):
             (Path(root) / "C8" / "summary.json").unlink()
             with self.assertRaises(ValueError):
                 record.publications(Path(root))
+
+
+class RunUsage(unittest.TestCase):
+    def run_py(self, *arguments):
+        return subprocess.run(
+            [sys.executable, str(Path(__file__).with_name("run.py")), *arguments],
+            capture_output=True,
+            text=True,
+        )
+
+    def test_help_lists_every_chapter_and_succeeds(self):
+        done = self.run_py("--help")
+        self.assertEqual(done.returncode, 0)
+        for chapter in ("C1", "C4", "C5", "C10"):
+            self.assertIn(chapter, done.stdout)
+
+    def test_unknown_or_missing_chapter_is_refused_with_the_usage(self):
+        for arguments, named in (((), None), (("C11",), "C11")):
+            done = self.run_py(*arguments)
+            self.assertEqual(done.returncode, 1)
+            self.assertIn("usage: run.py", done.stderr)
+            if named:
+                self.assertIn(named, done.stderr)
+
+    def test_every_chapter_name_resolves_to_a_module_file(self):
+        import ast
+
+        tree = ast.parse(Path(__file__).with_name("run.py").read_text())
+        table = next(
+            ast.literal_eval(node.value)
+            for node in tree.body
+            if isinstance(node, ast.Assign) and node.targets[0].id == "CHAPTERS"
+        )
+        self.assertEqual(list(table), [f"C{i}" for i in range(1, 11)])
+        base = Path(__file__).parent
+        for module in table.values():
+            *folders, name = module.split(".")
+            self.assertTrue(base.joinpath(*folders, name + ".py").is_file(), module)
 
 
 if __name__ == "__main__":

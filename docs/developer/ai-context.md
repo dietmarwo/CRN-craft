@@ -106,3 +106,16 @@ SSA runs use Static Direct with its default selector; C1's
 `--include-next-reaction` adds a second exact method with its own stream.
 [Validation](../../tutorials/optimization/VALIDATION.md) separates completed
 checks from fitted-model quality.
+
+[C5–C10](../../tutorials/optimization/README.md#publication-studies-c5c10)
+reconstruct published studies with Python fcmaes ask/tell on the same engine:
+count-distribution fitting, joint-count model selection, a virtual reactor,
+Fisher experiment design, a PEtab calibration and a 36-parameter fit. Run them
+with `tutorials/optimization/run.py C5` to `C10` (`--help` lists a chapter's
+options); the shared driver is `tutorials/optimization/publications/search.py`
+(proposal traces, `--resume-from` replay), the fixtures are pinned in
+`examples/publication_tutorials/sources.json`, and
+`crn_craft.sensitivities.forward_sensitivities` and the `retained` argument of
+`crn_craft.prepare_fsp` are the engine features they use. C7, C9 and C10 need
+the optional `crn-diffsol concentrations` interface
+([contracts](../reference/contracts.md)).

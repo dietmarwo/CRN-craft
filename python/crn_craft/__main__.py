@@ -35,7 +35,7 @@ The commands are those of the native CLI (`cargo install crn-craft-cli`), with
 the same reports; `crn-craft --help` of the native CLI describes them.
 Models are crn-craft.model/1.0 or crn-craft.rules-model/0.1-0.4; check,
 analyze, convert and export also read a network crn-craft.model/0.1.
-Requests are crn-craft.run/1.0 (method fsp included) or
+Requests are crn-craft.run/1.0 (including fsp), crn-craft.run/1.1 (protocols), or
 crn-craft.rules-run/0.1-0.6. run exits 0 only for a completed ensemble;
 verify exits 0 for a valid archive; other errors exit 1.
 """

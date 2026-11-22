@@ -299,6 +299,8 @@ fn schemas_match_their_snapshots_and_list_only_their_versions() {
         ("model-1.0", vec!["crn-craft.model/1.0"]),
         ("run-1.0", vec!["crn-craft.run/1.0"]),
         ("result-1.0", vec!["crn-craft.result/1.0"]),
+        ("run-1.1", vec!["crn-craft.run/1.1"]),
+        ("result-1.1", vec!["crn-craft.result/1.1"]),
         ("check-1.0", vec!["crn-craft.check/1.0"]),
     ] {
         let schema = crn_craft::rules::schema(kind).unwrap();

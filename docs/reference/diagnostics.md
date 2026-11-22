@@ -144,9 +144,9 @@ eligible tracker; the rules-run/0.6 default does not warn).
 | CRN-R013 and R020 | for `model/1.0`: a pattern `count` outside 1 to 2,147,483,647, or on an attributed type or with `where` or `factor` (`R013`); a higher-order rule under a method that refuses it (`R020` at `/method`) |
 | CRN-R015 | model size limit (the [limits](model-language.md#limits); also 64 continuous variables); a field used before its model version (`atp` in 0.1, `propensity` and `continuous` in 0.1 or 0.2, `independent` before 0.4); `atp` together with `continuous` |
 | CRN-R016, R017 | a network model the converter cannot write (`R016`); a model without a flat view, which finite state projection, analysis, ODE export and GillesPy2 export need (`R017`) |
-| CRN-R020 | invalid run request (hash, path, grid, ensemble, budget, method, selector, quantiles, tracker, log or version gate; generated-kernel fingerprint mismatch) |
-| CRN-R030 | negative or non-finite rate, factor, weight or product attribute; overflow; under `run/1.0`, 1,000,000 consecutive waits that do not advance the clock |
-| CRN-R031 | weight below 53-bit resolution (Static Direct: a channel below 2⁻⁵³ of the total) |
+| CRN-R020 | invalid run request (hash, path, grid, ensemble, budget, method, selector, quantiles, tracker, log or version gate; generated-kernel fingerprint mismatch); under `run/1.1`, an invalid protocol (fields, times, probabilities, conflicting assignments) or a method that does not accept a protocol (at `/method`) |
+| CRN-R030 | negative or non-finite rate, factor, weight or product attribute; overflow; under `run/1.0`, 1,000,000 consecutive waits that do not advance the clock; under `run/1.1`, a protocol count change below 0 or above the count limit (at `/protocol/actions/i`) and more pending completions than the budget; an invalid `spatial_turnover` setup |
+| CRN-R031 | weight below 53-bit resolution (Static Direct: a channel below 2⁻⁵³ of the total; `spatial_turnover`: a positive weight below 16 × 2⁻⁵³ of its total) |
 | CRN-R040–R045 | event, sampling, instance (including a count above 2⁵³), wall-time, cancellation and output limits |
 | CRN-R050 | warning: incomplete ensemble, statistics withheld |
 | CRN-R051 | warning: a requested specialization did not apply (`mtdna_direct` could not certify the model and ran Static Direct, or an explicit `sparse_trackers: true` found no eligible tracker; the rules-run/0.6 default does not warn); the message gives the reason |

@@ -33,14 +33,14 @@ Aliases: rules = run, rules-check = check.
 Models are crn-craft.model/1.0 or crn-craft.rules-model/0.1-0.4; check, analyze,
 convert and export also read a network crn-craft.model/0.1 (through the
 converter; convert prints it as crn-craft.model/1.0). Requests are
-crn-craft.run/1.0 (a method fsp prints crn-craft.fsp-result/1.0) or
+crn-craft.run/1.0 (including fsp), crn-craft.run/1.1 (protocols), or
 crn-craft.rules-run/0.1-0.6; run prints the result as compact JSON.
 check reports whether run would accept MODEL and REQUEST, without running.
 run --archive writes the model, request and result with a manifest
 (crn-craft.archive/1.0) and prints a crn-craft.archive-check/1.0 report.
 verify reads crn-craft.archive/1.0 directories.
 
-describe KIND: model-1.0 run-1.0 result-1.0 check-1.0 fsp-result-1.0
+describe KIND: model-1.0 run-1.0 run-1.1 result-1.0 result-1.1 check-1.0 fsp-result-1.0
   analysis-1.0 archive-1.0 archive-check-1.0 export state; still read:
   rules-model rules-run rules-result rules-check model.
 

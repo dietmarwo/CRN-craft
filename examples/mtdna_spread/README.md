@@ -18,10 +18,15 @@ At the fixed left boundary, an incoming hop disappears into the
 reservoir and outgoing hops sample its fixed copy number.
 
 For the exact source-size run, use
-`python examples/mtdna_spread/study.py --size full --fibers 800`.
-Each completed fiber is checkpointed. The 500-unit model has a long horizon.
-A two-day pilot ran in about 1.2 seconds on one worker. The full cohort
-is many CPU-hours. Use `--fibers 1` for a single source-scale run.
+`python examples/mtdna_spread/study.py --source-chain --wave-sampler local --fibers 800 --threads N`.
+Each completed fiber is checkpointed under the output directory. One
+fiber has about 1.7 billion events and takes about 4 to 5 CPU-minutes
+with the local sampler (`crn_craft.spatial_turnover`), against about
+16 minutes with the generic engine (`--wave-sampler static_direct`, the
+default). The full cohort is about 55 to 65 CPU-hours (estimate). Use
+`--fibers 1` for a single source-scale run. For shards, give each process
+a nonoverlapping `--fiber-start` and `--fibers` block; fiber `i` always
+uses seed `seed + 1000 + i`, so a completed fiber is computed once.
 The supplement's point-estimate discussion gives 3,000 copies, while the
 Figure 2 caption gives 3,500. This example uses the caption.
 
@@ -36,8 +41,10 @@ A three-site mean profile smoother is applied before interpolation.
 Three fresh approximate cohorts accompany the archived benchmark.
 The 0.125-day cohort gives 0.14617 µm/day at half height, with a
 99% interval of 0.13016–0.16360. The interval excludes the archived
-0.18973 µm/day: an unresolved discrepancy. The fresh 800-fiber exact
-ensemble is still outstanding.
+0.18973 µm/day: an unresolved discrepancy. Eight exact fibers
+(`results/exact-wave-fibers.csv`, `results/exact-wave-speeds.csv`) give
+0.15951 µm/day with a 99% interval of 0.06445–0.19865: inconclusive. The
+800-fiber exact ensemble is still outstanding.
 
 `review.py` holds the review experiments on that gap (deterministic part,
 copy number, step size, exact-versus-approximate noise, and the

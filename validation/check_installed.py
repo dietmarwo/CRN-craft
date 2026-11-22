@@ -764,6 +764,9 @@ def check_unified():
             "IncompleteEnsembleError",
             "IncompleteEnsembleWarning",
             "Model",
+            "Protocol",
+            "Signal",
+            "SpatialModel",
             "archive",
             "check",
             "compile_loop",
@@ -779,8 +782,12 @@ def check_unified():
             "new",
             "pattern",
             "prepare",
+            "prepare_fsp",
             "read_bngl",
+            "read_experiment",
             "read_sbml",
+            "spatial_turnover",
+            "stationary_fsp",
             "verify_archive",
         }
         and not hasattr(c, "run_spec")

@@ -20,10 +20,12 @@ pub const COMMANDS: [&str; 7] = [
 ];
 
 /// The `describe KIND` kinds of the 1.0 contracts and the current reports.
-pub const SCHEMAS: [&str; 10] = [
+pub const SCHEMAS: [&str; 12] = [
     "model-1.0",
     "run-1.0",
+    "run-1.1",
     "result-1.0",
+    "result-1.1",
     "check-1.0",
     "fsp-result-1.0",
     "analysis-1.0",
@@ -79,7 +81,9 @@ pub fn describe() -> Value {
         "contracts": {
             "model": "crn-craft.model/1.0",
             "request": "crn-craft.run/1.0",
+            "protocol_request": "crn-craft.run/1.1",
             "result": "crn-craft.result/1.0",
+            "protocol_result": "crn-craft.result/1.1",
             "check": "crn-craft.check/1.0",
             "fsp_result": "crn-craft.fsp-result/1.0",
             "analysis": "crn-craft.analysis/1.0",

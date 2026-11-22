@@ -26,7 +26,7 @@ DESIGN_PAGE = REPO / "docs" / "guide" / "19b-mtdna-spread-de-novo.md"
 KK14 = REPO / "examples" / "kk14" / "results" / "reconstruction" / "comparison.csv"
 sys.path.insert(0, str(EXAMPLE))
 import mutations  # noqa: E402
-from study import build, paths  # noqa: E402
+from study import MANIFEST, build, chain_initial, exact_speeds, paths  # noqa: E402
 
 
 def require(condition, message):
@@ -135,7 +135,48 @@ def figure2_table():
             f"| {name} | {r['fibers']} | {float(r['value']):.5f}"
             f" | {float(r['low_99']):.5f}–{float(r['high_99']):.5f} | {r['label']} |"
         )
+    r = next(
+        x for x in rows(RESULTS / "exact-wave-speeds.csv") if x["threshold"] == "0.5"
+    )
+    lines.append(
+        f"| Exact (local sampler), Nss = 3,500, pilot | {r['fibers']}"
+        f" | {float(r['speed_um_day']):.5f}"
+        f" | {float(r['low_99']):.5f}–{float(r['high_99']):.5f} | {exact_label(r)} |"
+    )
     return "\n".join(lines) + "\n"
+
+
+def exact_label(r):
+    """The chapter's rule: margin of ±0.03 µm/day around the archived speed."""
+    low, high, target = (float(r[k]) for k in ("low_99", "high_99", "archived_speed"))
+    margin = MANIFEST["fig2_half_height_margin_um_day"]
+    if int(r["ambiguous"]):
+        return "inconclusive"
+    if target - margin <= low <= high <= target + margin:
+        return "numerical agreement"
+    if high < target or low > target:
+        return "unresolved discrepancy"
+    return "inconclusive"
+
+
+def exact_fibers():
+    """The saved exact fibers reproduce the saved speeds with the chapter's estimator."""
+    data = rows(RESULTS / "exact-wave-fibers.csv")
+    x, initial = chain_initial(MANIFEST["fig2_site_parameters"])
+    n = len({r["fiber"] for r in data})
+    require(len(data) == n * len(x) and n == 8, "exact fiber rows")
+    end = np.array([float(r["fraction"]) for r in data]).reshape(n, len(x))
+    require(np.all((end >= 0) & (end <= 1)), "exact fiber fractions")
+    start = initial[:, 1] / initial.sum(axis=1)
+    sample = np.stack([np.stack((start, f)) for f in end])
+    computed, status, _, _ = exact_speeds(x, sample)
+    saved = rows(RESULTS / "exact-wave-speeds.csv")
+    require(len(saved) == 3, "exact speed rows")
+    for c, r in zip(computed, saved, strict=True):
+        for key in ("speed_um_day", "low_99", "high_99"):
+            require(abs(c[key] - float(r[key])) < 1e-9, f"exact speed {key}")
+        require(c["ambiguous"] == int(r["ambiguous"]), "exact ambiguous resamples")
+    require(status == exact_label(saved[1]) == "inconclusive", "exact pilot label")
 
 
 CASE_NAMES = {
@@ -500,6 +541,7 @@ def main():
     )
     require(len(rows(RESULTS / "approx-wave-profiles.csv")) == 2000, "profile rows")
     require(len(rows(RESULTS / "review-experiments.csv")) == 46, "review rows")
+    exact_fibers()
     # The guide page prints the saved results.
     page = PAGE.read_text(encoding="utf-8")
     require(

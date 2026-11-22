@@ -13,6 +13,8 @@ document.
 | Contract | Role | `describe` kind |
 | --- | --- | --- |
 | `crn-craft.model/1.0` | the model: [model reference](model-language.md) | `model-1.0` |
+| `crn-craft.run/1.1` | a simulation with scheduled interventions or fixed-delay completions | `run-1.1` |
+| `crn-craft.result/1.1` | protocol simulation result and optional queue log | `result-1.1` |
 | `crn-craft.run/1.0` | the request: simulation methods, or `fsp` | `run-1.0` |
 | `crn-craft.result/1.0` | the result of a simulation request ([results](results.md)) | `result-1.0` |
 | `crn-craft.fsp-result/1.0` | the result of an `fsp` request | `fsp-result-1.0` |
@@ -53,6 +55,7 @@ The request version decides which fields are allowed:
 | Version | Adds |
 | --- | --- |
 | `crn-craft.run/1.0` | `method.selector` for `static_direct`, `outputs.quantiles`, the method `fsp`; Static Direct defaults to the selector `auto`; the result is `crn-craft.result/1.0` |
+| `crn-craft.run/1.1` | the required `protocol` (scheduled action groups and fixed-delay completions) for linear `static_direct` or `next_reaction`; the result is `crn-craft.result/1.1`, whose event log entries may carry `protocol`. A 1.0 request with `protocol` is refused (`CRN-R020`); to migrate, change the version, add `protocol` and choose one of the two methods ([scheduled experiments](experiments.md#scheduled-stochastic-simulation)) |
 | `crn-craft.rules-run/0.1` | the tree method only |
 | `crn-craft.rules-run/0.2` | `method`, `trackers`, `event_log`; the result is rules-result/0.2, with a sampler identity and optional ordered `observations` |
 | `crn-craft.rules-run/0.3` | `mtdna_direct` |

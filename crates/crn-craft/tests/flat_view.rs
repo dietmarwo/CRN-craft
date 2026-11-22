@@ -262,6 +262,51 @@ fn higher_order_and_whole_rule_propensities_follow_static_direct() {
     assert!(view.stops(&[7, 5]).unwrap());
 }
 
+/// `projection_rates` is the bulk evaluation behind the prepared Python
+/// projections: stop flags per state, the requested channels in the
+/// requested order, and zero rates in a stopped state.
+#[test]
+fn projection_rates_agree_with_single_state_evaluation() {
+    let model = json!({
+        "schema": "crn-craft.model/1.0", "name": "bulk",
+        "parameters": {"c": 0.25},
+        "types": [{"name": "A"}, {"name": "B"}],
+        "initial": [{"type": "A", "count": 7}, {"type": "B", "count": 2}],
+        "observables": {"A": {"type": "A"}, "B": {"type": "B"}},
+        "rules": [
+            {"name": "triple", "reactants": [{"label": "x", "type": "A", "count": 3}], "rate": "c", "products": []},
+            {"name": "mixed", "reactants": [{"label": "x", "type": "A", "count": 2}, {"label": "y", "type": "B"}],
+             "rate": "c", "products": [{"type": "B"}, {"type": "B"}]},
+            {"name": "whole", "reactants": [{"label": "x", "type": "A", "count": 3}, {"label": "y", "type": "B"}],
+             "propensity": "c * B", "products": []}
+        ],
+        "stop": "B >= 5"
+    });
+    let view = FlatView::from_bytes(&rules_model(&model)).unwrap();
+    let states = vec![vec![7, 2], vec![2, 2], vec![7, 0], vec![7, 5], vec![0, 0]];
+    let channels = [2, 0, 1];
+    let (stopped, rates) = view.projection_rates(&states, &channels).unwrap();
+    assert_eq!(stopped, [false, false, false, true, false]);
+    assert_eq!(rates.len(), states.len() * channels.len());
+    for (row, counts) in states.iter().enumerate() {
+        let single = view.propensities(counts).unwrap();
+        for (column, &channel) in channels.iter().enumerate() {
+            let expected = if stopped[row] { 0.0 } else { single[channel] };
+            assert_eq!(
+                rates[row * channels.len() + column],
+                expected,
+                "state {counts:?}, channel {channel}"
+            );
+        }
+    }
+    // Requested order, not channel order: "whole" first at [7, 2].
+    assert_eq!(&rates[..3], [0.5, 8.75, 10.5]);
+    let (stopped, rates) = view.projection_rates(&[], &channels).unwrap();
+    assert!(stopped.is_empty() && rates.is_empty());
+    let refused = view.projection_rates(&states, &[3]).unwrap_err();
+    assert_eq!(refused.path, "/channels");
+}
+
 #[test]
 fn models_without_a_flat_view_are_refused_with_r017() {
     let code = |value: &Value| {

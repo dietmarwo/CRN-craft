@@ -54,3 +54,48 @@ repository's MIT license and stay under the terms of their source; see
 [THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md#reference-data-of-the-guide-case-studies). No upstream code is included. The checks fetch nothing.
 
 [Paper](https://doi.org/10.1073/pnas.1804060115) · [Author archive](https://github.com/MunskyGroup/Munsky_et_al_2018/tree/1aa0b5ce25d21484c7c4e8a894477b1719209ce7)
+
+
+## Prepared projection and fitting
+
+`native_fit.py` needs the `projection` extra. `native_fit.py check OUTPUT`
+solves both readouts at both salt doses at the archived vectors with
+`prepare_fsp` and compares them with the chapter's solvers. The
+total-RNA reference is the fixed-step BDF2 solve of `cme.cpp`. The joint
+reference is the chapter's SciPy sparse BDF with the same tolerance and
+input waveform. It checks the state space and the generator, not the
+integrator. The check requires a maximum marginal CDF difference of
+0.001 and a score within 0.01 nats per cell of the recorded 2.04126
+(total RNA) and 2.65027 (joint counts). Total-RNA leakage must stay
+below 1e-5.
+
+The total-RNA projection has 1,444 states and takes a few seconds. Its
+CDF differences of about 1.8e-4 come mostly from the reference's 1.5 s
+step. At a 0.25 s step they fall to about 4.6e-5. Tightening the
+projection tolerance from 1e-8 to 1e-10 changes its law by less than
+4e-8. The joint projection has 35,496 states. One salt dose took about
+6 minutes on one core and peaked at about 640 MB of resident memory.
+
+`fit OUTPUT` (joint model, `--budget 0`) scores the chapter's 3 × 3 grid
+in the transcription rate `i3` and the decay rate on the (21, 240)
+projection, plus the center and one random point, and records the time
+of each evaluation. With a positive `--budget` it then starts searches
+in all 15 coefficients. **The 15-coefficient joint refit has not been
+completed.** Attempts with this script ended with exit status 137
+(the process was killed) after the grid pilot and with three workers.
+A single-worker draft (`--draft-joint`, search on the (11, 120)
+projection) produced a candidate that scored worse than the archived
+vector on the refined projection. Each worker thread holds its own
+solver workspace, and every candidate is rescored on the refined
+projection, so plan at least 1 GB of memory per worker.
+
+`--total --holdout` runs the total-count searches with the two chapter
+splits. These searches start at the archived vector inside the
+archive-centered box. That vector was fitted to all replicates,
+including the held-out ones. A short budget therefore exercises the
+plumbing; it is not a fit and not a held-out comparison. A search that
+does not improve on its start returns the start vector. Add
+`--training-only` to center the box on a fixed preset instead of the
+archived vector. The original example's data and likelihood
+conventions apply. Results include the actual number of evaluations,
+which can exceed `--budget`.

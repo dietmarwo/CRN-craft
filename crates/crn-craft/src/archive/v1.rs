@@ -706,7 +706,16 @@ fn check_kept(
     {
         return Err(error("kept path identity or length mismatch"));
     }
-    if run.time.report_times[0] == 0.0 && result.paths.iter().any(|p| !p.values.is_empty()) {
+    let random_initial = run.protocol.as_ref().is_some_and(|p| {
+        p.actions
+            .iter()
+            .take_while(|a| a.time == 0.0)
+            .any(|a| a.partition.values().any(|&p| p > 0.0 && p < 1.0))
+    });
+    if !random_initial
+        && run.time.report_times[0] == 0.0
+        && result.paths.iter().any(|p| !p.values.is_empty())
+    {
         if let Some(initial) = initial_row(model, run)? {
             if result
                 .paths
@@ -759,7 +768,16 @@ fn initial_row(model: &[u8], run: &RunRequest) -> Result<Option<Vec<f64>>, Diagn
     probe.time.report_times.truncate(1);
     probe.outputs.keep_paths = 1;
     probe.outputs.keep_instances = 0;
-    probe.budget.max_events_per_replicate = 1;
+    probe.budget.max_events_per_replicate = run.protocol.as_ref().map_or(1, |p| {
+        (p.actions.iter().take_while(|a| a.time == 0.0).count() as u64 + 1)
+            .min(run.budget.max_events_per_replicate)
+    });
+    if run.protocol.is_some() {
+        if let Some(protocol) = &mut probe.protocol {
+            protocol.actions.retain(|a| a.time == 0.0);
+        }
+        probe.time.end = f64::MIN_POSITIVE;
+    }
     probe.budget.threads = 1;
     probe.budget.wall_time_s = None;
     let bytes = serde_json::to_vec(&probe).map_err(|_| invalid_inputs())?;

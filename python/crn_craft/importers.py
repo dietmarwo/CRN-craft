@@ -135,6 +135,8 @@ def import_sbml(raw, *, convention):
         fail("explicit stochastic_count_propensity convention required")
     if (
         len(raw) > 16 * 1024 * 1024
+        # NUL bytes: UTF-16 or UTF-32, which would hide a DTD from this check.
+        or b"\x00" in raw
         or b"<!DOCTYPE" in raw.upper()
         or b"<!ENTITY" in raw.upper()
     ):

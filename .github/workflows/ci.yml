@@ -120,6 +120,40 @@ jobs:
       - run: python validation/check_rules_python.py --output rules-python.json
       - run: python -O validation/check_rules_python.py --output rules-python-optimized.json
       - run: diff rules-python.json rules-python-optimized.json
+      - name: Protocol and projection laws
+        env:
+          OPENBLAS_NUM_THREADS: "1"
+        run: |
+          python validation/check_paper_capabilities.py --output paper-capabilities.json
+          python -O validation/check_paper_capabilities.py --output paper-capabilities-optimized.json
+          diff paper-capabilities.json paper-capabilities-optimized.json
+      # Published experiment files, downloaded by commit and checked by
+      # SHA-256; they are not stored in the repository.
+      - name: Pin external experiment archives
+        run: |
+          base=https://raw.githubusercontent.com
+          curl -fsSL -o "$RUNNER_TEMP/vilar.omex" "$base/biosimulators/Biosimulators_test_suite/ae6afe13c37aa4b896eb5f839ab0e26ba3bc2f5b/examples/sbml-core/Vilar-PNAS-2002-minimal-circardian-clock-discrete-SSA.omex"
+          mkdir -p "$RUNNER_TEMP/sbml-stochastic"
+          for file in 00001-sbml-l3v2.xml 00001-results.csv; do
+            curl -fsSL -o "$RUNNER_TEMP/sbml-stochastic/$file" "$base/sbmlteam/sbml-test-suite/bbcbc80c4daec79fea301299f981746408a1742b/cases/stochastic/00001/$file"
+          done
+          sha256sum -c - <<EOF
+          d97b92fed06cc8b1d5cf152cdece7c30dee8458698f3c784876f68f0d4095c80  $RUNNER_TEMP/vilar.omex
+          1ba61a28537918456018ee3fb162ffcc52775c6504ff4e97ff1847f16c9c5c3d  $RUNNER_TEMP/sbml-stochastic/00001-sbml-l3v2.xml
+          bc7164b674ac8788223f3a3f74401fc5d8f4920ad727845c7fd432b471511e52  $RUNNER_TEMP/sbml-stochastic/00001-results.csv
+          EOF
+          python -m pip install numba==0.68.1
+      - name: Published experiment replay
+        run: |
+          python validation/check_paper_capabilities.py --vilar "$RUNNER_TEMP/vilar.omex" --output paper-vilar.json
+          python -O validation/check_paper_capabilities.py --vilar "$RUNNER_TEMP/vilar.omex" --output paper-vilar-optimized.json
+          diff paper-vilar.json paper-vilar-optimized.json
+          python validation/check_public_experiments.py --vilar "$RUNNER_TEMP/vilar.omex" --dsmts "$RUNNER_TEMP/sbml-stochastic" --output public-experiments.json
+          python -O validation/check_public_experiments.py --vilar "$RUNNER_TEMP/vilar.omex" --dsmts "$RUNNER_TEMP/sbml-stochastic" --output public-experiments-optimized.json
+          diff public-experiments.json public-experiments-optimized.json
+          # Numba serves the independent reference sampler above only; the
+          # steps below run as they do for a user without it.
+          python -m pip uninstall -y numba llvmlite
       # The opt-in compiled event loop, built with this checkout, against the
       # interpreter. CARGO_TARGET_DIR reuses the release build above; the -O
       # run and the manual block reuse the cached program.

@@ -4,6 +4,8 @@
 mod flat_path;
 #[path = "hybrid.rs"]
 mod hybrid;
+#[path = "protocol_path.rs"]
+mod protocol_path;
 pub(crate) use hybrid::Shared;
 #[path = "leap.rs"]
 mod leap;
@@ -683,6 +685,7 @@ pub(crate) struct Path<'a> {
     pub lenient_clock: bool,
     /// The `hybrid` solution of the independent continuous variables.
     pub independent: Option<&'a Shared>,
+    pub schedule: Option<&'a super::protocol::Schedule>,
 }
 
 impl Path<'_> {
@@ -804,11 +807,15 @@ impl Path<'_> {
     }
 
     fn stop_values(&self, values: &[f64]) -> Result<bool, Halt> {
-        let Some(e) = self.model.stop_program.as_ref() else {
+        Self::stop_values_with(self.model, values)
+    }
+
+    fn stop_values_with(model: &Compiled, values: &[f64]) -> Result<bool, Halt> {
+        let Some(e) = model.stop_program.as_ref() else {
             return Ok(false);
         };
         let value = e.eval(&Env {
-            params: &self.model.params,
+            params: &model.params,
             observables: values,
             attributes: [&[], &[]],
         });
@@ -1080,6 +1087,7 @@ impl Path<'_> {
                     products: &ps,
                     observables: &state.values,
                     firings: &[],
+                    protocol: None,
                 };
                 if let Some(m) = monitor {
                     m.observe(&event, &model.params);

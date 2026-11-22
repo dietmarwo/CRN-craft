@@ -19,6 +19,11 @@ impl Path<'_> {
         observer: &O,
     ) -> Result<Option<f64>, Halt> {
         self.poll()?;
+        if let Some(schedule) = self.schedule {
+            return self.simulate_protocol(
+                schedule, net, counts, values, words, out, time, monitor, observer,
+            );
+        }
 
         out.peak_instances = counts.iter().filter(|&&n| n > 0).count() as u64;
         check_instances(out.peak_instances, self.limits)?;
@@ -613,6 +618,30 @@ impl Path<'_> {
         monitor: &mut Option<Monitor<'_>>,
         observer: &O,
     ) -> bool {
+        self.observe_flat_with_params(
+            net,
+            channel,
+            values,
+            time,
+            monitor,
+            observer,
+            &self.model.params,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn observe_flat_with_params<O: EventObserver>(
+        &self,
+        net: &Network,
+        channel: usize,
+        values: &[f64],
+        time: f64,
+        monitor: &mut Option<Monitor<'_>>,
+        observer: &O,
+        params: &[f64],
+        protocol: Option<crate::rules::observe::ProtocolEvent>,
+    ) -> bool {
         if !O::ENABLED && monitor.is_none() {
             return false;
         }
@@ -642,9 +671,10 @@ impl Path<'_> {
             products: &products,
             observables: values,
             firings: &[],
+            protocol,
         };
         if let Some(m) = monitor {
-            m.observe(&event, &self.model.params);
+            m.observe(&event, params);
         }
         O::ENABLED && observer.on_event(&event) == ObserverAction::Stop
     }
@@ -721,7 +751,7 @@ fn scan(rates: &[f64], mut target: f64) -> usize {
 
 #[cold]
 #[inline(never)]
-fn event_limit() -> Halt {
+pub(super) fn event_limit() -> Halt {
     Halt::Limit(
         Termination::EventLimit,
         Diagnostic::error(

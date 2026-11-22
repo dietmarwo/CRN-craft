@@ -24,6 +24,7 @@ from model import (  # noqa: E402
     forecast_sample,
     native_lineage,
     predictions,
+    protocol_lineages,
 )
 
 THRESHOLD = 40.0
@@ -57,6 +58,7 @@ def laws():
         (4, 2), [(2.0, 0.15, 0.1, True), (2.0, 0.15, 0.1, True)], 9217
     )
     require(paths.shape == (2, 2) and np.all(paths >= 0), "native lineage driver")
+    protocol_recurrence()
     h = forecast_sample(80, 0.2, np.log(80), 0.0, 100, rng)
     require(np.max(abs(h - 0.2)) <= 1e-12, "deterministic ancestral count")
     # Mean recurrence: growth per phase, halving per division (29 + 7).
@@ -76,6 +78,50 @@ def laws():
     z = predictions(flat, np.array([7 / 24, 14 / 24]))[0][:, 1]
     require(abs(z[0] - 1 / 1e5) < 1e-15, "one division adds 1/(2 E)")
     require(abs(z[1] - 3 / 1e5) < 1e-15, "two divisions")
+
+
+def protocol_recurrence():
+    """The native scheduled lineage against the phase and division recurrences.
+
+    Within a phase each copy founds an independent linear birth-death
+    family; a division keeps each copy with probability 1/2, so
+    E[X+] = E[X-] / 2 and Var(X+) = Var(X-) / 4 + E[X-] / 4. Every report
+    mean and variance must lie within four standard errors (declared
+    before the first run; 2,000 lineages, 8 comparisons per species).
+    """
+    phases = [
+        (2.0, 0.30, 0.10, True),
+        (1.5, 0.20, 0.20, False),
+        (2.0, 0.05, 0.25, True),
+        (1.0, 0.40, 0.10, True),
+    ]
+    initial = (40, 20)
+    n = 2000
+    result = protocol_lineages(initial, phases, 4051, replicates=n, threads=2)
+    again = protocol_lineages(initial, phases, 4051, replicates=n, threads=1)
+    paths = result.paths.sel(variable=["W", "M"]).values
+    require(
+        np.array_equal(paths, again.paths.sel(variable=["W", "M"]).values),
+        "scheduled lineage depends on the worker count",
+    )
+    mean = np.array(initial, dtype=float)
+    var = np.zeros(2)
+    for k, (hours, birth, death, divide) in enumerate(phases):
+        net = birth - death
+        g = math.exp(net * hours)
+        v = (birth + death) * hours if net == 0 else (birth + death) / net * g * (g - 1)
+        mean, var = mean * g, var * g * g + mean * v
+        if divide:
+            mean, var = mean / 2, var / 4 + mean / 4
+        x = paths[:, k, :]
+        mu, s2 = x.mean(axis=0), x.var(axis=0, ddof=1)
+        m4 = ((x - mu) ** 4).mean(axis=0)
+        z_mean = (mu - mean) / np.sqrt(s2 / n)
+        z_var = (s2 - var) / np.sqrt((m4 - s2 * s2) / n)
+        require(
+            np.all(np.abs(z_mean) < 4) and np.all(np.abs(z_var) < 4),
+            f"scheduled lineage moments after phase {k + 1}",
+        )
 
 
 def references():

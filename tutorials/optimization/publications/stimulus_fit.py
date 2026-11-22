@@ -25,26 +25,50 @@ HYPOTHESES = tuple(h for n in (1, 2, 3) for h in combinations((0, 1, 3), n))
 BOUNDS = ((1e-5, 3.0), (1e-5, 3.0), (1e-6, 3.0), (0.01, 25.0))
 
 
-def read_counts(files):
-    groups = []
-    for t in TIMES:
-        path = files[f"myData_Npas4_t{t}_List.txt"]
-        raw = path.read_bytes()
-        text = raw.decode(
-            "utf-16" if raw.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig"
+MAX_BYTES = 1 << 20
+MAX_RNA = 10_000
+
+
+def parse_counts(raw, name):
+    """One cell per nonempty row: two site intensities and an RNA count.
+
+    A site is active when its intensity is positive, the two-state rule of
+    the BayFish data reader. UTF-16 needs a byte-order mark; other input
+    must be UTF-8 without NUL bytes.
+    """
+    require(len(raw) <= MAX_BYTES, f"{name}: more than {MAX_BYTES} bytes")
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+        text = raw.decode("utf-16")
+    else:
+        require(b"\0" not in raw, f"{name}: NUL byte without a UTF-16 mark")
+        text = raw.decode("utf-8-sig")
+    pairs = []
+    for number, line in enumerate(text.splitlines(), 1):
+        fields = line.split()
+        if not fields:
+            continue
+        where = f"{name}:{number}"
+        require(len(fields) == 3, f"{where}: expected 3 fields, found {len(fields)}")
+        try:
+            a, b = float(fields[0]), float(fields[1])
+            copies = int(fields[2])
+        except ValueError:
+            raise ValueError(f"{where}: non-numeric field") from None
+        require(
+            np.isfinite(a) and np.isfinite(b) and a >= 0 and b >= 0,
+            f"{where}: site intensity must be finite and nonnegative",
         )
-        pairs = []
-        for line in text.splitlines():
-            if line.strip():
-                a, b, m = line.split()
-                sites = int(float(a) != 0) + int(float(b) != 0)
-                copies = int(m)
-                require(
-                    copies >= 0 and min(float(a), float(b)) >= 0, "invalid observation"
-                )
-                pairs.append((sites, copies))
-        groups.append(np.array(pairs, dtype=int))
-    return groups
+        require(0 <= copies <= MAX_RNA, f"{where}: RNA count out of range")
+        pairs.append((int(a > 0) + int(b > 0), copies))
+    require(pairs, f"{name}: no cells")
+    return np.array(pairs, dtype=int)
+
+
+def read_counts(files):
+    return [
+        parse_counts(files[name].read_bytes(), name)
+        for name in (f"myData_Npas4_t{t}_List.txt" for t in TIMES)
+    ]
 
 
 def model(limit, *, reflect=False):
@@ -121,6 +145,11 @@ def reference(before, after, limit):
 class StimulusFit:
     def __init__(self, groups, limit):
         self.limit = limit
+        # A count above the cutoff would wrap into the next site row.
+        require(
+            all(int(group[:, 1].max()) <= limit for group in groups),
+            f"an observed RNA count exceeds the cutoff {limit}",
+        )
         bounds = {"off": 2, "on": 2, "rna": limit}
         self.basal = crn.prepare_fsp(model(limit, reflect=True), bounds)
         self.post = crn.prepare_fsp(model(limit), bounds)

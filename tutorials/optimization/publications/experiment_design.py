@@ -203,8 +203,19 @@ def toggle_network(reference):
     return net
 
 
+# UV raises the decay of the archive's x (lambda cI, the paper's y):
+# basal rate, amplitude and shape of rate = basal + a UV^2 / (shape + UV^3).
+# The archived matrices follow the constants in the archive code; the
+# article's Eq. 28 prints other constants (checked in the lesson).
+PULSE_LAWS = {"archive-code": (3.84e-4, 0.02, 2500.0), "paper": (3.8e-4, 0.002, 1250.0)}
+# The archived matrices use three snapshots at dt, 2 dt and 3 dt (time
+# zero carries no information: the initial law is fixed) and 100 cells.
+OBSERVATIONS = 3
+CELLS = 100.0
+
+
 class ToggleDesign:
-    def __init__(self, reference, bounds=(70, 100, 2500), *, pulse_law="paper"):
+    def __init__(self, reference, bounds=(70, 100, 2500), *, pulse_law="archive-code"):
         self.indices = np.array([0, 1, 2, 3, 4, 5, 9])
         self.reference = reference
         self.net = toggle_network(reference["ref"])
@@ -227,35 +238,28 @@ class ToggleDesign:
         )
         initial_hash = hashlib.sha256(reference["initial"].astype("<f8").tobytes())
         self.version = (
-            f"toggle-four-timed-observations-{pulse_law}-" + initial_hash.hexdigest()
+            f"toggle-{OBSERVATIONS}-snapshots-{CELLS:g}-cells-{pulse_law}-"
+            + initial_hash.hexdigest()
         )
 
-    def one(self, design, sample, *, tolerance=3e-6, count=4):
+    def solve(self, design, sample, *, tolerance=3e-6):
+        """Probabilities and log-parameter sensitivities at the snapshots."""
         duration, spacing, magnitude = design
         par = self.reference["ref"].copy()
         par[self.indices] = self.reference["samples"][sample]
         binding = dict(zip(TOGGLE_NAMES, map(float, par), strict=True))
-        if self.pulse_law == "paper":
-            # Eq. 28 controls y. In the archive's coordinate order that
-            # species occupies x, and the fitted decay is the other axis.
-            binding["dx"] = 3.8e-4
-            amplitude = 0.002
-            shape = 1250.0
-        else:
-            amplitude = 0.02
-            shape = 2500.0
+        basal, amplitude, shape = PULSE_LAWS[self.pulse_law]
+        binding["dx"] = basal
         pulse = binding | {
-            "dx": float(
-                binding["dx"] + amplitude * magnitude**2 / (shape + magnitude**3)
-            )
+            "dx": float(basal + amplitude * magnitude**2 / (shape + magnitude**3))
         }
-        times = tuple(3600 * spacing * i for i in range(1, count + 1))
+        times = tuple(3600 * spacing * i for i in range(1, OBSERVATIONS + 1))
         end = times[-1]
         knots = [(3600.0, binding), (3600 * (1 + duration), pulse), (end, binding)]
         segments = [(stop, value) for stop, value in knots if stop < end]
         active = binding if end <= 3600.0 or end > 3600 * (1 + duration) else pulse
         segments.append((end, active))
-        r = forward_sensitivities(
+        return forward_sensitivities(
             self.graph,
             segments,
             times,
@@ -264,9 +268,23 @@ class ToggleDesign:
             tolerance=tolerance,
             max_work=150_000,
         )
-        # The archive uses both counts, so state order is immaterial.
+
+    def matrix(self, design, sample, *, tolerance=3e-6):
+        """The 7 x 7 Fisher matrix in the archive's parameter order."""
+        r = self.solve(design, sample, tolerance=tolerance)
+        # Both counts are measured, so every retained state is a bin.
+        fim, _ = fisher_information(
+            r.probabilities[:, :-1],
+            r.derivatives[:, :, :-1],
+            CELLS,
+            probability_floor=1e-8,
+        )
+        return fim, r
+
+    def one(self, design, sample, *, tolerance=3e-6):
+        r = self.solve(design, sample, tolerance=tolerance)
         value, dropped = eigenvalue(
-            r.probabilities[:, :-1], r.derivatives[:, :, :-1], 1000.0
+            r.probabilities[:, :-1], r.derivatives[:, :, :-1], CELLS
         )
         return value, max(r.probabilities[:, -1]), dropped, r.work
 
@@ -307,7 +325,7 @@ class ToggleDesign:
 def options(parser):
     data_option(parser)
     parser.add_argument(
-        "--pulse-law", choices=("paper", "archive-code"), default="paper"
+        "--pulse-law", choices=tuple(PULSE_LAWS), default="archive-code"
     )
     parser.add_argument(
         "--native-samples",

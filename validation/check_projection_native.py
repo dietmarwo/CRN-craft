@@ -2,7 +2,7 @@
 
 Compares ``crn_craft.prepare_fsp`` (native enumeration, generator assembly,
 interventions, uniformization and exponential midpoint rule) with
-``reference_projection.py`` (the former Python implementation) on a
+``reference_projection.py`` (a pure Python and SciPy implementation) on a
 declared case set, and the native binomial and Poisson-tail kernels with
 SciPy. Gates, declared before the first run:
 
@@ -13,6 +13,12 @@ SciPy. Gates, declared before the first run:
 - series-tail bounds at most the tolerance in both;
 - work within 0.1 % + 2 units for uniformization;
 - identical exception types and messages on input and budget failures;
+- closed-form laws (``analytic``), independent of the reference: the
+  largest probability gap at most 1e-11 for uniformization (binomial
+  survival) or 1e-9 (Poisson thinning by a partition) and at most 2e-6 for the
+  midpoint rule and BDF at tolerance 1e-9 (Poisson laws under a sinusoidal
+  callable and under a step table read at its jump), with a ``max_step``
+  whose multiples do not sum to the segment ends in floating point;
 - binomial pmf within a relative 1e-12 of SciPy for n <= 1e5 and, where
   the two differ by more than that (SciPy loses accuracy for large n),
   within 1e-13 of a 60-digit Decimal evaluation; Poisson tail within a
@@ -455,6 +461,112 @@ def cases():
     return rows
 
 
+def analytic():
+    """Laws with a closed form, compared with nothing but that form."""
+    rows = {}
+
+    def poisson(mean, top):
+        return np.array(
+            [
+                math.exp(i * math.log(mean) - mean - math.lgamma(i + 1))
+                for i in range(top + 1)
+            ]
+        )
+
+    def gate(name, graph, result, expected, bound):
+        worst = 0.0
+        for snapshot, law in zip(result.snapshots, expected, strict=True):
+            found = np.bincount(
+                graph.states[:, 0], snapshot.probabilities, minlength=len(law)
+            )
+            worst = max(worst, float(np.abs(found - law).max()))
+        require(worst <= bound, f"analytic {name}: gap {worst:.3e} above {bound:.0e}")
+        rows[name] = {"gap": worst, "bound": bound}
+
+    # Thirty molecules dying at rate k: binomial survival.
+    death = model(
+        "death", {"X": 30}, {"k": 0.3}, [(crn.mass_action("k"), ["X"], [], "die")]
+    )
+    graph = crn.prepare_fsp(death, {"X": 30})
+    times = [0.5, 2.0]
+    keep = [math.exp(-0.3 * t) for t in times]
+    gate(
+        "binomial_survival",
+        graph,
+        graph.solve(2.0, times, tolerance=1e-12),
+        [
+            np.array([math.comb(30, i) * q**i * (1 - q) ** (30 - i) for i in range(31)])
+            for q in keep
+        ],
+        1e-11,
+    )
+
+    # Immigration and death from zero: Poisson with the mean of m' = b(t) - k m.
+    a, w, k, top = 4.0, 1.3, 0.7, 80
+    queue = model(
+        "queue",
+        {"X": 0},
+        {"b": a, "k": k},
+        [
+            (crn.mass_action("b"), [], ["X"], "in"),
+            (crn.mass_action("k"), ["X"], [], "out"),
+        ],
+    )
+    graph = crn.prepare_fsp(queue, {"X": top})
+
+    def wave_mean(t):
+        decay = math.exp(-k * t)
+        swing = k * math.sin(w * t) - w * math.cos(w * t) + w * decay
+        return a / k * (1 - decay) + a * swing / (k * k + w * w)
+
+    def step_mean(t):
+        if t <= 1:
+            return 5 / k * (1 - math.exp(-k * t))
+        at_jump = 5 / k * (1 - math.exp(-k))
+        return at_jump * math.exp(-k * (t - 1)) + 0.5 / k * (1 - math.exp(-k * (t - 1)))
+
+    wave = crn.Signal(lambda t: a * (1 + math.sin(w * t)))
+    step = crn.Signal.table([0.0, 1.0], [5.0, 0.5], interpolation="step")
+    for solver in ("midpoint", "bdf"):
+        for name, signal, end, times, mean in (
+            ("wave", wave, 5.0, [0.7, 2.0, 5.0], wave_mean),
+            ("step", step, 3.0, [1.0, 1.5, 3.0], step_mean),
+        ):
+            result = graph.solve(
+                end,
+                times,
+                signals={"in": signal},
+                tolerance=1e-9,
+                max_step=0.05,
+                solver=solver,
+                max_work=10**8,
+            )
+            gate(
+                f"poisson_{name}_{solver}",
+                graph,
+                result,
+                [poisson(mean(t), top) for t in times],
+                2e-6,
+            )
+
+    # Keeping each molecule with probability 0.3 at t = 1 thins the Poisson law.
+    thinned = crn.prepare_fsp(
+        queue, {"X": top}, protocol=crn.Protocol().at(1.0, partition={"X": 0.3})
+    )
+    after = 0.3 * a / k * (1 - math.exp(-k))
+    gate(
+        "poisson_thinning",
+        thinned,
+        thinned.solve(2.0, [1.0, 2.0], tolerance=1e-12, max_work=10**8),
+        [
+            poisson(after, top),
+            poisson(after * math.exp(-k) + a / k * (1 - math.exp(-k)), top),
+        ],
+        1e-9,
+    )
+    return rows
+
+
 def yeast(full):
     """C10: the total-RNA model of guide chapter 23 at one dose, to minute
     10 (the full 55 minutes with ``full``)."""
@@ -501,7 +613,7 @@ def main():
     parser.add_argument("--full-yeast", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    result = {"special": special_functions(), "cases": cases()}
+    result = {"special": special_functions(), "cases": cases(), "analytic": analytic()}
     if not args.quick:
         result["cases"]["C10_yeast_total_rna"] = yeast(args.full_yeast)
     result["failures"] = FAILURES

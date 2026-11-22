@@ -1,6 +1,6 @@
 # Kowald & Kirkwood (2013), Figure 1
 
-Author: Axel Kowald. The script of [guide chapter 16](../../docs/guide/16-published-study.md),
+Author: Axel Kowald. The script of [tutorial S2](../../docs/tutorials/simulation/S2-published-study.md),
 which re-creates Figure 1 of Kowald A., Kirkwood T.B.L. (2013), *Aging Cell*
 12(4):728–731, [doi:10.1111/acel.12098](https://doi.org/10.1111/acel.12098).
 

@@ -10,7 +10,7 @@ the tag
 | --- | --- |
 | Introduction | [1, How to read this guide](guide/01-install.md#how-to-read-this-guide) |
 | 1. Install | [1, Install](guide/01-install.md); [10, The crn-craft command](guide/10-command-line.md#the-crn-craft-command) |
-| 2. A first model with the builder | [2, Species, parameters and reactions](guide/02-first-model.md#species-parameters-and-reactions); [14, What the builder writes](guide/14-model-files.md#what-the-builder-writes); [14, Packaged examples](guide/14-model-files.md#packaged-examples) |
+| 2. A first model with the builder | [2, Species, parameters and reactions](guide/02-first-model.md#species-parameters-and-reactions); [12, What the builder writes](guide/12-model-files.md#what-the-builder-writes); [12, Packaged examples](guide/12-model-files.md#packaged-examples) |
 | 3. Checking inputs and reading diagnostics | [2, Checking a model](guide/02-first-model.md#checking-a-model); [10, A request file](guide/10-command-line.md#a-request-file); [10, Check a model and a request](guide/10-command-line.md#check-a-model-and-a-request) |
 | 4. Exact simulation | [3, Many trajectories in one call](guide/03-running.md#many-trajectories-in-one-call); [10, Run, archive and verify](guide/10-command-line.md#run-archive-and-verify); [10, Python and the command line give the same result](guide/10-command-line.md#python-and-the-command-line-give-the-same-result) |
 | 5. Results as data frames | [4, What a result holds](guide/04-results.md#what-a-result-holds) |

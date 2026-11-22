@@ -1,4 +1,4 @@
-"""Check guide chapter 22: exact small laws, stored results and the page.
+"""Check tutorial S7: exact small laws, stored results and the page.
 
 Offline and fast. It verifies the native FSP against a matrix exponential,
 the generating-function marginal against the joint count law, the
@@ -86,9 +86,9 @@ def stored_results():
 
 
 def page_tables():
-    page = (ROOT / "docs" / "guide" / "22-two-stage-expression.md").read_text(
-        encoding="utf-8"
-    )
+    page = (
+        ROOT / "docs" / "tutorials" / "simulation" / "S7-two-stage-expression.md"
+    ).read_text(encoding="utf-8")
     for marker, render in TABLES.items():
         part = page.partition(f"<!-- {marker} -->\n")[2]
         part = part.partition(f"<!-- /{marker} -->")[0]

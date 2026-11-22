@@ -3,7 +3,7 @@
 Model-1 data and independent cells per age.
 
 Each command writes one ``review-*.csv`` file. The questions, runs and
-decision rules were fixed before the runs; guide page 18b gives them.
+decision rules were fixed before the runs; page O2b gives them.
 """
 
 from __future__ import annotations

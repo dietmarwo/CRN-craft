@@ -7,7 +7,7 @@
 - Stored `rules-run` requests replay byte for byte (`crates/crn-craft/tests/stored/`), and generated-code fixtures (`crates/crn-craft/tests/generated/`) change only with the generator. Never edit either by hand. New behavior goes behind `crn-craft.model/1.0` or `crn-craft.run/1.0`.
 - Match the named milestone. Do not claim a placeholder or planned method can execute.
 - For numerical work, declare targets before running experiments. Retain failed rows. Do not loosen a statistical rule after seeing failures. A new sampling policy gets its own sampler identity and an exact-law check (`validation/merge/check_laws.py`).
-- Docs and code name no persons, with one exception: a contributed tutorial keeps its author's byline and the citations of the papers it uses (guide chapter 16).
+- Docs and code name no persons, with one exception: a contributed tutorial keeps its author's byline and the citations of the papers it uses (tutorial S2).
 - Use published algorithms. Retain attribution for any permissively licensed code adaptation; do not copy GPL simulator code into this MIT project.
 - Run fmt, clippy with warnings denied, release tests with --locked, rustdoc with warnings denied, ruff, the validation scripts that CI names normally and under Python -O, and the dependency gate for relevant changes.
 - Keep fixed-work numerical reproducibility separate from timing, hardware, paths and interrupted runs.

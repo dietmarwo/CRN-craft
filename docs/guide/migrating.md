@@ -24,6 +24,34 @@ def strains(count, builder=crn.Model):
     return model
 ```
 
+## Tutorials renumbered in 0.10.0
+
+Release 0.10.0 moved the tutorials out of the user guide into two groups
+and renumbered them. The user guide is chapters 1 to 13. The old paths in
+the repository are stubs that name the new page, and the old addresses of
+the site redirect.
+
+| Until 0.9.0 | From 0.10.0 |
+| --- | --- |
+| Chapter 12, case study: mtDNA mutants | [Tutorial S1](../tutorials/simulation/S1-mtdna.md) |
+| Chapter 13, fitting parameters to data | [Tutorial O1](../tutorials/optimization/O1-fitting.md) |
+| Chapter 14, model files and species with attributes | [Chapter 12](12-model-files.md) |
+| Chapter 15, using CRN-craft from R | [Chapter 13](13-from-r.md) |
+| Chapter 16, re-creating a published study | [Tutorial S2](../tutorials/simulation/S2-published-study.md) |
+| Chapter 17, comparing mtDNA mechanisms | [Tutorial S3](../tutorials/simulation/S3-mtdna-mechanisms.md) |
+| Chapter 18, inferring mtDNA takeover times | [Tutorial O2](../tutorials/optimization/O2-mtdna-inference.md) |
+| Chapter 19, spatial spread of mtDNA deletions | [Tutorial S4](../tutorials/simulation/S4-mtdna-spread.md) |
+| Chapter 20, mitochondrial networks and drift | [Tutorial S5](../tutorials/simulation/S5-mtdna-network.md) |
+| Chapter 21, the mtDNA bottleneck | [Tutorial S6](../tutorials/simulation/S6-mtdna-bottleneck.md) |
+| Chapter 22, protein distributions | [Tutorial S7](../tutorials/simulation/S7-two-stage-expression.md) |
+| Chapter 23, fitting single-cell RNA distributions | [Tutorial O3](../tutorials/optimization/O3-yeast-rna-fit.md) |
+| Chapter 24, optimization lessons | [The lessons page](../tutorials/optimization/lessons.md) |
+
+A page keeps its letter: 19b is S4b, 14a is 12a. Lessons C1 to C10 keep
+their names. Records of earlier work keep the old numbers: changelog
+entries before 0.10.0, the logs under `docs/campaign`, `docs/decisions` and
+`docs/evidence`, and the merge records under `validation/merge`.
+
 ## One engine since 0.7.0
 
 Releases up to 0.6.0 had two engines: a network engine for fixed reaction
@@ -182,7 +210,7 @@ Code written for release 0.5.0:
 
 R code written for 0.5.0 that indexes `paths` by position must use the new
 order; code that reads the dimension names, as in
-[chapter 15](15-from-r.md#example-sir-model), works with both.
+[chapter 13](13-from-r.md#example-sir-model), works with both.
 
 Code written for release 0.4.0:
 

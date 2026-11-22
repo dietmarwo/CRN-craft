@@ -1,7 +1,7 @@
 """Review checks of the nonspatial fits: search start and data choices.
 
 Each command writes one ``review-*.csv`` file to ``results/``. The question,
-runs and decision rule of ``start`` were fixed before it ran; guide page 23b
+runs and decision rule of ``start`` were fixed before it ran; page O3b
 gives them. ``choices`` rescores saved parameter vectors and fits nothing.
 """
 

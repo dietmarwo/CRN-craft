@@ -65,7 +65,7 @@ GROUPS = [
         "Build a model in Python, or take a packaged one. `Model` writes "
         "`crn-craft.model/1.0`. The language of the document is in the "
         "[model reference](model-language.md); chapter 2 of the guide teaches "
-        "the builder, and chapter 14 species with attributes.",
+        "the builder, and chapter 12 species with attributes.",
         [
             "Model",
             "Model.add_species",
@@ -147,7 +147,7 @@ GROUPS = [
         "and `crn_craft.sensitivities` are modules: call their names as "
         "`crn.likelihood.histogram_score(...)`. Binomial detection and "
         'fluorescence bins need SciPy (`pip install "crn-craft[likelihood]"`); '
-        "everything else runs without it. Chapter 23 of the guide and "
+        "everything else runs without it. Tutorial O3 and "
         "optimization lesson C8 use these names.",
         [
             "likelihood.measured_counts",

@@ -94,7 +94,7 @@ median appears whenever 0.5 is among them:
 
 A mean can mislead: when most replicates stay near zero and a few grow
 large, almost no replicate is near the mean
-([an example](12a-mtdna-takeover.md#the-mean-hides-the-typical-cell)).
+([an example](../tutorials/simulation/S1a-mtdna-takeover.md#the-mean-hides-the-typical-cell)).
 
 ## Single trajectories
 

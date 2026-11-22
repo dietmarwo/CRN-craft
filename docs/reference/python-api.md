@@ -12,7 +12,7 @@ Contents: [Models](#models), [Running](#running), [Experiments and probability l
 
 ## Models
 
-Build a model in Python, or take a packaged one. `Model` writes `crn-craft.model/1.0`. The language of the document is in the [model reference](model-language.md); chapter 2 of the guide teaches the builder, and chapter 14 species with attributes.
+Build a model in Python, or take a packaged one. `Model` writes `crn-craft.model/1.0`. The language of the document is in the [model reference](model-language.md); chapter 2 of the guide teaches the builder, and chapter 12 species with attributes.
 
 ### `Model`
 
@@ -1296,7 +1296,7 @@ Exact polynomial conversion verifies the falling-factorial reactants.
 
 ## Likelihoods and sensitivities
 
-Turn the law of a [prepared projection](#prepare_fsp) into the probability of what was measured, score it against counted cells, and differentiate it with respect to parameters. `crn_craft.likelihood` and `crn_craft.sensitivities` are modules: call their names as `crn.likelihood.histogram_score(...)`. Binomial detection and fluorescence bins need SciPy (`pip install "crn-craft[likelihood]"`); everything else runs without it. Chapter 23 of the guide and optimization lesson C8 use these names.
+Turn the law of a [prepared projection](#prepare_fsp) into the probability of what was measured, score it against counted cells, and differentiate it with respect to parameters. `crn_craft.likelihood` and `crn_craft.sensitivities` are modules: call their names as `crn.likelihood.histogram_score(...)`. Binomial detection and fluorescence bins need SciPy (`pip install "crn-craft[likelihood]"`); everything else runs without it. Tutorial O3 and optimization lesson C8 use these names.
 
 ### `likelihood.measured_counts`
 

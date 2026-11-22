@@ -1,8 +1,8 @@
 # Mitochondrial network and early drift
 
 The model, the protocol and the results are explained in
-[chapter 20](../../docs/guide/20-mtdna-network.md) and
-[its results page](../../docs/guide/20a-mtdna-network-results.md).
+[tutorial S5](../../docs/tutorials/simulation/S5-mtdna-network.md) and
+[its results page](../../docs/tutorials/simulation/S5a-mtdna-network-results.md).
 Time is in days.
 
 ```sh

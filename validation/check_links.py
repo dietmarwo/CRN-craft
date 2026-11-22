@@ -15,8 +15,8 @@ go to the real page.
 
 It checks `docs/SUMMARY.md`, the sidebar of the rendered site: every entry
 must exist, no page may be listed twice, and every Markdown file under
-`docs/guide`, `docs/reference`, `docs/developer` and `docs/evidence` must be
-listed.
+`docs/guide`, `docs/tutorials`, `docs/reference`, `docs/developer` and
+`docs/evidence` must be listed, except the stubs.
 
 With `--site PATH` it also checks the built site (`mdbook build`): every
 relative `href` and `src` in the HTML pages must resolve to a file of the
@@ -165,7 +165,7 @@ def check_stubs(root):
 
 
 SUMMARY_ENTRY = re.compile(r"^\s*(?:-\s+)?\[[^\]]*\]\(([^)\s]*)\)\s*$")
-SUMMARY_DIRS = ("guide", "reference", "developer", "evidence")
+SUMMARY_DIRS = ("guide", "tutorials", "reference", "developer", "evidence")
 
 
 def check_summary(root):
@@ -195,7 +195,8 @@ def check_summary(root):
             else None
         )
         if relative and relative.startswith(tuple(d + "/" for d in SUMMARY_DIRS)):
-            if relative not in seen:
+            # A stub keeps an old path alive; it is no page of the site.
+            if relative not in seen and stub_target(path) is None:
                 broken.append(f"docs/{relative}: not listed in docs/SUMMARY.md")
     return broken, len(entries)
 

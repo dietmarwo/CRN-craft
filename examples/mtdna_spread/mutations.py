@@ -1,6 +1,6 @@
 """De novo deletions in the survival-of-the-densest chain, with mutant types.
 
-An extension made in guide chapter 19, not a result of the paper. Every
+An extension made in tutorial S4, not a result of the paper. Every
 region starts with wild-type copies only. A replication makes a new
 deletion type with probability ``m``, from wild-type and mutant templates
 alike; all mutant types share the density parameter ``delta``. The exact
@@ -1883,7 +1883,7 @@ def figure(args):
             style,
             color=".45",
             linewidth=1.2,
-            label=f"{mech}, one cell (ch. 17)",
+            label=f"{mech}, one cell (tutorial S3)",
         )
     ages = sorted(set(last.index.get_level_values(1)) | set(chapter17.years))
     right.set(

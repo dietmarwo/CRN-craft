@@ -170,5 +170,5 @@ the same time, because the variable is the same in all of them.
   variables.
 
 See also: [Choosing a method](07-methods.md),
-[Variable population: ATP](12c-mtdna-atp.md),
+[Variable population: ATP](../tutorials/simulation/S1c-mtdna-atp.md),
 [Model language](../reference/model-language.md#continuous-variables-rules-model03).

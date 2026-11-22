@@ -142,7 +142,7 @@ the repository and are not part of the wheel.
 - [How CRN-craft compares](https://dietmarwo.github.io/CRN-craft/comparison.html) with GillesPy2 and rebop
 - [User guide](https://dietmarwo.github.io/CRN-craft/guide/01-install.html): read chapters 1 to 4 first
 - [How do I ...?](https://dietmarwo.github.io/CRN-craft/howto.html): fifty tasks, each with a link to the answer
-- [Case study: mtDNA mutants](https://dietmarwo.github.io/CRN-craft/guide/12-mtdna.html)
+- [Case study: mtDNA mutants](https://dietmarwo.github.io/CRN-craft/tutorials/simulation/S1-mtdna.html)
 - [Reference](https://dietmarwo.github.io/CRN-craft/reference/model-language.html): model language, methods, Python API, contracts, diagnostics
 - [Changelog](https://github.com/dietmarwo/CRN-craft/blob/main/CHANGELOG.md)
 

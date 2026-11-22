@@ -67,7 +67,7 @@ def template(count, seed, threads=2):
         replicates=cells(count),
         seed=seed,
         threads=threads,
-        method="mtdna_direct",  # the fast path (guide page 12d)
+        method="mtdna_direct",  # the fast path (page S1d)
         keep_paths="all",
         max_output_bytes=256 << 20,
     )

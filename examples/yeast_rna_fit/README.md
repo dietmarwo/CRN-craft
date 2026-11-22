@@ -1,6 +1,6 @@
 # Fit single-cell RNA count distributions
 
-[Chapter 23](../../docs/guide/23-yeast-rna-fit.md) explains the study: the
+[Tutorial O3](../../docs/tutorials/optimization/O3-yeast-rna-fit.md) explains the study: the
 data, the model, what the fits show and what they do not. The scripts
 need NumPy, SciPy, pandas, fcmaes, Matplotlib, CRN-craft 0.8.0 and, for the
 fits, a C++17 compiler (`CXX`). `cme.cpp` solves the total-RNA master
@@ -22,7 +22,7 @@ Both nonspatial fits vary all 13 coefficients in one multiplicative box
 centered on the authors' archived histogram fit, and each restart first
 evaluates that archived vector. The comparison therefore ranks models near
 the published fit; it is not a search from no prior knowledge (guide page
-23b). The spatial run varies two of 15 coefficients on a 3 × 3 grid; its
+O3b). The spatial run varies two of 15 coefficients on a 3 × 3 grid; its
 best histogram point is the authors' archived spatial vector, so the
 spatial model is evaluated, not refitted. The transcription-site
 prediction recomputes the authors' prediction from that archived vector.
@@ -39,8 +39,8 @@ prediction recomputes the authors' prediction from that archived vector.
 | `results/histograms.csv`, `results/model-moments.csv` | predicted laws and summaries for the figures |
 | `results/spatial-*.csv`, `results/spatial*.json` | the spatial grid and its accounting |
 | `results/sites.csv`, `results/site-activity-comparison.csv` | the site prediction |
-| `results/review-optimizer-start.csv` | the search-start review (page 23b) |
-| `results/review-data-choices.csv` | saved vectors scored on other data choices (page 23c) |
+| `results/review-optimizer-start.csv` | the search-start review (page O3b) |
+| `results/review-data-choices.csv` | saved vectors scored on other data choices (page O3c) |
 
 `study.py` writes `scores.csv` and `restarts.csv` per run; the shipped
 `scores.csv` and `optimizer-work.csv` join the full and draft runs and add

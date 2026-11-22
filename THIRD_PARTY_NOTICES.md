@@ -72,7 +72,7 @@ The MIT license of this repository covers the code and text written for
 CRN-craft. The files below are numerical tables derived from other authors'
 published data. They are not covered by the MIT license and remain under
 the terms of their sources. They are included so that the checks and plots
-of guide chapters 19 to 23 and the figures of optimization lessons C6 to C9
+of tutorials S4 to S7 and O3 and the figures of optimization lessons C6 to C9
 run without network access. No code from these sources is included. Where
 an example has a `fetch.py`, it rebuilds the tables from the stated
 revision; the lessons download their sources by commit with

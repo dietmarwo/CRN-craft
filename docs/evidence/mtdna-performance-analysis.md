@@ -10,7 +10,7 @@ accumulation with CRN-craft:
 
 It combines measurements on a two-CPU host with the earlier recorded
 measurements in `validation/mtdna/`. Read the
-[case study of the user guide](../guide/12-mtdna.md) for the models and methods.
+[case study of the user guide](../tutorials/simulation/S1-mtdna.md) for the models and methods.
 
 Sections 1 to 8 were measured on release 0.2.0 and later releases up to
 0.6.0, as each section says. Release 0.7.0 merged the network engine into
@@ -114,7 +114,7 @@ otherwise):
   methods.
 - **Fast path.** Most tables time the opt-in `mtdna_direct`, which applies
   only to the three-class structure
-  ([guide, page 14a](../guide/14a-mtdna-model-files.md#the-fast-path)).
+  ([guide, page 14a](../guide/12a-mtdna-model-files.md#the-fast-path)).
   Their headers say so. Section 2 gives the factor for every other method.
 - **Metrics.** *Wall ns per event* divides wall time by all events of the
   ensemble. With two busy threads, the CPU time per event is twice that.
@@ -497,7 +497,7 @@ Output and memory grow with what is kept, not with the events:
 5. **Optimize with `bind_parameters` on a prepared run.** Use evaluations
    of a few hundred to a few thousand cells, with `mtdna_direct` where the
    model has its structure
-   ([optimization tutorial](../guide/13-fitting.md)).
+   ([optimization tutorial](../tutorials/optimization/O1-fitting.md)).
 6. **For the largest studies, use Rust.** Call the engine directly, or use
    the opt-in generated loop for closed models that `mtdna_direct` does
    not certify.

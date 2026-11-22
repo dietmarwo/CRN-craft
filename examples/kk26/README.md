@@ -1,10 +1,10 @@
 # Inferring mtDNA takeover times from cell snapshots
 
-[Guide chapter 18](../../docs/guide/18-mtdna-inference.md) reconstructs
+[Tutorial O2](../../docs/tutorials/optimization/O2-mtdna-inference.md) reconstructs
 Equation 7, Figures 5 and 6 and the parameter recovery of Tables 2 and 3 of
 Kowald & Kirkwood (2026), *npj Aging* 12
 ([doi:10.1038/s41514-026-00431-4](https://doi.org/10.1038/s41514-026-00431-4)).
-Its [last page](../../docs/guide/18c-mtdna-inference-limits.md#reconstruction-choices)
+Its [last page](../../docs/tutorials/optimization/O2c-mtdna-inference-limits.md#reconstruction-choices)
 lists every reconstruction choice in one table. The paper's authors did not
 write or review this example.
 
@@ -45,7 +45,7 @@ interrupted run reuses them; grid nodes are saved one by one while a grid
 is built. Thread count does not change any result. `evidence` recomputes
 the discrete reference, the solver and corner checks, the complete lattice
 (`--complete-grid`) and the 100,000 hourly and 30,000 half-hour ATP cells.
-`review.py` reruns the review checks of guide page 18b and writes
+`review.py` reruns the review checks of page O2b and writes
 `review-*.csv` to `results/local/review` (`--results` changes it).
 `wide-box` solves the forward law directly, 15 to 20 minutes per cohort on
 one core; it memoizes the solves under `results/local/review-cache`, so an

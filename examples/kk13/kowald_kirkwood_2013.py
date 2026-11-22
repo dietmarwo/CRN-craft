@@ -8,7 +8,7 @@ random drift is insufficient to explain the accumulation of mitochondrial
 deletion mutants in short-lived animals. Aging Cell 12(4):728-731.
 doi:10.1111/acel.12098
 
-Guide: docs/guide/16-published-study.md. Run from the repository root:
+Guide: docs/tutorials/simulation/S2-published-study.md. Run from the repository root:
 
     python examples/kk13/kowald_kirkwood_2013.py --size quick           # seconds
     python examples/kk13/kowald_kirkwood_2013.py --size draft           # the guide's tables

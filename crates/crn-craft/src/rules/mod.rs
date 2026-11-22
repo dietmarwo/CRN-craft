@@ -195,7 +195,7 @@
 //! - [Rules language](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/model-language.md):
 //!   the model language, propensities, expressions and numerical policy.
 //! - [Methods](https://github.com/dietmarwo/CRN-craft/blob/main/docs/reference/methods.md)
-//!   and the [mtDNA case study](https://github.com/dietmarwo/CRN-craft/blob/main/docs/guide/12-mtdna.md)
+//!   and the [mtDNA case study](https://github.com/dietmarwo/CRN-craft/blob/main/docs/tutorials/simulation/S1-mtdna.md)
 //!   of the user guide: methods, trackers, event logs and callbacks.
 //! - [Rules kernel checklist](https://github.com/dietmarwo/CRN-craft/blob/main/docs/developer/specialized-kernels.md):
 //!   generated rules kernels and event loops.

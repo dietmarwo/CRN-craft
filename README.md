@@ -85,7 +85,7 @@ that rule, keeping the rows that failed. Scheduled experiments (timed
 changes, cell divisions, fixed delays), exact laws and bit-for-bit replay
 are the tools for it
 ([reproducible experiments](docs/reference/experiments.md)). An example is
-the [extension of chapter 19](docs/guide/19b-mtdna-spread-de-novo.md): a
+the [extension of tutorial S4](docs/tutorials/simulation/S4b-mtdna-spread-de-novo.md): a
 question the paper did not ask, suggested by an author of related papers.
 Its long runs were made on a second machine, and two of their fibers were
 replayed here bit for bit. The 40-year calibration failed by the rule
@@ -107,7 +107,7 @@ optimizer from random search; one reaches a cost of 62 where the paper
 reports 0.0013 after 2.8 million evaluations, verifies that the objective
 is right and names the budget as the gap.
 
-The tutorials were made this way. Apart from one contributed chapter, they
+The tutorials were made this way. Apart from one contributed tutorial, they
 were written and then independently reviewed by AI agents directed by the
 maintainer. A numerical agreement with a paper is not a biological
 validation, and a tutorial that misses a published value reports the miss.
@@ -120,19 +120,19 @@ All tutorials are listed, with their sources and outcomes, on the
 **Simulation tutorials** build a model and compare its simulation with a
 paper, an exact law or archived data:
 
-- [mtDNA mutants](docs/guide/12-mtdna.md), a worked case study
-- [Random drift of mtDNA mutants](docs/guide/16-published-study.md) (Kowald & Kirkwood 2013)
-- [Three mtDNA mechanisms](docs/guide/17-mtdna-mechanisms.md) (Kowald & Kirkwood 2014; Kowald, Dawson & Kirkwood 2014)
-- [Spatial spread of mtDNA deletions](docs/guide/19-mtdna-spread.md) (Insalata et al. 2022)
-- [Mitochondrial networks and genetic drift](docs/guide/20-mtdna-network.md) (Aryaman et al. 2019)
-- [The mtDNA bottleneck during development](docs/guide/21-mtdna-bottleneck.md) (Johnston et al. 2015)
-- [Protein distributions from four reactions](docs/guide/22-two-stage-expression.md) (Shahrezaei & Swain 2008)
+- [S1. mtDNA mutants](docs/tutorials/simulation/S1-mtdna.md), a worked case study
+- [S2. Random drift of mtDNA mutants](docs/tutorials/simulation/S2-published-study.md) (Kowald & Kirkwood 2013)
+- [S3. Three mtDNA mechanisms](docs/tutorials/simulation/S3-mtdna-mechanisms.md) (Kowald & Kirkwood 2014; Kowald, Dawson & Kirkwood 2014)
+- [S4. Spatial spread of mtDNA deletions](docs/tutorials/simulation/S4-mtdna-spread.md) (Insalata et al. 2022)
+- [S5. Mitochondrial networks and genetic drift](docs/tutorials/simulation/S5-mtdna-network.md) (Aryaman et al. 2019)
+- [S6. The mtDNA bottleneck during development](docs/tutorials/simulation/S6-mtdna-bottleneck.md) (Johnston et al. 2015)
+- [S7. Protein distributions from four reactions](docs/tutorials/simulation/S7-two-stage-expression.md) (Shahrezaei & Swain 2008)
 
 **Optimization tutorials** put an fcmaes optimizer around a simulation:
 
-- [Fitting parameters to data](docs/guide/13-fitting.md)
-- [Inferring mtDNA takeover times](docs/guide/18-mtdna-inference.md) (Kowald & Kirkwood 2026)
-- [Fitting single-cell RNA distributions](docs/guide/23-yeast-rna-fit.md) (Munsky et al. 2018)
+- [O1. Fitting parameters to data](docs/tutorials/optimization/O1-fitting.md)
+- [O2. Inferring mtDNA takeover times](docs/tutorials/optimization/O2-mtdna-inference.md) (Kowald & Kirkwood 2026)
+- [O3. Fitting single-cell RNA distributions](docs/tutorials/optimization/O3-yeast-rna-fit.md) (Munsky et al. 2018)
 - [Ten runnable lessons](tutorials/optimization/README.md): four on method
   (calibration, sensitivities, several objectives, rule-based models) and
   six that reconstruct published studies (Poovathingal & Gunawan 2010;

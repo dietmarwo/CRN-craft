@@ -28,9 +28,9 @@ model.add_reaction("death * A", ["A"], [], name="death")
 | The whole distribution of a small system | few species, bounded counts | `model.fsp(...)` | exact up to reported error terms |
 | Large populations, where exact events are too many | reaction networks | `{"kind": "tau", "epsilon": ...}` | approximate |
 | Rates that read a continuous variable | built with `add_ode` | `"hybrid"` ([chapter 9](09-continuous-variables.md)) | approximate at its tolerances |
-| Species that appear during a run, each with its own identity | a model file with attributes | no `method`: the tree method ([chapter 14](14-model-files.md)) | exact |
-| The three-class mtDNA model | built with `crn.Model`, or a model file | `"mtdna_direct"`, a fast path ([page 12d](12d-mtdna-methods.md#the-fast-path), [page 14a](14a-mtdna-model-files.md#the-fast-path)) | exact |
-| A stored model with an ATP block | a model file | `"thinning"` ([page 14a](14a-mtdna-model-files.md)) | exact |
+| Species that appear during a run, each with its own identity | a model file with attributes | no `method`: the tree method ([chapter 12](12-model-files.md)) | exact |
+| The three-class mtDNA model | built with `crn.Model`, or a model file | `"mtdna_direct"`, a fast path ([page S1d](../tutorials/simulation/S1d-mtdna-methods.md#the-fast-path), [page 12a](12a-mtdna-model-files.md#the-fast-path)) | exact |
+| A stored model with an ATP block | a model file | `"thinning"` ([page 12a](12a-mtdna-model-files.md)) | exact |
 
 For a model built with the builder, the answer is `"static_direct"` unless
 one of the other rows applies. `crn.describe()["methods"]` lists the names.
@@ -259,7 +259,7 @@ you trust a large run.
 `{"kind": "binomial", "step": 1.0}` is a second approximate method, with
 fixed time steps. It runs only models in which every reaction is a birth or
 a death of one molecule with one parent, and it serves to match a fixed-step
-scheme ([an example](12d-mtdna-methods.md#matching-an-hourly-scheme)).
+scheme ([an example](../tutorials/simulation/S1d-mtdna-methods.md#matching-an-hourly-scheme)).
 
 ## Other methods
 
@@ -271,11 +271,11 @@ numbers, which makes it the natural cross-check of an exact result.
   ([chapter 9](09-continuous-variables.md)).
 - The tree method runs when `method` is absent. It is exact, slower, and
   needed only for species with attributes that appear during a run
-  ([chapter 14](14-model-files.md#new-identities-and-random-attributes)).
+  ([chapter 12](12-model-files.md#new-identities-and-random-attributes)).
 - `"mtdna_direct"` serves one structure, the three-class mtDNA model, built
   with the builder or as a model file
-  ([page 12d](12d-mtdna-methods.md#the-fast-path)). `"thinning"` serves one
-  structure of model file ([page 14a](14a-mtdna-model-files.md)).
+  ([page S1d](../tutorials/simulation/S1d-mtdna-methods.md#the-fast-path)). `"thinning"` serves one
+  structure of model file ([page 12a](12a-mtdna-model-files.md)).
 - The Static Direct options `waiting_time` and `sparse_trackers` reproduce
   results of older releases ([reference](../reference/methods.md)).
 

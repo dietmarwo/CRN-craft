@@ -1,7 +1,7 @@
 """Review experiments for the Figure 2E speed gap and the Figure 1C settings.
 
 Each subcommand writes rows to results/review-experiments.csv (or --output).
-Targets and decision rules are stated in the guide page (chapter 19a).
+Targets and decision rules are stated in the guide page (tutorial S4a).
 
   deterministic  mean-field chain without noise, and the mean of the step scheme
   cohort         approximate fibers (wave.simulate), checkpointed per 16 fibers

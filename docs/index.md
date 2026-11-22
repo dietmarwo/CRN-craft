@@ -49,7 +49,7 @@ gives the same numbers on any number of threads.
   are labeled as approximate ([chapter 7](guide/07-methods.md)).
 - **More than reaction networks.** Continuous variables
   ([chapter 9](guide/09-continuous-variables.md)) and species with attributes,
-  such as clones, sizes and lineages ([chapter 14](guide/14-model-files.md)).
+  such as clones, sizes and lineages ([chapter 12](guide/12-model-files.md)).
 - **Runs that can be checked.** Strict input checks, explicit budgets, and
   sealed archives with a verifier ([chapter 10](guide/10-command-line.md)).
 
@@ -65,7 +65,7 @@ Coming from GillesPy2 or rebop? See [how CRN-craft compares](comparison.md).
   papers. [Optimization tutorials](tutorials.md#optimization-tutorials)
   put an fcmaes optimizer around a simulation to fit, select, design or
   search.
-- **mtDNA models:** the [case study](guide/12-mtdna.md), the [re-creation of a published study](guide/16-published-study.md), the [comparison of three mechanisms](guide/17-mtdna-mechanisms.md) from two 2014 studies, and the [inference of takeover times from cell snapshots](guide/18-mtdna-inference.md) from a 2026 study.
+- **mtDNA models:** the [case study](tutorials/simulation/S1-mtdna.md), the [re-creation of a published study](tutorials/simulation/S2-published-study.md), the [comparison of three mechanisms](tutorials/simulation/S3-mtdna-mechanisms.md) from two 2014 studies, and the [inference of takeover times from cell snapshots](tutorials/optimization/O2-mtdna-inference.md) from a 2026 study.
 - **Code of an earlier release:** [Migrating from earlier releases](guide/migrating.md).
 
 ## What is included

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the chapter 17 samplers, deterministic targets and stored evidence."""
+"""Check the tutorial S3 samplers, deterministic targets and stored evidence."""
 
 from __future__ import annotations
 
@@ -302,7 +302,9 @@ def stored():
         _selection(typed) == manifest["three_year_gate"],
         "three-year science gate replay",
     )
-    guide = (ROOT / "docs" / "guide" / "17b-mtdna-mechanisms-results.md").read_text()
+    guide = (
+        ROOT / "docs" / "tutorials" / "simulation" / "S3b-mtdna-mechanisms-results.md"
+    ).read_text()
     part = guide.partition("<!-- kk14-comparison -->\n")[2].partition(
         "<!-- /kk14-comparison -->"
     )[0]
@@ -310,7 +312,9 @@ def stored():
     # The deterministic size results are hours; the page gives both year
     # conversions next to them.
     cell = json.loads((STORED / "single-cell.json").read_text())
-    models = (ROOT / "docs" / "guide" / "17a-mtdna-mechanisms-models.md").read_text()
+    models = (
+        ROOT / "docs" / "tutorials" / "simulation" / "S3a-mtdna-mechanisms-models.md"
+    ).read_text()
     hours = {"": cell["size_extinction_hours"], **cell["size_checks_hours"]}
     for name in ("", "half_life_2_days", "wild_replication_10_h", "mutant_size_0.7"):
         text = (

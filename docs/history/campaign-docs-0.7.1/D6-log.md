@@ -42,7 +42,7 @@ sections 1.4, 4 and 6).
 | 305-349 | `reference/methods.md`, "Waiting times and the options of Static Direct" |
 | 351-373 | dropped (the performance analysis has the measurements) |
 
-`reusable-parameters.md`: 16-48 are in guide page 5 (parameter sweeps, common
+`reusable-parameters.md`: 16-48 are in page 5 (parameter sweeps, common
 random numbers, limits); 1-14 (the 0.6.0 table) is in `guide/migrating.md`.
 `alternative-ssa.md`: the table is in `guide/migrating.md`, which another task
 writes; I checked the copy in that task's checkout.

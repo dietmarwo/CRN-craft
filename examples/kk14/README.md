@@ -1,8 +1,8 @@
 # mtDNA mechanism comparison
 
-[Guide chapter 17](../../docs/guide/17-mtdna-mechanisms.md) reproduces the
+[Tutorial S3](../../docs/tutorials/simulation/S3-mtdna-mechanisms.md) reproduces the
 matching-prevalence experiment of the 2014 papers. Its
-[last page](../../docs/guide/17c-mtdna-mechanisms-limits.md#reconstruction-choices)
+[last page](../../docs/tutorials/simulation/S3c-mtdna-mechanisms-limits.md#reconstruction-choices)
 lists every reconstruction choice in one table. The tissue study counts a
 year as 360 days (lifespans of 1,080, 3,600, 14,400 and 28,800 days); a
 365-day year is one of its sensitivities. Run the commands from
@@ -92,8 +92,8 @@ samplers.
   · [Erratum](https://doi.org/10.1016/j.jtbi.2014.02.008)
 - The 2013 study's 10% column is printed in its Table 1. The matching
   type count uses the convention that includes any surviving wild type.
-  The [chapter 16 table](../../docs/guide/16c-fig1cd.md)
-  gives the earlier data. The endpoints in chapter 17 also retain the
+  The [tutorial S2 table](../../docs/tutorials/simulation/S2c-fig1cd.md)
+  gives the earlier data. The endpoints in tutorial S3 also retain the
   mutant-only count. [Paper](https://doi.org/10.1111/acel.12098)
 
 A digitization interval gives the reading precision of the image.

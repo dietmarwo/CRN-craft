@@ -1,4 +1,4 @@
-"""Tables of guide chapter 16 from the result files of kowald_kirkwood_2013.py.
+"""Tables of tutorial S2 from the result files of kowald_kirkwood_2013.py.
 
     python examples/kk13/make_tables.py                    # print the tables
     python examples/kk13/make_tables.py --write PAGE ...   # fill the pages

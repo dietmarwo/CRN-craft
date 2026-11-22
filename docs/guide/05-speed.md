@@ -167,7 +167,7 @@ What a compiled model needs:
   one with continuous variables, is refused, as the last lines show.
 
 The gain depends on the model. On 12 November 2026, on a two-CPU host, the
-compiled mtDNA model of [chapter 12](12-mtdna.md), in its file form, ran 2.1
+compiled mtDNA model of [tutorial S1](../tutorials/simulation/S1-mtdna.md), in its file form, ran 2.1
 times as fast as the interpreted one
 ([measurement](https://github.com/dietmarwo/CRN-craft/blob/main/validation/merge/RESULTS.md)).
 A network with many constant-rate reactions can run slower compiled, so time
@@ -190,5 +190,5 @@ the options and every limit.
   event logs work.
 
 See also: [Choosing a method](07-methods.md),
-[Fitting parameters to data](13-fitting.md),
+[Fitting parameters to data](../tutorials/optimization/O1-fitting.md),
 [mtDNA performance analysis](../evidence/mtdna-performance-analysis.md).

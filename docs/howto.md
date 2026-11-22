@@ -50,7 +50,7 @@ Fifty common tasks, one per line, each with links to the sections of the guide t
 - How do I reproduce a simulation from a published paper? [8, Reproducing a published simulation](guide/08-reproducibility.md#reproducing-a-published-simulation)
 - The paper gives its seed. Can I get the same trajectories? No: [8, Reproducing a published simulation](guide/08-reproducibility.md#reproducing-a-published-simulation), step 2
 - How do I compare my ensemble with published means and variances, and how many replicates do I need? [8, Reproducing a published simulation](guide/08-reproducibility.md#reproducing-a-published-simulation), steps 3 and 4; [4, Mean, variance and standard error](guide/04-results.md#mean-variance-and-standard-error)
-- The paper used a fixed time step. How do I match it? [7, Approximate leaping](guide/07-methods.md#approximate-leaping); [12d, Matching an hourly scheme](guide/12d-mtdna-methods.md#matching-an-hourly-scheme)
+- The paper used a fixed time step. How do I match it? [7, Approximate leaping](guide/07-methods.md#approximate-leaping); [S1d, Matching an hourly scheme](tutorials/simulation/S1d-mtdna-methods.md#matching-an-hourly-scheme)
 - What do I report so that others can reproduce my run? [8, What to record for a paper](guide/08-reproducibility.md#what-to-record-for-a-paper)
 - Why do I get other numbers with another method, selector, thread count or release? [7, Same law, different random numbers](guide/07-methods.md#same-law-different-random-numbers); [8, What does not reproduce bit for bit](guide/08-reproducibility.md#what-does-not-reproduce-bit-for-bit)
 
@@ -58,7 +58,7 @@ Fifty common tasks, one per line, each with links to the sections of the guide t
 
 - How do I couple a continuous quantity, such as ATP or a drug level, to the reactions? [9, A variable between events](guide/09-continuous-variables.md#a-variable-between-events)
 - How do I add a time-dependent forcing, such as a daily rhythm or a decaying dose? [9, Independent variables](guide/09-continuous-variables.md#independent-variables)
-- How do I fit parameters to data? [13, Fitting parameters to data](guide/13-fitting.md); [the optimization tutorials](../tutorials/optimization/README.md)
+- How do I fit parameters to data? [O1, Fitting parameters to data](tutorials/optimization/O1-fitting.md); [the optimization tutorials](../tutorials/optimization/README.md)
 
 ## Command line, files and other formats
 
@@ -68,23 +68,23 @@ Fifty common tasks, one per line, each with links to the sections of the guide t
 - How do I convert a model file of release 0.6.0? [11, Convert a network model of release 0.6.0](guide/11-analysis-import-export.md#convert-a-network-model-of-release-060); [Migrating from earlier releases](guide/migrating.md)
 - How do I find the conservation laws of a network? [11, Conservation laws and structure](guide/11-analysis-import-export.md#conservation-laws-and-structure)
 - How do I check a model against another simulator? [11, Export to GillesPy2](guide/11-analysis-import-export.md#export-to-gillespy2); [8, Reproducing a published simulation](guide/08-reproducibility.md#reproducing-a-published-simulation)
-- How do I load a model from a JSON file, or save one? [14, Save and load a model file](guide/14-model-files.md#save-and-load-a-model-file)
-- How do I model molecules that carry a property, such as a clone, a size or an age? [14, Species with attributes in the builder](guide/14-model-files.md#species-with-attributes-in-the-builder); [as a document](guide/14-model-files.md#a-model-document-for-three-strains)
-- How do I give every new mutant its own identity? [14, Species with attributes in the builder](guide/14-model-files.md#species-with-attributes-in-the-builder); [New identities and random attributes](guide/14-model-files.md#new-identities-and-random-attributes); [14a, Every lineage with the clone model](guide/14a-mtdna-model-files.md#every-lineage-with-the-clone-model)
-- How do I count clones, or follow the size of the largest one? [14, Observables](guide/14-model-files.md#observables)
+- How do I load a model from a JSON file, or save one? [12, Save and load a model file](guide/12-model-files.md#save-and-load-a-model-file)
+- How do I model molecules that carry a property, such as a clone, a size or an age? [12, Species with attributes in the builder](guide/12-model-files.md#species-with-attributes-in-the-builder); [as a document](guide/12-model-files.md#a-model-document-for-three-strains)
+- How do I give every new mutant its own identity? [12, Species with attributes in the builder](guide/12-model-files.md#species-with-attributes-in-the-builder); [New identities and random attributes](guide/12-model-files.md#new-identities-and-random-attributes); [12a, Every lineage with the clone model](guide/12a-mtdna-model-files.md#every-lineage-with-the-clone-model)
+- How do I count clones, or follow the size of the largest one? [12, Observables](guide/12-model-files.md#observables)
 
 ## mtDNA models
 
-- How do I simulate mutant takeover in single cells? [12, The model](guide/12-mtdna.md#the-model); [12a, A first ensemble](guide/12a-mtdna-takeover.md#a-first-ensemble); [Takeover fraction and time to threshold](guide/12a-mtdna-takeover.md#takeover-fraction-and-time-to-threshold)
-- How do I change copy number, half-life, initial heteroplasmy or the threshold? [12a, Variants](guide/12a-mtdna-takeover.md#variants)
-- How do I follow mutant classes, and single lineages? [12b, Mutant classes](guide/12b-mtdna-events.md); [14a, Every lineage with the clone model](guide/14a-mtdna-model-files.md#every-lineage-with-the-clone-model)
-- How do I re-create the figures of a published simulation study? [16, Case study: re-creating a published study](guide/16-published-study.md)
-- How do I count the clones of a cell and the size of the largest one? [16c, Reading the results](guide/16c-fig1cd.md#reading-the-results)
-- How do I find the parameter that gives a target fraction of cells (sweep and logistic regression)? [16b, A sweep and a logistic regression](guide/16b-fig1b.md#a-sweep-and-a-logistic-regression)
-- How do I let the population size vary with ATP? [12c, Variable population: ATP](guide/12c-mtdna-atp.md)
-- How do I use the fast path `mtdna_direct`, and why is it not faster on my model? [12d, The fast path](guide/12d-mtdna-methods.md#the-fast-path); [14a, The fast path](guide/14a-mtdna-model-files.md#the-fast-path); [Troubleshooting, Methods and models](guide/troubleshooting.md#methods-and-models)
+- How do I simulate mutant takeover in single cells? [S1, The model](tutorials/simulation/S1-mtdna.md#the-model); [S1a, A first ensemble](tutorials/simulation/S1a-mtdna-takeover.md#a-first-ensemble); [Takeover fraction and time to threshold](tutorials/simulation/S1a-mtdna-takeover.md#takeover-fraction-and-time-to-threshold)
+- How do I change copy number, half-life, initial heteroplasmy or the threshold? [S1a, Variants](tutorials/simulation/S1a-mtdna-takeover.md#variants)
+- How do I follow mutant classes, and single lineages? [S1b, Mutant classes](tutorials/simulation/S1b-mtdna-events.md); [12a, Every lineage with the clone model](guide/12a-mtdna-model-files.md#every-lineage-with-the-clone-model)
+- How do I re-create the figures of a published simulation study? [S2, Case study: re-creating a published study](tutorials/simulation/S2-published-study.md)
+- How do I count the clones of a cell and the size of the largest one? [S2c, Reading the results](tutorials/simulation/S2c-fig1cd.md#reading-the-results)
+- How do I find the parameter that gives a target fraction of cells (sweep and logistic regression)? [S2b, A sweep and a logistic regression](tutorials/simulation/S2b-fig1b.md#a-sweep-and-a-logistic-regression)
+- How do I let the population size vary with ATP? [S1c, Variable population: ATP](tutorials/simulation/S1c-mtdna-atp.md)
+- How do I use the fast path `mtdna_direct`, and why is it not faster on my model? [S1d, The fast path](tutorials/simulation/S1d-mtdna-methods.md#the-fast-path); [12a, The fast path](guide/12a-mtdna-model-files.md#the-fast-path); [Troubleshooting, Methods and models](guide/troubleshooting.md#methods-and-models)
 
 ## Other languages and older code
 
-- How do I use CRN-craft from R? [15, Using CRN-craft from R](guide/15-from-r.md)
+- How do I use CRN-craft from R? [13, Using CRN-craft from R](guide/13-from-r.md)
 - My script was written for 0.6.0 (`crn_craft.rules`, `run_spec`, `crn-craft ssa`). What do I change? [Migrating from earlier releases](guide/migrating.md)

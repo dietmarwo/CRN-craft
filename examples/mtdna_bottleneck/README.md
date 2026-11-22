@@ -1,6 +1,6 @@
 # Birth, death and partition
 
-The example of [chapter 21](../../docs/guide/21-mtdna-bottleneck.md):
+The example of [tutorial S6](../../docs/tutorials/simulation/S6-mtdna-bottleneck.md):
 copy number and heteroplasmy variance through mouse development, fitted
 to Table 1 of Johnston et al. (2015), *eLife* 4:e07464,
 [doi:10.7554/eLife.07464](https://doi.org/10.7554/eLife.07464).

@@ -218,4 +218,4 @@ A first passage read from saved paths is a bound, not the time itself
 
 See also: [Results](04-results.md),
 [Methods and their options](../reference/methods.md),
-[trackers and logs on the mtDNA model](12b-mtdna-events.md).
+[trackers and logs on the mtDNA model](../tutorials/simulation/S1b-mtdna-events.md).

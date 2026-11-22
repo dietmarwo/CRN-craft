@@ -155,7 +155,7 @@ The steps, for any paper:
 If the paper used an approximate method with a fixed time step, an exact run
 will differ from it by the error of that method. Compare with the exact law
 first; [chapter 7](07-methods.md#approximate-leaping) and
-[the case study](12d-mtdna-methods.md#matching-an-hourly-scheme) show how to
+[the case study](../tutorials/simulation/S1d-mtdna-methods.md#matching-an-hourly-scheme) show how to
 match such a scheme.
 
 ## What does not reproduce bit for bit

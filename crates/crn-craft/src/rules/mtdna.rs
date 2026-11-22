@@ -740,7 +740,7 @@ mod tests {
         .unwrap()
     }
 
-    /// The three-class model as `three_class()` of guide chapter 12 writes
+    /// The three-class model as `three_class()` of tutorial S1 writes
     /// it (`python/crn_craft` builder, `model/1.0`), with species `names`,
     /// `free` the vacancy term and `stop` the stop, if any.
     fn builder_model(names: [&str; 3], free: &str, stop: Option<&str>) -> serde_json::Value {
@@ -794,7 +794,7 @@ mod tests {
         hazards_match(&file_model(), false);
     }
 
-    /// E1: the builder form of guide chapter 12 is certified under
+    /// E1: the builder form of tutorial S1 is certified under
     /// `run/1.0`, with the file form's kernel to the bit (so its draws are
     /// the file form's), and refused for the `rules-run` versions.
     #[test]

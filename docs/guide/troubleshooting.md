@@ -34,13 +34,13 @@ Symptoms, causes and where the guide explains them.
   without `method`: the tree method resolves rules and instances separately.
 - **`mtdna_direct` is not faster.** Read `metadata["sampler"]` and the
   `CRN-R051` warning, which names the check that failed
-  ([page 14a](14a-mtdna-model-files.md#the-fast-path)).
+  ([page 12a](12a-mtdna-model-files.md#the-fast-path)).
 
 ## Python results
 
 - **`'Model' object does not support item assignment`.** A `crn.Model` is
   not a dictionary. Use `model.set_stop(...)`, or edit `model.to_dict()` and
-  pass the dictionary ([chapter 14](14-model-files.md#save-and-load-a-model-file)).
+  pass the dictionary ([chapter 12](12-model-files.md#save-and-load-a-model-file)).
 - **No replicate stopped, though some should have.** Compare the termination
   with a name: `records["termination"] == "stopped"`.
 - **A column holds another species than expected.** Select columns by name.

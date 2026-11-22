@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the script and the tables of guide chapter 16 (Kowald & Kirkwood 2013).
+"""Check the script and the tables of tutorial S2 (Kowald & Kirkwood 2013).
 
     python validation/check_kk13.py --output kk13.json
     python -O validation/check_kk13.py --output kk13-optimized.json
@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "examples" / "kk13" / "kowald_kirkwood_2013.py"
 TABLES = ROOT / "examples" / "kk13" / "make_tables.py"
 STORED = ROOT / "examples" / "kk13" / "results" / "quick"
-PAGES = sorted((ROOT / "docs" / "guide").glob("16*.md"))
+PAGES = sorted((ROOT / "docs" / "tutorials" / "simulation").glob("S2*.md"))
 # Simulation outputs compare exactly; the logistic fit's estimates (numpy
 # linear algebra, whose last bits depend on the CPU) to 6 significant digits.
 JSON_FIELDS = ("cells", "seeds", "events", "cox_negative")

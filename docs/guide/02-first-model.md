@@ -83,7 +83,7 @@ So `model.add_reaction(0.2, ["A"], [])` is the same reaction as the death
 reaction above. A third form, `crn.mass_action("death")`, is an expression
 used like a number: the reaction fires at its value times the number of
 combinations of reactant molecules. It matters for species whose molecules
-carry attributes ([chapter 14](14-model-files.md#species-with-attributes-in-the-builder)). Counts are integers. A reaction may take any number of
+carry attributes ([chapter 12](12-model-files.md#species-with-attributes-in-the-builder)). Counts are integers. A reaction may take any number of
 reactant molecules: `["A", "A", "A"]` is a third-order reaction. Tools differ
 in how they count `A + A`, which matters when you take a rate constant from
 a paper or from another program
@@ -180,8 +180,8 @@ day 60. Each replicate fires about 423 infections and 404 recoveries.
 | `add_species(name, initial=0)` or `add_species(mapping)` | species and their initial counts |
 | `set_initial(mapping)` or `set_initial(S=490, I=10)` | new initial counts of declared species |
 | `add_reaction(rate, reactants, products, name=None)` | a reaction; names default to `r0`, `r1`, ... |
-| `add_species(name, attributes=[...])` and `add_initial(name, count, **attributes)` | a species whose molecules carry attributes, and its molecules at time 0 ([chapter 14](14-model-files.md#species-with-attributes-in-the-builder)) |
-| `add_observable(name, species, where=None, weight=None, reduce="sum")` | a filtered, weighted or reduced count ([chapter 14](14-model-files.md#observables)) |
+| `add_species(name, attributes=[...])` and `add_initial(name, count, **attributes)` | a species whose molecules carry attributes, and its molecules at time 0 ([chapter 12](12-model-files.md#species-with-attributes-in-the-builder)) |
+| `add_observable(name, species, where=None, weight=None, reduce="sum")` | a filtered, weighted or reduced count ([chapter 12](12-model-files.md#observables)) |
 | `set_stop(condition)` | a condition that ends a replicate ([chapter 6](06-stops-trackers-logs.md)) |
 | `add_ode(name, initial, derivative)` | a continuous variable ([chapter 9](09-continuous-variables.md)) |
 
@@ -193,7 +193,7 @@ that a reaction names without a declaration start at 0.
 A `Model` is not a dictionary: `model["stop"] = ...` raises `TypeError`, and
 `set_stop` is the call to use. `crn.ensemble` and `crn.check` take the
 `Model` itself. What the builder writes, and how to save and load a model as
-a file, is the subject of [chapter 14](14-model-files.md).
+a file, is the subject of [chapter 12](12-model-files.md).
 
 See also: [Running ensembles](03-running.md),
 [Model language](../reference/model-language.md),

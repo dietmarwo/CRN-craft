@@ -564,7 +564,7 @@ fn sparse_trackers_without_an_eligible_tracker_keep_the_default_identity() {
     );
 }
 
-/// The three-class model as the Python builder of guide chapter 12 writes
+/// The three-class model as the Python builder of tutorial S1 writes
 /// it: attribute-free species `W`, `M`, `A`, whole-rule propensities, the
 /// takeover stop over sums of counts (E1).
 fn builder_three_class(schema: &str) -> Value {

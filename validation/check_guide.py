@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Run the code blocks of the user guide and the READMEs, and compare outputs.
 
-Checks every `docs/guide/*.md`, `README.md`, `python/README.md` and
+Checks every page of `docs/guide`, `docs/tutorials/simulation` and
+`docs/tutorials/optimization`, `README.md`, `python/README.md` and
 `docs/index.md` (or the files named on the command line), one file per
 process:
 
@@ -20,7 +21,7 @@ The rules, per file:
    the setup block has run again (its output is discarded). So "setup block
    plus one section" is what every section is checked as. The scratch
    directory is kept for the whole file: a file that one section writes is
-   there for a later one (chapters 10, 11 and 14 rely on this).
+   there for a later one (chapters 10, 11 and 12 rely on this).
 4. Every file a page reads is written by one of its blocks, or is a
    repository file named in a comment `<!-- fixtures: PATH ... -->`. Those
    are copied into the scratch directory under the same relative paths.
@@ -612,8 +613,15 @@ def same_example(root):
     return entry
 
 
+STUB = re.compile(r"\A# [^\n]+\n\nThis page moved to \[[^\]]*\]\([^)\s]+\)\.\n?\Z")
+
+
 def default_files(root):
-    pages = sorted((root / "docs" / "guide").glob("*.md"))
+    pages = []
+    for folder in ("guide", "tutorials/simulation", "tutorials/optimization"):
+        pages += (root / "docs" / folder).glob("*.md")
+    # A stub keeps an old path alive after a move and has nothing to run.
+    pages = [p for p in pages if not STUB.match(p.read_text(encoding="utf-8"))]
     pages += [root / "README.md", root / "python" / "README.md"]
     pages.append(root / "docs" / "index.md")
     return sorted(pages, key=lambda p: p.relative_to(root).as_posix())

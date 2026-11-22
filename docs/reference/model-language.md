@@ -390,7 +390,7 @@ larger limits, change only the `schema` string to `crn-craft.model/1.0`.
   whole `propensity`; reactants are type names or `crn_craft.pattern(...)`,
   products type names, `crn_craft.copy(label, ...)` or
   `crn_craft.new(type, ...)`
-  ([chapter 14](../guide/14-model-files.md#species-with-attributes-in-the-builder)).
+  ([chapter 12](../guide/12-model-files.md#species-with-attributes-in-the-builder)).
 - The tree method recomputes the propensities of all rules after every
   event, which suits models with few rules. Closed models can use the
   static methods; benchmarks are in `validation/mtdna/`.

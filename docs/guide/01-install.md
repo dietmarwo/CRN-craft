@@ -71,10 +71,10 @@ python -m pip install --force-reinstall dist/*.whl
   matplotlib: `python -m pip install matplotlib`.
 - **Fitting.** `python -m pip install "crn-craft[fit]"` adds the pinned
   SciPy, fcmaes-rust and SQP-craft versions of the fitting examples
-  ([chapter 13](13-fitting.md)).
+  ([tutorial O1](../tutorials/optimization/O1-fitting.md)).
 - **Optimization lessons.** `python -m pip install "crn-craft[publications]"`
   adds fcmaes, SciPy, matplotlib, PyYAML and libSBML for lessons C5 to C10
-  ([chapter 24](24-publication-tutorials.md)).
+  ([the lessons page](../tutorials/optimization/lessons.md)).
 - **Likelihood readouts.** `python -m pip install "crn-craft[likelihood]"`
   adds SciPy for the binomial-detection and fluorescence readouts of
   `crn_craft.likelihood`
@@ -83,7 +83,7 @@ python -m pip install --force-reinstall dist/*.whl
 - **Compiled models.** `crn.compile_loop` needs a Rust toolchain, 1.85 or
   newer, from [rustup](https://rustup.rs) ([chapter 5](05-speed.md)).
 - **R.** The Python package works from R through reticulate
-  ([chapter 15](15-from-r.md)).
+  ([chapter 13](13-from-r.md)).
 
 ## How to read this guide
 

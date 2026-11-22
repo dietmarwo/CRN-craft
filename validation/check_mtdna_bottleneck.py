@@ -16,7 +16,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE = ROOT / "examples" / "mtdna_bottleneck"
 RESULTS = EXAMPLE / "results"
-PAGE = ROOT / "docs" / "guide" / "21b-mtdna-bottleneck-results.md"
+PAGE = ROOT / "docs" / "tutorials" / "simulation" / "S6b-mtdna-bottleneck-results.md"
 sys.path.insert(0, str(EXAMPLE))
 from model import (  # noqa: E402
     birth_death_draw,
@@ -296,11 +296,11 @@ def prose():
     hb = pd.read_csv(RESULTS / "hb-comparison.csv")
     late = c.loc[100.0]
     expected = {
-        "21-mtdna-bottleneck.md": [
+        "S6-mtdna-bottleneck.md": [
             f"{math.exp(-late.difference):.0f} times below",
             f"{int(hb.in_sample_band.sum())} of their {len(hb)}",
         ],
-        "21b-mtdna-bottleneck-results.md": [
+        "S6b-mtdna-bottleneck-results.md": [
             f"{ratio.loc[10.0:50.0].min():.2f} to {ratio.loc[10.0:50.0].max():.2f}",
             f"about {ratio.loc[70.0:].mean():.0f} times",
             f"{low.min():,.0f} to {round(low.max(), -2):,.0f} copies",
@@ -312,7 +312,7 @@ def prose():
         ],
     }
     for page, items in expected.items():
-        text = (ROOT / "docs" / "guide" / page).read_text(encoding="utf-8")
+        text = (PAGE.parent / page).read_text(encoding="utf-8")
         text = " ".join(text.split())
         for item in items:
             require(item in text, f"{page} should quote {item!r}")

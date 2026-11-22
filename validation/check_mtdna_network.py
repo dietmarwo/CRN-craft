@@ -1,4 +1,4 @@
-"""Check chapter 20: network hazards, the reference reader and the saved results.
+"""Check tutorial S5: network hazards, the reference reader and the saved results.
 
 Every expected hazard below is a number worked out by hand from the
 reaction list of the paper (Equations 1-10) and the authors' simulator
@@ -18,7 +18,7 @@ sys.path.insert(0, str(EXAMPLE))
 from study import NAMES, build, predicted_slope, render  # noqa: E402
 
 DT = 1e-7
-GUIDE = ROOT / "docs" / "guide" / "20a-mtdna-network-results.md"
+GUIDE = ROOT / "docs" / "tutorials" / "simulation" / "S5a-mtdna-network-results.md"
 
 
 def require(ok, reason):

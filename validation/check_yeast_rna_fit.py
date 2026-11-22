@@ -135,7 +135,7 @@ def main():
 
 
 def results():
-    """Structure of the saved results and the tables of guide page 23b."""
+    """Structure of the saved results and the tables of page O3b."""
     scores = pd.read_csv(ROOT / "results" / "scores.csv")
     if sorted(
         zip(scores.preset, scores.partition, scores.objective, strict=True)
@@ -163,7 +163,9 @@ def results():
         grid.verified_selection
     ) != {"grid"}:
         raise SystemExit("The spatial histogram result is no longer the archive")
-    page = (ROOT.parents[1] / "docs/guide/23b-yeast-rna-fit-results.md").read_text()
+    page = (
+        ROOT.parents[1] / "docs/tutorials/optimization/O3b-yeast-rna-fit-results.md"
+    ).read_text()
     for name, make in TABLES.items():
         if region(page, name) != make():
             raise SystemExit(f"Guide table {name} is out of date")

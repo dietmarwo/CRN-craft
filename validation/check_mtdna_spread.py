@@ -1,4 +1,4 @@
-"""Check guide chapter 19: exact migration laws, the archive reader, the saved
+"""Check tutorial S4: exact migration laws, the archive reader, the saved
 results and the tables printed on the guide pages, and the de novo extension:
 exact bookkeeping laws of the lineage sampler, a moment law, its quick
 calibration, and the saved tables of pages 19b and 19c.
@@ -20,9 +20,11 @@ import numpy as np
 REPO = Path(__file__).resolve().parents[1]
 EXAMPLE = REPO / "examples" / "mtdna_spread"
 RESULTS = EXAMPLE / "results"
-PAGE = REPO / "docs" / "guide" / "19-mtdna-spread.md"
-DE_NOVO_PAGE = REPO / "docs" / "guide" / "19c-mtdna-spread-de-novo-results.md"
-DESIGN_PAGE = REPO / "docs" / "guide" / "19b-mtdna-spread-de-novo.md"
+PAGE = REPO / "docs" / "tutorials" / "simulation" / "S4-mtdna-spread.md"
+DE_NOVO_PAGE = (
+    REPO / "docs" / "tutorials" / "simulation" / "S4c-mtdna-spread-de-novo-results.md"
+)
+DESIGN_PAGE = REPO / "docs" / "tutorials" / "simulation" / "S4b-mtdna-spread-de-novo.md"
 KK14 = REPO / "examples" / "kk14" / "results" / "reconstruction" / "comparison.csv"
 sys.path.insert(0, str(EXAMPLE))
 import mutations  # noqa: E402
@@ -185,9 +187,9 @@ CASE_NAMES = {
     "isolated": "Survival of the densest, isolated regions (this guide)",
 }
 KK14_NAMES = {
-    "drift": "Neutral drift, one cell (chapter 17)",
-    "size": "Faster copying of shorter mtDNA, one cell (chapter 17)",
-    "transcription": "Transcription-linked replication, one cell (chapter 17)",
+    "drift": "Neutral drift, one cell (tutorial S3)",
+    "size": "Faster copying of shorter mtDNA, one cell (tutorial S3)",
+    "transcription": "Transcription-linked replication, one cell (tutorial S3)",
 }
 
 
@@ -216,7 +218,7 @@ def fibers_hit():
 
 
 def de_novo_table():
-    """The comparison table of page 19c, in the layout of chapter 17b."""
+    """The comparison table of page S4c, in the layout of tutorial S3b."""
     lines = [
         "| Age | Mechanism and unit | m per replication | Affected / units | Prevalence (95% Wilson) | Mutant types (95% bootstrap) | Target band |",
         "| ---: | --- | --- | ---: | --- | --- | --- |",
@@ -250,7 +252,7 @@ def de_novo_table():
 
 
 def de_novo_units():
-    """Second table of page 19c: zones, segments and the size of the types."""
+    """Second table of page S4c: zones, segments and the size of the types."""
     lines = [
         "| Case, cohort | Fiber 95% interval of prevalence | Fibers with affected regions (all 32 affected) | Mutant copies per type | Largest type, share of copies | Zones | Types per zone | Types per 32-region segment |",
         "| --- | --- | ---: | ---: | ---: | ---: | --- | --- |",
@@ -421,7 +423,7 @@ def de_novo_fibers():
 
 
 def coverage_table():
-    """Coverage experiment of page 19b, from the saved review table: one row
+    """Coverage experiment of page S4b, from the saved review table: one row
     per quantity, one column per scenario."""
     data = rows(RESULTS / "review-fiber-fit-coverage.csv")
     lines = [
@@ -558,7 +560,7 @@ def main():
     require(
         region(DESIGN_PAGE.read_text(encoding="utf-8"), "mtdna-spread-fiber-coverage")
         == coverage_table(),
-        "coverage table of page 19b out of date",
+        "coverage table of page S4b out of date",
     )
     page = DE_NOVO_PAGE.read_text(encoding="utf-8")
     require(
@@ -570,8 +572,8 @@ def main():
         "de novo unit table out of date",
     )
     print("spatial archive, migration laws, saved results and guide tables verified")
-    print("de novo sampler laws, saved tables and page 19c verified")
-    print("fiber design: bootstrap laws, quick calibration and page 19b verified")
+    print("de novo sampler laws, saved tables and page S4c verified")
+    print("fiber design: bootstrap laws, quick calibration and page S4b verified")
 
 
 if __name__ == "__main__":

@@ -131,7 +131,7 @@ is not run in CI.
 
 For a paper specifying hourly degradation trials, model that discrete
 sequence separately from the continuous-time degradation hazard.
-[Fixed replication-time example](../guide/17a-mtdna-mechanisms-models.md)
+[Fixed replication-time example](../tutorials/simulation/S3a-mtdna-mechanisms-models.md)
 
 ## Prepared probability laws
 
@@ -216,7 +216,7 @@ before refactorizing. One symbolic analysis of the matrix pattern serves
 every factorization of a generator. Before the first factorization the
 analysis bounds the memory of the factorization and its workspace; above
 `max_factor_bytes` (default 2 GiB) the solve stops with `CRN-E070`. The
-joint nuclear and cytoplasmic RNA projection of chapter 23 (35,496
+joint nuclear and cytoplasmic RNA projection of tutorial O3 (35,496
 states) needs a bound of about 0.26 GB; 99,856 states need about 1.1 GB.
 
 The midpoint rule compares one step
@@ -365,7 +365,7 @@ removes the copy from the origin; the copy is absorbed.
 `spatial_turnover(initial, end=, target=, feedback=, mutant_weight=,
 death=, hop=, seed=0, mutation=0.0, fixed_left=False, labels=False,
 max_events=3_000_000_000)` samples the endpoint of one exact path of the
-two-genotype chain of the [spatial spread study](../guide/19-mtdna-spread.md).
+two-genotype chain of the [spatial spread study](../tutorials/simulation/S4-mtdna-spread.md).
 `initial` lists `(wild, mutant)` counts by region, at most 4,096 regions.
 Every copy is born at `max(0, death + feedback * (target - W - mutant_weight * M))`,
 dies at `death` and hops to each nearest neighbor at `hop` per day. With

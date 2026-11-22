@@ -38,7 +38,7 @@ from model import (  # noqa: E402
 )
 from render import recovery_table  # noqa: E402
 
-GUIDE = ROOT / "docs" / "guide" / "18b-mtdna-inference-results.md"
+GUIDE = ROOT / "docs" / "tutorials" / "optimization" / "O2b-mtdna-inference-results.md"
 
 N_LAW = 16000
 ALPHA = 0.001

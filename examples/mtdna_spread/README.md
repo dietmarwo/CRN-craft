@@ -1,6 +1,6 @@
 # Spatial mtDNA spread
 
-Use the [guide](../../docs/guide/19-mtdna-spread.md) for the model and its
+Use the [guide](../../docs/tutorials/simulation/S4-mtdna-spread.md) for the model and its
 connection to Figures 1C and 2E. All times are in days and spatial distances
 are in micrometers.
 
@@ -89,7 +89,7 @@ No upstream code is included.
 ## De novo deletions and mutant types
 
 The paper's model has no de novo mutations. `mutations.py` adds them as an
-extension of this guide ([page 19b](../../docs/guide/19b-mtdna-spread-de-novo.md)):
+extension of this guide ([page S4b](../../docs/tutorials/simulation/S4b-mtdna-spread-de-novo.md)):
 32 regions with the Figure 2 parameters, all wild type at the start, a new
 deletion type with probability `m` per replication, and `m` fitted so that
 10% of regions hold at least 60% mutants after 3 years of 360 days
@@ -131,7 +131,7 @@ with a moment law. The saved tables are `results/de-novo-*.csv`, with the
 At 40 and 80 years whole fibers are affected or not, so the first design
 counts far too many independent units. `run --design fibers` makes the
 fiber the sampling unit in the fit and in the validation
-([page 19b](../../docs/guide/19b-mtdna-spread-de-novo.md#a-design-for-long-lifespans),
+([page S4b](../../docs/tutorials/simulation/S4b-mtdna-spread-de-novo.md#a-design-for-long-lifespans),
 manifest entry `de_novo_fibers`). The default, `--design regions`, is the
 first design and writes the same tables as before.
 

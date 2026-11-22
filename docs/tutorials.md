@@ -12,7 +12,7 @@ The tutorials come in two groups. Pick the group by what you want to do.
   experiments or search for a trade-off, and then check what the optimizer
   returned.
 
-The [user guide](guide/01-install.md), chapters 1 to 11, 14 and 15,
+The [user guide](guide/01-install.md), chapters 1 to 13,
 explains the interface that both groups use. Read chapters 1 to 4 first.
 
 Every tutorial is runnable from this repository, saves the tables behind
@@ -24,28 +24,28 @@ value reports the miss; none is tuned until it matches.
 
 | Tutorial | Source | What it does | Outcome |
 | --- | --- | --- | --- |
-| [12. mtDNA mutants](guide/12-mtdna.md) | a teaching model | Takeover of a cell by mutant mtDNA: ensembles, trackers, event logs, a continuous ATP variable, methods and large studies | a worked example, not a reproduction |
-| [16. Random drift of mtDNA mutants](guide/16-published-study.md) | Kowald & Kirkwood 2013, *Aging Cell* | Re-creates Figure 1A–D: COX-negative cells over 120 years, the mutation rate for 5, 10 and 15%, clones per cell | contributed by an author of the paper |
-| [17. Three mtDNA mechanisms](guide/17-mtdna-mechanisms.md) | Kowald & Kirkwood 2014, *PNAS*; Kowald, Dawson & Kirkwood 2014, *J. Theor. Biol.* | Drift, size advantage and transcription-linked replication, each calibrated to 10% affected cells, then compared by mutant lineages per cell | 1.26 lineages at three years, as published; two unstated model points confirmed by an author |
-| [19. Spatial spread of mtDNA deletions](guide/19-mtdna-spread.md) | Insalata et al. 2022, *PNAS* | Two coupled regions and a traveling wave along a muscle fiber; an extension with de novo deletions | Figure 1C agrees; the wave speed is an unresolved discrepancy (0.13–0.16 against 0.190 µm/day) |
-| [20. Mitochondrial networks and drift](guide/20-mtdna-network.md) | Aryaman et al. 2019, *Genetics* | Variance of the mutant fraction under fusion and fission, against Equation 13 and the archived simulations | agreement in 38 of 39 conditions, the 39th after a rerun |
-| [21. The mtDNA bottleneck](guide/21-mtdna-bottleneck.md) | Johnston et al. 2015, *eLife* | Six developmental phases with divisions; approximate Bayesian computation against copy numbers and variances | Figure 3 reproduced up to 50 days; the copy number at day 100 is 23 times below the published curve |
-| [22. Protein distributions](guide/22-two-stage-expression.md) | Shahrezaei & Swain 2008, *PNAS* | Exact stationary laws of two-stage expression against the negative-binomial approximation | Figure 1D matches if its unit is bits, not nats; the paper does not state the unit |
+| [S1. mtDNA mutants](tutorials/simulation/S1-mtdna.md) | a teaching model | Takeover of a cell by mutant mtDNA: ensembles, trackers, event logs, a continuous ATP variable, methods and large studies | a worked example, not a reproduction |
+| [S2. Random drift of mtDNA mutants](tutorials/simulation/S2-published-study.md) | Kowald & Kirkwood 2013, *Aging Cell* | Re-creates Figure 1A–D: COX-negative cells over 120 years, the mutation rate for 5, 10 and 15%, clones per cell | contributed by an author of the paper |
+| [S3. Three mtDNA mechanisms](tutorials/simulation/S3-mtdna-mechanisms.md) | Kowald & Kirkwood 2014, *PNAS*; Kowald, Dawson & Kirkwood 2014, *J. Theor. Biol.* | Drift, size advantage and transcription-linked replication, each calibrated to 10% affected cells, then compared by mutant lineages per cell | 1.26 lineages at three years, as published; two unstated model points confirmed by an author |
+| [S4. Spatial spread of mtDNA deletions](tutorials/simulation/S4-mtdna-spread.md) | Insalata et al. 2022, *PNAS* | Two coupled regions and a traveling wave along a muscle fiber; an extension with de novo deletions | Figure 1C agrees; the wave speed is an unresolved discrepancy (0.13–0.16 against 0.190 µm/day) |
+| [S5. Mitochondrial networks and drift](tutorials/simulation/S5-mtdna-network.md) | Aryaman et al. 2019, *Genetics* | Variance of the mutant fraction under fusion and fission, against Equation 13 and the archived simulations | agreement in 38 of 39 conditions, the 39th after a rerun |
+| [S6. The mtDNA bottleneck](tutorials/simulation/S6-mtdna-bottleneck.md) | Johnston et al. 2015, *eLife* | Six developmental phases with divisions; approximate Bayesian computation against copy numbers and variances | Figure 3 reproduced up to 50 days; the copy number at day 100 is 23 times below the published curve |
+| [S7. Protein distributions](tutorials/simulation/S7-two-stage-expression.md) | Shahrezaei & Swain 2008, *PNAS* | Exact stationary laws of two-stage expression against the negative-binomial approximation | Figure 1D matches if its unit is bits, not nats; the paper does not state the unit |
 
 ## Optimization tutorials
 
-Three chapters of the guide fit models to data with fcmaes:
+Three tutorials fit models to data with fcmaes:
 
 | Tutorial | Source | What is optimized | Outcome |
 | --- | --- | --- | --- |
-| [13. Fitting parameters to data](guide/13-fitting.md) | the model of chapter 12 | Two rates of a stochastic model against single-cell data: Monte Carlo noise, common random numbers, staged refinement, held-out checks | a worked example |
-| [18. Inferring mtDNA takeover times](guide/18-mtdna-inference.md) | Kowald & Kirkwood 2026, *npj Aging* | Mutation probability, selection advantage and advantageous fraction from cell snapshots | every true value inside its 95% interval; the baseline intervals are narrower than published, cause unknown |
-| [23. Fitting single-cell RNA distributions](guide/23-yeast-rna-fit.md) | Munsky et al. 2018, *PNAS* | A four-state gene model against 59,557 yeast cells, by means and by whole histograms | the published scores reproduce; the searches start near the published vector, so they test the route, not a blind fit |
+| [O1. Fitting parameters to data](tutorials/optimization/O1-fitting.md) | the model of tutorial S1 | Two rates of a stochastic model against single-cell data: Monte Carlo noise, common random numbers, staged refinement, held-out checks | a worked example |
+| [O2. Inferring mtDNA takeover times](tutorials/optimization/O2-mtdna-inference.md) | Kowald & Kirkwood 2026, *npj Aging* | Mutation probability, selection advantage and advantageous fraction from cell snapshots | every true value inside its 95% interval; the baseline intervals are narrower than published, cause unknown |
+| [O3. Fitting single-cell RNA distributions](tutorials/optimization/O3-yeast-rna-fit.md) | Munsky et al. 2018, *PNAS* | A four-state gene model against 59,557 yeast cells, by means and by whole histograms | the published scores reproduce; the searches start near the published vector, so they test the route, not a blind fit |
 
 Ten lessons live with their code in
 [`tutorials/optimization`](../tutorials/optimization/README.md) and run
 through one command, `python tutorials/optimization/run.py C1 … C10`.
-[Chapter 24](guide/24-publication-tutorials.md) introduces them. C1 to C4
+[The lessons page](tutorials/optimization/lessons.md) introduces them. C1 to C4
 teach the route on synthetic data; C5 to C10 each reconstruct a published
 optimization study.
 
@@ -64,10 +64,10 @@ optimization study.
 
 ## How the tutorials were made
 
-[Chapter 16](guide/16-published-study.md) was contributed by an author of
+[Tutorial S2](tutorials/simulation/S2-published-study.md) was contributed by an author of
 the paper it re-creates. The other tutorials were written by AI agents
 directed by the maintainer: an agent read the paper, rebuilt the model,
 ran it and compared the numbers; other agents then reviewed the work
-without having seen it made. Unless a chapter says otherwise, the papers'
+without having seen it made. Unless a tutorial says otherwise, the papers'
 authors did not write or review it. The [README](../README.md#what-it-is-for)
 describes this way of working and the two others the project is built for.

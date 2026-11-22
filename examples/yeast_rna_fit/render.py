@@ -1,4 +1,4 @@
-"""Markdown tables of guide page 23b, rendered from the saved result files."""
+"""Markdown tables of page O3b, rendered from the saved result files."""
 
 import pandas as pd
 

@@ -11,7 +11,7 @@ from reference import Config, atp_equilibrium, simulate, size_capacity
 
 
 def drift_pair(mutation, n=1000, initial=0, half_life=240):
-    """The ordered survivor-victim law from chapter 16c."""
+    """The ordered survivor-victim law from tutorial S2c."""
     import crn_craft as crn
 
     model = crn.Model("mtdna_clones_pairs")

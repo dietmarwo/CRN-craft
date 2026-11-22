@@ -264,7 +264,7 @@ classes in a fixed population. It reads that structure from the lowered rules;
 the model file and its names do not matter. Select it with `method` set to
 `{"kind": "mtdna_direct"}` in a request of version `rules-run/0.3` or later
 (`run/1.0` included), or with `method="mtdna_direct"` in `crn.ensemble`. The
-guide shows it in [chapter 14a](../guide/14a-mtdna-model-files.md).
+guide shows it in [chapter 12a](../guide/12a-mtdna-model-files.md).
 
 At preparation it lowers the model to a fixed network, as Static Direct does,
 and certifies six points:
@@ -301,7 +301,7 @@ failed check. A model that cannot be lowered at all, such as the clone model,
 is rejected with `CRN-R020`, as by every method except the tree.
 
 **The builder form** (`run/1.0` requests only, from 0.7.1). A model written
-with the builder, such as `three_class()` of guide chapter 12, has three
+with the builder, such as `three_class()` of tutorial S1, has three
 attribute-free species and whole-rule propensities instead. Under a
 `run/1.0` request the certificate reads each propensity as a law and
 accepts the model when the laws are the ones above:

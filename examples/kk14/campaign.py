@@ -223,7 +223,7 @@ def summarize(rows, seed):
 
 
 def _fit_logistic(points):
-    # Reuse the estimator and inverse from the chapter 16 study.
+    # Reuse the estimator and inverse from the tutorial S2 study.
     if str(HERE.parent / "kk13") not in sys.path:
         sys.path.insert(0, str(HERE.parent / "kk13"))
     from kowald_kirkwood_2013 import fitLogistic, invertLogistic

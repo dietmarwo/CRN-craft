@@ -1,6 +1,6 @@
 # Two-stage stochastic gene expression
 
-The [guide](../../docs/guide/22-two-stage-expression.md) gives the four
+The [guide](../../docs/tutorials/simulation/S7-two-stage-expression.md) gives the four
 reactions and the limit yielding a negative-binomial protein count.
 
 ```sh

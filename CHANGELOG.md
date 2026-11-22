@@ -52,10 +52,17 @@ contract of an earlier release changes.
 - The README states three application scenarios for AI agents: reviewing
   publications, running and evaluating research experiments, and designing
   and executing optimizations over simulation parameters.
-- The tutorials are listed in two groups, simulation and optimization, on
-  the new page `docs/tutorials.md`, in the guide's table of contents and in
-  the README. Guide chapter 24 introduces the ten optimization lessons.
-  File paths and chapter numbers are unchanged.
+- The tutorials are two groups with their own folders and numbers:
+  simulation tutorials S1 to S7 in `docs/tutorials/simulation` (chapters
+  12, 16, 17, 19, 20, 21 and 22 until 0.9.0) and optimization tutorials O1
+  to O3 in `docs/tutorials/optimization` (chapters 13, 18 and 23), with
+  the page of the ten lessons C1 to C10 (chapter 24). The user guide is
+  chapters 1 to 13: model files are chapter 12 and R is chapter 13
+  (14 and 15 until 0.9.0). `docs/tutorials.md` lists every tutorial with
+  source and outcome. The old paths are stubs, the old addresses of the
+  site redirect, and
+  [the migration page](docs/guide/migrating.md#tutorials-renumbered-in-0100)
+  has the table. Entries below this release use the old numbers.
 
 ### Documentation (guide and examples)
 

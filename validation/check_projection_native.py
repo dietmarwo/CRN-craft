@@ -819,7 +819,7 @@ def outcome_value(call):
 
 
 def yeast(full):
-    """C10: the total-RNA model of guide chapter 23 at one dose, to minute
+    """C10: the total-RNA model of tutorial O3 at one dose, to minute
     10 (the full 55 minutes with ``full``)."""
     folder = ROOT / "examples" / "yeast_rna_fit"
     sys.path.insert(0, str(folder))

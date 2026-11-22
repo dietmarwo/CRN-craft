@@ -84,10 +84,10 @@
     ]
   },
   "versions": {
-    "crn-craft": "0.9.0",
+    "crn-craft": "0.10.0",
     "fcmaes": "2.2.0",
     "numpy": "2.3.5",
-    "scipy": "1.17.0",
+    "scipy": "1.18.1",
     "matplotlib": "3.11.2",
     "PyYAML": "6.0.4",
     "python-libsbml": "5.21.2"

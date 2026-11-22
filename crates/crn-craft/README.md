@@ -9,7 +9,7 @@ replayable seeds.
 
 ```toml
 [dependencies]
-crn-craft = "0.9"
+crn-craft = "0.10"
 ```
 
 The [documentation site](https://dietmarwo.github.io/CRN-craft/) has the [user guide](https://dietmarwo.github.io/CRN-craft/guide/01-install.html)

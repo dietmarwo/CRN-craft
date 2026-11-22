@@ -10,7 +10,7 @@ results. New code depends on `crn-craft` and uses `crn_craft::rules`:
 
 ```toml
 [dependencies]
-crn-craft = "0.9"
+crn-craft = "0.10"
 ```
 
 <!-- check: fragment -->

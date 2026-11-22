@@ -39,8 +39,9 @@ why.
 
 Use the shared [installation and command-job guide](https://github.com/dietmarwo/optimization-jobs/blob/main/tutorials/simulators/README.md).
 It pins the Python dependencies, builds the optional binaries and lists all
-ten lessons. The CRN Python package must be built from this checkout; the
-`crn-craft` command and the optional diffsol binary are separate builds. C3's reference
+ten lessons. The CRN Python package comes from PyPI or from a wheel of this
+checkout; the `crn-craft` command and the optional diffsol binary are
+separate builds. C3's reference
 binary belongs to fcmaes-rust's existing oscillator tutorial workspace.
 
 From this repository, with the environment activated:
@@ -81,17 +82,20 @@ primary evidence. See [validation notes](VALIDATION.md) for the recorded checks.
 
 ## Setup for C5–C10
 
-Build the CRN-craft wheel from this checkout
-(`maturin build --release --locked --out dist`, then
-`pip install dist/*.whl`) and install the other packages:
+One extra of the package, from release 0.10.0, installs what the six
+lessons import:
 
 ```bash
-pip install "crn-craft[fit]" fcmaes==2.2.0 matplotlib PyYAML python-libsbml
+pip install "crn-craft[publications]"
 ```
 
-fcmaes brings loguru and scikit-learn. PyYAML and python-libsbml are needed
-by C9 only; C1 to C4 need the `fit` extra. C7, C9 and C10 use the optional
-concentration solver, which `--ode-binary` finds at its default path after
+It adds fcmaes 2.2.0, SciPy, matplotlib, PyYAML and libSBML; the last two
+are needed by C9 only. C1 to C4 need the `fit` extra instead. A checkout
+that is ahead of the latest release needs its own wheel
+(`maturin build --release --locked --out dist`, then
+`pip install "$(ls dist/*.whl)[publications]"`). C7, C9 and C10 use the
+optional concentration solver, which `--ode-binary` finds at its default
+path after
 
 ```bash
 cargo build --release --locked --manifest-path integrations/diffsol/Cargo.toml

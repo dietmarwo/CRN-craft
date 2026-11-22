@@ -2,7 +2,8 @@
 
 The page lists the public names of `crn_craft` (`__all__`), of `crn_craft.Model`,
 of the result and ensemble classes (`PreparedEnsemble`, `Result`, `FspResult`,
-`CompiledLoop`) and of `crn_craft.importers`, grouped by task. Each entry shows
+`CompiledLoop`) and of the modules `crn_craft.importers`, `crn_craft.likelihood`
+and `crn_craft.sensitivities`, grouped by task. Each entry shows
 the signature, the first paragraph of the docstring, a table of the arguments
 and the rest of the docstring. The argument descriptions are the table
 `ARGUMENTS` below: the docstrings give the arguments of a call in prose, not
@@ -30,16 +31,33 @@ import re
 import sys
 
 import crn_craft
-from crn_craft import importers
+from crn_craft import importers, likelihood, sensitivities
 
 ROOT = Path(__file__).resolve().parents[1]
 PAGE = ROOT / "docs" / "reference" / "python-api.md"
 
 # ---------------------------------------------------------------------------
 # What the page lists, by task. A path is a dotted name below `crn_craft`;
-# "importers.x" is a name of `crn_craft.importers`. Result classes live in
-# `crn_craft.rules` and are reached through `crn_craft.rules`.
+# "importers.x" is a name of `crn_craft.importers`, and likewise for the other
+# modules of MODULES. Result classes live in `crn_craft.rules` and are reached
+# through `crn_craft.rules`.
 # ---------------------------------------------------------------------------
+
+MODULES = {
+    "importers": importers,
+    "likelihood": likelihood,
+    "sensitivities": sensitivities,
+}
+
+# Classes that the functions of the page return; nobody constructs them.
+RETURNED = (
+    "PreparedEnsemble",
+    "Result",
+    "FspResult",
+    "CompiledLoop",
+    "likelihood.HistogramScore",
+    "sensitivities.ProjectionSensitivities",
+)
 
 GROUPS = [
     (
@@ -119,6 +137,30 @@ GROUPS = [
             "SpatialModel.profile",
             "spatial_turnover",
             "read_experiment",
+        ],
+    ),
+    (
+        "Likelihoods and sensitivities",
+        "Turn the law of a [prepared projection](#prepare_fsp) into the "
+        "probability of what was measured, score it against counted cells, and "
+        "differentiate it with respect to parameters. `crn_craft.likelihood` "
+        "and `crn_craft.sensitivities` are modules: call their names as "
+        "`crn.likelihood.histogram_score(...)`. Binomial detection and "
+        'fluorescence bins need SciPy (`pip install "crn-craft[likelihood]"`); '
+        "everything else runs without it. Chapter 23 of the guide and "
+        "optimization lesson C8 use these names.",
+        [
+            "likelihood.measured_counts",
+            "likelihood.count_probability",
+            "likelihood.binned_probability",
+            "likelihood.HistogramGroup",
+            "likelihood.histogram_score",
+            "likelihood.HistogramScore",
+            "likelihood.mean_score",
+            "sensitivities.forward_sensitivities",
+            "sensitivities.ProjectionSensitivities",
+            "sensitivities.ProjectionSensitivities.observed",
+            "sensitivities.fisher_information",
         ],
     ),
     (
@@ -203,6 +245,47 @@ EXCLUDED = {
 
 # Descriptions of arguments. A key "qualified.name.argument" wins over "argument".
 ARGUMENTS = {
+    "likelihood.measured_counts.states": "Count states, one row per state, as `PreparedFsp.states` gives them.",
+    "likelihood.measured_counts.species": "The species labels of the columns of `states`.",
+    "likelihood.measured_counts.observable": "A species name, or a tuple with one entry per measured axis: a name or a list of names to sum.",
+    "likelihood.count_probability.states": "Measured counts of every state: one column per measured axis, or a vector for one axis.",
+    "likelihood.count_probability.probabilities": "One probability per state, without the sink.",
+    "likelihood.count_probability.values": "The counts or joint counts whose probabilities are wanted, in the layout of `states`.",
+    "likelihood.count_probability.detection": "Probability that one molecule is detected, a number or one per axis; below 1 each count is thinned binomially (needs SciPy).",
+    "likelihood.binned_probability.counts": "The measured count of every state, one axis.",
+    "likelihood.binned_probability.probabilities": "One probability per state, without the sink.",
+    "likelihood.binned_probability.edges": "Strictly increasing bin edges; `-inf` and `inf` are allowed.",
+    "likelihood.binned_probability.gain": "Fluorescence per molecule. With `sigma`, the bins are of fluorescence, not of counts (needs SciPy).",
+    "likelihood.binned_probability.background": "Fluorescence of a cell without molecules.",
+    "likelihood.binned_probability.sigma": "Standard deviation of the Gaussian measurement noise.",
+    "likelihood.HistogramGroup.condition": "Label of the experimental condition.",
+    "likelihood.HistogramGroup.replicate": "Label of the replicate.",
+    "likelihood.HistogramGroup.time": "Observation time, a finite number.",
+    "likelihood.HistogramGroup.counts": "Observed cells per bin, nonnegative integers.",
+    "likelihood.HistogramGroup.probabilities": "Predicted probability of every bin, in the order of `counts`.",
+    "likelihood.HistogramGroup.missing_mass": "Probability that the prediction does not capture (sink and truncated bins), in [0, 1].",
+    "likelihood.HistogramGroup.time_unit": "Unit of `time`, kept as a label.",
+    "likelihood.HistogramGroup.readout": "Name of the readout, kept as a label.",
+    "likelihood.histogram_score.groups": "An iterable of `HistogramGroup`.",
+    "likelihood.mean_score.observed": "Observed means, a number or a vector.",
+    "likelihood.mean_score.predicted": "Predicted means of the same shape.",
+    "likelihood.mean_score.covariance": "Covariance of the observed means, symmetric positive definite.",
+    "sensitivities.forward_sensitivities.graph": "A prepared projection from `prepare_fsp`.",
+    "sensitivities.forward_sensitivities.segments": "Sequence of `(end_time, bindings)` with increasing ends.",
+    "sensitivities.forward_sensitivities.times": "Strictly increasing report times in `[0, last end]`.",
+    "sensitivities.forward_sensitivities.parameters": "Names of the parameters to differentiate, at most 16.",
+    "sensitivities.forward_sensitivities.initial": "Initial law; by default the one given to `prepare_fsp`.",
+    "sensitivities.forward_sensitivities.initial_derivatives": "Derivatives of the initial law, one row per parameter; by default zero.",
+    "sensitivities.forward_sensitivities.logarithmic": "Differentiate with respect to the natural logarithm of each parameter.",
+    "sensitivities.forward_sensitivities.difference": "Relative step of the centered difference of the generator.",
+    "sensitivities.forward_sensitivities.tolerance": "Relative tolerance of the integration; the absolute one is `1e-4 tolerance`.",
+    "sensitivities.forward_sensitivities.max_work": "Largest number of augmented implicit solves.",
+    "sensitivities.forward_sensitivities.max_factor_bytes": "Largest memory of one sparse factorization, in bytes.",
+    "sensitivities.ProjectionSensitivities.observed.axes": "The measured species, as the `observable` of `likelihood.measured_counts`.",
+    "sensitivities.fisher_information.probabilities": "Probabilities of the measured bins, shape `(times, bins)`.",
+    "sensitivities.fisher_information.derivatives": "Their derivatives, shape `(times, parameters, bins)`.",
+    "sensitivities.fisher_information.cells": "Cells measured at each time: a number or one per time.",
+    "sensitivities.fisher_information.probability_floor": "Bins with a smaller probability are left out.",
     "Protocol.at.parameters": "Named kinetic parameters to replace at this time.",
     "Protocol.at.time": "Timestamp in the same time unit as the model.",
     "Protocol.delay.products": "Count increments made by a successful completion.",
@@ -399,9 +482,15 @@ LITERAL = re.compile(r"``([^`]+)``")
 
 def resolve(path):
     """The object and its kind for a path of GROUPS."""
-    if path.startswith("importers."):
-        parent, name = importers, path.split(".", 1)[1]
-        obj = getattr(parent, name)
+    module, _, name = path.partition(".")
+    if module in MODULES:
+        name, _, member = name.partition(".")
+        obj = getattr(MODULES[module], name)
+        if member:
+            raw = inspect.getattr_static(obj, member)
+            if isinstance(raw, property):
+                return raw, "property", obj
+            return getattr(obj, member), "method", obj
         return obj, ("class" if inspect.isclass(obj) else "function"), None
     if path in ("PreparedEnsemble", "Result", "FspResult", "CompiledLoop"):
         from crn_craft import rules
@@ -454,11 +543,21 @@ def public_names():
             raw = inspect.getattr_static(cls, member)
             if inspect.isroutine(value) or isinstance(raw, property):
                 names.add(f"{cls_name}.{member}")
-    for member, value in vars(importers).items():
-        if member.startswith("_"):
-            continue
-        if getattr(value, "__module__", None) == importers.__name__:
-            names.add(f"importers.{member}")
+    for label, module in MODULES.items():
+        for member, value in vars(module).items():
+            if member.startswith("_"):
+                continue
+            if getattr(value, "__module__", None) != module.__name__:
+                continue
+            names.add(f"{label}.{member}")
+            if not inspect.isclass(value) or label == "importers":
+                continue
+            for name, attribute in inspect.getmembers(value):
+                raw = inspect.getattr_static(value, name)
+                if name.startswith("_"):
+                    continue
+                if inspect.isroutine(attribute) or isinstance(raw, property):
+                    names.add(f"{label}.{member}.{name}")
     return names
 
 
@@ -482,6 +581,10 @@ def clean_signature(obj, kind, drop_self=True):
     params = list(signature.parameters.values())
     if kind in ("method",) and params and params[0].name in ("self", "cls"):
         params = params[1:]
+    if kind == "class":
+        # A dataclass annotates its fields; the table gives the meanings.
+        params = [p.replace(annotation=inspect.Parameter.empty) for p in params]
+        signature = signature.replace(return_annotation=inspect.Signature.empty)
     return signature.replace(parameters=params)
 
 
@@ -634,12 +737,7 @@ def build(lint=None):
             if kind == "property":
                 body.append(f"```text\n{display}\n```\n")
                 body.append("Read-only property.\n")
-            elif kind == "class" and path in (
-                "PreparedEnsemble",
-                "Result",
-                "FspResult",
-                "CompiledLoop",
-            ):
+            elif kind == "class" and path in RETURNED:
                 body.append(f"```text\nclass {display}\n```\n")
                 body.append(
                     "Created by the functions of this page, not by calling it.\n"
@@ -659,12 +757,7 @@ def build(lint=None):
                     )
             body.append(convert_text(head, anchors, context, unresolved) + "\n")
             # Arguments.
-            if kind in ("function", "method", "class") and path not in (
-                "PreparedEnsemble",
-                "Result",
-                "FspResult",
-                "CompiledLoop",
-            ):
+            if kind in ("function", "method", "class") and path not in RETURNED:
                 signature = clean_signature(obj, "method" if kind == "method" else kind)
                 if signature is not None and signature.parameters:
                     rows = []
@@ -713,7 +806,8 @@ def build(lint=None):
         "Do not edit: run the script with --write. -->\n",
         f"The public names of `crn_craft` {version}: everything in `crn_craft.__all__`, the methods of "
         "`Model`, `PreparedEnsemble`, `Result`, `FspResult` and `CompiledLoop`, and "
-        "`crn_craft.importers`. The page is generated from the signatures and "
+        "the modules `crn_craft.importers`, `crn_craft.likelihood` and "
+        "`crn_craft.sensitivities`. The page is generated from the signatures and "
         "docstrings of the installed package, so it lists what the package does. "
         "Examples are in the [guide](../guide/01-install.md); this page has none.\n",
         "Import the package as `import crn_craft as crn`. `crn_craft.rules` is the "

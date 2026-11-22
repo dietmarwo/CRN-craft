@@ -150,7 +150,8 @@ def stationary_fsp(
     and compare marginal CDFs across successive bounds. The resulting
     convergence indication is empirical for an infinite network. A finite
     generator with several closed classes needs an explicit class state.
-    SciPy's sparse LU solves the linear system. Without a return state,
+    The native engine builds the generator; SciPy's sparse LU (the
+    ``projection`` extra) solves the linear system. Without a return state,
     every transition must stay inside the bounds.
     """
     _require_scipy("stationary_fsp")

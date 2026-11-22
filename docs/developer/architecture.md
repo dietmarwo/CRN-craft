@@ -199,6 +199,16 @@ flowchart LR
   states within per-species bounds, propagates the distribution by
   uniformization and reports leakage and error terms separately. A state
   where the model's `stop` holds is absorbing.
+- **Prepared projections** (module `projection`): the engine of the Python
+  `prepare_fsp`. It enumerates the states reachable inside the bounds from
+  an initial law, with scheduled interventions, once per topology; builds
+  the generator per parameter binding in compressed sparse column form;
+  applies interventions; and propagates by uniformization and the
+  exponential midpoint rule. It shares the flat view with `fsp::v1` but
+  not its enumeration, budgets or result contract. The trait
+  `SparseLinearSolver` marks where a sparse direct solver plugs in for
+  implicit integration and stationary laws; no implementation lives in
+  the crate.
 - **Analysis** (`analysis.rs`, `conservation.rs`, `cone.rs`, `linkage.rs`):
   exact conservation laws, the nonnegative conservation cone, linkage
   classes and deficiency, and the propensities at a state

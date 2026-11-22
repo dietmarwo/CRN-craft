@@ -1,4 +1,4 @@
-"""Reusable finite state projections using native CRN-craft rate semantics."""
+"""Reusable finite state projections on the native CRN-craft engine."""
 
 import json
 from collections.abc import Mapping
@@ -35,8 +35,10 @@ def _require_scipy(feature):
 class Signal:
     """A real-time rate input. Tables use linear or right-continuous steps.
 
-    Callables are a Python-only option. Provide their change points and a
-    reproducible description of their parameters in the calling experiment.
+    Tables are evaluated natively by the midpoint rule. Callables are a
+    Python-only option, called from the native step loop. Provide their
+    change points and a reproducible description of their parameters in the
+    calling experiment.
     """
 
     def __init__(self, function, *, change_times=()):
@@ -424,7 +426,8 @@ class PreparedFsp:
         """Propagate from a prepared law or a compatible report-time checkpoint.
 
         Constant segments use positive uniformization. Inhomogeneous
-        segments use SciPy's BDF or adaptive exponential midpoint. Series-tail,
+        segments use SciPy's BDF (``solver="bdf"``, the one solve that needs
+        SciPy) or the native adaptive exponential midpoint rule. Series-tail,
         leakage, minimum probability and mass defect are retained separately.
         The series-tail bound covers uniformization only; BDF and midpoint
         segments add no integration error estimate, and BDF can return
@@ -717,8 +720,9 @@ def prepare_fsp(
 ):
     """Prepare a reusable projection for a closed model.
 
-    The native core lowers the model and evaluates rates. Python enumerates
-    the states, and SciPy (the ``projection`` extra) propagates the law.
+    The native engine lowers the model, enumerates the states, builds the
+    generator and propagates the law; only ``solve(solver="bdf")`` with
+    signals needs SciPy (the ``projection`` extra).
     Existing :meth:`Model.fsp` is the native uniformization for one fixed
     model without protocols, signals or initial mixtures. A prepared
     projection holds no per-solve state, so threads can share it. It cannot

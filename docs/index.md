@@ -59,6 +59,12 @@ Coming from GillesPy2 or rebop? See [how CRN-craft compares](comparison.md).
 
 - **New here:** read [chapters 1 to 4](guide/01-install.md) in order.
 - **A question:** the [task index](howto.md) links fifty tasks to their answers.
+- **Tutorials:** the [tutorials page](tutorials.md) lists all of them in
+  two groups. [Simulation tutorials](tutorials.md#simulation-tutorials)
+  rebuild published stochastic models and compare the simulations with the
+  papers. [Optimization tutorials](tutorials.md#optimization-tutorials)
+  put an fcmaes optimizer around a simulation to fit, select, design or
+  search.
 - **mtDNA models:** the [case study](guide/12-mtdna.md), the [re-creation of a published study](guide/16-published-study.md), the [comparison of three mechanisms](guide/17-mtdna-mechanisms.md) from two 2014 studies, and the [inference of takeover times from cell snapshots](guide/18-mtdna-inference.md) from a 2026 study.
 - **Code of an earlier release:** [Migrating from earlier releases](guide/migrating.md).
 

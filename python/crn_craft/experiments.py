@@ -362,6 +362,7 @@ def _translate_sbml(raw, overrides, *, split=False):
         fail("the experiment adapter supports SBML L3V1 and L3V2 Core")
     if any(k.endswith("}required") and v == "true" for k, v in root.attrib.items()):
         fail("required SBML extensions are outside the experiment subset")
+    _allowed(root, {"model"})
     node = _child(root, "model", required=True)
     _allowed(
         node,

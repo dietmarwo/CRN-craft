@@ -6,7 +6,7 @@ parses XML. The function holds all safety checks, so that the importers and
 the experiment reader cannot drift apart.
 
 A document is read only if it is at most ``limit`` bytes of well-formed UTF-8
-XML without a document type declaration. Nothing in the standard library
+XML without a document type declaration, nested at most 256 elements deep. Nothing in the standard library
 parser then has anything to expand or fetch: a DTD, internal or external
 entities and parameter entities cannot occur, and no external resource is
 ever opened. A byte order mark, a processing instruction, a comment and CDATA
@@ -23,6 +23,9 @@ _ENCODING = re.compile(rb"""<\?xml[^>]*?encoding\s*=\s*["']([^"']*)["']""")
 _UTF8 = (b"utf-8", b"utf8")
 # UnicodeDecodeError is a ValueError.
 _PARSE_ERRORS = (ET.ParseError, LookupError, ValueError)
+# Deepest element nesting that is read. A nested element costs the parser
+# several times the memory of a sibling, and the readers walk the tree.
+_DEPTH = 256
 
 
 class _XmlRefused(Exception):
@@ -31,8 +34,8 @@ class _XmlRefused(Exception):
     ``reason`` is one of ``"type"`` (not bytes), ``"size"`` (over the limit),
     ``"nul"`` (NUL bytes: UTF-16 or UTF-32), ``"dtd"`` (a document type or
     entity declaration), ``"encoding"`` (a declared encoding other than
-    UTF-8), ``"utf8"`` (bytes that are not UTF-8) or ``"syntax"`` (not
-    well-formed XML). ``message`` is a short human message. ``detail`` is the
+    UTF-8), ``"utf8"`` (bytes that are not UTF-8), ``"depth"`` (elements
+    nested too deep) or ``"syntax"`` (not well-formed XML). ``message`` is a short human message. ``detail`` is the
     text the parser itself gives when it also objects to a document with a
     declared encoding, and ``None`` otherwise.
     """
@@ -44,9 +47,29 @@ class _XmlRefused(Exception):
         self.detail = detail
 
 
+class _Bounded(ET.TreeBuilder):
+    """The standard tree builder, stopping at the nesting limit."""
+
+    def __init__(self):
+        super().__init__()
+        self._depth = 0
+
+    def start(self, tag, attrs):
+        self._depth += 1
+        if self._depth > _DEPTH:
+            raise _XmlRefused("depth", f"XML nesting exceeds {_DEPTH} levels")
+        return super().start(tag, attrs)
+
+    def end(self, tag):
+        self._depth -= 1
+        return super().end(tag)
+
+
 def _parse(raw):
     raw.decode("utf-8")
-    return ET.fromstring(raw)
+    parser = ET.XMLParser(target=_Bounded())
+    parser.feed(raw)
+    return parser.close()
 
 
 def _read_xml(raw, limit):
@@ -56,7 +79,8 @@ def _read_xml(raw, limit):
     largest size in bytes. Raises :class:`_XmlRefused` for everything the
     package does not read. The checks run in this order: type, size, NUL
     bytes, document type or entity declaration, declared encoding, UTF-8,
-    well-formedness; a document that breaks several reports the first.
+    then nesting depth and well-formedness in document order; a document
+    that breaks several reports the first.
     """
     if not isinstance(raw, bytes | bytearray | memoryview):
         raise _XmlRefused("type", "XML must be given as bytes")
@@ -78,6 +102,8 @@ def _read_xml(raw, limit):
         # what the parser itself says about this document.
         try:
             _parse(raw)
+            detail = None
+        except _XmlRefused:
             detail = None
         except _PARSE_ERRORS as error:
             detail = str(error)

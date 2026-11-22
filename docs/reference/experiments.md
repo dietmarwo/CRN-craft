@@ -336,13 +336,14 @@ refused.
 SBML, the archive manifest, and the SBML of `crn.importers.import_sbml`)
 goes through one guard. It refuses a document that is not bytes, is larger
 than 16 MiB, contains NUL bytes (UTF-16 and UTF-32, with or without a byte
-order mark), declares an encoding other than UTF-8, is not valid UTF-8 or
-is not well-formed XML. It also refuses `<!DOCTYPE` and `<!ENTITY` in any
-letter case anywhere in the bytes, including inside a comment or a CDATA
-section, so an internal subset, a parameter entity, an external entity and
-an entity-expansion document are never parsed, and no entity is expanded or
-external resource opened. A byte order mark, processing instructions,
-comments and CDATA are otherwise read as XML. Model sources must be relative paths inside the
+order mark), declares an encoding other than UTF-8, is not valid UTF-8,
+nests elements deeper than 256 levels or is not well-formed XML. It also
+refuses `<!DOCTYPE` and `<!ENTITY` in any letter case anywhere in the
+bytes, including inside a comment or a CDATA section, so an internal
+subset, a parameter entity, an external entity and an entity-expansion
+document are never parsed, and no entity is expanded or external resource
+opened. A byte order mark, processing instructions, comments and CDATA are
+otherwise read as XML. Model sources must be relative paths inside the
 archive or the SED-ML folder; `..`, absolute paths, URLs, URNs and links
 are refused. Limits: 16 MiB per XML document, 64 MiB per archive and for
 its declared uncompressed members, 256 members, 64 species, 4,096

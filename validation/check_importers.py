@@ -55,6 +55,7 @@ LIMIT = 16 << 20
 UTF8_ONLY = "XML must be UTF-8 without a document type or entities"
 DTD_OR_SIZE = "oversized XML or DTD/entities unsupported"
 ONLY_UTF8 = "unreadable XML: only UTF-8 is supported"
+TOO_DEEP = "XML nesting exceeds 256 levels"
 
 
 def anchor(text, extra):
@@ -80,6 +81,16 @@ def prefixed(head):
     return lambda t: (head + t).encode()
 
 
+def nested(levels):
+    """Nest that many elements inside the root, as its last child."""
+
+    def build(text):
+        head, close, tail = text.rpartition("</")
+        return (head + "<a>" * levels + "</a>" * levels + close + tail).encode()
+
+    return build
+
+
 DTD = '<!DOCTYPE a [<!ENTITY e "x">]>'
 # case name -> (kind, builder). The kinds, with the refusal each one gets:
 #   ok            read
@@ -90,6 +101,7 @@ DTD = '<!DOCTYPE a [<!ENTITY e "x">]>'
 #   enc_only      a declared encoding other than UTF-8 that the parser accepts
 #   enc_parser    a declared encoding that the parser rejects as well
 #   utf8          bytes that are not UTF-8
+#   depth         elements nested deeper than 256, the root counted
 #   syntax        not well-formed XML
 # Not file contents: only import_sbml takes a value rather than a path.
 IMPORT_ONLY = {"str", "none", "bytearray", "memoryview"}
@@ -184,6 +196,9 @@ GUARD_CASES = {
     ),
     "invalid_utf8": ("utf8", lambda t: anchor(t, " note='\xff'").encode("latin-1")),
     "binary": ("utf8", lambda t: bytes(range(1, 255)) * 8),
+    "nesting_over_limit": ("depth", nested(256)),
+    "nesting_far_over_limit": ("depth", nested(100_000)),
+    "nesting_unclosed": ("depth", lambda t: nested(256)(t)[:-600]),
     "empty": ("syntax", lambda t: b""),
     "whitespace": ("syntax", lambda t: b"  \n"),
     "text": ("syntax", lambda t: b"hello"),
@@ -210,6 +225,8 @@ def guard_expectation(kind, channel):
             return "unreadable XML: ", False
         if kind == "utf8":
             return "unreadable XML: 'utf-8' codec can't decode", False
+        if kind == "depth":
+            return "unreadable XML: " + TOO_DEEP, True
         return "unreadable XML: ", False
     # read_experiment; a manifest failure is wrapped as an archive failure
     wrap = "invalid OMEX archive: " if channel == "manifest" else ""
@@ -221,6 +238,8 @@ def guard_expectation(kind, channel):
         return wrap + UTF8_ONLY, True
     if kind == "utf8":
         return wrap + "invalid XML: 'utf-8' codec can't decode", False
+    if kind == "depth":
+        return wrap + "invalid XML: " + TOO_DEEP, True
     return wrap + "invalid XML: ", False
 
 
@@ -232,6 +251,7 @@ REASONS = {
     "enc_only": "encoding",
     "enc_parser": "encoding",
     "utf8": "utf8",
+    "depth": "depth",
     "syntax": "syntax",
 }
 
@@ -324,6 +344,18 @@ def guard_rows():
                         f"{name} through {channel}: {result!r} not {want!r}",
                     )
             rows.append({"check": "xml_guard_" + name, "passed": True})
+    # The nesting limit itself: 256 levels are read, 257 are not, and a
+    # declared encoding is reported before the depth.
+    at_limit = _read_xml(b"<a>" * 256 + b"</a>" * 256, LIMIT)
+    require(
+        sum(1 for _ in at_limit.iter()) == 256
+        and guard_reason(b"<a>" * 257 + b"</a>" * 257) == ("depth", None)
+        and guard_reason(b"<r>" + b"<a><b/></a>" * 1000 + b"</r>") == (None, None)
+        and guard_reason(declared("ISO-8859-1")("<a>" * 257 + "</a>" * 257))
+        == ("encoding", None),
+        "the XML nesting limit is not 256 levels",
+    )
+    rows.append({"check": "xml_guard_nesting_limit", "passed": True})
     return rows
 
 
@@ -355,7 +387,7 @@ def xml_entry_points():
         found += [f"{path.name}: {word}" for word in FORBIDDEN_XML if word in source]
     require(not found, "XML parsing outside the guard: " + ", ".join(found))
     require(
-        "fromstring" in guard.read_text(encoding="utf-8"), "the guard parses nothing"
+        "XMLParser" in guard.read_text(encoding="utf-8"), "the guard parses nothing"
     )
     return [{"check": "xml_parsing_only_in_guard", "passed": True}]
 

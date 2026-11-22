@@ -842,6 +842,9 @@ def experiment_refusals(temp):
                 + "</listOfEvents>"
             )
         },
+        "sbml_root_unknown_element": {
+            "model.xml": _sbml().replace("<model ", "<extra/><model ", 1)
+        },
         "time_zero_event_negative_start": {
             "study.sedml": _sed(start="-1"),
             "model.xml": _sbml(

@@ -315,5 +315,30 @@ class Model(unittest.TestCase):
                         self.assertLess(abs(gap), 1e-4)
 
 
+RESULTS = Path(__file__).parent / "results" / "C9"
+
+
+class SavedResults(unittest.TestCase):
+    def test_tables_agree_and_draw(self):
+        from publications import stat5
+
+        rows = {r["source"]: r for r in stat5.read_csv(RESULTS / "nll.csv")}
+        self.assertAlmostEqual(float(rows["archive"]["total"]), 138.2219997062, 9)
+        for row in rows.values():
+            parts = sum(
+                float(row[k]) for k in ("pSTAT5A_rel", "pSTAT5B_rel", "rSTAT5A_rel")
+            )
+            self.assertAlmostEqual(parts, float(row["total"]), 8)
+        for row in stat5.read_csv(RESULTS / "verification.csv"):
+            self.assertLess(float(row["signal_max_abs"]), 0.01)
+            self.assertLess(
+                abs(float(row["nll_native"]) - float(row["nll_reference"])), 0.05
+            )
+        with tempfile.TemporaryDirectory() as folder:
+            stat5.draw(RESULTS, Path(folder))
+            for name in ("C9-signals.png", "C9-fits.png"):
+                self.assertGreater((Path(folder) / name).stat().st_size, 10_000)
+
+
 if __name__ == "__main__":
     unittest.main()

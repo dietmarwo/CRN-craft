@@ -675,6 +675,11 @@ def draw(tables: Path, folder: Path):
     figure = Figure(figsize=(10, 4), layout="constrained")
     left, right = figure.subplots(1, 2, width_ratios=[2.2, 1])
     colors = {"nominal": "k", "profiled": "tab:orange", "joint": "tab:blue"}
+    legend = {
+        "nominal": "PEtab nominal vector",
+        "profiled": "ours: profiled noise scales",
+        "joint": "ours: profiled, then joint",
+    }
     for row in fits:
         retry = row["fit"].startswith("retry")
         left.plot(
@@ -687,7 +692,7 @@ def draw(tables: Path, folder: Path):
             alpha=0.45 if retry else 1.0,
             label=None
             if retry and row["fit"] != "retry 0"
-            else ("plain retries (8)" if retry else row["fit"]),
+            else ("ours: plain retries" if retry else legend[row["fit"]]),
         )
     left.set_xticks(
         range(len(names)), [k[6:] for k in names], rotation=40, ha="right", fontsize=7
@@ -707,7 +712,8 @@ def draw(tables: Path, folder: Path):
     right.set_xscale("log")
     right.invert_yaxis()
     right.set(
-        xlabel=f"NLL above {float(order[0]['nll']):.4f} (+0.01)", title="verified NLL"
+        xlabel=f"NLL above {float(order[0]['nll']):.4f}, plus 0.01",
+        title="verified NLL (nominal: native solve)",
     )
     right.tick_params(labelsize=7)
     figure.savefig(folder / "C9-fits.png", dpi=155)

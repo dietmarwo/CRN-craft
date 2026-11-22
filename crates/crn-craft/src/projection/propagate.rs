@@ -12,19 +12,29 @@ use std::collections::HashMap;
 /// every diagonal entry present.
 struct Transition {
     row_ptr: Vec<usize>,
-    col_idx: Vec<usize>,
+    col_idx: Vec<u32>,
     values: Vec<f64>,
 }
 
 impl Transition {
-    /// `next = P term`, each row summed over increasing columns from 0.
-    fn apply(&self, term: &[f64], next: &mut [f64]) {
-        for (i, out) in next.iter_mut().enumerate() {
+    /// `next = P term` and `p += weight * next`, each row of the product
+    /// summed over increasing columns from 0.
+    fn apply(&self, term: &[f64], next: &mut [f64], p: &mut [f64], weight: f64) {
+        for ((out, total), bounds) in next
+            .iter_mut()
+            .zip(p.iter_mut())
+            .zip(self.row_ptr.windows(2))
+        {
+            let (values, columns) = (
+                &self.values[bounds[0]..bounds[1]],
+                &self.col_idx[bounds[0]..bounds[1]],
+            );
             let mut sum = 0.0;
-            for k in self.row_ptr[i]..self.row_ptr[i + 1] {
-                sum += self.values[k] * term[self.col_idx[k]];
+            for (&value, &j) in values.iter().zip(columns) {
+                sum += value * term[j as usize];
             }
             *out = sum;
+            *total += weight * sum;
         }
     }
 }
@@ -87,32 +97,43 @@ pub fn uniform(
     let mut term = vec![0.0; p.len()];
     let mut next = vec![0.0; p.len()];
     let mut tail = 0.0;
+    // Every piece has the same mean, so the same series length.
+    let (terms, remaining) = series(mu, threshold, 0.0);
     for _ in 0..pieces {
         term.copy_from_slice(p);
         let mut weight = libm::exp(-mu);
         for (out, &x) in p.iter_mut().zip(&term) {
             *out = weight * x;
         }
-        let mut k: u64 = 0;
-        let remaining = loop {
-            let remaining = poisson_tail(k + 1, mu);
-            // NaN stops the series like a small tail.
-            if remaining.partial_cmp(&threshold) != Some(std::cmp::Ordering::Greater) {
-                break remaining;
-            }
+        for k in 1..=terms {
             work.charge(1)?;
             interrupt.check()?;
-            k += 1;
-            transition.apply(&term, &mut next);
-            std::mem::swap(&mut term, &mut next);
             weight *= mu / k as f64;
-            for (out, &x) in p.iter_mut().zip(&term) {
-                *out += weight * x;
-            }
-        };
+            transition.apply(&term, &mut next, p, weight);
+            std::mem::swap(&mut term, &mut next);
+        }
         tail += remaining;
     }
     Ok(tail)
+}
+
+/// The number of terms after the first that a series of Poisson mean `mu`
+/// keeps, and the weight it omits: terms are added while the omitted
+/// weight `P(K > k)` exceeds `threshold` or `k + 2 <= skip` (below the
+/// mean the omitted weight is about one half or more). NaN stops it like
+/// a small weight.
+#[allow(clippy::cast_precision_loss)]
+fn series(mu: f64, threshold: f64, skip: f64) -> (u64, f64) {
+    let mut k: u64 = 0;
+    loop {
+        if (k + 2) as f64 > skip {
+            let remaining = poisson_tail(k + 1, mu);
+            if remaining.partial_cmp(&threshold) != Some(std::cmp::Ordering::Greater) {
+                return (k, remaining);
+            }
+        }
+        k += 1;
+    }
 }
 
 /// `I + Q / rate` of the constant part, by rows.
@@ -136,13 +157,17 @@ fn uniformized(generator: &Generator, rate: f64) -> Transition {
     let row_ptr = counts.clone();
     let mut fill = counts;
     let nnz = row_ptr[dim];
-    let mut col_idx = vec![0; nnz];
+    let mut col_idx = vec![0u32; nnz];
     let mut values = vec![0.0; nnz];
     // Columns in increasing order, so each row's columns are increasing.
     for j in 0..dim {
         let mut has_diagonal = false;
         let mut place = |row: usize, value: f64| {
-            col_idx[fill[row]] = j;
+            // At most MAX_STATES + 1 columns.
+            #[allow(clippy::cast_possible_truncation)]
+            {
+                col_idx[fill[row]] = j as u32;
+            }
             values[fill[row]] = value;
             fill[row] += 1;
         };
@@ -265,34 +290,31 @@ impl Midpoint<'_> {
         }
         let mu = rate * h / pieces as f64;
         let threshold = goal * MIDPOINT_TRUNCATION_SHARE / pieces as f64;
+        let (terms, _) = series(mu, threshold, mu);
         for _ in 0..pieces {
             self.term.clone_from(&p);
             let mut weight = libm::exp(-mu);
             for (out, &x) in p.iter_mut().zip(&self.term) {
                 *out = weight * x;
             }
-            let mut k: u64 = 0;
-            // Below the mean the omitted weight is about one half or more.
-            while (k + 2) as f64 <= mu || poisson_tail(k + 1, mu) > threshold {
+            for k in 1..=terms {
                 self.interrupt.check()?;
-                k += 1;
-                for (i, out) in self.next.iter_mut().enumerate() {
-                    let mut sum = if diagonal[i] == usize::MAX {
-                        self.term[i]
-                    } else {
-                        0.0
-                    };
-                    let range = row_ptr[i]..row_ptr[i + 1];
+                weight *= mu / k as f64;
+                let rows = self
+                    .next
+                    .iter_mut()
+                    .zip(p.iter_mut())
+                    .zip(row_ptr.windows(2).zip(diagonal));
+                for (i, ((out, total), (bounds, &d))) in rows.enumerate() {
+                    let mut sum = if d == usize::MAX { self.term[i] } else { 0.0 };
+                    let range = bounds[0]..bounds[1];
                     for (&value, &j) in self.transition[range.clone()].iter().zip(&col_idx[range]) {
                         sum += value * self.term[j];
                     }
                     *out = sum;
+                    *total += weight * sum;
                 }
                 std::mem::swap(&mut self.term, &mut self.next);
-                weight *= mu / k as f64;
-                for (out, &x) in p.iter_mut().zip(&self.term) {
-                    *out += weight * x;
-                }
             }
         }
         Ok(p)

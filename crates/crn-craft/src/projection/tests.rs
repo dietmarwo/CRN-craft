@@ -219,6 +219,66 @@ fn midpoint_integrates_a_noncommuting_forced_law() {
     assert!(error.message.contains("rounding level"));
 }
 
+struct Constant;
+impl SignalValues for Constant {
+    fn evaluate(
+        &mut self,
+        _time: f64,
+        out: &mut [f64],
+    ) -> Result<(), crate::diagnostic::Diagnostic> {
+        out[0] = 3.0;
+        Ok(())
+    }
+}
+
+#[test]
+fn midpoint_steps_end_exactly_at_the_interval_end() {
+    // Birth 3, death 1, from 0: Poisson with mean 3 (1 - e^-t). Twenty
+    // steps of 0.05 do not sum to 1 in floating point; the last one ends
+    // at 1 anyway and no shorter step follows.
+    let v = birth_death(2.0, 1.0, 0);
+    let interrupt = Interrupt::new(&never);
+    let t = Topology::enumerate(&spec(&v, vec![48], vec![vec![0]]), &interrupt).unwrap();
+    let g = Generator::build(&t, &v, &[vec![0]], &interrupt).unwrap();
+    let merged = Merged::new(&g);
+    for (end, max_step, actions) in [
+        (1.0, 0.05, 60),
+        (0.7, 0.1, 21),
+        (1.0, 0.3, 12),
+        (1.0, 0.6, 6),
+        (1.0, f64::INFINITY, 3),
+    ] {
+        let mut p = vec![0.0; t.len() + 1];
+        p[0] = 1.0;
+        let mut work = Work::new(0, 1000);
+        let controls = MidpointControls {
+            start: 0.0,
+            end,
+            tolerance: 1e-6,
+            max_step,
+        };
+        midpoint(
+            &g,
+            &merged,
+            &mut p,
+            controls,
+            &mut Constant,
+            &mut work,
+            &interrupt,
+        )
+        .unwrap();
+        let mean = 3.0 * (1.0 - (-end).exp());
+        let gap: f64 = t
+            .states()
+            .iter()
+            .enumerate()
+            .map(|(i, &x)| (p[i] - poisson(x, mean)).abs())
+            .sum();
+        assert!(gap < 1e-6, "{end} {max_step} {gap}");
+        assert_eq!(work.count, actions, "{end} {max_step}");
+    }
+}
+
 struct Step {
     seen: Vec<f64>,
 }

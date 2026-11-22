@@ -327,11 +327,19 @@ impl Midpoint<'_> {
     }
 }
 
+/// The relative length by which the last midpoint step may exceed the
+/// proposed step (and so `max_step`) to end exactly at the interval end.
+pub const LAST_STEP_SLACK: f64 = 1e-9;
+
 /// Integrates `p` from `controls.start` to `controls.end` with the adaptive
 /// exponential midpoint rule: a step `h` from `t` is `exp(h Q(t + h/2))`;
 /// the L1 gap between one full step and two half steps must be at most
 /// `tolerance * h / (end - start)`; the step then grows or shrinks by
-/// `clip(0.9 (goal / gap)^(1/3), 0.2, 2)`, at most `max_step`. Each
+/// `clip(0.9 (goal / gap)^(1/3), 0.2, 2)`, at most `max_step`. A step
+/// that reaches `end` within [`LAST_STEP_SLACK`] of its length ends there,
+/// and a remainder shorter than two steps is taken in two equal steps, so
+/// accumulated rounding of the clock never leaves a step too short for its
+/// error estimate. Each
 /// matrix-exponential action costs one work unit and is computed by
 /// uniformization of the frozen generator in pieces of Poisson mean at
 /// most [`MIDPOINT_PIECE_MEAN`], each truncated where the omitted
@@ -377,7 +385,16 @@ pub fn midpoint(
     let mut t = start;
     let mut h = (end - start).min(max_step);
     while t < end {
-        h = h.min(end - t);
+        // The remainder is never left as a sliver whose goal is below the
+        // rounding level: a step that reaches the end within rounding ends
+        // there exactly, and a remainder of less than two steps is halved.
+        let remaining = end - t;
+        let last = remaining <= h * (1.0 + LAST_STEP_SLACK);
+        if last {
+            h = remaining;
+        } else if remaining < 2.0 * h {
+            h = remaining / 2.0;
+        }
         if t + h <= t {
             return Err(budget("midpoint step cannot advance the clock"));
         }
@@ -388,7 +405,7 @@ pub fn midpoint(
         let gap: f64 = full.iter().zip(&half).map(|(a, b)| (a - b).abs()).sum();
         if gap <= goal {
             *p = half;
-            t += h;
+            t = if last { end } else { t + h };
         } else if goal <= 64.0 * f64::EPSILON {
             // The step error estimate cannot resolve this goal in floating point.
             return Err(budget(

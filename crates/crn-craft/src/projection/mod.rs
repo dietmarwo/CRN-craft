@@ -76,8 +76,8 @@ mod tests;
 
 pub use generator::{Csc, Generator, MAX_RATE_TABLE, Merged};
 pub use propagate::{
-    MIDPOINT_PIECE_MEAN, MIDPOINT_TRUNCATION_SHARE, MidpointControls, SignalValues, kick, midpoint,
-    uniform,
+    LAST_STEP_SLACK, MIDPOINT_PIECE_MEAN, MIDPOINT_TRUNCATION_SHARE, MidpointControls,
+    SignalValues, kick, midpoint, uniform,
 };
 pub use topology::{
     ChannelShape, MAX_COUNT, MAX_EDGES, MAX_STATES, STATE_TABLE_BYTES, Spec, Topology,

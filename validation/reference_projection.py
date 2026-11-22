@@ -694,7 +694,14 @@ def _forced(
 
     t, h = start, min(end - start, max_step)
     while t < end:
-        h = min(h, end - t)
+        # A step that reaches the end within rounding ends there, and a
+        # remainder of less than two steps is halved.
+        remaining = end - t
+        last = remaining <= h * (1 + 1e-9)
+        if last:
+            h = remaining
+        elif remaining < 2 * h:
+            h = remaining / 2
         if t + h <= t:
             raise RuntimeError("midpoint step cannot advance the clock")
         full = advance(t, h, p)
@@ -703,7 +710,7 @@ def _forced(
         goal = tol * h / (end - start)
         if gap <= goal:
             p = half
-            t += h
+            t = end if last else t + h
         elif goal <= 64 * np.finfo(float).eps:
             # The step error estimate cannot resolve this goal in floating point.
             raise RuntimeError(

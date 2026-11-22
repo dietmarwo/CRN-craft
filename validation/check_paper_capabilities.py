@@ -558,19 +558,33 @@ def observations():
         pass
     else:
         raise RuntimeError("singular covariance accepted")
+    # Without SciPy, preparation, constant segments and the midpoint rule
+    # run natively; BDF and stationary laws name the optional extra.
     missing = subprocess.run(
         [
             sys.executable,
             "-c",
             "import sys; sys.modules['scipy'] = None; import crn_craft as crn\n"
-            "try:\n crn.prepare_fsp(crn.Model('m'), {})\n"
-            "except ModuleNotFoundError as e:\n print(e)",
+            "m = crn.Model('m'); m.add_species('X', 0); m.add_parameter('b', 2)\n"
+            "m.add_reaction(crn.mass_action('b'), [], ['X'], name='birth')\n"
+            "g = crn.prepare_fsp(m, {'X': 30})\n"
+            "g.solve(1, [1])\n"
+            "s = {'birth': crn.Signal(lambda t: 1 + t)}\n"
+            "g.solve(1, [1], signals=s, solver='midpoint')\n"
+            "for call in (lambda: g.solve(1, [1], signals=s),\n"
+            "             lambda: crn.stationary_fsp(m, {'X': 3})):\n"
+            " try:\n  call()\n"
+            " except ModuleNotFoundError as e:\n  print(e)",
         ],
         capture_output=True,
         text=True,
         check=True,
     )
-    require("crn-craft[projection]" in missing.stdout, "missing SciPy message")
+    lines = missing.stdout.splitlines()
+    require(
+        len(lines) == 2 and all("crn-craft[projection]" in line for line in lines),
+        "missing SciPy message",
+    )
     axes = measured_counts([[1, 2, 3], [5, 2, 3]], ("N", "C", "P"), (["N", "C"], "P"))
     require(np.array_equal(axes, [[3, 3], [7, 3]]), "joint and summed readout")
     noise = binned_probability([1], [1], [-np.inf, 0, 1, np.inf], gain=1, sigma=1)

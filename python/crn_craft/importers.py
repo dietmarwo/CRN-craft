@@ -15,7 +15,8 @@ import hashlib
 import json
 import math
 import re
-import xml.etree.ElementTree as ET
+
+from ._xml import _read_xml, _XmlRefused
 
 
 class ImportFailure(ValueError):
@@ -133,19 +134,14 @@ def import_sbml(raw, *, convention):
     """
     if convention != "stochastic_count_propensity":
         fail("explicit stochastic_count_propensity convention required")
-    if (
-        len(raw) > 16 * 1024 * 1024
-        # NUL bytes: UTF-16 or UTF-32, which would hide a DTD from this check.
-        or b"\x00" in raw
-        or b"<!DOCTYPE" in raw.upper()
-        or b"<!ENTITY" in raw.upper()
-    ):
-        fail("oversized XML or DTD/entities unsupported")
     try:
-        raw.decode("utf-8")
-        root = ET.fromstring(raw)
-    except (ET.ParseError, UnicodeDecodeError, LookupError, ValueError) as e:
-        fail(f"unreadable XML: {e}")
+        root = _read_xml(raw, 16 * 1024 * 1024)
+    except _XmlRefused as refused:
+        if refused.reason in {"size", "nul", "dtd"}:
+            fail("oversized XML or DTD/entities unsupported")
+        if refused.reason == "encoding":
+            fail(f"unreadable XML: {refused.detail or 'only UTF-8 is supported'}")
+        fail(f"unreadable XML: {refused.message}")
     sbml = "http://www.sbml.org/sbml/level3/version2/core"
     mathns = "http://www.w3.org/1998/Math/MathML"
     if (

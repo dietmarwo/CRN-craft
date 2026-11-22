@@ -8,12 +8,12 @@ from pathlib import Path, PurePosixPath
 import json
 import math
 import re
-import xml.etree.ElementTree as ET
 import zipfile
 import zlib
 
 import numpy as np
 
+from ._xml import _read_xml, _XmlRefused
 from .importers import ImportFailure, _identifier, _number, _poly_add, _poly_mul, fail
 from .protocol import Protocol
 
@@ -30,7 +30,6 @@ _MAX_VALUES = 1 << 24
 _RESERVED = {"CON", "PRN", "AUX", "NUL"} | {
     f"{kind}{i}" for kind in ("COM", "LPT") for i in range(1, 10)
 }
-_ENCODING = re.compile(rb"""<\?xml[^>]*?encoding\s*=\s*["']([^"']*)["']""")
 _MATH = "{http://www.w3.org/1998/Math/MathML}"
 _OMEX = "{http://identifiers.org/combine.specifications/omex-manifest}"
 _SED = re.compile(r"\{http://sed-ml.org/sed-ml/level1/version([34])\}sedML")
@@ -43,22 +42,14 @@ _EVENTS = "http://www.sbml.org/sbml/symbols/time"
 
 
 def _xml(raw):
-    # Only UTF-8 is read: a UTF-16 or UTF-32 document (NUL bytes) or another
-    # declared encoding could hide a document type from the byte check.
-    if len(raw) > _SIZE:
-        fail("XML document exceeds 16 MiB")
-    declared = _ENCODING.match(raw.removeprefix(b"\xef\xbb\xbf"))
-    if (
-        b"\x00" in raw
-        or (declared and declared[1].lower() not in (b"utf-8", b"utf8"))
-        or any(mark in raw.upper() for mark in (b"<!DOCTYPE", b"<!ENTITY"))
-    ):
-        fail("XML must be UTF-8 without a document type or entities")
     try:
-        raw.decode("utf-8")
-        return ET.fromstring(raw)
-    except (ValueError, UnicodeDecodeError, ET.ParseError) as error:
-        fail(f"invalid XML: {error}")
+        return _read_xml(raw, _SIZE)
+    except _XmlRefused as refused:
+        if refused.reason == "size":
+            fail("XML document exceeds 16 MiB")
+        if refused.reason in {"nul", "dtd", "encoding"}:
+            fail("XML must be UTF-8 without a document type or entities")
+        fail(f"invalid XML: {refused.message}")
 
 
 def _read(path, limit=_SIZE):

@@ -1003,9 +1003,10 @@ fn tangents_match_the_poisson_derivative_and_conserve_mass() {
             assert!((total - 1.0).abs() < 1e-12, "{bound} {at} {total}");
             assert!(drift.abs() < 1e-10, "{bound} {at} {drift}");
             sink = sink.max(law[n - 1]);
-            for i in 0..n {
-                let difference = (ups[j][i] - downs[j][i]) / (2.0 * h);
-                assert!((tangent[i] - difference).abs() < 1e-6, "{bound} {at} {i}");
+            let pairs = ups[j].iter().zip(&downs[j]);
+            for (i, (&slope, (&above, &below))) in tangent.iter().zip(pairs).enumerate() {
+                let difference = (above - below) / (2.0 * h);
+                assert!((slope - difference).abs() < 1e-6, "{bound} {at} {i}");
             }
             if bound == 40 {
                 let mean = b * (1.0 - (-k * at).exp()) / k;

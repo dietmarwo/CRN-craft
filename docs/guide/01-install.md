@@ -29,7 +29,7 @@ print(crn.describe()["schema"])
 ```
 
 ```text
-0.8.1
+0.9.0
 crn-craft.describe/1.0
 ```
 
@@ -72,6 +72,11 @@ python -m pip install --force-reinstall dist/*.whl
 - **Fitting.** `python -m pip install "crn-craft[fit]"` adds the pinned
   SciPy, fcmaes-rust and SQP-craft versions of the fitting examples
   ([chapter 13](13-fitting.md)).
+- **Likelihood readouts.** `python -m pip install "crn-craft[likelihood]"`
+  adds SciPy for the binomial-detection and fluorescence readouts of
+  `crn_craft.likelihood`
+  ([experiments](../reference/experiments.md)). Projections and stationary
+  laws need no extra.
 - **Compiled models.** `crn.compile_loop` needs a Rust toolchain, 1.85 or
   newer, from [rustup](https://rustup.rs) ([chapter 5](05-speed.md)).
 - **R.** The Python package works from R through reticulate

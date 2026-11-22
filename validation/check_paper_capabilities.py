@@ -596,7 +596,7 @@ def observations():
             "stationary [0.25, 0.25, 0.25, 0.25]",
         ]
         and len(lines) == 5
-        and all("crn-craft[projection]" in line for line in lines[3:]),
+        and all("crn-craft[likelihood]" in line for line in lines[3:]),
         "native projection without SciPy and the missing SciPy message",
     )
     axes = measured_counts([[1, 2, 3], [5, 2, 3]], ("N", "C", "P"), (["N", "C"], "P"))

@@ -4,7 +4,7 @@ A protocol gives the time and conditions of an experiment. A count model
 describes the reactions. Timed interventions and reaction completions use
 the native count scheduler. Prepared projections and stationary laws run
 on the native engine; the binomial-detection and fluorescence readouts of
-`crn_craft.likelihood` need the optional `crn-craft[projection]`
+`crn_craft.likelihood` need the optional `crn-craft[likelihood]`
 dependency (SciPy).
 
 ## Scheduled stochastic simulation
@@ -152,8 +152,8 @@ stationary laws. Sparse LU factorizations use the Rust library faer,
 compiled into the extension. SciPy is used only by the binomial-detection
 and Gaussian fluorescence readouts of `crn_craft.likelihood`
 (`count_probability` with `detection` below 1, `binned_probability` with a
-gain and noise). Install it with the `projection` extra
-(`pip install "crn-craft[projection]"`); those two readouts raise
+gain and noise). Install it with the `likelihood` extra
+(`pip install "crn-craft[likelihood]"`); those two readouts raise
 `ModuleNotFoundError` naming the extra without it. The existing `Model.fsp` (the `fsp` method of
 `crn-craft.run/1.0`) is a separate native solver. Use it for one fixed
 model from one initial state. Use `prepare_fsp` for protocols, prescribed

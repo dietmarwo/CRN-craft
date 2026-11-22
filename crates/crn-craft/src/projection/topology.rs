@@ -139,8 +139,8 @@ impl Builder<'_> {
     }
 }
 
-/// The outcomes of a count operation on `count` molecules, as a range
-/// `first..=last`; `None` when an increment would make the count negative.
+/// The outcomes of a count operation on `count` molecules, as the range
+/// `first..=last`; `first` is negative when a decrement exceeds the count.
 fn outcomes(count: u64, operation: Operation) -> (i128, i128) {
     let count = i128::from(count);
     match operation {

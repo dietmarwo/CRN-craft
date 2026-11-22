@@ -63,9 +63,15 @@ pub(crate) fn stirlerr(n: f64) -> f64 {
 /// The deviance term `x ln(x / m) + m - x`, by its series when `x` is near
 /// `m`.
 pub(crate) fn bd0(x: f64, m: f64) -> f64 {
-    if (x - m).abs() < 0.1 * (x + m) {
-        let v = (x - m) / (x + m);
-        let mut s = (x - m) * v;
+    deviance(x, m, x - m)
+}
+
+/// [`bd0`] with the difference `d = x - m` supplied, so that an `m` known
+/// only as a rounded value plus a correction keeps its accuracy in `d`.
+fn deviance(x: f64, m: f64, d: f64) -> f64 {
+    if d.abs() < 0.1 * (x + m) {
+        let v = d / (x + m);
+        let mut s = d * v;
         let mut ej = 2.0 * x * v;
         let v2 = v * v;
         for j in 1..1000 {
@@ -78,45 +84,47 @@ pub(crate) fn bd0(x: f64, m: f64) -> f64 {
         }
         return s;
     }
-    x * libm::log(x / m) + m - x
+    x * libm::log1p(d / m) - d
 }
 
 /// The binomial probability of `x` successes in `n` trials of success
-/// probability `p` (failure probability `q = 1 - p`), for integers
-/// `0 <= x <= n`.
-pub(crate) fn binomial_pmf(x: f64, n: f64, p: f64, q: f64) -> f64 {
+/// probability `p`, for integers `0 <= x <= n` and `0 <= p <= 1`; the
+/// failure probability is `1 - p` exactly. The means `n p` and `n (1 - p)`
+/// are carried with a fused-multiply-add correction, so their differences
+/// from `x` and `n - x` keep full relative accuracy for large `n`.
+pub fn binomial_pmf(x: f64, n: f64, p: f64) -> f64 {
     if p == 0.0 {
         return if x == 0.0 { 1.0 } else { 0.0 };
     }
-    if q == 0.0 {
+    if p == 1.0 {
         return if x == n { 1.0 } else { 0.0 };
     }
+    // n p = mean + correction exactly; n (1 - p) = n - n p.
+    let mean = n * p;
+    let correction = libm::fma(n, p, -mean);
+    let failures = (n - mean) - correction;
     if x == 0.0 {
         if n == 0.0 {
             return 1.0;
         }
-        let lc = if p < 0.1 {
-            -bd0(n, n * q) - n * p
-        } else {
-            n * libm::log(q)
-        };
-        return libm::exp(lc);
+        return libm::exp(n * libm::log1p(-p));
     }
     if x == n {
-        let lc = if q < 0.1 {
-            -bd0(n, n * p) - n * q
-        } else {
-            n * libm::log(p)
-        };
-        return libm::exp(lc);
+        return libm::exp(n * libm::log(p));
     }
-    let lc = stirlerr(n) - stirlerr(x) - stirlerr(n - x) - bd0(x, n * p) - bd0(n - x, n * q);
-    let lf = LN_2PI + libm::log(x) + libm::log1p(-x / n);
+    // x - n p, and (n - x) - n (1 - p) = -(x - n p).
+    let d = (x - mean) - correction;
+    let lc = stirlerr(n)
+        - stirlerr(x)
+        - stirlerr(n - x)
+        - deviance(x, mean + correction, d)
+        - deviance(n - x, failures, -d);
+    let lf = LN_2PI + libm::log(x * ((n - x) / n));
     libm::exp(lc - 0.5 * lf)
 }
 
 /// The Poisson probability of `x` (an integer `>= 0`) at mean `mu >= 0`.
-pub(crate) fn poisson_pmf(x: f64, mu: f64) -> f64 {
+pub fn poisson_pmf(x: f64, mu: f64) -> f64 {
     if mu == 0.0 {
         return if x == 0.0 { 1.0 } else { 0.0 };
     }
@@ -129,7 +137,7 @@ pub(crate) fn poisson_pmf(x: f64, mu: f64) -> f64 {
 /// `P(K >= first)` for `K ~ Poisson(mu)`, `first >= 1`: the regularized
 /// lower incomplete gamma function `P(first, mu)`.
 #[allow(clippy::cast_precision_loss)]
-pub(crate) fn poisson_tail(first: u64, mu: f64) -> f64 {
+pub fn poisson_tail(first: u64, mu: f64) -> f64 {
     if mu <= 0.0 {
         return 0.0;
     }
@@ -187,7 +195,7 @@ mod tests {
             for &p in &[0.1, 0.25, 0.5, 0.7, 0.95] {
                 let mut total = 0.0;
                 for x in 0..=n {
-                    let got = binomial_pmf(x as f64, n as f64, p, 1.0 - p);
+                    let got = binomial_pmf(x as f64, n as f64, p);
                     let want = exact_binomial(x, n, p);
                     assert!(
                         (got - want).abs() <= 1e-13 * want.max(1e-300),
@@ -204,7 +212,7 @@ mod tests {
     fn binomial_mass_sums_to_one_for_large_n() {
         let n = 100_000.0;
         let total: f64 = (0..=100_000)
-            .map(|x| binomial_pmf(f64::from(x), n, 0.3, 0.7))
+            .map(|x| binomial_pmf(f64::from(x), n, 0.3))
             .sum();
         assert!((total - 1.0).abs() < 1e-11, "{total}");
     }

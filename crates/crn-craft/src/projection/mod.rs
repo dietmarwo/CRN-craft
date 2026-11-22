@@ -68,7 +68,7 @@
 //! ```
 mod generator;
 mod propagate;
-mod special;
+pub mod special;
 mod topology;
 
 #[cfg(test)]

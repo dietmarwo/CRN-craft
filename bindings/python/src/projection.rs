@@ -461,7 +461,23 @@ impl ProjectionGenerator {
     }
 }
 
+/// The binomial probability the partition kernel uses (for validation).
+#[pyfunction]
+#[pyo3(name = "_binomial_pmf")]
+fn binomial_pmf(x: f64, n: f64, p: f64) -> f64 {
+    crn_craft::projection::special::binomial_pmf(x, n, p)
+}
+
+/// The Poisson upper tail `P(K >= first)` uniformization uses (for validation).
+#[pyfunction]
+#[pyo3(name = "_poisson_tail")]
+fn poisson_tail(first: u64, mu: f64) -> f64 {
+    crn_craft::projection::special::poisson_tail(first, mu)
+}
+
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_function(wrap_pyfunction!(binomial_pmf, module)?)?;
+    module.add_function(wrap_pyfunction!(poisson_tail, module)?)?;
     module.add_class::<ProjectionView>()?;
     module.add_class::<ProjectionTopology>()?;
     module.add_class::<ProjectionGenerator>()?;

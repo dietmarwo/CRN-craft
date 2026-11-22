@@ -38,17 +38,21 @@ fn exit_rate(generator: &Generator) -> f64 {
 }
 
 /// The number of uniformization pieces of `rate * duration`, each with a
-/// Poisson mean of at most 16, checked against the remaining work.
-#[allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
-fn pieces(rate: f64, duration: f64, work: &Work) -> Result<u64, Diagnostic> {
+/// Poisson mean of at most 16; `None` when it is not a finite count below
+/// 9e18.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn split(rate: f64, duration: f64) -> Option<u64> {
     let pieces = (rate * duration / 16.0).ceil().max(1.0);
-    let remaining = work.limit - work.count;
-    // NaN and values beyond i64 fail the comparison below as too large.
-    let representable = pieces < 9.0e18;
-    if !representable || i128::from(pieces as i64) > remaining {
-        return Err(budget("uniformization exceeds the work budget"));
+    // NaN fails the comparison.
+    (pieces < 9.0e18).then_some(pieces as u64)
+}
+
+/// [`split`], refused when the pieces exceed the remaining work.
+fn pieces(rate: f64, duration: f64, work: &Work) -> Result<u64, Diagnostic> {
+    match split(rate, duration) {
+        Some(pieces) if i128::from(pieces) <= work.limit - work.count => Ok(pieces),
+        _ => Err(budget("uniformization exceeds the work budget")),
     }
-    Ok(pieces as u64)
 }
 
 /// Propagates `p` (states and sink) over `duration` with the constant part
@@ -243,7 +247,9 @@ impl Midpoint<'_> {
         if rate == 0.0 {
             return Ok(p);
         }
-        let pieces = pieces(rate, h, self.work)?;
+        // The action is charged once, whatever its number of pieces.
+        let pieces =
+            split(rate, h).ok_or_else(|| budget("uniformization exceeds the work budget"))?;
         let (row_ptr, col_idx) = (merged.row_ptr(), merged.col_idx());
         self.transition.clear();
         self.transition.extend(self.q.iter().map(|&x| x / rate));
@@ -444,7 +450,7 @@ pub fn kick(
                 };
                 let trials = count as f64;
                 for x in 0..=count {
-                    place(i128::from(x), binomial_pmf(x as f64, trials, q, 1.0 - q))?;
+                    place(i128::from(x), binomial_pmf(x as f64, trials, q))?;
                 }
             } else {
                 place(first, 1.0)?;

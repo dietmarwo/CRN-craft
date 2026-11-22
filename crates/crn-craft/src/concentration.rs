@@ -225,3 +225,126 @@ impl Concentration {
         Ok(result)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Concentration;
+
+    fn strings(values: &[&str]) -> Vec<String> {
+        values.iter().map(|s| (*s).to_owned()).collect()
+    }
+
+    fn transport() -> Concentration {
+        Concentration::new(
+            &strings(&["C1", "C2"]),
+            &strings(&["k", "V1", "V2", "c0"]),
+            &strings(&["c0", "c0/4"]),
+            &[("J".into(), "k*(C1-C2)".into())],
+            &strings(&["-J/V1", "J/V2 + time*0"]),
+            &strings(&["V1*C1+V2*C2"]),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn right_hand_side_uses_assignments_and_parameters() {
+        let model = transport();
+        let p = [0.8, 1.0, 4.0, 2.0];
+        assert_eq!(model.initial(&p).unwrap(), vec![2.0, 0.5]);
+        let mut out = [0.0; 2];
+        model.rhs(0.0, &[2.0, 0.5], &p, &mut out);
+        assert!((out[0] + 1.2).abs() < 1e-15 && (out[1] - 0.3).abs() < 1e-15);
+        // Amount is conserved: V1 dC1 + V2 dC2 = 0.
+        assert!((out[0] + 4.0 * out[1]).abs() < 1e-15);
+        assert_eq!(model.observe(1.0, &[2.0, 0.5], &p).unwrap(), vec![4.0]);
+    }
+
+    #[test]
+    fn jacobian_product_matches_central_differences() {
+        let model = Concentration::new(
+            &strings(&["A", "B"]),
+            &strings(&["k", "K"]),
+            &strings(&["1", "0.5"]),
+            &[
+                ("v".into(), "k*A*B/(K+A)".into()),
+                ("w".into(), "v^2".into()),
+            ],
+            &strings(&["-v+w", "v-2*w*B"]),
+            &[],
+        )
+        .unwrap();
+        let (p, y, v) = ([1.3, 0.4], [0.7, 0.9], [0.3, -1.1]);
+        let mut product = [0.0; 2];
+        model.jacobian_product(0.0, &y, &p, &v, &mut product);
+        let h = 1e-6;
+        let (mut plus, mut minus) = ([0.0; 2], [0.0; 2]);
+        let shift = |s: f64| [y[0] + s * v[0], y[1] + s * v[1]];
+        model.rhs(0.0, &shift(h), &p, &mut plus);
+        model.rhs(0.0, &shift(-h), &p, &mut minus);
+        for i in 0..2 {
+            let difference = (plus[i] - minus[i]) / (2.0 * h);
+            assert!((product[i] - difference).abs() < 1e-8, "{i}");
+        }
+    }
+
+    #[test]
+    fn negative_trial_states_are_read_as_zero() {
+        let model = Concentration::new(
+            &strings(&["A"]),
+            &strings(&["k"]),
+            &strings(&["1"]),
+            &[],
+            &strings(&["-k*A"]),
+            &[],
+        )
+        .unwrap();
+        let mut out = [1.0];
+        model.rhs(0.0, &[-0.5], &[2.0], &mut out);
+        assert_eq!(out, [0.0]);
+        model.jacobian_product(0.0, &[-0.5], &[2.0], &[1.0], &mut out);
+        assert_eq!(out, [0.0]);
+    }
+
+    #[test]
+    fn invalid_models_and_inputs_are_refused() {
+        let new = |states: &[&str], initial: &[&str], derivatives: &[&str]| {
+            Concentration::new(
+                &strings(states),
+                &strings(&["k"]),
+                &strings(initial),
+                &[],
+                &strings(derivatives),
+                &[],
+            )
+        };
+        assert!(new(&["A", "A"], &["1", "1"], &["0", "0"]).is_err());
+        assert!(new(&["time"], &["1"], &["0"]).is_err());
+        assert!(new(&["k"], &["1"], &["0"]).is_err());
+        assert!(new(&["1A"], &["1"], &["0"]).is_err());
+        assert!(new(&["A"], &["A"], &["0"]).is_err());
+        assert!(new(&["A"], &["1"], &["-q*A"]).is_err());
+        assert!(new(&["A"], &["1", "2"], &["0"]).is_err());
+        assert!(new(&[], &[], &[]).is_err());
+        let long = format!("{}k", "0+".repeat(2100));
+        assert!(new(&["A"], &["1"], &[long.as_str()]).is_err());
+        let model = new(&["A"], &["k-1"], &["-k*A"]).unwrap();
+        assert!(model.initial(&[0.5]).is_err());
+        assert!(model.initial(&[f64::NAN]).is_err());
+        assert!(model.initial(&[1.0, 2.0]).is_err());
+        assert_eq!(model.initial(&[1.5]).unwrap(), vec![0.5]);
+        let mut out = [0.0];
+        model.rhs(0.0, &[f64::INFINITY], &[1.0], &mut out);
+        assert!(out[0].is_nan());
+        assert!(model.observe(0.0, &[0.5, 0.5], &[1.0]).is_err());
+        let ratio = Concentration::new(
+            &strings(&["A"]),
+            &strings(&["k"]),
+            &strings(&["1"]),
+            &[],
+            &strings(&["0"]),
+            &strings(&["A/k"]),
+        )
+        .unwrap();
+        assert!(ratio.observe(0.0, &[1.0], &[0.0]).is_err());
+    }
+}

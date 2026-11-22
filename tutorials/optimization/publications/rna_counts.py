@@ -251,7 +251,7 @@ def run(args, report):
                 )
     if args.source_budget:
         observations = observed(net, TRUTH, 100, seed + 100, TIMES)
-        problem = CdfScore(observations)
+        problem = CdfScore(observations, midrank=not args.published_rank)
         prediction_seed = seed + 200
         fit = search(
             args,
@@ -270,6 +270,10 @@ def run(args, report):
             rates=fit.best,
             score=fit.value,
             independent_score=held,
+            truth_score=problem.from_counts(
+                observed(net, TRUTH, 10_000, prediction_seed, TIMES)
+            ),
+            sparse_score="published ranks" if args.published_rank else "midranks",
             candidate_paths=10_000 * len(fit.candidates),
             evaluations=len(fit.candidates),
         )

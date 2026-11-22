@@ -40,8 +40,10 @@ fn error_constant(k: usize) -> f64 {
 /// The most simplified-Newton iterations with a factorization from an
 /// earlier time before refactorizing at the step's own time.
 const STALE_ITERATIONS: usize = 4;
-/// Safety factor of a step-size proposal.
-const SAFETY: f64 = 0.9;
+/// Safety factor of a step-size proposal, calibrated so that the error
+/// against closed-form laws at a given tolerance is at the level of SciPy's
+/// BDF (the reference of `validation/check_projection_native.py`).
+const SAFETY: f64 = 0.8;
 /// Largest growth and smallest shrink of the step size in one change.
 const MAX_GROWTH: f64 = 10.0;
 const MIN_SHRINK: f64 = 0.2;

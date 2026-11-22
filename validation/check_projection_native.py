@@ -29,7 +29,9 @@ SciPy. Gates, declared before the first run:
   residuals within the solver's own acceptance, identical histories
   (bounds, convergence); cases with two closed classes and transient
   states, an absorbing state, a nearly decomposable stiff chain and a
-  redirected birth-death chain with expansions;
+  redirected birth-death chain with expansions; a BDF solve and a
+  stationary law above ``max_factor_bytes`` are refused with a message
+  that names the budget;
 - binomial pmf within a relative 1e-12 of SciPy for n <= 1e5 and, where
   the two differ by more than that (SciPy loses accuracy for large n),
   within 1e-13 of a 60-digit Decimal evaluation; Poisson tail within a
@@ -726,6 +728,29 @@ def stationary_cases():
         stop="X >= 2",
     )
     run("S6_stop_refused", lambda f: f(stopper, {"X": 4}, return_state=(0,)))
+    # The factorization budget (native only): a refusal that names it.
+    graph = crn.prepare_fsp(chain, {"X": 30})
+    refusals = (
+        outcome(
+            lambda: graph.solve(
+                1,
+                [1],
+                signals={"birth": crn.Signal(lambda t: 1 + t)},
+                max_factor_bytes=999,
+            )
+        ),
+        outcome(
+            lambda: crn.stationary_fsp(
+                chain, {"X": 30}, return_state=(0,), max_factor_bytes=999
+            )
+        ),
+    )
+    named = all(
+        r is not None and r[0] == "RuntimeError" and "max_factor_bytes=999" in r[1]
+        for r in refusals
+    )
+    require(named, f"factorization budget refusals: {refusals}")
+    rows["S7_factorization_budget_refused"] = named
     return rows
 
 

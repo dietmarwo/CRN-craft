@@ -2,9 +2,10 @@
 
 A protocol gives the time and conditions of an experiment. A count model
 describes the reactions. Timed interventions and reaction completions use
-the native count scheduler. Prepared projections run on the native
-engine; BDF integration, stationary laws and some likelihood readouts need
-the optional `crn-craft[projection]` dependency (SciPy).
+the native count scheduler. Prepared projections and stationary laws run
+on the native engine; the binomial-detection and fluorescence readouts of
+`crn_craft.likelihood` need the optional `crn-craft[projection]`
+dependency (SciPy).
 
 ## Scheduled stochastic simulation
 
@@ -145,14 +146,15 @@ continued = projection.solve(5, [5], initial=law.snapshots[1],
 The native engine lowers the model, evaluates the rates (including
 count-dependent rates and stop conditions), enumerates the states,
 assembles the sparse generator, applies interventions and propagates the
-law by uniformization and by the exponential midpoint rule. SciPy is used
-only by `solve(..., solver="bdf")` with signals (`solve_ivp` on the native
-generator), by `stationary_fsp` (sparse LU) and by the SciPy-based
-readouts in `crn_craft.likelihood`. Install it with the `projection`
-extra (`pip install "crn-craft[projection]"`). `import crn_craft`,
-`prepare_fsp`, piecewise-constant solves and `solver="midpoint"` work
-without SciPy; the functions that need it raise `ModuleNotFoundError`
-naming the extra. The existing `Model.fsp` (the `fsp` method of
+law by uniformization, by an implicit variable-order integrator
+(`solver="bdf"`) and by the exponential midpoint rule; it also solves
+stationary laws. Sparse LU factorizations use the Rust library faer,
+compiled into the extension. SciPy is used only by the binomial-detection
+and Gaussian fluorescence readouts of `crn_craft.likelihood`
+(`count_probability` with `detection` below 1, `binned_probability` with a
+gain and noise). Install it with the `projection` extra
+(`pip install "crn-craft[projection]"`); those two readouts raise
+`ModuleNotFoundError` naming the extra without it. The existing `Model.fsp` (the `fsp` method of
 `crn-craft.run/1.0`) is a separate native solver. Use it for one fixed
 model from one initial state. Use `prepare_fsp` for protocols, prescribed
 signals, initial mixtures, checkpoints or many parameter vectors on one
@@ -185,8 +187,8 @@ their end values outside the table. Step times split the integration;
 the knots of a linear table do not. `Signal(function, change_times=...)`
 accepts a Python rate function; list its discontinuities in
 `change_times`. Python callables are supplied by the caller when
-rerunning the experiment. The midpoint rule evaluates tables natively and
-calls a Python function from the native step loop; an interval is
+rerunning the experiment. Both forced-segment solvers evaluate tables
+natively and call a Python function from the native step loop; an interval is
 integrated with the value just before its end, so a discontinuity at a
 boundary is approached from the left and the next interval starts with
 the right-continuous value.
@@ -195,8 +197,29 @@ Constant segments use uniformization with a truncated Poisson series:
 an interval of length `t` splits into `ceil(λt/16)` pieces (λ the largest
 exit rate), and each piece stops the series once the omitted Poisson
 weight is at most its share of the tolerance. Smoothly forced segments
-use SciPy's sparse BDF (`solver="bdf"`) or an adaptive exponential
-midpoint rule (`solver="midpoint"`). The midpoint rule compares one step
+use the implicit integrator (`solver="bdf"`, the default) or an adaptive
+exponential midpoint rule (`solver="midpoint"`).
+
+The implicit integrator uses the numerical differentiation formulas
+(NDF) of orders 1 to 5 of Shampine and Reichelt ("The MATLAB ODE Suite",
+1997) in backward-difference form, with a quasi-constant step size. Each
+step's local error estimate is held to `rtol = tolerance` and
+`atol = 1e-4 · tolerance` in the root-mean-square norm. Step size and
+order change only after `k + 1` equal steps of order `k`; steps are at
+most `max_step`, land exactly on segment ends, and reports inside a
+segment come from the interpolating polynomial of the last step. The
+problem is linear, so the iteration matrix `I − c Q(t)` is exact when it
+is factorized at the step's own time: it is factorized when the step
+size or order changes, and during a run of equal steps the factorization
+of an earlier time is reused with up to four simplified Newton iterations
+before refactorizing. One symbolic analysis of the matrix pattern serves
+every factorization of a generator. Before the first factorization the
+analysis bounds the memory of the factorization and its workspace; above
+`max_factor_bytes` (default 2 GiB) the solve stops with `CRN-E070`. The
+joint nuclear and cytoplasmic RNA projection of chapter 23 (35,496
+states) needs a bound of about 0.26 GB; 99,856 states need about 1.1 GB.
+
+The midpoint rule compares one step
 `exp(h Q(t + h/2))` with two half steps and accepts when their L1 gap is
 at most `tolerance · h / (end − start)`; each matrix exponential action
 is a uniformization of the frozen generator whose omitted Poisson weight
@@ -210,15 +233,22 @@ mass defect). BDF can return slightly negative probabilities; check
 `minimum_probability`. The midpoint rule stops with an error when its
 tolerance is below the rounding level of its step estimate. `max_work`
 counts series terms, intervention outcomes, matrix exponential actions
-and BDF right-hand-side evaluations. Check tolerance refinement on the
+and, for BDF, each product of the generator with a vector, each solve
+and each numeric factorization. Check tolerance refinement on the
 selected observable for a smooth signal. See the
 [RNA fit replay](../../examples/yeast_rna_fit/native_fit.py).
 
 Use `stationary_fsp(model, bounds)` for one finite closed communicating
 class or specify `class_state`. With a `return_state`, escaped rates
-redirect to a retained state. The native engine enumerates the states
-and builds the generator; SciPy's sparse LU solves the linear system,
-and the result reports its L1 residual. Successive enlargements
+redirect to a retained state. The native engine enumerates the states,
+builds the generator, finds the closed communicating classes (an
+iterative strongly-connected-components pass; a class is closed when no
+transition leaves it), anchors the largest state of the class (or the
+return state) at probability 1 and solves the balance equations of the
+others with one sparse LU factorization, bounded by `max_factor_bytes`
+like the BDF. The law is clipped at zero and normalized; the result
+reports its L1 residual, which must be at most 1e-9 times the largest
+exit rate (at least 1). Successive enlargements
 compare marginal CDFs and outward flux. These diagnostics are empirical
 on unbounded networks. Certified error bounds require additional
 recurrence evidence. `result.method` separates the exact finite law
@@ -228,10 +258,14 @@ recurrence evidence. `result.method` separates the exact finite law
 
 **Verification.** `validation/check_projection_native.py` compares the
 native engine with an independent Python and SciPy implementation
-(`validation/reference_projection.py`, not shipped) on a declared case
-set: identical states and prepared ids, laws within the solve tolerance
-(twice it for forced segments), identical errors on budget and input
-failures. It also checks the binomial and Poisson-tail kernels against
+(`validation/reference_projection.py`, not shipped, with SciPy's BDF and
+sparse LU) on a declared case set: identical states and prepared ids,
+laws within the solve tolerance (twice it for forced segments, including
+BDF against SciPy's BDF), identical errors on budget and input failures,
+and stationary laws within 1e-10 on chains with two closed classes and
+transient states, an absorbing state, a nearly decomposable stiff block
+structure and redirected expansions. Forced laws are also compared with
+closed-form Poisson laws. It also checks the binomial and Poisson-tail kernels against
 SciPy and, where SciPy loses accuracy for large counts, against a
 60-digit evaluation.
 

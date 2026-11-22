@@ -203,12 +203,17 @@ flowchart LR
   `prepare_fsp`. It enumerates the states reachable inside the bounds from
   an initial law, with scheduled interventions, once per topology; builds
   the generator per parameter binding in compressed sparse column form;
-  applies interventions; and propagates by uniformization and the
-  exponential midpoint rule. It shares the flat view with `fsp::v1` but
-  not its enumeration, budgets or result contract. The trait
-  `SparseLinearSolver` marks where a sparse direct solver plugs in for
-  implicit integration and stationary laws; no implementation lives in
-  the crate.
+  applies interventions; propagates by uniformization, the exponential
+  midpoint rule and a variable-order implicit integrator (NDF orders 1 to
+  5, `bdf`); and solves stationary laws per closed communicating class
+  (`stationary`). It shares the flat view with `fsp::v1` but not its
+  enumeration, budgets or result contract. The implicit integrator and
+  the stationary solve reach their sparse direct solver through the trait
+  `SparseLinearSolver` (symbolic analysis with a memory bound, numeric
+  factorization, solve); no implementation lives in the crate, whose tests
+  use a dense test double. The Python binding (`bindings/python`)
+  implements it on faer's sparse LU, so faer is a dependency of the
+  extension module only, not of the engine crates.
 - **Analysis** (`analysis.rs`, `conservation.rs`, `cone.rs`, `linkage.rs`):
   exact conservation laws, the nonnegative conservation cone, linkage
   classes and deficiency, and the propensities at a state

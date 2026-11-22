@@ -47,6 +47,25 @@ CRN-craft engine. The upstream MIT notice is preserved in
 reference dependencies. Python fcmaes-rust/rebop dependencies are separately
 listed in that directory's requirements file.
 
+## Rust crates in the Python extension
+
+The extension module of the Python package (`crn_craft._native`, built from
+`bindings/python` with its own `Cargo.lock`) is built from the Rust crates
+that lockfile pins; procedural macros and build scripts among them run
+only at build time. Besides the crates of the core engine they are PyO3 (the
+Python binding) and faer with its dependencies (gemm, nano-gemm, pulp,
+dyn-stack, reborrow and others), which supply the sparse LU factorization
+of the implicit projection integrator and of stationary laws. Every crate
+and its declared license is listed in
+`validation/dependency-policy-python.json`, and
+`validation/check_dependencies.py` fails when the lockfile holds a crate
+or a license outside that list. The licenses are MIT, Apache-2.0
+(including Apache-2.0 WITH LLVM-exception), BSD-2-Clause, Zlib, Unicode-3.0
+and the Unlicense, most crates offering a choice among them; none is a
+copyleft license. faer is built without its default features (no rayon
+thread pool) and needs no system BLAS or LAPACK library. The upstream
+license texts are in each crate's published source.
+
 ## Reference data of the guide case studies
 
 The MIT license of this repository covers the code and text written for

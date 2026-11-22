@@ -1,4 +1,5 @@
 //! Minimal JSON bridge; numerical semantics and validators live in the core.
+mod faer_lu;
 mod projection;
 mod rules;
 mod rules_payload;

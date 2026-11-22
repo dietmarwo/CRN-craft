@@ -18,24 +18,16 @@ _MAX_COUNT = 2**53
 # Counts and increments beyond this behave like any value outside the bounds.
 _CLAMP = 2**62
 _OPERATIONS = {"set": 0, "change": 1, "partition": 2}
-
-
-def _require_scipy(feature):
-    """Fail with the name of the optional extra when SciPy is missing."""
-    try:
-        import scipy  # noqa: F401
-    except ModuleNotFoundError as error:
-        raise ModuleNotFoundError(
-            f"{feature} needs SciPy; install it with "
-            "pip install 'crn-craft[projection]'",
-            name="scipy",
-        ) from error
+# The default bound of one sparse LU factorization (solver="bdf" and
+# stationary laws): 2 GiB.
+_MAX_FACTOR_BYTES = 2 << 30
+_COUNTS = ("symbolic", "numeric", "solves", "products", "steps", "rejected")
 
 
 class Signal:
     """A real-time rate input. Tables use linear or right-continuous steps.
 
-    Tables are evaluated natively by the midpoint rule. Callables are a
+    Tables are evaluated natively by both forced-segment solvers. Callables are a
     Python-only option, called from the native step loop. Provide their
     change points and a reproducible description of their parameters in the
     calling experiment.
@@ -174,21 +166,6 @@ def _clamp(n):
 
 def _vector(data):
     return np.frombuffer(data, dtype="<f8")
-
-
-def _sparse(generator, signal=None):
-    """One native generator matrix as a SciPy CSC matrix."""
-    from scipy import sparse
-
-    dim, indptr, indices, data = generator.csc(signal)
-    return sparse.csc_matrix(
-        (
-            _vector(data),
-            np.frombuffer(indices, dtype="<i8"),
-            np.frombuffer(indptr, dtype="<i8"),
-        ),
-        shape=(dim, dim),
-    )
 
 
 def _source(signal):
@@ -378,12 +355,6 @@ class PreparedFsp:
         stopped = np.frombuffer(generator.stopped(), dtype=bool)
         return generator, tuple(signals.values()), stopped
 
-    def _scipy_generator(self, parameters):
-        """The generator without signals as a SciPy CSC matrix (sink last),
-        and the stop flags."""
-        generator, _, stopped = self._generator(parameters, {})
-        return _sparse(generator), stopped
-
     def _kick(self, state, changes, work):
         if not changes:
             return state
@@ -419,16 +390,22 @@ class PreparedFsp:
         max_output_bytes=256 << 20,
         on_report=None,
         keep_snapshots=True,
+        max_factor_bytes=_MAX_FACTOR_BYTES,
     ):
         """Propagate from a prepared law or a compatible report-time checkpoint.
 
         Constant segments use positive uniformization. Inhomogeneous
-        segments use SciPy's BDF (``solver="bdf"``, the one solve that needs
-        SciPy) or the native adaptive exponential midpoint rule. Series-tail,
-        leakage, minimum probability and mass defect are retained separately.
-        The series-tail bound covers uniformization only; BDF and midpoint
-        segments add no integration error estimate, and BDF can return
-        slightly negative probabilities. A checkpoint continues only under
+        segments use the native implicit integrator (``solver="bdf"``: the
+        variable-order numerical differentiation formulas of orders 1 to 5
+        with a sparse LU of the iteration matrix, ``rtol = tolerance`` and
+        ``atol = 1e-4 * tolerance``) or the native adaptive exponential
+        midpoint rule. A BDF segment refuses a sparse factorization whose
+        bound exceeds ``max_factor_bytes``; its work unit is one product of
+        the generator with a vector, one solve or one numeric factorization.
+        Series-tail, leakage, minimum probability and mass defect are
+        retained separately. The series-tail bound covers uniformization
+        only; BDF and midpoint segments add no integration error estimate,
+        and BDF can return slightly negative probabilities. A checkpoint continues only under
         the same parameters and signals; change parameters at a time point
         with a protocol action. An optional on_report callback receives each
         snapshot in order. Pass keep_snapshots=False when a reduction suffices.
@@ -449,6 +426,7 @@ class PreparedFsp:
             or times[0] < 0
             or times[-1] > end
             or np.any(np.diff(times) <= 0)
+            or index(max_factor_bytes) < 0
         ):
             raise ValueError(
                 "invalid projection horizon, report grid or solver controls"
@@ -512,10 +490,8 @@ class PreparedFsp:
             actions = tuple(action for action in actions if action[0] <= end)
         for _, _, edits in actions[:actions_applied]:
             parameters.update(edits)
-        if signals and solver == "bdf":
-            _require_scipy("solver='bdf'")
         generator, forcing, stopped = self._generator(parameters, signals)
-        matrices = None
+        counts = dict.fromkeys(_COUNTS, 0)
         boundaries = {start, float(end)}
         boundaries.update(t for t, _, _ in actions[actions_applied:] if t >= start)
         boundaries.update(
@@ -556,13 +532,8 @@ class PreparedFsp:
             if t > start:
                 sample_times = np.r_[interior, t]
                 if forcing and solver == "bdf":
-                    if matrices is None:
-                        matrices = (
-                            _sparse(generator),
-                            tuple(_sparse(generator, k) for k in range(len(forcing))),
-                        )
-                    values = _bdf(
-                        matrices,
+                    values, state = _bdf(
+                        generator,
                         forcing,
                         state,
                         start,
@@ -570,11 +541,12 @@ class PreparedFsp:
                         tolerance,
                         max_step,
                         work,
-                        sample_times,
+                        interior,
+                        index(max_factor_bytes),
+                        counts,
                     )
-                    for at, vector in zip(interior, values[:-1], strict=True):
+                    for at, vector in zip(interior, values, strict=True):
                         snapshot(float(at), vector)
-                    state = values[-1]
                 else:
                     previous = start
                     for at in sample_times:
@@ -612,14 +584,13 @@ class PreparedFsp:
                 if edits:
                     parameters.update(edits)
                     generator, forcing, stopped = self._generator(parameters, signals)
-                    matrices = None
                 actions_applied += 1
             if report_index < len(times) and times[report_index] == t:
                 snapshot(t, state)
                 report_index += 1
             start = t
 
-        return ProjectionResult(
+        result = ProjectionResult(
             self.species,
             self.states,
             tuple(output),
@@ -629,6 +600,9 @@ class PreparedFsp:
             sha256(model_bytes(self._protocol)).hexdigest(),
             table_hashes,
         )
+        # Linear-algebra counts of the BDF segments, for measurements.
+        object.__setattr__(result, "_solver_counts", counts)
+        return result
 
 
 def _uniform(generator, p, duration, tol, work):
@@ -660,50 +634,28 @@ def _midpoint(generator, signals, p, start, end, tol, max_step, work):
     return _vector(data)
 
 
-def _bdf(matrices, signals, p, start, end, tol, max_step, work, reports):
-    """SciPy's BDF on the native generator matrices."""
-    from scipy.integrate import solve_ivp
-
-    constant, forcing = matrices
-
-    def weights(t):
-        # Integrate to a discontinuity using the incoming hazard. The next
-        # interval starts at the boundary with the right-continuous hazard.
-        at = np.nextafter(end, start) if t == end else t
-        values = [float(s.evaluate(at)) for s in signals]
-        if any(v < 0 or not isfinite(v) for v in values):
-            raise ValueError(
-                "time-dependent reaction rate must be finite and nonnegative"
-            )
-        return values
-
-    def matrix_at(t):
-        q = constant
-        for v, matrix in zip(weights(t), forcing, strict=True):
-            q = q + v * matrix
-        return q
-
-    def rhs(t, vector):
-        work.charge()
-        result = constant @ vector
-        for v, matrix in zip(weights(t), forcing, strict=True):
-            result += v * (matrix @ vector)
-        return result
-
-    result = solve_ivp(
-        rhs,
-        (start, end),
-        p,
-        method="BDF",
-        t_eval=reports,
-        jac=lambda t, _: matrix_at(t),
-        rtol=tol,
-        atol=tol * 1e-4,
-        max_step=max_step,
-    )
-    if not result.success:
-        raise RuntimeError(result.message)
-    return result.y.T
+def _bdf(
+    generator, signals, p, start, end, tol, max_step, work, reports, budget, counts
+):
+    """Native variable-order NDF integrator; see the Rust `bdf`."""
+    try:
+        reported, data, work.count, used = generator.bdf(
+            p.tobytes(),
+            float(start),
+            float(end),
+            float(tol),
+            float(max_step),
+            [float(at) for at in reports],
+            [_source(s) for s in signals],
+            work.count,
+            work.native_limit,
+            budget,
+        )
+    except _native.NativeError as error:
+        raise _native_error(error, work) from None
+    for key, value in zip(_COUNTS, used, strict=True):
+        counts[key] += value
+    return _vector(reported).reshape(len(reports), len(p)), _vector(data)
 
 
 def prepare_fsp(
@@ -718,8 +670,7 @@ def prepare_fsp(
     """Prepare a reusable projection for a closed model.
 
     The native engine lowers the model, enumerates the states, builds the
-    generator and propagates the law; only ``solve(solver="bdf")`` with
-    signals needs SciPy (the ``projection`` extra).
+    generator and propagates the law; no solve needs SciPy.
     Existing :meth:`Model.fsp` is the native uniformization for one fixed
     model without protocols, signals or initial mixtures. A prepared
     projection holds no per-solve state, so threads can share it. It cannot

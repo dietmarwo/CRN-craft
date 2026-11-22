@@ -20,12 +20,19 @@
 //! - [`midpoint`] integrates time-dependent signals with the adaptive
 //!   exponential midpoint rule, each matrix-exponential action by
 //!   uniformization of the frozen generator.
+//! - [`bdf`] integrates time-dependent signals with the variable-order
+//!   numerical differentiation formulas (orders 1 to 5) on an
+//!   [`Implicit`] iteration matrix, through a [`SparseLinearSolver`].
+//! - [`stationary`] solves the stationary law of one closed communicating
+//!   class with one anchored sparse solve.
 //! - [`kick`] applies a count intervention to a law with exact binomial
 //!   partition weights.
 //!
-//! Failures are diagnostics: `CRN-E070` for budgets, work, the integrator's
-//! stall and interruption, `CRN-E071` for an input or law the projection
-//! cannot represent, and the rate evaluator's codes (`CRN-R030`).
+//! Failures are diagnostics: `CRN-E070` for budgets, work, the
+//! integrators' stalls, the factorization memory budget, a stationary
+//! solve that fails and interruption; `CRN-E071` for an input or law the
+//! projection cannot represent (including a class count other than one);
+//! and the rate evaluator's codes (`CRN-R030`).
 //! Everything runs on the calling thread; results do not depend on timing.
 //!
 //! ```
@@ -67,18 +74,22 @@
 //! assert!((p[0] - survive.powi(3)).abs() < 1e-12); // all three survive
 //! ```
 mod generator;
+mod implicit;
 mod propagate;
 pub mod special;
+mod stationary;
 mod topology;
 
 #[cfg(test)]
 mod tests;
 
 pub use generator::{Csc, Generator, MAX_RATE_TABLE, Merged};
+pub use implicit::{BdfControls, Implicit, MAX_ORDER, bdf};
 pub use propagate::{
     LAST_STEP_SLACK, MIDPOINT_PIECE_MEAN, MIDPOINT_TRUNCATION_SHARE, MidpointControls,
     SignalValues, kick, midpoint, uniform,
 };
+pub use stationary::{StationaryLaw, stationary};
 pub use topology::{
     ChannelShape, MAX_COUNT, MAX_EDGES, MAX_STATES, STATE_TABLE_BYTES, Spec, Topology,
 };
@@ -189,26 +200,29 @@ impl<'a> Interrupt<'a> {
 /// solve on a projection generator.
 ///
 /// No implementation lives in this crate: a sparse direct solver is an
-/// adapter outside it (another crate or a feature of a binding), so the
-/// engine keeps its dependency set. The matrices it receives are [`Csc`]
-/// with sorted rows: an implicit step factorizes `I - c Q(t)` on the fixed
-/// pattern of [`Merged`] (one symbolic analysis, many numeric
-/// factorizations), a stationary solve the generator restricted to a closed
-/// class with one anchored column.
+/// adapter outside it (the Python binding implements it on faer's sparse
+/// LU), so the engine keeps its dependency set. The matrices it receives
+/// are [`Csc`] with sorted rows. One [`analyze`](Self::analyze) fixes a
+/// pattern; every later [`factorize`](Self::factorize) has that pattern
+/// with new values (an implicit step factorizes `I - c Q(t)` on the fixed
+/// pattern of [`Merged`] with the diagonal added; a stationary solve
+/// analyzes once per closed class).
 pub trait SparseLinearSolver {
-    /// Bytes a factorization of `matrix` may need, known before the numeric
-    /// factorization (for example from the symbolic analysis); the caller
-    /// refuses above its budget.
+    /// The symbolic analysis of the pattern of `pattern` (its values are
+    /// ignored). Returns an upper bound of the bytes one numeric
+    /// factorization on this pattern needs, so that the caller can refuse
+    /// before factorizing.
     ///
     /// # Errors
     ///
     /// A diagnostic when the analysis fails.
-    fn factorization_bytes(&mut self, matrix: &Csc) -> Result<u64, Diagnostic>;
-    /// Factorizes `matrix`.
+    fn analyze(&mut self, pattern: &Csc) -> Result<u64, Diagnostic>;
+    /// Factorizes `matrix`, whose pattern is the analyzed one.
     ///
     /// # Errors
     ///
-    /// A diagnostic for a singular or unsupported matrix.
+    /// A diagnostic for a singular or unsupported matrix, or when no
+    /// analysis matches.
     fn factorize(&mut self, matrix: &Csc) -> Result<(), Diagnostic>;
     /// Solves with the last factorization, in place.
     ///
@@ -216,4 +230,38 @@ pub trait SparseLinearSolver {
     ///
     /// A diagnostic when no factorization is available.
     fn solve_in_place(&mut self, rhs: &mut [f64]) -> Result<(), Diagnostic>;
+}
+
+/// The linear-algebra work of an implicit integration or a stationary
+/// solve.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct SolverCounts {
+    /// Symbolic analyses (one per pattern).
+    pub symbolic: u64,
+    /// Numeric factorizations.
+    pub numeric: u64,
+    /// Solves with a factorization.
+    pub solves: u64,
+    /// Products of the generator with a vector.
+    pub products: u64,
+    /// Accepted steps.
+    pub steps: u64,
+    /// Rejected step attempts (error test failed).
+    pub rejected: u64,
+}
+
+/// Refuses a factorization whose bound `bytes` exceeds `budget`.
+fn memory(bytes: u64, budget: u64) -> Result<(), Diagnostic> {
+    if bytes > budget {
+        return Err(Diagnostic::error(
+            BUDGET,
+            "/projection/memory",
+            format!(
+                "the sparse LU factorization and its workspace may need up to \
+                 {bytes} bytes, above the memory budget max_factor_bytes={budget}"
+            ),
+            "Raise max_factor_bytes or lower the bounds.",
+        ));
+    }
+    Ok(())
 }

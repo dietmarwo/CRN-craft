@@ -1,8 +1,10 @@
 """Native prepared projections against the pure-Python/SciPy reference.
 
 Compares ``crn_craft.prepare_fsp`` (native enumeration, generator assembly,
-interventions, uniformization and exponential midpoint rule) with
-``reference_projection.py`` (a pure Python and SciPy implementation) on a
+interventions, uniformization, exponential midpoint rule and the
+variable-order NDF integrator of ``solver="bdf"``) and
+``crn_craft.stationary_fsp`` with ``reference_projection.py`` (a pure
+Python and SciPy implementation with SciPy's BDF and sparse LU) on a
 declared case set, and the native binomial and Poisson-tail kernels with
 SciPy. Gates, declared before the first run:
 
@@ -16,16 +18,28 @@ SciPy. Gates, declared before the first run:
 - closed-form laws (``analytic``), independent of the reference: the
   largest probability gap at most 1e-11 for uniformization (binomial
   survival) or 1e-9 (Poisson thinning by a partition) and at most 2e-6 for the
-  midpoint rule and BDF at tolerance 1e-9 (Poisson laws under a sinusoidal
-  callable and under a step table read at its jump), with a ``max_step``
-  whose multiples do not sum to the segment ends in floating point;
+  midpoint rule at tolerance 1e-7 and BDF at 1e-9 (Poisson laws under a
+  sinusoidal callable and under a step table read at its jump), with a
+  ``max_step`` whose multiples do not sum to the segment ends in floating
+  point, and at most 1e-8 for the native BDF there; for BDF under
+  ``2 + sin(3 t)`` (case C7) an L1 gap to the exact Poisson law of at most
+  10 * tolerance at tolerances 1e-6 and 1e-8; stationary laws within 1e-12
+  of a binomial and of a Poisson law;
+- stationary laws: identical success or exception type and message; on
+  success the largest probability difference at most 1e-10, both
+  residuals within the solver's own acceptance, identical histories
+  (bounds, convergence); cases with two closed classes and transient
+  states, an absorbing state, a nearly decomposable stiff chain and a
+  redirected birth-death chain with expansions; a BDF solve and a
+  stationary law above ``max_factor_bytes`` are refused with a message
+  that names the budget;
 - binomial pmf within a relative 1e-12 of SciPy for n <= 1e5 and, where
   the two differ by more than that (SciPy loses accuracy for large n),
   within 1e-13 of a 60-digit Decimal evaluation; Poisson tail within a
   relative 1e-12 of SciPy; both where SciPy's value is at least 1e-280.
 
-``--quick`` skips the total-RNA yeast case (minutes 0 to 10, about a
-minute in the reference); ``--full-yeast`` solves its 55 minutes (several
+``--quick`` skips the total-RNA yeast cases (midpoint and BDF, minutes 0
+to 10, about a minute each in the reference); ``--full-yeast`` solves its 55 minutes (several
 minutes in the reference). Timings go to standard error; the JSON on standard output is
 the same under ``python`` and ``python -O``.
 """
@@ -536,7 +550,9 @@ def analytic():
                 end,
                 times,
                 signals={"in": signal},
-                tolerance=1e-9,
+                # The second-order midpoint rule refuses goals near 1e-9
+                # on these spans (its step error goal reaches rounding).
+                tolerance=1e-9 if solver == "bdf" else 1e-7,
                 max_step=0.05,
                 solver=solver,
                 max_work=10**8,
@@ -548,6 +564,89 @@ def analytic():
                 [poisson(mean(t), top) for t in times],
                 2e-6,
             )
+            if solver == "bdf":
+                gate(
+                    f"poisson_{name}_bdf_tight",
+                    graph,
+                    result,
+                    [poisson(mean(t), top) for t in times],
+                    1e-8,
+                )
+
+    # Birth 2 + sin(3 t), death 1 from 0 (case C7): an L1 gap of the native
+    # BDF to the exact Poisson law of at most 10 * tolerance.
+    decaying = birth_death()
+    graph = crn.prepare_fsp(decaying, {"X": 40})
+    times = [0.5, 1.25, 1.5, 2.0]
+
+    def call_mean(t):
+        return (
+            2 * (1 - math.exp(-t))
+            + (math.sin(3 * t) - 3 * math.cos(3 * t) + 3 * math.exp(-t)) / 10
+        )
+
+    for tol in (1e-6, 1e-8):
+        result = graph.solve(
+            2.0,
+            times,
+            signals={"birth": crn.Signal(lambda t: 2 + math.sin(3 * t))},
+            tolerance=tol,
+            max_work=10**8,
+        )
+        worst = max(
+            float(
+                np.abs(
+                    np.bincount(graph.states[:, 0], s.probabilities, minlength=41)
+                    - poisson(call_mean(t), 40)
+                ).sum()
+            )
+            for s, t in zip(result.snapshots, times, strict=True)
+        )
+        require(
+            worst <= 10 * tol,
+            f"analytic poisson_call_bdf {tol:.0e}: L1 gap {worst:.3e}",
+        )
+        rows[f"poisson_call_bdf_{tol:.0e}"] = {"l1_gap": worst, "bound": 10 * tol}
+
+    # Stationary laws: 400 molecules exchanging between two forms are
+    # binomial; immigration and death with a return state are Poisson.
+    flip = model(
+        "flip",
+        {"A": 400, "B": 0},
+        {"f": 0.7, "r": 0.2},
+        [
+            (crn.mass_action("f"), ["A"], ["B"], "ab"),
+            (crn.mass_action("r"), ["B"], ["A"], "ba"),
+        ],
+    )
+    law = crn.stationary_fsp(flip, {"A": 400, "B": 400})
+    share = 0.2 / 0.9
+    binomial = np.exp(
+        [
+            math.lgamma(401)
+            - math.lgamma(i + 1)
+            - math.lgamma(401 - i)
+            + i * math.log(share)
+            + (400 - i) * math.log(1 - share)
+            for i in range(401)
+        ]
+    )
+    still = crn.stationary_fsp(queue, {"X": top}, return_state=(0,))
+    for name, found, expected in (
+        (
+            "stationary_binomial",
+            np.bincount(law.states[:, 0], law.probabilities, minlength=401),
+            binomial,
+        ),
+        (
+            "stationary_poisson",
+            still.probabilities[np.argsort(still.states[:, 0])],
+            poisson(a / k, top),
+        ),
+    ):
+        worst = float(np.abs(found - expected).max())
+        require(worst <= 1e-12, f"analytic {name}: gap {worst:.3e} above 1e-12")
+        rows[name] = {"gap": worst, "bound": 1e-12}
 
     # Keeping each molecule with probability 0.3 at t = 1 thins the Poisson law.
     thinned = crn.prepare_fsp(
@@ -565,6 +664,145 @@ def analytic():
         1e-9,
     )
     return rows
+
+
+def stationary_cases():
+    """Stationary laws: native closed classes and sparse LU against SciPy."""
+    rows = {}
+
+    def switch(name, rates, start):
+        """One molecule moving among slots S0..S5 with first-order rates."""
+        slots = [f"S{i}" for i in range(6)]
+        m = crn.Model(name)
+        m.add_species({s: int(i == start) for i, s in enumerate(slots)})
+        for (a, b), rate in rates.items():
+            m.add_parameter(f"k{a}{b}", rate)
+            m.add_reaction(
+                crn.mass_action(f"k{a}{b}"), [slots[a]], [slots[b]], name=f"k{a}{b}"
+            )
+        return m, dict.fromkeys(slots, 1)
+
+    def state(i):
+        return tuple(int(j == i) for j in range(6))
+
+    def run(case, call):
+        a = outcome_value(lambda: call(crn.stationary_fsp))
+        b = outcome_value(lambda: call(reference.stationary_fsp))
+        if isinstance(a, tuple) or isinstance(b, tuple):
+            brief = [x if isinstance(x, tuple) else "a result" for x in (a, b)]
+            require(a == b, f"{case}: {brief[0]} against {brief[1]}")
+            rows[case] = a[0] if isinstance(a, tuple) else "no error"
+            return
+        same = (
+            np.array_equal(a.states, b.states)
+            and a.method == b.method
+            and a.converged == b.converged
+            and len(a.history) == len(b.history)
+            and all(
+                x["bounds"] == y["bounds"] and x["states"] == y["states"]
+                for x, y in zip(a.history, b.history, strict=True)
+            )
+        )
+        gap = float(np.abs(a.probabilities - b.probabilities).max())
+        require(same, f"{case}: results differ in shape or history")
+        require(gap <= 1e-10, f"{case}: probability gap {gap} above 1e-10")
+        rows[case] = {
+            "states": len(a.states),
+            "within_bound": gap <= 1e-10,
+            "converged": a.converged,
+            "residual_below_1e-12": a.residual_l1 <= 1e-12,
+        }
+
+    # S2 two closed classes ({S0, S1}, {S3, S4}) and transient S2, S5.
+    reducible, slots = switch(
+        "reducible",
+        {
+            (0, 1): 2.0,
+            (1, 0): 1.0,
+            (5, 2): 0.5,
+            (2, 0): 1.0,
+            (2, 3): 1.0,
+            (3, 4): 1.0,
+            (4, 3): 3.0,
+        },
+        5,
+    )
+    run("S2_two_classes_refused", lambda f: f(reducible, slots))
+    run("S2_first_class", lambda f: f(reducible, slots, class_state=state(1)))
+    run("S2_second_class", lambda f: f(reducible, slots, class_state=state(3)))
+    run("S2_transient_refused", lambda f: f(reducible, slots, class_state=state(2)))
+    # S3 an absorbing state.
+    absorbing, slots = switch(
+        "absorbing", {(0, 1): 1.0, (1, 0): 2.0, (1, 2): 0.5, (2, 3): 4.0}, 0
+    )
+    run("S3_absorbing", lambda f: f(absorbing, slots))
+    # S4 nearly decomposable and stiff: fast blocks {S0, S1}, {S2, S3, S4}.
+    stiff, slots = switch(
+        "nearly_decomposable",
+        {
+            (0, 1): 1e3,
+            (1, 0): 2e3,
+            (1, 2): 1e-7,
+            (2, 1): 3e-7,
+            (2, 3): 3e3,
+            (3, 2): 1e3,
+            (3, 4): 5e2,
+            (4, 3): 2e3,
+        },
+        0,
+    )
+    run("S4_nearly_decomposable", lambda f: f(stiff, slots))
+    # S5 a redirected birth-death chain with face expansions.
+    chain = birth_death(2.0, 1.0, 0)
+    run(
+        "S5_redirect_expansions",
+        lambda f: f(chain, {"X": 3}, return_state=(0,), expansions=3, tolerance=1e-4),
+    )
+    run(
+        "S5_return_outside",
+        lambda f: f(chain, {"X": 3}, return_state=(9,)),
+    )
+    run("S6_escapes_refused", lambda f: f(chain, {"X": 3}))
+    stopper = model(
+        "stopper",
+        {"X": 0},
+        {"b": 1.0},
+        [(crn.mass_action("b"), [], ["X"], "birth")],
+        stop="X >= 2",
+    )
+    run("S6_stop_refused", lambda f: f(stopper, {"X": 4}, return_state=(0,)))
+    # The factorization budget (native only): a refusal that names it.
+    graph = crn.prepare_fsp(chain, {"X": 30})
+    refusals = (
+        outcome(
+            lambda: graph.solve(
+                1,
+                [1],
+                signals={"birth": crn.Signal(lambda t: 1 + t)},
+                max_factor_bytes=999,
+            )
+        ),
+        outcome(
+            lambda: crn.stationary_fsp(
+                chain, {"X": 30}, return_state=(0,), max_factor_bytes=999
+            )
+        ),
+    )
+    named = all(
+        r is not None and r[0] == "RuntimeError" and "max_factor_bytes=999" in r[1]
+        for r in refusals
+    )
+    require(named, f"factorization budget refusals: {refusals}")
+    rows["S7_factorization_budget_refused"] = named
+    return rows
+
+
+def outcome_value(call):
+    """The result of a call, or the type and message of its exception."""
+    try:
+        return call()
+    except Exception as error:  # noqa: BLE001 - the type is the result
+        return type(error).__name__, str(error)
 
 
 def yeast(full):
@@ -599,12 +837,22 @@ def yeast(full):
         "solver": "midpoint",
         "max_work": 10**9,
     }
-    return compare(
+    rows = compare(
         "C10",
         lambda prep: prep(document, bounds),
         [("midpoint", solve)],
         "midpoint",
     )
+    # C10b: the same segment by the native NDF and SciPy's BDF.
+    rows.update(
+        compare(
+            "C10b",
+            lambda prep: prep(document, bounds),
+            [("bdf", {**solve, "solver": "bdf"})],
+            "bdf",
+        )
+    )
+    return rows
 
 
 def main():
@@ -613,7 +861,12 @@ def main():
     parser.add_argument("--full-yeast", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    result = {"special": special_functions(), "cases": cases(), "analytic": analytic()}
+    result = {
+        "special": special_functions(),
+        "cases": cases(),
+        "analytic": analytic(),
+        "stationary": stationary_cases(),
+    }
     if not args.quick:
         result["cases"]["C10_yeast_total_rna"] = yeast(args.full_yeast)
     result["failures"] = FAILURES

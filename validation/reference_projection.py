@@ -4,7 +4,9 @@ A pure-Python implementation of ``crn_craft.prepare_fsp`` with the same
 API and error messages, kept as an independent oracle for
 ``validation/check_projection_native.py``. Only model lowering and rate
 evaluation use the native extension; enumeration, generator assembly,
-interventions and propagation are Python, NumPy and SciPy. ``Signal`` and
+interventions, propagation (with SciPy's BDF for ``solver="bdf"``) and
+``stationary_fsp`` (SciPy's strongly connected components and sparse LU)
+are Python, NumPy and SciPy. ``Signal`` and
 ``ProjectionState`` are the package's own classes, so signals and
 checkpoints are shared with the native implementation.
 """
@@ -23,6 +25,7 @@ from crn_craft import _native
 from crn_craft._common import model_bytes
 from crn_craft.projection import ProjectionResult, ProjectionState, Signal
 from crn_craft.protocol import Protocol
+from crn_craft.stationary import StationaryResult
 from crn_craft.rules import _as_model_1_0, _crn_error, _unique_keys
 
 _MAX_COUNT = 2**53
@@ -290,6 +293,10 @@ class PreparedFsp:
                 "binding changes topology or initial counts; prepare a new projection"
             )
         return native, layout
+
+    def _index(self, state):
+        """The index of a count tuple, or None outside the projection."""
+        return self._ids.get(tuple(state))
 
     def _matrix(self, rates, selected):
         src, dst, data = self._src[selected], self._dst[selected], rates[selected]
@@ -748,3 +755,205 @@ def prepare_fsp(
         max_states=max_states,
         max_edges=max_edges,
     )
+
+
+# Stationary laws with SciPy (connected_components and spsolve), the
+# oracle of the native closed-class solve.
+
+
+def _closed_classes(q):
+    from scipy.sparse.csgraph import connected_components
+
+    n, labels = connected_components(q, connection="strong")
+    coo = q.tocoo()
+    distinct = (coo.data > 0) & (labels[coo.row] != labels[coo.col])
+    open_labels = set(labels[coo.col[distinct]])
+    order = np.argsort(labels, kind="stable")
+    starts = np.r_[0, np.cumsum(np.bincount(labels, minlength=n))]
+    return [order[starts[k] : starts[k + 1]] for k in range(n) if k not in open_labels]
+
+
+def _stationary(q, anchor=None):
+    from scipy.sparse.linalg import spsolve
+
+    classes = _closed_classes(q)
+    if anchor is None:
+        if len(classes) != 1:
+            raise ValueError(
+                f"projection has {len(classes)} closed communicating classes"
+            )
+        ids = classes[0]
+        anchor = int(ids[-1])
+    else:
+        matches = [ids for ids in classes if anchor in ids]
+        if not matches:
+            raise ValueError("the designated state is outside every closed class")
+        ids = matches[0]
+        if len(classes) != 1:
+            raise ValueError("the redirected projection has multiple closed classes")
+    remaining = ids[ids != anchor]
+    probability = np.zeros(q.shape[0])
+    probability[anchor] = 1
+    if len(remaining):
+        probability[remaining] = spsolve(
+            q[remaining][:, remaining], -q[remaining][:, [anchor]].toarray().ravel()
+        )
+    if not np.isfinite(probability).all() or probability.min() < -1e-10:
+        raise RuntimeError("stationary sparse solve returned invalid probabilities")
+    probability = np.maximum(probability, 0)
+    probability /= probability.sum()
+    residual = float(np.linalg.norm(q @ probability, 1))
+    scale = max(1.0, float(max(-q.diagonal())))
+    if residual > 1e-9 * scale:
+        raise RuntimeError("stationary generator residual exceeded tolerance")
+    return probability, residual
+
+
+def _stationary_solve(graph, parameters, redirect, selected):
+    from scipy.sparse import csc_matrix
+
+    generator, _, stopped = graph._generator(parameters, {})
+    if np.any(stopped) and redirect is not None:
+        raise ValueError(
+            "stationary FSP requires an ergodic model without a reachable stop"
+        )
+    q = generator[:-1, :-1].tocsc()
+    escapes = generator[-1, :-1].toarray().ravel()
+    anchor = None
+    if redirect is not None:
+        anchor = graph._index(redirect)
+        if anchor is None:
+            raise ValueError("return state is outside the reachable projection")
+        columns = np.flatnonzero(escapes)
+        q += csc_matrix(
+            (escapes[columns], (np.full(len(columns), anchor), columns)), shape=q.shape
+        )
+    elif np.any(escapes):
+        raise ValueError(
+            "the finite generator has escaping transitions; supply a return state"
+        )
+
+    if selected is not None:
+        target = graph._index(selected)
+        if target is None:
+            raise ValueError("selected class state is outside the projection")
+        matches = [ids for ids in _closed_classes(q) if target in ids]
+        if not matches:
+            raise ValueError("selected state is outside every closed class")
+        ids = matches[0]
+        p, error = _stationary(q[ids][:, ids])
+        probabilities = np.zeros(q.shape[0])
+        probabilities[ids] = p
+    else:
+        probabilities, error = _stationary(q, anchor)
+    return probabilities, error, float(escapes @ probabilities), escapes
+
+
+def _cdf_difference(previous, current):
+    gap = 0.0
+    for p, q in zip(previous, current, strict=True):
+        width = max(len(p), len(q))
+        diff = np.pad(p, (0, width - len(p))) - np.pad(q, (0, width - len(q)))
+        gap = max(gap, float(np.max(np.abs(np.cumsum(diff)))))
+    return gap
+
+
+def stationary_fsp(
+    model,
+    bounds,
+    *,
+    return_state=None,
+    class_state=None,
+    parameters=None,
+    expansions=0,
+    tolerance=1e-6,
+    flux_tolerance=1e-6,
+    max_states=100_000,
+):
+    """Solve a finite stationary law or an outward-flux-redirected FSP.
+
+    With a return state, expand faces according to boundary flux exposure
+    and compare marginal CDFs across successive bounds. The resulting
+    convergence indication is empirical for an infinite network. A finite
+    generator with several closed classes needs an explicit class state.
+    The reference builds the generator in Python; SciPy finds the closed
+    classes and solves the linear system. Without a return state, every
+    transition must stay inside the bounds.
+    """
+    _require_scipy("stationary_fsp")
+    expansions = index(expansions)
+    if (
+        not 0 <= expansions <= 20
+        or not 0 < tolerance < 1
+        or not np.isfinite(flux_tolerance)
+        or flux_tolerance < 0
+        or (class_state is not None and return_state is not None)
+        or (expansions and return_state is None)
+    ):
+        raise ValueError("invalid stationary approximation controls")
+    if return_state is not None:
+        return_state = tuple(index(v) for v in return_state)
+    if class_state is not None:
+        class_state = tuple(index(v) for v in class_state)
+    bounds = dict(bounds)
+    history, previous = [], None
+    for step in range(expansions + 1):
+        graph = prepare_fsp(model, bounds, max_states=max_states)
+        p, residual, flux, escapes = _stationary_solve(
+            graph, parameters or {}, return_state, class_state
+        )
+        marginals = tuple(
+            np.bincount(graph.states[:, i], p) for i in range(len(graph.species))
+        )
+        delta = None if previous is None else _cdf_difference(previous, marginals)
+        history.append(
+            {
+                "bounds": dict(bounds),
+                "states": len(p),
+                "residual_l1": residual,
+                "outward_flux": flux,
+                "marginal_cdf_change": delta,
+            }
+        )
+        closed = return_state is None or flux == 0.0
+        converged = closed or (
+            delta is not None and delta <= tolerance and flux <= flux_tolerance
+        )
+        if converged or step == expansions:
+            p.setflags(write=False)
+            return StationaryResult(
+                graph.species,
+                graph.states,
+                p,
+                residual,
+                flux,
+                return_state,
+                delta,
+                tuple(history),
+                converged,
+                "finite-closed-class"
+                if return_state is None
+                else "stationary-fsp-return-state",
+            )
+        previous = marginals
+        out = escapes * p
+        face_fluxes = []
+        for i, label in enumerate(graph.species):
+            # A jump may cross a face from within the largest positive jump.
+            reach = max(
+                (
+                    change
+                    for c in graph._channels
+                    for j, change in c["changes"]
+                    if i == j and change > 0
+                ),
+                default=1,
+            )
+            face_fluxes.append(
+                float(out[graph.states[:, i] > bounds[label] - reach].sum())
+            )
+        largest = max(face_fluxes)
+        for face, label in zip(face_fluxes, graph.species, strict=True):
+            if face >= 0.1 * largest:
+                bounds[label] += max(2, (bounds[label] + 3) // 4)
+    raise RuntimeError("unreachable stationary iteration")

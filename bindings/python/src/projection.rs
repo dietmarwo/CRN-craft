@@ -3,11 +3,12 @@
 //! Vectors cross as little-endian bytes (`numpy.frombuffer` reads them
 //! without a further copy); long work runs without the GIL on a helper
 //! thread and Ctrl-C cancels it.
+use crate::faer_lu::FaerLu;
 use crate::{failure, run_interruptible};
 use crn_craft::diagnostic::Diagnostic;
 use crn_craft::projection::{
-    ChannelShape, Generator, Interrupt, Merged, MidpointControls, Operation, SignalValues, Spec,
-    Topology, Work, kick, midpoint, uniform,
+    BdfControls, ChannelShape, Generator, Implicit, Interrupt, Merged, MidpointControls, Operation,
+    SignalValues, SolverCounts, Spec, Topology, Work, bdf, kick, midpoint, stationary, uniform,
 };
 use crn_craft::rules::{Control, FlatView};
 use pyo3::{
@@ -187,6 +188,7 @@ impl ProjectionTopology {
         result
             .map(|g| ProjectionGenerator {
                 generator: Arc::new(g),
+                implicit: Arc::new(Mutex::new(None)),
             })
             .map_err(|d| one(&d))
     }
@@ -313,10 +315,50 @@ type CscArrays<'py> = (
     Bound<'py, PyByteArray>,
 );
 
-/// The generator of a prepared projection under one binding.
+/// The parsed signal sources of a call: tables or Python callables.
+fn parse_sources(sources: Vec<Bound<'_, PyAny>>, expected: usize) -> PyResult<Sources> {
+    let mut native = Vec::with_capacity(sources.len());
+    for source in sources {
+        if let Ok((step, times, values)) = source.extract::<(bool, Vec<f64>, Vec<f64>)>() {
+            if times.is_empty() || times.len() != values.len() {
+                return Err(pyo3::exceptions::PyValueError::new_err("invalid table"));
+            }
+            native.push(Source::Table {
+                step,
+                times,
+                values,
+            });
+        } else {
+            native.push(Source::Callable(source.unbind()));
+        }
+    }
+    if native.len() != expected {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "one source per signal",
+        ));
+    }
+    Ok(Sources {
+        sources: native,
+        error: Mutex::new(None),
+    })
+}
+
+/// Linear-algebra counts for Python: symbolic analyses, numeric
+/// factorizations, solves, products, accepted and rejected steps.
+type PyCounts = (u64, u64, u64, u64, u64, u64);
+
+fn py_counts(c: SolverCounts) -> PyCounts {
+    (
+        c.symbolic, c.numeric, c.solves, c.products, c.steps, c.rejected,
+    )
+}
+
+/// The generator of a prepared projection under one binding, with the
+/// analyzed iteration matrix of the implicit integrator once it is needed.
 #[pyclass(frozen)]
 pub(crate) struct ProjectionGenerator {
     generator: Arc<Generator>,
+    implicit: Arc<Mutex<Option<Implicit<FaerLu>>>>,
 }
 
 #[pymethods]
@@ -402,31 +444,9 @@ impl ProjectionGenerator {
         work_count: i64,
         work_limit: i64,
     ) -> PyResult<(Bound<'py, PyByteArray>, i64)> {
-        let mut native = Vec::with_capacity(sources.len());
-        for source in sources {
-            if let Ok((step, times, values)) = source.extract::<(bool, Vec<f64>, Vec<f64>)>() {
-                if times.is_empty() || times.len() != values.len() {
-                    return Err(pyo3::exceptions::PyValueError::new_err("invalid table"));
-                }
-                native.push(Source::Table {
-                    step,
-                    times,
-                    values,
-                });
-            } else {
-                native.push(Source::Callable(source.unbind()));
-            }
-        }
-        if native.len() != self.generator.signals().len() {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                "one source per signal",
-            ));
-        }
+        let parsed = parse_sources(sources, self.generator.signals().len())?;
         let (generator, mut p) = (Arc::clone(&self.generator), floats(p));
-        let shared = Arc::new(Mutex::new(Some(Sources {
-            sources: native,
-            error: Mutex::new(None),
-        })));
+        let shared = Arc::new(Mutex::new(Some(parsed)));
         let inside = Arc::clone(&shared);
         let result = run_interruptible(py, Control::default(), Control::cancel, move |c| {
             let poll = || c.cancel_flagged();
@@ -458,6 +478,125 @@ impl ProjectionGenerator {
         }
         let (p, used) = result.map_err(|d| one(&d))?;
         Ok((float_bytes(py, &p)?, used))
+    }
+
+    /// The rate of each state into the sink, little-endian float64.
+    fn escapes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyByteArray>> {
+        float_bytes(py, &self.generator.escapes())
+    }
+
+    /// The implicit NDF integrator from `start` to `end` with reports at the
+    /// increasing interior times `reports`: the reported laws (one after
+    /// another), the law at `end`, the work count and the linear-algebra
+    /// counts of this call. The analysis of the iteration matrix is kept
+    /// with the generator for later calls.
+    #[allow(clippy::too_many_arguments)]
+    fn bdf<'py>(
+        &self,
+        py: Python<'py>,
+        p: &[u8],
+        start: f64,
+        end: f64,
+        tolerance: f64,
+        max_step: f64,
+        reports: Vec<f64>,
+        sources: Vec<Bound<'py, PyAny>>,
+        work_count: i64,
+        work_limit: i64,
+        max_factor_bytes: u64,
+    ) -> PyResult<(
+        Bound<'py, PyByteArray>,
+        Bound<'py, PyByteArray>,
+        i64,
+        PyCounts,
+    )> {
+        let parsed = parse_sources(sources, self.generator.signals().len())?;
+        let (generator, mut p) = (Arc::clone(&self.generator), floats(p));
+        let implicit = Arc::clone(&self.implicit);
+        let shared = Arc::new(Mutex::new(Some(parsed)));
+        let inside = Arc::clone(&shared);
+        let result = run_interruptible(py, Control::default(), Control::cancel, move |c| {
+            let poll = || c.cancel_flagged();
+            let interrupt = Interrupt::new(&poll);
+            let mut w = work(work_count, work_limit);
+            let mut slot = implicit.lock().expect("implicit lock");
+            let before = match slot.as_ref() {
+                Some(implicit) => implicit.counts(),
+                None => {
+                    interrupt.check()?;
+                    *slot = Some(Implicit::new(&generator, FaerLu::default())?);
+                    SolverCounts::default()
+                }
+            };
+            let implicit = slot.as_mut().expect("implicit");
+            let mut guard = inside.lock().expect("sources lock");
+            let sources = guard.as_mut().expect("sources");
+            let controls = BdfControls {
+                start,
+                end,
+                tolerance,
+                max_step,
+                max_factor_bytes,
+            };
+            let out = bdf(
+                implicit, &mut p, controls, &reports, sources, &mut w, &interrupt,
+            )?;
+            let after = implicit.counts();
+            let used = SolverCounts {
+                symbolic: after.symbolic - before.symbolic,
+                numeric: after.numeric - before.numeric,
+                solves: after.solves - before.solves,
+                products: after.products - before.products,
+                steps: after.steps - before.steps,
+                rejected: after.rejected - before.rejected,
+            };
+            Ok((out.concat(), p, count(&w), used))
+        })?;
+        let sources = shared.lock().expect("sources lock").take();
+        if let Some(error) = sources.and_then(|s| s.error.into_inner().expect("signal error lock"))
+        {
+            return Err(error);
+        }
+        let (reported, p, used, counts) = result.map_err(|d: Diagnostic| one(&d))?;
+        Ok((
+            float_bytes(py, &reported)?,
+            float_bytes(py, &p)?,
+            used,
+            py_counts(counts),
+        ))
+    }
+
+    /// The stationary law of the constant part (see the Rust
+    /// `stationary`): probabilities, residual, outward flux and the
+    /// linear-algebra counts.
+    #[pyo3(signature = (redirect, selected, max_factor_bytes))]
+    fn stationary<'py>(
+        &self,
+        py: Python<'py>,
+        redirect: Option<usize>,
+        selected: Option<usize>,
+        max_factor_bytes: u64,
+    ) -> PyResult<(Bound<'py, PyByteArray>, f64, f64, PyCounts)> {
+        let generator = Arc::clone(&self.generator);
+        let result = run_interruptible(py, Control::default(), Control::cancel, move |c| {
+            let poll = || c.cancel_flagged();
+            let mut solver = FaerLu::default();
+            stationary(
+                &generator,
+                redirect,
+                selected,
+                &mut solver,
+                max_factor_bytes,
+                &Interrupt::new(&poll),
+            )
+        })?;
+        let law = result.map_err(|d| one(&d))?;
+        Ok((
+            float_bytes(py, &law.probabilities)?,
+            law.residual,
+            law.flux,
+            py_counts(law.counts),
+        ))
     }
 }
 

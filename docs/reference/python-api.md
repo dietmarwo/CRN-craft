@@ -1023,7 +1023,7 @@ A real-time rate input. Tables use linear or right-continuous steps.
 | `function` | required | Prescribed time-dependent rate function. |
 | `change_times` (keyword only) | `()` | Times where the rate can change discontinuously. |
 
-Tables are evaluated natively by the midpoint rule. Callables are a
+Tables are evaluated natively by both forced-segment solvers. Callables are a
 Python-only option, called from the native step loop. Provide their
 change points and a reproducible description of their parameters in the
 calling experiment.
@@ -1067,8 +1067,7 @@ Prepare a reusable projection for a closed model.
 | `max_edges` (keyword only) | `2000000` | Sparse edge limit. |
 
 The native engine lowers the model, enumerates the states, builds the
-generator and propagates the law; only `solve(solver="bdf")` with
-signals needs SciPy (the `projection` extra).
+generator and propagates the law; no solve needs SciPy.
 Existing [`Model.fsp`](#modelfsp) is the native uniformization for one fixed
 model without protocols, signals or initial mixtures. A prepared
 projection holds no per-solve state, so threads can share it. It cannot
@@ -1087,6 +1086,7 @@ stationary_fsp(
     tolerance=1e-06,
     flux_tolerance=1e-06,
     max_states=100000,
+    max_factor_bytes=2147483648,
 )
 ```
 
@@ -1103,14 +1103,16 @@ Solve a finite stationary law or an outward-flux-redirected FSP.
 | `tolerance` (keyword only) | `1e-06` | Target maximum marginal CDF change after refinement. |
 | `flux_tolerance` (keyword only) | `1e-06` | Target outward rate after projection refinement. |
 | `max_states` (keyword only) | `100000` | Reachable-state limit. |
+| `max_factor_bytes` (keyword only) | `2147483648` | Memory budget, in bytes, of the sparse LU factorization and its workspace; a larger bound is refused (`CRN-E070`). |
 
 With a return state, expand faces according to boundary flux exposure
 and compare marginal CDFs across successive bounds. The resulting
 convergence indication is empirical for an infinite network. A finite
 generator with several closed classes needs an explicit class state.
-The native engine builds the generator; SciPy's sparse LU (the
-`projection` extra) solves the linear system. Without a return state,
-every transition must stay inside the bounds.
+The native engine builds the generator, finds the closed communicating
+classes and solves the anchored balance equations of one class with a
+sparse LU, refused when its bound exceeds `max_factor_bytes`. Without
+a return state, every transition must stay inside the bounds.
 
 ### `SpatialModel`
 

@@ -90,7 +90,8 @@ def forward_sensitivities(
     if len(times) * (n + 1) * (len(names) + 1) > 8_000_000:
         raise ValueError("sensitivity snapshots exceed the output limit")
     state = np.zeros((len(names) + 1, n + 1), dtype="<f8")
-    for label, probability in graph._law(initial).items():
+    law = graph._initial if initial is None else graph._law(initial)
+    for label, probability in law.items():
         position = graph._index(label)
         if position is None:
             raise ValueError("initial law outside the sensitivity graph")

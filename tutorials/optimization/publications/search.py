@@ -3,6 +3,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 import csv
+import importlib.metadata
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -91,20 +92,34 @@ def search(
     path = Path(args.output) / f"{name}.csv"
     previous = []
     resume = getattr(args, "resume_from", None)
-    if resume is not None and (resume / path.name).is_file():
+    require(resume is None or Path(resume).is_dir(), "no saved output to resume from")
+    columns = ["call", *[f"x{i}" for i in range(len(bounds.lb))]]
+    columns += [*[f"f{i}" for i in range(observables)], "error"]
+    limits = np.stack([bounds.lb, bounds.ub], axis=1).tolist()
+    if resume is not None and (Path(resume) / path.name).is_file():
+        resume = Path(resume)
+        require((resume / f"{name}.run.json").is_file(), "saved run is incomplete")
         meta = json.loads((resume / f"{name}.run.json").read_text())
         require(
-            meta["seed"] == seed
-            and meta["algorithm"] == algorithm
-            and meta["population"] == pop
+            meta.get("status") == "completed"
+            and meta.get("seed") == seed
+            and meta.get("algorithm") == algorithm
+            and meta.get("population") == pop
             and meta.get("context") == context
-            and meta.get("sigma", 0.3) == sigma,
+            and meta.get("sigma", 0.3) == sigma
+            and meta.get("observables", observables) == observables
+            and meta.get("bounds", limits) == limits,
             "saved run has a different optimizer or objective context",
         )
         with (resume / path.name).open(newline="") as stream:
-            previous = list(csv.DictReader(stream))
+            reader = csv.reader(stream)
+            require(next(reader, None) == columns, "saved run trace has other columns")
+            for row in reader:
+                require(len(row) == len(columns), "saved run trace has a cut row")
+                previous.append(dict(zip(columns, row, strict=True)))
         require(
-            len(previous) == meta["actual_evaluations"], "incomplete saved run trace"
+            len(previous) == meta.get("actual_evaluations"),
+            "incomplete saved run trace",
         )
     X, Y = [], []
     failures = 0
@@ -112,14 +127,7 @@ def search(
     pool = ThreadPoolExecutor(args.threads) if args.threads > 1 else nullcontext()
     with pool as executor, path.open("w", newline="") as output:
         writer = csv.writer(output)
-        writer.writerow(
-            [
-                "call",
-                *[f"x{i}" for i in range(len(bounds.lb))],
-                *[f"f{i}" for i in range(observables)],
-                "error",
-            ]
-        )
+        writer.writerow(columns)
         while len(X) < budget:
             points = (
                 rng.uniform(bounds.lb, bounds.ub, (pop, len(bounds.lb)))
@@ -170,6 +178,11 @@ def search(
         formulation="scalar" if observables == 1 else "pareto",
         algorithm=algorithm,
         backend="numpy" if opt is None else "fcmaes",
+        backend_version=importlib.metadata.version(
+            "numpy" if opt is None else "fcmaes"
+        ),
+        observables=observables,
+        bounds=limits,
         population=pop,
         failures=failures,
         trace=path.name,

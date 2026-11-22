@@ -18,11 +18,18 @@ CHAPTERS = {
     "C10": "publications.pathway",
 }
 
+USAGE = (
+    "usage: run.py {C1,C2,C3,C4,C5,C6,C7,C8,C9,C10}"
+    " --output NEW_DIRECTORY [--preset smoke|study]\n"
+    "       run.py CHAPTER --help lists the options of one chapter"
+)
+
+if len(sys.argv) == 2 and sys.argv[1] in {"-h", "--help"}:
+    print(USAGE)
+    raise SystemExit(0)
 if len(sys.argv) < 2 or sys.argv[1] not in CHAPTERS:
-    raise SystemExit(
-        "usage: run.py {C1,C2,C3,C4,C5,C6,C7,C8,C9,C10}"
-        " --output NEW_DIRECTORY [--preset smoke|study]"
-    )
+    unknown = f"unknown chapter {sys.argv[1]!r}\n" if len(sys.argv) > 1 else ""
+    raise SystemExit(unknown + USAGE)
 chapter = sys.argv.pop(1)
 module = import_module(CHAPTERS[chapter])
 raise SystemExit(

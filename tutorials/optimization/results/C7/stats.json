@@ -1,0 +1,149 @@
+{
+ "archive": {
+  "checks": [
+   {
+    "name": "archived-reference-noise",
+    "noise": [
+     "0"
+    ],
+    "passed": true,
+    "rows": 582
+   },
+   {
+    "designs": 200,
+    "kinetics": "archive",
+    "max_relative_e_factor": 6.580437080314134e-08,
+    "max_relative_sty": 3.906776437297688e-15,
+    "name": "summit-archive-outputs",
+    "passed": true
+   },
+   {
+    "designs": 24,
+    "name": "reactor-outlet-parity",
+    "objective_max_abs": 0.0001838130301621277,
+    "passed": true,
+    "state_max_abs": 1.4020043681561845e-08,
+    "summit_rk45_objective_max_abs": 2.9306459450617695
+   },
+   {
+    "name": "hypervolume-hand-fixture",
+    "passed": true
+   },
+   {
+    "name": "exact-evaluations",
+    "passed": true,
+    "runs": 60
+   }
+  ],
+  "mode_vs_random": {
+   "bootstrap_95": [
+    -572.955238952906,
+    1867.4307226239102
+   ],
+   "mann_whitney_u": 202.0,
+   "median_difference": 165.80921970625116,
+   "p_two_sided": 0.9672955606195621
+  },
+  "terminal": {
+   "mode": {
+    "median": 610.5485550057539,
+    "q25_q75": [
+     0.0,
+     2518.963069789767
+    ],
+    "runs": 20
+   },
+   "mode-500": {
+    "median": 9301.09838668632,
+    "q25_q75": [
+     8829.567507822529,
+     9523.588226307122
+    ],
+    "runs": 20
+   },
+   "random": {
+    "median": 444.7393352995027,
+    "q25_q75": [
+     150.88251134101552,
+     1036.7345455122716
+    ],
+    "runs": 20
+   }
+  },
+  "tight_objective_difference": 0.00017963743630389217
+ },
+ "mode_500_first_median_above_archive_tsemo_median": 154,
+ "pinned": {
+  "checks": [
+   {
+    "name": "archived-reference-noise",
+    "noise": [
+     "0"
+    ],
+    "passed": true,
+    "rows": 582
+   },
+   {
+    "designs": 200,
+    "kinetics": "pinned",
+    "max_relative_e_factor": 0.14704024306592606,
+    "max_relative_sty": 0.19554841432444933,
+    "name": "summit-archive-outputs",
+    "passed": true
+   },
+   {
+    "designs": 24,
+    "name": "reactor-outlet-parity",
+    "objective_max_abs": 0.0003785334620260983,
+    "passed": true,
+    "state_max_abs": 1.272217167724854e-08,
+    "summit_rk45_objective_max_abs": 2.4801895308337407
+   },
+   {
+    "name": "hypervolume-hand-fixture",
+    "passed": true
+   },
+   {
+    "name": "exact-evaluations",
+    "passed": true,
+    "runs": 60
+   }
+  ],
+  "mode_vs_random": {
+   "bootstrap_95": [
+    -3925.7609676011416,
+    2836.4567650364775
+   ],
+   "mann_whitney_u": 163.0,
+   "median_difference": -415.70973947447555,
+   "p_two_sided": 0.3230274087008834
+  },
+  "terminal": {
+   "mode": {
+    "median": 2273.116819755187,
+    "q25_q75": [
+     54.71664792926289,
+     5220.9762471978875
+    ],
+    "runs": 20
+   },
+   "mode-500": {
+    "median": 17674.000055892575,
+    "q25_q75": [
+     17231.078894660306,
+     18018.771225575976
+    ],
+    "runs": 20
+   },
+   "random": {
+    "median": 2688.8265592296625,
+    "q25_q75": [
+     1335.8024707771942,
+     6328.358562021911
+    ],
+    "runs": 20
+   }
+  },
+  "tight_objective_difference": 0.0003712847870929181
+ }
+}

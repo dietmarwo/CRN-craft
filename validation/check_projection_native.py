@@ -18,12 +18,13 @@ SciPy. Gates, declared before the first run:
 - closed-form laws (``analytic``), independent of the reference: the
   largest probability gap at most 1e-11 for uniformization (binomial
   survival) or 1e-9 (Poisson thinning by a partition) and at most 2e-6 for the
-  midpoint rule and BDF at tolerance 1e-9 (Poisson laws under a sinusoidal
-  callable and under a step table read at its jump), with a ``max_step``
-  whose multiples do not sum to the segment ends in floating point, and
-  at most 1e-8 for the native BDF there; for BDF under ``2 + sin(3 t)``
-  (case C7) an L1 gap to the exact Poisson law of at most 10 * tolerance
-  at tolerances 1e-6 and 1e-8;
+  midpoint rule at tolerance 1e-7 and BDF at 1e-9 (Poisson laws under a
+  sinusoidal callable and under a step table read at its jump), with a
+  ``max_step`` whose multiples do not sum to the segment ends in floating
+  point, and at most 1e-8 for the native BDF there; for BDF under
+  ``2 + sin(3 t)`` (case C7) an L1 gap to the exact Poisson law of at most
+  10 * tolerance at tolerances 1e-6 and 1e-8; stationary laws within 1e-12
+  of a binomial and of a Poisson law;
 - stationary laws: identical success or exception type and message; on
   success the largest probability difference at most 1e-10, both
   residuals within the solver's own acceptance, identical histories
@@ -549,7 +550,9 @@ def analytic():
                 end,
                 times,
                 signals={"in": signal},
-                tolerance=1e-9,
+                # The second-order midpoint rule refuses goals near 1e-9
+                # on these spans (its step error goal reaches rounding).
+                tolerance=1e-9 if solver == "bdf" else 1e-7,
                 max_step=0.05,
                 solver=solver,
                 max_work=10**8,
@@ -604,6 +607,46 @@ def analytic():
             f"analytic poisson_call_bdf {tol:.0e}: L1 gap {worst:.3e}",
         )
         rows[f"poisson_call_bdf_{tol:.0e}"] = {"l1_gap": worst, "bound": 10 * tol}
+
+    # Stationary laws: 400 molecules exchanging between two forms are
+    # binomial; immigration and death with a return state are Poisson.
+    flip = model(
+        "flip",
+        {"A": 400, "B": 0},
+        {"f": 0.7, "r": 0.2},
+        [
+            (crn.mass_action("f"), ["A"], ["B"], "ab"),
+            (crn.mass_action("r"), ["B"], ["A"], "ba"),
+        ],
+    )
+    law = crn.stationary_fsp(flip, {"A": 400, "B": 400})
+    share = 0.2 / 0.9
+    binomial = np.exp(
+        [
+            math.lgamma(401)
+            - math.lgamma(i + 1)
+            - math.lgamma(401 - i)
+            + i * math.log(share)
+            + (400 - i) * math.log(1 - share)
+            for i in range(401)
+        ]
+    )
+    still = crn.stationary_fsp(queue, {"X": top}, return_state=(0,))
+    for name, found, expected in (
+        (
+            "stationary_binomial",
+            np.bincount(law.states[:, 0], law.probabilities, minlength=401),
+            binomial,
+        ),
+        (
+            "stationary_poisson",
+            still.probabilities[np.argsort(still.states[:, 0])],
+            poisson(a / k, top),
+        ),
+    ):
+        worst = float(np.abs(found - expected).max())
+        require(worst <= 1e-12, f"analytic {name}: gap {worst:.3e} above 1e-12")
+        rows[name] = {"gap": worst, "bound": 1e-12}
 
     # Keeping each molecule with probability 0.3 at t = 1 thins the Poisson law.
     thinned = crn.prepare_fsp(

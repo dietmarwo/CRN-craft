@@ -94,9 +94,11 @@ optimizer, population, bounds or context. A run that stopped before it wrote
 its `run.json` cannot be resumed. Whether a context string names the objective
 completely is the chapter's duty: the replay trusts the saved scores.
 
-CI runs the unit checks (normally and under `python -O`) and the smoke presets of
-C1, C4, C5 and C6; C2, C3 and C7–C10 need the diffsol binary, the reference binary
-of another repository or a large archive and are run by hand.
+CI builds the diffsol workspace, downloads the fixtures of C6, C7 and C9, runs
+the unit checks (normally and under `python -O`) and the smoke presets of C1,
+C2, C4 to C7, C9 and C10, and redraws the figures from the saved tables. C3
+needs the reference binary of another repository, C8 and its two archive tests
+a 62 MB archive; both are run by hand.
 
 Timing is descriptive and depends on host load. Independent training and
 validation seeds and native work counts establish the numerical protocol, not

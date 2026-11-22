@@ -15,7 +15,7 @@ from publications import petab
 DATA = Path(os.environ.get("CRN_PUBLICATION_DATA", ".publication-data")) / "C9"
 ODE = Path(
     os.environ.get(
-        "CRN_DIFFSOL_BINARY",
+        "CRN_DIFFSOL",
         Path(__file__).parents[2] / "integrations/diffsol/target/release/crn-diffsol",
     )
 )

@@ -11,6 +11,12 @@ matches your model.
 | [C2 — sensitivities](C2-sensitivities.md) | Are derivatives correct, rates identifiable, and ODE fits transferable? | Optional BDF integration + SQP/BiteOpt + SSA |
 | [C3 — oscillators](C3-oscillators.md) | Which trade-offs and behaviors survive independent paths? | SSA + MODE + MAP-Elites + ReBop compatibility control |
 | [C4 — rules](C4-rules.md) | Can finite-path fits of exact aggregation laws distinguish kernels? | Bounded native `crn-craft run` + BiteOpt |
+| [C5 — RNA count calibration](C5-rna-counts.md) | Can three rates be recovered from stochastic count distributions? | SSA, prepared FSP and DE |
+| [C6 — Stimulus model selection](C6-stimulus-fit.md) | Which rates change after a stimulus? | Stationary and transient FSP, joint likelihood and AIC/BIC |
+| [C7 — Virtual reactor design](C7-reactor.md) | What Pareto front can MODE find within 50 evaluations? | Native concentration BDF and MODE |
+| [C8 — Sampling design](C8-experiment-design.md) | Which protocol provides the most Fisher information? | Native FSP sensitivities and fcmaes |
+| [C9 — STAT5 calibration](C9-stat5.md) | Can a published Gaussian likelihood be reproduced? | PEtab v1 tables, concentration BDF and DE-to-CMA-ES |
+| [C10 — Multi-condition pathway calibration](C10-pathway.md) | How reliably do global searches fit 36 rates? | Batched concentration BDF, DE and CMA-ES |
 
 Use the shared [installation and command-job guide](https://github.com/dietmarwo/optimization-jobs/blob/main/tutorials/simulators/README.md).
 It pins the Python dependencies, builds the optional binaries and lists all
@@ -51,3 +57,32 @@ the existing tutorial version-1 convention alongside simulator-owned evidence.
 These are library/command examples. They do not register new stock CRN job
 models or replace the synthetic `app.crn.circuit-score`. Model files, requests, actual work and held-out results are the
 primary evidence. See [validation notes](VALIDATION.md) for the recorded checks.
+
+
+## Publication studies C5–C10
+
+Install NumPy, SciPy, matplotlib, and `fcmaes==2.2.0` along with a CRN-craft
+wheel built from this checkout. C9 also uses PyYAML and python-libsbml. The
+publication lessons run with Python fcmaes ask/tell on top of the Rust
+simulation and sensitivity paths. These lessons use the existing output
+directory and preset conventions.
+
+```bash
+python tutorials/optimization/publications/sources.py --data-dir .publication-data
+cargo build --release --locked --manifest-path integrations/diffsol/Cargo.toml
+python tutorials/optimization/run.py C6 --preset smoke --output results/c6-smoke
+python tutorials/optimization/run.py C7 --preset study --output results/c7-study
+python -m unittest discover -s tutorials/optimization -p test_publications.py
+```
+
+The first command downloads pinned, checksummed reference data. Later runs
+read those files locally. Supply individual chapter IDs to fetch a subset.
+C5 and C10 generate their own data. C7, C9 and C10 use a persistent
+concentration solver. C8 uses the FSP sensitivity bindings in the wheel.
+
+Each result directory retains the model, numerical checks, population scores
+in proposal order and figures. Use `--threads` for one layer of concurrent
+candidate evaluation. Use `OPENBLAS_NUM_THREADS=1` during multiworker runs so
+the numerical libraries do not start their own worker pools. Smoke presets
+test the full workflow with small budgets. Study options are described on
+each chapter page.

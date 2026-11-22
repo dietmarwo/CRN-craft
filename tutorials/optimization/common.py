@@ -104,7 +104,7 @@ def arm_manifest(
     )
 
 
-def main(chapter, function, options=None):
+def main(chapter, function, options=None, *, packages=None):
     """Run one chapter; `options` adds the chapter's own command-line flags."""
     parser = argparse.ArgumentParser(description=function.__doc__)
     parser.add_argument("--output", required=True, type=Path)
@@ -142,12 +142,17 @@ def main(chapter, function, options=None):
     )
     start = time.perf_counter()
     try:
+        source = Path(__file__).parent
+        if packages is None:
+            packages = ("crn-craft", "fcmaes-rust", "numpy", "scipy", "sqp-craft")
+            source_files = source.glob("*.py")
+        else:
+            source_files = source.rglob("*.py")
         report["versions"] = {
-            name: importlib.metadata.version(name)
-            for name in ["crn-craft", "fcmaes-rust", "numpy", "scipy", "sqp-craft"]
+            name: importlib.metadata.version(name) for name in packages
         }
         report["source_sha256"] = {
-            p.name: digest(p) for p in sorted(Path(__file__).parent.glob("*.py"))
+            str(p.relative_to(source)): digest(p) for p in sorted(source_files)
         }
         report["setup_scope"] = (
             "Installed native libraries; build/import time is excluded and must be accounted separately in deployment studies."

@@ -55,6 +55,7 @@
   - [Data and model](guide/23a-yeast-rna-fit-model.md)
   - [Fits and predictions](guide/23b-yeast-rna-fit-results.md)
   - [Choices, checks and limits](guide/23c-yeast-rna-fit-limits.md)
+- [24. Reproducing published optimization studies](guide/24-publication-tutorials.md)
 - [Troubleshooting](guide/troubleshooting.md)
 - [Migrating from earlier releases](guide/migrating.md)
 

@@ -1,0 +1,74 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "ModelVersion": {
+      "enum": [
+        "crn-craft.concentration-model/0.1"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "assignments": {
+      "default": [],
+      "items": {
+        "items": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "string"
+          }
+        ],
+        "maxItems": 2,
+        "minItems": 2,
+        "type": "array"
+      },
+      "type": "array"
+    },
+    "derivatives": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "initial": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "observations": {
+      "default": [],
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "parameters": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "schema": {
+      "$ref": "#/definitions/ModelVersion"
+    },
+    "states": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "derivatives",
+    "initial",
+    "parameters",
+    "schema",
+    "states"
+  ],
+  "title": "Model",
+  "type": "object"
+}

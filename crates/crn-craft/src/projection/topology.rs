@@ -2,7 +2,7 @@
 use super::{Interrupt, Operation, budget, input};
 use crate::diagnostic::Diagnostic;
 use crate::rules::FlatView;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Most states of a prepared projection, whatever `max_states` says.
 pub const MAX_STATES: usize = 250_000;
@@ -90,6 +90,7 @@ enum Admitted {
 
 struct Builder<'a> {
     spec: &'a Spec,
+    retained: Option<&'a HashSet<Vec<u64>>>,
     width: usize,
     count: usize,
     states: Vec<u64>,
@@ -115,6 +116,9 @@ impl Builder<'_> {
         // Inside the bounds every count fits in u64.
         #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
         let key: Box<[u64]> = state.iter().map(|&n| n as u64).collect();
+        if self.retained.is_some_and(|states| !states.contains(&*key)) {
+            return Ok(Admitted::Sink);
+        }
         if let Some(&i) = self.index.get(&key) {
             return Ok(Admitted::State(i));
         }
@@ -164,11 +168,34 @@ impl Topology {
     /// `/projection/overflow` for a multiplicity above the largest double;
     /// `CRN-E070` for the state, edge, state-table and enumeration budgets
     /// and for an interruption.
-    #[allow(clippy::too_many_lines)]
     pub fn enumerate(spec: &Spec, interrupt: &Interrupt<'_>) -> Result<Self, Diagnostic> {
+        Self::enumerate_retained(spec, None, interrupt)
+    }
+
+    /// Enumerate within a finite retained set. Omitted transitions flow
+    /// straight to the existing absorbing sink.
+    ///
+    /// # Errors
+    /// Invalid retained states, or any error of ordinary enumeration.
+    #[allow(clippy::too_many_lines)]
+    pub fn enumerate_retained(
+        spec: &Spec,
+        retained: Option<&HashSet<Vec<u64>>>,
+        interrupt: &Interrupt<'_>,
+    ) -> Result<Self, Diagnostic> {
         let width = spec.bounds.len();
+        if retained.is_some_and(|states| {
+            states.is_empty()
+                || states.len() > spec.max_states
+                || states.iter().any(|s| {
+                    s.len() != width || s.iter().zip(&spec.bounds).any(|(n, bound)| n > bound)
+                })
+        }) {
+            return Err(input("invalid retained projection states"));
+        }
         let mut builder = Builder {
             spec,
+            retained,
             width,
             count: 0,
             states: Vec::new(),

@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "Case": {
+      "additionalProperties": false,
+      "properties": {
+        "atol": {
+          "format": "double",
+          "type": "number"
+        },
+        "parameters": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        },
+        "rtol": {
+          "format": "double",
+          "type": "number"
+        },
+        "times": {
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "atol",
+        "parameters",
+        "rtol",
+        "times"
+      ],
+      "type": "object"
+    },
+    "RequestVersion": {
+      "enum": [
+        "crn-craft.concentration-request/0.1"
+      ],
+      "type": "string"
+    }
+  },
+  "properties": {
+    "cases": {
+      "items": {
+        "$ref": "#/definitions/Case"
+      },
+      "type": "array"
+    },
+    "schema": {
+      "$ref": "#/definitions/RequestVersion"
+    }
+  },
+  "required": [
+    "cases",
+    "schema"
+  ],
+  "title": "Batch",
+  "type": "object"
+}

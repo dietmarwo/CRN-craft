@@ -229,6 +229,7 @@ class PreparedFsp:
         *,
         protocol=None,
         initial=None,
+        retained=None,
         max_states=100_000,
         max_edges=2_000_000,
     ):
@@ -262,6 +263,14 @@ class PreparedFsp:
             self._document["parameters"],
         )
         self._initial = self._law(initial)
+        if retained is not None and self._actions:
+            raise ValueError(
+                "retained projections do not support scheduled interventions"
+            )
+        if retained is not None:
+            retained = sorted({tuple(index(x) for x in row) for row in retained})
+            if not 1 <= len(retained) <= self._max_states:
+                raise ValueError("retained projection exceeds the state budget")
         self._channels = self._layout["channels"]
         interventions = [
             [
@@ -284,6 +293,7 @@ class PreparedFsp:
                 interventions,
                 self._max_states,
                 self._max_edges,
+                retained,
             )
         except _native.NativeError as error:
             raise _native_error(error) from None
@@ -664,6 +674,7 @@ def prepare_fsp(
     *,
     protocol=None,
     initial=None,
+    retained=None,
     max_states=100_000,
     max_edges=2_000_000,
 ):
@@ -673,7 +684,9 @@ def prepare_fsp(
     generator and propagates the law; no solve needs SciPy.
     Existing :meth:`Model.fsp` is the native uniformization for one fixed
     model without protocols, signals or initial mixtures. A prepared
-    projection holds no per-solve state, so threads can share it. It cannot
+    projection holds no per-solve state, so threads can share it. Optional
+    retained tuples restrict the state space in lowered species order:
+    excluded transitions flow to the absorbing sink. It cannot
     be pickled; prepare one per process.
     """
     return PreparedFsp(
@@ -681,6 +694,7 @@ def prepare_fsp(
         bounds,
         protocol=protocol,
         initial=initial,
+        retained=retained,
         max_states=max_states,
         max_edges=max_edges,
     )

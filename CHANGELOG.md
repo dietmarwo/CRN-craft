@@ -7,6 +7,19 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+### Added
+
+- Optimization tutorials C5–C10 cover distribution fitting, joint-count model
+  selection, virtual reactor Pareto search, Fisher experiment design, PEtab
+  calibration and a 36-parameter multi-condition fit.
+- Prepared projection accepts an optional retained set of count states.
+  The sensitivity interface propagates probability derivatives for
+  piecewise-constant parameter bindings, with one sparse diagonal
+  factorization shared across the forward directions.
+- The optional diffsol workspace has a concentration-only batch interface
+  with real initial concentrations, time-dependent formulas and readouts.
+
+
 ### Documentation (guide and examples)
 
 - Chapter 19: the Figure 1C plot names its lines (this guide's runs, the

@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "Evaluation": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "values": {
+              "$ref": "#/definitions/Trajectory"
+            }
+          },
+          "required": [
+            "values"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "error": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ResultVersion": {
+      "enum": [
+        "crn-craft.concentration-result/0.1"
+      ],
+      "type": "string"
+    },
+    "Trajectory": {
+      "properties": {
+        "observations": {
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "states": {
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "observations",
+        "states"
+      ],
+      "type": "object"
+    }
+  },
+  "properties": {
+    "cases": {
+      "items": {
+        "$ref": "#/definitions/Evaluation"
+      },
+      "type": "array"
+    },
+    "schema": {
+      "$ref": "#/definitions/ResultVersion"
+    }
+  },
+  "required": [
+    "cases",
+    "schema"
+  ],
+  "title": "BatchResult",
+  "type": "object"
+}

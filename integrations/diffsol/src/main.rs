@@ -25,6 +25,7 @@ use crn_craft::{diagnostic::Diagnostic, kinetics::Kinetics};
 use diffsol::{OdeBuilder, OdeSolverMethod, OdeSolverStopReason, SensitivitiesOdeSolverMethod};
 use schemars::{JsonSchema, schema_for};
 use serde::{Deserialize, Serialize};
+mod concentrations;
 use std::{
     panic::{AssertUnwindSafe, catch_unwind},
     sync::{Arc, Mutex},
@@ -156,6 +157,9 @@ fn network_species(bytes: &[u8]) -> Option<Vec<(String, Option<i64>)>> {
 }
 fn run() -> Result<(), Diagnostic> {
     let args: Vec<_> = std::env::args().collect();
+    if args.get(1).map(String::as_str) == Some("concentrations") {
+        return concentrations::command(&args[2..]).map_err(failure);
+    }
     if args.len() == 2 && args[1] == "describe" {
         println!(
             "{}",

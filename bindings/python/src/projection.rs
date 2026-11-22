@@ -8,7 +8,8 @@ use crate::{failure, run_interruptible};
 use crn_craft::diagnostic::Diagnostic;
 use crn_craft::projection::{
     BdfControls, ChannelShape, Generator, Implicit, Interrupt, Merged, MidpointControls, Operation,
-    SignalValues, SolverCounts, Spec, Topology, Work, bdf, kick, midpoint, stationary, uniform,
+    SignalValues, SolverCounts, Spec, TangentSolver, Topology, Work, bdf, kick, midpoint,
+    stationary, uniform,
 };
 use crn_craft::rules::{Control, FlatView};
 use pyo3::{
@@ -127,6 +128,7 @@ pub(crate) struct ProjectionTopology(Arc<Topology>);
 impl ProjectionTopology {
     #[new]
     #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (view, bounds, initial, interventions, max_states, max_edges, retained=None))]
     fn new(
         py: Python<'_>,
         view: &ProjectionView,
@@ -135,6 +137,7 @@ impl ProjectionTopology {
         interventions: Vec<Vec<PyOperation>>,
         max_states: usize,
         max_edges: usize,
+        retained: Option<Vec<Vec<u64>>>,
     ) -> PyResult<Self> {
         let interventions = interventions
             .iter()
@@ -152,7 +155,8 @@ impl ProjectionTopology {
                 max_edges,
             };
             let poll = || c.cancel_flagged();
-            Topology::enumerate(&spec, &Interrupt::new(&poll))
+            let retained = retained.map(|rows| rows.into_iter().collect());
+            Topology::enumerate_retained(&spec, retained.as_ref(), &Interrupt::new(&poll))
         })?;
         result.map(|t| Self(Arc::new(t))).map_err(|d| one(&d))
     }
@@ -478,6 +482,90 @@ impl ProjectionGenerator {
         }
         let (p, used) = result.map_err(|d| one(&d))?;
         Ok((float_bytes(py, &p)?, used))
+    }
+
+    /// Constant-segment forward sensitivity solve with a shared LU block.
+    #[allow(clippy::too_many_arguments)]
+    fn tangents<'py>(
+        &self,
+        py: Python<'py>,
+        state: &[u8],
+        pairs: Vec<(Py<Self>, Py<Self>, f64)>,
+        start: f64,
+        end: f64,
+        reports: Vec<f64>,
+        tolerance: f64,
+        work_limit: i64,
+        max_factor_bytes: u64,
+    ) -> PyResult<(Bound<'py, PyByteArray>, Bound<'py, PyByteArray>, i64)> {
+        let mut state = floats(state);
+        let base = Arc::clone(&self.generator);
+        let bindings: Vec<_> = pairs
+            .iter()
+            .map(|(a, b, width)| {
+                (
+                    Arc::clone(&a.borrow(py).generator),
+                    Arc::clone(&b.borrow(py).generator),
+                    *width,
+                )
+            })
+            .collect();
+        let result = run_interruptible(py, Control::default(), Control::cancel, move |c| {
+            let poll = || c.cancel_flagged();
+            let interrupt = Interrupt::new(&poll);
+            let n = base.dim();
+            let views: Vec<_> = bindings
+                .iter()
+                .map(|(a, b, w)| (a.as_ref(), b.as_ref(), *w))
+                .collect();
+            if state.len() != n * (1 + views.len())
+                || state.iter().any(|x| !x.is_finite())
+                || !start.is_finite()
+                || !end.is_finite()
+                || start >= end
+                || !(0.0 < tolerance && tolerance < 1.0)
+                || reports.iter().any(|&t| !(start < t && t < end))
+                || reports.windows(2).any(|w| w[0] >= w[1])
+            {
+                return Err(Diagnostic::error(
+                    "CRN-E071",
+                    "/projection/sensitivities",
+                    "invalid tangent initial state, times or tolerance",
+                    "",
+                ));
+            }
+            let generator = base.tangents(&views)?;
+            let solver = TangentSolver::new(n, FaerLu::default());
+            let mut implicit = Implicit::new(&generator, solver)?;
+            let mut sources = Sources {
+                sources: Vec::new(),
+                error: Mutex::new(None),
+            };
+            let controls = BdfControls {
+                start,
+                end,
+                tolerance,
+                max_step: f64::INFINITY,
+                max_factor_bytes,
+            };
+            let mut w = work(0, work_limit);
+            let result = bdf(
+                &mut implicit,
+                &mut state,
+                controls,
+                &reports,
+                &mut sources,
+                &mut w,
+                &interrupt,
+            )?;
+            Ok((result.concat(), state, count(&w)))
+        })?;
+        let (reported, final_state, used) = result.map_err(|d| one(&d))?;
+        Ok((
+            float_bytes(py, &reported)?,
+            float_bytes(py, &final_state)?,
+            used,
+        ))
     }
 
     /// The rate of each state into the sink, little-endian float64.

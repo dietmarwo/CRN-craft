@@ -268,9 +268,20 @@ class PreparedFsp:
                 "retained projections do not support scheduled interventions"
             )
         if retained is not None:
-            retained = sorted({tuple(index(x) for x in row) for row in retained})
-            if not 1 <= len(retained) <= self._max_states:
-                raise ValueError("retained projection exceeds the state budget")
+            rows = set()
+            for row in retained:
+                state = tuple(index(x) for x in row)
+                if len(state) != len(self.species) or any(n < 0 for n in state):
+                    raise ValueError(
+                        "retained states are tuples of nonnegative counts, "
+                        "one per species"
+                    )
+                rows.add(state)
+                if len(rows) > self._max_states:
+                    raise ValueError("retained projection exceeds the state budget")
+            if not rows:
+                raise ValueError("retained projection needs at least one state")
+            retained = sorted(rows)
         self._channels = self._layout["channels"]
         interventions = [
             [
@@ -684,10 +695,18 @@ def prepare_fsp(
     generator and propagates the law; no solve needs SciPy.
     Existing :meth:`Model.fsp` is the native uniformization for one fixed
     model without protocols, signals or initial mixtures. A prepared
-    projection holds no per-solve state, so threads can share it. Optional
-    retained tuples restrict the state space in lowered species order:
-    excluded transitions flow to the absorbing sink. It cannot
+    projection holds no per-solve state, so threads can share it. It cannot
     be pickled; prepare one per process.
+
+    ``retained`` optionally restricts the projection to a finite set of
+    count tuples in the order of :attr:`PreparedFsp.species`, inside
+    ``bounds`` (for example a hyperbolic cut ``(x - 4) (y - 4) < c``). Only
+    retained states reachable from the initial law are enumerated; a
+    transition to any other state flows to the absorbing sink, so the sink
+    probability measures the truncation. The initial law must lie in the
+    set; duplicates count once; an empty set, negative counts, tuples of
+    another length and more than ``max_states`` tuples are refused. A
+    retained set cannot be combined with scheduled count interventions.
     """
     return PreparedFsp(
         model,

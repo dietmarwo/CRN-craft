@@ -137,7 +137,13 @@ impl<S: SparseLinearSolver> Implicit<S> {
             row_idx,
             values,
         };
-        let factor_bytes = solver.analyze(&matrix)?;
+        // The factorization bound of the solver, the iteration matrix (value,
+        // row, source) and the integrator's vectors.
+        let vectors = (2 * MAX_ORDER + 14) as u64;
+        let factor_bytes = solver
+            .analyze(&matrix)?
+            .saturating_add(24 * matrix.nnz() as u64)
+            .saturating_add(8 * vectors * dim as u64);
         let counts = SolverCounts {
             symbolic: 1,
             ..SolverCounts::default()
@@ -160,7 +166,9 @@ impl<S: SparseLinearSolver> Implicit<S> {
         self.counts
     }
 
-    /// The analysis bound of one numeric factorization, in bytes.
+    /// The bound, in bytes, of one numeric factorization (from the
+    /// solver's analysis), the iteration matrix and the integrator's
+    /// vectors; [`bdf`] refuses above its `max_factor_bytes`.
     #[must_use]
     pub fn factor_bytes(&self) -> u64 {
         self.factor_bytes

@@ -625,12 +625,15 @@ fn bdf_refuses_memory_work_and_negative_signals() {
     let t = Topology::enumerate(&spec(&v, vec![5], vec![vec![0]]), &interrupt).unwrap();
     let g = Generator::build(&t, &v, &[vec![0]], &interrupt).unwrap();
     let mut implicit = Implicit::new(&g, DenseLu::default()).unwrap();
-    assert_eq!(implicit.factor_bytes(), 7 * 7 * 8);
+    // The dense double's 7 x 7 values, the 18 entries of the iteration
+    // matrix and 24 vectors of 7 entries.
+    let bound = 7 * 7 * 8 + 24 * 18 + 8 * 24 * 7;
+    assert_eq!(implicit.factor_bytes(), bound);
     let mut p = vec![0.0; t.len() + 1];
     p[0] = 1.0;
     let mut work = Work::new(0, 1000);
     let mut controls = bdf_controls(1.0, 1e-6, f64::INFINITY);
-    controls.max_factor_bytes = 7 * 7 * 8 - 1;
+    controls.max_factor_bytes = bound - 1;
     let error = bdf(
         &mut implicit,
         &mut p,
@@ -645,7 +648,10 @@ fn bdf_refuses_memory_work_and_negative_signals() {
         (error.code.as_str(), error.path.as_str()),
         ("CRN-E070", "/projection/memory")
     );
-    assert!(error.message.contains("max_factor_bytes=391"));
+    assert!(error.message.contains(&format!(
+        "{bound} bytes, above the memory budget max_factor_bytes={}",
+        bound - 1
+    )));
     assert_eq!(implicit.counts().numeric, 0);
     let mut small = Work::new(0, 5);
     let error = bdf(

@@ -250,8 +250,8 @@ fn memory(bytes: u64, budget: u64) -> Result<(), Diagnostic> {
             BUDGET,
             "/projection/memory",
             format!(
-                "the sparse LU factorization may need up to {bytes} bytes, above \
-                 the factorization memory budget max_factor_bytes={budget}"
+                "the sparse LU factorization and its workspace may need up to \
+                 {bytes} bytes, above the memory budget max_factor_bytes={budget}"
             ),
             "Raise max_factor_bytes or lower the bounds.",
         ));

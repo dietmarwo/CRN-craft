@@ -249,7 +249,11 @@ fn anchored<S: SparseLinearSolver>(
             }
         }
         interrupt.check()?;
-        let bytes = solver.analyze(&matrix)?;
+        // The factorization bound and the restricted matrices and vectors.
+        let bytes = solver
+            .analyze(&matrix)?
+            .saturating_add(32 * (matrix.nnz() + q.nnz()) as u64)
+            .saturating_add(48 * q.dim as u64);
         counts.symbolic += 1;
         memory(bytes, max_factor_bytes)?;
         interrupt.check()?;

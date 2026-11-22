@@ -205,6 +205,41 @@ impl Generator {
         })
     }
 
+    /// A generator without signals from `(source, target, rate)` triples
+    /// on states `0..n` and the sink `n` (test fixtures).
+    #[cfg(test)]
+    pub(crate) fn from_rates(n: usize, rates: &[(usize, usize, f64)]) -> Self {
+        let mut columns: Vec<Vec<(usize, f64)>> = vec![Vec::new(); n + 1];
+        for &(s, d, r) in rates {
+            columns[s].push((d, r));
+            columns[s].push((s, -r));
+        }
+        let mut col_ptr = vec![0];
+        let (mut row_idx, mut values) = (Vec::new(), Vec::new());
+        for mut column in columns {
+            column.sort_by_key(|&(r, _)| r);
+            for (r, v) in column {
+                if row_idx.len() > col_ptr[col_ptr.len() - 1] && row_idx.last() == Some(&r) {
+                    *values.last_mut().expect("entry") += v;
+                } else {
+                    row_idx.push(r);
+                    values.push(v);
+                }
+            }
+            col_ptr.push(row_idx.len());
+        }
+        Self {
+            constant: Csc {
+                dim: n + 1,
+                col_ptr,
+                row_idx,
+                values,
+            },
+            signals: Vec::new(),
+            stopped: vec![false; n],
+        }
+    }
+
     /// The count-independent and state-dependent rates, signals excluded.
     #[must_use]
     pub fn constant(&self) -> &Csc {
@@ -227,6 +262,24 @@ impl Generator {
     #[must_use]
     pub fn dim(&self) -> usize {
         self.constant.dim
+    }
+
+    /// The rate of each state into the sink (row `n` of the constant
+    /// part), states only.
+    #[must_use]
+    pub fn escapes(&self) -> Vec<f64> {
+        let q = &self.constant;
+        let n = q.dim - 1;
+        (0..n)
+            .map(|j| {
+                let end = q.col_ptr[j + 1];
+                if end > q.col_ptr[j] && q.row_idx[end - 1] == n {
+                    q.values[end - 1]
+                } else {
+                    0.0
+                }
+            })
+            .collect()
     }
 }
 
@@ -302,6 +355,12 @@ impl Merged {
     #[must_use]
     pub fn dim(&self) -> usize {
         self.dim
+    }
+
+    /// The number of signals.
+    #[must_use]
+    pub fn signals(&self) -> usize {
+        self.signals
     }
 
     /// Row pointers of the union pattern.

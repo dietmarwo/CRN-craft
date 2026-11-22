@@ -26,6 +26,21 @@ jobs:
       # every toolchain of the matrix, including the minimum one.
       - run: cargo +${{ matrix.toolchain }} fmt --manifest-path bindings/python/Cargo.toml -- --check
       - run: cargo +${{ matrix.toolchain }} clippy --manifest-path bindings/python/Cargo.toml --all-targets --locked -- -D warnings
+  diffsol:
+    # The optional diffsol integration has its own workspace, lockfile and
+    # minimum toolchain (integrations/diffsol/Cargo.toml). Its tests include
+    # the schema snapshots of the ODE and concentration contracts.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        toolchain: ["1.89.0", stable]
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install ${{ matrix.toolchain }} --profile minimal --component rustfmt,clippy
+      - run: cargo +${{ matrix.toolchain }} fmt --manifest-path integrations/diffsol/Cargo.toml -- --check
+      - run: cargo +${{ matrix.toolchain }} clippy --manifest-path integrations/diffsol/Cargo.toml --all-targets --locked -- -D warnings
+      - run: cargo +${{ matrix.toolchain }} test --release --locked --manifest-path integrations/diffsol/Cargo.toml
   contracts:
     runs-on: ubuntu-latest
     # Mutation gate: the mutants of validation/mutation_check.py, on the code of
@@ -239,6 +254,31 @@ jobs:
           python -I "$GITHUB_WORKSPACE/validation/check_installed.py" --output installed.json
           python -I -O "$GITHUB_WORKSPACE/validation/check_installed.py" --output installed-optimized.json
           diff installed.json installed-optimized.json
+      # Optimization tutorials (tutorials/optimization): the unit checks and
+      # the smoke presets. The concentration solver is built here, and the
+      # small fixtures of C6, C7 and C9 are downloaded by commit and checked
+      # by SHA-256 (publications/sources.py). Not run here: C3, which needs
+      # another repository's reference binary, and C8 with its two archive
+      # tests, which need a 62 MB archive (tutorials/optimization/VALIDATION.md).
+      # A test whose package, binary or fixture is missing reports itself as
+      # skipped with the reason; here everything but the C8 archive is
+      # present, so any other skip fails the step.
+      - name: Optimization tutorials
+        env:
+          OPENBLAS_NUM_THREADS: "1"
+          CRN_PUBLICATION_DATA: ${{ runner.temp }}/publication-data
+        run: |
+          python -m pip install fcmaes-rust==0.4.0 sqp-craft==0.17.0 PyYAML==6.0.4 python-libsbml==5.21.2
+          cargo build --release --locked --manifest-path integrations/diffsol/Cargo.toml
+          python tutorials/optimization/publications/sources.py --data-dir "$CRN_PUBLICATION_DATA" C6 C7 C9
+          python -m unittest discover -v -s tutorials/optimization -p 'test_*.py' 2> tutorials.log || { cat tutorials.log; exit 1; }
+          cat tutorials.log
+          ! grep -F "... skipped" tutorials.log | grep -v "C8 archive absent"
+          python -O -m unittest discover -s tutorials/optimization -p 'test_*.py'
+          for lesson in C1 C2 C4 C5 C6 C7 C9 C10; do
+            python tutorials/optimization/run.py "$lesson" --binary target/release/crn-craft --output "$RUNNER_TEMP/tutorial-$lesson"
+          done
+          python tutorials/optimization/figures.py --folder "$RUNNER_TEMP/tutorial-figures"
   line-endings:
     # Model hashes cover exact bytes; a Windows-style checkout must keep them.
     runs-on: ubuntu-latest

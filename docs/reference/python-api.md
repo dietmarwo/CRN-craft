@@ -1050,6 +1050,7 @@ prepare_fsp(
     bounds,
     protocol=None,
     initial=None,
+    retained=None,
     max_states=100000,
     max_edges=2000000,
 )
@@ -1063,6 +1064,7 @@ Prepare a reusable projection for a closed model.
 | `bounds` | required | Mapping of species labels to inclusive upper counts. |
 | `protocol` (keyword only) | `None` | An ordered Protocol describing count operations and delays. |
 | `initial` (keyword only) | `None` | Optional mapping of count tuples to probabilities. |
+| `retained` (keyword only) | `None` | Optional iterable of count tuples, in lowered species order, that restrict the state space; transitions that leave the set flow to the absorbing sink. Not available with scheduled interventions. |
 | `max_states` (keyword only) | `100000` | Reachable-state limit. |
 | `max_edges` (keyword only) | `2000000` | Sparse edge limit. |
 
@@ -1072,6 +1074,16 @@ Existing [`Model.fsp`](#modelfsp) is the native uniformization for one fixed
 model without protocols, signals or initial mixtures. A prepared
 projection holds no per-solve state, so threads can share it. It cannot
 be pickled; prepare one per process.
+
+`retained` optionally restricts the projection to a finite set of
+count tuples in the order of the projection's `species`, inside
+`bounds` (for example a hyperbolic cut `(x - 4) (y - 4) < c`). Only
+retained states reachable from the initial law are enumerated; a
+transition to any other state flows to the absorbing sink, so the sink
+probability measures the truncation. The initial law must lie in the
+set; duplicates count once; an empty set, negative counts, tuples of
+another length and more than `max_states` tuples are refused. A
+retained set cannot be combined with scheduled count interventions.
 
 ### `stationary_fsp`
 

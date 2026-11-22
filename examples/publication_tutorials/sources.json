@@ -1,0 +1,78 @@
+{
+  "C6": {
+    "myData_Npas4_t0_List.txt": [
+      "https://raw.githubusercontent.com/mgschiavon/BayFish/70d1b685da4b4da8aa8a64934e200a5e3593791d/DATA/myData_Npas4_t0_List.txt",
+      "c0fdedbf07cc9cc4161ca90122a137082464ecae702dd7e04eadb565466dc906"
+    ],
+    "myData_Npas4_t5_List.txt": [
+      "https://raw.githubusercontent.com/mgschiavon/BayFish/70d1b685da4b4da8aa8a64934e200a5e3593791d/DATA/myData_Npas4_t5_List.txt",
+      "1698508ec77ef826f8cf635f4a390a5b98f02540cbc226b2149ea7d0453f70c6"
+    ],
+    "myData_Npas4_t15_List.txt": [
+      "https://raw.githubusercontent.com/mgschiavon/BayFish/70d1b685da4b4da8aa8a64934e200a5e3593791d/DATA/myData_Npas4_t15_List.txt",
+      "d052d098575df4e1cd618ff4b064b7af70886b9aec373d5144e666984c47bbb7"
+    ],
+    "myData_Npas4_t25_List.txt": [
+      "https://raw.githubusercontent.com/mgschiavon/BayFish/70d1b685da4b4da8aa8a64934e200a5e3593791d/DATA/myData_Npas4_t25_List.txt",
+      "a635ffd1d70c2469cee8bae077e85588702f7293c76dec4a43b32374b7ca456e"
+    ]
+  },
+  "C7": {
+    "snar_results.csv": [
+      "https://raw.githubusercontent.com/sustainable-processes/summit/1de682d05e97adcfb96cd8376e876cef2d6160d3/experiments/snar_benchmark/data/snar_results.csv",
+      "201e33bc94bf41d512c0e0c32adba219043abccc33c758fef83091052071342c"
+    ],
+    "pareto_front_snar.csv": [
+      "https://raw.githubusercontent.com/sustainable-processes/summit/1de682d05e97adcfb96cd8376e876cef2d6160d3/experiments/snar_benchmark/data/pareto_front_snar.csv",
+      "7b2cec1f37722af36f860d8cdbf8264fe16db804fb1533948984197abb4f7bc8"
+    ]
+  },
+  "C8": {
+    "fsp-fim.tar.gz": {
+      "kind": "tar-content",
+      "url": "https://codeload.github.com/Munsky/FSPFIM_2018/tar.gz/2e2f76fdeeb0d9290b48aa981210422d254b07c2",
+      "commit": "2e2f76fdeeb0d9290b48aa981210422d254b07c2",
+      "prefixes": [
+        "toggle/out/all_fims_sampled_fim/"
+      ],
+      "files": [
+        "bursting_gene/out/E_opt_fsamp_fsp1.0_100.txt",
+        "toggle/out/initial_condition.txt",
+        "toggle/parameter_samples.txt",
+        "toggle/ref_pars.txt"
+      ],
+      "members": 676,
+      "sha256": "9a8e64d3b7a0717cf8e99bc07b781fd4e28cf2d9d71e2067ded00d21afd9b227"
+    }
+  },
+  "C9": {
+    "conditions.tsv": [
+      "https://raw.githubusercontent.com/Benchmarking-Initiative/Benchmark-Models-PEtab/49900951a5594a757ad5e651684c7f0a59272881/problems/Boehm_JProteomeRes2014/v1/conditions.tsv",
+      "523a28f32498f4dc0e4301692559c4d2f571f21d8e454270d22e91e0725b50b6"
+    ],
+    "measurements.tsv": [
+      "https://raw.githubusercontent.com/Benchmarking-Initiative/Benchmark-Models-PEtab/49900951a5594a757ad5e651684c7f0a59272881/problems/Boehm_JProteomeRes2014/v1/measurements.tsv",
+      "2cbea2fd6d595bc753c602f1fb7edc404d840b243983c279042a9f2996a6ca59"
+    ],
+    "model.xml": [
+      "https://raw.githubusercontent.com/Benchmarking-Initiative/Benchmark-Models-PEtab/49900951a5594a757ad5e651684c7f0a59272881/problems/Boehm_JProteomeRes2014/v1/model.xml",
+      "90fc7f262efd9a2878e8ae0321cfdd66339b18e9573f4aba1469b6268d572ea2"
+    ],
+    "observables.tsv": [
+      "https://raw.githubusercontent.com/Benchmarking-Initiative/Benchmark-Models-PEtab/49900951a5594a757ad5e651684c7f0a59272881/problems/Boehm_JProteomeRes2014/v1/observables.tsv",
+      "5e9a4692ce33e00b2ffb55b32b824e3ba19518546854fe0b4ffebd3f896f2429"
+    ],
+    "parameters.tsv": [
+      "https://raw.githubusercontent.com/Benchmarking-Initiative/Benchmark-Models-PEtab/49900951a5594a757ad5e651684c7f0a59272881/problems/Boehm_JProteomeRes2014/v1/parameters.tsv",
+      "5fad6c55cc5433289dee6997ef0da1e0ce5cbcfa39c37558135773855061f291"
+    ],
+    "problem.yaml": [
+      "https://raw.githubusercontent.com/Benchmarking-Initiative/Benchmark-Models-PEtab/49900951a5594a757ad5e651684c7f0a59272881/problems/Boehm_JProteomeRes2014/v1/problem.yaml",
+      "16fd70a09e7ee100637e9ab9e2efcf46a3420e2de9569ebaacec041fe1755158"
+    ],
+    "simulations.tsv": [
+      "https://raw.githubusercontent.com/Benchmarking-Initiative/Benchmark-Models-PEtab/49900951a5594a757ad5e651684c7f0a59272881/problems/Boehm_JProteomeRes2014/v1/simulations.tsv",
+      "dd5b4342ac6fe565800ddc2df4084293d3fc793e65b451aee5ebec932a85f197"
+    ]
+  }
+}

@@ -1,0 +1,95 @@
+{
+  "schema_version": "crn-craft.optimization-record/0.1",
+  "scope": "Smoke runs of the publication tutorials: which checks passed.",
+  "chapters": {
+    "C5": [
+      {
+        "name": "noise-adjusted-FSP-and-SSA",
+        "passed": true
+      },
+      {
+        "name": "two-rank-score",
+        "passed": true
+      },
+      {
+        "name": "search-ran",
+        "passed": true
+      }
+    ],
+    "C6": [
+      {
+        "name": "376-archived-cells",
+        "passed": true
+      },
+      {
+        "name": "fixed-vector-joint-likelihood",
+        "passed": true
+      }
+    ],
+    "C7": [
+      {
+        "name": "archived-reference-noise",
+        "passed": true
+      },
+      {
+        "name": "summit-archive-outputs",
+        "passed": true
+      },
+      {
+        "name": "reactor-outlet-parity",
+        "passed": true
+      },
+      {
+        "name": "hypervolume-hand-fixture",
+        "passed": true
+      },
+      {
+        "name": "exact-evaluations",
+        "passed": true
+      }
+    ],
+    "C8": [
+      {
+        "name": "probability-sensitivities-and-Fisher-fixture",
+        "passed": true
+      },
+      {
+        "name": "bursting-interval-near-6.1-minutes",
+        "passed": true
+      },
+      {
+        "name": "archived-grid-and-97-of-100-ranking",
+        "passed": true
+      }
+    ],
+    "C9": [
+      {
+        "name": "archived-gaussian-likelihood",
+        "passed": true
+      },
+      {
+        "name": "native-nominal-signal-and-nll",
+        "passed": true
+      }
+    ],
+    "C10": [
+      {
+        "name": "sixteen-conditions-independent-trajectory",
+        "passed": true
+      },
+      {
+        "name": "weighted-loss-fixture",
+        "passed": true
+      }
+    ]
+  },
+  "versions": {
+    "crn-craft": "0.9.0",
+    "fcmaes": "2.2.0",
+    "numpy": "2.3.5",
+    "scipy": "1.17.0",
+    "matplotlib": "3.11.2",
+    "PyYAML": "6.0.4",
+    "python-libsbml": "5.21.2"
+  }
+}

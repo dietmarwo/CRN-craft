@@ -916,3 +916,174 @@ fn bdf_iterates_stale_factorizations_of_a_stiff_forced_law() {
     assert!(gap < 1e-6, "{gap} {c:?}");
     assert!(c.solves > c.steps + c.rejected, "{c:?}");
 }
+
+/// No forced channels.
+struct Silent;
+impl SignalValues for Silent {
+    fn evaluate(
+        &mut self,
+        _time: f64,
+        out: &mut [f64],
+    ) -> Result<(), crate::diagnostic::Diagnostic> {
+        assert!(out.is_empty());
+        Ok(())
+    }
+}
+
+/// Forward sensitivity of an immigration-death law to the birth rate: the
+/// Poisson law with mean `m = b (1 - e^{-k t}) / k` has derivative
+/// `p(x) (x / m - 1) dm/db`. On a domain cut low enough that the sink takes
+/// visible mass the augmented solve still conserves probability, keeps the
+/// sensitivity sum (sink included) at zero, and equals the centered
+/// difference of two truncated solves.
+#[test]
+fn tangents_match_the_poisson_derivative_and_conserve_mass() {
+    let (b, k, h) = (3.0, 0.8, 1e-4);
+    let interrupt = Interrupt::new(&never);
+    let reports = [0.5, 1.5];
+    let solve = |generator: &Generator, tangent: Option<usize>, y: &mut Vec<f64>| {
+        let mut work = Work::new(0, 1_000_000);
+        let controls = bdf_controls(3.0, 1e-10, f64::INFINITY);
+        let mut out = match tangent {
+            Some(n) => {
+                let solver = TangentSolver::new(n, DenseLu::default());
+                let mut implicit = Implicit::new(generator, solver).unwrap();
+                bdf(
+                    &mut implicit,
+                    y,
+                    controls,
+                    &reports,
+                    &mut Silent,
+                    &mut work,
+                    &interrupt,
+                )
+            }
+            None => {
+                let mut implicit = Implicit::new(generator, DenseLu::default()).unwrap();
+                bdf(
+                    &mut implicit,
+                    y,
+                    controls,
+                    &reports,
+                    &mut Silent,
+                    &mut work,
+                    &interrupt,
+                )
+            }
+        }
+        .unwrap();
+        out.push(y.clone());
+        out
+    };
+    for bound in [40, 9] {
+        let base = birth_death(b, k, 0);
+        let t = Topology::enumerate(&spec(&base, vec![bound], vec![vec![0]]), &interrupt).unwrap();
+        let build = |rate: f64| Generator::build(&t, &birth_death(rate, k, 0), &[], &interrupt);
+        let (g, plus, minus) = (
+            build(b).unwrap(),
+            build(b + h).unwrap(),
+            build(b - h).unwrap(),
+        );
+        let augmented = g.tangents(&[(&plus, &minus, 2.0 * h)]).unwrap();
+        let n = g.dim();
+        assert_eq!(augmented.dim(), 2 * n);
+        let mut y = vec![0.0; 2 * n];
+        y[0] = 1.0;
+        let states = solve(&augmented, Some(n), &mut y);
+        let mut start = vec![0.0; n];
+        start[0] = 1.0;
+        let (mut up, mut down) = (start.clone(), start);
+        let ups = solve(&plus, None, &mut up);
+        let downs = solve(&minus, None, &mut down);
+        let mut sink = 0.0_f64;
+        for (j, (state, at)) in states.iter().zip([0.5, 1.5, 3.0]).enumerate() {
+            let (law, tangent) = state.split_at(n);
+            let total: f64 = law.iter().sum();
+            let drift: f64 = tangent.iter().sum();
+            assert!((total - 1.0).abs() < 1e-12, "{bound} {at} {total}");
+            assert!(drift.abs() < 1e-10, "{bound} {at} {drift}");
+            sink = sink.max(law[n - 1]);
+            let pairs = ups[j].iter().zip(&downs[j]);
+            for (i, (&slope, (&above, &below))) in tangent.iter().zip(pairs).enumerate() {
+                let difference = (above - below) / (2.0 * h);
+                assert!((slope - difference).abs() < 1e-6, "{bound} {at} {i}");
+            }
+            if bound == 40 {
+                let mean = b * (1.0 - (-k * at).exp()) / k;
+                let slope = (1.0 - (-k * at).exp()) / k;
+                for (i, &x) in t.states().iter().enumerate() {
+                    let exact = poisson(x, mean) * (x as f64 / mean - 1.0) * slope;
+                    assert!((tangent[i] - exact).abs() < 1e-8, "{at} {x}");
+                }
+            }
+        }
+        if bound == 9 {
+            assert!(sink > 1e-3, "{sink}");
+        }
+    }
+}
+
+#[test]
+fn tangents_and_their_solver_refuse_invalid_systems() {
+    let v = birth_death(1.0, 1.0, 0);
+    let interrupt = Interrupt::new(&never);
+    let t = Topology::enumerate(&spec(&v, vec![4], vec![vec![0]]), &interrupt).unwrap();
+    let g = Generator::build(&t, &v, &[], &interrupt).unwrap();
+    let small = Topology::enumerate(&spec(&v, vec![2], vec![vec![0]]), &interrupt).unwrap();
+    let other = Generator::build(&small, &v, &[], &interrupt).unwrap();
+    let forced = Generator::build(&t, &v, &[vec![0]], &interrupt).unwrap();
+    for pairs in [
+        vec![],
+        vec![(&g, &g, 0.0)],
+        vec![(&g, &g, f64::NAN)],
+        vec![(&g, &other, 1.0)],
+        vec![(&forced, &g, 1.0)],
+    ] {
+        let error = g.tangents(&pairs).unwrap_err();
+        assert_eq!(error.code, "CRN-E071", "{pairs:?}", pairs = pairs.len());
+    }
+    let seventeen = vec![(&g, &g, 1.0); 17];
+    assert_eq!(g.tangents(&seventeen).unwrap_err().code, "CRN-E071");
+    // The tangent solver accepts only the block-triangular shape.
+    let mut solver = TangentSolver::new(g.dim(), DenseLu::default());
+    assert!(solver.analyze(g.constant()).is_err());
+    let mut wrong = TangentSolver::new(g.dim() + 1, DenseLu::default());
+    let augmented = g.tangents(&[(&g, &g, 1.0)]).unwrap();
+    assert!(wrong.analyze(augmented.constant()).is_err());
+    let mut fresh = TangentSolver::new(g.dim(), DenseLu::default());
+    assert!(fresh.factorize(augmented.constant()).is_err());
+    assert!(fresh.solve_in_place(&mut vec![0.0; 2 * g.dim()]).is_err());
+}
+
+#[test]
+fn a_retained_set_sends_omitted_states_to_the_sink() {
+    let v = birth_death(1.0, 1.0, 1);
+    let interrupt = Interrupt::new(&never);
+    let s = spec(&v, vec![5], vec![vec![1]]);
+    let full = Topology::enumerate(&s, &interrupt).unwrap();
+    let all: std::collections::HashSet<Vec<u64>> = (0..=5).map(|x| vec![x]).collect();
+    let same = Topology::enumerate_retained(&s, Some(&all), &interrupt).unwrap();
+    assert_eq!(same.states(), full.states());
+    assert_eq!(same.targets(), full.targets());
+    // Omit 3: the walk stops at 2, and 2 -> 3 goes to the sink.
+    let some: std::collections::HashSet<Vec<u64>> =
+        [0, 1, 2, 4, 5].iter().map(|&x| vec![x]).collect();
+    let cut = Topology::enumerate_retained(&s, Some(&some), &interrupt).unwrap();
+    assert_eq!(cut.states(), [1, 2, 0]);
+    let g = Generator::build(&cut, &v, &[], &interrupt).unwrap();
+    let escapes = g.escapes();
+    assert_eq!(escapes[1], 1.0, "{escapes:?}");
+    assert_eq!(escapes[0] + escapes[2], 0.0, "{escapes:?}");
+    for bad in [
+        std::collections::HashSet::new(),
+        [vec![6]].into_iter().collect(),
+        [vec![1, 0]].into_iter().collect(),
+    ] {
+        let error = Topology::enumerate_retained(&s, Some(&bad), &interrupt).unwrap_err();
+        assert_eq!(error.code, "CRN-E071");
+    }
+    let mut capped = s.clone();
+    capped.max_states = 2;
+    let error = Topology::enumerate_retained(&capped, Some(&all), &interrupt).unwrap_err();
+    assert_eq!(error.code, "CRN-E071");
+}

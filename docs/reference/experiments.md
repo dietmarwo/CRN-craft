@@ -256,6 +256,66 @@ recurrence evidence. `result.method` separates the exact finite law
 (`stationary-fsp-return-state`).
 [Stationary FSP method](https://arxiv.org/abs/1704.07259)
 
+### Retained state sets
+
+`prepare_fsp(model, bounds, retained=states)` restricts a projection to a
+finite set of count tuples inside the bounds, for example the hyperbolic
+cut `(x - 4)(y - 4) < 2500` of a toggle switch. Enumeration starts from the
+initial law and keeps only retained states; every transition to another
+state flows to the absorbing sink, so the sink probability measures the
+truncation. The initial law must lie in the set. Duplicates count once; an
+empty set, negative counts, tuples of another length, tuples outside the
+bounds and more than `max_states` tuples raise `ValueError`. Scheduled
+count interventions are refused with a retained set. Without `retained`
+the states, their order and the prepared id are those of the box.
+
+### Probability sensitivities and Fisher information
+
+```python
+from crn_craft.sensitivities import fisher_information, forward_sensitivities
+
+graph = crn.prepare_fsp(model, {"on": 1, "off": 1, "rna": 215})
+segments = [(60.0, {"kon": 0.05, "koff": 0.15}),
+            (120.0, {"kon": 0.10, "koff": 0.15})]
+result = forward_sensitivities(graph, segments, [30.0, 60.0, 120.0],
+                               ["koff", "kon"], logarithmic=True,
+                               tolerance=1e-9)
+bins, p, g = result.observed(["rna"])
+matrix, excluded = fisher_information(p, g, cells=1000)
+```
+
+`forward_sensitivities` integrates the law `p' = Q p` and its parameter
+derivatives `s_j' = Q s_j + (dQ/dθ_j) p` on the prepared graph through
+piecewise-constant segments `(end_time, bindings)`. The law and the
+derivatives pass continuously across segment ends. `dQ/dθ_j` is the
+centered difference of the generator at `θ_j (1 ± 10⁻⁴)` (or
+`θ_j e^{±10⁻⁴}` with `logarithmic=True`, which differentiates in
+natural-log coordinates): exact up to roundoff for rates linear in the
+parameter and second-order accurate for any other rate expression, such
+as a Hill function. The augmented system is integrated by the implicit
+integrator above, with the derivatives in the error norm (`rtol =
+tolerance`, `atol = 10⁻⁴ tolerance`); the iteration matrix is block lower
+triangular with identical diagonal blocks, so one sparse factorization of
+`I − c Q` serves the law and every direction. The initial law is the one
+given to `prepare_fsp` unless `initial` replaces it; it does not depend on
+the parameters unless `initial_derivatives` says so. The last column of
+`probabilities` and `derivatives` is the sink: each row of the law sums to
+one and each derivative row to zero, sink included; a loss above `1e-7`
+raises `ValueError`. At most 16 directions; signals, stop states and count
+interventions are outside this interface. `max_work` counts augmented
+solves.
+
+`result.observed(axes)` sums states and derivatives into the bins of the
+measured species before any score: a Fisher matrix of hidden states
+overstates what a measurement holds. `fisher_information(p, g, cells)`
+returns `Σ_t n_t Σ_b g gᵀ / p` over bins with `p > 0`, exactly symmetric
+and positive semidefinite up to roundoff, and the probability of the
+excluded bins per time. A bin with `p = 0` is unreachable or has
+underflowed and carries no information; `probability_floor` reproduces a
+published convention that drops rare bins. The run of chapter C8 of the
+optimization tutorials checks the derivatives against a closed form and
+centered differences and reproduces published Fisher matrices.
+
 **Verification.** `validation/check_projection_native.py` compares the
 native engine with an independent Python and SciPy implementation
 (`validation/reference_projection.py`, not shipped, with SciPy's BDF and
@@ -267,7 +327,9 @@ transient states, an absorbing state, a nearly decomposable stiff block
 structure and redirected expansions. Forced laws are also compared with
 closed-form Poisson laws. It also checks the binomial and Poisson-tail kernels against
 SciPy and, where SciPy loses accuracy for large counts, against a
-60-digit evaluation.
+60-digit evaluation. It also compares forward sensitivities with a closed
+form and with centered differences of uniformization solves through a
+parameter switch, and checks retained sets against the ordinary box.
 
 ## Spatial models
 

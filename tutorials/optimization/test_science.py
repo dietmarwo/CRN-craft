@@ -8,15 +8,21 @@ from types import SimpleNamespace
 import tempfile
 import unittest
 import numpy as np
-import calibration
-import oscillators
-import record
-import rules
-import sensitivity
-from calibration import binding_model, moments
-from common import checked, require
-from oscillators import generator_check, grid_niche, nondominated, score
-from rules import exact_law
+
+try:
+    import calibration
+    import oscillators
+    import record
+    import rules
+    import sensitivity
+    from calibration import binding_model, moments
+    from common import checked, require
+    from oscillators import generator_check, grid_niche, nondominated, score
+    from rules import exact_law
+except ImportError as error:  # pragma: no cover - depends on the environment
+    raise unittest.SkipTest(
+        f"C1-C4 tests need fcmaes-rust, sqp-craft and SciPy: {error}"
+    ) from None
 
 
 class ScienceChecks(unittest.TestCase):

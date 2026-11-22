@@ -1,0 +1,7 @@
+source,route,pSTAT5A_rel,pSTAT5B_rel,rSTAT5A_rel,total,calls
+archive,archived simulations,44.2806969018,52.8702405033,41.071062301,138.221999706,0
+nominal (native),"PEtab nominal vector, native solve",44.2806970596,52.8702391359,41.0710615908,138.221997786,0
+nominal (libSBML route),"PEtab nominal vector, SciPy solve",44.2806970834,52.8702390923,41.0710615672,138.221997743,0
+best plain retry,fcmaes search,45.9870215831,51.7877892033,49.7696603518,147.544471138,5000
+profiled noise scales,fcmaes search,44.3926900115,52.8221960216,41.0846224647,138.299508498,4000
+"profiled, then joint refinement",fcmaes search,44.2767814408,52.8727015697,41.0725284683,138.222011479,6400

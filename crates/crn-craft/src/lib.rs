@@ -138,6 +138,7 @@
 // check that only descriptions changed.
 pub mod analysis;
 pub mod archive;
+pub mod concentration;
 pub mod cone;
 pub mod conservation;
 pub mod diagnostic;

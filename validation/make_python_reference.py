@@ -214,6 +214,7 @@ ARGUMENTS = {
     "SpatialModel.transport.rate": "First-order hop rate per copy.",
     "bounds": "Mapping of species labels to inclusive upper counts.",
     "prepare_fsp.initial": "Optional mapping of count tuples to probabilities.",
+    "prepare_fsp.retained": "Optional iterable of count tuples, in lowered species order, that restrict the state space; transitions that leave the set flow to the absorbing sink. Not available with scheduled interventions.",
     "max_states": "Reachable-state limit.",
     "spatial_turnover.initial": "Per-region sequence of initial wild and mutant count pairs.",
     "stationary_fsp.parameters": "Numeric model parameter overrides.",

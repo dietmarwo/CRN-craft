@@ -98,6 +98,14 @@ pub struct Generator {
 }
 
 impl Generator {
+    pub(super) fn from_augmented(constant: Csc) -> Self {
+        Self {
+            constant,
+            signals: Vec::new(),
+            stopped: Vec::new(),
+        }
+    }
+
     /// Assembles the generator of `topology` with the rates of `view` (the
     /// model lowered under the binding; the caller checks that its channels
     /// match the prepared ones). `signals[k]` lists the channels driven by

@@ -1,6 +1,7 @@
 # Summary
 
 [CRN-craft](index.md)
+[Tutorials](tutorials.md)
 [How do I ...?](howto.md)
 [How CRN-craft compares](comparison.md)
 
@@ -17,16 +18,20 @@
 - [9. Continuous variables](guide/09-continuous-variables.md)
 - [10. The command line, request files and archives](guide/10-command-line.md)
 - [11. Analysis, import and export](guide/11-analysis-import-export.md)
+- [14. Model files and species with attributes](guide/14-model-files.md)
+  - [The mtDNA model files: clones, the fast path and stored models](guide/14a-mtdna-model-files.md)
+- [15. Using CRN-craft from R](guide/15-from-r.md)
+- [Troubleshooting](guide/troubleshooting.md)
+- [Migrating from earlier releases](guide/migrating.md)
+
+# Simulation tutorials
+
 - [12. Case study: mtDNA mutants](guide/12-mtdna.md)
   - [Takeover in a fixed population](guide/12a-mtdna-takeover.md)
   - [Mutant classes: trackers, event logs and callbacks](guide/12b-mtdna-events.md)
   - [Variable population: ATP](guide/12c-mtdna-atp.md)
   - [Methods and speed](guide/12d-mtdna-methods.md)
   - [Large studies: sweeps, budgets and the command line](guide/12e-mtdna-large-studies.md)
-- [13. Fitting parameters to data](guide/13-fitting.md)
-- [14. Model files and species with attributes](guide/14-model-files.md)
-  - [The mtDNA model files: clones, the fast path and stored models](guide/14a-mtdna-model-files.md)
-- [15. Using CRN-craft from R](guide/15-from-r.md)
 - [16. Case study: re-creating a published study](guide/16-published-study.md)
   - [Fig 1A: COX-negative cells over time](guide/16a-fig1a.md)
   - [Fig 1B: mutation rates for 5, 10 and 15 %](guide/16b-fig1b.md)
@@ -36,10 +41,6 @@
   - [The three models](guide/17a-mtdna-mechanisms-models.md)
   - [Fitting and the comparison](guide/17b-mtdna-mechanisms-results.md)
   - [Choices, checks and limits](guide/17c-mtdna-mechanisms-limits.md)
-- [18. Case study: inferring mtDNA takeover times](guide/18-mtdna-inference.md)
-  - [The model and Figure 6](guide/18a-mtdna-inference-model.md)
-  - [Fitting snapshots and takeover times](guide/18b-mtdna-inference-results.md)
-  - [Choices, checks and limits](guide/18c-mtdna-inference-limits.md)
 - [19. Spatial spread of mtDNA deletions](guide/19-mtdna-spread.md)
   - [Choices, checks and limits](guide/19a-mtdna-spread-limits.md)
   - [Extension: de novo deletions](guide/19b-mtdna-spread-de-novo.md)
@@ -51,12 +52,19 @@
   - [Results](guide/21b-mtdna-bottleneck-results.md)
   - [Choices, checks and limits](guide/21c-mtdna-bottleneck-limits.md)
 - [22. Protein distributions from four reactions](guide/22-two-stage-expression.md)
+
+# Optimization tutorials
+
+- [13. Fitting parameters to data](guide/13-fitting.md)
+- [18. Case study: inferring mtDNA takeover times](guide/18-mtdna-inference.md)
+  - [The model and Figure 6](guide/18a-mtdna-inference-model.md)
+  - [Fitting snapshots and takeover times](guide/18b-mtdna-inference-results.md)
+  - [Choices, checks and limits](guide/18c-mtdna-inference-limits.md)
 - [23. Fitting single-cell RNA distributions](guide/23-yeast-rna-fit.md)
   - [Data and model](guide/23a-yeast-rna-fit-model.md)
   - [Fits and predictions](guide/23b-yeast-rna-fit-results.md)
   - [Choices, checks and limits](guide/23c-yeast-rna-fit-limits.md)
-- [Troubleshooting](guide/troubleshooting.md)
-- [Migrating from earlier releases](guide/migrating.md)
+- [24. Ten optimization lessons with fcmaes](guide/24-publication-tutorials.md)
 
 # Reference
 

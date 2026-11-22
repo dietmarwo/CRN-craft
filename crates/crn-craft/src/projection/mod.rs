@@ -76,8 +76,10 @@
 mod generator;
 mod implicit;
 mod propagate;
+mod sensitivity;
 pub mod special;
 mod stationary;
+pub use sensitivity::TangentSolver;
 mod topology;
 
 #[cfg(test)]

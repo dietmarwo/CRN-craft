@@ -1,0 +1,114 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "Evaluation": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "values": {
+              "$ref": "#/definitions/Trajectory"
+            }
+          },
+          "required": [
+            "values"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "error": {
+              "$ref": "#/definitions/Failure"
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "Failure": {
+      "description": "A refused case or line: a stable diagnostic code and a free message. `CRN-E001`-`CRN-E003`: the line is not a valid request document; `CRN-E004`: line or batch size; `CRN-E015`: times, tolerances or parameters out of their domain; `CRN-E080`: the integration failed, a reported state went negative beyond the tolerance, or a readout is not finite.",
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "type": "object"
+    },
+    "ResultVersion": {
+      "enum": [
+        "crn-craft.concentration-result/0.1"
+      ],
+      "type": "string"
+    },
+    "Trajectory": {
+      "properties": {
+        "observations": {
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "states": {
+          "items": {
+            "items": {
+              "format": "double",
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "observations",
+        "states"
+      ],
+      "type": "object"
+    }
+  },
+  "description": "One result line: `cases` in request order, or `error` for a line that was refused as a whole.",
+  "properties": {
+    "cases": {
+      "items": {
+        "$ref": "#/definitions/Evaluation"
+      },
+      "type": [
+        "array",
+        "null"
+      ]
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/Failure"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "schema": {
+      "$ref": "#/definitions/ResultVersion"
+    }
+  },
+  "required": [
+    "schema"
+  ],
+  "title": "BatchResult",
+  "type": "object"
+}

@@ -219,7 +219,7 @@ pub mod continuous;
 pub mod convert;
 pub(crate) mod dual;
 mod engine;
-mod expr;
+pub(crate) mod expr;
 mod flat;
 pub mod flat_view;
 pub use flat_view::FlatView;

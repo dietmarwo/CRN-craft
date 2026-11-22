@@ -72,9 +72,11 @@ The MIT license of this repository covers the code and text written for
 CRN-craft. The files below are numerical tables derived from other authors'
 published data. They are not covered by the MIT license and remain under
 the terms of their sources. They are included so that the checks and plots
-of guide chapters 19 to 23 run without network access. No code from these
-sources is included. Where an example has a `fetch.py`, it rebuilds the
-tables from the stated revision.
+of guide chapters 19 to 23 and the figures of optimization lessons C6 to C9
+run without network access. No code from these sources is included. Where
+an example has a `fetch.py`, it rebuilds the tables from the stated
+revision; the lessons download their sources by commit with
+`tutorials/optimization/publications/sources.py`.
 
 | Files | Derived from | License of the source |
 | --- | --- | --- |
@@ -83,3 +85,7 @@ tables from the stated revision.
 | `examples/mtdna_bottleneck/reference-table1.csv`, `reference-table2.csv`, `reference-hb.csv`, `reference-figure3.csv` | Tables 1 and 2, the Figure 4 source data and readings of Figure 3 of Johnston et al. (2015), doi:10.7554/eLife.07464 | CC BY 4.0 |
 | `examples/two_stage_expression/reference-figure1d.csv` | Marker heights read from Figure 1D of Shahrezaei and Swain (2008), doi:10.1073/pnas.0803850105 | Readings of a published figure |
 | `examples/yeast_rna_fit/source-counts.csv`, `source-sites.csv`, `source-audit.csv`, `source-parameters.json`, `reference-site-activity.csv`, `reference-site-distribution.csv` | Cell counts, parameter vectors and figure series of Munsky, Li, Fox, Shepherd and Neuert (2018), doi:10.1073/pnas.1804060115: https://github.com/MunskyGroup/Munsky_et_al_2018 at `1aa0b5ce25d21484c7c4e8a894477b1719209ce7` | GPL-3.0 |
+| `tutorials/optimization/results/C6/distributions.csv` (column `observed`) | Cell counts of Gómez-Schiavon, Chen, West and Buchler (2017), doi:10.1186/s13059-017-1297-9: https://github.com/mgschiavon/BayFish at `70d1b685da4b4da8aa8a64934e200a5e3593791d` | GPL-3.0 |
+| `tutorials/optimization/results/C7/archive-groups.csv`, `archive-front.csv` | Benchmark results of Felton, Rittig and Lapkin (2021), doi:10.1002/cmtd.202000051: https://github.com/sustainable-processes/summit at `1de682d05e97adcfb96cd8376e876cef2d6160d3` | MIT |
+| `tutorials/optimization/results/C8/burst-sweep.csv` (column `archive_eopt`), `native-pair.csv` and `domain-expansion.csv` (columns `a_archive`, `b_archive`) | Result files of Fox and Munsky (2019), doi:10.1371/journal.pcbi.1006365: https://github.com/Munsky/FSPFIM_2018 at `2e2f76fdeeb0d9290b48aa981210422d254b07c2` | No license file at that revision |
+| `tutorials/optimization/results/C9/measurements.csv`, `nll.csv` (row `archive`) | Measurements of Boehm et al. (2014), doi:10.1021/pr5006923, and archived simulations: https://github.com/Benchmarking-Initiative/Benchmark-Models-PEtab at `49900951a5594a757ad5e651684c7f0a59272881`, problem `Boehm_JProteomeRes2014` | BSD-3-Clause for the collection |

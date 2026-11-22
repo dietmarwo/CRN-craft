@@ -48,6 +48,20 @@ Documents of the removed network engine are not read any more: network
 `archive/0.1` and `archive-check/0.1`. Their schema files are gone. The
 [changelog](../../CHANGELOG.md) has the migration tables.
 
+## Contracts of the optional `crn-diffsol` workspace
+
+`integrations/diffsol` has its own lockfile and schemas
+(`integrations/diffsol/schemas/`). `validation/check_contracts.py` covers only
+the schemas of the main workspace; the cargo tests of the diffsol workspace
+compare these files with the generated ones.
+
+| Contract | Role |
+| --- | --- |
+| `crn-craft.ode-request/0.1`, `crn-craft.ode-result/0.1` | ODE integration of count kinetics: the request and its result (`crn-diffsol MODEL REQUEST`) |
+| `crn-craft.concentration-model/0.1` | a concentration model: ordered parameters and states, initial expressions, assignments, derivatives and observations ([concentration interface](../../integrations/diffsol/CONCENTRATIONS.md)) |
+| `crn-craft.concentration-request/0.1` | one request line of `crn-diffsol concentrations MODEL`: up to 32 cases with parameters, times and tolerances |
+| `crn-craft.concentration-result/0.1` | one result line: state and observation matrices per case, or its numerical diagnostic |
+
 ## Versions of the request and the model
 
 The request version decides which fields are allowed:

@@ -24,6 +24,7 @@ this page is the map.
 | Finite state projection | `fsp::v1::solve`, `fsp::v1::solve_files` |
 | GillesPy2 export | `export::export_gillespy2` |
 | Deterministic kinetics | `kinetics::Kinetics` |
+| Concentration right-hand sides with formulas and readouts | `concentration::Concentration` |
 | Discovery | `describe`, `schema`, `rules::schema` |
 
 Report-style functions never fail: they return a report with a `valid` or

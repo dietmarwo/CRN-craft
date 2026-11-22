@@ -45,7 +45,9 @@ Three chapters of the guide fit models to data with fcmaes:
 Ten lessons live with their code in
 [`tutorials/optimization`](../tutorials/optimization/README.md) and run
 through one command, `python tutorials/optimization/run.py C1 … C10`.
-[Chapter 24](guide/24-publication-tutorials.md) introduces them.
+[Chapter 24](guide/24-publication-tutorials.md) introduces them. C1 to C4
+teach the route on synthetic data; C5 to C10 each reconstruct a published
+optimization study.
 
 | Lesson | Source | What is optimized | Outcome |
 | --- | --- | --- | --- |
@@ -53,12 +55,12 @@ through one command, `python tutorials/optimization/run.py C1 … C10`.
 | [C2. Sensitivities](../tutorials/optimization/C2-sensitivities.md) | synthetic data | Rates of an ODE model with derivatives, then transferred to the stochastic model | method lesson |
 | [C3. Oscillators](../tutorials/optimization/C3-oscillators.md) | synthetic circuits | Several objectives and a diversity archive over oscillating circuits | method lesson |
 | [C4. Rules](../tutorials/optimization/C4-rules.md) | exact aggregation laws | Kernels of a rule-based model from finite samples | method lesson |
-| [C5. RNA count calibration](../tutorials/optimization/C5-rna-counts.md) | Poovathingal & Gunawan 2010, *BMC Bioinformatics* | Three rates from count distributions | PENDING-C5 |
-| [C6. Stimulus model selection](../tutorials/optimization/C6-stimulus-fit.md) | Gómez-Schiavon et al. 2017, *Genome Biology* | Seven hypotheses fitted to 376 measured cells, ranked by AIC and BIC | PENDING-C6 |
-| [C7. Virtual reactor design](../tutorials/optimization/C7-reactor.md) | Felton et al. 2021, *Chemistry–Methods* | Yield and waste of a reactor in 50 evaluations | PENDING-C7 |
-| [C8. Sampling design](../tutorials/optimization/C8-experiment-design.md) | Fox & Munsky 2019, *PLoS Comput. Biol.* | Sampling times and a stimulus pulse by Fisher information | PENDING-C8 |
-| [C9. STAT5 calibration](../tutorials/optimization/C9-stat5.md) | Boehm et al. 2014, *J. Proteome Res.* | Nine parameters of a signaling model against a PEtab problem | PENDING-C9 |
-| [C10. Pathway calibration](../tutorials/optimization/C10-pathway.md) | Moles, Mendes & Banga 2003, *Genome Research* | Thirty-six parameters over sixteen experiments | PENDING-C10 |
+| [C5. RNA count calibration](../tutorials/optimization/C5-rna-counts.md) | Poovathingal & Gunawan 2010, *BMC Bioinformatics* | Three rates from count distributions | the three rates are recovered within 3% from 10,000 trajectories; from 100 trajectories two of four data sets miss one rate by a factor 1.7 along a flat valley of the score |
+| [C6. Stimulus model selection](../tutorials/optimization/C6-stimulus-fit.md) | Gómez-Schiavon et al. 2017, *Genome Biology* | Seven hypotheses fitted to 376 measured cells, ranked by AIC and BIC | both criteria select the published model; the fitted rates lie within one posterior standard deviation of the paper's |
+| [C7. Virtual reactor design](../tutorials/optimization/C7-reactor.md) | Felton et al. 2021, *Chemistry–Methods* | Yield and waste of a reactor in 50 evaluations | at 50 evaluations MODE is no better than random search and far below the paper's best strategy; with 500 it passes that strategy's median |
+| [C8. Sampling design](../tutorials/optimization/C8-experiment-design.md) | Fox & Munsky 2019, *PLoS Comput. Biol.* | Sampling times and a stimulus pulse by Fisher information | the sampling optimum and the ranking of the two published designs in 97 of 100 parameter samples are reproduced, the archived matrices entry by entry |
+| [C9. STAT5 calibration](../tutorials/optimization/C9-stat5.md) | Boehm et al. 2014, *J. Proteome Res.* | Nine parameters of a signaling model against a PEtab problem | the archived likelihood is reproduced to 1e-11; a search with profiled noise scales reaches it, plain retries stop 9 nats above |
+| [C10. Pathway calibration](../tutorials/optimization/C10-pathway.md) | Moles, Mendes & Banga 2003, *Genome Research* | Thirty-six parameters over sixteen experiments | the objective is verified; searches of up to 20,000 evaluations reach costs of 62 to 667 against a published 0.0013 after 2.8 million |
 
 ## How the tutorials were made
 

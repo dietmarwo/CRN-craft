@@ -9,16 +9,38 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ### Added
 
-- Optimization tutorials C5–C10 cover distribution fitting, joint-count model
-  selection, virtual reactor Pareto search, Fisher experiment design, PEtab
-  calibration and a 36-parameter multi-condition fit.
+- Optimization lessons C5 to C10 (`tutorials/optimization`) reconstruct six
+  published studies with fcmaes: distribution fitting, joint-count model
+  selection, a virtual reactor Pareto search, Fisher experiment design, a
+  PEtab calibration and a 36-parameter multi-condition fit. Each lesson
+  states its check against the publication's own archive or tables, keeps
+  the tables of its study run under `tutorials/optimization/results` and
+  draws its figures from them (`tutorials/optimization/figures.py`).
+  Searches write proposal traces, and `--resume-from` replays them and
+  refuses a trace from another seed, optimizer, population, bounds or
+  objective.
 - Prepared projection accepts an optional retained set of count states.
-  The sensitivity interface propagates probability derivatives for
-  piecewise-constant parameter bindings, with one sparse diagonal
-  factorization shared across the forward directions.
-- The optional diffsol workspace has a concentration-only batch interface
-  with real initial concentrations, time-dependent formulas and readouts.
+  The sensitivity interface (`crn_craft.sensitivities`) propagates
+  probability derivatives for piecewise-constant parameter bindings, with
+  one sparse diagonal factorization shared across the forward directions,
+  and starts from the prepared initial law.
+- `crn_craft::concentration::Concentration` evaluates concentration
+  right-hand sides with time-dependent formulas and readouts. The optional
+  diffsol workspace has a concentration-only batch interface on it
+  (`crn-craft.concentration-model/0.1`, `-request/0.1`, `-result/0.1`);
+  a refused model or a failed case is reported with a diagnostic code.
+- CI builds and tests the diffsol workspace, and runs the tutorial unit
+  tests, the smoke presets of eight lessons and the figure redraw.
 
+### Documentation (tutorials)
+
+- The README states three application scenarios for AI agents: reviewing
+  publications, running and evaluating research experiments, and designing
+  and executing optimizations over simulation parameters.
+- The tutorials are listed in two groups, simulation and optimization, on
+  the new page `docs/tutorials.md`, in the guide's table of contents and in
+  the README. Guide chapter 24 introduces the ten optimization lessons.
+  File paths and chapter numbers are unchanged.
 
 ### Documentation (guide and examples)
 

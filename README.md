@@ -100,7 +100,12 @@ calculation or with fresh random paths. The
 [optimization tutorials](docs/tutorials.md#optimization-tutorials) fit
 rates to count data, select among models, design sampling experiments,
 search a two-objective reactor design and calibrate deterministic
-pathway models against published studies. PENDING-README-EXAMPLES
+pathway models against published studies. One reproduces a published
+ranking of two experiment designs in 97 of 100 parameter samples; one
+shows that a 50-evaluation protocol cannot separate an evolutionary
+optimizer from random search; one reaches a cost of 62 where the paper
+reports 0.0013 after 2.8 million evaluations, verifies that the objective
+is right and names the budget as the gap.
 
 The tutorials were made this way. Apart from one contributed chapter, they
 were written and then independently reviewed by AI agents directed by the

@@ -1,4 +1,13 @@
-"""Forward sensitivities on a shared prepared finite state projection."""
+"""Forward sensitivities and Fisher information on a prepared projection.
+
+:func:`forward_sensitivities` integrates the law ``p' = Q p`` of a prepared
+finite state projection (:func:`crn_craft.prepare_fsp`) together with its
+derivatives ``s_j' = Q s_j + (dQ/dtheta_j) p`` over piecewise-constant
+parameter segments. :func:`fisher_information` turns observed probabilities
+and derivatives into the Fisher information of independent single-cell
+snapshots. Aggregate hidden states into measured bins first
+(:meth:`ProjectionSensitivities.observed`).
+"""
 
 from dataclasses import dataclass
 from math import fsum
@@ -13,7 +22,14 @@ from .projection import _native_error, _vector
 
 @dataclass(frozen=True)
 class ProjectionSensitivities:
-    """Snapshots include a final bin for mass and derivatives in the FSP sink."""
+    """Laws and their parameter derivatives at the requested times.
+
+    ``probabilities`` has shape ``(times, states + 1)`` and ``derivatives``
+    ``(times, parameters, states + 1)``, in the order of ``states``; the last
+    column is the absorbing sink. Each row of ``probabilities`` sums to one
+    and each derivative row to zero, sink included. ``work`` counts the
+    augmented implicit solves.
+    """
 
     times: tuple
     species: tuple
@@ -23,7 +39,12 @@ class ProjectionSensitivities:
     work: int
 
     def observed(self, axes):
-        """Aggregate hidden states before computing any score."""
+        """Sum states and derivatives into the bins of the measured counts.
+
+        ``axes`` names the measured species. Returns the distinct measured
+        count tuples, their probabilities ``(times, bins)`` and derivatives
+        ``(times, parameters, bins)``; the sink is not a bin.
+        """
         values = measured_counts(self.states, self.species, axes)
         bins, inverse = np.unique(values, return_inverse=True, axis=0)
         channels = np.concatenate(
@@ -52,15 +73,37 @@ def forward_sensitivities(
 ):
     """Solve p'=Qp and s'=Qs+(dQ/dtheta)p over piecewise-constant bindings.
 
-    Each segment is (end_time, bindings), measured from time zero. Requested
-    times increase strictly. Differentiated names must be bound in every
-    segment. Use centered differences of the generator on the same graph.
-    With logarithmic=True the directions are natural log parameters.
-    Initial derivatives have one row per parameter and one column per state,
-    in graph order, without a sink column. The default initial law is fixed.
-    Count interventions, stop states and continuously varying signals are
-    outside this interface. Work counts augmented solves, not individual
-    block substitutions. The caller controls the truncation.
+    ``segments`` is a sequence of ``(end_time, bindings)``, measured from
+    time zero, with strictly increasing ends; each binding maps parameter
+    names to values for that segment and must bind every name in
+    ``parameters`` (at most 16 names). ``times`` increase strictly, lie in
+    ``[0, last end]``; time zero returns the initial state. The law and its
+    derivatives pass continuously across segment ends, where the integrator
+    restarts.
+
+    ``dQ/dtheta`` is the centered difference of the generator at
+    ``theta (1 +- difference)`` (or ``theta exp(+-difference)`` with
+    ``logarithmic=True``, which differentiates in natural-log coordinates)
+    on the same state graph. It is exact up to roundoff for rates linear in
+    the parameter and second-order accurate otherwise, so parameters inside
+    any rate expression, Hill functions included, can be differentiated;
+    the time integration is the implicit variable-order BDF of the prepared
+    projection with the derivatives inside its error norm (relative
+    ``tolerance``, absolute ``1e-4 tolerance``), and one sparse
+    factorization serves the law and every direction.
+
+    ``initial`` is a law as in :meth:`PreparedFsp.solve`; by default the
+    initial law given to :func:`crn_craft.prepare_fsp`. It does not depend
+    on the parameters unless ``initial_derivatives`` (one row per parameter,
+    one column per state in graph order, no sink column, rows summing to
+    zero) says so. Scheduled count interventions, stop states and
+    continuously varying signals are outside this interface.
+
+    Raises ``ValueError`` for invalid arguments, a lost probability or
+    derivative mass above ``1e-7`` or a negative probability beyond the
+    integration tolerance, and the errors of the prepared projection for
+    budgets (``max_work`` augmented solves, ``max_factor_bytes``) and
+    interruption. The caller chooses the truncation: read the sink.
     """
     names = tuple(parameters)
     times = tuple(map(float, times))
@@ -169,10 +212,17 @@ def forward_sensitivities(
 
 
 def fisher_information(probabilities, derivatives, cells, *, probability_floor=0.0):
-    """Independent snapshot Fisher information after observation aggregation.
+    """Fisher information of independent snapshots of measured bins.
 
-    Use a positive floor only to match a documented benchmark convention.
-    Return the retained information and excluded probability at each time.
+    ``probabilities`` ``(times, bins)`` and ``derivatives``
+    ``(times, parameters, bins)`` describe MEASURED bins (aggregate hidden
+    states first). ``cells`` is the number of cells measured at each time, a
+    number or one per time. Returns ``(matrix, excluded)``: the symmetric
+    positive semidefinite matrix ``sum_t n_t sum_b g g^T / p`` over bins with
+    ``p > 0`` and ``p >= probability_floor``, and per time the probability of
+    the excluded bins. A bin with ``p = 0`` is unreachable or has underflowed
+    and carries no information; a positive floor reproduces a published
+    convention that drops rare bins and lowers the information.
     """
     p = np.asarray(probabilities, dtype=float)
     s = np.asarray(derivatives, dtype=float)
@@ -183,16 +233,20 @@ def fisher_information(probabilities, derivatives, cells, *, probability_floor=0
         or not np.isfinite(p).all()
         or not np.isfinite(s).all()
         or not 0 <= probability_floor < 1
-        or np.min(p) < -1e-8
+        or np.min(p, initial=0.0) < -1e-8
     ):
         raise ValueError("invalid Fisher probabilities or derivatives")
-    cells = np.broadcast_to(cells, (len(p),))
+    try:
+        cells = np.broadcast_to(np.asarray(cells, dtype=float), (len(p),))
+    except ValueError:
+        raise ValueError("invalid cell counts") from None
     if not np.isfinite(cells).all() or np.any(cells < 0):
         raise ValueError("invalid cell counts")
     keep = (p > 0) & (p >= probability_floor)
     root = np.sqrt(np.divide(cells[:, None], p, out=np.zeros_like(p), where=keep))
     weighted = s * root[:, None]
     info = np.einsum("tip,tjp->ij", weighted, weighted)
+    info = 0.5 * (info + info.T)
     if not np.isfinite(info).all():
         raise ValueError("nonfinite Fisher information")
     return info, np.sum(np.where(keep, 0.0, np.maximum(p, 0.0)), axis=1)

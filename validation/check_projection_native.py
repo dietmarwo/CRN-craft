@@ -36,7 +36,20 @@ SciPy. Gates, declared before the first run:
 - binomial pmf within a relative 1e-12 of SciPy for n <= 1e5 and, where
   the two differ by more than that (SciPy loses accuracy for large n),
   within 1e-13 of a 60-digit Decimal evaluation; Poisson tail within a
-  relative 1e-12 of SciPy; both where SciPy's value is at least 1e-280.
+  relative 1e-12 of SciPy; both where SciPy's value is at least 1e-280;
+- forward sensitivities (``crn_craft.sensitivities``): for an
+  immigration-death law at tolerance 1e-10 the derivative of the Poisson
+  law in the birth rate within 1e-7; for a Hill-repressed birth through a
+  parameter switch at tolerance 1e-10 the derivatives in the Hill
+  coefficient and in the switched rate within 1e-6 of centered differences
+  of uniformization solves at relative steps 1e-3 and 5e-4, with the error
+  ratio of the two steps between 3 and 5 (second order) unless both gaps
+  are below 5e-8; total probability within 1e-12 of one and each
+  derivative sum, sink included, within 1e-9 of zero;
+- retained state sets: retaining every state of the box gives the
+  ordinary projection's states, prepared id and law (identical arrays);
+  a cut set keeps total probability within 2e-12 of one (solve tolerance
+  1e-12) with the cut mass in the sink.
 
 ``--quick`` skips the total-RNA yeast cases (midpoint and BDF, minutes 0
 to 10, about a minute each in the reference); ``--full-yeast`` solves its 55 minutes (several
@@ -855,6 +868,114 @@ def yeast(full):
     return rows
 
 
+def sensitivities():
+    """Forward sensitivities against closed forms and centered differences."""
+    from crn_craft.sensitivities import forward_sensitivities
+
+    rows = {}
+    graph = crn.prepare_fsp(birth_death(2.0, 0.3), {"X": 45})
+    result = forward_sensitivities(
+        graph, [(4.0, {"b": 2.0, "d": 0.3})], [1.0, 4.0], ["b"], tolerance=1e-10
+    )
+    worst = 0.0
+    for row, at in enumerate((1.0, 4.0)):
+        slope = -math.expm1(-0.3 * at) / 0.3
+        mean = 2.0 * slope
+        for i, (x,) in enumerate(graph.states):
+            p = math.exp(x * math.log(mean) - mean - math.lgamma(x + 1))
+            exact = p * (x / mean - 1.0) * slope
+            worst = max(worst, abs(result.derivatives[row, 0, i] - exact))
+    require(worst <= 1e-7, f"sensitivity birth-death: gap {worst:.3e}")
+    rows["birth_death_poisson"] = {"gap": worst, "bound": 1e-7}
+
+    hill = crn.Model("hill_switch")
+    hill.add_species({"x": 0, "y": 0}).add_parameter(
+        {"b": 0.5, "k": 6.0, "a": 0.3, "c": 2.0, "d": 1.0}
+    )
+    hill.add_observable("cy", "y")
+    hill.add_reaction("b+k/(1+a*cy^2)", [], ["x"], name="repressed")
+    hill.add_reaction(crn.mass_action("c"), [], ["y"], name="switched")
+    hill.add_reaction(crn.mass_action("d"), ["x"], [], name="loss_x")
+    hill.add_reaction(crn.mass_action("d"), ["y"], [], name="loss_y")
+    graph = crn.prepare_fsp(hill, {"x": 30, "y": 25})
+    base = {"b": 0.5, "k": 6.0, "a": 0.3, "c": 2.0, "d": 1.0}
+    segments = [(1.0, base), (2.0, base | {"c": 6.0})]
+    names = ("a", "c")
+    result = forward_sensitivities(graph, segments, [1.0, 2.0], names, tolerance=1e-10)
+    mass = float(np.abs(result.probabilities.sum(axis=1) - 1).max())
+    drift = float(np.abs(result.derivatives.sum(axis=2)).max())
+    require(mass <= 1e-12 and drift <= 1e-9, f"sensitivity mass {mass} {drift}")
+
+    def laws(name, delta):
+        initial, out = None, []
+        for (end, binding), start in zip(segments, (0.0, 1.0), strict=True):
+            binding = binding | {name: binding[name] + delta}
+            solved = graph.solve(
+                end - start,
+                [end - start],
+                initial=initial,
+                parameters=binding,
+                tolerance=1e-13,
+            )
+            p = np.maximum(solved.snapshots[-1].probabilities, 0.0)
+            out.append(p)
+            initial = {
+                tuple(int(n) for n in s): q
+                for s, q in zip(graph.states, p / p.sum(), strict=True)
+                if q > 0
+            }
+        return np.array(out)
+
+    for j, name in enumerate(names):
+        gaps = []
+        for step in (1e-3, 5e-4):
+            h = step * base[name]
+            difference = (laws(name, h) - laws(name, -h)) / (2 * h)
+            gaps.append(float(np.abs(result.derivatives[:, j, :-1] - difference).max()))
+        ratio = gaps[0] / gaps[1]
+        require(
+            max(gaps) <= 1e-6 and (3 <= ratio <= 5 or max(gaps) < 5e-8),
+            f"sensitivity {name}: gaps {gaps}",
+        )
+        rows[f"hill_switch_{name}"] = {"gaps": gaps, "bound": 1e-6, "ratio": ratio}
+    rows["hill_switch_mass"] = {"mass": mass, "derivative_sum": drift}
+
+    full = crn.prepare_fsp(birth_death(1.0, 0.5, start=1), {"X": 12})
+    box = crn.prepare_fsp(
+        birth_death(1.0, 0.5, start=1),
+        {"X": 12},
+        retained=[(x,) for x in range(13)],
+    )
+    same_states = bool(np.array_equal(full.states, box.states))
+    same_id = full._id == box._id
+    one, two = (g.solve(3.0, [3.0]).snapshots[0] for g in (full, box))
+    same_law = bool(np.array_equal(one.probabilities, two.probabilities))
+    cut = (
+        crn.prepare_fsp(
+            birth_death(1.0, 0.5, start=1),
+            {"X": 12},
+            retained=[(x,) for x in range(4)],
+        )
+        .solve(3.0, [3.0], tolerance=1e-12)
+        .snapshots[0]
+    )
+    total = float(cut.probabilities.sum() + cut.physical_leakage)
+    require(
+        same_states
+        and same_id
+        and same_law
+        and abs(total - 1) <= 2e-12
+        and cut.physical_leakage > 1e-3,
+        "retained set: full box differs or the cut loses mass",
+    )
+    rows["retained"] = {
+        "full_box_identical": same_states and same_id and same_law,
+        "cut_sink": float(cut.physical_leakage),
+        "cut_total": total,
+    }
+    return rows
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--quick", action="store_true")
@@ -866,6 +987,7 @@ def main():
         "cases": cases(),
         "analytic": analytic(),
         "stationary": stationary_cases(),
+        "sensitivities": sensitivities(),
     }
     if not args.quick:
         result["cases"]["C10_yeast_total_rna"] = yeast(args.full_yeast)

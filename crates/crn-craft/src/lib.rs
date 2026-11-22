@@ -145,6 +145,7 @@ pub mod export;
 pub mod fsp;
 pub mod kinetics;
 pub mod linkage;
+pub mod projection;
 pub mod rules;
 pub mod sampling;
 pub mod ssa;

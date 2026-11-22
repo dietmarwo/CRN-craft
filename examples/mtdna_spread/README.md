@@ -4,11 +4,36 @@ Use the [guide](../../docs/guide/19-mtdna-spread.md) for the model and its
 connection to Figures 1C and 2E. All times are in days and spatial distances
 are in micrometers.
 
-```sh
-python examples/mtdna_spread/study.py --size quick
-python examples/mtdna_spread/study.py --size draft --threads 4
-python examples/mtdna_spread/study.py --figures docs/guide/img/mtdna_spread
-```
+## Running and drawing
+
+A run writes tables. Drawing the figures is a separate command that reads
+tables; nothing has to be copied between folders.
+
+1. **Run.** The tables go to `examples/mtdna_spread/runs/<size>/`, or to
+   the folder given with `--output`.
+
+   ```sh
+   python examples/mtdna_spread/study.py --size quick
+   python examples/mtdna_spread/study.py --size draft --threads 4 --output examples/mtdna_spread/runs/draft
+   ```
+
+2. **Draw.** `--figures FOLDER` writes `two-regions.png` (Figure 1C),
+   `wave-reference.png` and `wave-approximation.png` into `FOLDER`.
+
+   ```sh
+   # from your run: name its folder with --output
+   python examples/mtdna_spread/study.py --figures examples/mtdna_spread/runs/figures --output examples/mtdna_spread/runs/draft
+
+   # from the tables saved in this repository (examples/mtdna_spread/results)
+   python examples/mtdna_spread/study.py --figures examples/mtdna_spread/runs/figures
+   ```
+
+   Without `--output` the figures show the saved draft run, not a run of
+   your own. The command prints which tables it read.
+
+In `two-regions.png` the lines are the run (the closed form in the
+deterministic panel) and the points with bars are the authors' archived
+curves with the upper bound of their standard error.
 
 The draft run repeats each stochastic Figure 1C curve 2,000 times. Its
 `terminal-checks.csv` compares the neutral cases with the source and
@@ -57,8 +82,8 @@ public archive. That archive has no license file. `reference-1c.csv` and
 `reference-2e.csv` are numerical extracts of its data; they are not
 covered by this repository's MIT license and stay under the authors'
 terms; see
-[THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md#reference-data-of-the-guide-case-studies). No upstream code is included. Run outputs go to `runs/` by default. `--figures`
-reads the committed result tables unless `--output` specifies a run.
+[THIRD_PARTY_NOTICES.md](../../THIRD_PARTY_NOTICES.md#reference-data-of-the-guide-case-studies).
+No upstream code is included.
 [Paper and parameters](https://doi.org/10.1073/pnas.2122073119)
 
 ## De novo deletions and mutant types
@@ -76,11 +101,20 @@ about 120 ns per event, without Numba it is far slower and only suits the
 quick size.
 
 ```sh
-python examples/mtdna_spread/mutations.py run --size quick
+python examples/mtdna_spread/mutations.py run --size quick --output examples/mtdna_spread/runs/de-novo-quick
 python examples/mtdna_spread/mutations.py sampler
-python examples/mtdna_spread/mutations.py run --size full --output examples/mtdna_spread/results
-python examples/mtdna_spread/mutations.py figure --figures docs/guide/img/mtdna_spread
+python examples/mtdna_spread/mutations.py run --size full --output examples/mtdna_spread/runs/de-novo-full
+
+# draw de-novo-types.png from a run: name its folder with --results
+python examples/mtdna_spread/mutations.py figure --results examples/mtdna_spread/runs/de-novo-full --figures examples/mtdna_spread/runs/figures
+
+# or from the tables saved in this repository (examples/mtdna_spread/results)
+python examples/mtdna_spread/mutations.py figure --figures examples/mtdna_spread/runs/figures
 ```
+
+As with `study.py`, a run writes tables and `figure` is a separate command.
+Without `--results` it draws the saved tables, not a run of your own; the
+saved tables were written with `--output examples/mtdna_spread/results`.
 
 `run` checkpoints every fiber under `runs/de-novo/<size>/` (`--work`), so an
 interrupted run resumes. `run --workers N` simulates up to `N` fibers at the
@@ -104,9 +138,9 @@ first design and writes the same tables as before.
 ```sh
 python examples/mtdna_spread/mutations.py run --size quick --design fibers
 python examples/mtdna_spread/mutations.py coverage --output examples/mtdna_spread/results
-python examples/mtdna_spread/mutations.py run --size full --years 40 --case main --design fibers --workers 16 --work runs/f40 --output runs/f40
-python examples/mtdna_spread/mutations.py run --size full --years 80 --case main --design fibers --workers 16 --work runs/f80 --output runs/f80
-python examples/mtdna_spread/mutations.py length --years 80 --regions 128 --fibers 32 --m-from runs/f80/de-novo-fibers-rates.csv --reference runs/f80/de-novo-fibers-summary.csv --workers 16 --work runs/l128 --output runs/l128
+python examples/mtdna_spread/mutations.py run --size full --years 40 --case main --design fibers --workers 16 --work examples/mtdna_spread/runs/f40 --output examples/mtdna_spread/runs/f40
+python examples/mtdna_spread/mutations.py run --size full --years 80 --case main --design fibers --workers 16 --work examples/mtdna_spread/runs/f80 --output examples/mtdna_spread/runs/f80
+python examples/mtdna_spread/mutations.py length --years 80 --regions 128 --fibers 32 --m-from examples/mtdna_spread/runs/f80/de-novo-fibers-rates.csv --reference examples/mtdna_spread/runs/f80/de-novo-fibers-summary.csv --workers 16 --work examples/mtdna_spread/runs/l128 --output examples/mtdna_spread/runs/l128
 ```
 
 The run prints how many fibers it will simulate and an estimate of the

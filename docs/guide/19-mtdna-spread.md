@@ -143,7 +143,22 @@ straight line, `0.5 - 0.00001 t`. The stated model gives
 `1 / (1 + exp(0.00007 t))`, 0.48775 at day 700. The cause of this
 difference of 0.00525 is unknown.
 
-![Mean mutant fraction in the four conditions of Figure 1C. Lines are fresh runs; points with error bars are the archive](img/mtdna_spread/two-regions.png)
+The figure overlays two sources in each panel:
+
+- **Lines** are computed here: the mean mutant fraction over the 2,000
+  paths of the saved draft run at days 0, 140, ..., 700, joined by straight
+  segments. In the deterministic panel the line is the closed form, not a
+  simulation.
+- **Points** are the authors' archived curves, the data behind the paper's
+  Figure 1C. Each bar is the upper bound of the archived standard error
+  described above; the fresh runs carry no bars.
+
+Blue is the neutral case, red the case with mutants degraded faster. A
+point away from its line of the same color is therefore a difference
+between this reconstruction and the archive, and the table gives its size
+at day 700.
+
+![Mean mutant fraction in the four conditions of Figure 1C. Lines: this guide's runs (the closed form in the deterministic panel). Points with bars: the authors' archive and the upper bound of its standard error](img/mtdna_spread/two-regions.png)
 
 ## Figure 2E: the traveling front
 
@@ -217,8 +232,19 @@ it. The paper reports its simulated speed as about 0.2 µm/day.
 | wave | `python examples/mtdna_spread/wave.py --fibers 96 --step 0.125` | approximate fiber cohort | 7 to 12 min |
 | full | `python examples/mtdna_spread/study.py --source-chain --wave-sampler local --fibers 800 --threads N` | exact fibers, checkpointed | about 55 to 65 CPU-hours (estimate) |
 
-`python examples/mtdna_spread/study.py --figures docs/guide/img/mtdna_spread`
-redraws the figures from the saved tables, and
+A run writes tables, not figures. Drawing is a second command, and it
+reads the tables saved in `examples/mtdna_spread/results` unless
+`--output` names the folder of a run:
+
+```sh
+# the figures of this page, from the saved tables
+python examples/mtdna_spread/study.py --figures examples/mtdna_spread/runs/figures
+
+# the same figures from a run of your own
+python examples/mtdna_spread/study.py --size draft --output examples/mtdna_spread/runs/draft
+python examples/mtdna_spread/study.py --figures examples/mtdna_spread/runs/figures --output examples/mtdna_spread/runs/draft
+```
+
 `python validation/check_mtdna_spread.py` checks the laws, the archive
 reader and the tables of this page. The
 [example README](../../examples/mtdna_spread/README.md) lists the files.

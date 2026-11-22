@@ -15,6 +15,7 @@ import argparse
 import hashlib
 import json
 import math
+import sys
 import time
 from pathlib import Path
 
@@ -741,6 +742,10 @@ def run(args):
             output / name, index=False, lineterminator="\n", float_format="%.6g"
         )
     log(f"tables written to {output}")
+    log(
+        "to draw the figure from this run: "
+        f"python {sys.argv[0]} figure --results {output} --figures FOLDER"
+    )
 
 
 # The fiber design (`run --design fibers`, manifest entry `de_novo_fibers`):
@@ -1901,6 +1906,9 @@ def figure(args):
     )
     args.figures.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.figures / "de-novo-types.png", dpi=155)
+    print(
+        f"Drew {args.figures / 'de-novo-types.png'} from the tables in {args.results}"
+    )
     plt.close(fig)
 
 

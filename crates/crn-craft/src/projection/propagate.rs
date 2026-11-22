@@ -38,18 +38,18 @@ fn exit_rate(generator: &Generator) -> f64 {
 }
 
 /// The number of uniformization pieces of `rate * duration`, each with a
-/// Poisson mean of at most 16; `None` when it is not a finite count below
-/// 9e18.
+/// Poisson mean of at most `mean`; `None` when it is not a finite count
+/// below 9e18.
 #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-fn split(rate: f64, duration: f64) -> Option<u64> {
-    let pieces = (rate * duration / 16.0).ceil().max(1.0);
+fn split(rate: f64, duration: f64, mean: f64) -> Option<u64> {
+    let pieces = (rate * duration / mean).ceil().max(1.0);
     // NaN fails the comparison.
     (pieces < 9.0e18).then_some(pieces as u64)
 }
 
 /// [`split`], refused when the pieces exceed the remaining work.
 fn pieces(rate: f64, duration: f64, work: &Work) -> Result<u64, Diagnostic> {
-    match split(rate, duration) {
+    match split(rate, duration, 16.0) {
         Some(pieces) if i128::from(pieces) <= work.limit - work.count => Ok(pieces),
         _ => Err(budget("uniformization exceeds the work budget")),
     }
@@ -189,6 +189,11 @@ pub struct MidpointControls {
     pub max_step: f64,
 }
 
+/// The largest Poisson mean of one piece of a midpoint action. Longer
+/// series need fewer terms in all than many short ones; `exp(-256)` and
+/// the largest weight stay far from the floating-point range.
+pub const MIDPOINT_PIECE_MEAN: f64 = 256.0;
+
 /// The share of a step's error goal that the Poisson truncation of each
 /// matrix-exponential action may use.
 pub const MIDPOINT_TRUNCATION_SHARE: f64 = 1.0 / 1024.0;
@@ -248,8 +253,8 @@ impl Midpoint<'_> {
             return Ok(p);
         }
         // The action is charged once, whatever its number of pieces.
-        let pieces =
-            split(rate, h).ok_or_else(|| budget("uniformization exceeds the work budget"))?;
+        let pieces = split(rate, h, MIDPOINT_PIECE_MEAN)
+            .ok_or_else(|| budget("uniformization exceeds the work budget"))?;
         let (row_ptr, col_idx) = (merged.row_ptr(), merged.col_idx());
         self.transition.clear();
         self.transition.extend(self.q.iter().map(|&x| x / rate));
@@ -267,7 +272,8 @@ impl Midpoint<'_> {
                 *out = weight * x;
             }
             let mut k: u64 = 0;
-            while poisson_tail(k + 1, mu) > threshold {
+            // Below the mean the omitted weight is about one half or more.
+            while (k + 2) as f64 <= mu || poisson_tail(k + 1, mu) > threshold {
                 self.interrupt.check()?;
                 k += 1;
                 for (i, out) in self.next.iter_mut().enumerate() {
@@ -299,9 +305,11 @@ impl Midpoint<'_> {
 /// `tolerance * h / (end - start)`; the step then grows or shrinks by
 /// `clip(0.9 (goal / gap)^(1/3), 0.2, 2)`, at most `max_step`. Each
 /// matrix-exponential action costs one work unit and is computed by
-/// uniformization of the frozen generator, truncated where the omitted
-/// Poisson weight is at most [`MIDPOINT_TRUNCATION_SHARE`] of the step goal
-/// (so the accepted steps drop at most `tolerance / 512` of mass in all).
+/// uniformization of the frozen generator in pieces of Poisson mean at
+/// most [`MIDPOINT_PIECE_MEAN`], each truncated where the omitted
+/// Poisson weight is at most its share of [`MIDPOINT_TRUNCATION_SHARE`]
+/// times the step goal (so the accepted steps of one call drop at most
+/// `tolerance / 512` of mass).
 /// Signal values at the end of the interval are taken just before it.
 ///
 /// # Errors

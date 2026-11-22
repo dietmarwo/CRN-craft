@@ -18,8 +18,9 @@ SciPy. Gates, declared before the first run:
   within 1e-13 of a 60-digit Decimal evaluation; Poisson tail within a
   relative 1e-12 of SciPy; both where SciPy's value is at least 1e-280.
 
-``--quick`` skips the total-RNA yeast case (about a minute in the
-reference). Timings go to standard error; the JSON on standard output is
+``--quick`` skips the total-RNA yeast case (minutes 0 to 10, about a
+minute in the reference); ``--full-yeast`` solves its 55 minutes (several
+minutes in the reference). Timings go to standard error; the JSON on standard output is
 the same under ``python`` and ``python -O``.
 """
 
@@ -454,8 +455,9 @@ def cases():
     return rows
 
 
-def yeast():
-    """C10: the total-RNA model of guide chapter 23 at one dose."""
+def yeast(full):
+    """C10: the total-RNA model of guide chapter 23 at one dose, to minute
+    10 (the full 55 minutes with ``full``)."""
     folder = ROOT / "examples" / "yeast_rna_fit"
     sys.path.insert(0, str(folder))
     from fitting import Data, observations
@@ -474,7 +476,7 @@ def yeast():
     def rate(t):
         return max(0.0, x[1] - x[2] * float(hog1(t, dose, x[12])))
 
-    minutes = objective.minutes
+    minutes = objective.minutes if full else objective.minutes[objective.minutes <= 10]
     solve = {
         "end": float(minutes[-1] * 60),
         "report_times": minutes * 60,
@@ -496,11 +498,12 @@ def yeast():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--quick", action="store_true")
+    parser.add_argument("--full-yeast", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     result = {"special": special_functions(), "cases": cases()}
     if not args.quick:
-        result["cases"]["C10_yeast_total_rna"] = yeast()
+        result["cases"]["C10_yeast_total_rna"] = yeast(args.full_yeast)
     result["failures"] = FAILURES
     text = json.dumps(result, sort_keys=True, indent=2) + "\n"
     if args.output:

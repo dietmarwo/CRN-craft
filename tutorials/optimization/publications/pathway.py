@@ -1,14 +1,17 @@
 """Fit 36 parameters to 16 reconstructed three-step pathway trajectories."""
 
+import csv
 from itertools import product
+from pathlib import Path
 
 import numpy as np
 from scipy.integrate import solve_ivp
+from scipy.optimize import least_squares
 
 from common import digest, require, write
 from .concentrations import Solver, document
 from .search import PACKAGES as PACKAGES
-from .search import PENALTY, check, options_resume, save_plot, search
+from .search import PENALTY, check, options_resume, search
 
 DOI = "10.1101/gr.1262503"
 STATES = ("G1", "G2", "G3", "E1", "E2", "E3", "M1", "M2")
@@ -27,6 +30,17 @@ BROAD = np.array(
 FOCUSED = np.column_stack((np.log10(TRUTH) - 1, np.log10(TRUTH) + 1))
 FOCUSED = np.clip(FOCUSED, BROAD[:, 0, None], BROAD[:, 1, None])
 PUBLISHED = 0.0013
+# Moles, Mendes and Banga (2003), Table 3: final J and function evaluations.
+PAPER_TABLE_3 = (
+    ("SRES", 0.0013, 2_800_000),
+    ("uES", 0.0109, 2_800_000),
+    ("DE", 151.779, 2_250_000),
+    ("ICRS", 183.579, 16_515),
+    ("CMA-ES", 37.881, 756_135),
+    ("MCS", 364.139, 327_698),
+    ("GBLSOLVE", 1179.464, 649_431),
+)
+TIMES = np.arange(0.0, 121.0, 6.0)
 
 
 def model(literal):
@@ -108,6 +122,61 @@ def weighted_error(observations, prediction, scales):
     return float(np.square((np.asarray(prediction) - observations) / scales).sum())
 
 
+def table(path, header, rows):
+    with Path(path).open("w", newline="") as stream:
+        writer = csv.writer(stream, lineterminator="\n")
+        writer.writerow(header)
+        writer.writerows(rows)
+
+
+def read(path):
+    with Path(path).open(newline="") as stream:
+        return list(csv.DictReader(stream))
+
+
+def best_so_far(scores, label):
+    """Rows (label, evaluations, best cost) at about 80 log-spaced counts."""
+    best = np.minimum.accumulate(np.where(scores < PENALTY, scores, np.inf))
+    marks = np.unique(np.geomspace(1, len(scores), 80).astype(int))
+    return [[*label, int(n), float(best[n - 1])] for n in marks]
+
+
+def local_fit(solve, observed, scales, bounds, spread, seed, calls=1500):
+    """Bounded least squares in log10 coordinates from a perturbed nominal vector.
+
+    A diagnostic, not one of the compared global searches: it separates an
+    objective error from a hard search. A failed solve returns a residual
+    of 1e3 per point, which no fit prefers.
+    """
+    trace = []
+
+    def residuals(logp):
+        try:
+            y = solve(10**logp)
+        except (RuntimeError, ValueError):
+            r = np.full(observed.size, 1e3)
+        else:
+            r = ((y[:, 1:] - observed) / scales).ravel()
+        trace.append(float(r @ r))
+        return r
+
+    rng = np.random.default_rng(seed)
+    start = np.clip(
+        np.log10(TRUTH) + rng.uniform(-spread, spread, len(TRUTH)), *bounds.T
+    )
+    fit = least_squares(
+        residuals,
+        start,
+        bounds=tuple(bounds.T),
+        method="trf",
+        xtol=1e-14,
+        ftol=1e-14,
+        gtol=1e-14,
+        max_nfev=calls,
+    )
+    return fit, np.array(trace)
+
+
 def options(parser):
     parser.add_argument(
         "--evaluations", type=int, help="Final nested evaluation checkpoint."
@@ -115,12 +184,17 @@ def options(parser):
     parser.add_argument("--retries", type=int)
     parser.add_argument("--broad-only", action="store_true")
     parser.add_argument("--printed-equation-12", action="store_true")
+    parser.add_argument(
+        "--local-starts",
+        type=int,
+        help="Least-squares diagnostics from perturbed nominal vectors (study: 3).",
+    )
     options_resume(parser)
 
 
 def run(args, report):
     """Reconstruct the weighted least-squares problem and compare DE with CMA-ES."""
-    times = np.arange(0.0, 121.0, 6.0)
+    times = TIMES
     literal = args.printed_equation_12
     observed = reference(TRUTH, times, literal)
     scales = np.max(np.abs(observed[:, 1:]), axis=1, keepdims=True)
@@ -144,7 +218,7 @@ def run(args, report):
     budget = args.evaluations or (24 if fast else 200_000)
     retries = args.retries or (1 if fast else 4)
     checkpoints = (2000, 20_000, 200_000)
-    results = []
+    results, curves = [], []
     with Solver(args.ode_binary, args.output / "model.json", model(literal)) as solver:
 
         def solve(p, t=times, tight=False):
@@ -203,6 +277,9 @@ def run(args, report):
                         checkpoints=checkpoints,
                         context=context,
                     )
+                    curves.extend(
+                        best_so_far(fit.scores[:, 0], (label, algorithm, retry))
+                    )
                     row = dict(
                         region=label,
                         optimizer=algorithm,
@@ -257,10 +334,28 @@ def run(args, report):
                         break
                     row["verification_failures"] = rejected
                     results.append(row)
+        local = []
+        starts = (
+            args.local_starts if args.local_starts is not None else (0 if fast else 3)
+        )
+        for k, spread in enumerate((0.3, 1.0, 1.0)[:starts]):
+            fit, trace = local_fit(solve, observed[:, 1:], scales, BROAD, spread, 7 + k)
+            curves.extend(
+                best_so_far(trace, ("broad", f"least-squares-{spread:g}-decade", k))
+            )
+            local.append(
+                dict(
+                    spread_decades=spread,
+                    seed=7 + k,
+                    start=float(trace[0]),
+                    final=float(np.min(trace)),
+                    calls=len(trace),
+                    max_log10_error=float(np.max(np.abs(fit.x - np.log10(TRUTH)))),
+                )
+            )
         eligible = [row for row in results if "verified" in row]
         require(bool(eligible), "optimizer finished without a feasible trajectory")
         best = min(eligible, key=lambda row: row["verified"])
-        output = solve(best["parameters"], tight=True)
         dense = np.arange(0.0, 121.0, 3.0)
         dense_obs = reference(TRUTH, dense, literal)
         dense_fit = solve(best["parameters"], dense, tight=True)
@@ -279,18 +374,141 @@ def run(args, report):
         original_raw_data="unavailable",
         condition_solves_attempted=16 * sum(r["calls"] for r in results),
         printed_equation_12=literal,
+        local_least_squares=local,
+        paper_table_3=PAPER_TABLE_3,
+        mean_squared_normalized_residual=best["verified"] / observed[:, 1:].size,
     )
+    out = args.output
+    table(
+        out / "best-so-far.csv",
+        ["region", "method", "retry", "evaluations", "best"],
+        curves,
+    )
+    table(
+        out / "runs.csv",
+        [
+            "region",
+            "method",
+            "retry",
+            "calls",
+            "failures",
+            "best_proposed",
+            "verified",
+            "verified_call",
+            "rejected_finalists",
+        ],
+        [
+            [
+                r["region"],
+                r["optimizer"],
+                r["retry"],
+                r["calls"],
+                r["failures"],
+                r["cost"],
+                r.get("verified", ""),
+                r.get("rescored_call", ""),
+                len(r["verification_failures"]),
+            ]
+            for r in results
+        ],
+    )
+    table(
+        out / "local.csv",
+        ["spread_decades", "seed", "start", "final", "calls", "max_log10_error"],
+        [list(row.values()) for row in local],
+    )
+    table(
+        out / "nominal.csv",
+        ["condition", "S", "P", "time", *STATES],
+        [
+            [j, *CONDITIONS[j], t, *observed[j, i]]
+            for j in range(len(CONDITIONS))
+            for i, t in enumerate(times)
+        ],
+    )
+    draw(out, out)
 
-    def draw(fig):
-        for ax, i in zip(fig.subplots(1, 2), [7, 3], strict=True):
-            for j in range(16):
-                color = f"C{j % 10}"
-                ax.plot(times, observed[j, :, i], c=color, lw=1)
-                ax.plot(times, output[j, :, i], c=color, lw=1, ls="--")
-            ax.set(
-                xlabel="Time (s)",
-                ylabel=STATES[i],
-                title="Reference and fitted trajectories",
+
+def draw(tables: Path, folder: Path):
+    """C10-best-so-far.png and C10-nominal.png from the saved tables."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
+
+    tables, folder = Path(tables), Path(folder)
+    figure = Figure(figsize=(7.2, 4.6), layout="constrained")
+    FigureCanvasAgg(figure)
+    axis = figure.subplots()
+    styles = {
+        ("broad", "de"): ("C0", "-", "ours, DE, published-scale box"),
+        ("broad", "cmaes"): ("C1", "-", "ours, CMA-ES, published-scale box"),
+        ("near-table-scale", "de"): ("C0", ":", "ours, DE, ±1 decade box"),
+        ("near-table-scale", "cmaes"): ("C1", ":", "ours, CMA-ES, ±1 decade box"),
+    }
+    runs = {}
+    for row in read(tables / "best-so-far.csv"):
+        key = (row["region"], row["method"], row["retry"])
+        runs.setdefault(key, []).append((int(row["evaluations"]), float(row["best"])))
+    labelled = set()
+    for (region, method, _), points in sorted(runs.items()):
+        n, best = np.array(points).T
+        if method.startswith("least-squares"):
+            color, ls, text = (
+                "C2",
+                "-",
+                "ours, least squares from a perturbed nominal vector",
             )
+        else:
+            color, ls, text = styles[(region, method)]
+        axis.plot(
+            n, best, c=color, ls=ls, lw=1.2, label=None if text in labelled else text
+        )
+        labelled.add(text)
+    for k, (name, value, calls) in enumerate(PAPER_TABLE_3):
+        if name in ("SRES", "DE", "CMA-ES"):
+            axis.scatter(
+                calls,
+                value,
+                marker="*",
+                s=70,
+                c=f"C{k + 3}",
+                zorder=3,
+                label=f"paper, {name}: final J (Table 3)",
+            )
+    axis.axhline(PUBLISHED, c="k", ls="--", lw=0.8, label="paper, best J = 0.0013")
+    axis.set(
+        xscale="log",
+        yscale="log",
+        xlabel="Objective evaluations (16 condition solves each)",
+        ylabel="Best cost so far, Equation 15 (reconstructed)",
+        ylim=(1e-14, 1e7),
+    )
+    axis.legend(fontsize=6.5, loc="lower right")
+    figure.savefig(folder / "C10-best-so-far.png", dpi=155)
 
-    save_plot(args, "pathway-fits.png", draw)
+    rows = read(tables / "nominal.csv")
+    figure = Figure(figsize=(7.2, 4.0), layout="constrained")
+    FigureCanvasAgg(figure)
+    axes = figure.subplots(2, 4, sharex=True)
+    for axis, state in zip(axes.ravel(), STATES, strict=True):
+        for j in range(len(CONDITIONS)):
+            series = [r for r in rows if int(r["condition"]) == j]
+            axis.plot(
+                [float(r["time"]) for r in series],
+                [float(r[state]) for r in series],
+                c=f"C{j % 4}",
+                lw=0.8,
+                ls=("-", "--", "-.", ":")[j // 4],
+            )
+        axis.set_title(state, fontsize=8)
+        axis.tick_params(labelsize=7)
+    for axis in axes[1]:
+        axis.set_xlabel("Time (s)", fontsize=8)
+    figure.suptitle(
+        "Reconstructed observations at the nominal vector, 16 conditions "
+        "(line style: S level; color: P level)",
+        fontsize=8,
+    )
+    figure.savefig(folder / "C10-nominal.png", dpi=155)

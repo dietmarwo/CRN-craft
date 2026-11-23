@@ -84,7 +84,7 @@
     ]
   },
   "versions": {
-    "crn-craft": "0.10.0",
+    "crn-craft": "0.10.1",
     "fcmaes": "2.2.0",
     "numpy": "2.3.5",
     "scipy": "1.18.1",

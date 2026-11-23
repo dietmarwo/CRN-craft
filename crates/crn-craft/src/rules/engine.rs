@@ -67,19 +67,24 @@ pub(crate) fn numerical(path: &str, message: impl Into<String>, hint: &str) -> H
 }
 
 /// Consecutive steps whose positive wait leaves the rounded clock unchanged
-/// before Static Direct under `crn-craft.run/1.0` reports a runaway rate.
+/// before a method under `crn-craft.run/1.0` reports a runaway rate.
 pub(crate) const CLOCK_STALL_LIMIT: u64 = 1_000_000;
 
-/// Static Direct's clock: `time + wait`, and what happens when the sum
-/// rounds back to `time`.
+/// The clock of the event-driven methods: `time + wait`, and what happens
+/// when the sum rounds back to `time`.
 ///
 /// Every `rules-run` version fails the replicate there (`CRN-R030`, "clock
 /// failed to advance"), as 0.6.0 did. Under `crn-craft.run/1.0` a positive,
 /// finite wait below half an ulp of the time is accepted: the step (an event,
-/// or an RSSA-CR trial) happens at the same representable time, which errs
-/// by less than half an ulp, as any rounded addition to the clock does. Only
-/// [`CLOCK_STALL_LIMIT`] such steps in a row fail the replicate, so a
-/// runaway rate is still reported. A zero wait always fails.
+/// a thinning proposal, or an RSSA-CR trial) happens at the same
+/// representable time, which errs by less than half an ulp, as any rounded
+/// addition to the clock does. Only [`CLOCK_STALL_LIMIT`] such steps in a
+/// row fail the replicate, so a runaway rate is still reported. A zero wait
+/// always fails.
+///
+/// A method that does not add a wait to the clock (the next-reaction
+/// method's absolute firing times, the hybrid method's hazard crossing)
+/// reports the outcome of a step with [`Self::arrive`].
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Clock {
     lenient: bool,
@@ -93,6 +98,7 @@ impl Clock {
     }
 
     /// The strict clock of every `rules-run` version.
+    #[cfg(test)]
     pub(crate) fn strict() -> Self {
         Self::new(false)
     }
@@ -103,6 +109,19 @@ impl Clock {
         let next = time + wait;
         if next <= time {
             return self.stalled(time, wait);
+        }
+        self.stalls = 0;
+        Ok(next)
+    }
+
+    /// The clock after a step that ends at `next`, a finite time computed
+    /// by the method and not below `time`. The step had a positive wait: an
+    /// end equal to `time` is a wait below the clock's resolution, with the
+    /// rule of [`Self::advance`].
+    #[inline]
+    pub(crate) fn arrive(&mut self, time: f64, next: f64) -> Result<f64, Halt> {
+        if time >= next {
+            return self.stalled(time, f64::MIN_POSITIVE);
         }
         self.stalls = 0;
         Ok(next)

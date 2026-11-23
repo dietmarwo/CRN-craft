@@ -30,7 +30,17 @@ impl Clocks {
 
     /// Return false if the requested positive clock cannot advance in f64.
     /// Supply a fresh unit exponential for a fired or newly enabled channel.
-    pub fn update(&mut self, i: usize, rate: f64, now: f64, fresh: Option<f64>) -> bool {
+    /// With `lenient`, a finite firing time that rounds to `now` is kept:
+    /// the channel fires at the same representable time, and the caller
+    /// counts such steps.
+    pub fn update(
+        &mut self,
+        i: usize,
+        rate: f64,
+        now: f64,
+        fresh: Option<f64>,
+        lenient: bool,
+    ) -> bool {
         if fresh.is_none() && rate == self.rates[i] {
             return true;
         }
@@ -42,7 +52,7 @@ impl Clocks {
         } else {
             now + (self.rates[i] / rate) * (old - now)
         };
-        if rate > 0.0 && (!at.is_finite() || at <= now) {
+        if rate > 0.0 && (!at.is_finite() || at < now || (at == now && !lenient)) {
             return false;
         }
         self.times[i] = at;

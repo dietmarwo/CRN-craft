@@ -120,7 +120,7 @@ failures during a replicate (with the selectors of `crn-craft.run/1.0` also
 a non-finite total, a composition or acceptance draw rounded to its bound,
 and a propensity outside its RSSA-CR bounds; at `/time` a clock that fails to
 advance: every `rules-run` version fails at the first positive wait below
-half an ulp of the time, Static Direct under `crn-craft.run/1.0` accepts such
+half an ulp of the time, every method under `crn-craft.run/1.0` accepts such
 a wait and fails only after 1,000,000 consecutive steps without an advance), `CRN-R031` weights below
 53-bit resolution (in the tree a rule or instance weight; in Static Direct
 and its fallbacks, with every selector, a channel below 2⁻⁵³ of the total or

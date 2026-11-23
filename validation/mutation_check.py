@@ -216,6 +216,12 @@ MUTATIONS = [
         "if next < time {",
     ),
     (
+        "clock_arrival_accepts_zero_wait",
+        "crates/crn-craft/src/rules/engine.rs",
+        "if time >= next {",
+        "if time > next {",
+    ),
+    (
         "archive_ignores_byte_budget",
         "crates/crn-craft/src/archive/v1.rs",
         "if bytes.len() as u64 > output_limit(max_output_bytes) {",

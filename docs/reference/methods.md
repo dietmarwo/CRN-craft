@@ -44,6 +44,15 @@ Three rules hold for every selector:
   1,000,000 such steps in a row fail with `CRN-R030`. Every `rules-run`
   version fails at the first one.
 
+The third rule is the clock of every event-driven method: the next-reaction
+method, the exact steps of tau-leaping, `thinning`, `mtdna_direct` and the
+hybrid method follow it too. At a time t a wait is below half a rounding
+unit of t with a probability near the total rate times half that unit, so
+about one event in 10⁹ at t = 1000 and a total rate of 10⁴. Such an event
+happens at the same representable time, an error below half a rounding
+unit, as for any other event. Rescaling time does not change how often
+this happens.
+
 ## Selectors
 
 Under `crn-craft.run/1.0`, `method.selector` of `static_direct` chooses how
@@ -466,7 +475,10 @@ rounding. It is approximate at its tolerances. Its sampler is
 the request's `method`, tolerances included. Integration steps, accepted or
 rejected, count against `max_sampling_steps_per_replicate` like leap
 iterations (`CRN-R041`), and a step below four rounding units of the time
-fails the replicate (`CRN-R030`). Validation:
+fails the replicate (`CRN-R030`). Under `run/1.0` the last step to the
+horizon is exempt, since the horizon can lie that close to an event, and an
+event whose wait is below the clock's resolution happens at the same time
+(the clock rule of Static Direct). Validation:
 [`validation/hybrid/RESULTS.md`](../../validation/hybrid/RESULTS.md).
 
 ## Compiled event loops

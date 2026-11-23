@@ -206,7 +206,7 @@ impl Path<'_> {
                         } else {
                             None
                         };
-                        if !clocks.update(i, a, *time, fresh) {
+                        if !clocks.update(i, a, *time, fresh, self.lenient_clock) {
                             return Err(protocol_error("reaction clock failed to advance"));
                         }
                     }
@@ -358,6 +358,11 @@ impl Path<'_> {
                 }
             } else {
                 let (_, channel) = candidate.expect("there is a reaction");
+                // A firing time of the next-reaction method that equals the
+                // current time is a wait below the clock's resolution.
+                if use_clocks {
+                    clock.arrive(*time, next)?;
+                }
                 let completion = schedule.delays[channel]
                     .as_ref()
                     .map(|c| (c, next + c.duration));

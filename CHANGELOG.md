@@ -7,6 +7,22 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+### Fixed
+
+- A replicate of the hybrid method no longer fails with `CRN-R030`, "clock
+  failed to advance", when one waiting time is below the resolution of the
+  clock. At a late time this happened about once in 10⁹ events for a
+  total rate of 10⁴ at t = 1000, so a long ensemble lost a replicate. Under
+  `crn-craft.run/1.0` the event happens at the same representable time, as
+  Static Direct has done since 0.7.0, and 1,000,000 such steps in a row
+  still fail. The next-reaction method, the exact steps of tau-leaping,
+  `thinning` and `mtdna_direct` had the same defect and follow the same
+  rule. Runs that completed before are unchanged, and `rules-run` requests
+  keep the strict clock.
+- The hybrid method no longer fails with `CRN-R030`, "integration step
+  underflows", when the horizon lies within four rounding units of an
+  event (`crn-craft.run/1.0`).
+
 ## [0.10.0] - 2026-11-22
 
 Optimization with fcmaes around the engine. Six lessons reconstruct

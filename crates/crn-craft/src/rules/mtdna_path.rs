@@ -22,6 +22,7 @@ impl Path<'_> {
         let [wt, neutral, advantaged] = kernel.species;
         let [ww, nw, aw] = kernel.weights;
         let [wb, nb, ab] = kernel.birth;
+        let mut clock = Clock::new(self.lenient_clock);
         loop {
             if out.events % POLL_EVENTS == 0 && out.events > 0 {
                 self.poll()?;
@@ -49,13 +50,16 @@ impl Path<'_> {
             })? / rate;
             let next = *time + wait;
             // An overflowing wait lies beyond the horizon, as in Static Direct.
-            if next.is_nan() || next <= *time {
+            if next.is_nan() || (next <= *time && !self.lenient_clock) {
                 return Err(numerical(
                     "/time",
                     "clock failed to advance",
                     "Rescale rates or time.",
                 ));
             }
+            // Under `crn-craft.run/1.0` a positive wait below the clock's
+            // resolution fires at the same time, as in Static Direct.
+            let next = clock.advance(*time, wait)?;
             // Match Static Direct's sampling-budget behavior at the horizon.
             let pick = words.uniform()? * rate;
             if out.saved_points < self.report_times.len()

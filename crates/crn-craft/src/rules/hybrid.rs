@@ -583,6 +583,7 @@ impl Path<'_> {
         let mut live = out.peak_instances;
         let mut steps: u64 = 0;
         let mut predicted: Option<f64> = None;
+        let mut clock = Clock::new(self.lenient_clock);
         loop {
             // A new interval between events: fixed counts, a fresh threshold.
             self.poll()?;
@@ -641,7 +642,12 @@ impl Path<'_> {
                     if last {
                         h = remaining;
                     }
-                    if !(h.is_finite() && h > 4.0 * f64::EPSILON * time.abs()) {
+                    // A step cut to the rest of the horizon may be below the
+                    // resolvable size: the horizon can lie within a few ulps
+                    // of an event. Under `crn-craft.run/1.0` only a step the
+                    // error control shrank that far is a failure.
+                    let resolvable = h > 4.0 * f64::EPSILON * time.abs();
+                    if !(h.is_finite() && (resolvable || (last && self.lenient_clock))) {
                         return Err(numerical(
                             "/method",
                             format!("integration step {h} underflows at time {time}"),
@@ -733,13 +739,9 @@ impl Path<'_> {
                     return Self::shared_end(shared, vars, values, until);
                 }
                 Stop::Hazard => {
-                    if until <= *time {
-                        return Err(numerical(
-                            "/time",
-                            "clock failed to advance",
-                            "Rescale rates and time.",
-                        ));
-                    }
+                    // The hazard reached a positive threshold, so the wait
+                    // was positive even when `until` rounds to `time`.
+                    let until = clock.arrive(*time, until)?;
                     *time = until;
                     store(vars, &dependent, shared, &y, until, values);
                     let total = flow.all_rates(counts, values, &y, until)?;

@@ -105,6 +105,7 @@ impl Path<'_> {
             }
         );
         let mut clock = Clock::new(self.lenient_clock);
+        let next_reaction = matches!(self.method, crate::rules::Method::NextReaction {});
         loop {
             if out.events % POLL_EVENTS == 0 && out.events > 0 {
                 self.poll()?;
@@ -115,7 +116,7 @@ impl Path<'_> {
                 attributes: [&[], &[]],
             };
             cache.reset();
-            let candidate = if matches!(self.method, crate::rules::Method::NextReaction {}) {
+            let candidate = if next_reaction {
                 let mut update = |i, fired| {
                     let rate = cache.channel(net, i, counts, &env)?;
                     let fresh = if clocks.needs_draw(i, rate, fired) {
@@ -123,7 +124,7 @@ impl Path<'_> {
                     } else {
                         None
                     };
-                    if !clocks.update(i, rate, *time, fresh) {
+                    if !clocks.update(i, rate, *time, fresh, self.lenient_clock) {
                         return Err(numerical(
                             "/time",
                             "reaction clock failed to advance",
@@ -176,6 +177,13 @@ impl Path<'_> {
             let Some((next, channel)) = candidate else {
                 net.refresh_cold(counts, values)?;
                 return Ok(None);
+            };
+            // The next-reaction method's firing times are absolute: one at
+            // the current time is a wait below the clock's resolution.
+            let next = if next_reaction {
+                clock.arrive(*time, next)?
+            } else {
+                next
             };
             previous = Some(channel);
             if out.saved_points < self.report_times.len()

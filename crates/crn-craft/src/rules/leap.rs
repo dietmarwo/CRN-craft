@@ -25,10 +25,14 @@ struct LeapWorkspace {
     /// Rate cache for the shifted state of one firing; reset per firing.
     shifted_cache: RateCache,
     row: Vec<f64>,
+    /// The clock of the exact steps, kept between them so that a run of
+    /// steps without an advance is counted.
+    clock: Clock,
+    lenient_clock: bool,
 }
 
 impl LeapWorkspace {
-    fn new(net: &Network) -> Self {
+    fn new(net: &Network, lenient_clock: bool) -> Self {
         let m = net.channels.len();
         let n = net.species.len();
         Self {
@@ -46,6 +50,8 @@ impl LeapWorkspace {
             shifted_values: Vec::new(),
             shifted_cache: net.rate_cache(),
             row: Vec::new(),
+            clock: Clock::new(lenient_clock),
+            lenient_clock,
         }
     }
 
@@ -249,7 +255,10 @@ impl LeapWorkspace {
         if dt < 1.0 / total {
             return self.exact(net, counts, time, target, words);
         }
-        let critical = direct(&self.critical, time, words, &mut Clock::strict())?;
+        // A critical firing that cannot advance the clock ends the leap
+        // below (`end <= time`); the exact step then draws again.
+        let mut once = Clock::new(self.lenient_clock);
+        let critical = direct(&self.critical, time, words, &mut once)?;
         for _ in 0..20 {
             let proposed = (time + dt).min(target);
             let end = critical.map_or(proposed, |(at, _)| at.min(proposed));
@@ -287,7 +296,7 @@ impl LeapWorkspace {
         words: &mut Words<'_, R>,
     ) -> Result<f64, Halt> {
         self.begin(counts);
-        if let Some((next, i)) = direct(&self.rates, time, words, &mut Clock::strict())? {
+        if let Some((next, i)) = direct(&self.rates, time, words, &mut self.clock)? {
             if next <= target {
                 self.fire(net, i, 1);
                 return Ok(next);
@@ -432,7 +441,8 @@ impl Path<'_> {
         monitor: &mut Option<Monitor<'_>>,
         observer: &O,
     ) -> Result<Option<f64>, Halt> {
-        let mut work = LeapWorkspace::new(net);
+        let mut work = LeapWorkspace::new(net, self.lenient_clock);
+        let tau = matches!(self.method, crate::rules::Method::Tau { .. });
         let mut steps = 0;
         let mut lattice: u64 = 0;
         loop {
@@ -507,7 +517,11 @@ impl Path<'_> {
                 }
                 _ => unreachable!(),
             };
-            if next <= *time || !work.valid() {
+            // Under `crn-craft.run/1.0` an exact step of tau-leaping may
+            // fire at the unchanged time (a wait below the clock's
+            // resolution, counted by the workspace's clock).
+            let advanced = next > *time || (next == *time && tau && self.lenient_clock);
+            if !advanced || !work.valid() {
                 return Err(numerical(
                     "/method",
                     "invalid leap",

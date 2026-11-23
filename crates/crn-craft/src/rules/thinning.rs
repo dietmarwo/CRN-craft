@@ -20,6 +20,7 @@ impl Path<'_> {
         let mut live = out.peak_instances;
         let mut cache = net.rate_cache();
         let mut rates = vec![0.0; net.channels.len()];
+        let mut clock = Clock::new(self.lenient_clock);
         loop {
             self.poll()?;
             let flow = atp.flow(values);
@@ -90,6 +91,10 @@ impl Path<'_> {
                 if until <= *time && limit != zero {
                     return Err(atp_error("ATP envelope interval cannot advance"));
                 }
+                if until > *time {
+                    // An advance ends a run of proposals at one time.
+                    clock.arrive(*time, until)?;
+                }
                 self.save_flow(out, values, atp.index, &flow, *time, until)?;
                 values[atp.index] = if limit == zero {
                     0.0
@@ -105,12 +110,15 @@ impl Path<'_> {
                 }
                 continue;
             }
-            let next = *time + dt;
-            if next <= *time {
+            if *time + dt <= *time && !self.lenient_clock {
                 return Err(atp_error(format!(
                     "ATP proposal clock cannot advance (dt={dt}, time={time})"
                 )));
             }
+            // Under `crn-craft.run/1.0` a proposal whose wait is below the
+            // clock's resolution is made at the same representable time;
+            // the ATP level still moves by `dt`.
+            let next = clock.advance(*time, dt)?;
             self.save_flow(out, values, atp.index, &flow, *time, next)?;
             let level = flow.at(dt);
             if !level.is_finite() {

@@ -658,3 +658,46 @@ fn rules_run_requests_keep_the_builder_form_fallback() {
         warning.message
     );
 }
+
+/// The clock's two entries share one rule: a step that ends at the current
+/// time is accepted by the lenient clock and counted, an advance ends the
+/// run of such steps, and the strict clock fails at the first one.
+#[test]
+fn the_clock_counts_steps_without_an_advance() {
+    let late = 1.0e6_f64;
+    let below = late * f64::EPSILON / 8.0;
+    assert_eq!(late + below, late);
+    let failed = |result: Result<f64, engine::Halt>| match result {
+        Err(engine::Halt::Numerical(d)) => (d.code, d.path, d.message),
+        _ => panic!("the step was accepted"),
+    };
+    let strict = (
+        "CRN-R030".to_string(),
+        "/time".to_string(),
+        "clock failed to advance".to_string(),
+    );
+    assert_eq!(failed(engine::Clock::strict().advance(late, below)), strict);
+    assert_eq!(failed(engine::Clock::strict().arrive(late, late)), strict);
+    // A zero wait fails the lenient clock too.
+    assert_eq!(failed(engine::Clock::new(true).advance(late, 0.0)), strict);
+
+    let mut clock = engine::Clock::new(true);
+    for _ in 0..engine::CLOCK_STALL_LIMIT - 1 {
+        assert_eq!(clock.advance(late, below).ok(), Some(late));
+    }
+    // One advance, by either entry, starts the count again.
+    assert_eq!(clock.arrive(late, late + 1.0).ok(), Some(late + 1.0));
+    for _ in 0..engine::CLOCK_STALL_LIMIT / 2 {
+        assert_eq!(clock.arrive(late, late).ok(), Some(late));
+        assert_eq!(clock.advance(late, below).ok(), Some(late));
+    }
+    let (code, path, message) = failed(clock.arrive(late, late));
+    assert_eq!((code.as_str(), path.as_str()), ("CRN-R030", "/time"));
+    assert_eq!(
+        message,
+        format!(
+            "clock failed to advance in {} consecutive steps",
+            engine::CLOCK_STALL_LIMIT
+        )
+    );
+}

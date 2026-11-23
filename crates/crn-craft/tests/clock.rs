@@ -170,3 +170,242 @@ fn run_1_0_still_fails_a_runaway_rate() {
         assert_eq!(record.events, LIMIT + 1, "{selector}");
     }
 }
+
+/// The burst model with a continuous variable `x` (dx/dt = -x), so that the
+/// hybrid method runs it. The rates do not read `x`.
+fn hybrid_model(burst: usize, flip: bool, schema: &str) -> Vec<u8> {
+    let mut value: Value = serde_json::from_slice(&model(burst, flip)).unwrap();
+    value["schema"] = json!(schema);
+    value["continuous"] = json!([{"name": "x", "initial": 1.0, "derivative": "-x"}]);
+    serde_json::to_vec(&value).unwrap()
+}
+
+const HYBRID: &str = r#"{"kind": "hybrid", "rtol": 1e-8, "atol": 1e-10}"#;
+
+#[test]
+fn hybrid_processes_events_at_an_unchanged_clock() {
+    let model = hybrid_model(50, false, "crn-craft.model/1.0");
+    let method: Value = serde_json::from_str(HYBRID).unwrap();
+    let result = run(&model, &request(&model, "crn-craft.run/1.0", &method, 4));
+    assert_eq!(
+        result.termination,
+        Termination::Completed,
+        "{:?}",
+        result.replicates[0].diagnostic
+    );
+    for (k, record) in result.replicates.iter().enumerate() {
+        assert_eq!(record.events, 51, "replicate {k}");
+        assert_eq!(record.rule_events, vec![1, 50]);
+        assert_eq!(final_value(&result, k, "A"), 0.0);
+        // The variable is integrated through the stalled events.
+        let x = final_value(&result, k, "x");
+        assert!((x - (-1000.0_f64).exp()).abs() < 1e-9, "x = {x}");
+    }
+}
+
+#[test]
+fn hybrid_keeps_the_strict_clock_before_run_1_0() {
+    let model = hybrid_model(50, false, "crn-craft.rules-model/0.4");
+    let method: Value = serde_json::from_str(HYBRID).unwrap();
+    let result = run(
+        &model,
+        &request(&model, "crn-craft.rules-run/0.6", &method, 2),
+    );
+    for record in &result.replicates {
+        assert_eq!(record.termination, Termination::Failed);
+        let diagnostic = record.diagnostic.as_ref().unwrap();
+        assert_eq!(diagnostic.code, "CRN-R030");
+        assert_eq!(diagnostic.path, "/time");
+        assert_eq!(diagnostic.message, "clock failed to advance");
+        assert_eq!(record.events, 1);
+    }
+}
+
+#[test]
+fn hybrid_still_fails_a_runaway_rate() {
+    let model = hybrid_model(1, true, "crn-craft.model/1.0");
+    let method: Value = serde_json::from_str(HYBRID).unwrap();
+    let result = run(&model, &request(&model, "crn-craft.run/1.0", &method, 1));
+    let record = &result.replicates[0];
+    assert_eq!(record.termination, Termination::Failed);
+    let diagnostic = record.diagnostic.as_ref().unwrap();
+    assert_eq!(diagnostic.code, "CRN-R030");
+    assert_eq!(diagnostic.path, "/time");
+    assert_eq!(
+        diagnostic.message,
+        format!("clock failed to advance in {LIMIT} consecutive steps")
+    );
+    assert_eq!(record.events, LIMIT + 1);
+}
+
+/// One reaction event and a horizon a few ulps after it: the last
+/// integration step is shorter than the resolvable step size and still
+/// ends the replicate at the horizon. The time of the event is read from a
+/// run that stops at it; the horizons around that time include some that
+/// lie a few ulps after the event of their own run.
+#[test]
+fn hybrid_finishes_a_horizon_within_ulps_of_an_event() {
+    let sliver = |stop: bool| {
+        let mut value = json!({
+            "schema": "crn-craft.model/1.0",
+            "name": "sliver",
+            "types": [{"name": "G"}, {"name": "B"}],
+            "initial": [{"type": "G", "count": 1}],
+            "observables": {"G": {"type": "G"}, "B": {"type": "B"}},
+            "rules": [{"name": "turn", "reactants": [{"label": "g", "type": "G"}],
+                       "rate": "1", "products": [{"type": "B"}]}],
+            "continuous": [{"name": "x", "initial": 1.0, "derivative": "-x"}]
+        });
+        if stop {
+            value["stop"] = json!("B >= 1");
+        }
+        serde_json::to_vec(&value).unwrap()
+    };
+    let method: Value = serde_json::from_str(HYBRID).unwrap();
+    let stopping = sliver(true);
+    let stopped = run(
+        &stopping,
+        &request(&stopping, "crn-craft.run/1.0", &method, 1),
+    );
+    let event = stopped.replicates[0].stop_time;
+    assert!(event > 0.0 && event < 1000.0, "event at {event}");
+    let model = sliver(false);
+    let mut after = 0;
+    for k in 0..=64_u64 {
+        let end = f64::from_bits(event.to_bits() - 32 + k);
+        let mut value: Value =
+            serde_json::from_slice(&request(&model, "crn-craft.run/1.0", &method, 1)).unwrap();
+        value["time"] = json!({"end": end, "report_times": [0.0, end]});
+        let result = run(&model, &serde_json::to_vec(&value).unwrap());
+        assert_eq!(
+            result.termination,
+            Termination::Completed,
+            "horizon at {} ulp from the event: {:?}",
+            k as i64 - 32,
+            result.replicates[0].diagnostic
+        );
+        after += result.replicates[0].events;
+    }
+    // The event happened before the horizon in about half of the runs.
+    assert!((16..=48).contains(&after), "{after} runs with the event");
+}
+
+/// The next-reaction method and the exact steps of tau-leaping follow the
+/// same rule as Static Direct.
+#[test]
+fn next_reaction_and_tau_process_events_at_an_unchanged_clock() {
+    let model = model(50, false);
+    for method in [
+        json!({"kind": "next_reaction"}),
+        json!({"kind": "tau", "epsilon": 0.03}),
+    ] {
+        let result = run(&model, &request(&model, "crn-craft.run/1.0", &method, 4));
+        assert_eq!(
+            result.termination,
+            Termination::Completed,
+            "{method}: {:?}",
+            result.replicates[0].diagnostic
+        );
+        for (k, record) in result.replicates.iter().enumerate() {
+            assert_eq!(record.events, 51, "{method} replicate {k}");
+            assert_eq!(record.rule_events, vec![1, 50]);
+            assert_eq!(final_value(&result, k, "A"), 0.0);
+        }
+    }
+}
+
+#[test]
+fn next_reaction_and_tau_still_fail_a_runaway_rate() {
+    let model = model(1, true);
+    for method in [
+        json!({"kind": "next_reaction"}),
+        json!({"kind": "tau", "epsilon": 0.03}),
+    ] {
+        let result = run(&model, &request(&model, "crn-craft.run/1.0", &method, 1));
+        let record = &result.replicates[0];
+        assert_eq!(record.termination, Termination::Failed, "{method}");
+        let diagnostic = record.diagnostic.as_ref().unwrap();
+        assert_eq!(diagnostic.code, "CRN-R030", "{method}");
+        assert_eq!(diagnostic.path, "/time");
+        assert_eq!(
+            diagnostic.message,
+            format!("clock failed to advance in {LIMIT} consecutive steps")
+        );
+        assert_eq!(record.events, LIMIT + 1, "{method}");
+    }
+}
+
+#[test]
+fn next_reaction_and_tau_keep_the_strict_clock_before_run_1_0() {
+    let model = model(50, false);
+    let mut rules_model: Value = serde_json::from_slice(&model).unwrap();
+    rules_model["schema"] = json!("crn-craft.rules-model/0.4");
+    let rules_model = serde_json::to_vec(&rules_model).unwrap();
+    for (method, message) in [
+        (
+            json!({"kind": "next_reaction"}),
+            "reaction clock failed to advance",
+        ),
+        (
+            json!({"kind": "tau", "epsilon": 0.03}),
+            "clock failed to advance",
+        ),
+    ] {
+        let schema = "crn-craft.rules-run/0.6";
+        let result = run(&rules_model, &request(&rules_model, schema, &method, 2));
+        for record in &result.replicates {
+            assert_eq!(record.termination, Termination::Failed, "{method}");
+            let diagnostic = record.diagnostic.as_ref().unwrap();
+            assert_eq!(diagnostic.code, "CRN-R030");
+            assert_eq!(diagnostic.path, "/time");
+            assert_eq!(diagnostic.message, message);
+            assert_eq!(record.events, 1, "{method}");
+        }
+    }
+}
+
+/// The failure at natural rates: one zero-order rule at rate 1 and a
+/// variable, to a late end. A wait is below half an ulp of the time t with
+/// probability near `ulp(t) / 2` per event, so about `end^2 * 2^-54` such
+/// waits are expected over the run (5.5 for `end` = 3.2e8), each of which
+/// failed the replicate before the hybrid method used the lenient clock.
+/// The run takes minutes: `cargo test --release --test clock -- --ignored`.
+#[test]
+#[ignore = "3.2e8 events"]
+fn hybrid_runs_to_a_late_time_at_natural_rates() {
+    let end: f64 = std::env::var("CLOCK_END")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(3.2e8);
+    let model = serde_json::to_vec(&json!({
+        "schema": "crn-craft.model/1.0",
+        "name": "late",
+        "types": [{"name": "A"}],
+        "initial": [],
+        "observables": {"A": {"type": "A"}},
+        "rules": [{"name": "arrive", "reactants": [], "rate": "1", "products": [{"type": "A"}]}],
+        "continuous": [{"name": "x", "initial": 1.0, "derivative": "-x"}]
+    }))
+    .unwrap();
+    let method: Value = serde_json::from_str(HYBRID).unwrap();
+    let mut value: Value =
+        serde_json::from_slice(&request(&model, "crn-craft.run/1.0", &method, 1)).unwrap();
+    value["time"] = json!({"end": end, "report_times": [0.0, end]});
+    value["budget"]["max_events_per_replicate"] = json!(4_000_000_000_u64);
+    value["budget"]["max_sampling_steps_per_replicate"] = json!(40_000_000_000_u64);
+    let started = std::time::Instant::now();
+    let result = run(&model, &serde_json::to_vec(&value).unwrap());
+    let record = &result.replicates[0];
+    eprintln!(
+        "end {end:e}: {:?} after {} events at {:e} in {:.1} s {:?}",
+        record.termination,
+        record.events,
+        record.stop_time,
+        started.elapsed().as_secs_f64(),
+        record.diagnostic.as_ref().map(|d| d.message.clone())
+    );
+    assert_eq!(record.termination, Termination::Completed);
+    // The count is Poisson with mean `end`.
+    let events = record.events as f64;
+    assert!((events - end).abs() < 6.0 * end.sqrt(), "{events} events");
+}

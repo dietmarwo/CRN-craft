@@ -120,7 +120,7 @@ impl Clock {
     /// rule of [`Self::advance`].
     #[inline]
     pub(crate) fn arrive(&mut self, time: f64, next: f64) -> Result<f64, Halt> {
-        if next <= time {
+        if time >= next {
             return self.stalled(time, f64::MIN_POSITIVE);
         }
         self.stalls = 0;

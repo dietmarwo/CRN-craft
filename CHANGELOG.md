@@ -7,6 +7,10 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-23
+
+A correction release for long runs. No contract changes.
+
 ### Fixed
 
 - A replicate of the hybrid method no longer fails with `CRN-R030`, "clock
@@ -1402,7 +1406,8 @@ iterations that make up this release follow.
 - Experimental non-negative Poisson leaping with explicit approximate request/result schemas.
 - Ten performance experiments and same-host reference/quality evidence; no package publishing.
 
-[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/dietmarwo/CRN-craft/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/dietmarwo/CRN-craft/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/dietmarwo/CRN-craft/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/dietmarwo/CRN-craft/compare/v0.8.0...v0.8.1

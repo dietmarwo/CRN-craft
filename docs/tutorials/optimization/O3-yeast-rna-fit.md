@@ -97,7 +97,7 @@ The pages of the chapter:
 ## Running the example
 
 You need Python 3.11 or newer, CRN-craft 0.8.0, NumPy, SciPy, pandas,
-fcmaes 2.2.0, Matplotlib and a C++17 compiler for the fits (set `CXX` to
+fcmaes 2.3.0 (2.2.0 evaluates the same points), Matplotlib and a C++17 compiler for the fits (set `CXX` to
 choose one). The compiled solver is cached in the system's temporary
 directory. Run the commands from the repository root:
 

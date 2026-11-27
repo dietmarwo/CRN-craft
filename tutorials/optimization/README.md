@@ -89,7 +89,7 @@ lessons import:
 pip install "crn-craft[publications]"
 ```
 
-It adds fcmaes 2.2.0, SciPy, matplotlib, PyYAML and libSBML; the last two
+It adds fcmaes 2.3.0, SciPy, matplotlib, PyYAML and libSBML; the last two
 are needed by C9 only. C1 to C4 need the `fit` extra instead. A checkout
 that is ahead of the latest release needs its own wheel
 (`maturin build --release --locked --out dist`, then

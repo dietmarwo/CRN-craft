@@ -13,7 +13,7 @@ C++17 compiler on Linux or macOS (set `CXX` to choose it), and these
 packages:
 
 ```sh
-python -m pip install 'crn-craft==0.8.0' 'fcmaes==2.2.0' scipy matplotlib
+python -m pip install 'crn-craft==0.8.0' 'fcmaes==2.3.0' scipy matplotlib
 python examples/kk26/study.py bootstrap --size quick --threads 2
 python examples/kk26/study.py fit examples/kk26/results/reconstruction/snapshots-baseline.csv
 python examples/kk26/study.py figures --images docs/guide/img/kk26

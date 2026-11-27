@@ -7,6 +7,15 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
 
 ## [Unreleased]
 
+### Changed
+
+- The optional extras and CI use the optimizer releases of 27 November
+  2026: `fit` installs `fcmaes-rust` 0.5.0 and `sqp-craft` 0.21.0 (were
+  0.4.0 and 0.17.0), `publications` installs `fcmaes` 2.3.0 (was 2.2.0), and
+  the install lines of the kk26 example and tutorial O2 name `fcmaes` 2.3.0.
+  `tutorials/optimization/results/publications-smoke.json` records the
+  versions of the run that produced it and is not regenerated.
+
 ## [0.10.1] - 2026-11-23
 
 A correction release for long runs. No contract changes.

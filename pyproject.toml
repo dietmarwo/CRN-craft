@@ -38,12 +38,12 @@ crn-craft-experiment = "crn_craft.experiments:main"
 # crn_craft.likelihood; prepared projections, every solver and stationary
 # laws run natively.
 likelihood = ["scipy>=1.12,<2"]
-fit = ["scipy==1.17.0", "fcmaes-rust==0.4.0", "sqp-craft==0.17.0"]
+fit = ["scipy==1.17.0", "fcmaes-rust==0.5.0", "sqp-craft==0.21.0"]
 # Optimization lessons C5 to C10 (tutorials/optimization): the fcmaes
 # optimizers, SciPy for reference solves and statistics, matplotlib for the
 # figures, PyYAML and libSBML for the PEtab problem of C9.
 publications = [
-    "fcmaes==2.2.0",
+    "fcmaes==2.3.0",
     "scipy>=1.12,<2",
     "matplotlib>=3.8,<4",
     "PyYAML>=6,<7",

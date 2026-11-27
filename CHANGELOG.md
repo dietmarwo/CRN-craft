@@ -15,6 +15,19 @@ called out. Every contract is versioned on its own (`crn-craft.<kind>/<n>`).
   the install lines of the kk26 example and tutorial O2 name `fcmaes` 2.3.0.
   `tutorials/optimization/results/publications-smoke.json` records the
   versions of the run that produced it and is not regenerated.
+- The optional jobs integration pins fcmaes-rust 2960f43 (main after
+  release 0.5.0, the merge that moves its own optimization-jobs pin there;
+  the fcmaes crates are 0.5.0) and optimization-jobs ded566f (main after its
+  #50, whose guide names the releases of 27 November 2026; the job crates
+  are still 0.5.0), so both name one job API. The lockfile changes only in
+  their git packages. Through a runner built at ded566f the acceptance
+  campaign passes, and its report (`jobs-pin-ded566f.json`) equals the
+  2bfa8e4 report except for its protocol pins.
+- The kk26 and O2c notes on the saved fits, tutorial O3's requirements and
+  the optimization tutorials' README name fcmaes 2.3.0. Replaying the DE
+  calls of kk26 and O3 under fcmaes 2.2.0 and 2.3.0 (60 seeded runs, a
+  digest of every evaluated point) gives identical runs, so the saved fits
+  stand.
 
 ## [0.10.1] - 2026-11-23
 

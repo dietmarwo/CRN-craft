@@ -72,7 +72,8 @@ The C++ library is built with `-std=c++17 -O3 -ffp-contract=off` and no
 and the fits follow such changes (by about 3e-8 relative). The saved
 results were produced on Intel x86-64 with GCC 13.3, Python 3.13, NumPy
 2.3.5, SciPy 1.18.1 and fcmaes 2.2.0; fcmaes 2.1.0 gives the same fits
-byte for byte. Other compilers, math libraries or optimizer versions may
+byte for byte, and fcmaes 2.3.0 evaluates the same points as 2.2.0 in this
+DE call. Other compilers, math libraries or optimizer versions may
 give statistically equivalent, not identical, cohorts and fits: the
 sampler uses `log1p`, the ATP model `std::binomial_distribution`.
 `validation/check_kk26.py` therefore compares no simulated value with a

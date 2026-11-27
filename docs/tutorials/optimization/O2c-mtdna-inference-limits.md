@@ -69,7 +69,8 @@ between standard libraries.
 
 The saved results were produced on an Intel x86-64 host with GCC 13.3,
 Python 3.13, NumPy 2.3.5, SciPy 1.18.1 and fcmaes 2.2.0. fcmaes 2.1.0
-reproduces all 80 fits byte for byte on the same grids and cohorts; other
+reproduces all 80 fits byte for byte on the same grids and cohorts, and
+fcmaes 2.3.0 evaluates the same points as 2.2.0 in this DE call; other
 versions may give statistically equivalent, not identical, fits.
 
 ## Limits
